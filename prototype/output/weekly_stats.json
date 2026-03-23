@@ -1,0 +1,65 @@
+[
+  {
+    "week": 0,
+    "total_spending": 77765297,
+    "actions_count": 4427,
+    "avg_spending_per_agent": 155531,
+    "events": [
+      "동대문 일대 재건축 기대감에 상가 프리미엄 급등"
+    ],
+    "policy": "없음"
+  },
+  {
+    "week": 1,
+    "total_spending": 86914015,
+    "actions_count": 4673,
+    "avg_spending_per_agent": 173828,
+    "events": [
+      "2026 새해맞이 할인 페스타 전국 백화점 동시 시행"
+    ],
+    "policy": "없음"
+  },
+  {
+    "week": 2,
+    "total_spending": 149070571,
+    "actions_count": 6152,
+    "avg_spending_per_agent": 298141,
+    "events": [
+      "2026 새해맞이 할인 페스타 전국 백화점 동시 시행",
+      "동작 '에그타르트' SNS 바이럴, 주말 웨이팅 2시간",
+      "잠실종합운동장 NewJeans 콘서트 1일간, 팬 3만 명 예상"
+    ],
+    "policy": "없음"
+  },
+  {
+    "week": 3,
+    "total_spending": 121802425,
+    "actions_count": 5627,
+    "avg_spending_per_agent": 243605,
+    "events": [
+      "해외 유행 '말차 붐' 국내 상륙, 강남 1호점 웨이팅 3시간",
+      "서울시 '서울시 소상공인 5천원 할인 쿠폰 배포' 정책 시행"
+    ],
+    "policy": "서울시 소상공인 5천원 할인 쿠폰 배포"
+  },
+  {
+    "week": 4,
+    "total_spending": 155998195,
+    "actions_count": 5949,
+    "avg_spending_per_agent": 311996,
+    "events": [
+      "강남에서 '서울 국제 커피쇼' 축제 개최, 3일간 진행"
+    ],
+    "policy": "서울시 소상공인 5천원 할인 쿠폰 배포"
+  },
+  {
+    "week": 5,
+    "total_spending": 99402883,
+    "actions_count": 4774,
+    "avg_spending_per_agent": 198806,
+    "events": [
+      "이번 주 서울 상권 안정적 흐름 유지, 특이 사항 없음"
+    ],
+    "policy": "서울시 소상공인 5천원 할인 쿠폰 배포"
+  }
+]
