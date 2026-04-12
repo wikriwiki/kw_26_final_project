@@ -1,14 +1,51 @@
-최상위_프로젝트_폴더/
+project_root/
 ├── 01_data_preprocess_spark.py
+├── 02_statistical_profiling_spark.py
+├── 03_agent_generation_and_validation.py
 ├── data/
 │   ├── raw/
-│   │   ├── PURPOSE_250M_202301.CSV         (B078 수도권 생활이동 데이터)
-│   │   ├── PURPOSE_250M_202302.CSV
-│   │   ├── wlk_종로구_202301.txt           (B009 KT 유동인구 데이터)
-│   │   ├── wlk_중구_202301.txt
-│   │   ├── 블록_성별연령대별_202301.txt    (B063 카드소비 패턴 데이터)
-│   │   └── 블록_성별연령대별_202302.txt
+│   │   ├── telecom_29.csv                              # [TEL] 통신사 29종 지표 (마스터 테이블)
+│   │   ├── PURPOSE_250M_XXXXXX.CSV                     # [B078] 수도권 생활이동 데이터
+│   │   ├── wlk_자치구_YYYYMM.txt                       # [B009] KT 유동인구 (시간대별)
+│   │   ├── KT 월별 성연령대별 거주지별 유동인구.csv      # [B009] KT 유동인구 (거주지별)
+│   │   ├── 블록_성별연령대별_YYYYMM.txt                 # [B063] 카드소비 (블록, 파이프 구분)
+│   │   ├── 내국인(집계구) 성별연령대별.csv               # [B063] 카드소비 (집계구, CSV)
+│   │   ├── 내국인(집계구) 유입지별.csv                   # [B063] 유입지별 (집계구)
+│   │   ├── 행정동별 상권발달 개별지수.csv                # [B069] 상권발달 지수
+│   │   ├── 7.서울시 내국인 성별 연령대별(행정동별).csv    # [B079] 카드결제 (행정동)
+│   │   ├── 8.서울시 내국인의 개인카드 기준 유입지별(행정동별).csv  # [B079] 유입지별
+│   │   ├── 서울시 상권분석서비스(직장인구-행정동).csv     # [WP] 직장인구
+│   │   └── 2.서울시민의 일별 시간대별(행정동).csv         # [TS] 시간대별 소비
 │   └── mapping/
-│       └── code_mapping_mopas_nso.csv      (통계청/행안부 코드 매핑 데이터)
+│       ├── code_mapping_mopas_nso.csv                   # 행정동/법정동 코드 매핑
+│       ├── 신한카드 내국인 63업종 코드.csv                # 업종 코드 매핑
+│       └── 카드소비 업종코드.csv                         # 업종 코드 (서울)
 └── output/
-    └── parquet/                            (실행 시 자동 생성 및 결과물 저장)
+    ├── parquet/                    # [Phase 1] 12개 Parquet 파일
+    │   ├── telecom_29_agg.parquet
+    │   ├── b078_mobility.parquet
+    │   ├── b009_wlk.parquet
+    │   ├── b009_residence.parquet
+    │   ├── b079_card.parquet
+    │   ├── b063_block.parquet
+    │   ├── b063_census.parquet
+    │   ├── b069_commercial.parquet
+    │   ├── b079_inflow.parquet
+    │   ├── b063_inflow.parquet
+    │   ├── workplace_pop.parquet
+    │   ├── time_sales.parquet
+    │   └── mapping_stat7_adm8.parquet
+    ├── stats/                      # [Phase 2] 9개 JSON 파일
+    │   ├── agent_profiles.json
+    │   ├── dong_context.json
+    │   ├── workplace_flow.json
+    │   ├── workplace_population.json
+    │   ├── consumption_detail.json
+    │   ├── dong_consumption.json
+    │   ├── global_distributions.json
+    │   ├── agent_allocation.json
+    │   └── aggregate_stats.json
+    └── agents/                     # [Phase 3] 최종 에이전트
+        ├── agents_final.json
+        ├── generation.log
+        └── partial/                # 중간 저장 (Resume용)
