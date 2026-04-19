@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+venv/
+.venv/
+
+# Environment Variables
+.env
+.env.local
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Project Spatial & Data Files
+*.shp
+*.shx
+*.dbf
+*.prj
+*.cpg
+*.csv
+*.parquet
+*.npy
+
+# Network Caches
+*.graphml
+seoul_drive_network.graphml
+
+# Visualization & Log Outputs
+*.html
+*.png
+*.log
+debug_output.txt
