@@ -17,14 +17,12 @@ prototype/
 ## 빠른 시작
 
 ```bash
-cd src
-
 # LLM 없이 룰 기반만 (빠른 테스트)
-python simulation.py --no-llm --agents 100 --weeks 4
+python src/simulation.py --no-llm --agents 100 --weeks 4
 
 # Qwen3 사용 (Ollama 실행 필요)
 ollama run qwen3:30b
-python simulation.py --agents 300 --weeks 24
+python src/simulation.py --agents 300 --weeks 24
 ```
 
 ## 데이터 모드

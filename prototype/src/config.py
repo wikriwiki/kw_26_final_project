@@ -39,9 +39,6 @@ DATA_FILES = {
     # B069 상권발달지수
     "district_index": _DATA / "행정동별 상권발달 개별지수.csv",
 
-    # B078 생활이동
-    "purpose_od": DATA_DIR / "PURPOSE_250M_202403.csv",
-
     # B068 임대시세
     "rent_monthly": _DATA / "월세임대 예측시세.csv",
     "rent_deposit": _DATA / "전세임대 예측시세.csv",

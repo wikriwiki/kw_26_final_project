@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+.DS_Store
+
+# 런타임 산출물 — 폴더 구조(.gitkeep, README.md)는 추적, 내부 파일은 무시
+output/**
+!output/
+!output/README.md
+!output/logs/
+!output/logs/.gitkeep
+!output/plans/
+!output/plans/.gitkeep
+
+# 정책 inbox/processed — 처리 결과 보관은 환경별 운영 (별도 백업 권장)
+data/policies/inbox/*
+!data/policies/inbox/.gitkeep
+data/policies/processed/*
+!data/policies/processed/.gitkeep
+
+# seed는 추적 — 다만 큰 바이너리는 LFS 검토
