@@ -28,7 +28,7 @@ LLM(Qwen3) + 룰 엔진 + GraphRAG를 결합한 **하이브리드 ABM(Agent-Base
 ### 실행 방법
 
 ```powershell
-cd "g:\내 드라이브\Kw\PROJECT_PROPOSAL\src"
+cd src/
 
 # LLM 모드 (Ollama localhost:11434 필요)
 python simulation.py --agents 300 --weeks 24
