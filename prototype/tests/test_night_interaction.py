@@ -61,11 +61,11 @@ def social_net():
 def agents_3():
     return [
         {"agent_id": "consumer_0001", "segment": "commuter",
-         "sns_activity": 0.8, "_news_awareness": {}, "adm_cd": "1114055000"},
+         "_news_awareness": {}, "adm_cd": "1114055000"},
         {"agent_id": "consumer_0002", "segment": "commuter",
-         "sns_activity": 0.6, "_news_awareness": {}, "adm_cd": "1114055000"},
+         "_news_awareness": {}, "adm_cd": "1114055000"},
         {"agent_id": "consumer_0003", "segment": "resident",
-         "sns_activity": 0.2, "_news_awareness": {}, "adm_cd": "1117010000"},
+         "_news_awareness": {}, "adm_cd": "1117010000"},
     ]
 
 
@@ -83,31 +83,21 @@ def memories_3():
 # ═══════════════════════════════════════════
 
 class TestCalcExposure:
-    def test_no_overlap_no_sns(self):
-        """접점 없고 SNS 활동도 없으면 → 0"""
+    def test_no_overlap(self):
+        """접점 없으면 → 0"""
         log_a = [{"dong": "11140", "time_slot": 12}]
         log_b = [{"dong": "11170", "time_slot": 18}]
-        agent_a = {"sns_activity": 0}
-        agent_b = {"sns_activity": 0}
+        agent_a = {}
+        agent_b = {}
         score = calc_exposure(log_a, log_b, agent_a, agent_b)
         assert score == 0.0
-
-    def test_no_overlap_with_sns(self):
-        """접점 없지만 SNS 활발 → 디지털 접점 소량"""
-        log_a = [{"dong": "11140", "time_slot": 12}]
-        log_b = [{"dong": "11170", "time_slot": 18}]
-        agent_a = {"sns_activity": 0.8}
-        agent_b = {"sns_activity": 0.6}
-        score = calc_exposure(log_a, log_b, agent_a, agent_b)
-        assert 0 < score <= 0.15
-        assert abs(score - 0.8 * 0.6 * 0.15) < 1e-6
 
     def test_same_dong_same_time(self):
         """같은 동 + 같은 시간 → 높은 점수"""
         log_a = [{"dong": "11140", "time_slot": 12}]
         log_b = [{"dong": "11140", "time_slot": 12}]
-        agent_a = {"sns_activity": 0}
-        agent_b = {"sns_activity": 0}
+        agent_a = {}
+        agent_b = {}
         score = calc_exposure(log_a, log_b, agent_a, agent_b)
         # frequency=1/5=0.2, overlap=1.0 → 0.2*0.6 + 1.0*0.4 = 0.52
         assert score > 0.4
@@ -116,8 +106,8 @@ class TestCalcExposure:
         """같은 동 + 1시간 차이 → 중간 점수"""
         log_a = [{"dong": "11140", "time_slot": 12}]
         log_b = [{"dong": "11140", "time_slot": 13}]
-        agent_a = {"sns_activity": 0}
-        agent_b = {"sns_activity": 0}
+        agent_a = {}
+        agent_b = {}
         score = calc_exposure(log_a, log_b, agent_a, agent_b)
         assert score > 0.0
 
@@ -133,15 +123,15 @@ class TestCalcExposure:
             {"dong": "11140", "time_slot": 12},
             {"dong": "11140", "time_slot": 14},
         ]
-        agent_a = {"sns_activity": 0}
-        agent_b = {"sns_activity": 0}
+        agent_a = {}
+        agent_b = {}
         score = calc_exposure(log_a, log_b, agent_a, agent_b)
         # 최대 9개의 co_visits 발생 가능 (3x3), 대부분 ±1이내
         assert score > 0.6
 
     def test_empty_logs(self):
-        """빈 로그 → 0 (SNS 없으면)"""
-        score = calc_exposure([], [], {"sns_activity": 0}, {"sns_activity": 0})
+        """빈 로그 → 0"""
+        score = calc_exposure([], [], {}, {})
         assert score == 0.0
 
 
@@ -266,7 +256,6 @@ class TestSelectInteractionPairs:
             agents.append({
                 "agent_id": f"consumer_{i:04d}",
                 "segment": "commuter" if i < 7 else "resident",
-                "sns_activity": 0.3 + (i % 5) * 0.15,
                 "adm_cd": "1114055000" if i < 5 else "1117010000",
                 "home_adm_cd": "1117010000" if i < 5 else "1114055000",
                 "_news_awareness": {},

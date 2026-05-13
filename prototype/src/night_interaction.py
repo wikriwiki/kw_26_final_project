@@ -34,7 +34,7 @@ def calc_exposure(log_a, log_b, agent_a, agent_b):
     Args:
         log_a: 에이전트 A의 오늘 actions 리스트 [{dong, time_slot, activity, ...}, ...]
         log_b: 에이전트 B의 오늘 actions 리스트
-        agent_a: 에이전트 A 프로필 dict (sns_activity 등)
+        agent_a: 에이전트 A 프로필 dict
         agent_b: 에이전트 B 프로필 dict
 
     Returns:
@@ -64,11 +64,7 @@ def calc_exposure(log_a, log_b, agent_a, agent_b):
                     })
 
     if not co_visits:
-        # 디지털 채널 보정 (둘 다 SNS 활발하면 소량 접점)
-        sns_a = agent_a.get("sns_activity", 0)
-        sns_b = agent_b.get("sns_activity", 0)
-        digital = sns_a * sns_b * 0.15  # 최대 0.15
-        return digital
+        return 0.0
 
     # 빈도(frequency) × 체류 겹침(duration proxy)
     frequency = min(len(co_visits), 5) / 5.0              # 최대 5회 → 1.0
@@ -183,7 +179,7 @@ def calc_urgency(agent_a, agent_b, memory_a, memory_b, policy_info_holders):
 # 후보 쌍 필터링 (O(N²) 회피)
 # ═══════════════════════════════════════════
 
-def find_candidate_pairs(agents, daily_logs, social_network):
+def find_candidate_pairs(agents, daily_logs):
     """같은 동에 방문한 에이전트들만 후보 쌍으로 추출 + 소셜 이웃.
 
     Args:
@@ -209,14 +205,6 @@ def find_candidate_pairs(agents, daily_logs, social_network):
         for i in range(len(visitor_list)):
             for j in range(i + 1, len(visitor_list)):
                 candidates.add(tuple(sorted([visitor_list[i], visitor_list[j]])))
-
-    # 소셜 네트워크 이웃도 후보에 추가 (디지털 대화 가능)
-    for agent in agents:
-        a_id = agent["agent_id"]
-        if social_network.G.has_node(a_id):
-            for neighbor in social_network.G.neighbors(a_id):
-                pair = tuple(sorted([a_id, neighbor]))
-                candidates.add(pair)
 
     return candidates
 
@@ -254,7 +242,7 @@ def select_interaction_pairs(
     agents_map = {a["agent_id"]: a for a in agents}
 
     # 1) 후보 쌍 필터링
-    candidate_pairs = find_candidate_pairs(agents, daily_logs, social_network)
+    candidate_pairs = find_candidate_pairs(agents, daily_logs)
 
     # 2) 각 쌍별 점수 계산
     scored_pairs = []
