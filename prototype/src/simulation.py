@@ -39,6 +39,11 @@ from environment_agents import EnvironmentManager
 from report_agent import generate_weekly_report
 from animate_map import generate_animation_html
 from graph_memory import GraphMemoryManager
+from night_interaction import (
+    select_interaction_pairs,
+    update_interaction_history,
+    extract_policy_info_holders,
+)
 
 
 # ═══════════════════════════════════════════
@@ -126,10 +131,14 @@ def run_simulation(
         rng=rng,
     )
 
+    # ── Night 상호작용 이력 초기화 ──
+    interaction_history = {}  # {(a_id, b_id): 누적 대화 횟수}
+
     # 결과 저장
     daily_positions = []    # [(day_idx, agents_snapshot)] — 애니메이션용
     weekly_stats = []       # [{week, total_spending, actions_count, ...}]
     reports = []            # [report_dict] — 주간 리포트
+    night_logs = []         # [{day, pairs_count, top_pairs}, ...] — Night 단계 로그
 
     total_day = 0
     total_spending = 0
@@ -275,6 +284,34 @@ def run_simulation(
             structured_events = env.news_agent.get_news() if hasattr(env, 'news_agent') else []
             propagate_news_awareness(agents, structured_events, rng)
 
+            # ── Phase 3.5: Night — 상호작용 대상 선정 ──
+            # 오늘의 행동 로그에서 flat 리스트 추출
+            today_logs = {}
+            for a in agents:
+                aid_night = a["agent_id"]
+                wl = week_logs.get(aid_night, [])
+                today_logs[aid_night] = wl[-1] if wl else []
+
+            # 정책 정보 보유자 추출
+            policy_info_holders = extract_policy_info_holders(agents)
+
+            # 상호작용 쌍 선정
+            night_pairs = select_interaction_pairs(
+                agents, today_logs, memories, graph_mgr.social,
+                interaction_history, policy_info_holders,
+            )
+            update_interaction_history(night_pairs, interaction_history)
+
+            if night_pairs:
+                night_logs.append({
+                    "day": total_day - 1,
+                    "week": week,
+                    "pairs_count": len(night_pairs),
+                    "top_pairs": [
+                        (a, b, round(s, 3)) for a, b, s, _ in night_pairs[:5]
+                    ],
+                })
+
         # ── Phase 4: 주간 집계 + GraphRAG 주말 처리 ──
         graph_mgr.end_of_week(week, rng)  # 입소문 전파
 
@@ -354,6 +391,11 @@ def run_simulation(
     print(f"  Elapsed: {sim_elapsed:.1f}s")
     print(f"{'=' * 60}")
 
+    # Night 단계 통계 출력
+    total_night_pairs = sum(nl["pairs_count"] for nl in night_logs)
+    print(f"  Night interactions: {total_night_pairs} pairs over {len(night_logs)} days")
+    print(f"  Interaction history entries: {len(interaction_history)}")
+
     return {
         "agents": agents,
         "weekly_stats": weekly_stats,
@@ -362,6 +404,8 @@ def run_simulation(
         "total_spending": total_spending,
         "dong_grids": dong_grids,
         "reports": reports,
+        "night_logs": night_logs,
+        "interaction_history": interaction_history,
     }
 
 

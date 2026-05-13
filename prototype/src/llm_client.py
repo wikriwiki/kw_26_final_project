@@ -9,7 +9,7 @@ import requests
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "qwen3:30b"
+MODEL_NAME = "qwen3:8b"
 
 SYSTEM_PROMPT = """\
 당신은 서울에 사는 소비자입니다. 아래 프로필과 환경 정보를 바탕으로 이번 주 소비 전략을 결정하세요.
