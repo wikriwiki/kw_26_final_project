@@ -1,0 +1,7 @@
+# Neo4j Day 0 적재 의존성
+neo4j>=5.20,<7
+openpyxl>=3.1
+pyyaml>=6.0
+
+# (선택) V-WORLD geocoding for 03a/03b
+requests>=2.31

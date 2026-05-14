@@ -1,0 +1,75 @@
+# Secrets - never commit
+.env
+*.env
+data/neo4j_load/.env
+
+# Geocoding cache
+scripts/geocode/cache.sqlite
+scripts/geocode/cache/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv*/
+venv/
+
+# Data large files (kept in worktree but not committed)
+data/InboundData/
+data/raw/
+data/synthetic/
+data/neo4j_load/pois/*.csv
+data/neo4j_load/pois/*.xlsx
+data/neo4j_load/pois/건축물대장/
+data/neo4j_load/agents/agents_final.json
+output/
+
+# Claude state (Drive 동기화 전용, git 추적 X)
+_claude_state/
+
+# Logs
+logs/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 대회·제안 자료 (시뮬과 무관)
+*.hwp
+*.hwpx
+# 글자 class([..])로 오인되지 않게 \[ 로 이스케이프
+\[2026*서울시*경진대회*\]*
+
+# 옛 prototype 잔재 (Nemotron 통합 폐기 — project_nemotron_personas_integration 메모)
+assign_income_bucket.py
+dump_nemotron_occupations.py
+extract_ksco_codes.py
+match_occupation_to_ksco.py
+
+# 루트의 별도 옛 분석 코드 (data/InboundData/와 중복)
+file_discovery.py
+patch_failed_joins.py
+preprocess_join.py
+analyze_stats.py
+generate_agents.py
+synthetic_generator.py
+compare_stats.py
+compare_to_json.py
+count_seoul.py
+inspect_personas.py
+quick_validate.py
+validate_agents.py
+validate_pandas_analyze.py
+validate_pandas_workers.py
+architecture_plan.md
+
+# prototype 폴더 (옛 시뮬, 별도 브랜치)
+prototype/
+
+# Sim output (메트릭·체크포인트는 로컬만)
+sim_output/
