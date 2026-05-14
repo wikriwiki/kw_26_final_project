@@ -1,0 +1,6 @@
+# 클라이언트(generate_agents.py) 의존성.
+# SGLang 서버는 별도 venv에서 `pip install "sglang[all]"` 로 설치 권장.
+openai>=1.30
+tqdm>=4.66
+pandas>=2.0
+numpy>=1.24
