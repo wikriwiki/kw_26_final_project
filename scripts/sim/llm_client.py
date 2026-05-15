@@ -47,6 +47,13 @@ MODELS: dict[str, ModelSpec] = {
         family="qwen",
         description="개발/디버깅용 9B 모델.",
     ),
+    "qwen14b": ModelSpec(
+        key="qwen14b",
+        hf_id="Qwen/Qwen3-14B-AWQ",
+        family="qwen",
+        description="중간 사이즈 14B AWQ. RTX 5090 32GB에 여유롭게 fit, "
+                    "Qwen3-32B 대비 추론 ~2배 빠름. 한국어 OK.",
+    ),
     "exaone": ModelSpec(
         key="exaone",
         hf_id="LGAI-EXAONE/EXAONE-4.5-33B-FP8",
