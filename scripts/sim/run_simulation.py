@@ -63,8 +63,8 @@ METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # 정책 효과 룰 (subsidy만 자치구·카테고리 매칭으로 만족도 가산)
-POLICY_TARGET_CATS = {"식사", "카페", "디저트"}
-POLICY_DISTRICT = "11680"  # 강남구 (P001만 룰에 반영. P002는 LLM 자율 해석에 의존)
+# 정책 효과·잔액 처리는 plan_writer.simulate_satisfaction에서 ctx.policy 기반으로 동적 처리.
+# POLICY_TARGET_CATS/POLICY_DISTRICT hardcoded 폐기 (2026-05-16).
 
 
 # =========================================================
@@ -98,10 +98,12 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona)
         events = merge_to_final_events(s1, s2, ctx.persona)
 
-        events = simulate_satisfaction(
+        # 정책 효과 + 잔액 추적
+        prev_policy_used = ctx.get_policy_used()  # 어제까지 누적
+        events, updated_policy_used = simulate_satisfaction(
             ctx.persona, events,
-            policy_target_cats=POLICY_TARGET_CATS,
-            policy_district_code=POLICY_DISTRICT,
+            active_policies=ctx.policy,
+            policy_used=prev_policy_used,
             seed=hash(aid + str(today)),
         )
 
@@ -113,20 +115,20 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         # Night Phase — Day 1 새벽엔 어제(Day 0) Plan 없으므로 finalize는 Day 2 이상에서만
         n_mem = 0
         if day_idx >= 1:
-            # Day idx 1 이상엔 어제 Plan(visited) 적재 가능. 다만 처음 진입 시 어제도 시뮬됐어야.
-            # 안전하게 매번 finalize_yesterday 호출 (어제 INCLUDES 없으면 0 반환)
             n_mem = night_finalize_yesterday(aid, today)
-        state = night_create_state(aid, today)
+        state = night_create_state(aid, today, policy_used=updated_policy_used)
 
         # 만족도 평균
         sats = [e["actual_satisfaction"] for e in events if e["actual_satisfaction"] is not None]
         avg_sat = sum(sats) / len(sats) if sats else None
 
-        # 정책 적용 이벤트 카운트
+        # 정책 적용 이벤트 카운트 (어떤 정책이든 매칭된 commerce 이벤트)
+        from plan_writer import _policy_match
+        home5 = (ctx.persona.get("home_dong_code") or "")[:5]
+        work5 = (ctx.persona.get("work_dong_code") or "")[:5]
         policy_hits = sum(
             1 for e in events
-            if e.get("poi_id") and (e.get("category") in POLICY_TARGET_CATS or
-                                    (e.get("sub_category") or "") in POLICY_TARGET_CATS)
+            if e.get("poi_id") and any(_policy_match(e, p, home5, work5) for p in (ctx.policy or []))
         )
 
         return {

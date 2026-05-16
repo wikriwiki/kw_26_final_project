@@ -72,7 +72,7 @@ class Stage1Output(BaseModel):
     def _check_events(cls, evs):
         if len(evs) < 3:
             raise ValueError(f"too few events ({len(evs)})")
-        if len(evs) > 14:
+        if len(evs) > 20:   # 외출 적극 권장 SYSTEM과 일치하도록 상한 완화 (14→20)
             raise ValueError(f"too many events ({len(evs)})")
         # 첫·마지막은 residence
         if evs[0].anchor != "residence":
@@ -95,27 +95,61 @@ class Stage1Output(BaseModel):
 SYSTEM_PROMPT = """당신은 서울 시민 에이전트의 하루 동선을 설계하는 Daily Planner입니다.
 출력은 반드시 주어진 JSON 스키마만 따르며, 자연어 해설을 덧붙이지 않습니다.
 
-[이벤트 규칙]
-- 하루 이벤트 수: 평일 5~9개, 주말/공휴일 3~8개.
+[이벤트 규칙 — 중요]
+- 하루 이벤트 수: **평일 6~10개**, 주말/공휴일 4~8개.
 - 첫 이벤트와 마지막 이벤트는 반드시 anchor='residence' (집).
 - 평일 + 직장 있음: anchor='workplace' 체류가 09~18시 사이 누적 4시간 이상.
 - 이벤트 간 최소 체류 20분.
 - 시간은 24시간제 "HH:MM", 단조 증가.
 - 카테고리 운영시간을 넘는 방문 금지.
 
+[외출 적극 권장 — 매우 중요]
+- 사람들은 평일에도 일상적 외출(점심·간식·간단 쇼핑·운동·약 처방)을 한다. **외출을 너무 보수적으로 줄이지 말 것**.
+- 평일 + 직장 있음: 점심(12~13시) 직장 동 식사 외출 최소 1회 + 퇴근길/저녁(18~20시) 외출 1회 권장. anchor='zone:<work_dong>' 또는 'zone:<home_dong>'.
+- 평일 + 직장 없음(은퇴·전업·학생): Top 카테고리 기반 외출(병원·헬스장·학원·마트) 1~2회 필수. 종일 집에만 있는 plan은 비현실적.
+- 주말: 외식·카페·쇼핑·여가 외출 2~4회 자연스러움.
+- 외출 카테고리는 반드시 anchor='zone:<dong_code>' (residence/workplace 아님).
+
+[페르소나 Top 카테고리 활용 — 매우 중요]
+- 페르소나의 "평일 Top 카테고리"·"주말 Top 카테고리"는 그 agent의 실제 소비 패턴.
+- **Top 1~2위 카테고리(특히 30%+ 비중)는 일주일에 2~3회 plan에 포함**.
+  - 예: Top "종합병원 78%" → 평일 중 1번 의료 외출.
+  - 예: Top "학원 60%" → 자녀 학원 동반 외출.
+  - 예: Top "헬스장 30%" → 운동 외출.
+- 페르소나가 명확한 라이프스타일을 보이면 그 패턴을 plan에 반영.
+
 [카테고리 어휘]
 L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 쇼핑 · 여가 · 건강 · 교육 · 기타 · 집 · 직장
-- anchor='residence'일 때 category='집' (식사 등 집 안에서의 활동도 '집'으로 표기 가능)
-- anchor='workplace'일 때 category='직장'
-- 외출 이벤트: category는 L1 어휘 중 선택, sub_category는 더 구체 (예: 한식·일식·헬스장 …)
+- anchor='residence'일 때 category='집' (수면·휴식·재택·집안일만)
+- anchor='workplace'일 때 category='직장' (회의·근무·직장 내 체류만)
+- 외출 이벤트(식사·카페·편의점·미용·쇼핑 등 commerce 카테고리): **반드시 zone anchor** 사용
 
-[anchor 규칙]
-- "residence": 거주지 (집 근처 외출 포함, anchor=residence + category=식사 등 가능)
-- "workplace": 직장 근처
-- "zone:<dong_code>": 거주·직장 외 특정 행정동으로 이동 (지인 약속·관광 등)
+[anchor 규칙 — 매우 중요]
+- "residence": 집 안에서만 일어나는 활동. category는 '집'만.
+- "workplace": 직장 빌딩 내부에서만 일어나는 활동. category는 '직장'만.
+- "zone:<dong_code>": **모든 외출 활동의 anchor**. 집·직장 외 카테고리(식사·카페·편의점·미용·쇼핑·여가·건강·교육·마트·주점·디저트·기타)는 반드시 zone anchor.
+  - 거주 동 근처 외출(예: 집 앞 편의점·식당) → zone:<home_dong_code>
+  - 직장 동 근처 외출(예: 점심 식당·퇴근길 카페) → zone:<work_dong_code>
+  - 그 외 자치구 이동(주말 나들이·약속) → zone:<other_dong_code>
+- 절대 금지: anchor='residence' + category='편의점/식사/카페/한식/...' 같은 조합. 외출 카테고리면 무조건 zone.
 
 [정책·기억·소식 반영]
-- 정책 대상 카테고리(혜택 환급) 방문은 페르소나 성향에 따라 가중. 소비분위 1~4는 민감, 9~10은 둔감.
+- 정책 type별 메커니즘:
+  * subsidy (쿠폰·환급): 정책 블록의 "남은 잔액 N원" 확인. 잔액 있으면 대상 카테고리 우선, 잔액 0원이면 일반 카테고리로 전환. 무한 사용 금지.
+  * regulation (규제): 해당 카테고리·시간대 회피.
+  * facility (시설): 해당 시설 방문 권장.
+  * campaign (홍보): description 자율 해석 (예: "걷기 좋은 거리" → 도보 외출).
+
+- 페르소나에 따라 정책 반응 정도가 달라야 함 (모든 agent가 동일하게 반응하면 안 됨):
+  * 소비분위 1~4 (저소득·절약형): 쿠폰 매우 적극 활용, 작은 혜택도 행동 변화 큼.
+  * 소비분위 5~8 (중산): 합리적 활용, 본인 선호 카테고리에 쿠폰 매칭되면 사용.
+  * 소비분위 9~10 (고소득·소비형): 정책에 둔감. 쿠폰 있어도 평소 패턴 유지.
+  * 라이프스타일에 "건강 우선·운동·자기관리" 키워드: 건강·교육 정책에 민감, 외식·주점 정책에는 무관심.
+  * 라이프스타일에 "환경친화·미니멀·검소": environment·campaign 정책에 민감.
+  * 라이프스타일에 "여가·문화·트렌드": 카페·쇼핑·여가 카테고리 정책에 적극.
+  * **정책에 아예 관심 없는 페르소나도 있음** (예: 라이프스타일이 가족 중심·일 중심이고 외부 정보 차단 성향). 이 경우 정책 무시하고 평소 루틴 유지.
+  * 같은 정책이라도 agent마다 사용 시점·강도·횟수 달라야 함 (예: 어떤 agent는 첫날 쿠폰 한 번에 소진, 어떤 agent는 며칠에 걸쳐 분산).
+
 - 어제 만족도 낮은 카테고리/장소는 회피.
 - 지인 약속(appointment)이 있으면 해당 시간·장소(anchor=zone:<dong>, pinned_poi)에 강제 진입.
 
@@ -125,18 +159,31 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 
 [출력 형식]
 다음 JSON 스키마만 출력. 다른 텍스트 금지.
+zone anchor의 dong_code는 **반드시 10자리 숫자**. 페르소나 블록의 거주 동 코드·직장 동 코드를 그대로 복사할 것.
+플레이스홀더 텍스트 (`<home_dong_code>` 등)는 **금지**. 실제 숫자만.
+
+예시 (실제 dong_code는 페르소나 블록 참조):
 {"events": [
   {"time":"08:10","anchor":"residence","category":"집","intent":"기상"},
-  {"time":"08:50","anchor":"residence","category":"편의점","intent":"출근길 음료"},
+  {"time":"08:50","anchor":"zone:1168010300","category":"편의점","sub_category":"편의점","intent":"출근길 음료"},
+  {"time":"12:00","anchor":"zone:1168011100","category":"식사","sub_category":"한식","intent":"점심"},
   ...
 ]}"""
 
 
 def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     blocks = ctx.to_prompt_blocks()
+    # zone anchor에 쓸 실제 dong code를 명시적으로 추출 (LLM이 placeholder 출력 방지)
+    home_dong = ctx.persona.get("home_dong_code") or ""
+    work_dong = ctx.persona.get("work_dong_code") or ""
+    dong_codes = f"- 거주 동 코드 (zone:으로 사용 시): {home_dong}\n"
+    if work_dong:
+        dong_codes += f"- 직장 동 코드 (zone:으로 사용 시): {work_dong}\n"
     return f"""## 페르소나
 {blocks['persona']}
 
+## zone anchor 코드 (반드시 이 값들 중 하나만 사용)
+{dong_codes}
 ## 어제 상태
 {blocks['state']}
 
@@ -236,6 +283,21 @@ def call_stage1(
             json_str = _extract_json(raw)
             data = json.loads(json_str)
             parsed = Stage1Output.model_validate(data)
+
+            # Post-validation: 평일 보수성 검증 (외출 의무)
+            has_work = bool(ctx.persona.get("work_poi_id"))
+            n_events = len(parsed.events)
+            n_zone = sum(1 for e in parsed.events if e.anchor.startswith("zone:"))
+            min_events = 6 if day_type == "weekday" else 4
+            min_zone = 1 if (day_type == "weekday" or has_work) else 0
+            problems = []
+            if n_events < min_events:
+                problems.append(f"events={n_events} < min {min_events}")
+            if n_zone < min_zone:
+                problems.append(f"zone_anchor_events={n_zone} < min {min_zone}")
+            if problems:
+                raise ValueError(f"plan too conservative — {', '.join(problems)}")
+
             meta = {
                 "attempt": attempt,
                 "temp": temp,

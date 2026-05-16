@@ -26,7 +26,12 @@ except Exception:
     pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from dawn_context import DawnContext, build_dawn_context, build_stage2_candidates  # noqa: E402
+from dawn_context import (  # noqa: E402
+    DawnContext, build_dawn_context,
+    build_stage2_candidates,
+    build_stage2_candidates_l1_dong,
+    build_stage2_candidates_l1_district,
+)
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 
@@ -54,7 +59,16 @@ def resolve_dong(event_anchor: str, persona: dict) -> str | None:
     if event_anchor == "workplace":
         return persona.get("work_dong_code")
     if event_anchor.startswith("zone:"):
-        return event_anchor.split(":", 1)[1]
+        dong = event_anchor.split(":", 1)[1].strip()
+        # LLM이 placeholder("<home_dong_code>" 등) 그대로 출력한 경우 감지
+        # 실제 dong code는 10자리 숫자
+        if dong.isdigit() and len(dong) == 10:
+            return dong
+        # placeholder/invalid → persona의 home_dong으로 fallback
+        # (work_dong_code 키워드 보이면 work_dong)
+        if "work" in dong.lower():
+            return persona.get("work_dong_code") or persona.get("home_dong_code")
+        return persona.get("home_dong_code")
     return None
 
 
@@ -87,6 +101,14 @@ def fetch_candidates_for_events(
             out[i] = []
             continue
         cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=k_per_event)
+        # Fallback 1: sub 정확 매칭 실패 → L1 같은 dong
+        if not cands and ev.category and ev.category not in INTERNAL_CATS:
+            cands = build_stage2_candidates_l1_dong(aid, dong_code, ev.category, limit=k_per_event)
+        # Fallback 2: L1 dong도 실패 → L1 자치구 단위
+        if not cands and ev.category:
+            district_code = dong_code[:5] if dong_code and len(dong_code) >= 5 else None
+            if district_code:
+                cands = build_stage2_candidates_l1_district(aid, district_code, ev.category, limit=k_per_event)
         out[i] = cands
     return out
 
@@ -195,11 +217,28 @@ def call_stage2(
             data = json.loads(json_str)
             parsed = Stage2Output.model_validate(data)
 
-            # 후보 풀 안에 있는지 검증
+            # 후보 풀 안에 있는지 검증 — 환각 시 retry 대신 자동 보정 (candidates Top 5 중 random)
+            import random as _random
             valid_pois = {c["poi_id"] for cs in cands_by_order.values() for c in cs}
+            corrected_picks = []
+            hallucinations = 0
+            rng = _random.Random(hash(aid))   # agent별 deterministic
             for pick in parsed.picks:
-                if pick.poi_id not in valid_pois:
-                    raise ValueError(f"poi_id {pick.poi_id} not in candidates")
+                if pick.poi_id in valid_pois:
+                    corrected_picks.append(pick)
+                else:
+                    # 환각 — Top 5 candidates 중 random (다양성 보존)
+                    cands = cands_by_order.get(pick.order, [])
+                    if cands:
+                        top = cands[:5]
+                        chosen = rng.choice(top)["poi_id"]
+                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen))
+                        hallucinations += 1
+            parsed = Stage2Output(picks=corrected_picks)
+
+            # 후처리: LLM이 답 안 한 외출 이벤트에 candidates 첫 거 자동 fill
+            parsed = _fill_missing_picks(parsed, stage1.events, cands_by_order, aid=aid)
+
             meta = {
                 "attempt": attempt,
                 "temp": temp,
@@ -212,7 +251,34 @@ def call_stage2(
             if verbose:
                 print(f"[attempt {attempt}] failed: {e}")
 
+    # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
+    fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
+    if fallback.picks:
+        return fallback, cands_by_order, {"fallback_only": True, "last_err": str(last_err)[:200]}
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
+
+
+def _fill_missing_picks(
+    stage2: Stage2Output, stage1_events: list, cands_by_order: dict[int, list[dict]],
+    aid: str = "",
+) -> Stage2Output:
+    """LLM이 picks에 안 만든 외출 이벤트에 candidates Top 5 중 random POI 자동 채움."""
+    import random as _random
+    picked_orders = {p.order for p in stage2.picks}
+    new_picks = list(stage2.picks)
+    rng = _random.Random(hash(aid) if aid else 42)
+    for i, ev in enumerate(stage1_events):
+        if i in picked_orders:
+            continue
+        if ev.category in INTERNAL_CATS or ev.pinned_poi:
+            continue
+        cs = cands_by_order.get(i) or []
+        if not cs:
+            continue
+        top = cs[:5]
+        chosen = rng.choice(top)["poi_id"]
+        new_picks.append(Stage2Pick(order=i, poi_id=chosen))
+    return Stage2Output(picks=new_picks)
 
 
 # =========================================================
@@ -221,9 +287,11 @@ def call_stage2(
 def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: dict) -> list[dict]:
     """Stage 1 + Stage 2 picks → 최종 events with poi_id.
 
-    residence/workplace anchor + 내부 카테고리(집/직장) → home_poi/work_poi 사용.
-    pinned_poi가 있으면 그대로.
-    그 외엔 Stage 2 picks.
+    카테고리 기준 우선 (anchor는 출발지 표시일 뿐):
+      - pinned_poi 있으면 그대로
+      - cat ∈ {집, 직장} (머무름) → anchor에 따라 home/work POI
+      - cat ∈ 외출 카테고리 (식사·카페·편의점 등) → Stage 2 pick (commerce POI)
+        - Stage 2 pick 누락 시 fallback으로 anchor POI 사용
     """
     pick_by_order = {p.order: p.poi_id for p in stage2.picks}
     out = []
@@ -231,12 +299,23 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
         poi_id = None
         if ev.pinned_poi:
             poi_id = ev.pinned_poi
-        elif ev.anchor == "residence":
-            poi_id = persona.get("home_poi_id")
-        elif ev.anchor == "workplace":
-            poi_id = persona.get("work_poi_id")
+        elif ev.category in INTERNAL_CATS:
+            # 머무름 — anchor POI 사용
+            if ev.anchor == "residence":
+                poi_id = persona.get("home_poi_id")
+            elif ev.anchor == "workplace":
+                poi_id = persona.get("work_poi_id")
+            else:  # zone에서 cat=집/직장? 비정상 — fallback
+                poi_id = pick_by_order.get(i)
         else:
+            # 외출 카테고리 — Stage 2 pick (anchor의 동에서 commerce POI 결정)
             poi_id = pick_by_order.get(i)
+            if not poi_id:
+                # Stage 2 pick 누락 시 anchor POI fallback
+                if ev.anchor == "residence":
+                    poi_id = persona.get("home_poi_id")
+                elif ev.anchor == "workplace":
+                    poi_id = persona.get("work_poi_id")
 
         out.append({
             "order": i,

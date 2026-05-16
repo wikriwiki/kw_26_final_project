@@ -69,6 +69,7 @@ def main():
     document.getElementById('total-mem').textContent = totMem.toLocaleString();
     initMap();
     buildMarkers();
+    document.getElementById('frame-slider').max = Math.max(0, TIMELINE.length - 1);
     setFrame(0);
     initEvents();
   } catch (e) {

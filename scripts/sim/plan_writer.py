@@ -54,7 +54,8 @@ CREATE (p)-[:INCLUDES {
   sub_category: ev.sub_category,
   anchor: ev.anchor,
   with_agents: ev.with_agents,
-  actual_satisfaction: ev.actual_satisfaction
+  actual_satisfaction: ev.actual_satisfaction,
+  actual_spent: coalesce(ev.actual_spent, 0)
 }]->(poi)
 """
 
@@ -80,20 +81,64 @@ def write_plan(
 # =========================================================
 INTERNAL_CATS = {"집", "직장"}
 
+# 카테고리별 평균 1회 소비액 (원). 시뮬 단순화용 룰.
+SPEND_BY_CAT = {
+    "편의점": 5000, "마트": 25000,
+    "식사": 12000, "카페": 6000, "디저트": 8000, "주점": 30000,
+    "미용": 30000, "쇼핑": 50000,
+    "여가": 20000, "건강": 15000, "교육": 50000, "기타": 10000,
+}
+
+
+def _estimate_spend(cat: str | None, sub: str | None) -> int:
+    """이벤트의 추정 소비액."""
+    if not cat or cat in INTERNAL_CATS:
+        return 0
+    return SPEND_BY_CAT.get(cat, 10000)
+
+
+def _policy_match(ev: dict, pol: dict, home_dist5: str, work_dist5: str) -> bool:
+    """이벤트가 정책 적용 대상인지 (자치구 + 카테고리).
+
+    POLICY_CYPHER가 dist.code(5자리)를 region_codes로 반환. 빈 list면 전 자치구 (서울 전체).
+    """
+    region_codes = [c for c in (pol.get("region_codes") or []) if c]
+    target_l1s = [t for t in (pol.get("target_l1s") or []) if t]
+    region_ok = (not region_codes) or (home_dist5 in region_codes) or (work_dist5 in region_codes)
+    if not region_ok:
+        return False
+    cat = ev.get("category"); sub = ev.get("sub_category") or ""
+    if cat in INTERNAL_CATS:
+        return False
+    cat_ok = (not target_l1s) or (cat in target_l1s) or (sub in target_l1s)
+    return cat_ok
+
 
 def simulate_satisfaction(
     persona: dict, events: list[dict],
-    policy_target_cats: set[str] | None = None,
-    policy_district_code: str | None = None,
+    active_policies: list[dict] | None = None,
+    policy_used: dict[str, int] | None = None,
     seed: int | None = None,
-) -> list[dict]:
-    """각 이벤트의 actual_satisfaction을 룰 기반으로 부여. 반환 = 변경된 events."""
+) -> tuple[list[dict], dict[str, int]]:
+    """각 이벤트의 actual_satisfaction 부여 + 정책별 누적 사용액 차감.
+
+    Args:
+        active_policies: Dawn에서 가져온 활성 정책 list. 각 dict는 다음 필드 가짐:
+            id, name, type, benefit_rate, cap_per_agent, description,
+            regions (자치구명 list), target_l1s (L1 카테고리 list)
+        policy_used: agent의 정책별 누적 사용액. {"P007": 87000, ...}
+            함수가 갱신해서 반환 (in-place mutation도 함).
+    Returns:
+        (events, updated_policy_used)
+    """
     rng = random.Random(seed)
     top_wd = _parse_top_cats(persona.get("top_wd_json"))
     top_we = _parse_top_cats(persona.get("top_we_json"))
     home_dist5 = (persona.get("home_dong_code") or "")[:5]
     work_dist5 = (persona.get("work_dong_code") or "")[:5]
     tendency = persona.get("tendency") or ""
+    policies = active_policies or []
+    used = dict(policy_used or {})
 
     for e in events:
         cat = e.get("category")
@@ -102,8 +147,8 @@ def simulate_satisfaction(
             continue
 
         score = 0.5
-        # 페르소나 top categories 매칭
         sub = e.get("sub_category") or ""
+        # 페르소나 top categories 매칭
         if sub in top_wd or sub in top_we or cat in top_wd or cat in top_we:
             score += 0.10
         # 성향 가중
@@ -111,15 +156,45 @@ def simulate_satisfaction(
             score += 0.05
         elif tendency == "절약형":
             score -= 0.03
-        # 정책 적용 카테고리 + 거주·직장 자치구
-        if policy_target_cats and policy_district_code:
-            if (cat in policy_target_cats or sub in policy_target_cats) and \
-               (home_dist5 == policy_district_code or work_dist5 == policy_district_code):
-                score += 0.10
+
+        # 정책 효과 (type별 분기)
+        spend = _estimate_spend(cat, sub)
+        e["actual_spent"] = spend
+        for pol in policies:
+            if not _policy_match(e, pol, home_dist5, work_dist5):
+                continue
+            ptype = pol.get("type")
+            pid = pol.get("id")
+            if ptype == "subsidy":
+                # 쿠폰·환급 — 잔액 차감
+                cap = pol.get("cap") or 0
+                rate = pol.get("rate") or 0.0
+                if cap > 0 and rate > 0:
+                    remaining = max(0, cap - used.get(pid, 0))
+                    if remaining > 0:
+                        refund = min(int(spend * rate), remaining)
+                        # 잔액 비율로 만족도 가중
+                        ratio = refund / max(1, spend * rate)
+                        score += 0.10 * ratio
+                        used[pid] = used.get(pid, 0) + refund
+                else:
+                    # cap/rate 미지정 subsidy → 무제한 +0.05
+                    score += 0.05
+            elif ptype == "regulation":
+                # 규제 — 대상 카테고리 회피 동기 (만족도 -0.05)
+                score -= 0.05
+            elif ptype == "facility":
+                # 시설 — 이용 시 +0.05
+                score += 0.05
+            elif ptype == "campaign":
+                # 홍보·캠페인 — +0.03 (인지 효과)
+                score += 0.03
+            # tax / transit / environment 등은 description으로 LLM 자율 해석
+
         # 노이즈
         score += rng.uniform(-0.10, 0.10)
         e["actual_satisfaction"] = round(max(0.0, min(1.0, score)), 2)
-    return events
+    return events, used
 
 
 def _parse_top_cats(raw_json: str | None) -> set[str]:
@@ -196,13 +271,12 @@ WITH a, prev,
      coalesce(prev.month_spent, 0) AS prev_month_spent,
      coalesce(prev.policy_lifecycle, '{}') AS prev_lc
 
-// 오늘 INCLUDES 누적 이벤트 수 + 평균 만족도 계산
+// 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만)
 OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDES]->()
 WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent, prev_lc,
      count(i) AS n_events,
      avg(i.actual_satisfaction) AS avg_sat,
-     sum(CASE WHEN i.anchor STARTS WITH 'zone' OR NOT i.category IN ['집','직장']
-              THEN $event_spend ELSE 0 END) AS today_spent
+     sum(coalesce(i.actual_spent, 0)) AS today_spent
 
 // mood EMA: 0.7 * prev + 0.3 * avg_sat
 // fatigue: 0.5 * prev + 0.05 * n_events + (0.2 if low_sat else 0) - (0.1 if home_dominant else 0)
@@ -231,19 +305,25 @@ SET s.agent_id = $aid,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
     s.month_spent = prev_month_spent + today_spent,
-    s.policy_lifecycle = prev_lc
+    s.policy_lifecycle = prev_lc,
+    s.policy_used = $policy_used_json   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
 
 
-def night_create_state(aid: str, today: date, event_spend: int = 12000) -> dict:
-    """오늘 State 노드 CREATE. event_spend = 외출 이벤트당 평균 지출 (KRW)."""
+def night_create_state(aid: str, today: date, policy_used: dict[str, int] | None = None) -> dict:
+    """오늘 State 노드 CREATE.
+
+    policy_used: 정책별 누적 사용액 dict. 그래프에 JSON string으로 저장.
+    """
+    import json as _json
     yesterday = today - timedelta(days=1)
+    used_json = _json.dumps(policy_used or {}, ensure_ascii=False)
     with driver_session() as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
-                  event_spend=event_spend).single()
+                  policy_used_json=used_json).single()
         return dict(r) if r else {}
 
 

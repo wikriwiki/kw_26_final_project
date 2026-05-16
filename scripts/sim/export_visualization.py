@@ -37,7 +37,35 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 # 기본값 — CLI로 override 가능
 DEFAULT_START = "2026-05-01"
 DEFAULT_DAYS = 3
-SAMPLE = {"11680": 300, "11140": 300, "11110": 300}  # 강남·중구·종로
+# 서울 25 자치구 균등 표본 (자치구당 200명 = 5,000명).
+# 사용자가 viz에서 자치구 필터로 골라볼 수 있음.
+SAMPLE = {
+    "11110": 200,  # 종로구
+    "11140": 200,  # 중구
+    "11170": 200,  # 용산구
+    "11200": 200,  # 성동구
+    "11215": 200,  # 광진구
+    "11230": 200,  # 동대문구
+    "11260": 200,  # 중랑구
+    "11290": 200,  # 성북구
+    "11305": 200,  # 강북구
+    "11320": 200,  # 도봉구
+    "11350": 200,  # 노원구
+    "11380": 200,  # 은평구
+    "11410": 200,  # 서대문구
+    "11440": 200,  # 마포구
+    "11470": 200,  # 양천구
+    "11500": 200,  # 강서구
+    "11530": 200,  # 구로구
+    "11545": 200,  # 금천구
+    "11560": 200,  # 영등포구
+    "11590": 200,  # 동작구
+    "11620": 200,  # 관악구
+    "11650": 200,  # 서초구
+    "11680": 200,  # 강남구
+    "11710": 200,  # 송파구
+    "11740": 200,  # 강동구
+}
 
 
 def fetch_agents(s):
@@ -160,27 +188,44 @@ def fetch_timeline(s, agent_ids: list[str]):
 
 
 def fetch_memories(s, agent_ids: list[str]):
-    """각 agent의 visited Memory + KNOWS_POI Top.
+    """각 agent의 모든 Memory(type별) + KNOWS_POI Top.
 
-    구조: {aid: {visited: [{day, poi, sat, summary}], knows_poi: [...]}}
+    구조: {aid: {memories: [{type, day, ...}], visited: [...], knows_poi: [...], state: {...}}}
     """
     print(f"[memories] fetching ...")
-    visited = defaultdict(list)
+    all_memories = defaultdict(list)
+    # 모든 Memory type (visited / rumor / sns / policy)
+    # ABOUT_POI 엣지가 없는 케이스도 포함 (rumor 일부, policy 등)
     for r in s.run("""
-        MATCH (a:Agent)-[:REMEMBERS]->(m:Memory {type:'visited'})-[:ABOUT_POI]->(p:POI)
+        MATCH (a:Agent)-[:REMEMBERS]->(m:Memory)
         WHERE a.id IN $aids
-        RETURN a.id AS aid, toString(m.day) AS day,
+        OPTIONAL MATCH (m)-[:ABOUT_POI]->(p:POI)
+        OPTIONAL MATCH (m)-[:FROM_CONVERSATION]->(c:Conversation)
+        RETURN a.id AS aid, m.type AS type, toString(m.day) AS day,
                m.importance AS imp, m.satisfaction AS sat,
-               m.summary AS summary, p.id AS poi_id, p.name AS poi_name
-        ORDER BY m.day, m.importance DESC
+               m.summary AS summary, m.source AS source,
+               m.topic_type AS topic_type, m.topic_value AS topic_value,
+               p.id AS poi_id, p.name AS poi_name,
+               c.id AS conv_id, c.intent AS conv_intent
+        ORDER BY m.day DESC, m.importance DESC
     """, aids=agent_ids):
-        visited[r["aid"]].append({
-            "day": r["day"], "imp": r["imp"], "sat": r["sat"],
-            "summary": r["summary"], "poi_id": r["poi_id"],
-            "poi_name": r["poi_name"] or "",
+        all_memories[r["aid"]].append({
+            "type": r["type"], "day": r["day"],
+            "imp": r["imp"], "sat": r["sat"],
+            "summary": r["summary"], "source": r["source"],
+            "topic_type": r["topic_type"], "topic_value": r["topic_value"],
+            "poi_id": r["poi_id"], "poi_name": r["poi_name"] or "",
+            "conv_id": r["conv_id"], "conv_intent": r["conv_intent"],
         })
+    # 호환성을 위해 visited만 따로도 유지
+    visited = defaultdict(list)
+    for aid, mems in all_memories.items():
+        for m in mems:
+            if m["type"] == "visited":
+                visited[aid].append(m)
 
-    print(f"  visited memories: {sum(len(v) for v in visited.values()):,}")
+    print(f"  total memories: {sum(len(v) for v in all_memories.values()):,} "
+          f"(visited {sum(len(v) for v in visited.values()):,})")
 
     # KNOWS_POI Top 20 (affinity·visit_count 높은 것)
     knows_poi = defaultdict(list)
@@ -220,7 +265,8 @@ def fetch_memories(s, agent_ids: list[str]):
 
     return {
         aid: {
-            "visited": visited.get(aid, []),
+            "memories": all_memories.get(aid, []),    # 전체 (visited + rumor + sns + policy)
+            "visited": visited.get(aid, []),          # 호환성: visited만
             "knows_poi": knows_poi.get(aid, []),
             "state": state.get(aid, {}),
         }

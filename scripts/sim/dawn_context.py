@@ -60,7 +60,8 @@ STATE_CYPHER = """
 MATCH (a:Agent {id: $aid})-[:HAS_STATE {day: $yesterday}]->(s:State)
 RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.fatigue AS fatigue, s.yesterday_satisfaction AS yest_sat,
-       s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc
+       s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc,
+       s.policy_used AS policy_used
 """
 
 
@@ -124,15 +125,17 @@ WITH DISTINCT pol
 
 // 정책 단위로 다시 적용 지역·대상 카테고리 펼침
 OPTIONAL MATCH (pol)-[:applied_to]->(reg)
-WITH pol, collect(DISTINCT coalesce(reg.name, '')) AS regions
+WITH pol,
+     collect(DISTINCT coalesce(reg.name, '')) AS regions,
+     collect(DISTINCT coalesce(reg.code, '')) AS region_codes
 OPTIONAL MATCH (pol)-[:targets]->(cat:Category)
-WITH pol, regions, collect(DISTINCT cat.parent) AS target_l1s
+WITH pol, regions, region_codes, collect(DISTINCT cat.parent) AS target_l1s
 
 RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.description AS description,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
        pol.effective_from AS from_, pol.effective_until AS until_,
-       regions, target_l1s
+       regions, region_codes, target_l1s
 """
 
 
@@ -183,6 +186,38 @@ RETURN p.id AS poi_id, p.name AS name,
 ORDER BY known DESC, km ASC LIMIT $limit
 """
 
+# Fallback: sub_category 매칭 실패 시 L1 단위로 같은 dong에서 fetch
+STAGE2_FALLBACK_L1_DONG_CYPHER = """
+MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
+MATCH (p)-[:IN_CATEGORY]->(c:Category)
+WHERE c.parent = $l1
+OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
+RETURN p.id AS poi_id, p.name AS name,
+       (kp IS NOT NULL) AS known,
+       coalesce(kp.visit_count, 0) AS visit_count,
+       kp.avg_satisfaction AS avg_satisfaction,
+       coalesce(kp.affinity, 0.0) AS affinity,
+       kp.source AS source,
+       NULL AS km
+ORDER BY known DESC LIMIT $limit
+"""
+
+# Fallback: dong에 아예 commerce POI 부족 시 자치구 단위 L1 fetch
+STAGE2_FALLBACK_L1_DISTRICT_CYPHER = """
+MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(d:District {code: $district_code})
+MATCH (p)-[:IN_CATEGORY]->(c:Category)
+WHERE c.parent = $l1
+OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
+RETURN p.id AS poi_id, p.name AS name,
+       (kp IS NOT NULL) AS known,
+       coalesce(kp.visit_count, 0) AS visit_count,
+       kp.avg_satisfaction AS avg_satisfaction,
+       coalesce(kp.affinity, 0.0) AS affinity,
+       kp.source AS source,
+       NULL AS km
+ORDER BY known DESC LIMIT $limit
+"""
+
 
 # =========================================================
 # 데이터 클래스 + 포매터
@@ -199,15 +234,35 @@ class DawnContext:
 
     def to_prompt_blocks(self) -> dict[str, str]:
         """각 컨텍스트를 LLM 프롬프트에 넣을 텍스트 블록으로 변환."""
+        # State의 policy_used JSON을 파싱해서 _format_policy에 전달
+        import json as _json
+        policy_used = {}
+        raw = (self.state or {}).get("policy_used")
+        if raw:
+            try:
+                policy_used = _json.loads(raw)
+            except Exception:
+                policy_used = {}
         return {
             "persona": _format_persona(self.persona),
             "state": _format_state(self.state),
             "memory": _format_memory(self.memory),
             "appointment": _format_appointment(self.appointment),
-            "policy": _format_policy(self.policy),
+            "policy": _format_policy(self.policy, policy_used=policy_used),
             "social": _format_social(self.social),
             "knows_poi": _format_knows_poi(self.knows_poi_summary),
         }
+
+    def get_policy_used(self) -> dict:
+        """State에서 정책별 누적 사용액 dict 반환 (없으면 {})."""
+        import json as _json
+        raw = (self.state or {}).get("policy_used")
+        if not raw:
+            return {}
+        try:
+            return _json.loads(raw)
+        except Exception:
+            return {}
 
 
 def _safe_top_cats(raw_json: str | None, k: int = 3) -> str:
@@ -327,14 +382,14 @@ _POLICY_TYPE_LABEL = {
 }
 
 
-def _format_policy(rows: list[dict]) -> str:
-    """정책 컨텍스트 — 자연어 description 중심. 쿠폰 속성(rate/cap)은 있을 때만 노출.
+def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None) -> str:
+    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액 노출.
 
-    LLM이 description을 보고 행동 변화를 자율 해석. 정책 유형이 환급이든 규제든 캠페인이든
-    동일 포맷으로 처리되며, 효과 메커니즘은 description에 명시.
+    policy_used: {"P007": 87000, ...} 정책별 누적 사용액. State에서 가져옴.
     """
     if not rows:
         return "(거주·직장 동에 적용 정책 없음)"
+    used = policy_used or {}
     lines = []
     for r in rows:
         type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
@@ -346,12 +401,23 @@ def _format_policy(rows: list[dict]) -> str:
         meta_parts = [f"적용지역: {regions}", f"대상업종: {targets}",
                       f"기간: {r['from_']}~{r['until_']}"]
 
-        # 쿠폰성 정책일 때만 환급 정보 노출
+        # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
         rate = r.get("rate")
         cap = r.get("cap")
-        if rate:
-            cap_s = f" (최대 {cap:,}원)" if cap else ""
-            meta_parts.insert(0, f"{int(rate*100)}% 환급{cap_s}")
+        ptype = r.get("type")
+        if ptype == "subsidy" and cap:
+            cap_used = int(used.get(r["id"], 0))
+            remaining = max(0, cap - cap_used)
+            rate_s = f"{int(rate*100)}% 환급" if rate else "100% 차감"
+            meta_parts.insert(0, f"{rate_s} (한도 {cap:,}원)")
+            # 잔액 명시 (LLM이 보고 의사결정)
+            meta_parts.append(
+                f"💳 누적 사용 {cap_used:,}원 / 한도 {cap:,}원 — **남은 잔액 {remaining:,}원**"
+                + (" ⚠️ 잔액 소진" if remaining == 0 else "")
+            )
+        elif rate:
+            # cap 없는 subsidy 등
+            meta_parts.insert(0, f"{int(rate*100)}% 환급")
 
         desc = r.get("description") or ""
         body = f"  ↳ {desc}" if desc else ""
@@ -434,6 +500,28 @@ def build_stage2_candidates(
         return [dict(r) for r in s.run(
             STAGE2_CANDIDATE_CYPHER,
             aid=aid, dong_code=dong_code, sub_category=sub_category, limit=limit
+        )]
+
+
+def build_stage2_candidates_l1_dong(
+    aid: str, dong_code: str, l1: str, limit: int = 30,
+) -> list[dict]:
+    """Fallback: 같은 dong에서 L1 카테고리 단위로 commerce POI fetch."""
+    with driver_session() as s:
+        return [dict(r) for r in s.run(
+            STAGE2_FALLBACK_L1_DONG_CYPHER,
+            aid=aid, dong_code=dong_code, l1=l1, limit=limit
+        )]
+
+
+def build_stage2_candidates_l1_district(
+    aid: str, district_code: str, l1: str, limit: int = 30,
+) -> list[dict]:
+    """Fallback: 자치구 안에서 L1 카테고리 단위로 commerce POI fetch."""
+    with driver_session() as s:
+        return [dict(r) for r in s.run(
+            STAGE2_FALLBACK_L1_DISTRICT_CYPHER,
+            aid=aid, district_code=district_code, l1=l1, limit=limit
         )]
 
 
