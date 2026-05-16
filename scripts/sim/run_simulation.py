@@ -62,8 +62,10 @@ CHECK_DIR.mkdir(parents=True, exist_ok=True)
 METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# 정책 효과 룰 (subsidy만 자치구·카테고리 매칭으로 만족도 가산)
-# 정책 효과·잔액 처리는 plan_writer.simulate_satisfaction에서 ctx.policy 기반으로 동적 처리.
+# 정책 효과는 임의 modifier로 가산하지 않는다. dawn_context.POLICY_CYPHER가 매일
+# 활성 정책을 자연어 description으로 Stage 1 프롬프트에 주입, LLM이 자율 해석.
+# subsidy 정책의 cap_per_agent 잔액만 plan_writer.simulate_satisfaction에서 추적 →
+# 다음날 Dawn에 "남은 잔액 N원" 형태로 LLM에 노출. 만족도 가산은 없음.
 # POLICY_TARGET_CATS/POLICY_DISTRICT hardcoded 폐기 (2026-05-16).
 
 
@@ -98,14 +100,21 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona)
         events = merge_to_final_events(s1, s2, ctx.persona)
 
-        # 정책 효과 + 잔액 추적
-        prev_policy_used = ctx.get_policy_used()  # 어제까지 누적
+        # 정책 cap 잔액 추적 (만족도 가산은 없음 — LLM 자율 해석)
+        prev_policy_used = ctx.get_policy_used()
         events, updated_policy_used = simulate_satisfaction(
             ctx.persona, events,
             active_policies=ctx.policy,
             policy_used=prev_policy_used,
             seed=hash(aid + str(today)),
         )
+
+        # 활성 정책 카테고리 셋 (오늘 Dawn 컨텍스트에서 추출) — 사후 측정용 라벨
+        active_policy_cats: set[str] = set()
+        for pol in ctx.policy:
+            for l1 in (pol.get("target_l1s") or []):
+                if l1:
+                    active_policy_cats.add(l1)
 
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
@@ -122,7 +131,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         sats = [e["actual_satisfaction"] for e in events if e["actual_satisfaction"] is not None]
         avg_sat = sum(sats) / len(sats) if sats else None
 
-        # 정책 적용 이벤트 카운트 (어떤 정책이든 매칭된 commerce 이벤트)
+        # 정책 적용 이벤트 카운트 (사후 분석용 라벨 — modifier 아님)
+        # _policy_match로 자치구·카테고리 둘 다 매칭된 commerce 이벤트만 카운트
         from plan_writer import _policy_match
         home5 = (ctx.persona.get("home_dong_code") or "")[:5]
         work5 = (ctx.persona.get("work_dong_code") or "")[:5]

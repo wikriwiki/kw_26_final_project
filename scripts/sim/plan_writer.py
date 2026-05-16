@@ -120,16 +120,20 @@ def simulate_satisfaction(
     policy_used: dict[str, int] | None = None,
     seed: int | None = None,
 ) -> tuple[list[dict], dict[str, int]]:
-    """각 이벤트의 actual_satisfaction 부여 + 정책별 누적 사용액 차감.
+    """각 이벤트의 actual_satisfaction 부여 + 정책 cap 잔액 추적 (만족도 가산 X).
+
+    정책 효과는 임의 modifier로 가산하지 않는다. 정책은 dawn_context.POLICY_CYPHER로
+    자연어 description 형태로 Stage 1 프롬프트에 전달되어, LLM이 행동에 자율 반영.
+
+    이 함수는 만족도 가산 대신 **subsidy 정책의 cap_per_agent 잔액만 추적**한다.
+    다음날 Dawn 컨텍스트에 "P007 누적 사용 X원 / 한도 Y원" 형태로 LLM에 노출되어
+    LLM이 잔액 보고 외출 의사결정. cap 미지정 subsidy는 추적 안 함.
 
     Args:
-        active_policies: Dawn에서 가져온 활성 정책 list. 각 dict는 다음 필드 가짐:
-            id, name, type, benefit_rate, cap_per_agent, description,
-            regions (자치구명 list), target_l1s (L1 카테고리 list)
-        policy_used: agent의 정책별 누적 사용액. {"P007": 87000, ...}
-            함수가 갱신해서 반환 (in-place mutation도 함).
+        active_policies: Dawn에서 받은 활성 정책 list (id/type/cap/rate/regions/target_l1s)
+        policy_used: 어제까지 정책별 누적 사용액. {"P007": 87000, ...}
     Returns:
-        (events, updated_policy_used)
+        (events, updated_policy_used) — events에 actual_spent도 부여됨
     """
     rng = random.Random(seed)
     top_wd = _parse_top_cats(persona.get("top_wd_json"))
@@ -144,54 +148,36 @@ def simulate_satisfaction(
         cat = e.get("category")
         if cat in INTERNAL_CATS or not e.get("poi_id"):
             e["actual_satisfaction"] = round(0.6 + rng.uniform(-0.1, 0.1), 2)
+            e["actual_spent"] = 0
             continue
 
         score = 0.5
         sub = e.get("sub_category") or ""
-        # 페르소나 top categories 매칭
         if sub in top_wd or sub in top_we or cat in top_wd or cat in top_we:
             score += 0.10
-        # 성향 가중
         if tendency == "소비형":
             score += 0.05
         elif tendency == "절약형":
             score -= 0.03
 
-        # 정책 효과 (type별 분기)
+        # 정책 cap 잔액 추적 (만족도 가산 없음 — LLM 자율 해석에 맡김)
         spend = _estimate_spend(cat, sub)
         e["actual_spent"] = spend
         for pol in policies:
+            if pol.get("type") != "subsidy":
+                continue
+            cap = pol.get("cap") or 0
+            rate = pol.get("rate") or 0.0
+            if cap <= 0 or rate <= 0:
+                continue
             if not _policy_match(e, pol, home_dist5, work_dist5):
                 continue
-            ptype = pol.get("type")
             pid = pol.get("id")
-            if ptype == "subsidy":
-                # 쿠폰·환급 — 잔액 차감
-                cap = pol.get("cap") or 0
-                rate = pol.get("rate") or 0.0
-                if cap > 0 and rate > 0:
-                    remaining = max(0, cap - used.get(pid, 0))
-                    if remaining > 0:
-                        refund = min(int(spend * rate), remaining)
-                        # 잔액 비율로 만족도 가중
-                        ratio = refund / max(1, spend * rate)
-                        score += 0.10 * ratio
-                        used[pid] = used.get(pid, 0) + refund
-                else:
-                    # cap/rate 미지정 subsidy → 무제한 +0.05
-                    score += 0.05
-            elif ptype == "regulation":
-                # 규제 — 대상 카테고리 회피 동기 (만족도 -0.05)
-                score -= 0.05
-            elif ptype == "facility":
-                # 시설 — 이용 시 +0.05
-                score += 0.05
-            elif ptype == "campaign":
-                # 홍보·캠페인 — +0.03 (인지 효과)
-                score += 0.03
-            # tax / transit / environment 등은 description으로 LLM 자율 해석
+            remaining = max(0, cap - used.get(pid, 0))
+            if remaining > 0:
+                refund = min(int(spend * rate), remaining)
+                used[pid] = used.get(pid, 0) + refund
 
-        # 노이즈
         score += rng.uniform(-0.10, 0.10)
         e["actual_satisfaction"] = round(max(0.0, min(1.0, score)), 2)
     return events, used
@@ -356,12 +342,9 @@ if __name__ == "__main__":
     s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, verbose=args.verbose)
     events = merge_to_final_events(s1, s2, ctx.persona)
 
-    print("[4/5] 만족도 룰 적용")
-    # POC 정책 P001 = 강남구(11680) + 식사/카페/디저트 L1
+    print("[4/5] 만족도 룰 적용 (정책 효과는 Stage 1 LLM 단계에서 자연어로 반영됨)")
     events = simulate_satisfaction(
         ctx.persona, events,
-        policy_target_cats={"식사", "카페", "디저트"},
-        policy_district_code="11680",
         seed=hash(args.aid + str(today)),
     )
 
