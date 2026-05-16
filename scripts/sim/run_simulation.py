@@ -62,9 +62,10 @@ CHECK_DIR.mkdir(parents=True, exist_ok=True)
 METRICS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# 정책 효과 룰 (subsidy만 자치구·카테고리 매칭으로 만족도 가산)
-POLICY_TARGET_CATS = {"식사", "카페", "디저트"}
-POLICY_DISTRICT = "11680"  # 강남구 (P001만 룰에 반영. P002는 LLM 자율 해석에 의존)
+# 정책 효과는 임의의 룰로 가산하지 않는다. dawn_context.POLICY_CYPHER 가 매일
+# 각 agent의 거주·직장 동에 적용되는 활성 정책을 자연어 description 으로 Stage 1
+# 프롬프트에 주입하고, LLM이 그 텍스트를 읽어 행동(어디로 갈지·무엇을 할지)에
+# 자율 반영한다. 정책의 "효과 크기"는 시뮬 결과(이벤트·만족도 분포)에서 사후 측정.
 
 
 # =========================================================
@@ -100,10 +101,15 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
 
         events = simulate_satisfaction(
             ctx.persona, events,
-            policy_target_cats=POLICY_TARGET_CATS,
-            policy_district_code=POLICY_DISTRICT,
             seed=hash(aid + str(today)),
         )
+
+        # 활성 정책 카테고리 셋 (오늘 Dawn 컨텍스트에서 추출) — 사후 측정용 라벨
+        active_policy_cats: set[str] = set()
+        for pol in ctx.policy:
+            for l1 in (pol.get("target_l1s") or []):
+                if l1:
+                    active_policy_cats.add(l1)
 
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
@@ -122,12 +128,14 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         sats = [e["actual_satisfaction"] for e in events if e["actual_satisfaction"] is not None]
         avg_sat = sum(sats) / len(sats) if sats else None
 
-        # 정책 적용 이벤트 카운트
+        # 정책 카테고리에 해당하는 이벤트 수 (사후 분석용 — modifier 아님)
         policy_hits = sum(
             1 for e in events
-            if e.get("poi_id") and (e.get("category") in POLICY_TARGET_CATS or
-                                    (e.get("sub_category") or "") in POLICY_TARGET_CATS)
-        )
+            if e.get("poi_id") and active_policy_cats and (
+                e.get("category") in active_policy_cats or
+                (e.get("sub_category") or "") in active_policy_cats
+            )
+        ) if active_policy_cats else 0
 
         return {
             "aid": aid, "status": "ok",

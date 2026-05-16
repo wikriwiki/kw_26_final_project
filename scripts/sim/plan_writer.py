@@ -83,16 +83,18 @@ INTERNAL_CATS = {"집", "직장"}
 
 def simulate_satisfaction(
     persona: dict, events: list[dict],
-    policy_target_cats: set[str] | None = None,
-    policy_district_code: str | None = None,
     seed: int | None = None,
 ) -> list[dict]:
-    """각 이벤트의 actual_satisfaction을 룰 기반으로 부여. 반환 = 변경된 events."""
+    """각 이벤트의 actual_satisfaction을 룰 기반으로 부여. 반환 = 변경된 events.
+
+    정책 효과는 여기서 가산하지 않는다 — 정책은 dawn_context의 POLICY_CYPHER 로
+    자연어 description 형태로 Stage 1 프롬프트에 전달되어, LLM이 어떤 이벤트를
+    만들지(어디로 갈지/무엇을 살지)에 자율적으로 반영한다. 정책 효과의 "크기"는
+    임의의 modifier 가 아니라 시뮬 결과(이벤트 분포·만족도)에서 사후 측정한다.
+    """
     rng = random.Random(seed)
     top_wd = _parse_top_cats(persona.get("top_wd_json"))
     top_we = _parse_top_cats(persona.get("top_we_json"))
-    home_dist5 = (persona.get("home_dong_code") or "")[:5]
-    work_dist5 = (persona.get("work_dong_code") or "")[:5]
     tendency = persona.get("tendency") or ""
 
     for e in events:
@@ -102,21 +104,13 @@ def simulate_satisfaction(
             continue
 
         score = 0.5
-        # 페르소나 top categories 매칭
         sub = e.get("sub_category") or ""
         if sub in top_wd or sub in top_we or cat in top_wd or cat in top_we:
             score += 0.10
-        # 성향 가중
         if tendency == "소비형":
             score += 0.05
         elif tendency == "절약형":
             score -= 0.03
-        # 정책 적용 카테고리 + 거주·직장 자치구
-        if policy_target_cats and policy_district_code:
-            if (cat in policy_target_cats or sub in policy_target_cats) and \
-               (home_dist5 == policy_district_code or work_dist5 == policy_district_code):
-                score += 0.10
-        # 노이즈
         score += rng.uniform(-0.10, 0.10)
         e["actual_satisfaction"] = round(max(0.0, min(1.0, score)), 2)
     return events
@@ -276,12 +270,9 @@ if __name__ == "__main__":
     s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, verbose=args.verbose)
     events = merge_to_final_events(s1, s2, ctx.persona)
 
-    print("[4/5] 만족도 룰 적용")
-    # POC 정책 P001 = 강남구(11680) + 식사/카페/디저트 L1
+    print("[4/5] 만족도 룰 적용 (정책 효과는 Stage 1 LLM 단계에서 자연어로 반영됨)")
     events = simulate_satisfaction(
         ctx.persona, events,
-        policy_target_cats={"식사", "카페", "디저트"},
-        policy_district_code="11680",
         seed=hash(args.aid + str(today)),
     )
 
