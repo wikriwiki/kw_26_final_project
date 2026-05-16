@@ -1,3 +1,19 @@
+"""
+validator.py
+============
+ExtractedPolicy 에 **도메인 어휘 룰**을 적용해 다음 중 하나로 분기:
+
+  - VALIDATED      → 모든 도메인 룰 통과 → ValidatedPolicy 생성
+  - NEEDS_REVIEW   → 사람 검토 필요 (모호어, 비매핑 어휘 등)
+  - FAILED         → 데이터 자체가 깨짐 (현재 이 단계에 도달했다면 거의 없음.
+                      Pydantic 이 model_validator 단계에서 이미 잡아냄)
+
+이 모듈은 **도메인 룰만** 본다. 데이터 자기일관성(date 순서, benefit 범위 등)은
+`models.py` 의 Pydantic 검증이 책임지므로 여기서 중복 검사하지 않는다.
+
+어휘 사전은 `vocabulary.py` 한 곳에서 import — 단일 진실의 원천.
+"""
+
 from __future__ import annotations
 
 import json
@@ -10,9 +26,18 @@ from pydantic import BaseModel, Field
 from src.policy_pipeline.models import (
     ExtractedPolicy,
     ValidatedPolicy,
-    validate_extracted_policy,
+    to_validated_policy,
 )
 from src.policy_pipeline.state import PolicyStatus, append_policy_status
+from src.policy_pipeline.vocabulary import (
+    VALID_INDUSTRY_TERMS,
+    VALID_TARGET_GROUP_TERMS,
+    contains_any_term,
+    filter_invalid_districts,
+    has_ambiguous_scope,
+    is_national_scope,
+    is_seoul_wide_scope,
+)
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -20,96 +45,14 @@ DEFAULT_VALIDATION_LOG_PATH = PROJECT_ROOT / "output" / "logs" / "policy_validat
 DEFAULT_EXTRACTED_POLICY_LOG_PATH = (
     PROJECT_ROOT / "output" / "logs" / "extracted_policies.jsonl"
 )
-MIN_CONFIDENCE = 0.7
-
-SEOUL_DISTRICTS = {
-    "강남구",
-    "강동구",
-    "강북구",
-    "강서구",
-    "관악구",
-    "광진구",
-    "구로구",
-    "금천구",
-    "노원구",
-    "도봉구",
-    "동대문구",
-    "동작구",
-    "마포구",
-    "서대문구",
-    "서초구",
-    "성동구",
-    "성북구",
-    "송파구",
-    "양천구",
-    "영등포구",
-    "용산구",
-    "은평구",
-    "종로구",
-    "중구",
-    "중랑구",
-}
-SEOUL_REGION_TERMS = {"서울", "서울시", "서울특별시", "서울 전체", "서울시 전체", "서울 전역"}
-BROAD_REGION_TERMS = {"전국", "대한민국", "국내 전체", "전 지역"}
-AMBIGUOUS_SCOPE_TERMS = {
-    "일부",
-    "일부 지역",
-    "일부 업종",
-    "관련 지역",
-    "관련 업종",
-    "해당 지역",
-    "해당 업종",
-    "지역 상권",
-    "인근 지역",
-    "주요 상권",
-    "취약 지역",
-}
-VALID_INDUSTRY_TERMS = {
-    "전체",
-    "전체 업종",
-    "소상공인",
-    "전통시장",
-    "음식점",
-    "외식업",
-    "카페",
-    "숙박업",
-    "도소매",
-    "도소매업",
-    "서비스업",
-    "관광업",
-    "문화",
-    "공연",
-    "편의점",
-}
-VALID_TARGET_GROUP_TERMS = {
-    "전체",
-    "전체 시민",
-    "서울시민",
-    "주민",
-    "소상공인",
-    "자영업자",
-    "청년",
-    "노인",
-    "어르신",
-    "저소득층",
-    "취약계층",
-    "관광객",
-    "학생",
-    "가구",
-}
-REQUIRED_POLICY_FIELDS = {
-    "title",
-    "summary",
-    "source_file",
-    "target_regions",
-    "target_districts",
-    "target_industries",
-}
 
 
+# ---------------------------------------------------------------------------
+# 결과 모델
+# ---------------------------------------------------------------------------
 class ValidationSeverity(str, Enum):
-    ERROR = "error"
-    NEEDS_REVIEW = "needs_review"
+    ERROR = "error"                # 데이터 자체가 깨짐 → FAILED
+    NEEDS_REVIEW = "needs_review"  # 사람 판단 필요
 
 
 class PolicyValidationIssue(BaseModel):
@@ -125,218 +68,168 @@ class PolicyValidationOutcome(BaseModel):
     checked_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
-def validate_policy(extracted_policy: ExtractedPolicy) -> PolicyValidationOutcome:
-    issues = [
-        *_validate_structure(extracted_policy),
-        *_validate_domain(extracted_policy),
-    ]
+# ---------------------------------------------------------------------------
+# 메인 API
+# ---------------------------------------------------------------------------
+def validate_policy(extracted: ExtractedPolicy) -> PolicyValidationOutcome:
+    """도메인 룰 적용 결과를 outcome 으로 돌려준다.
 
-    if any(issue.severity == ValidationSeverity.ERROR for issue in issues):
+    Pydantic 이 이미 거른 자기일관성 위반은 여기 도달 못 한다.
+    """
+    issues = _domain_checks(extracted)
+
+    if any(i.severity == ValidationSeverity.ERROR for i in issues):
         return PolicyValidationOutcome(status=PolicyStatus.FAILED, issues=issues)
 
-    if issues or extracted_policy.requires_human_review:
+    if issues or extracted.requires_human_review:
         return PolicyValidationOutcome(status=PolicyStatus.NEEDS_REVIEW, issues=issues)
 
-    validated_policy = validate_extracted_policy(
-        extracted_policy,
-        validation_notes=["Pydantic structure checks and local domain checks passed."],
+    validated = to_validated_policy(
+        extracted,
+        validation_notes=["domain checks passed"],
     )
     return PolicyValidationOutcome(
         status=PolicyStatus.VALIDATED,
         issues=issues,
-        validated_policy=validated_policy,
+        validated_policy=validated,
     )
 
 
 def validate_and_record_policy(
-    extracted_policy: ExtractedPolicy,
-    validation_log_path: Path = DEFAULT_VALIDATION_LOG_PATH,
-    extracted_policy_log_path: Path = DEFAULT_EXTRACTED_POLICY_LOG_PATH,
+    extracted: ExtractedPolicy,
+    validation_log_path: Path | None = None,
+    extracted_policy_log_path: Path | None = None,
 ) -> PolicyValidationOutcome:
-    append_extracted_policy_log(extracted_policy, extracted_policy_log_path)
-    outcome = validate_policy(extracted_policy)
-    append_validation_outcome_log(extracted_policy, outcome, validation_log_path)
+    """검증 + JSONL 로그 + state.py status append 까지 한번에."""
+    validation_log_path = validation_log_path or DEFAULT_VALIDATION_LOG_PATH
+    extracted_policy_log_path = extracted_policy_log_path or DEFAULT_EXTRACTED_POLICY_LOG_PATH
+
+    _append_extracted_policy_log(extracted, extracted_policy_log_path)
+    outcome = validate_policy(extracted)
+    _append_validation_outcome_log(extracted, outcome, validation_log_path)
     append_policy_status(
-        policy_id=extracted_policy.policy_id,
-        file_hash=extracted_policy.source_file_hash or "",
-        source_path=extracted_policy.source_file,
+        policy_id=extracted.policy_id,
+        file_hash=extracted.source_file_hash or "",
+        source_path=extracted.source_file,
         status=outcome.status,
         error_message=_issue_summary(outcome.issues),
     )
     return outcome
 
 
-def append_extracted_policy_log(
-    extracted_policy: ExtractedPolicy,
-    log_path: Path = DEFAULT_EXTRACTED_POLICY_LOG_PATH,
-) -> None:
-    _append_jsonl(
-        log_path,
-        {
-            "logged_at": datetime.now(timezone.utc).isoformat(),
-            "extracted_policy": extracted_policy.model_dump(mode="json"),
-        },
-    )
-
-
-def append_validation_outcome_log(
-    extracted_policy: ExtractedPolicy,
-    outcome: PolicyValidationOutcome,
-    log_path: Path = DEFAULT_VALIDATION_LOG_PATH,
-) -> None:
-    _append_jsonl(
-        log_path,
-        {
-            "logged_at": datetime.now(timezone.utc).isoformat(),
-            "policy_id": extracted_policy.policy_id,
-            "source_file": extracted_policy.source_file,
-            "status": outcome.status.value,
-            "issues": [issue.model_dump(mode="json") for issue in outcome.issues],
-        },
-    )
-
-
-def _validate_structure(extracted_policy: ExtractedPolicy) -> list[PolicyValidationIssue]:
+# ---------------------------------------------------------------------------
+# 도메인 룰
+# ---------------------------------------------------------------------------
+def _domain_checks(extracted: ExtractedPolicy) -> list[PolicyValidationIssue]:
     issues: list[PolicyValidationIssue] = []
 
-    if extracted_policy.effective_start_date and extracted_policy.effective_end_date:
-        if extracted_policy.effective_start_date > extracted_policy.effective_end_date:
-            issues.append(
-                _error(
-                    "effective_start_date",
-                    "effective_start_date must be before effective_end_date.",
-                )
-            )
+    # 1) 자치구 화이트리스트
+    invalid = filter_invalid_districts(extracted.target_districts)
+    if invalid:
+        issues.append(_review(
+            "target_districts",
+            f"Unknown Seoul district names: {', '.join(invalid)}",
+        ))
 
-    if extracted_policy.benefit_amount is not None and extracted_policy.benefit_amount < 0:
-        issues.append(_error("benefit_amount", "benefit_amount must not be negative."))
+    # 2) 지역 스코프가 서울로 매핑 가능한가
+    if not extracted.target_districts and not is_seoul_wide_scope(extracted.target_regions):
+        issues.append(_review(
+            "target_regions",
+            "Policy region is not mapped to Seoul districts or a clear Seoul-wide scope",
+        ))
 
-    if extracted_policy.benefit_rate is not None and not 0 <= extracted_policy.benefit_rate <= 1:
-        issues.append(_error("benefit_rate", "benefit_rate must be between 0 and 1."))
+    # 3) 전국 범위 (서울 표현 없이) — 매핑 작업 필요
+    if is_national_scope(extracted.target_regions):
+        issues.append(_review(
+            "target_regions",
+            "Broad national scope needs review before mapping to Seoul simulation units",
+        ))
 
-    missing_required = REQUIRED_POLICY_FIELDS.intersection(extracted_policy.missing_fields)
-    for field in sorted(missing_required):
-        issues.append(_review(field, "Required field is missing from the source document."))
+    # 4) 모호어
+    if has_ambiguous_scope(_all_scope_values(extracted)):
+        issues.append(_review(
+            "scope",
+            "Policy scope is broad or vague and needs human interpretation",
+        ))
 
-    if extracted_policy.confidence < MIN_CONFIDENCE:
-        issues.append(_review("confidence", "LLM confidence is below the review threshold."))
+    # 5) 업종 화이트리스트 (있을 때만)
+    if extracted.target_industries and not contains_any_term(
+        extracted.target_industries, VALID_INDUSTRY_TERMS,
+    ):
+        issues.append(_review(
+            "target_industries",
+            "Industry names do not match the current local policy vocabulary",
+        ))
 
-    for field in sorted(set(extracted_policy.ambiguous_fields)):
-        issues.append(_review(field, "LLM marked this field as ambiguous."))
+    # 6) 대상 그룹 화이트리스트 (있을 때만)
+    if extracted.target_groups and not contains_any_term(
+        extracted.target_groups, VALID_TARGET_GROUP_TERMS,
+    ):
+        issues.append(_review(
+            "target_groups",
+            "Target groups do not match the current local policy vocabulary",
+        ))
 
     return issues
 
 
-def _validate_domain(extracted_policy: ExtractedPolicy) -> list[PolicyValidationIssue]:
-    issues: list[PolicyValidationIssue] = []
-
-    invalid_districts = [
-        district
-        for district in extracted_policy.target_districts
-        if district not in SEOUL_DISTRICTS
-    ]
-    if invalid_districts:
-        issues.append(
-            _review(
-                "target_districts",
-                f"Unknown Seoul district names: {', '.join(invalid_districts)}.",
-            )
-        )
-
-    if not extracted_policy.target_districts and not _contains_any_term(
-        extracted_policy.target_regions,
-        SEOUL_REGION_TERMS,
-    ):
-        issues.append(
-            _review(
-                "target_regions",
-                "Policy region is not mapped to Seoul districts or a clear Seoul-wide scope.",
-            )
-        )
-
-    if _contains_any_term(extracted_policy.target_regions, BROAD_REGION_TERMS):
-        issues.append(
-            _review(
-                "target_regions",
-                "Broad national scope needs review before mapping to Seoul simulation units.",
-            )
-        )
-
-    if _contains_any_term(_all_scope_values(extracted_policy), AMBIGUOUS_SCOPE_TERMS):
-        issues.append(
-            _review(
-                "scope",
-                "Policy scope is broad or vague and needs human interpretation.",
-            )
-        )
-
-    if extracted_policy.target_industries and not _contains_any_term(
-        extracted_policy.target_industries,
-        VALID_INDUSTRY_TERMS,
-    ):
-        issues.append(
-            _review(
-                "target_industries",
-                "Industry names do not match the current local policy vocabulary.",
-            )
-        )
-
-    if extracted_policy.target_groups and not _contains_any_term(
-        extracted_policy.target_groups,
-        VALID_TARGET_GROUP_TERMS,
-    ):
-        issues.append(
-            _review(
-                "target_groups",
-                "Target groups do not match the current local policy vocabulary.",
-            )
-        )
-
-    return issues
-
-
-def _all_scope_values(extracted_policy: ExtractedPolicy) -> list[str]:
+def _all_scope_values(extracted: ExtractedPolicy) -> list[str]:
     return [
-        *extracted_policy.target_regions,
-        *extracted_policy.target_districts,
-        *extracted_policy.target_industries,
-        *extracted_policy.target_groups,
+        *extracted.target_regions,
+        *extracted.target_districts,
+        *extracted.target_industries,
+        *extracted.target_groups,
     ]
 
 
-def _contains_any_term(values: list[str], terms: set[str]) -> bool:
-    normalized_values = [value.replace(" ", "").lower() for value in values]
-    normalized_terms = [term.replace(" ", "").lower() for term in terms]
-    return any(
-        term in value
-        for value in normalized_values
-        for term in normalized_terms
-    )
+# ---------------------------------------------------------------------------
+# JSONL 로그 (raw_text 제외 — `dump_for_audit()` 사용)
+# ---------------------------------------------------------------------------
+def _append_extracted_policy_log(
+    extracted: ExtractedPolicy,
+    log_path: Path | None = None,
+) -> None:
+    _append_jsonl(log_path, {
+        "logged_at": datetime.now(timezone.utc).isoformat(),
+        "extracted_policy": extracted.dump_for_audit(),
+        "confidence": extracted.confidence,
+        "review_reasons": list(extracted.review_reasons),
+    })
 
 
-def _error(field: str, message: str) -> PolicyValidationIssue:
-    return PolicyValidationIssue(
-        field=field,
-        message=message,
-        severity=ValidationSeverity.ERROR,
-    )
-
-
-def _review(field: str, message: str) -> PolicyValidationIssue:
-    return PolicyValidationIssue(
-        field=field,
-        message=message,
-        severity=ValidationSeverity.NEEDS_REVIEW,
-    )
-
-
-def _issue_summary(issues: list[PolicyValidationIssue]) -> str | None:
-    if not issues:
-        return None
-    return "; ".join(f"{issue.field}: {issue.message}" for issue in issues)
+def _append_validation_outcome_log(
+    extracted: ExtractedPolicy,
+    outcome: PolicyValidationOutcome,
+    log_path: Path | None = None,
+) -> None:
+    _append_jsonl(log_path, {
+        "logged_at": datetime.now(timezone.utc).isoformat(),
+        "policy_id": extracted.policy_id,
+        "source_file": extracted.source_file,
+        "source_file_hash": extracted.source_file_hash,
+        "status": outcome.status.value,
+        "issues": [issue.model_dump(mode="json") for issue in outcome.issues],
+    })
 
 
 def _append_jsonl(log_path: Path, payload: dict) -> None:
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with log_path.open("a", encoding="utf-8") as file:
         file.write(json.dumps(payload, ensure_ascii=False) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# 작은 헬퍼
+# ---------------------------------------------------------------------------
+def _error(field: str, message: str) -> PolicyValidationIssue:
+    return PolicyValidationIssue(field=field, message=message, severity=ValidationSeverity.ERROR)
+
+
+def _review(field: str, message: str) -> PolicyValidationIssue:
+    return PolicyValidationIssue(field=field, message=message, severity=ValidationSeverity.NEEDS_REVIEW)
+
+
+def _issue_summary(issues: list[PolicyValidationIssue]) -> str | None:
+    if not issues:
+        return None
+    return "; ".join(f"{i.field}: {i.message}" for i in issues)

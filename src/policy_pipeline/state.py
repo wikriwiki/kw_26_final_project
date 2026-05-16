@@ -67,17 +67,18 @@ def create_processing_record(
 
 def append_processing_record(
     record: PolicyProcessingRecord,
-    log_path: Path = DEFAULT_STATE_LOG_PATH,
+    log_path: Path | None = None,
 ) -> None:
-    log_path.parent.mkdir(parents=True, exist_ok=True)
-    with log_path.open("a", encoding="utf-8") as file:
+    path = log_path if log_path is not None else DEFAULT_STATE_LOG_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as file:
         file.write(record.model_dump_json() + "\n")
 
 
 def append_status_for_file(
     path: Path,
     status: PolicyStatus,
-    log_path: Path = DEFAULT_STATE_LOG_PATH,
+    log_path: Path | None = None,
     error_message: str | None = None,
 ) -> PolicyProcessingRecord:
     record = create_processing_record(
@@ -94,7 +95,7 @@ def append_policy_status(
     file_hash: str,
     source_path: str,
     status: PolicyStatus,
-    log_path: Path = DEFAULT_STATE_LOG_PATH,
+    log_path: Path | None = None,
     version: int = 1,
     error_message: str | None = None,
 ) -> PolicyProcessingRecord:
@@ -114,13 +115,14 @@ def append_policy_status(
 
 
 def read_processing_records(
-    log_path: Path = DEFAULT_STATE_LOG_PATH,
+    log_path: Path | None = None,
 ) -> list[PolicyProcessingRecord]:
-    if not log_path.exists():
+    path = log_path if log_path is not None else DEFAULT_STATE_LOG_PATH
+    if not path.exists():
         return []
 
     records: list[PolicyProcessingRecord] = []
-    for line in log_path.read_text(encoding="utf-8").splitlines():
+    for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         records.append(PolicyProcessingRecord.model_validate(json.loads(line)))
