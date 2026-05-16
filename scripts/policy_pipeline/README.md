@@ -35,6 +35,35 @@ python -m scripts.policy_pipeline.inject_json data/neo4j_load/policies/P007.json
 기존 `scripts/neo4j_load/load_p007.py` 는 이 새 명령어로 forward 하는
 thin wrapper 로 남았다 (하위 호환).
 
+### 3. 스케줄 일괄 주입 (시뮬 시작 전 권장)
+여러 정책을 "언제부터 언제까지 활성화할지" 한 YAML 에 모아 적고 일괄 주입한다.
+시뮬 도중 동적 적재는 하지 않는다 — Neo4j 의 `effective_from / effective_until`
+필드와 `dawn_context.POLICY_CYPHER` 의 날짜 필터가 활성 시점을 자동 결정한다.
+
+```yaml
+# data/policies/schedule.yaml
+sim_start: 2026-05-01            # 상대 일수의 기준
+policies:
+  - file: P007.json              # 절대 날짜
+    effective_from: 2026-05-06
+    effective_until: 2026-06-30
+    deactivate_others: true      # 적재 시 다른 정책 비활성
+
+  - file: P008.json              # 시뮬 시작 + N일 (상대)
+    effective_from_day: 12
+    effective_until_day: 45
+```
+
+```bash
+python -m scripts.policy_pipeline.apply_schedule              # 적재
+python -m scripts.policy_pipeline.apply_schedule --dry-run    # 날짜만 검증
+```
+
+규칙:
+- 절대(`effective_from`) 와 상대(`effective_from_day`) 동시 지정 금지
+- 상대 일수를 하나라도 쓰면 `sim_start` 필수
+- 정책 JSON 원본은 건드리지 않음 — 적재 시점에만 override
+
 ---
 
 ## 처리 흐름

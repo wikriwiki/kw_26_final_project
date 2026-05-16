@@ -285,7 +285,48 @@ JSON 스키마 예:
 - `benefit_categories` 빈 리스트 = "모든 업종" (시뮬에서 카테고리 제한 없음으로 해석)
 - `description` 은 **반드시 자연어로 정책 효과를 설명**해야 한다 — LLM이 이 문장을 읽고 행동을 정한다.
 
-### 7-2. 자연어 텍스트 (LLM 추출 — 실험용)
+### 7-2. 스케줄 일괄 주입 (여러 정책을 시점별로 — 권장)
+
+여러 정책을 "언제부터 언제까지 활성화할지" 한 YAML 에 모아 적고 시뮬 시작 전 한 번 실행.
+시뮬 도중에는 새로 적재되지 않으므로, 매번 시뮬 시작 전에 스케줄을 한 번 갱신해서 돌리면 된다.
+
+`data/policies/schedule.yaml` 만들기 (`data/policies/schedule.example.yaml` 참고):
+
+```yaml
+sim_start: 2026-05-01
+
+policies:
+  # 절대 날짜
+  - file: P007.json
+    effective_from: 2026-05-06
+    effective_until: 2026-06-30
+    deactivate_others: true
+
+  # 상대 일수 (sim_start + N일)
+  - file: P008.json
+    effective_from_day: 12
+    effective_until_day: 45
+```
+
+실행:
+
+```bash
+# 해석된 날짜만 미리 확인 (Neo4j 안 건드림)
+python -m scripts.policy_pipeline.apply_schedule --dry-run
+
+# 실제 적재
+python -m scripts.policy_pipeline.apply_schedule
+```
+
+규칙:
+- 절대(`effective_from`) 와 상대(`effective_from_day`) 같은 칸에 동시 지정 금지
+- 상대 일수를 하나라도 쓰면 `sim_start` 필수
+- 정책 JSON 원본 파일은 건드리지 않음 — 적재 시점에 override
+- `deactivate_others: true` 면 다른 모든 정책의 `effective_until` 을 이 정책 `effective_from` 의 하루 전으로 set (정책 교체 시나리오용)
+
+시뮬 도중에는 `dawn_context.POLICY_CYPHER` 가 `$today >= pol.effective_from AND $today <= pol.effective_until` 로 매일 필터링하므로, 스케줄에 적힌 날짜가 도래해야 LLM 프롬프트에 노출된다.
+
+### 7-3. 자연어 텍스트 (LLM 추출 — 실험용)
 
 ```bash
 # Watchdog 워커 가동
