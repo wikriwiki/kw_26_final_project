@@ -22,7 +22,11 @@ python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --workers 16
 # 4. KPI 평가 (DID·환각·만족도)
 python scripts/sim/evaluate.py --start 2026-05-01 --days 3
 
-# 5. 시각화 HTML (단일 파일로 팀원 공유)
+# 5. Stage 2 fallback 카운터 집계 (sub_match · L1_fallback · 환각 · order_mismatch ...)
+python scripts/sim/aggregate_fallback_stats.py --start 2026-05-01 --days 3 \
+  --out docs/SIM_FALLBACK_STATS.md
+
+# 6. 시각화 HTML (단일 파일로 팀원 공유)
 python scripts/sim/export_visualization.py --start 2026-05-01 --days 3
 python scripts/sim/build_standalone_html.py
 ```
@@ -85,9 +89,10 @@ python scripts/sim/build_standalone_html.py
 
 | 파일 | 역할 |
 |---|---|
-| `run_simulation.py` | 메인 루프 — ThreadPoolExecutor로 agent 병렬, 일자별 chain + Night Phase 2 hook |
+| `run_simulation.py` | 메인 루프 — ThreadPoolExecutor로 agent 병렬, 일자별 chain + Night Phase 2 hook. 메트릭 jsonl에 `fb_*` (Stage 2 fallback) 카운터 8종 적재 |
 | `evaluate.py` | KPI 측정 — DID 분석, 환각률, 만족도, 정책 lifecycle |
-| `export_visualization.py` | 그래프 → JSON dump (D3.js·Leaflet 입력용) |
+| `aggregate_fallback_stats.py` | 메트릭 jsonl → `fb_*` 카운터 day별/총계 markdown 생성 (sub_match·L1_dong·L1_district·all_empty / 환각 보정·드롭 / order_mismatch / missing_picks_filled / resolve_dong_FB) |
+| `export_visualization.py` | 그래프 → JSON dump (D3.js·Leaflet 입력용). Conversation `약속`도 함께 dump |
 | `build_standalone_html.py` | dump JSON + 템플릿 → 단일 HTML (오프라인 공유 가능) |
 
 ---
@@ -181,7 +186,28 @@ python scripts/sim/night_intent_llm.py \
 
 ## 알려진 한계
 
-- 14,560 agent × 3일 풀런 기준 SGLang(Qwen3-32B-AWQ) ~13–15시간, vLLM ~22시간
+- 14,560 agent × 3일 풀런 기준 SGLang(Qwen3-32B-AWQ) ~13–15시간, vLLM ~22시간, Qwen3-14B-AWQ ~13시간
 - `LLM_MODE=qwen9b`는 토큰량 60% 절감되나 의도 분류 정확도 약간 낮음 (개발·디버그 권장)
 - `LLM_MODE=exaone`은 한국어 자연스러움 최상 (대회·시연 권장), 추론 속도는 Qwen3-32B와 유사
+- `LLM_MODE=qwen14b`은 32B 대비 38% 단축, 토큰 인풋 2배 (페르소나·정책·KNOWS_POI 누적). order 매핑 오류 빈도가 14B에서 약간 증가 → `fb_order_mismatch` 카운터로 모니터링 필수
 - KNOWS_POI 단일 직접 엣지 캐시 사용 — 시뮬 도중 in-place 갱신만 (`visit_count`, `affinity`)되고 신규 인지는 추천 의도 분류에서만 추가됨
+
+## 디버깅 메모 — Stage 2 환각·order 매핑
+
+`fb_*` 카운터로 다음 8종 fallback을 추적:
+
+| 카운터 | 의미 |
+|---|---|
+| `fb_resolve_dong` | LLM이 emit한 zone 코드가 8자리 숫자 아니어서 persona 동코드로 fallback. 정상 풀런에서 0이어야 함 |
+| `fb_cand_sub_match` | Stage 2 후보풀에 (dong, sub_category) 정확 매칭 성공 |
+| `fb_cand_l1_dong` | sub_cat 매칭 실패 → 같은 dong, L1 카테고리로 광역 매칭 |
+| `fb_cand_l1_district` | dong에 commerce POI 부족 → 자치구 단위 광역 매칭 (희소) |
+| `fb_cand_all_empty` | 모든 fallback 실패 → 이벤트 드롭 (소규모 동의 sub_cat 부재) |
+| `fb_hallucinations_corrected` | LLM이 해당 order의 후보풀에 없는 POI 픽 → 같은 order의 Top-5에서 random 선택 |
+| `fb_hallucinations_dropped` | 해당 order에 후보풀 자체 없음 → drop |
+| `fb_order_mismatch` | LLM이 다른 order의 후보풀 POI를 가져옴 (카테고리 매핑 흐트러짐 진단용). 보정은 `hallucinations_corrected`에 포함 |
+| `fb_missing_picks_filled` | LLM이 일부 order에 picks 안 만듦 → random Top-5 자동 채움 |
+
+**중요 — Stage 2 valid_pois는 order별로 검증**: 모든 이벤트 후보를 flat union으로 합치면 카테고리 매핑이 깨진 채로 통과될 수 있음 (예: 카페 이벤트에 한식집 POI). `cands_by_order[pick.order]`에 속하는지만 valid로 인정.
+
+**Dong 코드는 8자리** (행정안전부 표준, KOSIS). `:Dong` 노드 코드 + `home_dong_code`/`work_dong_code` persona 속성 모두 8자리. zone anchor 검증도 `len(dong)==8`.
