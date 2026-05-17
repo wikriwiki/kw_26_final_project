@@ -159,14 +159,14 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 
 [출력 형식]
 다음 JSON 스키마만 출력. 다른 텍스트 금지.
-zone anchor의 dong_code는 **반드시 10자리 숫자**. 페르소나 블록의 거주 동 코드·직장 동 코드를 그대로 복사할 것.
+zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 페르소나 블록의 거주 동 코드·직장 동 코드를 그대로 복사할 것.
 플레이스홀더 텍스트 (`<home_dong_code>` 등)는 **금지**. 실제 숫자만.
 
 예시 (실제 dong_code는 페르소나 블록 참조):
 {"events": [
   {"time":"08:10","anchor":"residence","category":"집","intent":"기상"},
-  {"time":"08:50","anchor":"zone:1168010300","category":"편의점","sub_category":"편의점","intent":"출근길 음료"},
-  {"time":"12:00","anchor":"zone:1168011100","category":"식사","sub_category":"한식","intent":"점심"},
+  {"time":"08:50","anchor":"zone:11680103","category":"편의점","sub_category":"편의점","intent":"출근길 음료"},
+  {"time":"12:00","anchor":"zone:11680111","category":"식사","sub_category":"한식","intent":"점심"},
   ...
 ]}"""
 

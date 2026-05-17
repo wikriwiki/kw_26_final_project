@@ -263,12 +263,48 @@ def fetch_memories(s, agent_ids: list[str]):
                 "fatigue": r["fat"], "yest_sat": r["yest_sat"],
             }
 
+    # 약속 (Conversation intent='약속') — 양쪽 agent 모두에게 표시되도록 PARTICIPATES_IN으로 fetch
+    appointments = defaultdict(list)
+    for r in s.run("""
+        MATCH (a:Agent)-[part:PARTICIPATES_IN]->(c:Conversation {intent:'약속'})
+        WHERE a.id IN $aids
+        OPTIONAL MATCH (c)-[:MENTIONS_POI]->(meet:POI)
+        WITH a, part, c, meet,
+             CASE WHEN part.role = 'initiator' THEN c.recipient_id ELSE c.initiator_id END AS counterpart
+        RETURN a.id AS aid,
+               c.id AS conv_id,
+               toString(c.day) AS day,
+               c.target_day_offset AS offset_days,
+               c.target_time AS target_time,
+               c.meeting_location_hint AS hint,
+               meet.id AS meeting_poi_id,
+               meet.name AS meeting_poi_name,
+               counterpart AS with_agent,
+               part.role AS role,
+               c.summary AS summary
+        ORDER BY c.day ASC
+    """, aids=agent_ids):
+        appointments[r["aid"]].append({
+            "conv_id": r["conv_id"],
+            "day": r["day"],
+            "offset_days": r["offset_days"],
+            "target_time": r["target_time"],
+            "hint": r["hint"],
+            "meeting_poi_id": r["meeting_poi_id"],
+            "meeting_poi_name": r["meeting_poi_name"] or "",
+            "with_agent": r["with_agent"],
+            "role": r["role"],
+            "summary": r["summary"],
+        })
+    print(f"  appointments: {sum(len(v) for v in appointments.values()):,}")
+
     return {
         aid: {
             "memories": all_memories.get(aid, []),    # 전체 (visited + rumor + sns + policy)
             "visited": visited.get(aid, []),          # 호환성: visited만
             "knows_poi": knows_poi.get(aid, []),
             "state": state.get(aid, {}),
+            "appointments": appointments.get(aid, []),
         }
         for aid in agent_ids
     }

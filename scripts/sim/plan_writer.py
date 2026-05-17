@@ -160,16 +160,15 @@ def simulate_satisfaction(
         elif tendency == "절약형":
             score -= 0.03
 
-        # 정책 cap 잔액 추적 (만족도 가산 없음 — LLM 자율 해석에 맡김)
+        # 정책 cap 잔액 추적 (만족도 가산 없음 — LLM 자율 해석)
+        # type 무관 cap+rate 있으면 추적 (subsidy/voucher/cashback 등 모두 포함)
         spend = _estimate_spend(cat, sub)
         e["actual_spent"] = spend
         for pol in policies:
-            if pol.get("type") != "subsidy":
-                continue
             cap = pol.get("cap") or 0
             rate = pol.get("rate") or 0.0
             if cap <= 0 or rate <= 0:
-                continue
+                continue   # 잔액 추적 대상 아님 (regulation/facility/campaign 등)
             if not _policy_match(e, pol, home_dist5, work_dist5):
                 continue
             pid = pol.get("id")

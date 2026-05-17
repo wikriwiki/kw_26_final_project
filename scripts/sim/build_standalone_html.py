@@ -64,9 +64,15 @@ def main():
     if (!AGENTS || !TIMELINE) throw new Error('embedded data missing');
     AGENTS.forEach(ag => agentById[ag.id] = ag);
     document.getElementById('total-agents').textContent = AGENTS.length.toLocaleString();
-    let totMem = 0;
-    for (const aid in MEMORIES) totMem += (MEMORIES[aid].visited || []).length;
+    let totMem = 0, totAppt = 0, totRumor = 0;
+    for (const aid in MEMORIES) {
+      totMem += (MEMORIES[aid].visited || []).length;
+      totAppt += (MEMORIES[aid].appointments || []).length;
+      totRumor += (MEMORIES[aid].memories || []).filter(m => m.type === 'rumor').length;
+    }
     document.getElementById('total-mem').textContent = totMem.toLocaleString();
+    const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = totAppt.toLocaleString();
+    const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = totRumor.toLocaleString();
     initMap();
     buildMarkers();
     document.getElementById('frame-slider').max = Math.max(0, TIMELINE.length - 1);

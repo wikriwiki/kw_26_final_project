@@ -154,6 +154,16 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "policy_hits": policy_hits,
             "s1_attempts": m1["attempt"] + 1,
             "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
+            # Stage 2 fallback 카운트 (사후 분석용)
+            "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),
+            "fb_cand_sub_match": m2.get("cand_sub_match", 0),
+            "fb_cand_l1_dong": m2.get("cand_fallback_l1_dong", 0),
+            "fb_cand_l1_district": m2.get("cand_fallback_l1_district", 0),
+            "fb_cand_all_empty": m2.get("cand_all_empty", 0),
+            "fb_hallucinations_corrected": m2.get("hallucinations_corrected", 0),
+            "fb_hallucinations_dropped": m2.get("hallucinations_dropped", 0),
+            "fb_order_mismatch": m2.get("order_mismatch", 0),
+            "fb_missing_picks_filled": m2.get("missing_picks_filled", 0),
         }
     except Exception as e:
         return {
