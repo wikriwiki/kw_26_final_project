@@ -13,20 +13,28 @@ Neo4j Day 0 그래프가 준비된 다음, **매일 시뮬을 돌리는 본체**
 # 1. LLM 서버 띄우기
 bash scripts/serve/serve_qwen32b.sh    # 또는 qwen9b / exaone
 
-# 2. 시뮬 (테스트: 강남구 100명 × 3일)
+# 2. (선택) 정책 주입 — 자연어 .txt 또는 JSON 한 건 적재
+#    Dawn POLICY_CYPHER가 자동 픽업, Stage 1 프롬프트에 description 그대로 주입
+python -m scripts.policy_pipeline.inject_json \
+  data/neo4j_load/policies/P001.json \
+  --deactivate-others-from 2026-05-01
+# 또는 watchdog 모드 — data/policies/inbox/ 에 .txt 드롭하면 자동 처리
+python -m scripts.policy_pipeline.watch
+
+# 3. 시뮬 (테스트: 강남구 100명 × 3일)
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --gu 11680 --limit 100 --workers 16
 
-# 3. 풀런 (14,560 agent × 3일, ~13–22시간)
+# 4. 풀런 (14,560 agent × 3일, ~13–22시간)
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --workers 16
 
-# 4. KPI 평가 (DID·환각·만족도)
+# 5. KPI 평가 (DID·환각·만족도)
 python scripts/sim/evaluate.py --start 2026-05-01 --days 3
 
-# 5. Stage 2 fallback 카운터 집계 (sub_match · L1_fallback · 환각 · order_mismatch ...)
+# 6. Stage 2 fallback 카운터 집계 (sub_match · L1_fallback · 환각 · order_mismatch ...)
 python scripts/sim/aggregate_fallback_stats.py --start 2026-05-01 --days 3 \
   --out docs/SIM_FALLBACK_STATS.md
 
-# 6. 시각화 HTML (단일 파일로 팀원 공유)
+# 7. 시각화 HTML (단일 파일로 팀원 공유)
 python scripts/sim/export_visualization.py --start 2026-05-01 --days 3
 python scripts/sim/build_standalone_html.py
 ```
@@ -76,14 +84,31 @@ python scripts/sim/build_standalone_html.py
 | `plan_writer.py` | Plan 적재 + 만족도 룰 + Night Phase 1·3 (visited Memory, State CREATE) |
 | `llm_client.py` | SGLang/vLLM 자동감지 + 모델 레지스트리 (qwen32b/qwen9b/exaone) |
 
-### Night (상호작용)
+### Night (상호작용) — 노션 다이어그램 12박스 ↔ 코드 1:1 정합
 
 | 파일 | 역할 |
 |---|---|
 | `night_interaction.py` | Phase 2 — 상호작용 대상 선정 (Exposure·Relationship·Urgency 3축 + 그리디 매칭) |
-| `night_intent_llm.py` | Phase 2 — 의도 분류 LLM (약속/이슈/추천/기타) + Conversation·Memory{rumor} 적재 |
+| `night_intent_llm.py` | Phase 2 — 의도 분류 LLM **v2** (약속/이슈/추천/기타) + Conversation·Memory{rumor} 적재. 약속은 `target_day_offset` + `should_inject=true` 로 다음날 Dawn ④에서 자동 주입 |
 
-> Night Phase 2의 상세 설계는 [`docs/NIGHT_INTERACTION_REPORT.md`](../../docs/NIGHT_INTERACTION_REPORT.md), 노션 다이어그램 ↔ 코드 1:1 매핑은 [`docs/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/NIGHT_NOTION_DIAGRAM_MAPPING.md) 참고.
+> Night Phase 2의 상세 설계는 [`docs/NIGHT_INTERACTION_REPORT.md`](../../docs/NIGHT_INTERACTION_REPORT.md), 노션 다이어그램 12박스 ↔ 코드 1:1 매핑은 [`docs/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/NIGHT_NOTION_DIAGRAM_MAPPING.md) 참고. 의도분류 v2 정합 적용 완료 (2026-05).
+
+### Policy Pipeline (외부 모듈) — 시뮬 Dawn에 자동 연결
+
+정책은 **`scripts/policy_pipeline/`** 의 별도 파이프라인으로 사전 주입. Dawn `POLICY_CYPHER` 가 매일 활성 정책을 자동 픽업하여 Stage 1 프롬프트에 자연어 description 그대로 주입.
+
+| 모듈 | 역할 |
+|---|---|
+| `scripts.policy_pipeline.inject_json` | 단일 JSON 정책 적재 + Scope/캐시 무효화/summary 잡 등록 (`scripts/neo4j_load/load_p007.py` 등 hardcoded loader 폐기) |
+| `scripts.policy_pipeline.pipeline.process_policy_file` | 자연어 `.txt` → LLM 추출 → 검증된 Pydantic 모델 → Neo4j 적재 |
+| `scripts.policy_pipeline.watch` | `data/policies/inbox/` 드롭 폴더 watchdog 데몬 — 자동 처리 + `processed/` 또는 `failed/` 로 archive |
+
+**시뮬-정책 입출력 계약**:
+- LLM 자율 해석 (정책 effect 임의 modifier 없음).
+- `subsidy`/`voucher` 의 `cap_per_agent`·`benefit_rate` 만 `plan_writer.simulate_satisfaction` 에서 추적 → 다음날 Dawn 에 "남은 잔액 N원" 형태로 노출. 무한 사용 방지.
+- 거주·직장 동 또는 자치구에 `[:applied_to]` 된 정책만 해당 agent에게 적용.
+
+> 정책 파이프라인 상세는 `scripts/policy_pipeline/README.md` 또는 프로젝트 루트 `SETUP.md` 참고.
 
 ### 메인 루프 + 평가 + 시각화
 
@@ -178,6 +203,8 @@ python scripts/sim/night_intent_llm.py \
 | [`docs/NEO4J_SETUP_GUIDE.md`](../../docs/NEO4J_SETUP_GUIDE.md) | Neo4j Day 0 환경·DDL·적재 통합 가이드 |
 | [`docs/NIGHT_INTERACTION_REPORT.md`](../../docs/NIGHT_INTERACTION_REPORT.md) | Night Phase 2 통합 보고 (v2 의도분류 정합 반영) |
 | [`docs/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/NIGHT_NOTION_DIAGRAM_MAPPING.md) | 노션 다이어그램 12박스 ↔ 코드 1:1 매핑 |
+| [`scripts/policy_pipeline/`](../policy_pipeline/) | 정책 주입 파이프라인 (자연어 .txt watchdog + LLM 추출 + 검증 + Neo4j 적재) |
+| [`SETUP.md`](../../SETUP.md) | 전체 설치·실행 통합 가이드 (정책 파이프라인 포함) |
 | [`docs/SGLANG_MIGRATION.md`](../../docs/SGLANG_MIGRATION.md) | vLLM → SGLang 마이그레이션 (RadixAttention·structured output) |
 | [`docs/schedule_generation_plan/agent_ontology.md`](../../docs/schedule_generation_plan/agent_ontology.md) | 정적 노드 5종 + 엣지 명세 |
 | [`docs/schedule_generation_plan/runtime_ontology.md`](../../docs/schedule_generation_plan/runtime_ontology.md) | 런타임 노드 5종 (State/Plan/Memory/Conversation/Policy) + 엣지 |
