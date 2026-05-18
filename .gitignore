@@ -29,7 +29,7 @@ output/
 !output/sim/visualization/
 !output/sim/visualization/index.html
 output/sim/visualization/*.json
-output/sim/visualization/sim_standalone.html
+# sim_standalone.html은 Git LFS로 추적 (97MB+ 단일 시각화 번들)
 
 # Claude state (Drive 동기화 전용, git 추적 X)
 _claude_state/
