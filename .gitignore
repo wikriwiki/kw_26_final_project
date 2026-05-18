@@ -23,6 +23,13 @@ data/neo4j_load/pois/*.xlsx
 data/neo4j_load/pois/건축물대장/
 data/neo4j_load/agents/agents_final.json
 output/
+# 시각화 템플릿 (index.html)은 git 추적, JSON dump·standalone HTML은 무시
+!output/
+!output/sim/
+!output/sim/visualization/
+!output/sim/visualization/index.html
+output/sim/visualization/*.json
+output/sim/visualization/sim_standalone.html
 
 # Claude state (Drive 동기화 전용, git 추적 X)
 _claude_state/

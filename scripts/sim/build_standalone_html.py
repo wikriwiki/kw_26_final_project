@@ -23,6 +23,7 @@ VIZ_DIR = Path(os.environ.get(
 ))
 LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+LEAFLET_HEAT_JS_URL = "https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"
 
 
 def fetch_url(url: str) -> str:
@@ -36,6 +37,7 @@ def main():
 
     leaflet_css = fetch_url(LEAFLET_CSS_URL)
     leaflet_js = fetch_url(LEAFLET_JS_URL)
+    leaflet_heat_js = fetch_url(LEAFLET_HEAT_JS_URL)
 
     payload = {}
     for key, fname in [("agents", "agents.json"),
@@ -104,12 +106,14 @@ def main():
     embed_block = (
         f"<style>\n{leaflet_css}\n</style>\n"
         f"<script>\n{leaflet_js}\n</script>\n"
+        f"<script>\n{leaflet_heat_js}\n</script>\n"
         f"{embedded_script}"
     )
     standalone = (
         standalone.replace(
             '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>', "")
         .replace('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>', "")
+        .replace('<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>', "")
     )
     head_close = standalone.find("</head>")
     standalone = standalone[:head_close] + embed_block + standalone[head_close:]

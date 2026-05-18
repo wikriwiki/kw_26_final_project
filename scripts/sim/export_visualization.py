@@ -123,6 +123,7 @@ def fetch_timeline(s, agent_ids: list[str]):
                toString(i.time) AS time, i.anchor AS anchor,
                i.category AS cat, i.sub_category AS sub_cat,
                i.intent AS intent, i.actual_satisfaction AS sat,
+               i.actual_spent AS spent,
                poi.id AS poi_id, poi.name AS poi_name,
                poi.lon AS lon, poi.lat AS lat, poi.type AS poi_type,
                c.parent AS l1
@@ -137,6 +138,7 @@ def fetch_timeline(s, agent_ids: list[str]):
             "time": r["time"][:5] if r["time"] else "00:00",  # HH:MM
             "anchor": r["anchor"], "cat": r["cat"], "sub": r["sub_cat"],
             "intent": r["intent"], "sat": r["sat"],
+            "spent": r["spent"] or 0,
             "poi_id": r["poi_id"], "poi_name": r["poi_name"] or "",
             "lon": r["lon"], "lat": r["lat"],
             "poi_type": r["poi_type"], "l1": r["l1"],
@@ -176,6 +178,7 @@ def fetch_timeline(s, agent_ids: list[str]):
                         "l1": current.get("l1"),
                         "intent": current["intent"],
                         "sat": current["sat"],
+                        "spent": current.get("spent") or 0,
                         "anchor": current["anchor"],
                     })
             frames.append({
