@@ -196,6 +196,28 @@ def test_drop_clamped_to_unit_interval():
     assert d == pytest.approx(0.0, abs=0.01)
 
 
+def test_saturation_no_overflow_on_extreme_v30():
+    """비정상적으로 큰 v30 (예: 같은 가게 1만 번 방문) 가 들어와도 OverflowError 안 남."""
+    d = compute_desire(_inputs(
+        affinity=0.8, avg_satisfaction=0.8,
+        days_since_visit=14, visits_in_last_30d=10000, cat_saturation_n=2,
+    ))
+    assert math.isfinite(d)
+    # saturation ≈ 0 이라 desire 는 novelty(0)+baseline*recency*0 ≈ 0
+    assert d == pytest.approx(0.0, abs=0.01)
+
+
+def test_recency_no_overflow_on_extreme_days():
+    """매우 큰 days_since 도 OverflowError 안 남 (exp(-inf) = 0)."""
+    d = compute_desire(_inputs(
+        affinity=0.5, avg_satisfaction=0.5,
+        days_since_visit=10000,
+    ))
+    assert math.isfinite(d)
+    # recency ≈ 1 (완전 회복)
+    assert d > 0.3
+
+
 # ---------------------------------------------------------------------------
 # 7. inputs_from_candidate_row — Cypher RETURN dict 변환
 # ---------------------------------------------------------------------------

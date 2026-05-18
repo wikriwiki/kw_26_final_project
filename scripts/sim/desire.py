@@ -74,11 +74,19 @@ def _recency(days_since: float | None, tau: float, drop: float) -> float:
 
 
 def _saturation(v30: int, sat_n: float) -> float:
-    """시그모이드 — v30=sat_n 에서 0.5, v30 ≫ sat_n 이면 빠르게 0."""
+    """시그모이드 — v30=sat_n 에서 0.5, v30 ≫ sat_n 이면 빠르게 0.
+
+    math.exp overflow 안전 처리: z 가 ±500 넘으면 극값 clamp.
+    """
     if sat_n <= 0:
         # 비정상 입력 — 페널티 없음
         return 1.0
-    return 1.0 / (1.0 + math.exp((v30 - sat_n) / 2.0))
+    z = (v30 - sat_n) / 2.0
+    if z > 500:
+        return 0.0
+    if z < -500:
+        return 1.0
+    return 1.0 / (1.0 + math.exp(z))
 
 
 def _novelty(days_since: float | None) -> float:

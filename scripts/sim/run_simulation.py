@@ -12,13 +12,21 @@
   $SIM_OUTPUT_DIR/metrics/day_<day>.jsonl        # agent별 토큰·소요·만족도·정책hits
 
 CLI:
-  python run_simulation.py --start 2026-05-01 --days 3 --workers 16
+  python run_simulation.py --start 2026-05-01 --days 3 --workers 32
   python run_simulation.py --start 2026-05-01 --days 1 --gu 11680 --limit 100  # 강남 100명 1일
+
+권장 workers (A100 80GB + Qwen3-32B-AWQ 기준):
+  · 16: 안전 baseline, GPU 사용률 ~70%
+  · 32: sweet spot, throughput +30~50%, KV cache 안전
+  · 48: 최대치, throughput +50~80%, mem-fraction 0.88 거의 가득
+  · 64+: SGLang 의 KV pool 한계 도달 시 cache evict 발생 (역효과)
+  실제 sweet spot 은 `curl :30000/metrics` 의 `num_running_reqs` 모니터링으로 확인.
 
 환경변수:
   SIM_OUTPUT_DIR  : 출력 디렉토리 (기본 ~/sim_output)
-  LLM_MODE        : qwen32b | qwen9b | exaone (기본 qwen32b)
+  LLM_MODE        : qwen32b | qwen14b | qwen9b | exaone (기본 qwen32b)
   SGLANG_BASE_URL : LLM 서버 URL (기본 http://localhost:30000/v1, vLLM 8000 폴백)
+  NEO4J_POOL_SIZE : Neo4j 드라이버 connection pool 크기 (기본 100, workers 의 2~3배 권장)
 """
 from __future__ import annotations
 

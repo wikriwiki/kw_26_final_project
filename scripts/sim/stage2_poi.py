@@ -35,6 +35,9 @@ from dawn_context import (  # noqa: E402
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 
+# desire 함수 — 모듈 레벨 import (hot path 에서 함수 내 import 회피)
+from scripts.sim.desire import compute_desire, inputs_from_candidate_row  # noqa: E402
+
 try:
     from pydantic import BaseModel, Field
 except ImportError:
@@ -81,20 +84,17 @@ INTERNAL_CATS = {"집", "직장"}  # residence/workplace anchor에서 사용. PO
 
 
 def _score_and_sort_by_desire(cands: list[dict], today: date) -> list[dict]:
-    """각 cand 에 desire 점수 부여 후 내림차순 정렬.
+    """각 cand 에 desire 점수 부여 후 내림차순 정렬 (in-place).
 
     Cypher RETURN 의 last_visit 은 neo4j.time.Date (or None) — datetime.date 로
     변환 후 days_since_visit 계산. desire 함수가 카테고리별 tau/drop/sat_n 을
     cand row 에서 직접 받음 (Category 노드 backfill 안 됐으면 fallback 사용).
     """
-    from datetime import date as _date_cls
-    from scripts.sim.desire import compute_desire, inputs_from_candidate_row
-
     for c in cands:
         last = c.get("last_visit")
         if last is not None and hasattr(last, "to_native"):
             last = last.to_native()
-        if last is not None and isinstance(last, _date_cls):
+        if last is not None and isinstance(last, date):
             days_since = (today - last).days
         else:
             days_since = None

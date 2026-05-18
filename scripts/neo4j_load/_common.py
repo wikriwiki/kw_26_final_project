@@ -1,12 +1,14 @@
 """Neo4j 적재 공용 헬퍼.
 
 - .env 또는 환경변수에서 NEO4J_* 로드
-- driver 컨텍스트 매니저
+- driver 컨텍스트 매니저 (싱글톤, thread-safe — 매 호출마다 driver 재생성 안 함)
 - 벌크 UNWIND 헬퍼
 """
 from __future__ import annotations
 
+import atexit
 import os
+import threading
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable
@@ -48,21 +50,79 @@ def get_neo4j_config() -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Driver 싱글톤 (thread-safe)
+# ---------------------------------------------------------------------------
+# Bolt driver 는 자체 connection pool 을 가짐 — 한 프로세스에 1개만 만들고
+# 모든 thread / agent 가 공유하면 connection 재사용 효과 극대화.
+# 시뮬 워크로드는 workers=16~32 × agent 한 명당 5~10 session = 매분 수백~수천 회
+# session 생성. driver 를 매번 만들면 인증·핸드셰이크 비용이 추가.
+# ---------------------------------------------------------------------------
+_driver_lock = threading.Lock()
+_driver_cache: dict[str, Driver] = {}     # uri → Driver
+_atexit_registered = False
+
+
+def _get_or_create_driver(cfg: dict) -> Driver:
+    """URI 별 싱글톤 driver. 첫 호출에만 생성, 이후 재사용."""
+    global _atexit_registered
+    uri = cfg["uri"]
+
+    # double-checked locking
+    drv = _driver_cache.get(uri)
+    if drv is not None:
+        return drv
+
+    with _driver_lock:
+        drv = _driver_cache.get(uri)
+        if drv is not None:
+            return drv
+
+        if not cfg["password"]:
+            raise RuntimeError(
+                "NEO4J_PASSWORD not set. Add to data/neo4j_load/.env "
+                "or env. Example: NEO4J_PASSWORD=your_password"
+            )
+
+        # connection pool 크기를 workers 고려해 충분히 (기본 100)
+        pool_size = int(os.environ.get("NEO4J_POOL_SIZE", "100"))
+        drv = GraphDatabase.driver(
+            cfg["uri"], auth=(cfg["user"], cfg["password"]),
+            max_connection_pool_size=pool_size,
+            connection_acquisition_timeout=60.0,
+        )
+        _driver_cache[uri] = drv
+
+        if not _atexit_registered:
+            atexit.register(close_all_drivers)
+            _atexit_registered = True
+
+    return drv
+
+
+def close_all_drivers() -> None:
+    """프로세스 종료 시 또는 명시적 호출 — 모든 driver 정리."""
+    with _driver_lock:
+        for drv in _driver_cache.values():
+            try:
+                drv.close()
+            except Exception:
+                pass
+        _driver_cache.clear()
+
+
 @contextmanager
 def driver_session(database: str | None = None):
+    """세션 컨텍스트 — driver 는 싱글톤 재사용, 세션만 매번 생성/종료.
+
+    Bolt 의 session() 은 가볍다 — connection pool 에서 conn 한 개 잠시 빌리는 정도.
+    driver() 가 진짜 비싼 작업(인증·라우팅 테이블) 인데 그건 한 번만.
+    """
     cfg = get_neo4j_config()
-    if not cfg["password"]:
-        raise RuntimeError(
-            "NEO4J_PASSWORD not set. Add to data/neo4j_load/.env "
-            "or env. Example: NEO4J_PASSWORD=your_password"
-        )
-    drv: Driver = GraphDatabase.driver(cfg["uri"], auth=(cfg["user"], cfg["password"]))
+    drv = _get_or_create_driver(cfg)
     db = database or cfg["database"]
-    try:
-        with drv.session(database=db) as session:
-            yield session
-    finally:
-        drv.close()
+    with drv.session(database=db) as session:
+        yield session
 
 
 def bulk_run(session, cypher: str, batch: list[dict], batch_size: int = 5000, **params):
