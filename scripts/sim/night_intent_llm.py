@@ -303,6 +303,7 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
                 "target_day_offset": parsed.plan_signal.target_day_offset,
                 "target_time": parsed.plan_signal.target_time,
                 "meeting_location_hint": parsed.plan_signal.meeting_location_hint,
+                "reasoning": parsed.reasoning,   # ← Conversation.reasoning + Memory.summary 로 흐름
                 # 매칭 점수(importance 계산용 — 노션 §9)
                 "exposure_score": data.get("exp", 0.0),
                 "relationship_score": data.get("rel", 0.0),
