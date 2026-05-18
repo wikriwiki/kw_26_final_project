@@ -97,7 +97,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
-        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona)
+        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
         events = merge_to_final_events(s1, s2, ctx.persona)
 
         # 정책 cap 잔액 추적 (만족도 가산은 없음 — LLM 자율 해석)

@@ -80,18 +80,48 @@ def resolve_dong(event_anchor: str, persona: dict, stats: dict | None = None) ->
 INTERNAL_CATS = {"집", "직장"}  # residence/workplace anchor에서 사용. POI 미고정
 
 
+def _score_and_sort_by_desire(cands: list[dict], today: date) -> list[dict]:
+    """각 cand 에 desire 점수 부여 후 내림차순 정렬.
+
+    Cypher RETURN 의 last_visit 은 neo4j.time.Date (or None) — datetime.date 로
+    변환 후 days_since_visit 계산. desire 함수가 카테고리별 tau/drop/sat_n 을
+    cand row 에서 직접 받음 (Category 노드 backfill 안 됐으면 fallback 사용).
+    """
+    from datetime import date as _date_cls
+    from scripts.sim.desire import compute_desire, inputs_from_candidate_row
+
+    for c in cands:
+        last = c.get("last_visit")
+        if last is not None and hasattr(last, "to_native"):
+            last = last.to_native()
+        if last is not None and isinstance(last, _date_cls):
+            days_since = (today - last).days
+        else:
+            days_since = None
+        inputs = inputs_from_candidate_row(c, days_since)
+        c["desire"] = compute_desire(inputs)
+        c["days_since_visit"] = days_since
+    cands.sort(key=lambda c: -c["desire"])
+    return cands
+
+
 def fetch_candidates_for_events(
-    aid: str, events: list, persona: dict, k_per_event: int = 15,
+    aid: str, events: list, persona: dict, today: date,
+    k_per_event: int = 15,
     stats: dict | None = None,
 ) -> dict[int, list[dict]]:
     """이벤트별 candidate POI dict. key=order, value=list of candidate dicts.
 
-    **같은 날 같은 (dong, sub_category) 이벤트가 N개면** 그룹으로 묶어 후보 풀을
-    N×k_per_event 크기로 한 번에 fetch 한 뒤 round-robin 분할 — 같은 POI 가
-    두 이벤트 후보 풀에 동시에 등장하지 않게 한다.
+    두 가지 동시 처리:
 
-    예) 아침·점심 모두 한식이면 같은 dong의 한식 후보 30개를 fetch → 짝수 idx 는
-        아침 풀, 홀수 idx 는 점심 풀로 분할 → LLM 이 둘 다 같은 가게를 픽할 수 없음.
+    (1) **다른 날 반복 차단** — 각 cand 의 `desire` 점수 계산 후 desire 내림차순
+        정렬. desire = baseline(affinity, sat) × recency(Δ) × saturation(v30) + novelty.
+        어제 방문한 단골은 recency 가 낮아 desire 가 새 가게보다 낮을 수 있음 →
+        같은 단골 매일 픽 패턴 약화.
+
+    (2) **같은 날 반복 차단** — 같은 (dong, sub_category) 이벤트가 N개면 후보를
+        N×k_per_event 크기로 한 번에 fetch + desire 정렬 후 round-robin 분할.
+        같은 POI 가 두 이벤트 풀에 동시 등장 못 함.
 
     stats: fallback 카운트 dict (mutate). 누적 키:
       - resolve_dong_placeholder_fallback
@@ -152,10 +182,13 @@ def fetch_candidates_for_events(
             if not cands:
                 s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
 
+        # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
+        cands = _score_and_sort_by_desire(cands or [], today)
+
         if n == 1:
-            out[event_idxs[0]] = (cands or [])[:k_per_event]
+            out[event_idxs[0]] = cands[:k_per_event]
         else:
-            buckets = _split_pool_round_robin(cands or [], n, k_per_event)
+            buckets = _split_pool_round_robin(cands, n, k_per_event)
             for bucket, ev_i in zip(buckets, event_idxs):
                 out[ev_i] = bucket
             if cands:
@@ -200,9 +233,10 @@ SYSTEM_S2 = """당신은 Stage 1에서 결정된 의도 시퀀스를 받아, 각
 - **각 이벤트는 자기 자신의 candidates 풀에서만 선택**. 다른 이벤트의 후보를 가져오지 마세요.
 - order는 **0부터 시작하는 정수** (이벤트 0, 이벤트 1, …). 사용자 블록의 "### 이벤트 N" 의 N 그대로 사용.
 - 후보 POI 중에서만 선택. 다른 ID 지어내지 마세요.
-- 같은 카테고리에서 단골(known=true, visit_count>0, affinity 높음)을 살짝 선호하되, 가끔 새 곳도 시도 (탐색·다양성).
-- 만족도(avg_satisfaction) ≤ 0.3 인 POI는 회피.
-- 거리(km) 가까운 것 우선이지만, 단골 선호와 균형.
+- 후보 라인의 **"욕구" 점수**는 단골/거리/만족도/최근 방문/포화도가 모두 반영된 종합 점수입니다.
+  욕구가 높은 곳을 우선 선호하세요. 가끔(약 20%) 약간 낮은 곳도 OK — 탐색·다양성 차원.
+- 욕구 0.2 미만인 곳은 회피 (최근 갔거나 너무 자주 가서 시들한 곳).
+- 만족도(sat) ≤ 0.3 인 POI는 회피.
 - residence/workplace/집/직장 이벤트는 결과에 포함하지 않음 (시스템이 자동으로 home/work POI 사용).
 - pinned_poi가 있는 이벤트도 결과에 포함하지 않음.
 
@@ -215,19 +249,37 @@ SYSTEM_S2 = """당신은 Stage 1에서 결정된 의도 시퀀스를 받아, 각
 """
 
 
+def _recency_label(d_since: int | None) -> str:
+    if d_since is None:
+        return "안 가봄"
+    if d_since == 0:
+        return "오늘"
+    if d_since == 1:
+        return "어제"
+    return f"{d_since}일 전"
+
+
 def _format_event_with_candidates(i: int, ev, cands: list[dict]) -> str:
     if not cands:
         return ""
     lines = [f"### 이벤트 {i} | {ev.time} | {ev.anchor} | {ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}"]
     for c in cands:
         known_mark = "★" if c["known"] else " "
-        vc = c.get("visit_count") or 0
+        v30 = c.get("v30") or 0
         sat = c.get("avg_satisfaction")
-        sat_s = f"sat={sat:.2f}" if sat is not None else ""
-        aff = c.get("affinity") or 0
         km = c.get("km")
+        desire = c.get("desire", 0.5)
+        d_since = c.get("days_since_visit")
+
+        recency_s = _recency_label(d_since)
+        v30_s = f"(30일 {v30}회)" if v30 > 0 else ""
+        sat_s = f"sat={sat:.2f}" if sat is not None else ""
         km_s = f"{km:.2f}km" if km is not None else ""
-        lines.append(f"  {known_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | {km_s} | 방문{vc}회 {sat_s} aff={aff:.2f}")
+
+        lines.append(
+            f"  {known_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | {km_s} | "
+            f"{recency_s} {v30_s} {sat_s} | 욕구 {desire:.2f}"
+        )
     return "\n".join(lines)
 
 
@@ -257,12 +309,18 @@ def call_stage2(
     aid: str,
     stage1: Stage1Output,
     persona: dict,
+    today: date,
     max_retry: int = 2,
     verbose: bool = False,
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
-    """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환."""
+    """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
+
+    today: 오늘 날짜. desire 계산의 days_since_visit 산출에 사용.
+    """
     fb_stats: dict[str, int] = {}
-    cands_by_order = fetch_candidates_for_events(aid, stage1.events, persona, stats=fb_stats)
+    cands_by_order = fetch_candidates_for_events(
+        aid, stage1.events, persona, today, stats=fb_stats,
+    )
     need_llm = any(cs for cs in cands_by_order.values())
 
     if not need_llm:
@@ -443,7 +501,7 @@ if __name__ == "__main__":
     print(s1.model_dump_json(indent=2))
     print(f"\nmeta: {m1}")
 
-    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, verbose=args.verbose)
+    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, today, verbose=args.verbose)
     print("\n=== Stage 2 ===")
     print(s2.model_dump_json(indent=2))
     print(f"\nmeta: {m2}")

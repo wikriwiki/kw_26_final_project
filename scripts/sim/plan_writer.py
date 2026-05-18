@@ -345,7 +345,7 @@ if __name__ == "__main__":
     s1, m1 = call_stage1(args.aid, today, ctx=ctx, verbose=args.verbose)
 
     print("[3/5] Stage 2")
-    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, verbose=args.verbose)
+    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, today, verbose=args.verbose)
     events = merge_to_final_events(s1, s2, ctx.persona)
 
     print("[4/5] 만족도 룰 적용 (정책 효과는 Stage 1 LLM 단계에서 자연어로 반영됨)")

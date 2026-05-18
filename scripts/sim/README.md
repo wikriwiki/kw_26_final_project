@@ -137,21 +137,36 @@ python scripts/sim/build_standalone_html.py
 
 ---
 
-## 같은 날 반복 방문 차단 — 후보 풀 사전 분할
+## POI 반복 방문 차단 — 2단 메커니즘
+
+### 같은 날 반복 — 후보 풀 사전 분할
 
 `stage2_poi.fetch_candidates_for_events` 는 같은 (dong, sub_category) 이벤트가 하루에 N개 등장하면 후보를 **N×k_per_event 크기로 한 번에 fetch 한 뒤 round-robin 분할**한다. 같은 POI 가 두 이벤트 후보 풀에 동시에 들어가지 않으므로 LLM 이 구조적으로 중복 픽을 만들 수 없다.
 
-예: 아침·점심 모두 한식 (강남 11680101)
-- 후보 30개 fetch (15 × 2)
-- 짝수 idx (0,2,4,…) → 아침 풀, 홀수 idx (1,3,5,…) → 점심 풀
-- 단골 1순위 (idx 0) 는 가장 이른 시간 이벤트(아침) 에 할당
-- 두 풀은 disjoint — 점심에 맥도날드가 또 뜰 수 없음
+메트릭: `fb_pool_split_groups`, `fb_pool_split_events`
 
-메트릭 (`day_<day>.jsonl` 의 agent 라인):
-- `fb_pool_split_groups` : 분할이 일어난 (dong, sub_cat) 그룹 수
-- `fb_pool_split_events` : 분할 적용된 이벤트 수 (= 그룹 크기 합)
+### 다른 날 반복 — desire 곡선 (욕구 점수)
 
-> 다른 날 반복 방문(어제 간 곳 오늘 또) 은 `KNOWS_POI.last_visit` 기반 desire 곡선으로 별도 처리 예정 — 현재는 미구현.
+각 cand 에 `desire` 점수 계산 후 desire 내림차순 정렬. 단골이라도 어제 갔으면 desire 가 새 가게보다 낮아질 수 있어 매일 같은 곳 패턴이 약화된다.
+
+```
+desire = baseline(affinity, sat) × recency(Δ) × saturation(v30) + novelty
+
+recency(Δ)    = 1 - drop · exp(-Δ/tau)        ← 카테고리별 tau, drop
+saturation(v) = 1 / (1 + exp((v - sat_n)/2))  ← 30일 안 v 회 방문이면 ↓
+novelty       = 0.15 if 미방문 else 0
+```
+
+카테고리 파라미터는 `:Category` 노드 속성 (`recovery_tau_days`, `desire_drop`, `saturation_n`). [data/neo4j_load/categories/categories.yaml](../../data/neo4j_load/categories/categories.yaml) 에 정의 — 식사 tau=3 (자주 가도 OK), 미용 tau=30 (한 달 1-2번 자연).
+
+`:KNOWS_POI.recent_visit_dates` 가 매일 nightly trim+push 되어 30일 슬라이딩 윈도우 유지 ([scripts/sim/visit_window.py](visit_window.py) 와 등가).
+
+Stage 2 LLM 프롬프트가 후보 라인에 `"어제 (30일 4회) sat=0.70 | 욕구 0.18"` 처럼 자연어 노출 + system 룰: "욕구 점수 우선, 0.2 미만 회피, 가끔 새 곳 탐색".
+
+기존 그래프에 desire 파라미터가 없으면 한 번 backfill:
+```bash
+python -m scripts.neo4j_load.backfill_category_desire_params
+```
 
 ---
 
