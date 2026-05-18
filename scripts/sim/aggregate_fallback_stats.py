@@ -14,7 +14,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 try:
@@ -110,6 +110,8 @@ def aggregate(days: list[str]) -> dict:
 
 def to_markdown(agg: dict) -> str:
     lines = ["# Stage 2 Fallback Stats — 풀런 집계", ""]
+    lines.append(f"**작성일**: {datetime.now().strftime('%Y-%m-%d %H:%M KST')}")
+    lines.append("")
     lines.append("## Day별")
     lines.append("")
     lines.append("| day | agents_ok | n_inc | cand_calls | sub_match | L1_dong | L1_dist | all_empty | hallu_corr | hallu_drop | miss_fill | resolve_dong_FB |")

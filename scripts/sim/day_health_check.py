@@ -22,7 +22,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 try:
@@ -62,6 +62,8 @@ def main():
 
     L: list[str] = []
     L.append(f"# 1일치 풀런 점검 — {day}")
+    L.append("")
+    L.append(f"**작성일**: {datetime.now().strftime('%Y-%m-%d %H:%M KST')}")
     L.append("")
     L.append(f"**파일**: `{METRICS_DIR}/day_{day}.jsonl`")
     L.append("")

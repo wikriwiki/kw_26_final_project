@@ -25,7 +25,7 @@ import argparse
 import json
 import sys
 from collections import Counter, defaultdict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 try:
@@ -405,6 +405,8 @@ def build_markdown(start: date, days: int, policy_from: str | None,
                    chart_dir_rel: str) -> str:
     lines: list[str] = []
     lines.append(f"# 서울 상권정책 시뮬레이션 — 최종 보고서")
+    lines.append("")
+    lines.append(f"**작성일**: {datetime.now().strftime('%Y-%m-%d %H:%M KST')}")
     lines.append("")
     lines.append(f"**기간**: {s1['기간']} ({s1['일수']}일) · "
                  f"**모델**: Qwen3-14B-AWQ · "
