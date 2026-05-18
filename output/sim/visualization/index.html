@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>서울 상권정책 시뮬 — 풀런 2일 (Qwen3-14B + NL 정책) · 25개 자치구 표본</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Segoe UI', system-ui, sans-serif; background:#0a0a14; color:#eee; }
+  #map { position:fixed; top:0; left:0; width:100vw; height:100vh; }
+  .panel {
+    position:fixed; background:rgba(15,15,30,0.92); padding:14px 18px; border-radius:12px;
+    color:#eee; border:1px solid rgba(255,255,255,0.08); backdrop-filter:blur(10px);
+    box-shadow:0 4px 24px rgba(0,0,0,0.5); z-index:1000;
+  }
+  .panel h3 { font-size:14px; color:#4cc9f0; margin-bottom:8px; }
+  .panel h4 { font-size:12px; color:#e76f51; margin:8px 0 4px; }
+  #ctrl { bottom:18px; left:50%; transform:translateX(-50%); padding:12px 18px;
+          display:flex; gap:12px; align-items:center; }
+  #ctrl button {
+    background:#4cc9f0; color:#0a0a14; border:none; padding:6px 14px;
+    border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;
+  }
+  #ctrl button:hover { background:#72efdd; }
+  #ctrl button.active { background:#e76f51; color:#fff; }
+  #ctrl input[type=range] { width:300px; accent-color:#4cc9f0; }
+  #ctrl select { background:#1a1a2e; color:#eee; border:1px solid #4cc9f0;
+                 padding:4px 8px; border-radius:5px; font-size:11px; }
+  #ctrl label { font-size:11px; color:#aaa; }
+  #ctrl .frame-label { font-size:12px; color:#72efdd; font-weight:600; min-width:170px; }
+
+  #info { top:18px; left:18px; min-width:240px; }
+  #info .row { display:flex; justify-content:space-between; padding:2px 0; font-size:12px; }
+  #info .label { color:#888; } #info .val { color:#72efdd; font-weight:600; }
+  .divider { height:1px; background:rgba(255,255,255,0.1); margin:6px 0; }
+
+  #legend { top:18px; right:18px; min-width:200px; font-size:11px; }
+  #legend .item { display:flex; align-items:center; gap:6px; margin:3px 0; }
+  #legend .dot { width:10px; height:10px; border-radius:50%; }
+
+  #detail { right:18px; top:230px; max-width:380px; max-height:65vh;
+            overflow-y:auto; display:none; }
+  #detail h3 { font-size:13px; color:#e76f51; }
+  #detail h4 { font-size:11px; color:#4cc9f0; margin:8px 0 4px; border-bottom:1px solid #4cc9f0; padding-bottom:2px; }
+  #detail .close { position:absolute; top:8px; right:14px; cursor:pointer;
+                   color:#888; font-size:18px; }
+  #detail .tag { display:inline-block; background:rgba(76,201,240,0.18);
+                 color:#4cc9f0; padding:1px 6px; border-radius:4px;
+                 font-size:10px; margin:1px 2px; }
+  #detail .mem-item { margin:4px 0; padding:5px 8px; background:rgba(255,255,255,0.04);
+                      border-radius:5px; font-size:11px; line-height:1.5; }
+  #detail .mem-item .meta { color:#888; font-size:10px; }
+  #detail .visited { border-left:3px solid #72efdd; }
+  #detail .known { border-left:3px solid #e76f51; }
+  #detail .state-block { background:rgba(231,111,81,0.08); padding:6px 10px;
+                         border-radius:6px; font-size:11px; margin:4px 0; }
+
+  .agent-marker { transition:transform 0.2s; cursor:pointer; }
+  .agent-marker:hover { transform:scale(1.6); }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel" id="info">
+  <h3>🏙️ Seoul Sim — 풀런 2일 (Qwen3-14B)</h3>
+  <div class="row"><span class="label">현재 프레임</span><span class="val" id="frame-label">-</span></div>
+  <div class="row"><span class="label">활동 agent</span><span class="val" id="active-cnt">-</span></div>
+  <div class="row"><span class="label">표본 자치구</span><span class="val">25개구 균등</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="label">총 agent</span><span class="val" id="total-agents">-</span></div>
+  <div class="row"><span class="label">총 visited memory</span><span class="val" id="total-mem">-</span></div>
+  <div class="row"><span class="label">총 약속</span><span class="val" id="total-appt">-</span></div>
+  <div class="row"><span class="label">총 들은 소문</span><span class="val" id="total-rumor">-</span></div>
+</div>
+
+<div class="panel" id="legend">
+  <h3>🎨 범례 / 필터</h3>
+  <div style="margin:6px 0;">
+    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:3px;">색상 모드</label>
+    <select id="color-mode">
+      <option value="dist">자치구별</option>
+      <option value="cat">카테고리별</option>
+      <option value="policy">정책 대상 vs 외</option>
+    </select>
+  </div>
+  <div style="margin:6px 0;">
+    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:3px;">히트맵</label>
+    <select id="heat-mode">
+      <option value="off">OFF</option>
+      <option value="density">밀집도</option>
+      <option value="spending">소비금액</option>
+    </select>
+  </div>
+  <div style="margin:6px 0;">
+    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:3px;">자치구 필터</label>
+    <select id="dist-filter">
+      <option value="all">전체</option>
+      <option value="11110">종로구</option>
+      <option value="11140">중구</option>
+      <option value="11170">용산구</option>
+      <option value="11200">성동구</option>
+      <option value="11215">광진구</option>
+      <option value="11230">동대문구</option>
+      <option value="11260">중랑구</option>
+      <option value="11290">성북구</option>
+      <option value="11305">강북구</option>
+      <option value="11320">도봉구</option>
+      <option value="11350">노원구</option>
+      <option value="11380">은평구</option>
+      <option value="11410">서대문구</option>
+      <option value="11440">마포구</option>
+      <option value="11470">양천구</option>
+      <option value="11500">강서구</option>
+      <option value="11530">구로구</option>
+      <option value="11545">금천구</option>
+      <option value="11560">영등포구</option>
+      <option value="11590">동작구</option>
+      <option value="11620">관악구</option>
+      <option value="11650">서초구</option>
+      <option value="11680">강남구</option>
+      <option value="11710">송파구</option>
+      <option value="11740">강동구</option>
+    </select>
+  </div>
+  <div id="legend-items" style="margin-top:8px;"></div>
+</div>
+
+<div class="panel" id="detail">
+  <span class="close" onclick="closeDetail()">✕</span>
+  <h3 id="d-id">-</h3>
+  <div id="d-persona"></div>
+  <div id="d-current"></div>
+  <h4>🗓️ 오늘 스케줄</h4>
+  <div id="d-schedule"></div>
+  <h4>🧠 기억 메모리 (Memory Stream) <span id="d-mem-toggle" style="float:right;font-size:10px;color:#4cc9f0;cursor:pointer;text-decoration:underline;">전체 보기</span></h4>
+  <div id="d-memories"></div>
+  <h4>💬 들은 소문 (rumor)</h4>
+  <div id="d-rumors"></div>
+  <h4>🤝 잡은 약속 (appointment)</h4>
+  <div id="d-appointments"></div>
+  <h4>⭐ 단골 POI (KNOWS_POI Top)</h4>
+  <div id="d-knows"></div>
+  <h4>📊 어제 State</h4>
+  <div id="d-state"></div>
+</div>
+
+<div class="panel" id="ctrl">
+  <button id="play-btn">▶</button>
+  <input type="range" id="frame-slider" min="0" max="0" value="0">
+  <span class="frame-label" id="frame-label-ctrl">Day 1 00:00</span>
+  <label>속도</label>
+  <select id="speed">
+    <option value="600">느림</option>
+    <option value="300" selected>보통</option>
+    <option value="100">빠름</option>
+  </select>
+</div>
+
+<script>
+// 25개 자치구 색상 — HSL 색상환 균등 분포 (구분 잘 되도록)
+const COLORS_DIST = {
+  '11110': '#e76f51',  // 종로
+  '11140': '#f4a261',  // 중구
+  '11170': '#f4d35e',  // 용산
+  '11200': '#83c5be',  // 성동
+  '11215': '#52b788',  // 광진
+  '11230': '#06d6a0',  // 동대문
+  '11260': '#118ab2',  // 중랑
+  '11290': '#4cc9f0',  // 성북
+  '11305': '#72efdd',  // 강북
+  '11320': '#9d4edd',  // 도봉
+  '11350': '#c9184a',  // 노원
+  '11380': '#ff70a6',  // 은평
+  '11410': '#7b2cbf',  // 서대문
+  '11440': '#fb8500',  // 마포
+  '11470': '#ffb703',  // 양천
+  '11500': '#219ebc',  // 강서
+  '11530': '#8ecae6',  // 구로
+  '11545': '#bdb2ff',  // 금천
+  '11560': '#a0c4ff',  // 영등포
+  '11590': '#ffc6ff',  // 동작
+  '11620': '#caffbf',  // 관악
+  '11650': '#fdffb6',  // 서초
+  '11680': '#ff006e',  // 강남 (강조)
+  '11710': '#8338ec',  // 송파
+  '11740': '#3a86ff',  // 강동
+};
+const COLORS_L1 = {
+  '식사': '#e76f51', '카페': '#f4a261', '디저트': '#f4d35e',
+  '주점': '#c9184a', '편의점': '#83c5be', '마트': '#52b788',
+  '미용': '#ff70a6', '쇼핑': '#9d4edd', '여가': '#7b2cbf',
+  '건강': '#06d6a0', '교육': '#118ab2', '기타': '#888',
+  '집': '#555', '직장': '#777',
+};
+const POLICY_TARGETS = new Set(['식사','카페','디저트']);
+
+let AGENTS = [], TIMELINE = [], MEMORIES = {}, EVENTS = {};
+let agentById = {}, markers = {};
+let map, selected = null, currentFrame = 0, isPlaying = false, playerHandle = null;
+let heatLayer = null;
+
+async function loadData() {
+  const [a, t, m, e] = await Promise.all([
+    fetch('agents.json').then(r => r.json()),
+    fetch('timeline.json').then(r => r.json()),
+    fetch('memories.json').then(r => r.json()),
+    fetch('events.json').then(r => r.json()),
+  ]);
+  AGENTS = a; TIMELINE = t; MEMORIES = m; EVENTS = e;
+  AGENTS.forEach(ag => agentById[ag.id] = ag);
+  document.getElementById('total-agents').textContent = AGENTS.length.toLocaleString();
+  let totMem = 0, totAppt = 0, totRumor = 0;
+  for (const aid in MEMORIES) {
+    totMem += (MEMORIES[aid].visited || []).length;
+    totAppt += (MEMORIES[aid].appointments || []).length;
+    totRumor += (MEMORIES[aid].memories || []).filter(m => m.type === 'rumor').length;
+  }
+  document.getElementById('total-mem').textContent = totMem.toLocaleString();
+  const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = totAppt.toLocaleString();
+  const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = totRumor.toLocaleString();
+  initMap();
+  buildMarkers();
+  // 슬라이더 max를 timeline 길이에 맞춰 동적 설정 (3일=72, 5일=120 등)
+  document.getElementById('frame-slider').max = Math.max(0, TIMELINE.length - 1);
+  setFrame(0);
+  initEvents();
+}
+
+function initMap() {
+  map = L.map('map', { zoomControl: true, preferCanvas: true })
+    .setView([37.530, 127.020], 13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OSM · CARTO', maxZoom: 19,
+  }).addTo(map);
+}
+
+function buildMarkers() {
+  AGENTS.forEach(ag => {
+    if (ag.home_lon == null || ag.home_lat == null) return;
+    const m = L.circleMarker([ag.home_lat, ag.home_lon], {
+      radius: 2.5, weight: 0, color: COLORS_DIST[ag.dist_code] || '#888',
+      fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.75,
+      className: 'agent-marker',
+    });
+    m.on('click', () => showDetail(ag.id));
+    m.addTo(map);
+    markers[ag.id] = m;
+  });
+  updateLegend();
+}
+
+// ===== Heatmap (leaflet.heat) =====
+function toggleHeatmap() {
+  const mode = document.getElementById('heat-mode').value;
+  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  if (mode !== 'off') {
+    heatLayer = L.heatLayer([], {
+      radius: 22, blur: 16, maxZoom: 17,
+      gradient: {0.2:'#0000ff', 0.4:'#00ffff', 0.6:'#00ff00', 0.8:'#ffff00', 1.0:'#ff0000'},
+    }).addTo(map);
+    updateHeatmap();
+  }
+}
+
+function updateHeatmap() {
+  if (!heatLayer) return;
+  const mode = document.getElementById('heat-mode').value;
+  const f = TIMELINE[currentFrame];
+  if (!f) return;
+  let pts;
+  if (mode === 'density') {
+    // 밀집도 — 외출 agent 동일 intensity
+    pts = f.agents.map(a => [a.lat, a.lon, 0.6]);
+  } else {
+    // 소비금액 — intensity = spent/30000 (clamp 0~1)
+    pts = f.agents
+      .filter(a => (a.spent || 0) > 0)
+      .map(a => [a.lat, a.lon, Math.min(1.0, (a.spent || 0) / 30000)]);
+  }
+  heatLayer.setLatLngs(pts);
+}
+
+// 자치구 코드 → 이름 (legend·필터 양쪽에서 사용)
+const DIST_NAMES = {
+  '11110':'종로구','11140':'중구','11170':'용산구','11200':'성동구',
+  '11215':'광진구','11230':'동대문구','11260':'중랑구','11290':'성북구',
+  '11305':'강북구','11320':'도봉구','11350':'노원구','11380':'은평구',
+  '11410':'서대문구','11440':'마포구','11470':'양천구','11500':'강서구',
+  '11530':'구로구','11545':'금천구','11560':'영등포구','11590':'동작구',
+  '11620':'관악구','11650':'서초구','11680':'강남구','11710':'송파구','11740':'강동구',
+};
+
+function updateLegend() {
+  const mode = document.getElementById('color-mode').value;
+  const el = document.getElementById('legend-items');
+  if (mode === 'dist') {
+    // 25개 자치구 전체 — 2열 그리드로 컴팩트하게
+    el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 8px;max-height:240px;overflow-y:auto;font-size:10px;">' +
+      Object.entries(COLORS_DIST).map(([code, c]) =>
+        `<div class="item" style="margin:1px 0;"><span class="dot" style="background:${c}"></span>${DIST_NAMES[code] || code}</div>`
+      ).join('') + '</div>';
+  } else if (mode === 'cat') {
+    el.innerHTML = Object.entries(COLORS_L1).slice(0, 12).map(([k,v]) =>
+      `<div class="item"><span class="dot" style="background:${v}"></span>${k}</div>`).join('');
+  } else {
+    el.innerHTML = `
+      <div class="item"><span class="dot" style="background:#e76f51"></span>정책 대상 (식사·카페·디저트)</div>
+      <div class="item"><span class="dot" style="background:#888"></span>그 외</div>
+    `;
+  }
+}
+
+function setFrame(idx) {
+  currentFrame = idx;
+  document.getElementById('frame-slider').value = idx;
+  const f = TIMELINE[idx];
+  const label = f.label;
+  document.getElementById('frame-label').textContent = label;
+  document.getElementById('frame-label-ctrl').textContent = label;
+
+  const distFilter = document.getElementById('dist-filter').value;
+  const mode = document.getElementById('color-mode').value;
+
+  let active = 0;
+  const positions = {};
+  f.agents.forEach(a => { positions[a.id] = a; });
+
+  AGENTS.forEach(ag => {
+    const m = markers[ag.id]; if (!m) return;
+    // 필터
+    if (distFilter !== 'all' && ag.dist_code !== distFilter) {
+      m.setStyle({ fillOpacity: 0.0, opacity: 0.0 }); return;
+    }
+    const pos = positions[ag.id];
+    if (!pos) {
+      // 활동 없음 = 집에 있음
+      m.setLatLng([ag.home_lat, ag.home_lon]);
+      m.setStyle({ fillOpacity: 0.25, opacity: 0.45, radius: 1.8 });
+      return;
+    }
+    active++;
+    m.setLatLng([pos.lat, pos.lon]);
+    // 색상
+    let color;
+    if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
+    else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
+    else color = POLICY_TARGETS.has(pos.cat) || POLICY_TARGETS.has(pos.l1) ? '#e76f51' : '#888';
+    m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 1, radius: 3 });
+  });
+
+  document.getElementById('active-cnt').textContent = active.toLocaleString();
+
+  // 히트맵 갱신
+  if (heatLayer) updateHeatmap();
+
+  // 디테일 패널 열려있으면 현재 활동·스케줄도 갱신
+  if (selected) showDetail(selected);
+}
+
+function showDetail(aid) {
+  selected = aid;
+  const ag = agentById[aid]; if (!ag) return;
+  const mem = MEMORIES[aid] || { visited: [], knows_poi: [], state: {} };
+  const events = EVENTS[aid] || [];
+  const f = TIMELINE[currentFrame];
+
+  document.getElementById('detail').style.display = 'block';
+  document.getElementById('d-id').textContent = aid;
+
+  // 페르소나
+  let topCats = '';
+  try {
+    const d = JSON.parse(ag.top_wd || '{}');
+    topCats = Object.entries(d).slice(0, 3).map(([k,v]) =>
+      `${k}(${Math.round(v*100)}%)`).join(', ');
+  } catch (e) {}
+  document.getElementById('d-persona').innerHTML = `
+    <div style="font-size:11px; line-height:1.7;">
+      <span class="tag">${ag.age} ${ag.gender}</span>
+      <span class="tag">${ag.life_stage || ''}</span>
+      <span class="tag">소득 ${ag.income || ''}</span>
+      <span class="tag">${ag.tendency || ''}</span><br/>
+      직업: ${ag.job || '-'} · 평일 ${(ag.daily_wd||0).toLocaleString()}원<br/>
+      평일 Top: ${topCats}<br/>
+      거주: ${ag.home_dong} ${ag.home_poi_name || ''}<br/>
+      ${ag.work_poi_name ? '직장: ' + ag.work_poi_name + ' (' + (ag.commute||0) + '분)' : '직장: 없음'}
+    </div>
+  `;
+
+  // 현재 시점 활동
+  const currentDay = f.day;
+  const currentHour = f.hour;
+  // 그 시점까지 발생한 events 추출
+  const pastEvents = events.filter(ev =>
+    ev.day < currentDay ||
+    (ev.day === currentDay && parseInt(ev.time.slice(0,2)) <= currentHour)
+  );
+  const lastEvent = pastEvents[pastEvents.length - 1];
+  document.getElementById('d-current').innerHTML = lastEvent ? `
+    <div style="background:rgba(76,201,240,0.1); padding:6px 10px; border-radius:6px; margin-top:6px; font-size:11px;">
+      <b>📍 현재 활동</b> ${lastEvent.time} ${lastEvent.anchor}<br/>
+      ${lastEvent.cat || ''}${lastEvent.sub ? ' · '+lastEvent.sub : ''} — ${lastEvent.intent || ''}<br/>
+      장소: ${lastEvent.poi_name || lastEvent.poi_id}
+      ${lastEvent.sat != null ? ' / 만족도 ' + lastEvent.sat.toFixed(2) : ''}
+    </div>
+  ` : '<div style="font-size:11px; color:#888;">아직 활동 없음 (집)</div>';
+
+  // 오늘 스케줄 (currentDay 전체, 시간순)
+  const todayEvents = events.filter(ev => ev.day === currentDay);
+  document.getElementById('d-schedule').innerHTML = todayEvents.length === 0
+    ? '<div style="font-size:11px; color:#888;">(오늘 스케줄 없음)</div>'
+    : todayEvents.map(ev => {
+        const eh = parseInt(ev.time.slice(0,2));
+        const past = eh <= currentHour;
+        const isCurrent = lastEvent && ev.ord === lastEvent.ord;
+        const bg = isCurrent ? 'rgba(231,111,81,0.25)' : (past ? 'rgba(255,255,255,0.04)' : 'transparent');
+        const opacity = past ? 1 : 0.55;
+        // 장소 표시: POI ID prefix 기준
+        //   R_* (residence) → "🏠 집" (또는 집에서 한 활동)
+        //   W_* (workplace) → "💼 직장" (또는 직장 근처 활동)
+        //   C_* (commerce) → "📍 {점포명}" (실제 외출)
+        const poiId = ev.poi_id || '';
+        let placeLabel;
+        if (poiId.startsWith('C_')) {
+          // 실제 외출 — 점포명
+          placeLabel = '📍 ' + (ev.poi_name || poiId);
+        } else if (poiId.startsWith('R_')) {
+          // 집 (또는 stage 2가 외출 POI 결정 못해 집 anchor 사용)
+          placeLabel = ev.cat && ev.cat !== '집'
+            ? `🏠 집 — ${ev.cat}`     // "🏠 집 — 편의점" 식
+            : '🏠 집';
+        } else if (poiId.startsWith('W_')) {
+          placeLabel = ev.cat && ev.cat !== '직장'
+            ? `💼 직장 — ${ev.cat}`   // "💼 직장 — 한식" 식
+            : '💼 직장';
+        } else {
+          placeLabel = '📍 ' + (ev.poi_name || poiId || '?');
+        }
+        // 카테고리 (L1 + sub)
+        const catLine = ev.cat ? (ev.sub && ev.sub !== ev.cat ? `${ev.cat} · ${ev.sub}` : ev.cat) : '';
+        const satLine = ev.sat != null ? '만족도 ' + ev.sat.toFixed(2) : '';
+        const metaParts = [catLine, satLine].filter(Boolean).join(' · ');
+        return `
+          <div class="mem-item" style="background:${bg}; opacity:${opacity}; border-left:3px solid ${COLORS_L1[ev.cat] || '#888'};">
+            <div><b>${ev.time}</b> <span style="color:#fff;">${placeLabel}</span></div>
+            ${metaParts ? '<div class="meta">'+metaParts+'</div>' : ''}
+            ${ev.intent ? '<div class="meta" style="color:#aaa;">'+ev.intent+'</div>' : ''}
+          </div>
+        `;
+      }).join('');
+
+  // 기억 메모리 패널 — visited(방문 회상)만 렌더 (rumor·appointment는 아래 별도 블록).
+  // visited 중 R_/W_ POI는 stage 2 fallback이라 실제 외출 아님 → 제외
+  const visitedMems = (mem.memories || []).filter(m => {
+    if (m.type !== 'visited') return false;
+    const pid = m.poi_id || '';
+    return pid.startsWith('C_');  // commerce만 진짜 외출 기억
+  });
+  // rumor는 별도 섹션
+  const rumorMems = (mem.memories || []).filter(m => m.type === 'rumor');
+  // 토글: showAllMem=true면 전체, false면 currentDay 이전만 (현 시점까지의 기억)
+  const filterByFrame = !window.__showAllMem;
+  const visibleVisited = filterByFrame ? visitedMems.filter(m => m.day < currentDay) : visitedMems;
+  const visibleRumor = filterByFrame ? rumorMems.filter(m => m.day < currentDay) : rumorMems;
+  document.getElementById('d-mem-toggle').textContent = filterByFrame ? '전체 보기' : '현재 시점까지만';
+
+  document.getElementById('d-memories').innerHTML = visibleVisited.length === 0
+    ? '<div style="font-size:11px; color:#888;">(누적된 방문 기억 없음)</div>'
+    : visibleVisited.slice(0, 40).map(m => `
+        <div class="mem-item visited">
+          <div><span style="color:#fff;">📍 ${m.poi_name || m.poi_id || '?'}</span></div>
+          <div class="meta">${m.day} · 만족도 ${m.sat != null ? m.sat.toFixed(2) : '?'} · 중요도 ${(m.imp||0).toFixed(2)}</div>
+        </div>
+      `).join('');
+
+  // 💬 들은 소문 (rumor) — Night Phase 2 의도분류로 적재된 Memory{type:'rumor'}
+  document.getElementById('d-rumors').innerHTML = visibleRumor.length === 0
+    ? '<div style="font-size:11px; color:#888;">(들은 소문 없음)</div>'
+    : visibleRumor.slice(0, 30).map(m => {
+        const src = m.source || '?';
+        const topic = m.topic_value ? `${m.topic_type || ''}: ${m.topic_value}`.trim() : '';
+        return `
+          <div class="mem-item" style="border-left:3px solid #f4a261;">
+            <div>
+              <span style="background:rgba(244,162,97,0.2); color:#f4a261; font-size:10px; padding:1px 6px; border-radius:3px;">💬 ${src} 한테 들음</span>
+            </div>
+            ${topic ? `<div class="meta" style="color:#fff;">${topic}</div>` : ''}
+            ${m.poi_name ? `<div class="meta">→ ${m.poi_name}</div>` : ''}
+            <div class="meta">${m.day} · 중요도 ${(m.imp||0).toFixed(2)}</div>
+            ${m.summary ? '<div class="meta" style="color:#aaa;">'+m.summary+'</div>' : ''}
+          </div>
+        `;
+      }).join('');
+
+  // 🤝 잡은 약속 (appointment) — Conversation{intent:'약속'}
+  const appts = (mem.appointments || []);
+  // target_day = day + offset_days (실제 만남 예정일)
+  function _targetDay(a) {
+    if (!a.day || a.offset_days == null) return a.day;
+    const d = new Date(a.day + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() + a.offset_days);
+    return d.toISOString().slice(0,10);
+  }
+  const visibleAppts = filterByFrame
+    ? appts.filter(a => a.day <= currentDay)  // 잡은 날짜 기준
+    : appts;
+  document.getElementById('d-appointments').innerHTML = visibleAppts.length === 0
+    ? '<div style="font-size:11px; color:#888;">(잡은 약속 없음)</div>'
+    : visibleAppts.slice(0, 20).map(a => {
+        const tgt = _targetDay(a);
+        const tm = a.target_time ? ` ${a.target_time}` : '';
+        const where = a.meeting_poi_name || a.hint || '미정';
+        const role = a.role === 'initiator' ? '내가 제안' : '상대가 제안';
+        return `
+          <div class="mem-item" style="border-left:3px solid #4cc9f0;">
+            <div>
+              <span style="background:rgba(76,201,240,0.2); color:#4cc9f0; font-size:10px; padding:1px 6px; border-radius:3px;">🤝 ${role}</span>
+              <span style="color:#fff; margin-left:4px;">${a.with_agent || '?'}</span>
+            </div>
+            <div class="meta" style="color:#fff;">📅 만남일: <b>${tgt}${tm}</b> @ ${where}</div>
+            <div class="meta">잡은 날: ${a.day}</div>
+            ${a.summary ? '<div class="meta" style="color:#aaa;">'+a.summary+'</div>' : ''}
+          </div>
+        `;
+      }).join('');
+
+  // 단골 KNOWS_POI Top — R_/W_ POI는 자기 집·직장이라 의미 없음. commerce만.
+  const knownTop = (mem.knows_poi || [])
+    .filter(k => (k.poi_id || '').startsWith('C_'))
+    .slice(0, 10);
+  document.getElementById('d-knows').innerHTML = knownTop.length === 0
+    ? '<div style="font-size:11px; color:#888;">(아직 단골 POI 없음)</div>'
+    : knownTop.map(k => `
+        <div class="mem-item known">
+          <div>${k.poi_name || k.poi_id}
+            ${k.cat ? '<span class="tag">'+k.cat+'</span>' : ''}
+          </div>
+          <div class="meta">방문 ${k.visit_count}회 · affinity ${(k.affinity||0).toFixed(2)} · 출처 ${k.source}</div>
+        </div>
+      `).join('');
+
+  // 어제 State (현재 프레임의 day 직전)
+  const dayList = ['2026-04-30','2026-05-01','2026-05-02','2026-05-03'];
+  const dayIdx = dayList.indexOf(currentDay);
+  const yesterday = dayIdx > 0 ? dayList[dayIdx - 1] : null;
+  const st = yesterday && mem.state ? mem.state[yesterday] : null;
+  document.getElementById('d-state').innerHTML = st ? `
+    <div class="state-block">
+      <b>${yesterday}</b><br/>
+      잔액 ${(st.balance||0).toLocaleString()}원 ·
+      mood ${(st.mood||0).toFixed(2)} ·
+      fatigue ${(st.fatigue||0).toFixed(2)} ·
+      어제 만족도 ${(st.yest_sat||0).toFixed(2)}
+    </div>
+  ` : '<div style="font-size:11px; color:#888;">(어제 State 없음)</div>';
+}
+
+function closeDetail() {
+  document.getElementById('detail').style.display = 'none';
+  selected = null;
+}
+
+// Memory 토글 (currentDay 시점까지 vs 전체)
+function toggleMemView() {
+  window.__showAllMem = !window.__showAllMem;
+  if (selected) showDetail(selected);
+}
+// detail 패널이 DOM에 있으므로 한 번만 바인딩
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.id === 'd-mem-toggle') toggleMemView();
+});
+
+function play() {
+  if (isPlaying) {
+    clearInterval(playerHandle); isPlaying = false;
+    document.getElementById('play-btn').textContent = '▶'; return;
+  }
+  isPlaying = true;
+  document.getElementById('play-btn').textContent = '⏸';
+  const speed = parseInt(document.getElementById('speed').value);
+  playerHandle = setInterval(() => {
+    let next = currentFrame + 1;
+    if (next >= TIMELINE.length) next = 0;
+    setFrame(next);
+    if (selected) showDetail(selected);
+  }, speed);
+}
+
+function initEvents() {
+  document.getElementById('frame-slider').addEventListener('input', e => {
+    setFrame(parseInt(e.target.value));
+    if (selected) showDetail(selected);
+  });
+  document.getElementById('play-btn').addEventListener('click', play);
+  document.getElementById('color-mode').addEventListener('change', () => {
+    setFrame(currentFrame); updateLegend();
+  });
+  document.getElementById('dist-filter').addEventListener('change', () => setFrame(currentFrame));
+  document.getElementById('heat-mode').addEventListener('change', toggleHeatmap);
+  document.getElementById('speed').addEventListener('change', () => {
+    if (isPlaying) { play(); play(); }  // restart with new speed
+  });
+}
+
+loadData().catch(e => {
+  document.body.innerHTML = `<div style="color:white; padding:40px;">데이터 로드 실패: ${e.message}<br/>HTTP 서버로 열어주세요: python -m http.server 8000</div>`;
+});
+</script>
+</body>
+</html>

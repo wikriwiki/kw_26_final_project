@@ -1,0 +1,16 @@
+# Neo4j Day 0 적재 의존성
+neo4j>=5.20,<7
+openpyxl>=3.1
+pyyaml>=6.0
+
+# (선택) V-WORLD geocoding for 03a/03b
+requests>=2.31
+
+# Policy pipeline (scripts/policy_pipeline/)
+pydantic>=2.7,<3
+
+# Policy pipeline — LLM 경로 (자연어 정책 추출 시 필요)
+openai>=1.54,<2
+
+# Policy pipeline — Watchdog 워커 실행 시 필요
+watchdog>=4.0,<7
