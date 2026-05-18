@@ -170,6 +170,36 @@ python scripts/sim/run_simulation.py \
 
 ---
 
+## 반복 방문 분석 — `analyze_repeat_visits.py`
+
+시뮬 끝난 후 Neo4j Plan/INCLUDES 에서 POI 반복 방문 패턴을 6개 지표로 측정.
+풀 분할(같은 날) · desire 곡선(다른 날) 적용 전후 비교용.
+
+```bash
+python -m scripts.sim.analyze_repeat_visits --start 2026-05-01 --days 3
+# 출력:
+#   output/sim/analysis/repeat_visits_2026-05-01_3d.md   ← 사람용
+#   output/sim/analysis/repeat_visits_2026-05-01_3d.json ← 머신용
+```
+
+측정 지표:
+| # | 지표 | 의미 |
+|---|------|------|
+| 1 | `unique_poi_per_day` | agent×day 별 unique POI 비율 (1.0 = 모두 다른 가게) |
+| 2 | `same_day_repeat_rate` | 하루에 같은 POI 2회+ 픽한 agent 비율 — **풀 분할 직접 효과** |
+| 3 | `revisit_interval_dist` | (agent, POI) 재방문 일수 분포 — **desire 곡선 효과** |
+| 4 | `top_poi_concentration` | 상위 10/50/100 POI 점유율 — 단골 쏠림 |
+| 5 | `category_diversity` | 기간 내 unique sub_category 수 |
+| 6 | `district_event_share` | 자치구별 commerce 이벤트 (정책 효과 참고) |
+
+해석 기준 (지표 2):
+- `0%` ✅ 풀 분할 완벽 작동
+- `< 5%` ✅ fallback 풀이 가끔 작은 케이스
+- `< 20%` ⚠️ 일부 LLM 오류 / fallback 풀 부족
+- `≥ 20%` ❌ 풀 분할이 충분치 않음
+
+---
+
 ## Night Phase 2 단독 실행 (디버그용)
 
 메인 루프는 매일 자정 자동으로 Night Phase 2를 호출하지만, 사후 분석/재처리가 필요하면 day별로 직접 호출 가능:
