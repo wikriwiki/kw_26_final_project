@@ -119,7 +119,12 @@ SYSTEM_PROMPT = """너는 Night 단계의 상호작용 의도분류기다.
     - none: 기타 intent 또는 토픽 없음
 - topic_value: 입력에 등장한 실제 값만 사용. none일 때는 null
 - plan_signal.should_inject: 약속일 때만 true, 나머지는 false
-- plan_signal.target_day_offset: 약속일 때 정수(예: 1=D+1, 2=D+2, 7=D+7). 나머지는 null
+- plan_signal.target_day_offset: 약속일 때 정수 — **D+1 ~ D+7 사이에서 자연스럽게 분포**.
+    · 급한 약속(점심·당장 만남): D+1
+    · 평일 저녁 회식·동료 약속: D+2 ~ D+4
+    · 주말 친구·가족 약속: D+3 ~ D+5
+    · 멀리 잡는 약속(생일·기념일·이벤트): D+6 ~ D+7
+    실제 사회 관계처럼 D+1 한 군데로 쏠리지 않게 다양한 offset을 사용.
 - plan_signal.target_time: 약속일 때 "HH:MM" 형식 (예: "19:00"). 나머지는 null
 - plan_signal.meeting_location_hint: 약속 장소 자유 문자열 힌트 (예: "봉피양 역삼본점"). 없거나 약속이 아니면 null
 
