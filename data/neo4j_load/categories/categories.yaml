@@ -2,10 +2,18 @@
 # 매핑 테이블: ../mapping/mapping_upjong_to_sub.json
 # sub 어휘는 소상공인 데이터에서 자동 추출
 # open/close: L1 단위 기본 운영시간 (HH 정수). POI별 실측치 도착 시 덮어쓰기.
+#
+# 욕구(desire) 파라미터 — L1 기본값, L2 sub 가 dict 면 override (예: { name: 분식, saturation_n: 18 })
+#   recovery_tau_days : 방문 후 욕구 회복 시간 상수 (일). 작을수록 빠른 회복.
+#   desire_drop       : 방문 직후 욕구 하락 폭 [0,1]. 1.0=완전 소진.
+#   saturation_n      : 30일 안에 N회 방문하면 욕구 절반 (시그모이드 중심).
 categories:
   - name: 식사
     open: 11
     close: 22
+    recovery_tau_days: 3.0
+    desire_drop: 0.85
+    saturation_n: 12
     sub:
       - 구내식당·뷔페
       - 기타식사
@@ -21,29 +29,44 @@ categories:
   - name: 카페
     open: 7
     close: 22
+    recovery_tau_days: 5.0
+    desire_drop: 0.80
+    saturation_n: 8
     sub:
       - 카페
   - name: 디저트
     open: 10
     close: 22
+    recovery_tau_days: 4.0
+    desire_drop: 0.85
+    saturation_n: 6
     sub:
       - 베이커리
       - 아이스크림
   - name: 주점
     open: 18
     close: 2   # 다음날 새벽 (close < open → overnight)
+    recovery_tau_days: 4.0
+    desire_drop: 0.85
+    saturation_n: 5
     sub:
       - 일반주점
       - 호프
   - name: 편의점
     open: 0
     close: 24  # 24시간
+    recovery_tau_days: 1.5
+    desire_drop: 0.50
+    saturation_n: 30
     sub:
       - 담배
       - 편의점
   - name: 마트
     open: 9
     close: 22
+    recovery_tau_days: 7.0
+    desire_drop: 0.70
+    saturation_n: 5
     sub:
       - 수산
       - 슈퍼마켓
@@ -55,6 +78,9 @@ categories:
   - name: 미용
     open: 10
     close: 21
+    recovery_tau_days: 30.0
+    desire_drop: 0.95
+    saturation_n: 2
     sub:
       - 네일
       - 마사지
@@ -64,6 +90,9 @@ categories:
   - name: 쇼핑
     open: 10
     close: 21
+    recovery_tau_days: 14.0
+    desire_drop: 0.80
+    saturation_n: 4
     sub:
       - 가구
       - 가전·통신
@@ -84,6 +113,9 @@ categories:
   - name: 여가
     open: 12
     close: 24
+    recovery_tau_days: 10.0
+    desire_drop: 0.85
+    saturation_n: 4
     sub:
       - PC방
       - 노래방
@@ -95,6 +127,9 @@ categories:
   - name: 건강
     open: 9
     close: 19
+    recovery_tau_days: 14.0
+    desire_drop: 0.90
+    saturation_n: 3
     sub:
       - 건강보조식품
       - 기타보건
@@ -107,6 +142,10 @@ categories:
   - name: 교육
     open: 13
     close: 22
+    # 학원·도서관은 반복이 자연 — drop 작게, tau 짧게
+    recovery_tau_days: 1.0
+    desire_drop: 0.30
+    saturation_n: 30
     sub:
       - 교육지원
       - 기타교육
@@ -114,6 +153,9 @@ categories:
   - name: 기타
     open: 9
     close: 18
+    recovery_tau_days: 7.0
+    desire_drop: 0.75
+    saturation_n: 5
     sub:
       - 고용서비스
       - 광고
