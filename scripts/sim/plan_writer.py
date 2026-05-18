@@ -55,7 +55,12 @@ CREATE (p)-[:INCLUDES {
   anchor: ev.anchor,
   with_agents: ev.with_agents,
   actual_satisfaction: ev.actual_satisfaction,
-  actual_spent: coalesce(ev.actual_spent, 0)
+  actual_spent: coalesce(ev.actual_spent, 0),
+  // 사고과정 흔적 (인터뷰 가능성 확보용)
+  reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
+  trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/habit/top_category/mood/none
+  pick_reason: ev.pick_reason,       // Stage 2: 왜 후보풀 중 이 POI
+  pick_factor: ev.pick_factor        // Stage 2: known/distance/satisfaction/rumor/novelty/random
 }]->(poi)
 """
 

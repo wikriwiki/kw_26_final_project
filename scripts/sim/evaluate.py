@@ -106,6 +106,68 @@ def kpi_category_distribution(start: date, days: int) -> dict:
     return out
 
 
+def kpi_before_after_sales(start: date, days: int, policy_effective_from: str) -> dict:
+    """정책 시행 전 vs 후 매출(actual_spent) 추이.
+
+    policy_effective_from: ISO date string. 이날 이후가 'after', 이전이 'before'.
+    같은 자치구·카테고리 묶어 평균 매출 비교 → 보고서 시간축 그래프용.
+    """
+    out: dict = {}
+    cutoff = date.fromisoformat(policy_effective_from)
+    target_cats = ["식사", "카페", "디저트"]
+    for i in range(days):
+        d = start + timedelta(days=i)
+        phase = "after" if d >= cutoff else "before"
+        with driver_session() as s:
+            rows = s.run("""
+                MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)
+                  <-[:HAS_DONG]-(dist:District)
+                MATCH (a)-[:HAS_PLAN {day: date($day)}]->(:Plan)
+                  -[i:INCLUDES]->(p:POI {type:'commerce'})
+                WHERE i.category IN $cats
+                RETURN dist.code AS dist, i.category AS cat,
+                       sum(coalesce(i.actual_spent, 0)) AS total_spend,
+                       count(*) AS n_events
+            """, day=d.isoformat(), cats=target_cats).data()
+        gangnam = [r for r in rows if r["dist"] == "11680"]
+        other = [r for r in rows if r["dist"] != "11680"]
+        out[d.isoformat()] = {
+            "phase": phase,
+            "gangnam_spend": sum(r["total_spend"] for r in gangnam),
+            "gangnam_events": sum(r["n_events"] for r in gangnam),
+            "non_gangnam_spend": sum(r["total_spend"] for r in other),
+            "non_gangnam_events": sum(r["n_events"] for r in other),
+            "gangnam_avg_per_event": round(
+                sum(r["total_spend"] for r in gangnam) / max(sum(r["n_events"] for r in gangnam), 1)),
+            "non_gangnam_avg_per_event": round(
+                sum(r["total_spend"] for r in other) / max(sum(r["n_events"] for r in other), 1)),
+        }
+    # before/after 평균 요약
+    before_days = [v for v in out.values() if v["phase"] == "before"]
+    after_days = [v for v in out.values() if v["phase"] == "after"]
+    summary: dict = {}
+    for tag, group in [("before", before_days), ("after", after_days)]:
+        if not group:
+            summary[tag] = None
+            continue
+        summary[tag] = {
+            "n_days": len(group),
+            "gangnam_avg_daily_spend": round(sum(d["gangnam_spend"] for d in group) / len(group)),
+            "non_gangnam_avg_daily_spend": round(sum(d["non_gangnam_spend"] for d in group) / len(group)),
+        }
+    if summary.get("before") and summary.get("after"):
+        b, a = summary["before"], summary["after"]
+        # before/after 매출 변화 비율
+        gn_chg = (a["gangnam_avg_daily_spend"] - b["gangnam_avg_daily_spend"]) \
+                 / max(b["gangnam_avg_daily_spend"], 1) * 100
+        ng_chg = (a["non_gangnam_avg_daily_spend"] - b["non_gangnam_avg_daily_spend"]) \
+                 / max(b["non_gangnam_avg_daily_spend"], 1) * 100
+        summary["did_pct_points"] = round(gn_chg - ng_chg, 2)
+        summary["gangnam_change_pct"] = round(gn_chg, 2)
+        summary["non_gangnam_change_pct"] = round(ng_chg, 2)
+    return {"by_day": out, "summary": summary}
+
+
 def kpi_policy_effect(start: date, days: int) -> dict:
     """정책 P001 효과: 강남 거주 agent의 정책 대상 카테고리 방문률 변화."""
     out = {}
@@ -195,6 +257,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default="2026-05-01")
     ap.add_argument("--days", type=int, default=3)
+    ap.add_argument("--policy-from", default=None,
+                    help="정책 effective_from 기준일 (ISO). 지정 시 before/after 매출 분석 추가")
     args = ap.parse_args()
 
     start = date.fromisoformat(args.start)
@@ -224,6 +288,11 @@ def main():
     print("\n=== 6) 평일 직장 체류 준수율 ===")
     wp = kpi_workplace_compliance(start, args.days)
     print(json.dumps(wp, ensure_ascii=False, indent=2))
+
+    if args.policy_from:
+        print(f"\n=== 7) 정책 시행 전/후 매출 추이 (cutoff={args.policy_from}) ===")
+        ba = kpi_before_after_sales(start, args.days, args.policy_from)
+        print(json.dumps(ba, ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

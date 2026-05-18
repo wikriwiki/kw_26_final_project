@@ -44,6 +44,11 @@ except ImportError:
 class Stage2Pick(BaseModel):
     order: int
     poi_id: str
+    # ───────────── 사고과정 흔적 (인터뷰용) ─────────────
+    # 왜 후보 풀 중에서 이 POI를 골랐는지 1~2문장
+    # 단골 점수·거리·약속 pin·소문 추천 등 어느 신호가 결정 요인이었는지.
+    pick_reason: str | None = None
+    pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | novelty | random
 
 
 class Stage2Output(BaseModel):
@@ -160,10 +165,36 @@ SYSTEM_S2 = """당신은 Stage 1에서 결정된 의도 시퀀스를 받아, 각
 - residence/workplace/집/직장 이벤트는 결과에 포함하지 않음 (시스템이 자동으로 home/work POI 사용).
 - pinned_poi가 있는 이벤트도 결과에 포함하지 않음.
 
+[pick_reason + pick_factor — 인터뷰 가능성을 위한 핵심]
+각 pick에 **왜 그 POI를 골랐는지** pick_reason(1~2문장) 과 결정 요인 1개를 pick_factor에 적는다.
+
+pick_factor enum:
+- "known"         : 단골 (visit_count>0 + affinity 높음)
+- "distance"      : 거리가 가장 가까움 (km 짧음)
+- "satisfaction"  : 과거 평균 만족도(avg_satisfaction)가 가장 높음
+- "rumor"         : 어제·그제 소문(rumor Memory)에서 들은 POI라 처음 시도
+- "appointment"   : 약속 pin이 걸려 강제 (실제로는 pin이면 Stage 2 picks에 포함 안 됨, 회피 명목)
+- "novelty"       : 단골 외 새로운 곳 시도 (탐색)
+- "random"        : 후보들이 거의 동등해서 임의 선택
+
+pick_reason 작성 규칙:
+- 후보 풀의 **실제 수치를 인용**한다 (예: "방문 3회·sat 0.72·0.05km" 같이).
+- 페르소나의 성향과 매핑 (예: "라이프스타일=실속형이라 단골 우선").
+- 같은 카테고리라도 매번 reasoning이 달라야 함.
+
+예시:
+{"order":2,"poi_id":"C_MA010120220801029607",
+ "pick_reason":"두부마을찬 — 어제 sat 0.65로 가장 만족도 높았고 직장에서 0.02km. 라이프스타일 실속형이라 단골 재방문.",
+ "pick_factor":"known"}
+
+{"order":5,"poi_id":"C_MA0106202506A0725508",
+ "pick_reason":"개포 타임스터디카페 — KNOWS_POI에 없는 신규지만 이웃이 어제 추천. 후보 중 거리 0.3km로 적당.",
+ "pick_factor":"rumor"}
+
 출력 형식 (JSON만, order는 0-base):
 {"picks": [
-  {"order": 0, "poi_id": "C_xxxxxx"},
-  {"order": 2, "poi_id": "C_yyyyyy"},
+  {"order": 0, "poi_id": "C_xxxxxx", "pick_reason": "...", "pick_factor": "known"},
+  {"order": 2, "poi_id": "C_yyyyyy", "pick_reason": "...", "pick_factor": "rumor"},
   ...
 ]}
 """
@@ -231,7 +262,7 @@ def call_stage2(
         try:
             resp = _llm_call(
                 None, SYSTEM_S2, user_block,
-                temperature=temp, max_tokens=600,
+                temperature=temp, max_tokens=1200,  # pick_reason 필드 추가로 출력량 ↑
             )
             raw = resp.choices[0].message.content
             if verbose:
@@ -337,10 +368,11 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
       - cat ∈ 외출 카테고리 (식사·카페·편의점 등) → Stage 2 pick (commerce POI)
         - Stage 2 pick 누락 시 fallback으로 anchor POI 사용
     """
-    pick_by_order = {p.order: p.poi_id for p in stage2.picks}
+    pick_by_order = {p.order: p for p in stage2.picks}
     out = []
     for i, ev in enumerate(stage1.events):
         poi_id = None
+        pick_obj = pick_by_order.get(i)
         if ev.pinned_poi:
             poi_id = ev.pinned_poi
         elif ev.category in INTERNAL_CATS:
@@ -356,7 +388,7 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
                     poi_id = persona.get("work_poi_id")
         else:
             # 외출 카테고리 — Stage 2 pick (anchor의 동에서 commerce POI 결정)
-            poi_id = pick_by_order.get(i)
+            poi_id = pick_obj.poi_id if pick_obj else None
             if not poi_id:
                 # Stage 2 pick 누락 시 anchor POI fallback
                 if ev.anchor == "residence":
@@ -375,6 +407,11 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
             "poi_id": poi_id,
             "with_agents": ev.with_agents or [],
             "actual_satisfaction": None,
+            # ───── 사고과정 흔적 (인터뷰용) ─────
+            "reasoning": ev.reasoning,                 # Stage 1: 왜 이 의도·카테고리·anchor
+            "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...
+            "pick_reason": pick_obj.pick_reason if pick_obj else None,   # Stage 2: 왜 이 POI
+            "pick_factor": pick_obj.pick_factor if pick_obj else None,   # Stage 2: known/distance/...
         })
     return out
 

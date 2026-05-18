@@ -41,6 +41,12 @@ class Stage1Event(BaseModel):
     category: str = Field(..., description="L1 카테고리 (식사·카페·…·집·직장)")
     sub_category: str | None = None
     intent: str = Field(..., description="짧은 의도 표현")
+    # ───────────────────── 사고과정 흔적 (인터뷰용) ─────────────────────
+    # 왜 이 시간·카테고리·anchor를 골랐는지 페르소나·기억·정책·약속·소문 중
+    # 무엇이 결정 요인인지 1~3문장으로. trigger는 아래 enum.
+    reasoning: str | None = Field(default=None, description="이 이벤트를 선택한 이유 (1~3문장)")
+    trigger: str | None = Field(default=None, description="appointment | rumor | policy | habit | top_category | mood | none")
+    # ──────────────────────────────────────────────────────────────────
     pinned_poi: str | None = None
     with_agents: list[str] | None = None
 
@@ -157,16 +163,63 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 - appointment의 meeting_poi_id가 있으면 해당 event에 pinned_poi 설정.
 - 그 외엔 pinned_poi 생략 (POI 결정은 Stage 2에 위임).
 
+[reasoning + trigger — 매우 중요, 인터뷰 가능성을 위한 핵심]
+각 이벤트마다 **왜 이 결정을 했는지** 1~3문장으로 reasoning에, 그리고 결정 요인 1개를 trigger에 적는다.
+
+trigger enum (반드시 이 중 하나):
+- "appointment"  : 약속 블록의 항목 때문 (다음날 만남으로 잡힌 약속)
+- "rumor"        : 어제·그제 들은 소문/추천 때문 (Memory에 source/topic_value 있는 rumor 항목)
+- "policy"       : 정책 블록의 쿠폰·바우처·캠페인 때문 (해당 카테고리·동 우선 방문)
+- "habit"        : 페르소나의 평일/주말 Top 카테고리 비중 (정형적 루틴)
+- "top_category" : 페르소나 Top 카테고리 강하게 반영 (habit보다 더 명시적, 예: 헬스장 30%)
+- "mood"         : 어제 만족도·mood·fatigue 같은 컨디션 반영 (피곤해서 단축, 기분 좋아서 외출 추가)
+- "none"         : 집·직장 같은 자동 anchor 이벤트 또는 특별 사유 없음
+
+reasoning 작성 규칙:
+- 페르소나의 **구체적 속성을 인용**한다 (예: "라이프스타일=가족중심 + 평일 Top 한식 14% → 점심 단골 한식집").
+- 정책 사용 시 **잔액·할인율·카테고리**를 reasoning에 명시 (예: "강남 카페 바우처 잔액 45,000원 + 카페 좋아함 → 점심 후 카페 이용").
+- 약속 진입 시 **상대 agent_id와 약속 잡힌 사유**를 명시 (예: "동료 AGT_..._40대_006이 어제 권유한 점심 약속").
+- 소문 따라간 경우 **출처 agent와 topic**을 명시 (예: "이웃이 두부마을찬 평이 좋다고 함 → 처음 방문").
+- 같은 카테고리라도 agent마다 reasoning이 달라야 함. **추상적 진술 금지** ("그냥 좋아서" X).
+
+예시:
+{"time":"12:00","anchor":"zone:11680670","category":"식사","sub_category":"한식","intent":"점심",
+ "reasoning":"평일 Top 1위가 한식(14%)이고 어제 두부마을찬 sat 0.65로 만족했음. 직장 같은 동이라 도보 5분.",
+ "trigger":"habit"}
+
+{"time":"15:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"오후 휴식",
+ "reasoning":"강남 여름 카페 바우처 잔액 45,000원 남았고, 라이프스타일이 '가족 중심·실속형'이라 30% 환급 매력적.",
+ "trigger":"policy"}
+
+{"time":"18:30","anchor":"zone:11680670","category":"식사","sub_category":"한식","intent":"동료와 저녁",
+ "reasoning":"어제 night에 동료 AGT_11680670_M_40대_006이 두부마을찬 저녁 약속 제안. 친밀도 0.6이라 응함.",
+ "trigger":"appointment"}
+
+{"time":"19:30","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"새 카페 탐방",
+ "reasoning":"3일 전 이웃 AGT_..._F_30대가 '개포타임스터디카페 분위기 좋다'고 추천. KNOWS_POI에 없는 신규.",
+ "trigger":"rumor"}
+
 [출력 형식]
 다음 JSON 스키마만 출력. 다른 텍스트 금지.
 zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 페르소나 블록의 거주 동 코드·직장 동 코드를 그대로 복사할 것.
 플레이스홀더 텍스트 (`<home_dong_code>` 등)는 **금지**. 실제 숫자만.
 
+**모든 이벤트는 reasoning + trigger 필드를 반드시 포함**. 절대 생략 금지.
+
 예시 (실제 dong_code는 페르소나 블록 참조):
 {"events": [
-  {"time":"08:10","anchor":"residence","category":"집","intent":"기상"},
-  {"time":"08:50","anchor":"zone:11680103","category":"편의점","sub_category":"편의점","intent":"출근길 음료"},
-  {"time":"12:00","anchor":"zone:11680111","category":"식사","sub_category":"한식","intent":"점심"},
+  {"time":"08:10","anchor":"residence","category":"집","intent":"기상",
+   "reasoning":"평일 아침 기상. 라이프스타일=가족중심이라 출근 전 가벼운 식사 위해 일찍 일어남.",
+   "trigger":"habit"},
+  {"time":"08:50","anchor":"zone:11680103","category":"편의점","sub_category":"편의점","intent":"출근길 음료",
+   "reasoning":"평일 Top 카테고리에 편의점 5% 포함. 출근 전 음료 사는 루틴.",
+   "trigger":"habit"},
+  {"time":"12:00","anchor":"zone:11680111","category":"식사","sub_category":"한식","intent":"점심",
+   "reasoning":"평일 Top 1위 한식 14% + 어제 두부마을찬 만족도 0.65 좋았음. 직장 같은 동.",
+   "trigger":"top_category"},
+  {"time":"15:00","anchor":"zone:11680111","category":"카페","sub_category":"카페","intent":"오후 휴식",
+   "reasoning":"강남 카페 바우처 잔액 45,000원 + 라이프스타일 실속형이라 30% 환급 매력.",
+   "trigger":"policy"},
   ...
 ]}"""
 
@@ -272,7 +325,7 @@ def call_stage1(
         try:
             resp = _llm_call(
                 None, SYSTEM_PROMPT, user_block,
-                temperature=temp, max_tokens=1200,
+                temperature=temp, max_tokens=2200,  # reasoning 필드 추가로 출력량 ↑
             )
             raw = resp.choices[0].message.content
             last_raw = raw

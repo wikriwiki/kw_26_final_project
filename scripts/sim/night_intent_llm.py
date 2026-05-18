@@ -68,6 +68,10 @@ class IntentOutput(BaseModel):
     topic_type: str = Field(..., description="policy | poi | category | none")
     topic_value: str | None = None
     plan_signal: PlanSignal
+    # ───────────── 사고과정 흔적 (인터뷰용) ─────────────
+    # 두 페르소나의 어떤 요소(친밀도·동선 겹침·정책 노출·라이프스타일 등)가
+    # 이 의도로 이끌었는지 1~2문장.
+    reasoning: str | None = Field(default=None)
 
     @field_validator("intent")
     @classmethod
@@ -125,6 +129,13 @@ intent별 필드 매핑 규칙:
 - 추천: topic_type ∈ {poi, category} / plan_signal 전부 null·false
 - 기타: topic_type = none / topic_value = null / plan_signal 전부 null·false
 
+[reasoning — 인터뷰 가능성을 위한 핵심]
+reasoning 필드에 **두 agent의 어떤 페르소나·일정·정책 요소가** 이 의도로 이끌었는지 1~2문장 명시.
+- 약속 → 누가 누구에게, 왜 (예: "AGT_A는 동료 친밀도 0.6 + 같은 동 점심 자주 겹쳐서 토요일 외식 제안.")
+- 이슈 → 어떤 정책·뉴스가 화제 (예: "정책 P001 노출이 일정에 두 번 잡혀 강남 쿠폰 화제로 전환.")
+- 추천 → 누가 어디를 권유 (예: "AGT_A가 어제 만족도 0.7로 만족한 두부마을찬을 AGT_B에게 추천.")
+- 기타 → 일상 잡담 사유 (예: "라이프스타일·일정 모두 무관한 동선 겹침. 간단한 인사 수준.")
+
 출력 JSON 스키마:
 {
   "intent": "약속 | 이슈 | 추천 | 기타",
@@ -137,7 +148,8 @@ intent별 필드 매핑 규칙:
     "target_day_offset": null,
     "target_time": null,
     "meeting_location_hint": null
-  }
+  },
+  "reasoning": "<두 페르소나·일정 요소가 이 intent로 이끈 사유 1~2문장>"
 }
 /no_think"""
 
@@ -276,7 +288,7 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
         try:
             resp = _llm_call(
                 None, SYSTEM_PROMPT, user,
-                temperature=temp, max_tokens=300,
+                temperature=temp, max_tokens=600,  # reasoning 필드 추가
             )
             raw = resp.choices[0].message.content
             data_json = json.loads(_extract_json(raw))
@@ -327,7 +339,9 @@ CREATE (c:Conversation {
   should_inject: r.should_inject,
   target_day_offset: r.target_day_offset,
   target_time: r.target_time,
-  meeting_location_hint: r.meeting_location_hint
+  meeting_location_hint: r.meeting_location_hint,
+  // 사고과정 흔적 (인터뷰용)
+  reasoning: r.reasoning
 })
 CREATE (a)-[:PARTICIPATES_IN {role:'initiator'}]->(c)
 CREATE (b)-[:PARTICIPATES_IN {role:'recipient'}]->(c)
@@ -348,7 +362,9 @@ CREATE (m:Memory {
   source: r.initiator,
   topic_type: c.topic_type,
   topic_value: c.topic_value,
-  importance: r.importance
+  importance: r.importance,
+  // Conversation의 reasoning을 그대로 복사 — Memory에서 직접 인용 가능
+  summary: c.reasoning
 })
 CREATE (b)-[:REMEMBERS {day: c.day}]->(m)
 CREATE (m)-[:FROM_CONVERSATION]->(c)
@@ -436,6 +452,8 @@ def write_conversations(day: date, results: list[dict]):
             "target_day_offset": r.get("target_day_offset"),
             "target_time": r.get("target_time"),
             "meeting_location_hint": r.get("meeting_location_hint"),
+            # 사고과정 흔적 (인터뷰 인용용)
+            "reasoning": r.get("reasoning"),
         })
 
         # intent별 분기
