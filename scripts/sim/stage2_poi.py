@@ -86,20 +86,29 @@ def fetch_candidates_for_events(
 ) -> dict[int, list[dict]]:
     """이벤트별 candidate POI dict. key=order, value=list of candidate dicts.
 
-    stats: fallback 카운트 dict (mutate). 아래 키가 누적됨:
+    **같은 날 같은 (dong, sub_category) 이벤트가 N개면** 그룹으로 묶어 후보 풀을
+    N×k_per_event 크기로 한 번에 fetch 한 뒤 round-robin 분할 — 같은 POI 가
+    두 이벤트 후보 풀에 동시에 등장하지 않게 한다.
+
+    예) 아침·점심 모두 한식이면 같은 dong의 한식 후보 30개를 fetch → 짝수 idx 는
+        아침 풀, 홀수 idx 는 점심 풀로 분할 → LLM 이 둘 다 같은 가게를 픽할 수 없음.
+
+    stats: fallback 카운트 dict (mutate). 누적 키:
       - resolve_dong_placeholder_fallback
-      - cand_sub_match (정상 1차 sub_category 매칭)
-      - cand_fallback_l1_dong (2차: 같은 dong, L1)
-      - cand_fallback_l1_district (3차: 자치구, L1)
-      - cand_all_empty (모든 fallback 실패)
+      - cand_sub_match / cand_fallback_l1_dong / cand_fallback_l1_district / cand_all_empty
+      - pool_split_groups : 분할이 일어난 그룹 수
+      - pool_split_events : 분할 적용된 이벤트 수
     """
+    from collections import defaultdict
+
     out: dict[int, list[dict]] = {}
     s = stats if stats is not None else {}
+
+    # 1) 각 이벤트 → 그룹 키 (dong_code, sub_cat) 결정. 스킵은 즉시 빈 풀.
+    group_key_for: dict[int, tuple[str, str]] = {}
+    l1_for: dict[int, str] = {}
     for i, ev in enumerate(events):
-        if ev.category in INTERNAL_CATS:
-            out[i] = []
-            continue
-        if ev.pinned_poi:
+        if ev.category in INTERNAL_CATS or ev.pinned_poi:
             out[i] = []
             continue
         sub_cat = ev.sub_category or _guess_sub_from_l1(ev.category)
@@ -110,28 +119,65 @@ def fetch_candidates_for_events(
         if not dong_code:
             out[i] = []
             continue
+        group_key_for[i] = (dong_code, sub_cat)
+        l1_for[i] = ev.category
 
-        # 1차: sub_category 정확 매칭
-        cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=k_per_event)
+    # 2) 같은 (dong, sub_cat) 그룹화. dict 삽입 순서 = 이벤트 시간 순.
+    groups: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for i, key in group_key_for.items():
+        groups[key].append(i)
+
+    # 3) 그룹별 fetch + round-robin 분할 (fallback 체인 그룹 단위 1회)
+    for (dong_code, sub_cat), event_idxs in groups.items():
+        n = len(event_idxs)
+        pool_size = k_per_event if n == 1 else n * k_per_event
+        l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
+
+        cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size)
         if cands:
-            s["cand_sub_match"] = s.get("cand_sub_match", 0) + 1
+            s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
         else:
-            # 2차: 같은 dong, L1 카테고리
-            if ev.category and ev.category not in INTERNAL_CATS:
-                cands = build_stage2_candidates_l1_dong(aid, dong_code, ev.category, limit=k_per_event)
+            if l1 and l1 not in INTERNAL_CATS:
+                cands = build_stage2_candidates_l1_dong(aid, dong_code, l1, limit=pool_size)
                 if cands:
-                    s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + 1
-            # 3차: 자치구 + L1
-            if not cands and ev.category:
-                district_code = dong_code[:5] if dong_code and len(dong_code) >= 5 else None
+                    s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + n
+            if not cands and l1:
+                district_code = dong_code[:5] if len(dong_code) >= 5 else None
                 if district_code:
-                    cands = build_stage2_candidates_l1_district(aid, district_code, ev.category, limit=k_per_event)
+                    cands = build_stage2_candidates_l1_district(
+                        aid, district_code, l1, limit=pool_size,
+                    )
                     if cands:
-                        s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + 1
+                        s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
             if not cands:
-                s["cand_all_empty"] = s.get("cand_all_empty", 0) + 1
-        out[i] = cands
+                s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
+
+        if n == 1:
+            out[event_idxs[0]] = (cands or [])[:k_per_event]
+        else:
+            buckets = _split_pool_round_robin(cands or [], n, k_per_event)
+            for bucket, ev_i in zip(buckets, event_idxs):
+                out[ev_i] = bucket
+            if cands:
+                s["pool_split_groups"] = s.get("pool_split_groups", 0) + 1
+                s["pool_split_events"] = s.get("pool_split_events", 0) + n
+
     return out
+
+
+def _split_pool_round_robin(
+    cands: list[dict], n: int, k_per_event: int,
+) -> list[list[dict]]:
+    """정렬된 풀(known DESC, km ASC) 을 N개 이벤트 풀로 round-robin 분할.
+
+    같은 POI 가 여러 버킷에 들어가지 않음 — 한 cand 는 idx % n 한 곳만 들어감.
+    상위 → 하위 순서대로 라운드로빈이라 각 버킷이 desire 분포를 골고루 받는다.
+    가장 이른 시간 이벤트(idx 0)가 단골 1순위를 받음.
+    """
+    buckets: list[list[dict]] = [[] for _ in range(n)]
+    for idx, c in enumerate(cands):
+        buckets[idx % n].append(c)
+    return [b[:k_per_event] for b in buckets]
 
 
 # L1 → 대표 sub 매핑 (sub_category 누락 시 fallback)

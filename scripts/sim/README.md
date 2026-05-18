@@ -137,6 +137,24 @@ python scripts/sim/build_standalone_html.py
 
 ---
 
+## 같은 날 반복 방문 차단 — 후보 풀 사전 분할
+
+`stage2_poi.fetch_candidates_for_events` 는 같은 (dong, sub_category) 이벤트가 하루에 N개 등장하면 후보를 **N×k_per_event 크기로 한 번에 fetch 한 뒤 round-robin 분할**한다. 같은 POI 가 두 이벤트 후보 풀에 동시에 들어가지 않으므로 LLM 이 구조적으로 중복 픽을 만들 수 없다.
+
+예: 아침·점심 모두 한식 (강남 11680101)
+- 후보 30개 fetch (15 × 2)
+- 짝수 idx (0,2,4,…) → 아침 풀, 홀수 idx (1,3,5,…) → 점심 풀
+- 단골 1순위 (idx 0) 는 가장 이른 시간 이벤트(아침) 에 할당
+- 두 풀은 disjoint — 점심에 맥도날드가 또 뜰 수 없음
+
+메트릭 (`day_<day>.jsonl` 의 agent 라인):
+- `fb_pool_split_groups` : 분할이 일어난 (dong, sub_cat) 그룹 수
+- `fb_pool_split_events` : 분할 적용된 이벤트 수 (= 그룹 크기 합)
+
+> 다른 날 반복 방문(어제 간 곳 오늘 또) 은 `KNOWS_POI.last_visit` 기반 desire 곡선으로 별도 처리 예정 — 현재는 미구현.
+
+---
+
 ## 메인 루프 단독 실행 옵션
 
 ```bash

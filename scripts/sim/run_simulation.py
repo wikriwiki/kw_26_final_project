@@ -164,6 +164,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "fb_hallucinations_dropped": m2.get("hallucinations_dropped", 0),
             "fb_order_mismatch": m2.get("order_mismatch", 0),
             "fb_missing_picks_filled": m2.get("missing_picks_filled", 0),
+            # 같은 (dong, sub_cat) 이벤트 후보 풀 분할 (같은 날 반복 방문 차단)
+            "fb_pool_split_groups": m2.get("pool_split_groups", 0),
+            "fb_pool_split_events": m2.get("pool_split_events", 0),
         }
     except Exception as e:
         return {
