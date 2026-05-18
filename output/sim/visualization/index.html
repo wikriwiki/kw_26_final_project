@@ -231,7 +231,9 @@ async function loadData() {
 }
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, preferCanvas: true })
+  // SVG 렌더링: invisible stroke의 hit area가 살아있어서 작은 점도 클릭 가능
+  // (Canvas 모드는 정확히 visible 영역만 hit으로 잡혀서 radius 2~3에선 클릭 어려움)
+  map = L.map('map', { zoomControl: true, preferCanvas: false })
     .setView([37.530, 127.020], 13);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© OSM · CARTO', maxZoom: 19,
@@ -242,7 +244,10 @@ function buildMarkers() {
   AGENTS.forEach(ag => {
     if (ag.home_lon == null || ag.home_lat == null) return;
     const m = L.circleMarker([ag.home_lat, ag.home_lon], {
-      radius: 2.5, weight: 0, color: COLORS_DIST[ag.dist_code] || '#888',
+      radius: 2.5,
+      // invisible stroke로 hit area만 확장 (실제 점은 작게 유지)
+      weight: 8, opacity: 0,
+      color: COLORS_DIST[ag.dist_code] || '#888',
       fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.75,
       className: 'agent-marker',
     });
@@ -339,7 +344,8 @@ function setFrame(idx) {
     if (!pos) {
       // 활동 없음 = 집에 있음
       m.setLatLng([ag.home_lat, ag.home_lon]);
-      m.setStyle({ fillOpacity: 0.25, opacity: 0.45, radius: 1.8 });
+      // opacity: 0 = stroke 안 보이지만 hit area는 유지
+      m.setStyle({ fillOpacity: 0.25, opacity: 0, weight: 8, radius: 1.8 });
       return;
     }
     active++;
@@ -349,7 +355,8 @@ function setFrame(idx) {
     if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
     else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
     else color = POLICY_TARGETS.has(pos.cat) || POLICY_TARGETS.has(pos.l1) ? '#e76f51' : '#888';
-    m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 1, radius: 3 });
+    // opacity: 0 = invisible stroke for hit area (확장)
+    m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 0, weight: 8, radius: 3 });
   });
 
   document.getElementById('active-cnt').textContent = active.toLocaleString();
