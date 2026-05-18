@@ -290,7 +290,183 @@ def main():
             L.append(f"  > {x['r']}")
             L.append("")
 
-    # 결론
+    # ════════════════════════════════════════════════════════════
+    # v3 변경 사항 중점 점검
+    # ════════════════════════════════════════════════════════════
+    L.append("---")
+    L.append("")
+    L.append("## 🎯 v3 변경 사항 중점 점검")
+    L.append("")
+
+    with driver_session() as s:
+        # 10. reasoning 품질 — 길이 분포 + 페르소나/정책 인용
+        L.append("### 10-A. reasoning 품질 (Stage 1)")
+        L.append("")
+        rq = s.run("""
+            MATCH (a:Agent)-[:HAS_PLAN {day: date($d)}]->(:Plan)-[i:INCLUDES]->()
+            WHERE i.reasoning IS NOT NULL AND NOT i.category IN ['집','직장']
+            WITH i.reasoning AS r, a
+            RETURN
+              count(*) AS total,
+              avg(size(r)) AS avg_len,
+              min(size(r)) AS min_len,
+              max(size(r)) AS max_len,
+              sum(CASE WHEN size(r) < 30 THEN 1 ELSE 0 END) AS too_short,
+              sum(CASE WHEN r CONTAINS '페르소나' OR r CONTAINS '라이프스타일'
+                         OR r CONTAINS 'Top' OR r CONTAINS '평일' OR r CONTAINS '주말'
+                         OR r CONTAINS '소득' OR r CONTAINS '직업' THEN 1 ELSE 0 END) AS cites_persona,
+              sum(CASE WHEN r CONTAINS 'policy_' OR r CONTAINS '바우처' OR r CONTAINS '쿠폰'
+                         OR r CONTAINS '환급' OR r CONTAINS '정책' THEN 1 ELSE 0 END) AS cites_policy,
+              sum(CASE WHEN r CONTAINS '만족도' OR r CONTAINS 'sat' THEN 1 ELSE 0 END) AS cites_sat,
+              sum(CASE WHEN r CONTAINS '약속' OR r CONTAINS 'AGT_' THEN 1 ELSE 0 END) AS cites_appt
+        """, d=day).single()
+        if rq and rq["total"]:
+            tot = rq["total"]
+            L.append(f"외출 reasoning {tot:,}건")
+            L.append("")
+            L.append(f"- 평균 길이: **{rq['avg_len']:.0f}자** (min {rq['min_len']}, max {rq['max_len']})")
+            L.append(f"- 너무 짧음 (<30자) — placeholder 의심: **{rq['too_short']:,}** "
+                     f"({rq['too_short']/tot*100:.2f}%)")
+            L.append("")
+            L.append("**페르소나·근거 인용 비율 (높을수록 깊이 있는 reasoning):**")
+            L.append("")
+            L.append("| 인용 종류 | 건수 | 비율 |")
+            L.append("|---|---:|---:|")
+            L.append(f"| 페르소나 (Top·라이프스타일·소득·직업) | {rq['cites_persona']:,} | {rq['cites_persona']/tot*100:.1f}% |")
+            L.append(f"| 정책 (바우처·쿠폰·환급·policy_id) | {rq['cites_policy']:,} | {rq['cites_policy']/tot*100:.1f}% |")
+            L.append(f"| 과거 만족도 (어제 sat·만족도) | {rq['cites_sat']:,} | {rq['cites_sat']/tot*100:.1f}% |")
+            L.append(f"| 약속·지인 (AGT_) | {rq['cites_appt']:,} | {rq['cites_appt']/tot*100:.1f}% |")
+            L.append("")
+
+        # 10-B. trigger 정합성 (Day 0=정책 비활성 baseline)
+        L.append("### 10-B. trigger 정합성")
+        L.append("")
+        cutoff_iso = "2026-05-02"  # 정책 발효일
+        is_baseline = day < cutoff_iso
+        L.append(f"오늘({day}) 정책 발효 여부: "
+                 f"**{'❌ 비활성 (baseline)' if is_baseline else '✅ 활성'}**")
+        L.append("")
+        tr = s.run("""
+            MATCH (:Plan {day: date($d)})-[i:INCLUDES]->()
+            WHERE i.trigger IS NOT NULL AND NOT i.category IN ['집','직장']
+            RETURN i.trigger AS t, count(*) AS n
+        """, d=day).data()
+        tr_map = {x["t"]: x["n"] for x in tr}
+        n_policy = tr_map.get("policy", 0)
+        n_total = sum(tr_map.values())
+        if is_baseline and n_policy > n_total * 0.005:
+            L.append(f"⚠️ **baseline 일자인데 policy trigger {n_policy}건 ({n_policy/n_total*100:.2f}%) — "
+                     f"LLM이 미발효 정책을 잘못 인용. 정상이면 ~0건**")
+        elif is_baseline:
+            L.append(f"✅ baseline 일자, policy trigger {n_policy}건 (정상)")
+        else:
+            L.append(f"📊 활성 일자, policy trigger {n_policy}건 ({n_policy/max(n_total,1)*100:.2f}%)")
+        # 분포 균형 — top_category 편중 여부
+        n_top = tr_map.get("top_category", 0)
+        n_habit = tr_map.get("habit", 0)
+        L.append(f"- top_category 비중: **{n_top/max(n_total,1)*100:.1f}%** "
+                 f"(60%↑이면 LLM이 안전 라벨로 쏠림 — diversity 낮음)")
+        L.append(f"- 다양성: rumor {tr_map.get('rumor',0)} · mood {tr_map.get('mood',0)} · "
+                 f"appointment {tr_map.get('appointment',0)}")
+        L.append("")
+
+        # 10-C. pick_factor 분포 (Stage 2 다양성)
+        L.append("### 10-C. pick_factor 분포 (Stage 2 단골 vs 탐색)")
+        L.append("")
+        L.append("| factor | 건수 | 비율 |")
+        L.append("|---|---:|---:|")
+        pf = s.run("""
+            MATCH (:Plan {day: date($d)})-[i:INCLUDES]->()
+            WHERE i.pick_factor IS NOT NULL
+            RETURN i.pick_factor AS f, count(*) AS n ORDER BY n DESC
+        """, d=day).data()
+        pf_total = sum(x["n"] for x in pf) or 1
+        for x in pf:
+            L.append(f"| {x['f']} | {x['n']:,} | {x['n']/pf_total*100:.1f}% |")
+        L.append("")
+        n_known = sum(x["n"] for x in pf if x["f"] == "known")
+        n_novel = sum(x["n"] for x in pf if x["f"] == "novelty")
+        if pf_total > 100:
+            if n_known > pf_total * 0.85:
+                L.append(f"⚠️ known 편중 {n_known/pf_total*100:.1f}% — 신규 탐색 부족")
+            elif n_novel < pf_total * 0.05 and not is_baseline:
+                L.append(f"ℹ️ novelty {n_novel/pf_total*100:.1f}% — 후반 일자에 정책으로 신규 발생 기대")
+            else:
+                L.append(f"✅ 균형 (known {n_known/pf_total*100:.1f}% / novelty {n_novel/pf_total*100:.1f}%)")
+        L.append("")
+
+        # 10-D. 단일 정책 baseline 검증 (Day 0 강남 vs 비강남 매출)
+        L.append("### 10-D. 강남 vs 비강남 매출 (단일 정책 검증)")
+        L.append("")
+        sales = s.run("""
+            MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)
+              <-[:HAS_DONG]-(dist:District)
+            MATCH (a)-[:HAS_PLAN {day: date($d)}]->(:Plan)
+              -[i:INCLUDES]->(p:POI {type:'commerce'})
+            WHERE i.category IN ['카페','디저트']
+            RETURN dist.code AS dist, sum(coalesce(i.actual_spent,0)) AS spend,
+                   count(*) AS n
+        """, d=day).data()
+        gn = next((r for r in sales if r["dist"] == "11680"), None)
+        ng_spend = sum(r["spend"] for r in sales if r["dist"] != "11680")
+        ng_n = sum(r["n"] for r in sales if r["dist"] != "11680")
+        L.append("정책 대상 카테고리 (카페·디저트) 매출:")
+        L.append("")
+        L.append("| 자치구 | 매출 | 이벤트 수 |")
+        L.append("|---|---:|---:|")
+        if gn:
+            L.append(f"| **강남 (정책 대상)** | {gn['spend']:,}원 | {gn['n']:,} |")
+        L.append(f"| 비강남 (대조군) | {ng_spend:,}원 | {ng_n:,} |")
+        # 1인당으로 환산 (강남 14,560 × ~12.5% = 1,820명 / 비강남 12,740명 추정)
+        gn_per = (gn["spend"] / 1820) if gn else 0
+        ng_per = ng_spend / 12740
+        L.append("")
+        L.append(f"- 강남 1인당 ~{gn_per:,.0f}원 / 비강남 1인당 ~{ng_per:,.0f}원")
+        diff_pct = (gn_per - ng_per) / max(ng_per, 1) * 100
+        if is_baseline:
+            if abs(diff_pct) > 30:
+                L.append(f"⚠️ baseline 일자인데 강남이 비강남 대비 **{diff_pct:+.1f}%** — "
+                         f"인구·소득 분포 효과로 일부 차이는 정상, 30%↑이면 점검 필요")
+            else:
+                L.append(f"✅ baseline 일자, 강남·비강남 격차 {diff_pct:+.1f}% (정상 범위)")
+        else:
+            L.append(f"📊 정책 활성 일자, 격차 {diff_pct:+.1f}% (이게 정책 효과)")
+        L.append("")
+
+        # 10-E. 새 필드 적재율 (v3 5개 필드 + Night reasoning)
+        L.append("### 10-E. v3 신규 필드 적재율")
+        L.append("")
+        L.append("| 필드 | 적재율 | 비고 |")
+        L.append("|---|---:|---|")
+        f1 = s.run("""
+            MATCH (:Plan {day: date($d)})-[i:INCLUDES]->() WHERE NOT i.category IN ['집','직장']
+            RETURN
+              count(*) AS t,
+              sum(CASE WHEN i.reasoning IS NOT NULL THEN 1 ELSE 0 END) AS r,
+              sum(CASE WHEN i.trigger IS NOT NULL THEN 1 ELSE 0 END) AS tg,
+              sum(CASE WHEN i.pick_reason IS NOT NULL THEN 1 ELSE 0 END) AS pr,
+              sum(CASE WHEN i.pick_factor IS NOT NULL THEN 1 ELSE 0 END) AS pf
+        """, d=day).single()
+        if f1 and f1["t"]:
+            L.append(f"| Stage1 reasoning | {f1['r']/f1['t']*100:.1f}% | "
+                     f"{'✅' if f1['r']/f1['t'] > 0.95 else '⚠️'} 95%+ 정상 |")
+            L.append(f"| Stage1 trigger | {f1['tg']/f1['t']*100:.1f}% | "
+                     f"{'✅' if f1['tg']/f1['t'] > 0.95 else '⚠️'} 95%+ 정상 |")
+            L.append(f"| Stage2 pick_reason | {f1['pr']/f1['t']*100:.1f}% | 외출 이벤트만 (50~70% 정상) |")
+            L.append(f"| Stage2 pick_factor | {f1['pf']/f1['t']*100:.1f}% | 외출 이벤트만 (50~70% 정상) |")
+        # Night reasoning
+        nr = s.run("""
+            MATCH (c:Conversation {day: date($d)})
+            RETURN count(*) AS t,
+                   sum(CASE WHEN c.reasoning IS NOT NULL THEN 1 ELSE 0 END) AS r
+        """, d=day).single()
+        if nr and nr["t"]:
+            L.append(f"| Night Conversation reasoning | {nr['r']/nr['t']*100:.1f}% | "
+                     f"{'✅' if nr['r']/nr['t'] > 0.95 else '⚠️'} 95%+ 정상 |")
+        else:
+            L.append(f"| Night Conversation reasoning | — | Night Phase 2 미완료 |")
+        L.append("")
+
     L.append("---")
     L.append("")
     L.append("## 진단 결과 요약")
