@@ -218,18 +218,25 @@ CREATE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 CREATE (m)-[:ABOUT_POI]->(poi)
 
 // KNOWS_POI MERGE + 집계 갱신
+// recent_visit_dates: 30일 슬라이딩 윈도우 (saturation 계산용).
+// Python 등가: scripts.sim.visit_window.trim_and_push_visit
 MERGE (a)-[kp:KNOWS_POI]->(poi)
 ON CREATE SET
   kp.since = date($yesterday), kp.source = 'visited',
   kp.visit_count = 1, kp.avg_satisfaction = i.actual_satisfaction,
   kp.last_visit = date($yesterday),
-  kp.affinity = 0.3 + 0.4 * i.actual_satisfaction
+  kp.affinity = 0.3 + 0.4 * i.actual_satisfaction,
+  kp.recent_visit_dates = [date($yesterday)]
 ON MATCH SET
   kp.visit_count = coalesce(kp.visit_count, 0) + 1,
   kp.avg_satisfaction = (coalesce(kp.avg_satisfaction, 0.5) * coalesce(kp.visit_count, 0) + i.actual_satisfaction)
                          / (coalesce(kp.visit_count, 0) + 1),
   kp.last_visit = date($yesterday),
-  kp.affinity = coalesce(kp.affinity, 0.5) * 0.7 + i.actual_satisfaction * 0.3
+  kp.affinity = coalesce(kp.affinity, 0.5) * 0.7 + i.actual_satisfaction * 0.3,
+  kp.recent_visit_dates =
+    [d IN coalesce(kp.recent_visit_dates, [])
+     WHERE duration.inDays(d, date($yesterday)).days < 30]
+    + [date($yesterday)]
 RETURN count(m) AS n_memories
 """
 
