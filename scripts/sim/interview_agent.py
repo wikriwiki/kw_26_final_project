@@ -220,59 +220,60 @@ def build_user_block(data: dict, question: str) -> str:
                      f"fatigue {st.get('fatigue',0):.2f}{used_summary}")
 
     # Plan + reasoning (인터뷰의 핵심 근거)
+    # vLLM context 8192 한계 → 외출 이벤트만, 최근 40개로 cap, reasoning 100자 cut
     lines.append("\n## 내 실제 행동·결정 흔적 (시뮬 LLM이 그 시점에 남긴 reasoning 그대로)")
+    outing_plans = [ev for ev in data["plans"]
+                    if (ev.get("cat") or "") not in ("집", "직장")]
+    # 최근 40개만
+    outing_plans = outing_plans[-40:] if len(outing_plans) > 40 else outing_plans
     cur_day = None
-    for ev in data["plans"]:
+    for ev in outing_plans:
         if ev["day"] != cur_day:
             cur_day = ev["day"]
             lines.append(f"\n### {cur_day}")
         sat_str = f" sat={ev['sat']:.2f}" if ev.get('sat') is not None else ""
         spent_str = f" · {ev['spent']:,}원" if (ev.get('spent') or 0) > 0 else ""
+        time_str = (ev['time'] or "")[:5]
         lines.append(
-            f"- {ev['time'][:5]} {ev['cat']}/{ev.get('sub') or '-'} @ {ev.get('dong_name','?')} "
-            f"→ {ev.get('poi_name') or ev['poi_id']}{sat_str}{spent_str}"
+            f"- {time_str} {ev['cat']}/{ev.get('sub') or '-'} → {ev.get('poi_name') or ev['poi_id']}{sat_str}{spent_str}"
         )
-        if ev.get("intent"):
-            lines.append(f"  · intent: {ev['intent']}")
-        if ev.get("reasoning"):
-            lines.append(f"  · 내가 그때 생각한 것 (Stage1 reasoning, trigger={ev.get('trigger','?')}): "
-                         f"{ev['reasoning']}")
-        if ev.get("pick_reason"):
-            lines.append(f"  · 이 장소를 고른 이유 (Stage2, factor={ev.get('pick_factor','?')}): "
-                         f"{ev['pick_reason']}")
+        r = (ev.get("reasoning") or "")[:120]
+        if r:
+            lines.append(f"  · 내가 생각한 것 ({ev.get('trigger','?')}): {r}")
+        pr = (ev.get("pick_reason") or "")[:80]
+        if pr:
+            lines.append(f"  · 장소 선택 ({ev.get('pick_factor','?')}): {pr}")
 
-    # Memory (소문·외출 기억)
-    if data["memories"]:
-        lines.append("\n## 내 기억 (Memory) — 최근")
-        for m in data["memories"][:20]:
-            if m["type"] == "rumor":
-                src = m.get('source') or '?'
-                tv = m.get('topic_value') or ''
-                summary = m.get('summary') or ''
-                lines.append(f"- [소문] {m['day']} | {src}한테 들음 | 주제: {tv} | {summary}")
-            elif m["type"] == "visited":
-                lines.append(f"- [방문] {m['day']} | {m.get('poi_name','?')} | sat {m.get('sat')}")
+    # Memory (소문 위주 — visited는 위 Plan에 이미 있음)
+    rumor_mems = [m for m in data["memories"] if m["type"] == "rumor"][:10]
+    if rumor_mems:
+        lines.append("\n## 내가 들은 소문 (rumor Memory)")
+        for m in rumor_mems:
+            src = m.get('source') or '?'
+            tv = (m.get('topic_value') or '')[:50]
+            summary = (m.get('summary') or '')[:100]
+            lines.append(f"- {m['day']} {src}한테 들음 | {tv} · {summary}")
 
-    # Conversation (양쪽 참여)
+    # Conversation (10개로 줄임)
     if data["conversations"]:
-        lines.append("\n## 내가 한 상호작용 (Conversation)")
-        for c in data["conversations"][:15]:
+        lines.append("\n## 내 상호작용 (Conversation)")
+        for c in data["conversations"][:10]:
             partner = c["recipient"] if c["role"] == "initiator" else c["initiator"]
             who = "내가 먼저" if c["role"] == "initiator" else "상대가 먼저"
             extra = ""
             if c["intent"] == "약속" and c.get("offset") is not None:
                 extra = f" → D+{c['offset']} {c.get('target_time','')} @ {c.get('meeting_poi') or c.get('hint','?')}"
-            lines.append(f"- {c['day']} | [{c['intent']}] {who} ({partner}) | "
-                         f"{c.get('topic_type')}: {c.get('topic_value') or '-'}{extra}")
-            if c.get("reasoning"):
-                lines.append(f"  · 그때 이 의도가 나온 사유: {c['reasoning']}")
+            line = f"- {c['day']} [{c['intent']}] {who}({partner}) · {c.get('topic_value') or '-'}{extra}"
+            lines.append(line)
+            r = (c.get("reasoning") or "")[:120]
+            if r:
+                lines.append(f"  · 사유: {r}")
 
-    # KNOWS_POI 단골
+    # KNOWS_POI 단골 (5개)
     if data["knows_poi"]:
-        lines.append("\n## 내 단골 가게 (KNOWS_POI Top)")
-        for k in data["knows_poi"][:8]:
-            lines.append(f"- {k['poi_name']} ({k.get('l1','?')}·{k.get('sub_cat','?')}) "
-                         f"방문 {k['visit']}회 · affinity {k.get('affinity', 0):.2f}")
+        lines.append("\n## 내 단골 가게 Top 5")
+        for k in data["knows_poi"][:5]:
+            lines.append(f"- {k['poi_name']} ({k.get('l1','?')}) 방문 {k['visit']}회 aff {k.get('affinity', 0):.2f}")
 
     # 질문
     lines.append("\n---")
@@ -289,7 +290,7 @@ def ask(data: dict, question: str, temperature: float = 0.7) -> str:
     user = build_user_block(data, question)
     resp = _llm_call(
         None, INTERVIEW_SYSTEM, user,
-        temperature=temperature, max_tokens=600,
+        temperature=temperature, max_tokens=400,
     )
     return resp.choices[0].message.content.strip()
 
@@ -300,29 +301,55 @@ def ask(data: dict, question: str, temperature: float = 0.7) -> str:
 def find_label_sample(label: str, last_day: str) -> str | None:
     """label ∈ {positive, negative, neutral}.
 
-    positive: 정책 사용액 ≥ 30,000 + 마지막 날 mood ≥ 0.6
-    negative: 정책 사용액 = 0 + 마지막 날 mood ≤ 0.4
-    neutral : 정책 사용액 = 0 + mood 0.4~0.6
+    APOC 미설치 환경 호환:
+      positive: policy_used가 빈 JSON 아님 + mood >= 0.6 (정책 사용 + 만족)
+      negative: policy_used = '{}' or null + mood <= 0.4
+      neutral : policy_used = '{}' or null + mood 0.4~0.6
+    Python으로 JSON 파싱해서 total 계산 — Cypher는 raw 가져오기만.
     """
-    cond = {
-        "positive": "total_used >= 30000 AND s.mood >= 0.6",
-        "negative": "total_used = 0 AND s.mood <= 0.4",
-        "neutral":  "total_used = 0 AND s.mood >= 0.4 AND s.mood <= 0.6",
-    }.get(label)
-    if cond is None:
+    import json as _json
+    if label not in ("positive", "negative", "neutral"):
         return None
     with driver_session() as s:
-        r = s.run(f"""
+        # 일단 후보 풀 (당일 State 있는 강남 거주 agent 중심)
+        rows = s.run("""
             MATCH (a:Agent)-[:HAS_STATE]->(s:State)
             WHERE toString(s.day) = $d
-            WITH a, s,
-                 CASE WHEN s.policy_used IS NULL THEN 0
-                      ELSE reduce(t=0, k IN keys(apoc.convert.fromJsonMap(s.policy_used)) |
-                                  t + apoc.convert.fromJsonMap(s.policy_used)[k]) END AS total_used
-            WHERE {cond}
-            RETURN a.id AS id ORDER BY rand() LIMIT 1
-        """, d=last_day).single()
-        return r["id"] if r else None
+              AND s.mood IS NOT NULL
+            RETURN a.id AS id, s.mood AS mood, s.policy_used AS pu
+            LIMIT 5000
+        """, d=last_day).data()
+    candidates = []
+    for r in rows:
+        used_total = 0
+        pu = r.get("pu")
+        if pu and pu != "{}":
+            try:
+                d = _json.loads(pu) if isinstance(pu, str) else pu
+                if isinstance(d, dict):
+                    used_total = sum(v for v in d.values() if isinstance(v, (int, float)))
+            except Exception:
+                pass
+        mood = r["mood"]
+        if label == "positive" and used_total >= 30000 and mood >= 0.6:
+            candidates.append(r["id"])
+        elif label == "negative" and used_total == 0 and mood <= 0.4:
+            candidates.append(r["id"])
+        elif label == "neutral" and used_total == 0 and 0.4 < mood < 0.6:
+            candidates.append(r["id"])
+    if not candidates:
+        # 완화 fallback — 조건 약하게
+        if label == "positive":
+            candidates = [r["id"] for r in rows
+                          if r.get("pu") and r["pu"] != "{}" and r["mood"] >= 0.55]
+        elif label == "negative":
+            candidates = [r["id"] for r in rows if r["mood"] <= 0.45]
+        else:
+            candidates = [r["id"] for r in rows if 0.45 < r["mood"] < 0.55]
+    if not candidates:
+        return None
+    import random as _random
+    return _random.choice(candidates)
 
 
 # ═══════════════════════════════════════════════════════════════

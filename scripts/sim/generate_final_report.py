@@ -133,35 +133,102 @@ def section2_before_after(start: date, days: int, policy_from: str, out_dir: Pat
             "DID_pct_points": round(gn_chg - ng_chg, 2),
         }
 
-    # 차트
+    # ─────── 차트 — 3개 독립 PNG로 분리 (각각 충분히 크게) ───────
+    GN_POP = 1820
+    NG_POP = 12740
     plt = _setup_mpl()
-    fig, ax = plt.subplots(figsize=(11, 5))
+    plt.rcParams.update({
+        'font.size': 14, 'axes.titlesize': 17, 'axes.labelsize': 14,
+        'xtick.labelsize': 13, 'ytick.labelsize': 13, 'legend.fontsize': 13,
+    })
     xs = list(range(len(daily)))
     labels = [x["day"][5:] for x in daily]
-    gn = [x["gangnam_spend"] / 1e6 for x in daily]
-    ng = [x["non_gangnam_spend"] / 1e6 for x in daily]
-    ax.plot(xs, gn, marker="o", label="강남구 (정책 대상)", color="#e76f51", linewidth=2)
-    ax.plot(xs, ng, marker="s", label="비강남 (대조군)", color="#4cc9f0", linewidth=2)
-    # 정책 시행 시점 수직선
+    cut_idx = None
     try:
         cut_idx = next(i for i, x in enumerate(daily) if x["day"] == policy_from)
-        ax.axvline(cut_idx - 0.5, color="#888", linestyle="--", linewidth=1)
-        ax.text(cut_idx - 0.4, max(gn + ng) * 0.95, f"  정책 시행 {policy_from}",
-                color="#aaa", fontsize=10)
     except StopIteration:
         pass
-    ax.set_xticks(xs)
-    ax.set_xticklabels(labels, rotation=0)
-    ax.set_xlabel("날짜")
-    ax.set_ylabel("일별 매출 합계 (백만원)")
-    ax.set_title("정책 시행 전 vs 후 매출 추이 — 식사·카페·디저트")
-    ax.legend()
-    ax.grid(alpha=0.3)
+
+    # ── (A) 1인당 매출 (절대 비교) ──
+    gn_per = [x["gangnam_spend"] / GN_POP for x in daily]
+    ng_per = [x["non_gangnam_spend"] / NG_POP for x in daily]
+    fig, ax = plt.subplots(figsize=(13, 6.5))
+    ax.plot(xs, gn_per, marker="o", markersize=10, label=f"강남 (n={GN_POP:,})",
+            color="#e76f51", linewidth=3)
+    ax.plot(xs, ng_per, marker="s", markersize=10, label=f"비강남 (n={NG_POP:,})",
+            color="#4cc9f0", linewidth=3)
+    if cut_idx is not None:
+        ax.axvline(cut_idx - 0.5, color="#888", linestyle="--", linewidth=1.5)
+        ax.text(cut_idx - 0.45, max(gn_per + ng_per) * 0.95,
+                f" 정책 시행 {policy_from}", color="#666", fontsize=12)
+    ax.set_xticks(xs); ax.set_xticklabels(labels)
+    ax.set_xlabel("날짜"); ax.set_ylabel("1인당 매출 (원)")
+    ax.set_title("(A) 1인당 일별 매출 — 인구 비례 환산 후 절대 비교", pad=12)
+    ax.legend(loc="best"); ax.grid(alpha=0.3)
+    ax.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda x, _: f'{int(x):,}'))
     plt.tight_layout()
-    path = out_dir / "fig2_before_after.png"
-    plt.savefig(path, dpi=120, bbox_inches="tight")
+    path_a = out_dir / "fig2a_per_capita.png"
+    plt.savefig(path_a, dpi=140, bbox_inches="tight")
     plt.close()
-    return {"daily": daily, "summary": summary}, str(path.name)
+
+    # ── (B) baseline 대비 변화율 ──
+    if daily:
+        gn_base = max(daily[0]["gangnam_spend"], 1)
+        ng_base = max(daily[0]["non_gangnam_spend"], 1)
+        gn_chg = [(x["gangnam_spend"] - gn_base) / gn_base * 100 for x in daily]
+        ng_chg = [(x["non_gangnam_spend"] - ng_base) / ng_base * 100 for x in daily]
+        fig, ax = plt.subplots(figsize=(13, 6.5))
+        ax.plot(xs, gn_chg, marker="o", markersize=10, label="강남구", color="#e76f51", linewidth=3)
+        ax.plot(xs, ng_chg, marker="s", markersize=10, label="비강남", color="#4cc9f0", linewidth=3)
+        ax.axhline(0, color="#999", linewidth=1)
+        if cut_idx is not None:
+            ax.axvline(cut_idx - 0.5, color="#888", linestyle="--", linewidth=1.5)
+            top_y = max(max(gn_chg), max(ng_chg))
+            ax.text(cut_idx - 0.45, top_y * 0.95 if top_y > 0 else 3,
+                    f" 정책 시행 {policy_from}", color="#666", fontsize=12)
+        ax.set_xticks(xs); ax.set_xticklabels(labels)
+        ax.set_xlabel("날짜"); ax.set_ylabel(f"{daily[0]['day'][5:]} 대비 변화율 (%)")
+        ax.set_title("(B) baseline 대비 매출 변화율 — 같은 출발점에서 비교", pad=12)
+        ax.legend(loc="best"); ax.grid(alpha=0.3)
+        plt.tight_layout()
+        path_b = out_dir / "fig2b_change_rate.png"
+        plt.savefig(path_b, dpi=140, bbox_inches="tight")
+        plt.close()
+
+        # ── (C) DID ──
+        did = [g - n for g, n in zip(gn_chg, ng_chg)]
+        fig, ax = plt.subplots(figsize=(13, 6.5))
+        colors = ['#aaa' if i == 0 else ('#38a169' if v >= 0 else '#e53e3e')
+                  for i, v in enumerate(did)]
+        bars = ax.bar(xs, did, color=colors, edgecolor='black', linewidth=0.8, width=0.65)
+        ax.axhline(0, color="#666", linewidth=1)
+        if cut_idx is not None:
+            ax.axvline(cut_idx - 0.5, color="#888", linestyle="--", linewidth=1.5)
+        for i, (bar, v) in enumerate(zip(bars, did)):
+            if i == 0: continue
+            offset = max(abs(min(did)), abs(max(did))) * 0.04
+            ax.text(i, v + (offset if v >= 0 else -offset),
+                    f"{v:+.1f}%p", ha="center",
+                    va="bottom" if v >= 0 else "top",
+                    fontsize=13,
+                    color='#1a7a3e' if v >= 0 else '#b03030', fontweight='bold')
+        ax.set_xticks(xs); ax.set_xticklabels(labels)
+        ax.set_xlabel("날짜"); ax.set_ylabel("DID (%p)")
+        ax.set_title("(C) DID — 강남 변화율 − 비강남 변화율 (정책 순효과)", pad=12)
+        ax.grid(alpha=0.3, axis="y")
+        plt.tight_layout()
+        path_c = out_dir / "fig2c_did.png"
+        plt.savefig(path_c, dpi=140, bbox_inches="tight")
+        plt.close()
+    else:
+        path_b = path_a
+        path_c = path_a
+
+    return {"daily": daily, "summary": summary}, {
+        "per_capita": str(path_a.name),
+        "change_rate": str(path_b.name),
+        "did": str(path_c.name),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -424,13 +491,21 @@ def build_markdown(start: date, days: int, policy_from: str | None,
         lines.append(f"| {k} | {v:,} |" if isinstance(v, int) else f"| {k} | {v} |")
     lines.append("")
 
-    # 2) 매출 추이
-    s2_data, s2_fig = s2
+    # 2) 매출 추이 — 3장
+    s2_data, s2_figs = s2
     sm = s2_data["summary"]
     lines.append("## 2. 정책 시행 전 vs 후 매출 추이")
     lines.append("")
-    lines.append(f"![매출추이]({chart_dir_rel}/{s2_fig})")
-    lines.append("")
+    if isinstance(s2_figs, dict):
+        lines.append(f"![1인당 매출]({chart_dir_rel}/{s2_figs['per_capita']})")
+        lines.append("")
+        lines.append(f"![변화율]({chart_dir_rel}/{s2_figs['change_rate']})")
+        lines.append("")
+        lines.append(f"![DID]({chart_dir_rel}/{s2_figs['did']})")
+        lines.append("")
+    else:
+        lines.append(f"![매출추이]({chart_dir_rel}/{s2_figs})")
+        lines.append("")
     if sm:
         lines.append("### 평균 일간 매출 비교")
         lines.append("")
@@ -865,7 +940,7 @@ def _figure(path: Path | None, caption: str) -> str:
 def build_html(start: date, days: int, policy_from: str | None,
                s1: dict, s2: tuple, s3: tuple, s4_1: tuple,
                s4_2: tuple, s4_3: tuple, s5: dict, chart_dir: Path) -> str:
-    s2_data, s2_fig = s2
+    s2_data, s2_figs = s2
     s3_data, s3_fig = s3
     s41_data, s41_fig = s4_1
     s42_data, s42_fig = s4_2
@@ -1051,8 +1126,12 @@ def build_html(start: date, days: int, policy_from: str | None,
       <h2>2. 정책 시행 전 vs 후 매출 추이</h2>
       <p>강남구 카페·디저트 바우처(30% 환급, 인당 5만원 한도)가
         시행된 <code>{_h(policy_from or '—')}</code> 시점을 기준으로
-        정책 대상 카테고리(식사·카페·디저트)의 일별 매출을 비교합니다.</p>
-      {_figure(chart_dir / s2_fig, '정책 시행 전·후 매출 추이 — 강남구 vs 비강남 대조군')}
+        정책 대상 카테고리(식사·카페·디저트)의 일별 매출을 비교합니다.
+        세 관점 — (A) 인구 비례 1인당 매출, (B) baseline 대비 변화율, (C) DID — 으로 분석합니다.</p>
+      {_figure(chart_dir / s2_figs['per_capita'] if isinstance(s2_figs, dict) else chart_dir / s2_figs,
+               '(A) 1인당 일별 매출 — 인구 비례 환산 후 강남 vs 비강남 절대 비교')}
+      {_figure(chart_dir / s2_figs['change_rate'], '(B) baseline 대비 매출 변화율 — 같은 0% 출발점에서 패턴 비교') if isinstance(s2_figs, dict) else ''}
+      {_figure(chart_dir / s2_figs['did'], '(C) DID — 강남 변화율 − 비강남 변화율 (정책 순효과)') if isinstance(s2_figs, dict) else ''}
       {'<h3>평균 일간 매출 비교</h3><table><thead><tr><th>자치구</th><th class="num">시행 전</th><th class="num">시행 후</th><th class="num">변화율</th></tr></thead><tbody>' + sales_rows + '</tbody></table>' + did_callout if sm else ''}
     </section>
 
