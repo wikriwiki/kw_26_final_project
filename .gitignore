@@ -30,6 +30,9 @@ output/
 !output/sim/visualization/index.html
 output/sim/visualization/*.json
 # sim_standalone.html은 Git LFS로 추적 (97MB+ 단일 시각화 번들)
+# 페르소나 생성용 통계 JSON (다른 작업자 reuse 위해 push)
+!output/stats/
+!output/stats/*.json
 
 # Claude state (Drive 동기화 전용, git 추적 X)
 _claude_state/
