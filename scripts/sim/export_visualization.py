@@ -124,6 +124,8 @@ def fetch_timeline(s, agent_ids: list[str]):
                i.category AS cat, i.sub_category AS sub_cat,
                i.intent AS intent, i.actual_satisfaction AS sat,
                i.actual_spent AS spent,
+               i.reasoning AS reasoning, i.trigger AS trigger,
+               i.pick_reason AS pick_reason, i.pick_factor AS pick_factor,
                poi.id AS poi_id, poi.name AS poi_name,
                poi.lon AS lon, poi.lat AS lat, poi.type AS poi_type,
                c.parent AS l1
@@ -139,6 +141,9 @@ def fetch_timeline(s, agent_ids: list[str]):
             "anchor": r["anchor"], "cat": r["cat"], "sub": r["sub_cat"],
             "intent": r["intent"], "sat": r["sat"],
             "spent": r["spent"] or 0,
+            # 사고과정 흔적 (인터뷰·상세 뷰용)
+            "reasoning": r["reasoning"], "trigger": r["trigger"],
+            "pick_reason": r["pick_reason"], "pick_factor": r["pick_factor"],
             "poi_id": r["poi_id"], "poi_name": r["poi_name"] or "",
             "lon": r["lon"], "lat": r["lat"],
             "poi_type": r["poi_type"], "l1": r["l1"],

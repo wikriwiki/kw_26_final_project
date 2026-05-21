@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<title>서울 상권정책 시뮬 — 풀런 2일 (Qwen3-14B + NL 정책) · 25개 자치구 표본</title>
+<title>서울 상권정책 시뮬 — 풀런 7일 (Qwen3-14B + 강남 카페·디저트 바우처) · 25개 자치구 표본</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -66,7 +66,7 @@
 <div id="map"></div>
 
 <div class="panel" id="info">
-  <h3>🏙️ Seoul Sim — 풀런 2일 (Qwen3-14B)</h3>
+  <h3>🏙️ Seoul Sim — 풀런 7일 (Qwen3-14B)</h3>
   <div class="row"><span class="label">현재 프레임</span><span class="val" id="frame-label">-</span></div>
   <div class="row"><span class="label">활동 agent</span><span class="val" id="active-cnt">-</span></div>
   <div class="row"><span class="label">표본 자치구</span><span class="val">25개구 균등</span></div>
@@ -240,17 +240,21 @@ function initMap() {
   }).addTo(map);
 }
 
+// 모든 상태에서 일관된 점 크기 (초기/집/활동 모두 동일)
+const AGENT_DOT_RADIUS = 5;
+
 function buildMarkers() {
   AGENTS.forEach(ag => {
     if (ag.home_lon == null || ag.home_lat == null) return;
     const m = L.circleMarker([ag.home_lat, ag.home_lon], {
-      radius: 2.5,
-      // invisible stroke로 hit area만 확장 (실제 점은 작게 유지)
-      weight: 8, opacity: 0,
+      radius: AGENT_DOT_RADIUS,
+      // invisible stroke 14px — frame 진행 중에도 점 주변 ~15px hit area 유지
+      weight: 14, opacity: 0,
       color: COLORS_DIST[ag.dist_code] || '#888',
-      fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.75,
+      fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.8,
       className: 'agent-marker',
     });
+    m.on('mouseover', function(e) { this.bringToFront(); });
     m.on('click', () => showDetail(ag.id));
     m.addTo(map);
     markers[ag.id] = m;
@@ -342,10 +346,9 @@ function setFrame(idx) {
     }
     const pos = positions[ag.id];
     if (!pos) {
-      // 활동 없음 = 집에 있음
+      // 활동 없음 = 집에 있음 (크기는 동일 유지, 투명도로만 구분)
       m.setLatLng([ag.home_lat, ag.home_lon]);
-      // opacity: 0 = stroke 안 보이지만 hit area는 유지
-      m.setStyle({ fillOpacity: 0.25, opacity: 0, weight: 8, radius: 1.8 });
+      m.setStyle({ fillOpacity: 0.35, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
       return;
     }
     active++;
@@ -355,8 +358,7 @@ function setFrame(idx) {
     if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
     else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
     else color = POLICY_TARGETS.has(pos.cat) || POLICY_TARGETS.has(pos.l1) ? '#e76f51' : '#888';
-    // opacity: 0 = invisible stroke for hit area (확장)
-    m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 0, weight: 8, radius: 3 });
+    m.setStyle({ color, fillColor: color, fillOpacity: 0.9, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
   });
 
   document.getElementById('active-cnt').textContent = active.toLocaleString();
@@ -413,6 +415,7 @@ function showDetail(aid) {
       ${lastEvent.cat || ''}${lastEvent.sub ? ' · '+lastEvent.sub : ''} — ${lastEvent.intent || ''}<br/>
       장소: ${lastEvent.poi_name || lastEvent.poi_id}
       ${lastEvent.sat != null ? ' / 만족도 ' + lastEvent.sat.toFixed(2) : ''}
+      ${(lastEvent.spent && lastEvent.spent > 0) ? ' / 💰 ' + lastEvent.spent.toLocaleString() + '원' : ''}
     </div>
   ` : '<div style="font-size:11px; color:#888;">아직 활동 없음 (집)</div>';
 
@@ -450,12 +453,29 @@ function showDetail(aid) {
         // 카테고리 (L1 + sub)
         const catLine = ev.cat ? (ev.sub && ev.sub !== ev.cat ? `${ev.cat} · ${ev.sub}` : ev.cat) : '';
         const satLine = ev.sat != null ? '만족도 ' + ev.sat.toFixed(2) : '';
-        const metaParts = [catLine, satLine].filter(Boolean).join(' · ');
+        // 지출액: 0원이거나 null이면 표시 생략 (집·직장 anchor는 보통 0)
+        const spentLine = (ev.spent && ev.spent > 0)
+          ? '💰 ' + ev.spent.toLocaleString() + '원'
+          : '';
+        const metaParts = [catLine, satLine, spentLine].filter(Boolean).join(' · ');
+        // trigger 라벨 (한글)
+        const TRIG_KR = {
+          appointment: '약속', rumor: '소문', policy: '정책',
+          habit: '습관', top_category: 'Top카테고리', mood: '컨디션', none: '-',
+        };
+        const trigBadge = ev.trigger
+          ? `<span style="background:rgba(244,162,97,0.2); color:#f4a261; font-size:10px; padding:1px 6px; border-radius:3px; margin-left:4px;">🎯 ${TRIG_KR[ev.trigger] || ev.trigger}</span>`
+          : '';
+        // 왜 갔는지 (Stage1 LLM이 생성한 reasoning)
+        const reasoningLine = ev.reasoning
+          ? `<div class="meta" style="color:#cbd5e0; margin-top:3px; font-style:italic;">💭 ${ev.reasoning}</div>`
+          : '';
         return `
           <div class="mem-item" style="background:${bg}; opacity:${opacity}; border-left:3px solid ${COLORS_L1[ev.cat] || '#888'};">
-            <div><b>${ev.time}</b> <span style="color:#fff;">${placeLabel}</span></div>
+            <div><b>${ev.time}</b> <span style="color:#fff;">${placeLabel}</span>${trigBadge}</div>
             ${metaParts ? '<div class="meta">'+metaParts+'</div>' : ''}
             ${ev.intent ? '<div class="meta" style="color:#aaa;">'+ev.intent+'</div>' : ''}
+            ${reasoningLine}
           </div>
         `;
       }).join('');
@@ -485,11 +505,25 @@ function showDetail(aid) {
       `).join('');
 
   // 💬 들은 소문 (rumor) — Night Phase 2 의도분류로 적재된 Memory{type:'rumor'}
+  //
+  // summary 필드 처리: 현재 데이터의 summary는 night_intent_llm의 reasoning 프롬프트가
+  // "왜 이 의도로 분류했는가"의 3인칭 분석문을 요구하던 시절에 생성된 것이라
+  // "AGT_A가 ~한 기록이 있고 ... 추천한 것으로 보인다" 같은 추측문이 들어있다.
+  // 진짜 소문 발화체로 갱신되려면 night_intent_llm.py 프롬프트 수정 + 시뮬 재실행이 필요.
+  // 그때까지는 잘못된 분석문을 보여주지 않고 핵심 메타(누가·뭘·언제·중요도)만 표시.
+  function _looksLikeAnalysisText(s) {
+    if (!s) return false;
+    // 3인칭 분석문 시그니처: agent id 직접 인용, 추측 어미
+    return /AGT_\d/.test(s)
+        || /보인다|가능성이|기록이 있|적이 있어|추측|것으로 보/.test(s);
+  }
   document.getElementById('d-rumors').innerHTML = visibleRumor.length === 0
     ? '<div style="font-size:11px; color:#888;">(들은 소문 없음)</div>'
     : visibleRumor.slice(0, 30).map(m => {
         const src = m.source || '?';
         const topic = m.topic_value ? `${m.topic_type || ''}: ${m.topic_value}`.trim() : '';
+        // summary가 분석문 형태면 숨기고, 발화체로 보이면 표시
+        const showSummary = m.summary && !_looksLikeAnalysisText(m.summary);
         return `
           <div class="mem-item" style="border-left:3px solid #f4a261;">
             <div>
@@ -498,7 +532,7 @@ function showDetail(aid) {
             ${topic ? `<div class="meta" style="color:#fff;">${topic}</div>` : ''}
             ${m.poi_name ? `<div class="meta">→ ${m.poi_name}</div>` : ''}
             <div class="meta">${m.day} · 중요도 ${(m.imp||0).toFixed(2)}</div>
-            ${m.summary ? '<div class="meta" style="color:#aaa;">'+m.summary+'</div>' : ''}
+            ${showSummary ? '<div class="meta" style="color:#cbd5e0; font-style:italic;">💬 "'+m.summary+'"</div>' : ''}
           </div>
         `;
       }).join('');
@@ -535,35 +569,72 @@ function showDetail(aid) {
         `;
       }).join('');
 
-  // 단골 KNOWS_POI Top — R_/W_ POI는 자기 집·직장이라 의미 없음. commerce만.
-  const knownTop = (mem.knows_poi || [])
-    .filter(k => (k.poi_id || '').startsWith('C_'))
+  // 단골 KNOWS_POI Top — currentDay 시점까지의 누적 방문 기반 동적 계산
+  // (KNOWS_POI 노드 데이터는 시뮬 종료 시점의 누적값이라 7일 내내 동일하게 보임 → 시점 의미 X.
+  //  대신 visited Memory를 currentDay 까지 필터해서 POI별 방문 수 직접 계산.)
+  const visitsByPoi = {};   // poi_id → {name, cat, count, lastSat}
+  visitedMems.forEach(m => {
+    if (!m.day || m.day > currentDay) return;
+    const pid = m.poi_id;
+    if (!pid || !pid.startsWith('C_')) return;
+    if (!visitsByPoi[pid]) {
+      visitsByPoi[pid] = {
+        poi_id: pid, poi_name: m.poi_name || pid,
+        count: 0, satSum: 0, satN: 0, lastDay: m.day,
+      };
+    }
+    const v = visitsByPoi[pid];
+    v.count += 1;
+    if (m.sat != null) { v.satSum += m.sat; v.satN += 1; }
+    if (m.day > v.lastDay) v.lastDay = m.day;
+  });
+  // KNOWS_POI에서 카테고리·affinity 보강
+  const kpMap = {};
+  (mem.knows_poi || []).forEach(k => { kpMap[k.poi_id] = k; });
+  const knownTop = Object.values(visitsByPoi)
+    .map(v => {
+      const kp = kpMap[v.poi_id] || {};
+      return {
+        ...v,
+        cat: kp.cat || '?',
+        sub: kp.sub || '',
+        avgSat: v.satN > 0 ? v.satSum / v.satN : null,
+        affinity: kp.affinity,
+      };
+    })
+    .sort((a, b) => b.count - a.count || (b.avgSat || 0) - (a.avgSat || 0))
     .slice(0, 10);
   document.getElementById('d-knows').innerHTML = knownTop.length === 0
-    ? '<div style="font-size:11px; color:#888;">(아직 단골 POI 없음)</div>'
+    ? '<div style="font-size:11px; color:#888;">(아직 단골 POI 없음 — 외출 기록 누적 후 표시)</div>'
     : knownTop.map(k => `
         <div class="mem-item known">
-          <div>${k.poi_name || k.poi_id}
-            ${k.cat ? '<span class="tag">'+k.cat+'</span>' : ''}
+          <div>${k.poi_name}
+            ${k.cat && k.cat !== '?' ? '<span class="tag">'+k.cat+(k.sub?' · '+k.sub:'')+'</span>' : ''}
           </div>
-          <div class="meta">방문 ${k.visit_count}회 · affinity ${(k.affinity||0).toFixed(2)} · 출처 ${k.source}</div>
+          <div class="meta">방문 <b>${k.count}회</b> (~${k.lastDay})${k.avgSat != null ? ' · 평균 만족도 ' + k.avgSat.toFixed(2) : ''}${k.affinity != null ? ' · affinity ' + k.affinity.toFixed(2) : ''}</div>
         </div>
       `).join('');
 
-  // 어제 State (현재 프레임의 day 직전)
-  const dayList = ['2026-04-30','2026-05-01','2026-05-02','2026-05-03'];
-  const dayIdx = dayList.indexOf(currentDay);
-  const yesterday = dayIdx > 0 ? dayList[dayIdx - 1] : null;
-  const st = yesterday && mem.state ? mem.state[yesterday] : null;
-  document.getElementById('d-state').innerHTML = st ? `
-    <div class="state-block">
-      <b>${yesterday}</b><br/>
-      잔액 ${(st.balance||0).toLocaleString()}원 ·
-      mood ${(st.mood||0).toFixed(2)} ·
-      fatigue ${(st.fatigue||0).toFixed(2)} ·
-      어제 만족도 ${(st.yest_sat||0).toFixed(2)}
+  // State 패널 — 오늘 + 어제 둘 다 (있는 만큼)
+  // mem.state 키 = "2026-05-NN" 형식. currentDay 와 비교.
+  const stateDays = mem.state ? Object.keys(mem.state).sort() : [];
+  const todayState = mem.state ? mem.state[currentDay] : null;
+  const yesterdayKey = stateDays.filter(d => d < currentDay).pop() || null;
+  const yesterdayState = yesterdayKey ? mem.state[yesterdayKey] : null;
+  const fmtState = (label, day, st) => `
+    <div class="state-block" style="margin-bottom:6px;">
+      <b>${label} (${day})</b><br/>
+      💰 잔액 ${(st.balance||0).toLocaleString()}원 ·
+      😊 mood ${(st.mood||0).toFixed(2)} ·
+      😴 fatigue ${(st.fatigue||0).toFixed(2)}
+      ${st.yest_sat != null ? '<br/>어제 평균 만족도 ' + (st.yest_sat).toFixed(2) : ''}
     </div>
-  ` : '<div style="font-size:11px; color:#888;">(어제 State 없음)</div>';
+  `;
+  let stateHtml = '';
+  if (todayState) stateHtml += fmtState('오늘', currentDay, todayState);
+  if (yesterdayState) stateHtml += fmtState('어제', yesterdayKey, yesterdayState);
+  if (!stateHtml) stateHtml = '<div style="font-size:11px; color:#888;">(State 없음)</div>';
+  document.getElementById('d-state').innerHTML = stateHtml;
 }
 
 function closeDetail() {
