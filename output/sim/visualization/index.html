@@ -506,25 +506,12 @@ function showDetail(aid) {
       `).join('');
 
   // 💬 들은 소문 (rumor) — Night Phase 2 의도분류로 적재된 Memory{type:'rumor'}
-  //
-  // summary 필드 처리: 현재 데이터의 summary는 night_intent_llm의 reasoning 프롬프트가
-  // "왜 이 의도로 분류했는가"의 3인칭 분석문을 요구하던 시절에 생성된 것이라
-  // "AGT_A가 ~한 기록이 있고 ... 추천한 것으로 보인다" 같은 추측문이 들어있다.
-  // 진짜 소문 발화체로 갱신되려면 night_intent_llm.py 프롬프트 수정 + 시뮬 재실행이 필요.
-  // 그때까지는 잘못된 분석문을 보여주지 않고 핵심 메타(누가·뭘·언제·중요도)만 표시.
-  function _looksLikeAnalysisText(s) {
-    if (!s) return false;
-    // 3인칭 분석문 시그니처: agent id 직접 인용, 추측 어미
-    return /AGT_\d/.test(s)
-        || /보인다|가능성이|기록이 있|적이 있어|추측|것으로 보/.test(s);
-  }
+  // summary 는 LLM이 작성한 사유/분석문 (대화 본문은 아님, 분류 사유). 그냥 모두 표시.
   document.getElementById('d-rumors').innerHTML = visibleRumor.length === 0
     ? '<div style="font-size:11px; color:#888;">(들은 소문 없음)</div>'
     : visibleRumor.slice(0, 30).map(m => {
         const src = m.source || '?';
         const topic = m.topic_value ? `${m.topic_type || ''}: ${m.topic_value}`.trim() : '';
-        // summary가 분석문 형태면 숨기고, 발화체로 보이면 표시
-        const showSummary = m.summary && !_looksLikeAnalysisText(m.summary);
         return `
           <div class="mem-item" style="border-left:3px solid #f4a261;">
             <div>
@@ -533,7 +520,7 @@ function showDetail(aid) {
             ${topic ? `<div class="meta" style="color:#fff;">${topic}</div>` : ''}
             ${m.poi_name ? `<div class="meta">→ ${m.poi_name}</div>` : ''}
             <div class="meta">${m.day} · 중요도 ${(m.imp||0).toFixed(2)}</div>
-            ${showSummary ? '<div class="meta" style="color:#cbd5e0; font-style:italic;">💬 "'+m.summary+'"</div>' : ''}
+            ${m.summary ? '<div class="meta" style="color:#cbd5e0; font-style:italic;">💬 '+m.summary+'</div>' : ''}
           </div>
         `;
       }).join('');
