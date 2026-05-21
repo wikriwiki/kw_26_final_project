@@ -12,11 +12,13 @@ InteractionScore(A, B) = 0.4 × Exposure + 0.3 × Relationship + 0.3 × Urgency
 from __future__ import annotations
 
 import json
+import random
 import sys
 import time
 from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
+import math
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -38,6 +40,12 @@ W_URGENCY = 0.3
 THRESHOLD = 0.3
 MAX_PAIRS_PER_AGENT = 2
 
+# 시간 감쇠 상수: ln(2)/7 ≈ 0.099 → 7일 미대화 시 친밀도 반감
+DECAY_LAMBDA = math.log(2) / 7.0
+
+# 확률적 매칭 기본 온도 (낮을수록 greedy에 가까움)
+DEFAULT_TEMPERATURE = 0.5
+
 
 # ═══════════════════════════════════════════
 # 1. Neo4j → Python 가벼운 fetch
@@ -56,7 +64,7 @@ RETURN a.id AS aid, b.id AS bid, k.relation AS rel
 FETCH_CONV_HISTORY_CYPHER = """
 MATCH (a:Agent)-[:PARTICIPATES_IN]->(c:Conversation)<-[:PARTICIPATES_IN]-(b:Agent)
 WHERE a.id < b.id AND c.day < date($d)
-RETURN a.id AS aid, b.id AS bid, count(c) AS n
+RETURN a.id AS aid, b.id AS bid, count(c) AS n, max(c.day) AS last_day
 """
 
 FETCH_STATE_CYPHER = """
@@ -105,7 +113,17 @@ def fetch_all(day: date) -> dict:
     with driver_session() as s:
         for r in s.run(FETCH_CONV_HISTORY_CYPHER, d=day.isoformat()):
             a, b = sorted([r["aid"], r["bid"]])
-            data["conv_history"][(a, b)] = r["n"]
+            last_day = r["last_day"]
+            # Neo4j date → Python date 변환 (neo4j.time.Date 또는 str)
+            if last_day is not None and not isinstance(last_day, date):
+                try:
+                    last_day = date.fromisoformat(str(last_day))
+                except (ValueError, TypeError):
+                    last_day = None
+            data["conv_history"][(a, b)] = {
+                "n": r["n"],
+                "last_day": last_day,
+            }
     print(f"    conv_history: {len(data['conv_history']):,}")
 
     print(f"  [fetch] State ...")
@@ -195,7 +213,7 @@ def calc_exposure(a: str, b: str, data: dict) -> float:
     return min(freq * 0.6 + avg_overlap * 0.4, 1.0)
 
 
-def calc_relationship(a: str, b: str, data: dict) -> float:
+def calc_relationship(a: str, b: str, data: dict, current_day: date | None = None) -> float:
     pair = (a, b)
     rel = data["knows"].get(pair)
     base = 0.0
@@ -205,8 +223,25 @@ def calc_relationship(a: str, b: str, data: dict) -> float:
         base = 0.4
     elif rel:
         base = 0.3
-    past = data["conv_history"].get(pair, 0)
-    intimacy = min(past / 10.0, 1.0)
+
+    hist = data["conv_history"].get(pair)
+    if hist is None:
+        past, last_day = 0, None
+    elif isinstance(hist, dict):
+        past, last_day = hist["n"], hist.get("last_day")
+    else:
+        # 하위 호환: 기존 int 형태
+        past, last_day = hist, None
+
+    intimacy = min(math.log(past + 1) / math.log(11), 1.0)
+
+    # 시간 감쇠: 마지막 대화 이후 경과 일수에 따라 친밀도 감소
+    if last_day is not None and current_day is not None:
+        days_since = (current_day - last_day).days
+        if days_since > 0:
+            decay = math.exp(-DECAY_LAMBDA * days_since)
+            intimacy *= decay
+
     return min(base * 0.5 + intimacy * 0.5, 1.0)
 
 
@@ -248,18 +283,72 @@ def calc_urgency(a: str, b: str, data: dict) -> float:
 # ═══════════════════════════════════════════
 # 4. 메인 — 매칭 알고리즘
 # ═══════════════════════════════════════════
+def _softmax_select(
+    scored: list[dict],
+    max_pairs_per_agent: int,
+    temperature: float,
+    rng: random.Random,
+) -> list[dict]:
+    """Softmax 확률 기반 매칭: 점수가 높을수록 선택 확률이 높지만,
+    낮은 점수의 쌍도 기회를 가짐 → 네트워크 다양성 확보.
+    temperature → 0: greedy와 동일, temperature ↑: 균등 분포에 가까움.
+    """
+    remaining = list(scored)  # 복사
+    cnt: dict[str, int] = defaultdict(int)
+    selected: list[dict] = []
+
+    while remaining:
+        # 현재 선택 가능한 쌍만 필터
+        eligible = [
+            r for r in remaining
+            if cnt[r["aid_a"]] < max_pairs_per_agent
+            and cnt[r["aid_b"]] < max_pairs_per_agent
+        ]
+        if not eligible:
+            break
+
+        # Softmax 확률 계산 (수치 안정성을 위해 max 빼기)
+        scores = [r["score"] / temperature for r in eligible]
+        max_s = max(scores)
+        exps = [math.exp(s - max_s) for s in scores]
+        total_exp = sum(exps)
+        probs = [e / total_exp for e in exps]
+
+        # 가중 랜덤 선택
+        chosen_idx = rng.choices(range(len(eligible)), weights=probs, k=1)[0]
+        chosen = eligible[chosen_idx]
+
+        selected.append(chosen)
+        cnt[chosen["aid_a"]] += 1
+        cnt[chosen["aid_b"]] += 1
+
+        # 선택된 항목 제거
+        remaining.remove(chosen)
+
+    return selected
+
+
 def select_interaction_pairs(
     day: date,
     threshold: float = THRESHOLD,
     max_pairs_per_agent: int = MAX_PAIRS_PER_AGENT,
     weights: tuple[float, float, float] = (W_EXPOSURE, W_RELATION, W_URGENCY),
+    stochastic: bool = True,
+    temperature: float = DEFAULT_TEMPERATURE,
+    seed: int | None = None,
     verbose: bool = True,
 ) -> list[dict]:
-    """Night Phase 2 — 후보 추출 + 3축 점수 + 그리디 매칭."""
+    """Night Phase 2 — 후보 추출 + 3축 점수 + 매칭.
+
+    stochastic=True (기본): Softmax 확률적 매칭 — 점수 높은 쌍이 선택될
+        확률이 높지만 다양성 보장. temperature로 무작위성 조절.
+    stochastic=False: 기존 그리디 매칭 (점수 내림차순 결정론적 선택).
+    """
     w_e, w_r, w_u = weights
     t0 = time.time()
     if verbose:
-        print(f"[Night] {day} 시작")
+        mode = f"stochastic(T={temperature})" if stochastic else "greedy"
+        print(f"[Night] {day} 시작 (matching={mode})")
 
     # 1) 데이터 fetch
     data = fetch_all(day)
@@ -273,14 +362,14 @@ def select_interaction_pairs(
     if not cands:
         return []
 
-    # 3) 점수 계산
+    # 3) 점수 계산 (시간 감쇠 적용된 calc_relationship 사용)
     if verbose:
         print(f"  [scores] 계산 중 ...")
     t1 = time.time()
     scored = []
     for (a, b) in cands:
         exp = calc_exposure(a, b, data)
-        rel = calc_relationship(a, b, data)
+        rel = calc_relationship(a, b, data, current_day=day)
         urg = calc_urgency(a, b, data)
         total = w_e * exp + w_r * rel + w_u * urg
         if total >= threshold:
@@ -293,17 +382,23 @@ def select_interaction_pairs(
     if verbose:
         print(f"  scoring: {time.time()-t1:.1f}s, above threshold: {len(scored):,}")
 
-    # 4) 그리디 매칭
-    scored.sort(key=lambda x: x["score"], reverse=True)
-    cnt: dict[str, int] = defaultdict(int)
-    selected = []
-    for r in scored:
-        a, b = r["aid_a"], r["aid_b"]
-        if cnt[a] < max_pairs_per_agent and cnt[b] < max_pairs_per_agent:
-            selected.append(r); cnt[a] += 1; cnt[b] += 1
+    # 4) 매칭
+    if stochastic:
+        rng = random.Random(seed)
+        selected = _softmax_select(scored, max_pairs_per_agent, temperature, rng)
+    else:
+        # 기존 그리디 매칭 (하위 호환)
+        scored.sort(key=lambda x: x["score"], reverse=True)
+        cnt: dict[str, int] = defaultdict(int)
+        selected = []
+        for r in scored:
+            a, b = r["aid_a"], r["aid_b"]
+            if cnt[a] < max_pairs_per_agent and cnt[b] < max_pairs_per_agent:
+                selected.append(r); cnt[a] += 1; cnt[b] += 1
 
     if verbose:
-        print(f"  selected (greedy, max={max_pairs_per_agent}/agent): {len(selected):,}")
+        label = f"stochastic(T={temperature})" if stochastic else "greedy"
+        print(f"  selected ({label}, max={max_pairs_per_agent}/agent): {len(selected):,}")
         print(f"  total elapsed: {time.time()-t0:.1f}s")
     return selected
 
@@ -320,6 +415,13 @@ if __name__ == "__main__":
     ap.add_argument("--day", default="2026-05-02")
     ap.add_argument("--threshold", type=float, default=THRESHOLD)
     ap.add_argument("--max-pairs", type=int, default=MAX_PAIRS_PER_AGENT)
+    ap.add_argument("--greedy", action="store_true",
+                    help="확률적 매칭 대신 기존 그리디 매칭 사용")
+    ap.add_argument("--temperature", type=float, default=DEFAULT_TEMPERATURE,
+                    help=f"Softmax 온도 (기본 {DEFAULT_TEMPERATURE}). "
+                         "낮을수록 점수 상위 쌍 집중, 높을수록 다양성 증가")
+    ap.add_argument("--seed", type=int, default=None,
+                    help="확률적 매칭 시드 (재현성 확보용)")
     ap.add_argument("--dump", default=None,
                     help=f"dump path. 기본: $SIM_OUTPUT_DIR/interactions_<day>.json "
                          f"(현재 {DEFAULT_SIM_OUT})")
@@ -328,8 +430,13 @@ if __name__ == "__main__":
         args.dump = f"{DEFAULT_SIM_OUT}/interactions_{args.day}.json"
 
     day = date.fromisoformat(args.day)
-    pairs = select_interaction_pairs(day, threshold=args.threshold,
-                                     max_pairs_per_agent=args.max_pairs)
+    pairs = select_interaction_pairs(
+        day, threshold=args.threshold,
+        max_pairs_per_agent=args.max_pairs,
+        stochastic=not args.greedy,
+        temperature=args.temperature,
+        seed=args.seed,
+    )
 
     print(f"\n=== Top 15 상호작용 쌍 ({day}) ===")
     for r in pairs[:15]:
