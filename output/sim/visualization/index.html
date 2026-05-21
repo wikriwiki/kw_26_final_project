@@ -73,7 +73,8 @@
   <div class="divider"></div>
   <div class="row"><span class="label">총 agent</span><span class="val" id="total-agents">-</span></div>
   <div class="row"><span class="label">총 visited memory</span><span class="val" id="total-mem">-</span></div>
-  <div class="row"><span class="label">총 약속</span><span class="val" id="total-appt">-</span></div>
+  <div class="row"><span class="label">약속으로 분류된 상호작용</span><span class="val" id="total-appt">-</span></div>
+  <div class="row"><span class="label">기간 내 실제 성사된 약속</span><span class="val" id="total-appt-realized">-</span></div>
   <div class="row"><span class="label">총 들은 소문</span><span class="val" id="total-rumor">-</span></div>
 </div>
 
@@ -203,6 +204,28 @@ let agentById = {}, markers = {};
 let map, selected = null, currentFrame = 0, isPlaying = false, playerHandle = null;
 let heatLayer = null;
 
+function computeAppointmentStats(memories) {
+  let visitedCount = 0, rumorCount = 0;
+  const allConvIds = new Set();
+  const realizedConvIds = new Set();
+  for (const aid in memories) {
+    const mem = memories[aid] || {};
+    visitedCount += (mem.visited || []).length;
+    rumorCount += (mem.memories || []).filter(m => m.type === 'rumor').length;
+    for (const appt of (mem.appointments || [])) {
+      const convId = appt.conv_id || [appt.day, appt.with_agent, appt.target_time, appt.hint].join('|');
+      allConvIds.add(convId);
+      if (appt.within_window) realizedConvIds.add(convId);
+    }
+  }
+  return {
+    visitedCount,
+    rumorCount,
+    appointmentCount: allConvIds.size,
+    realizedAppointmentCount: realizedConvIds.size,
+  };
+}
+
 async function loadData() {
   const [a, t, m, e] = await Promise.all([
     fetch('agents.json').then(r => r.json()),
@@ -213,15 +236,11 @@ async function loadData() {
   AGENTS = a; TIMELINE = t; MEMORIES = m; EVENTS = e;
   AGENTS.forEach(ag => agentById[ag.id] = ag);
   document.getElementById('total-agents').textContent = AGENTS.length.toLocaleString();
-  let totMem = 0, totAppt = 0, totRumor = 0;
-  for (const aid in MEMORIES) {
-    totMem += (MEMORIES[aid].visited || []).length;
-    totAppt += (MEMORIES[aid].appointments || []).length;
-    totRumor += (MEMORIES[aid].memories || []).filter(m => m.type === 'rumor').length;
-  }
-  document.getElementById('total-mem').textContent = totMem.toLocaleString();
-  const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = totAppt.toLocaleString();
-  const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = totRumor.toLocaleString();
+  const stats = computeAppointmentStats(MEMORIES);
+  document.getElementById('total-mem').textContent = stats.visitedCount.toLocaleString();
+  const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = stats.appointmentCount.toLocaleString();
+  const el1b = document.getElementById('total-appt-realized'); if (el1b) el1b.textContent = stats.realizedAppointmentCount.toLocaleString();
+  const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = stats.rumorCount.toLocaleString();
   initMap();
   buildMarkers();
   // 슬라이더 max를 timeline 길이에 맞춰 동적 설정 (3일=72, 5일=120 등)
@@ -507,6 +526,7 @@ function showDetail(aid) {
   const appts = (mem.appointments || []);
   // target_day = day + offset_days (실제 만남 예정일)
   function _targetDay(a) {
+    if (a.target_day) return a.target_day;
     if (!a.day || a.offset_days == null) return a.day;
     const d = new Date(a.day + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + a.offset_days);
@@ -522,10 +542,16 @@ function showDetail(aid) {
         const tm = a.target_time ? ` ${a.target_time}` : '';
         const where = a.meeting_poi_name || a.hint || '미정';
         const role = a.role === 'initiator' ? '내가 제안' : '상대가 제안';
+        const realized = !!a.within_window;
+        const statusLabel = realized ? '기간 내 성사' : '기간 밖 예정';
+        const statusStyle = realized
+          ? 'background:rgba(114,239,221,0.18); color:#72efdd;'
+          : 'background:rgba(231,111,81,0.18); color:#e76f51;';
         return `
           <div class="mem-item" style="border-left:3px solid #4cc9f0;">
             <div>
               <span style="background:rgba(76,201,240,0.2); color:#4cc9f0; font-size:10px; padding:1px 6px; border-radius:3px;">🤝 ${role}</span>
+              <span style="${statusStyle} font-size:10px; padding:1px 6px; border-radius:3px; margin-left:4px;">${statusLabel}</span>
               <span style="color:#fff; margin-left:4px;">${a.with_agent || '?'}</span>
             </div>
             <div class="meta" style="color:#fff;">📅 만남일: <b>${tgt}${tm}</b> @ ${where}</div>
