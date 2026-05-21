@@ -251,7 +251,7 @@ function buildMarkers() {
       // invisible stroke 14px — frame 진행 중에도 점 주변 ~15px hit area 유지
       weight: 14, opacity: 0,
       color: COLORS_DIST[ag.dist_code] || '#888',
-      fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.8,
+      fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.85,
       className: 'agent-marker',
     });
     m.on('mouseover', function(e) { this.bringToFront(); });
@@ -268,8 +268,8 @@ function toggleHeatmap() {
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
   if (mode !== 'off') {
     heatLayer = L.heatLayer([], {
-      radius: 22, blur: 16, maxZoom: 17,
-      gradient: {0.2:'#0000ff', 0.4:'#00ffff', 0.6:'#00ff00', 0.8:'#ffff00', 1.0:'#ff0000'},
+      radius: 28, blur: 22, maxZoom: 17, max: 1.0, minOpacity: 0.4,
+      gradient: {0.1:'#0000ff', 0.3:'#00ffff', 0.5:'#00ff00', 0.7:'#ffff00', 1.0:'#ff0000'},
     }).addTo(map);
     updateHeatmap();
   }
@@ -285,10 +285,10 @@ function updateHeatmap() {
     // 밀집도 — 외출 agent 동일 intensity
     pts = f.agents.map(a => [a.lat, a.lon, 0.6]);
   } else {
-    // 소비금액 — intensity = spent/30000 (clamp 0~1)
+    // 소비금액 — intensity 강화 (max spent ~50,000원 = 1.0)
     pts = f.agents
       .filter(a => (a.spent || 0) > 0)
-      .map(a => [a.lat, a.lon, Math.min(1.0, (a.spent || 0) / 30000)]);
+      .map(a => [a.lat, a.lon, Math.min(1.0, (a.spent || 0) / 15000)]);
   }
   heatLayer.setLatLngs(pts);
 }
@@ -346,9 +346,12 @@ function setFrame(idx) {
     }
     const pos = positions[ag.id];
     if (!pos) {
-      // 활동 없음 = 집에 있음 (크기는 동일 유지, 투명도로만 구분)
+      // 활동 없음 = 집에 있음 — 활성 agent와 동일 투명도/크기
       m.setLatLng([ag.home_lat, ag.home_lon]);
-      m.setStyle({ fillOpacity: 0.35, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
+      // 색상은 자치구 기본 (활성 색상 모드와 일관)
+      const homeColor = COLORS_DIST[ag.dist_code] || '#888';
+      m.setStyle({ color: homeColor, fillColor: homeColor,
+                   fillOpacity: 0.85, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
       return;
     }
     active++;
@@ -358,7 +361,7 @@ function setFrame(idx) {
     if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
     else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
     else color = POLICY_TARGETS.has(pos.cat) || POLICY_TARGETS.has(pos.l1) ? '#e76f51' : '#888';
-    m.setStyle({ color, fillColor: color, fillOpacity: 0.9, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
+    m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
   });
 
   document.getElementById('active-cnt').textContent = active.toLocaleString();
