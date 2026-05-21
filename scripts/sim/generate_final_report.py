@@ -49,14 +49,18 @@ def _setup_mpl():
     import matplotlib
     matplotlib.use("Agg")  # GUI 없이
     import matplotlib.pyplot as plt
-    # Windows: Malgun Gothic, Mac: AppleGothic, Linux: NanumGothic
-    for f in ["Malgun Gothic", "AppleGothic", "NanumGothic", "DejaVu Sans"]:
-        try:
-            plt.rcParams["font.family"] = f
-            plt.rcParams["axes.unicode_minus"] = False
-            break
-        except Exception:
-            continue
+    from matplotlib import font_manager
+    # 사용 가능한 폰트 중 한글 지원하는 거 자동 탐색
+    installed = {f.name for f in font_manager.fontManager.ttflist}
+    # Windows / Mac / Linux 우선순위
+    candidates = ["Malgun Gothic", "AppleGothic",
+                  "Noto Sans CJK KR", "Noto Sans KR",
+                  "NanumGothic", "Nanum Gothic",
+                  "Noto Sans CJK SC", "Noto Sans CJK JP",
+                  "DejaVu Sans"]
+    chosen = next((f for f in candidates if f in installed), "DejaVu Sans")
+    plt.rcParams["font.family"] = chosen
+    plt.rcParams["axes.unicode_minus"] = False
     return plt
 
 
@@ -94,6 +98,17 @@ def section2_before_after(start: date, days: int, policy_from: str, out_dir: Pat
     target_cats = ["식사", "카페", "디저트"]
     daily: list[dict] = []
     with driver_session() as s:
+        # 실측 인구 (LIVES_AT 기준 강남 vs 비강남 거주 agent 수)
+        pop = s.run("""
+            MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)
+              <-[:HAS_DONG]-(d:District)
+            RETURN
+              sum(CASE WHEN d.code = '11680' THEN 1 ELSE 0 END) AS gn,
+              sum(CASE WHEN d.code <> '11680' THEN 1 ELSE 0 END) AS ng
+        """).single()
+        GN_POP = int(pop["gn"]) or 1
+        NG_POP = int(pop["ng"]) or 1
+        print(f"  [pop] 강남 거주 {GN_POP:,} / 비강남 거주 {NG_POP:,}", file=sys.stderr)
         for i in range(days):
             d = start + timedelta(days=i)
             rows = s.run("""
@@ -134,8 +149,7 @@ def section2_before_after(start: date, days: int, policy_from: str, out_dir: Pat
         }
 
     # ─────── 차트 — 3개 독립 PNG로 분리 (각각 충분히 크게) ───────
-    GN_POP = 1820
-    NG_POP = 12740
+    # GN_POP / NG_POP은 위에서 Cypher로 실측 가져옴
     plt = _setup_mpl()
     plt.rcParams.update({
         'font.size': 14, 'axes.titlesize': 17, 'axes.labelsize': 14,
