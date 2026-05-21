@@ -58,8 +58,7 @@
   #detail .state-block { background:rgba(231,111,81,0.08); padding:6px 10px;
                          border-radius:6px; font-size:11px; margin:4px 0; }
 
-  .agent-marker { transition:transform 0.2s; cursor:pointer; }
-  .agent-marker:hover { transform:scale(1.6); }
+  .agent-marker { cursor:pointer; }
 </style>
 </head>
 <body>
@@ -254,7 +253,6 @@ function buildMarkers() {
       fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.85,
       className: 'agent-marker',
     });
-    m.on('mouseover', function(e) { this.bringToFront(); });
     m.on('click', () => showDetail(ag.id));
     m.addTo(map);
     markers[ag.id] = m;
