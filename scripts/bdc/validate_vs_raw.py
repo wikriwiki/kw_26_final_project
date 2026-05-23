@@ -20,10 +20,13 @@ import csv
 import argparse
 import sys
 from pathlib import Path
+
+# 이 파일은 scripts/bdc/ 안에 있음 — 프로젝트 루트는 두 단계 위
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 from collections import defaultdict, Counter
 
-STATS_DIR = Path(__file__).parent / "output" / "stats"
-DATA_DIR = Path(__file__).parent / "data"
+STATS_DIR = PROJECT_ROOT / "output" / "stats"
+DATA_DIR = PROJECT_ROOT / "data"
 
 
 def csv_read(path, enc=None):
@@ -181,7 +184,7 @@ def main():
 
     agent_path = Path(args.agents)
     if not agent_path.is_absolute():
-        agent_path = Path(__file__).parent / agent_path
+        agent_path = PROJECT_ROOT / agent_path
 
     if not agent_path.exists():
         print(f"File not found: {agent_path}")

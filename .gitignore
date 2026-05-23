@@ -55,27 +55,23 @@ Thumbs.db
 # 글자 class([..])로 오인되지 않게 \[ 로 이스케이프
 \[2026*서울시*경진대회*\]*
 
-# 옛 prototype 잔재 (Nemotron 통합 폐기 — project_nemotron_personas_integration 메모)
-assign_income_bucket.py
-dump_nemotron_occupations.py
-extract_ksco_codes.py
-match_occupation_to_ksco.py
-
-# 루트의 별도 옛 분석 코드 (data/InboundData/와 중복)
-file_discovery.py
-patch_failed_joins.py
-preprocess_join.py
-analyze_stats.py
-generate_agents.py
-synthetic_generator.py
-compare_stats.py
-compare_to_json.py
-count_seoul.py
-inspect_personas.py
-quick_validate.py
-validate_agents.py
-validate_pandas_analyze.py
-validate_pandas_workers.py
+# BDC 전처리·검증 보조 스크립트 — 핵심 4개(analyze_stats / generate_agents / preprocess_join /
+# validate_vs_raw)만 트래킹, 나머지는 로컬 전용. scripts/bdc/ 로 통합 정리 (2026-05-24).
+scripts/bdc/assign_income_bucket.py
+scripts/bdc/dump_nemotron_occupations.py
+scripts/bdc/extract_ksco_codes.py
+scripts/bdc/match_occupation_to_ksco.py
+scripts/bdc/file_discovery.py
+scripts/bdc/patch_failed_joins.py
+scripts/bdc/synthetic_generator.py
+scripts/bdc/compare_stats.py
+scripts/bdc/compare_to_json.py
+scripts/bdc/count_seoul.py
+scripts/bdc/inspect_personas.py
+scripts/bdc/quick_validate.py
+scripts/bdc/validate_agents.py
+scripts/bdc/validate_pandas_analyze.py
+scripts/bdc/validate_pandas_workers.py
 architecture_plan.md
 
 # prototype 폴더 (옛 시뮬, 별도 브랜치)
