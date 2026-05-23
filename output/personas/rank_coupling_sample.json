@@ -19,11 +19,11 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 9,
-      "weekend_spending_level": 10,
-      "daily_spending_weekday": 166231,
-      "daily_spending_weekend": 171832,
-      "weekend_weekday_spending_ratio": 1.034,
+      "weekday_spending_level": 10,
+      "weekend_spending_level": 9,
+      "daily_spending_weekday": 231847,
+      "daily_spending_weekend": 99082,
+      "weekend_weekday_spending_ratio": 0.427,
       "weekday_top_categories": {
         "식사": 0.4766,
         "건강": 0.2874,
@@ -40,12 +40,12 @@
       }
     },
     "behavior": {
-      "delivery_days": 13.0,
-      "shopping_days": 5,
+      "delivery_days": 12.5,
+      "shopping_days": 8,
       "weekday_move_km": 0.95,
       "weekend_move_km": 0.66,
-      "home_hours_weekday": 16.7,
-      "home_hours_weekend": 7.8,
+      "home_hours_weekday": 11.1,
+      "home_hours_weekend": 12.9,
       "mobility_level": 8
     },
     "personality": {
@@ -100,7 +100,7 @@
       "age_group": "30대",
       "gender": "M",
       "job": "산업 안전원",
-      "income_level": "중",
+      "income_level": "중상",
       "life_stage": "기혼"
     },
     "workplace": {
@@ -109,11 +109,11 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 6,
-      "weekend_spending_level": 10,
-      "daily_spending_weekday": 102503,
-      "daily_spending_weekend": 234146,
-      "weekend_weekday_spending_ratio": 2.284,
+      "weekday_spending_level": 8,
+      "weekend_spending_level": 9,
+      "daily_spending_weekday": 134519,
+      "daily_spending_weekend": 101152,
+      "weekend_weekday_spending_ratio": 0.752,
       "weekday_top_categories": {
         "식사": 0.5755,
         "건강": 0.1297,
@@ -130,12 +130,12 @@
       }
     },
     "behavior": {
-      "delivery_days": 17.4,
-      "shopping_days": 14,
+      "delivery_days": 17.9,
+      "shopping_days": 7,
       "weekday_move_km": 1.05,
       "weekend_move_km": 0.83,
-      "home_hours_weekday": 21.8,
-      "home_hours_weekend": 7.8,
+      "home_hours_weekday": 10.1,
+      "home_hours_weekend": 12.2,
       "mobility_level": 10
     },
     "personality": {
@@ -180,17 +180,17 @@
     }
   },
   {
-    "agent_id": "AGT_11560605_F_30대_000",
+    "agent_id": "AGT_11560700_F_30대_001",
     "residence": {
-      "dong_code": "11560605",
-      "dong": "문래동",
+      "dong_code": "11560700",
+      "dong": "대림1동",
       "gu": "영등포구"
     },
     "personal": {
       "age_group": "30대",
       "gender": "F",
       "job": "변리사",
-      "income_level": "중상",
+      "income_level": "상",
       "life_stage": "기혼"
     },
     "workplace": {
@@ -199,37 +199,37 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 7,
-      "weekend_spending_level": 8,
-      "daily_spending_weekday": 116592,
-      "daily_spending_weekend": 79227,
-      "weekend_weekday_spending_ratio": 0.68,
+      "weekday_spending_level": 9,
+      "weekend_spending_level": 5,
+      "daily_spending_weekday": 165448,
+      "daily_spending_weekend": 51168,
+      "weekend_weekday_spending_ratio": 0.309,
       "weekday_top_categories": {
-        "식사": 0.5085,
-        "쇼핑": 0.1186,
-        "건강": 0.1059,
-        "여가": 0.0636,
-        "편의점": 0.0508
+        "식사": 0.2674,
+        "건강": 0.2289,
+        "쇼핑": 0.2089,
+        "마트": 0.1136,
+        "편의점": 0.0969
       },
       "weekend_top_categories": {
-        "식사": 0.5085,
-        "쇼핑": 0.1186,
-        "건강": 0.1059,
-        "여가": 0.0636,
-        "편의점": 0.0508
+        "식사": 0.2674,
+        "건강": 0.2289,
+        "쇼핑": 0.2089,
+        "마트": 0.1136,
+        "편의점": 0.0969
       }
     },
     "behavior": {
-      "delivery_days": 13.9,
-      "shopping_days": 11,
-      "weekday_move_km": 1.12,
-      "weekend_move_km": 0.88,
-      "home_hours_weekday": 19.2,
-      "home_hours_weekend": 23.9,
-      "mobility_level": 10
+      "delivery_days": 18.6,
+      "shopping_days": 6,
+      "weekday_move_km": 0.97,
+      "weekend_move_km": 0.78,
+      "home_hours_weekday": 13.1,
+      "home_hours_weekend": 14.5,
+      "mobility_level": 4
     },
     "personality": {
-      "spending_tendency": "소비형",
+      "spending_tendency": "보통",
       "lifestyle": "이경민 씨는 ICT 전문성을 갖춘 변리사로서 치열한 서울의 삶을 살아가면서도, 배드민턴과 캠핑이라는 동적인 "
     },
     "nvidia_persona": {
@@ -270,10 +270,10 @@
     }
   },
   {
-    "agent_id": "AGT_11680656_M_40대_000",
+    "agent_id": "AGT_11680640_M_40대_000",
     "residence": {
-      "dong_code": "11680656",
-      "dong": "도곡2동",
+      "dong_code": "11680640",
+      "dong": "역삼1동",
       "gu": "강남구"
     },
     "personal": {
@@ -291,32 +291,32 @@
     "spending": {
       "weekday_spending_level": 7,
       "weekend_spending_level": 9,
-      "daily_spending_weekday": 115757,
-      "daily_spending_weekend": 103823,
-      "weekend_weekday_spending_ratio": 0.897,
+      "daily_spending_weekday": 116511,
+      "daily_spending_weekend": 96472,
+      "weekend_weekday_spending_ratio": 0.828,
       "weekday_top_categories": {
-        "식사": 0.3858,
-        "교육": 0.2334,
-        "쇼핑": 0.0969,
-        "건강": 0.092,
-        "편의점": 0.0712
+        "쇼핑": 0.729,
+        "식사": 0.079,
+        "교육": 0.0688,
+        "건강": 0.0486,
+        "카페": 0.0449
       },
       "weekend_top_categories": {
-        "식사": 0.3858,
-        "교육": 0.2334,
-        "쇼핑": 0.0969,
-        "건강": 0.092,
-        "편의점": 0.0712
+        "쇼핑": 0.729,
+        "식사": 0.079,
+        "교육": 0.0688,
+        "건강": 0.0486,
+        "카페": 0.0449
       }
     },
     "behavior": {
-      "delivery_days": 16.0,
-      "shopping_days": 14,
-      "weekday_move_km": 1.72,
-      "weekend_move_km": 0.9,
-      "home_hours_weekday": 18.7,
-      "home_hours_weekend": 21.8,
-      "mobility_level": 9
+      "delivery_days": 20.0,
+      "shopping_days": 6,
+      "weekday_move_km": 1.21,
+      "weekend_move_km": 0.82,
+      "home_hours_weekday": 9.3,
+      "home_hours_weekend": 10.7,
+      "mobility_level": 10
     },
     "personality": {
       "spending_tendency": "소비형",
@@ -360,7 +360,7 @@
     }
   },
   {
-    "agent_id": "AGT_11410685_F_50대_000",
+    "agent_id": "AGT_11410685_F_50대_003",
     "residence": {
       "dong_code": "11410685",
       "dong": "홍은2동",
@@ -370,7 +370,7 @@
       "age_group": "50대",
       "gender": "F",
       "job": "그 외 자동차 운전원",
-      "income_level": "중",
+      "income_level": "중하",
       "life_stage": "자녀양육"
     },
     "workplace": {
@@ -379,11 +379,11 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 5,
-      "weekend_spending_level": 5,
-      "daily_spending_weekday": 88712,
-      "daily_spending_weekend": 50913,
-      "weekend_weekday_spending_ratio": 0.574,
+      "weekday_spending_level": 4,
+      "weekend_spending_level": 6,
+      "daily_spending_weekday": 75201,
+      "daily_spending_weekend": 57222,
+      "weekend_weekday_spending_ratio": 0.761,
       "weekday_top_categories": {
         "식사": 0.2648,
         "교육": 0.2578,
@@ -400,12 +400,12 @@
       }
     },
     "behavior": {
-      "delivery_days": 9.9,
-      "shopping_days": 6,
+      "delivery_days": 13.7,
+      "shopping_days": 18,
       "weekday_move_km": 0.91,
       "weekend_move_km": 0.63,
-      "home_hours_weekday": 9.8,
-      "home_hours_weekend": 16.6,
+      "home_hours_weekday": 12.2,
+      "home_hours_weekend": 13.0,
       "mobility_level": 6
     },
     "personality": {
@@ -450,7 +450,7 @@
     }
   },
   {
-    "agent_id": "AGT_11350640_M_30대_000",
+    "agent_id": "AGT_11350640_M_30대_001",
     "residence": {
       "dong_code": "11350640",
       "dong": "상계2동",
@@ -471,9 +471,9 @@
     "spending": {
       "weekday_spending_level": 10,
       "weekend_spending_level": 10,
-      "daily_spending_weekday": 275496,
-      "daily_spending_weekend": 144344,
-      "weekend_weekday_spending_ratio": 0.524,
+      "daily_spending_weekday": 393628,
+      "daily_spending_weekend": 245008,
+      "weekend_weekday_spending_ratio": 0.622,
       "weekday_top_categories": {
         "식사": 0.6486,
         "건강": 0.0954,
@@ -490,12 +490,12 @@
       }
     },
     "behavior": {
-      "delivery_days": 18.2,
-      "shopping_days": 14,
+      "delivery_days": 18.8,
+      "shopping_days": 13,
       "weekday_move_km": 1.71,
       "weekend_move_km": 0.78,
-      "home_hours_weekday": 9.6,
-      "home_hours_weekend": 2.7,
+      "home_hours_weekday": 10.9,
+      "home_hours_weekend": 12.3,
       "mobility_level": 9
     },
     "personality": {
@@ -540,10 +540,10 @@
     }
   },
   {
-    "agent_id": "AGT_11650531_M_60대_000",
+    "agent_id": "AGT_11650590_M_60대_000",
     "residence": {
-      "dong_code": "11650531",
-      "dong": "서초4동",
+      "dong_code": "11650590",
+      "dong": "방배본동",
       "gu": "서초구"
     },
     "personal": {
@@ -561,32 +561,32 @@
     "spending": {
       "weekday_spending_level": 6,
       "weekend_spending_level": 8,
-      "daily_spending_weekday": 102633,
-      "daily_spending_weekend": 80970,
-      "weekend_weekday_spending_ratio": 0.789,
+      "daily_spending_weekday": 103614,
+      "daily_spending_weekend": 81212,
+      "weekend_weekday_spending_ratio": 0.784,
       "weekday_top_categories": {
-        "건강": 0.5507,
-        "식사": 0.283,
-        "편의점": 0.0288,
-        "쇼핑": 0.0285,
-        "교육": 0.0269
+        "식사": 0.511,
+        "건강": 0.2377,
+        "마트": 0.0912,
+        "편의점": 0.0734,
+        "디저트": 0.0383
       },
       "weekend_top_categories": {
-        "건강": 0.5507,
-        "식사": 0.283,
-        "편의점": 0.0288,
-        "쇼핑": 0.0285,
-        "교육": 0.0269
+        "식사": 0.511,
+        "건강": 0.2377,
+        "마트": 0.0912,
+        "편의점": 0.0734,
+        "디저트": 0.0383
       }
     },
     "behavior": {
-      "delivery_days": 9.9,
-      "shopping_days": 14,
-      "weekday_move_km": 1.7,
-      "weekend_move_km": 0.93,
-      "home_hours_weekday": 20.5,
-      "home_hours_weekend": 3.4,
-      "mobility_level": 8
+      "delivery_days": 4.8,
+      "shopping_days": 7,
+      "weekday_move_km": 1.75,
+      "weekend_move_km": 0.91,
+      "home_hours_weekday": 14.1,
+      "home_hours_weekend": 14.6,
+      "mobility_level": 4
     },
     "personality": {
       "spending_tendency": "보통",
@@ -631,10 +631,10 @@
     }
   },
   {
-    "agent_id": "AGT_11260680_F_50대_005",
+    "agent_id": "AGT_11260575_F_50대_001",
     "residence": {
-      "dong_code": "11260680",
-      "dong": "신내1동",
+      "dong_code": "11260575",
+      "dong": "면목3·8동",
       "gu": "중랑구"
     },
     "personal": {
@@ -650,34 +650,34 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 8,
-      "weekend_spending_level": 8,
-      "daily_spending_weekday": 134148,
-      "daily_spending_weekend": 80658,
-      "weekend_weekday_spending_ratio": 0.601,
+      "weekday_spending_level": 7,
+      "weekend_spending_level": 9,
+      "daily_spending_weekday": 115828,
+      "daily_spending_weekend": 96419,
+      "weekend_weekday_spending_ratio": 0.832,
       "weekday_top_categories": {
-        "식사": 0.362,
-        "마트": 0.2359,
-        "건강": 0.136,
-        "교육": 0.0847,
-        "편의점": 0.0617
+        "식사": 0.38,
+        "마트": 0.2043,
+        "건강": 0.1901,
+        "편의점": 0.0727,
+        "미용": 0.0544
       },
       "weekend_top_categories": {
-        "식사": 0.362,
-        "마트": 0.2359,
-        "건강": 0.136,
-        "교육": 0.0847,
-        "편의점": 0.0617
+        "식사": 0.38,
+        "마트": 0.2043,
+        "건강": 0.1901,
+        "편의점": 0.0727,
+        "미용": 0.0544
       }
     },
     "behavior": {
-      "delivery_days": 10.8,
-      "shopping_days": 4,
-      "weekday_move_km": 0.91,
-      "weekend_move_km": 0.67,
-      "home_hours_weekday": 6.0,
-      "home_hours_weekend": 4.5,
-      "mobility_level": 7
+      "delivery_days": 8.8,
+      "shopping_days": 14,
+      "weekday_move_km": 0.8,
+      "weekend_move_km": 0.65,
+      "home_hours_weekday": 12.2,
+      "home_hours_weekend": 14.4,
+      "mobility_level": 6
     },
     "personality": {
       "spending_tendency": "소비형",
@@ -721,10 +721,10 @@
     }
   },
   {
-    "agent_id": "AGT_11260630_M_60대_001",
+    "agent_id": "AGT_11260520_M_60대_000",
     "residence": {
-      "dong_code": "11260630",
-      "dong": "묵2동",
+      "dong_code": "11260520",
+      "dong": "면목2동",
       "gu": "중랑구"
     },
     "personal": {
@@ -740,34 +740,34 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 6,
-      "weekend_spending_level": 4,
-      "daily_spending_weekday": 102062,
-      "daily_spending_weekend": 43328,
-      "weekend_weekday_spending_ratio": 0.425,
+      "weekday_spending_level": 5,
+      "weekend_spending_level": 5,
+      "daily_spending_weekday": 88892,
+      "daily_spending_weekend": 50042,
+      "weekend_weekday_spending_ratio": 0.563,
       "weekday_top_categories": {
-        "식사": 0.5473,
-        "건강": 0.1931,
-        "마트": 0.1429,
-        "편의점": 0.0805,
-        "쇼핑": 0.0173
+        "건강": 0.3862,
+        "식사": 0.2537,
+        "마트": 0.1648,
+        "편의점": 0.1163,
+        "쇼핑": 0.0551
       },
       "weekend_top_categories": {
-        "식사": 0.5473,
-        "건강": 0.1931,
-        "마트": 0.1429,
-        "편의점": 0.0805,
-        "쇼핑": 0.0173
+        "건강": 0.3862,
+        "식사": 0.2537,
+        "마트": 0.1648,
+        "편의점": 0.1163,
+        "쇼핑": 0.0551
       }
     },
     "behavior": {
-      "delivery_days": 4.9,
-      "shopping_days": 15,
-      "weekday_move_km": 1.3,
-      "weekend_move_km": 0.74,
-      "home_hours_weekday": 15.2,
-      "home_hours_weekend": 3.9,
-      "mobility_level": 5
+      "delivery_days": 8.4,
+      "shopping_days": 16,
+      "weekday_move_km": 1.22,
+      "weekend_move_km": 0.8,
+      "home_hours_weekday": 13.1,
+      "home_hours_weekend": 14.7,
+      "mobility_level": 4
     },
     "personality": {
       "spending_tendency": "보통",
@@ -811,17 +811,17 @@
     }
   },
   {
-    "agent_id": "AGT_11260620_M_40대_001",
+    "agent_id": "AGT_11260520_M_40대_000",
     "residence": {
-      "dong_code": "11260620",
-      "dong": "묵1동",
+      "dong_code": "11260520",
+      "dong": "면목2동",
       "gu": "중랑구"
     },
     "personal": {
       "age_group": "40대",
       "gender": "M",
       "job": "양식 조리사",
-      "income_level": "중",
+      "income_level": "중상",
       "life_stage": "자녀양육"
     },
     "workplace": {
@@ -830,34 +830,34 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 6,
-      "weekend_spending_level": 8,
-      "daily_spending_weekday": 101729,
-      "daily_spending_weekend": 78298,
-      "weekend_weekday_spending_ratio": 0.77,
+      "weekday_spending_level": 7,
+      "weekend_spending_level": 6,
+      "daily_spending_weekday": 117100,
+      "daily_spending_weekend": 58761,
+      "weekend_weekday_spending_ratio": 0.502,
       "weekday_top_categories": {
-        "건강": 0.3437,
-        "식사": 0.3034,
-        "편의점": 0.1328,
-        "마트": 0.0842,
-        "교육": 0.0737
+        "건강": 0.364,
+        "식사": 0.2409,
+        "편의점": 0.1793,
+        "마트": 0.1063,
+        "교육": 0.0436
       },
       "weekend_top_categories": {
-        "건강": 0.3437,
-        "식사": 0.3034,
-        "편의점": 0.1328,
-        "마트": 0.0842,
-        "교육": 0.0737
+        "건강": 0.364,
+        "식사": 0.2409,
+        "편의점": 0.1793,
+        "마트": 0.1063,
+        "교육": 0.0436
       }
     },
     "behavior": {
-      "delivery_days": 14.3,
-      "shopping_days": 16,
-      "weekday_move_km": 1.8,
-      "weekend_move_km": 0.83,
-      "home_hours_weekday": 15.5,
-      "home_hours_weekend": 7.8,
-      "mobility_level": 7
+      "delivery_days": 15.6,
+      "shopping_days": 12,
+      "weekday_move_km": 1.5,
+      "weekend_move_km": 0.77,
+      "home_hours_weekday": 11.4,
+      "home_hours_weekend": 12.6,
+      "mobility_level": 6
     },
     "personality": {
       "spending_tendency": "보통",
