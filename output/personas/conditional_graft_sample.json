@@ -40,12 +40,12 @@
       }
     },
     "behavior": {
-      "delivery_days": 14.3,
-      "shopping_days": 17,
+      "delivery_days": 10.7,
+      "shopping_days": 6,
       "weekday_move_km": 1.23,
       "weekend_move_km": 0.67,
-      "home_hours_weekday": 8.5,
-      "home_hours_weekend": 5.7,
+      "home_hours_weekday": 12.9,
+      "home_hours_weekend": 15.1,
       "mobility_level": 6
     },
     "personality": {
@@ -91,17 +91,17 @@
     }
   },
   {
-    "agent_id": "AGT_11380520_M_70대이상_000",
+    "agent_id": "AGT_11380632_M_70대이상_000",
     "residence": {
-      "dong_code": "11380520",
-      "dong": "불광1동",
+      "dong_code": "11380632",
+      "dong": "신사2동",
       "gu": "은평구"
     },
     "personal": {
       "age_group": "70대이상",
       "gender": "M",
       "job": "가스 점검원",
-      "income_level": "중상",
+      "income_level": "중하",
       "life_stage": "은퇴"
     },
     "workplace": {
@@ -110,37 +110,37 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 8,
-      "weekend_spending_level": 6,
-      "daily_spending_weekday": 137999,
-      "daily_spending_weekend": 58835,
-      "weekend_weekday_spending_ratio": 0.426,
+      "weekday_spending_level": 4,
+      "weekend_spending_level": 3,
+      "daily_spending_weekday": 75473,
+      "daily_spending_weekend": 34521,
+      "weekend_weekday_spending_ratio": 0.457,
       "weekday_top_categories": {
-        "건강": 0.4316,
-        "식사": 0.3386,
-        "마트": 0.1562,
-        "편의점": 0.0441,
-        "디저트": 0.0136
+        "건강": 0.3067,
+        "식사": 0.24,
+        "편의점": 0.2352,
+        "마트": 0.1876,
+        "디저트": 0.0274
       },
       "weekend_top_categories": {
-        "건강": 0.4316,
-        "식사": 0.3386,
-        "마트": 0.1562,
-        "편의점": 0.0441,
-        "디저트": 0.0136
+        "건강": 0.3067,
+        "식사": 0.24,
+        "편의점": 0.2352,
+        "마트": 0.1876,
+        "디저트": 0.0274
       }
     },
     "behavior": {
-      "delivery_days": 4.6,
-      "shopping_days": 5,
-      "weekday_move_km": 0.7,
-      "weekend_move_km": 0.44,
-      "home_hours_weekday": 20.4,
-      "home_hours_weekend": 8.2,
-      "mobility_level": 3
+      "delivery_days": 5.7,
+      "shopping_days": 12,
+      "weekday_move_km": 0.75,
+      "weekend_move_km": 0.45,
+      "home_hours_weekday": 15.2,
+      "home_hours_weekend": 17.7,
+      "mobility_level": 1
     },
     "personality": {
-      "spending_tendency": "보통",
+      "spending_tendency": "절약형",
       "lifestyle": "유상인 씨는 은평구에서 가스 점검원으로 성실히 근무하며, 책임감 있는 삶과 소소한 가족의 행복을 소중히 여기"
     },
     "nvidia_persona": {
@@ -182,17 +182,17 @@
     }
   },
   {
-    "agent_id": "AGT_11410620_M_40대_000",
+    "agent_id": "AGT_11410710_M_40대_000",
     "residence": {
-      "dong_code": "11410620",
-      "dong": "홍제1동",
+      "dong_code": "11410710",
+      "dong": "북가좌1동",
       "gu": "서대문구"
     },
     "personal": {
       "age_group": "40대",
       "gender": "M",
       "job": "양식 조리사",
-      "income_level": "중",
+      "income_level": "중상",
       "life_stage": "자녀양육"
     },
     "workplace": {
@@ -201,37 +201,37 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 5,
-      "weekend_spending_level": 5,
-      "daily_spending_weekday": 88561,
-      "daily_spending_weekend": 50228,
-      "weekend_weekday_spending_ratio": 0.567,
+      "weekday_spending_level": 8,
+      "weekend_spending_level": 8,
+      "daily_spending_weekday": 133753,
+      "daily_spending_weekend": 80728,
+      "weekend_weekday_spending_ratio": 0.604,
       "weekday_top_categories": {
-        "식사": 0.3051,
-        "건강": 0.2283,
-        "편의점": 0.1459,
-        "마트": 0.1107,
-        "교육": 0.1085
+        "교육": 0.3311,
+        "건강": 0.1962,
+        "식사": 0.1383,
+        "편의점": 0.1234,
+        "마트": 0.1222
       },
       "weekend_top_categories": {
-        "식사": 0.3051,
-        "건강": 0.2283,
-        "편의점": 0.1459,
-        "마트": 0.1107,
-        "교육": 0.1085
+        "교육": 0.3311,
+        "건강": 0.1962,
+        "식사": 0.1383,
+        "편의점": 0.1234,
+        "마트": 0.1222
       }
     },
     "behavior": {
-      "delivery_days": 13.8,
-      "shopping_days": 12,
-      "weekday_move_km": 1.72,
-      "weekend_move_km": 0.87,
-      "home_hours_weekday": 14.8,
-      "home_hours_weekend": 6.3,
-      "mobility_level": 7
+      "delivery_days": 14.6,
+      "shopping_days": 14,
+      "weekday_move_km": 1.77,
+      "weekend_move_km": 0.88,
+      "home_hours_weekday": 14.0,
+      "home_hours_weekend": 15.6,
+      "mobility_level": 4
     },
     "personality": {
-      "spending_tendency": "보통",
+      "spending_tendency": "소비형",
       "lifestyle": "권호정 씨는 서대문구에서 양식 조리사로 일하며 가족의 안정과 소박한 내 가게의 꿈을 키워가는 현실적이고 섬세"
     },
     "nvidia_persona": {
@@ -273,17 +273,17 @@
     }
   },
   {
-    "agent_id": "AGT_11710680_M_70대이상_000",
+    "agent_id": "AGT_11710570_M_70대이상_000",
     "residence": {
-      "dong_code": "11710680",
-      "dong": "잠실3동",
+      "dong_code": "11710570",
+      "dong": "오금동",
       "gu": "송파구"
     },
     "personal": {
       "age_group": "70대이상",
       "gender": "M",
       "job": "음식 배달원",
-      "income_level": "중",
+      "income_level": "상",
       "life_stage": "은퇴"
     },
     "workplace": {
@@ -292,37 +292,37 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 6,
-      "weekend_spending_level": 7,
-      "daily_spending_weekday": 99829,
-      "daily_spending_weekend": 67997,
-      "weekend_weekday_spending_ratio": 0.681,
+      "weekday_spending_level": 9,
+      "weekend_spending_level": 9,
+      "daily_spending_weekday": 166008,
+      "daily_spending_weekend": 97669,
+      "weekend_weekday_spending_ratio": 0.588,
       "weekday_top_categories": {
-        "마트": 0.5734,
-        "건강": 0.1791,
-        "식사": 0.0957,
-        "여가": 0.0476,
-        "편의점": 0.0277
+        "식사": 0.4933,
+        "마트": 0.2162,
+        "건강": 0.1264,
+        "여가": 0.0478,
+        "편의점": 0.0465
       },
       "weekend_top_categories": {
-        "마트": 0.5734,
-        "건강": 0.1791,
-        "식사": 0.0957,
-        "여가": 0.0476,
-        "편의점": 0.0277
+        "식사": 0.4933,
+        "마트": 0.2162,
+        "건강": 0.1264,
+        "여가": 0.0478,
+        "편의점": 0.0465
       }
     },
     "behavior": {
-      "delivery_days": 6.3,
+      "delivery_days": 6.7,
       "shopping_days": 12,
-      "weekday_move_km": 1.03,
-      "weekend_move_km": 0.5,
-      "home_hours_weekday": 11.4,
-      "home_hours_weekend": 15.1,
-      "mobility_level": 5
+      "weekday_move_km": 0.96,
+      "weekend_move_km": 0.49,
+      "home_hours_weekday": 13.8,
+      "home_hours_weekend": 15.7,
+      "mobility_level": 2
     },
     "personality": {
-      "spending_tendency": "보통",
+      "spending_tendency": "소비형",
       "lifestyle": "김종기 씨는 송파구의 지리에 능통한 배달원으로 일하며, 성실함으로 가정을 지켜온 현실적이고 다정한 70대 가"
     },
     "nvidia_persona": {
@@ -365,17 +365,17 @@
     }
   },
   {
-    "agent_id": "AGT_11320681_F_60대_000",
+    "agent_id": "AGT_11320690_F_60대_000",
     "residence": {
-      "dong_code": "11320681",
-      "dong": "쌍문4동",
+      "dong_code": "11320690",
+      "dong": "방학1동",
       "gu": "도봉구"
     },
     "personal": {
       "age_group": "60대",
       "gender": "F",
       "job": "무직",
-      "income_level": "중상",
+      "income_level": "상",
       "life_stage": "기혼"
     },
     "workplace": {
@@ -384,37 +384,37 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 7,
-      "weekend_spending_level": 5,
-      "daily_spending_weekday": 118689,
-      "daily_spending_weekend": 49932,
-      "weekend_weekday_spending_ratio": 0.421,
+      "weekday_spending_level": 10,
+      "weekend_spending_level": 10,
+      "daily_spending_weekday": 327260,
+      "daily_spending_weekend": 148576,
+      "weekend_weekday_spending_ratio": 0.454,
       "weekday_top_categories": {
-        "마트": 0.5862,
-        "건강": 0.1633,
-        "식사": 0.0904,
-        "편의점": 0.0517,
-        "여가": 0.0476
+        "식사": 0.3379,
+        "건강": 0.2186,
+        "쇼핑": 0.1383,
+        "마트": 0.1246,
+        "편의점": 0.0591
       },
       "weekend_top_categories": {
-        "마트": 0.5862,
-        "건강": 0.1633,
-        "식사": 0.0904,
-        "편의점": 0.0517,
-        "여가": 0.0476
+        "식사": 0.3379,
+        "건강": 0.2186,
+        "쇼핑": 0.1383,
+        "마트": 0.1246,
+        "편의점": 0.0591
       }
     },
     "behavior": {
-      "delivery_days": 6.7,
-      "shopping_days": 6,
-      "weekday_move_km": 0.8,
-      "weekend_move_km": 0.58,
-      "home_hours_weekday": 15.6,
-      "home_hours_weekend": 15.0,
-      "mobility_level": 2
+      "delivery_days": 6.9,
+      "shopping_days": 7,
+      "weekday_move_km": 0.75,
+      "weekend_move_km": 0.56,
+      "home_hours_weekday": 13.3,
+      "home_hours_weekend": 15.5,
+      "mobility_level": 5
     },
     "personality": {
-      "spending_tendency": "보통",
+      "spending_tendency": "소비형",
       "lifestyle": "김계화 씨는 도봉산의 자연과 서예의 정갈함을 사랑하며, 당뇨라는 건강상의 제약 속에서도 배움과 이웃 간의 정"
     },
     "nvidia_persona": {
@@ -456,10 +456,10 @@
     }
   },
   {
-    "agent_id": "AGT_11500590_M_20대_000",
+    "agent_id": "AGT_11500535_M_20대_000",
     "residence": {
-      "dong_code": "11500590",
-      "dong": "화곡본동",
+      "dong_code": "11500535",
+      "dong": "등촌3동",
       "gu": "강서구"
     },
     "personal": {
@@ -477,32 +477,32 @@
     "spending": {
       "weekday_spending_level": 5,
       "weekend_spending_level": 6,
-      "daily_spending_weekday": 89977,
-      "daily_spending_weekend": 59035,
-      "weekend_weekday_spending_ratio": 0.656,
+      "daily_spending_weekday": 89220,
+      "daily_spending_weekend": 58232,
+      "weekend_weekday_spending_ratio": 0.653,
       "weekday_top_categories": {
-        "식사": 0.4453,
-        "편의점": 0.3062,
-        "마트": 0.1362,
-        "여가": 0.0455,
-        "카페": 0.0266
+        "식사": 0.4877,
+        "건강": 0.192,
+        "편의점": 0.1566,
+        "여가": 0.0517,
+        "카페": 0.0322
       },
       "weekend_top_categories": {
-        "식사": 0.4453,
-        "편의점": 0.3062,
-        "마트": 0.1362,
-        "여가": 0.0455,
-        "카페": 0.0266
+        "식사": 0.4877,
+        "건강": 0.192,
+        "편의점": 0.1566,
+        "여가": 0.0517,
+        "카페": 0.0322
       }
     },
     "behavior": {
-      "delivery_days": 16.4,
-      "shopping_days": 12,
-      "weekday_move_km": 1.29,
-      "weekend_move_km": 0.77,
-      "home_hours_weekday": 10.4,
-      "home_hours_weekend": 8.0,
-      "mobility_level": 6
+      "delivery_days": 14.5,
+      "shopping_days": 9,
+      "weekday_move_km": 1.32,
+      "weekend_move_km": 0.76,
+      "home_hours_weekday": 11.2,
+      "home_hours_weekend": 12.8,
+      "mobility_level": 9
     },
     "personality": {
       "spending_tendency": "보통",
@@ -547,17 +547,17 @@
     }
   },
   {
-    "agent_id": "AGT_11650620_F_50대_000",
+    "agent_id": "AGT_11650580_F_50대_000",
     "residence": {
-      "dong_code": "11650620",
-      "dong": "방배3동",
+      "dong_code": "11650580",
+      "dong": "반포3동",
       "gu": "서초구"
     },
     "personal": {
       "age_group": "50대",
       "gender": "F",
       "job": "승용차 및 승합차 운전원",
-      "income_level": "중",
+      "income_level": "상",
       "life_stage": "자녀양육"
     },
     "workplace": {
@@ -566,37 +566,37 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 6,
-      "weekend_spending_level": 3,
-      "daily_spending_weekday": 101958,
-      "daily_spending_weekend": 34610,
-      "weekend_weekday_spending_ratio": 0.339,
+      "weekday_spending_level": 9,
+      "weekend_spending_level": 9,
+      "daily_spending_weekday": 163844,
+      "daily_spending_weekend": 99314,
+      "weekend_weekday_spending_ratio": 0.606,
       "weekday_top_categories": {
-        "건강": 0.6914,
-        "식사": 0.0904,
-        "마트": 0.0716,
-        "교육": 0.059,
-        "편의점": 0.04
+        "교육": 0.3327,
+        "건강": 0.2174,
+        "식사": 0.1787,
+        "쇼핑": 0.1302,
+        "마트": 0.0668
       },
       "weekend_top_categories": {
-        "건강": 0.6914,
-        "식사": 0.0904,
-        "마트": 0.0716,
-        "교육": 0.059,
-        "편의점": 0.04
+        "교육": 0.3327,
+        "건강": 0.2174,
+        "식사": 0.1787,
+        "쇼핑": 0.1302,
+        "마트": 0.0668
       }
     },
     "behavior": {
-      "delivery_days": 11.4,
-      "shopping_days": 17,
-      "weekday_move_km": 1.19,
-      "weekend_move_km": 0.75,
-      "home_hours_weekday": 13.2,
-      "home_hours_weekend": 16.6,
-      "mobility_level": 7
+      "delivery_days": 8.7,
+      "shopping_days": 7,
+      "weekday_move_km": 1.09,
+      "weekend_move_km": 0.66,
+      "home_hours_weekday": 11.6,
+      "home_hours_weekend": 13.7,
+      "mobility_level": 9
     },
     "personality": {
-      "spending_tendency": "보통",
+      "spending_tendency": "소비형",
       "lifestyle": "전말선 씨는 강남의 복잡한 길을 누비는 베테랑 운전원으로, 타인에 대한 깊은 배려심과 정서적 예민함을 동시에"
     },
     "nvidia_persona": {
@@ -638,17 +638,17 @@
     }
   },
   {
-    "agent_id": "AGT_11470620_F_50대_000",
+    "agent_id": "AGT_11470670_F_50대_000",
     "residence": {
-      "dong_code": "11470620",
-      "dong": "신정1동",
+      "dong_code": "11470670",
+      "dong": "신정6동",
       "gu": "양천구"
     },
     "personal": {
       "age_group": "50대",
       "gender": "F",
       "job": "건물 청소원",
-      "income_level": "중상",
+      "income_level": "중",
       "life_stage": "자녀양육"
     },
     "workplace": {
@@ -657,37 +657,37 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 8,
+      "weekday_spending_level": 6,
       "weekend_spending_level": 8,
-      "daily_spending_weekday": 137872,
-      "daily_spending_weekend": 78253,
-      "weekend_weekday_spending_ratio": 0.568,
+      "daily_spending_weekday": 103843,
+      "daily_spending_weekend": 77960,
+      "weekend_weekday_spending_ratio": 0.751,
       "weekday_top_categories": {
-        "식사": 0.3113,
-        "마트": 0.2422,
-        "건강": 0.1663,
-        "교육": 0.1145,
-        "여가": 0.0488
+        "교육": 0.5886,
+        "식사": 0.1029,
+        "마트": 0.0863,
+        "건강": 0.0747,
+        "여가": 0.0495
       },
       "weekend_top_categories": {
-        "식사": 0.3113,
-        "마트": 0.2422,
-        "건강": 0.1663,
-        "교육": 0.1145,
-        "여가": 0.0488
+        "교육": 0.5886,
+        "식사": 0.1029,
+        "마트": 0.0863,
+        "건강": 0.0747,
+        "여가": 0.0495
       }
     },
     "behavior": {
-      "delivery_days": 12.4,
-      "shopping_days": 12,
-      "weekday_move_km": 0.85,
-      "weekend_move_km": 0.69,
-      "home_hours_weekday": 2.5,
-      "home_hours_weekend": 5.3,
-      "mobility_level": 5
+      "delivery_days": 11.7,
+      "shopping_days": 16,
+      "weekday_move_km": 0.95,
+      "weekend_move_km": 0.68,
+      "home_hours_weekday": 13.6,
+      "home_hours_weekend": 14.2,
+      "mobility_level": 4
     },
     "personality": {
-      "spending_tendency": "소비형",
+      "spending_tendency": "보통",
       "lifestyle": "정희정 씨는 가족의 안녕과 자신의 건강한 노후를 위해 묵묵히 청소 도구를 든, 외강내유형의 성실한 우리 시대"
     },
     "nvidia_persona": {
@@ -729,17 +729,17 @@
     }
   },
   {
-    "agent_id": "AGT_11530790_M_60대_000",
+    "agent_id": "AGT_11530530_M_60대_000",
     "residence": {
-      "dong_code": "11530790",
-      "dong": "수궁동",
+      "dong_code": "11530530",
+      "dong": "구로2동",
       "gu": "구로구"
     },
     "personal": {
       "age_group": "60대",
       "gender": "M",
       "job": "사무 보조원",
-      "income_level": "중상",
+      "income_level": "상",
       "life_stage": "독립"
     },
     "workplace": {
@@ -748,34 +748,34 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 8,
+      "weekday_spending_level": 10,
       "weekend_spending_level": 8,
-      "daily_spending_weekday": 140032,
-      "daily_spending_weekend": 81590,
-      "weekend_weekday_spending_ratio": 0.583,
+      "daily_spending_weekday": 359736,
+      "daily_spending_weekend": 81713,
+      "weekend_weekday_spending_ratio": 0.227,
       "weekday_top_categories": {
-        "식사": 0.3936,
-        "마트": 0.2455,
-        "편의점": 0.1954,
-        "건강": 0.0581,
-        "여가": 0.047
+        "쇼핑": 0.2986,
+        "식사": 0.296,
+        "건강": 0.2447,
+        "마트": 0.0547,
+        "여가": 0.0455
       },
       "weekend_top_categories": {
-        "식사": 0.3936,
-        "마트": 0.2455,
-        "편의점": 0.1954,
-        "건강": 0.0581,
-        "여가": 0.047
+        "쇼핑": 0.2986,
+        "식사": 0.296,
+        "건강": 0.2447,
+        "마트": 0.0547,
+        "여가": 0.0455
       }
     },
     "behavior": {
-      "delivery_days": 7.8,
-      "shopping_days": 11,
-      "weekday_move_km": 1.62,
-      "weekend_move_km": 0.86,
-      "home_hours_weekday": 18.0,
-      "home_hours_weekend": 11.4,
-      "mobility_level": 3
+      "delivery_days": 7.4,
+      "shopping_days": 7,
+      "weekday_move_km": 1.29,
+      "weekend_move_km": 0.75,
+      "home_hours_weekday": 10.5,
+      "home_hours_weekend": 12.1,
+      "mobility_level": 8
     },
     "personality": {
       "spending_tendency": "소비형",
@@ -821,17 +821,17 @@
     }
   },
   {
-    "agent_id": "AGT_11140520_M_40대_000",
+    "agent_id": "AGT_11140680_M_40대_000",
     "residence": {
-      "dong_code": "11140520",
-      "dong": "소공동",
+      "dong_code": "11140680",
+      "dong": "중림동",
       "gu": "중구"
     },
     "personal": {
       "age_group": "40대",
       "gender": "M",
       "job": "범용 소프트웨어 프로그래머",
-      "income_level": "중상",
+      "income_level": "중",
       "life_stage": "자녀양육"
     },
     "workplace": {
@@ -840,34 +840,34 @@
       "commute_min": null
     },
     "spending": {
-      "weekday_spending_level": 7,
-      "weekend_spending_level": 10,
-      "daily_spending_weekday": 119486,
-      "daily_spending_weekend": 256320,
-      "weekend_weekday_spending_ratio": 2.145,
+      "weekday_spending_level": 6,
+      "weekend_spending_level": 9,
+      "daily_spending_weekday": 103021,
+      "daily_spending_weekend": 101939,
+      "weekend_weekday_spending_ratio": 0.989,
       "weekday_top_categories": {
-        "식사": 0.4391,
-        "기타": 0.2152,
-        "편의점": 0.0689,
-        "마트": 0.0521,
-        "교육": 0.0521
+        "식사": 0.5646,
+        "편의점": 0.1074,
+        "마트": 0.0952,
+        "교육": 0.0623,
+        "건강": 0.0562
       },
       "weekend_top_categories": {
-        "식사": 0.4391,
-        "기타": 0.2152,
-        "편의점": 0.0689,
-        "마트": 0.0521,
-        "교육": 0.0521
+        "식사": 0.5646,
+        "편의점": 0.1074,
+        "마트": 0.0952,
+        "교육": 0.0623,
+        "건강": 0.0562
       }
     },
     "behavior": {
-      "delivery_days": 13.4,
-      "shopping_days": 8,
-      "weekday_move_km": 1.12,
-      "weekend_move_km": 0.76,
-      "home_hours_weekday": 21.2,
-      "home_hours_weekend": 12.6,
-      "mobility_level": 10
+      "delivery_days": 16.6,
+      "shopping_days": 9,
+      "weekday_move_km": 1.93,
+      "weekend_move_km": 1.07,
+      "home_hours_weekday": 12.8,
+      "home_hours_weekend": 14.1,
+      "mobility_level": 6
     },
     "personality": {
       "spending_tendency": "소비형",

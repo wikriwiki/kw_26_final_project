@@ -31,7 +31,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
     PROJECT_ROOT, PersonaRecord,
-    age_to_group, build_quant_from_cell, load_bdc_stats, load_nvidia_seoul,
+    age_to_group, build_quant_from_cell, industry_to_l1_ratio,
+    load_bdc_stats, load_nvidia_seoul,
     nvidia_cell, nvidia_gu, nvidia_sex, parse_cell_key, ses_proxy,
     split_nvidia_fields, top_categories,
 )
@@ -158,7 +159,6 @@ def build(limit: int = 0, seed: int = 42,
                                       spending_level_override=(lv_wd, lv_we))
 
         # 3단계: 취미 보정 (build_quant 가 만든 top_categories 를 재계산)
-        from _common import industry_to_l1_ratio
         l1 = industry_to_l1_ratio(prof.get("consumption", {}).get("industry_ratio", {}))
         l1_adj = adjust_l1_by_hobbies(l1, nv_rec, hobby_adjust)
         quant["spending"]["weekday_top_categories"] = top_categories(l1_adj)

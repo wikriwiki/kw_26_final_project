@@ -317,14 +317,20 @@ def build_quant_from_cell(
         "weekday_top_categories": top_categories(l1),
         "weekend_top_categories": top_categories(l1),
     }
+    mob_lv = int(mob.get("mobility_level") or 5)
+    # 재택시간: telecom raw(tel_home_*_time) 은 단위 불명이라 직접 변환 불가
+    # (예: 955794 → /3600%24 = 1.5h 비현실값). 대신 이동성 분위로 추정:
+    # 이동 많을수록(mob_lv↑) 재택 적음. 주말은 평일보다 +1.5h.
+    home_wd = round(max(8.0, min(20.0, 16.0 - mob_lv * 0.6 + rng.uniform(-1, 1))), 1)
+    home_we = round(max(8.0, min(22.0, home_wd + 1.5 + rng.uniform(-1, 1))), 1)
     behavior = {
         "delivery_days": round(float(tel.get("tel_delivery_days") or 0) + rng.uniform(-3, 3), 1),
         "shopping_days": rng.randint(4, 18),
         "weekday_move_km": round(float(tel.get("tel_wd_move_dist") or 0) / 1000.0, 2),
         "weekend_move_km": round(float(tel.get("tel_we_move_dist") or 0) / 1000.0, 2),
-        "home_hours_weekday": round(min(24, max(0, float(tel.get("tel_home_wd_time") or 0) / 3600.0 % 24)), 1),
-        "home_hours_weekend": round(min(24, max(0, float(tel.get("tel_home_we_time") or 0) / 3600.0 % 24)), 1),
-        "mobility_level": int(mob.get("mobility_level") or 5),
+        "home_hours_weekday": home_wd,
+        "home_hours_weekend": home_we,
+        "mobility_level": mob_lv,
     }
     return {"spending": spending, "behavior": behavior,
             "tendency": spending_tendency_from(lv_wd, lv_we)}
