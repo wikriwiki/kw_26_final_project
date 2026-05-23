@@ -1,0 +1,915 @@
+[
+  {
+    "agent_id": "AGT_11710720_M_20대_000",
+    "residence": {
+      "dong_code": "11710720",
+      "dong": "잠실7동",
+      "gu": "송파구"
+    },
+    "personal": {
+      "age_group": "20대",
+      "gender": "M",
+      "job": "전직 양식 조리사, 현재 구직중",
+      "income_level": "하",
+      "life_stage": "사회초년생"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 2,
+      "weekend_spending_level": 2,
+      "daily_spending_weekday": 48078,
+      "daily_spending_weekend": 27805,
+      "weekend_weekday_spending_ratio": 0.578,
+      "weekday_top_categories": {
+        "편의점": 0.4104,
+        "쇼핑": 0.3152,
+        "식사": 0.1955,
+        "여가": 0.0455,
+        "마트": 0.0331
+      },
+      "weekend_top_categories": {
+        "편의점": 0.4104,
+        "쇼핑": 0.3152,
+        "식사": 0.1955,
+        "여가": 0.0455,
+        "마트": 0.0331
+      }
+    },
+    "behavior": {
+      "delivery_days": 14.3,
+      "shopping_days": 17,
+      "weekday_move_km": 1.23,
+      "weekend_move_km": 0.67,
+      "home_hours_weekday": 8.5,
+      "home_hours_weekend": 5.7,
+      "mobility_level": 6
+    },
+    "personality": {
+      "spending_tendency": "절약형",
+      "lifestyle": "김찬민 씨는 정교한 양식 조리 기술을 가진 22세 구직자로, 송파구에서 홀로 지내며 정적인 휴식과 요리에 대"
+    },
+    "nvidia_persona": {
+      "summary": "김찬민 씨는 정교한 양식 조리 기술을 가진 22세 구직자로, 송파구에서 홀로 지내며 정적인 휴식과 요리에 대한 자신만의 기준을 지키며 살아가는 청년입니다.",
+      "hobbies": [
+        "요리 유튜버 영상 분석",
+        "동네 목욕탕 방문",
+        "올림픽공원 가벼운 산책",
+        "좋아하는 소설집 다시 읽기"
+      ],
+      "cultural_background": "석촌호수 근처 아파트에서 홀로 지내며, 집 앞 무인 카페에서 시간을 보내거나 송리단길의 소란함을 피해 올림픽공원 산책로를 걷습니다.",
+      "marital_status": "미혼",
+      "housing_type": "아파트",
+      "family_type": "혼자 거주",
+      "education_level": "4년제 대학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "김찬민 씨는 스테이크의 굽기와 크림 파스타의 농도를 정교하게 맞추는 기술을 가진 전직 양식 조리사로, 현재는 자신의 운영 철학을 실현할 다이닝 레스토랑을 찾으며 구직 중입니다. 바쁜 주방의 소란함 속에서도 주문 순서에 따라 효율적으로 움직이는 감각이 몸에 배어 있지만, 때로는 자신의 기준을 지나치게 고집해 동료들과 미묘한 신경전을 벌이기도 합니다.",
+      "career_goals_and_ambitions": "자신의 기준에 맞는 운영 철학을 가진 다이닝 레스토랑에서 메인 셰프로 성장하려 합니다. 화려한 명성보다는 재료 본연의 맛을 살리는 요리로 손님에게 잔잔한 만족감을 주는 공간을 만들고 싶어 합니다.",
+      "sports_persona": "김찬민 씨는 송리단길의 북적임을 피해 올림픽공원 산책로를 천천히 걷거나 동네 사우나에서 땀을 빼며 일상의 긴장을 덜어내는 정적인 활동을 즐깁니다. 격렬한 운동보다는 몸의 이완을 돕는 휴식형 활동에 집중하며, 가끔은 의욕적으로 등산에 도전하지만 금방 숨이 차올라 내려오는 편입니다.",
+      "arts_persona": "김찬민 씨는 넷플릭스의 요리 서바이벌 프로그램을 시청하며 셰프들의 조리법을 나름의 기준으로 분석하고 비평하는 시간을 통해 지적 만족감을 얻습니다. 집 근처 무인 카페에 앉아 책을 읽으며 생각을 정리하지만, 정작 읽던 페이지를 접어둔 채 멍하니 창밖을 바라보는 버릇이 있습니다.",
+      "travel_persona": "김찬민 씨는 가족들과 함께 떠나는 조용한 휴양지 여행에서 아무런 계획 없이 온전히 쉬는 시간을 통해 에너지를 충전합니다. 유명한 관광 명소를 바쁘게 돌아다니기보다 숙소 근처의 한적한 바닷가나 숲길을 거닐며 가족들과 도란도란 이야기를 나누는 시간을 소중히 여깁니다.",
+      "culinary_persona": "김찬민 씨는 업장에서는 정교한 양식 요리를 만들어냈지만, 정작 본인은 주 2~3회 고깃집에서 구워 먹는 한식이나 간편한 피자와 버거를 즐겨 먹습니다. 배달 음식은 한 달에 한 번 정도로 제한하며, 식재료 본연의 맛을 중요하게 생각하면서도 가끔은 자극적인 하이볼과 안주의 조합에 깊이 빠져듭니다.",
+      "family_persona": "김찬민 씨는 송파구 아파트에서 독립해 홀로 살며 자신만의 자유를 만끽하지만, 주기적으로 부모님 댁을 방문해 가족의 온기를 확인하는 애틋한 관계를 유지합니다. 타인에게는 차갑고 단호하게 선을 긋는 성격임에도 불구하고, 가족 앞에서는 한없이 느슨해지고 어리광을 부리는 모습을 보입니다.",
+      "skills_and_expertise": "스테이크의 굽기 정도를 정확히 맞추고 크림 파스타의 농도를 일정하게 유지하는 조리 기술을 가졌습니다. 바쁜 주방 상황 속에서도 주문 순서에 맞춰 효율적으로 움직이는 감각이 몸에 배어 있습니다.",
+      "skills_and_expertise_list": "['수비드 조리법', '정통 까르보나라 제조', '식자재 재고 관리', '주방 동선 최적화']",
+      "occupation": "전직 양식 조리사, 현재 구직중",
+      "bachelors_field": "서비스",
+      "military_status": "비현역",
+      "uuid": "093151f05e8943699471e1fc19ff839c"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.675,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "093151f05e8943699471e1fc19ff839c"
+    }
+  },
+  {
+    "agent_id": "AGT_11380520_M_70대이상_000",
+    "residence": {
+      "dong_code": "11380520",
+      "dong": "불광1동",
+      "gu": "은평구"
+    },
+    "personal": {
+      "age_group": "70대이상",
+      "gender": "M",
+      "job": "가스 점검원",
+      "income_level": "중상",
+      "life_stage": "은퇴"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 8,
+      "weekend_spending_level": 6,
+      "daily_spending_weekday": 137999,
+      "daily_spending_weekend": 58835,
+      "weekend_weekday_spending_ratio": 0.426,
+      "weekday_top_categories": {
+        "건강": 0.4316,
+        "식사": 0.3386,
+        "마트": 0.1562,
+        "편의점": 0.0441,
+        "디저트": 0.0136
+      },
+      "weekend_top_categories": {
+        "건강": 0.4316,
+        "식사": 0.3386,
+        "마트": 0.1562,
+        "편의점": 0.0441,
+        "디저트": 0.0136
+      }
+    },
+    "behavior": {
+      "delivery_days": 4.6,
+      "shopping_days": 5,
+      "weekday_move_km": 0.7,
+      "weekend_move_km": 0.44,
+      "home_hours_weekday": 20.4,
+      "home_hours_weekend": 8.2,
+      "mobility_level": 3
+    },
+    "personality": {
+      "spending_tendency": "보통",
+      "lifestyle": "유상인 씨는 은평구에서 가스 점검원으로 성실히 근무하며, 책임감 있는 삶과 소소한 가족의 행복을 소중히 여기"
+    },
+    "nvidia_persona": {
+      "summary": "유상인 씨는 은평구에서 가스 점검원으로 성실히 근무하며, 책임감 있는 삶과 소소한 가족의 행복을 소중히 여기는 70대 가장입니다.",
+      "hobbies": [
+        "복지관 바둑 대국",
+        "동창회원들과 담양 메타세쿼이아 길 여행",
+        "동네 목욕탕 온탕에서 피로 풀기",
+        "오후 시간의 짧은 낮잠"
+      ],
+      "cultural_background": "불광동 골목길의 변화를 몸소 겪으며 살아왔으며, 고등학교 졸업 후 곧바로 생업에 뛰어들어 가족을 부양해온 책임감이 몸에 배어 있습니다. 최근에는 손주들이 사용하는 스마트폰 앱을 하나씩 배워보며 세상의 변화를 조용히 따라갑니다.",
+      "marital_status": "배우자있음",
+      "housing_type": "다세대주택",
+      "family_type": "배우자와 거주",
+      "education_level": "고등학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "유상인 씨는 은평구의 낡은 다세대주택 골목을 누비며 가스 누출을 잡아내는 베테랑 점검원입니다. 책임감이 강해 점검을 마친 뒤에도 불안한 마음에 밸브를 서너 번씩 다시 조이거나 계량기를 재확인하는 강박적인 습관이 있습니다.",
+      "career_goals_and_ambitions": "담당 구역의 가스 밸브 하나하나를 내 집처럼 살피며 무사고 기록을 이어가는 것에 보람을 느낍니다. 다만, 최근 들어 조금만 일이 꼬여도 쉽게 불안해지는 마음 때문에 점검을 마친 후에도 몇 번을 다시 확인하곤 합니다.",
+      "sports_persona": "유상인 씨는 동네 복지관에서 바둑판을 사이에 두고 지인들과 수싸움을 벌이며 시간을 보내는 것을 즐깁니다. 일과 후에는 동네 목욕탕에서 뜨거운 물에 몸을 담가 피로를 풀고, 집으로 돌아와 짧은 낮잠으로 기력을 보충하며 하루를 마무리합니다.",
+      "arts_persona": "유상인 씨는 손주들이 가르쳐주는 스마트폰 앱의 새로운 기능을 하나씩 익히며 디지털 세상에 조심스럽게 발을 들여놓고 있습니다. 평소에는 TV 프로그램을 통해 세상 돌아가는 이야기를 접하며, 가끔은 조용히 음악을 들으며 생각에 잠기곤 합니다.",
+      "travel_persona": "유상인 씨는 친목 모임 회원들과 함께 강원도나 전라도의 한적한 산책로를 찾아가 맑은 공기를 마시고 풍경을 감상하는 여행을 다닙니다. 복잡한 관광지보다는 나무가 많고 조용한 숲길을 천천히 걷는 시간을 소중하게 여깁니다.",
+      "culinary_persona": "유상인 씨는 2주에 한 번 배달 앱으로 짜장면을 시켜 먹으며 소소한 일탈을 즐기고, 한 달에 한 번은 연신내의 작은 파스타 가게에서 아내와 함께 식사를 합니다. 평소 외식으로는 고기를 제외한 나물이나 찌개 중심의 한식당을 찾아갑니다.",
+      "family_persona": "유상인 씨는 고등학교 졸업 후 곧바로 생업에 뛰어들어 평생 아내와 자식들을 뒷바라지해온 헌신적인 가장입니다. 이제는 성인이 된 자녀들과 손주들에게 서툴지만 다정하게 마음을 표현하며, 아내를 위해 세심하게 외식 메뉴를 고르는 다정한 남편입니다.",
+      "skills_and_expertise": "수십 년간 가스 밸브와 계량기를 점검하며 다져진 예리한 관찰력으로 미세한 가스 누출 징후를 잡아내며, 노후 주택의 복잡한 배관 구조를 빠르게 파악해 안전 조치를 취합니다.",
+      "skills_and_expertise_list": "['가스 누출 정밀 탐지', '노후 배관 유지보수 및 안전 진단', '가스 사용 안전 수칙 지도', '정밀 계량기 검침 및 오류 수정']",
+      "occupation": "가스 점검원",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "3a7250e03cc04761a246b878d4f676c8"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.415,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "3a7250e03cc04761a246b878d4f676c8"
+    }
+  },
+  {
+    "agent_id": "AGT_11410620_M_40대_000",
+    "residence": {
+      "dong_code": "11410620",
+      "dong": "홍제1동",
+      "gu": "서대문구"
+    },
+    "personal": {
+      "age_group": "40대",
+      "gender": "M",
+      "job": "양식 조리사",
+      "income_level": "중",
+      "life_stage": "자녀양육"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 5,
+      "weekend_spending_level": 5,
+      "daily_spending_weekday": 88561,
+      "daily_spending_weekend": 50228,
+      "weekend_weekday_spending_ratio": 0.567,
+      "weekday_top_categories": {
+        "식사": 0.3051,
+        "건강": 0.2283,
+        "편의점": 0.1459,
+        "마트": 0.1107,
+        "교육": 0.1085
+      },
+      "weekend_top_categories": {
+        "식사": 0.3051,
+        "건강": 0.2283,
+        "편의점": 0.1459,
+        "마트": 0.1107,
+        "교육": 0.1085
+      }
+    },
+    "behavior": {
+      "delivery_days": 13.8,
+      "shopping_days": 12,
+      "weekday_move_km": 1.72,
+      "weekend_move_km": 0.87,
+      "home_hours_weekday": 14.8,
+      "home_hours_weekend": 6.3,
+      "mobility_level": 7
+    },
+    "personality": {
+      "spending_tendency": "보통",
+      "lifestyle": "권호정 씨는 서대문구에서 양식 조리사로 일하며 가족의 안정과 소박한 내 가게의 꿈을 키워가는 현실적이고 섬세"
+    },
+    "nvidia_persona": {
+      "summary": "권호정 씨는 서대문구에서 양식 조리사로 일하며 가족의 안정과 소박한 내 가게의 꿈을 키워가는 현실적이고 섬세한 가장입니다.",
+      "hobbies": [
+        "EPL 경기 시청",
+        "동네 사우나 방문",
+        "일본 오사카 식도락 여행",
+        "인왕산 가벼운 등산"
+      ],
+      "cultural_background": "서대문구 연희동의 조용한 주택가와 대학가 특유의 분위기 속에서 생활하며, 전문대학 시절부터 익힌 실무 중심의 사고방식이 일상 전반에 깊게 자리 잡고 있습니다.",
+      "marital_status": "배우자있음",
+      "housing_type": "아파트",
+      "family_type": "배우자·자녀와 거주",
+      "education_level": "2~3년제 전문대학"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "권호정 씨는 주방의 열기 속에서 고기의 육즙을 완벽하게 가두는 시어링 기술과 진한 풍미의 데미글라스 소스를 뽑아내는 데 자부심을 느끼는 조리사입니다. 권호정 씨는 식재료 하나하나의 낭비를 줄이는 깐깐한 재고 관리 능력을 갖췄지만, 정작 본인의 개인 소지품 정리에는 서툴러 늘 지갑이나 열쇠를 찾는 모습이 보입니다.",
+      "career_goals_and_ambitions": "화려한 미쉐린 스타보다는 서대문구 인근에서 지역 주민들이 편하게 찾는 작은 규모의 파스타 가게를 차려 가족들과 안정적인 생활을 유지하는 것을 꿈꿉니다.",
+      "sports_persona": "권호정 씨는 주말 밤이면 거실 소파에 깊숙이 파묻혀 프리미어리그 맨체스터 시티의 경기를 챙겨보며 일주일의 스트레스를 털어냅니다. 권호정 씨는 응원하는 팀의 전술 분석 영상을 찾아보며 혼자만의 몰입 시간을 갖는 것을 즐깁니다.",
+      "arts_persona": "권호정 씨는 연희동 골목길의 오래된 단독주택들이 주는 고즈넉한 풍경을 산책하며 사진으로 남기는 소소한 습관이 있습니다. 권호정 씨는 정교하게 짜인 예술 작품보다는 유튜브에서 요리 팁이나 인테리어 영상을 보며 실생활에 적용할 아이디어를 찾는 데 더 몰입합니다.",
+      "travel_persona": "권호정 씨는 가족들과 함께 해외여행을 떠나면 그 나라의 시장 골목을 누비며 현지 식재료와 길거리 음식을 섭렵하는 음식 관광에 집중합니다. 권호정 씨는 여행 계획을 세울 때 세부 일정보다는 방문할 맛집 리스트를 우선순위에 두고 움직입니다.",
+      "culinary_persona": "권호정 씨는 평소에는 나물 비빔밥이나 된장찌개 같은 담백한 한식을 즐기며, 외식할 때는 직접 만들지 않는 특색 있는 파스타나 리조또 같은 양식을 선택합니다. 권호정 씨는 2주에 한 번 정도 가족들과 함께 치킨이나 피자를 배달시켜 먹으며 주방의 압박에서 벗어난 식사 시간을 가집니다.",
+      "family_persona": "권호정 씨는 아파트 거실에서 아이의 숙제를 도와주고 배우자와 소소한 일상을 나누는 평범하고 안정적인 가정생활에서 가장 큰 행복을 느낍니다. 권호정 씨는 겉으로는 무뚝뚝해 보일 때가 있지만, 가족들을 위해 주말이면 특별한 브런치 메뉴를 정성껏 준비하는 다정한 면모가 있습니다.",
+      "skills_and_expertise": "육즙을 가두는 스테이크 시어링과 풍미가 깊은 데미글라스 소스를 만드는 데 능숙하며, 한정된 예산 안에서 식재료 낭비를 줄이는 효율적인 재고 관리 능력을 갖췄습니다.",
+      "skills_and_expertise_list": "['미디엄 레어 스테이크 굽기', '프랑스식 기본 소스 조리', '주방 식자재 원가 계산', '양식 메뉴 레시피 표준화']",
+      "occupation": "양식 조리사",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "19ebbdd30b6c4aabbdc2424dfee02b1a"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.588,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "19ebbdd30b6c4aabbdc2424dfee02b1a"
+    }
+  },
+  {
+    "agent_id": "AGT_11710680_M_70대이상_000",
+    "residence": {
+      "dong_code": "11710680",
+      "dong": "잠실3동",
+      "gu": "송파구"
+    },
+    "personal": {
+      "age_group": "70대이상",
+      "gender": "M",
+      "job": "음식 배달원",
+      "income_level": "중",
+      "life_stage": "은퇴"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 6,
+      "weekend_spending_level": 7,
+      "daily_spending_weekday": 99829,
+      "daily_spending_weekend": 67997,
+      "weekend_weekday_spending_ratio": 0.681,
+      "weekday_top_categories": {
+        "마트": 0.5734,
+        "건강": 0.1791,
+        "식사": 0.0957,
+        "여가": 0.0476,
+        "편의점": 0.0277
+      },
+      "weekend_top_categories": {
+        "마트": 0.5734,
+        "건강": 0.1791,
+        "식사": 0.0957,
+        "여가": 0.0476,
+        "편의점": 0.0277
+      }
+    },
+    "behavior": {
+      "delivery_days": 6.3,
+      "shopping_days": 12,
+      "weekday_move_km": 1.03,
+      "weekend_move_km": 0.5,
+      "home_hours_weekday": 11.4,
+      "home_hours_weekend": 15.1,
+      "mobility_level": 5
+    },
+    "personality": {
+      "spending_tendency": "보통",
+      "lifestyle": "김종기 씨는 송파구의 지리에 능통한 배달원으로 일하며, 성실함으로 가정을 지켜온 현실적이고 다정한 70대 가"
+    },
+    "nvidia_persona": {
+      "summary": "김종기 씨는 송파구의 지리에 능통한 배달원으로 일하며, 성실함으로 가정을 지켜온 현실적이고 다정한 70대 가장입니다.",
+      "hobbies": [
+        "석촌호수 둘레길 산책",
+        "동네 사우나 단골 모임",
+        "TV 뉴스 시청",
+        "가족과 함께하는 근교 수목원 나들이",
+        "동네 친구들과 나누는 막걸리 한 잔"
+      ],
+      "cultural_background": "송파구 가락동 뒷골목이 개발되며 변해가는 과정을 몸소 겪어왔으며, 배움의 기회는 짧았지만 성실함 하나로 가정을 지켜온 세월에 대한 자부심이 깊습니다.",
+      "marital_status": "배우자있음",
+      "housing_type": "아파트",
+      "family_type": "배우자와 거주",
+      "education_level": "초등학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "김종기 씨는 가락동 뒷골목의 좁은 길부터 거대한 아파트 단지의 진입로까지 머릿속에 지도를 그려놓은 베테랑 배달원입니다. 까칠한 손님이 윽박질러도 허허 웃으며 능숙하게 상황을 넘기는 넉살이 그의 가장 큰 무기입니다.",
+      "career_goals_and_ambitions": "갑작스러운 건강 악화 없이 지금처럼 매일 아침 일터로 나갈 수 있는 체력을 유지하며, 아내와 함께 갈 소박한 여행 자금을 차곡차곡 모으는 것에 만족합니다.",
+      "sports_persona": "김종기 씨는 주말이면 아내의 손을 잡고 석촌호수의 둘레길을 천천히 거닐며 계절의 변화를 살핍니다. 가끔은 동네 공원에서 배드민턴 채를 휘두르거나 줄넘기를 하며 굳은 몸을 풀지만, 금세 숨이 차올라 벤치에 앉아 한참을 쉽니다.",
+      "arts_persona": "김종기 씨는 거창한 전시회보다는 집에서 켜놓은 텔레비전 속 가요무대나 뉴스 프로그램에서 나오는 세상 돌아가는 이야기에 귀를 기울입니다. 화려한 그림보다는 창밖으로 보이는 푸른 산과 나무 같은 자연 풍경을 멍하니 바라보는 시간에서 평온함을 찾습니다.",
+      "travel_persona": "김종기 씨는 아내와 함께 전국의 이름 없는 작은 숲길이나 바닷가 풍경을 찾아다니는 소박한 여행을 꿈꿉니다. 화려한 호텔보다는 깨끗한 민박집을 잡고 주변 산책로를 천천히 걷는 일정을 짜며 여행의 설렘을 느낍니다.",
+      "culinary_persona": "김종기 씨는 외식 횟수가 적어 두세 달에 한 번 겨우 식당에 가는데, 이때면 주로 시원한 동태찌개나 청국장 같은 한식을 찾습니다. 가끔 기분이 좋을 때는 동네 단골 주점에서 시원한 맥주 한 잔과 마른안주를 곁들이며 하루의 피로를 풉니다.",
+      "family_persona": "김종기 씨는 초등학교 졸업 후 거친 사회생활을 견디며 아내와 함께 전월세 아파트에서 오순도순 살아온 세월에 깊은 자부심을 느낍니다. 무뚝뚝한 성격이지만 아내의 건강을 걱정해 함께 걷는 시간을 소중히 여기며 가정의 평화를 최우선으로 생각합니다.",
+      "skills_and_expertise": "내비게이션 없이도 송파구 일대의 지름길과 아파트 단지별 진입로를 훤히 꿰고 있으며, 까다로운 손님도 웃으며 넘기게 만드는 능숙한 응대 솜씨를 가졌습니다.",
+      "skills_and_expertise_list": "['송파구 지역 골목길 지형지물 숙지', '효율적인 배달 동선 설계', '연령대별 맞춤형 고객 응대', '전동 운송 수단 안전 운행 및 관리']",
+      "occupation": "음식 배달원",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "1b54167b53874257a63dc54169ad8d88"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.212,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "1b54167b53874257a63dc54169ad8d88"
+    }
+  },
+  {
+    "agent_id": "AGT_11320681_F_60대_000",
+    "residence": {
+      "dong_code": "11320681",
+      "dong": "쌍문4동",
+      "gu": "도봉구"
+    },
+    "personal": {
+      "age_group": "60대",
+      "gender": "F",
+      "job": "무직",
+      "income_level": "중상",
+      "life_stage": "기혼"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 7,
+      "weekend_spending_level": 5,
+      "daily_spending_weekday": 118689,
+      "daily_spending_weekend": 49932,
+      "weekend_weekday_spending_ratio": 0.421,
+      "weekday_top_categories": {
+        "마트": 0.5862,
+        "건강": 0.1633,
+        "식사": 0.0904,
+        "편의점": 0.0517,
+        "여가": 0.0476
+      },
+      "weekend_top_categories": {
+        "마트": 0.5862,
+        "건강": 0.1633,
+        "식사": 0.0904,
+        "편의점": 0.0517,
+        "여가": 0.0476
+      }
+    },
+    "behavior": {
+      "delivery_days": 6.7,
+      "shopping_days": 6,
+      "weekday_move_km": 0.8,
+      "weekend_move_km": 0.58,
+      "home_hours_weekday": 15.6,
+      "home_hours_weekend": 15.0,
+      "mobility_level": 2
+    },
+    "personality": {
+      "spending_tendency": "보통",
+      "lifestyle": "김계화 씨는 도봉산의 자연과 서예의 정갈함을 사랑하며, 당뇨라는 건강상의 제약 속에서도 배움과 이웃 간의 정"
+    },
+    "nvidia_persona": {
+      "summary": "김계화 씨는 도봉산의 자연과 서예의 정갈함을 사랑하며, 당뇨라는 건강상의 제약 속에서도 배움과 이웃 간의 정을 놓지 않고 살아가는 60대 여성입니다.",
+      "hobbies": [
+        "도봉산 둘레길 천천히 걷기",
+        "동네 사우나 단골 모임",
+        "트로트 가수의 공연 영상 시청",
+        "주말 교회 봉사활동 및 친교"
+      ],
+      "cultural_background": "도봉산 자락의 한적한 동네에서 오래 거주하며 계절마다 변하는 자연의 색채를 관찰하는 습관이 몸에 배어 있고, 정식 학업의 기회는 적었지만 삶의 현장에서 겪은 다양한 경험을 통해 이웃 간의 갈등을 유연하게 풀어내는 지혜를 갖추었습니다.",
+      "marital_status": "배우자있음",
+      "housing_type": "아파트",
+      "family_type": "배우자와 거주",
+      "education_level": "중학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "김계화 씨는 수십 년간 집안 살림을 책임지며 가계부의 십 원 단위까지 정확히 맞추는 치밀함을 가졌으며, 주민센터에서 배운 뜨개질과 자수 기술로 이웃들에게 정성스러운 수제 수세미와 티코스터를 선물하며 소소한 성취감을 얻습니다.",
+      "career_goals_and_ambitions": "당뇨 수치를 안정시키기 위해 매일 정해진 시간에 도봉산 둘레길을 걷는 규칙적인 삶을 유지하며, 주민센터 서예 교실에서 갈고닦은 글씨로 작은 지역 전시회에 작품을 출품하는 목표를 가지고 있습니다.",
+      "sports_persona": "김계화 씨는 매일 아침 운동화를 신고 도봉산 둘레길의 흙길을 밟으며 당뇨 수치를 낮추려 애쓰고, 다리가 붓는 날에는 창동의 단골 목욕탕에서 뜨거운 탕 속에 몸을 담가 근육의 피로를 풉니다.",
+      "arts_persona": "김계화 씨는 이어폰으로 임영웅의 노래를 무한 반복해 들으며 가사의 의미를 곱씹고, 주민센터 서예 교실에서 붓끝에 온 신경을 집중해 지역 작은 전시회에 출품할 작품을 정성껏 써 내려갑니다.",
+      "travel_persona": "김계화 씨는 마음 맞는 친구들과 함께 강원도 설악산이나 전남 순천만 습지처럼 풍경이 수려한 곳을 찾아다니며, 계절마다 바뀌는 나뭇잎의 색깔을 관찰하고 사진으로 남기는 일을 즐깁니다.",
+      "culinary_persona": "김계화 씨는 일주일에 한 번 남편과 함께 동네 고깃집에서 삼겹살을 구워 먹으며 일주일의 스트레스를 풀고, 가끔은 시장 입구 분식집에서 매콤한 떡볶이와 김밥 한 줄로 가벼운 별식을 즐깁니다.",
+      "family_persona": "김계화 씨는 무뚝뚝한 남편과 전세 아파트에서 함께 살며 집안의 크고 작은 갈등을 특유의 유연함으로 중재하고, 가족의 건강을 위해 식단 관리를 도맡아 하는 집안의 실질적인 지주 역할을 합니다.",
+      "skills_and_expertise": "수십 년간 살림을 책임지며 다져온 꼼꼼한 가계부 작성 능력과 더불어, 주민센터의 여러 강좌를 섭렵하며 익힌 실용적인 수공예 기술로 주변 사람들에게 정성 어린 선물을 만드는 데 능숙합니다.",
+      "skills_and_expertise_list": "['세부 지출 내역 기록 및 관리', '베란다 텃밭 채소 재배', '지역 커뮤니티 소모임 일정 조율', '전통 매듭 및 자수 공예']",
+      "occupation": "무직",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "445c4fa1e2a346648f06ce704e144976"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.472,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "445c4fa1e2a346648f06ce704e144976"
+    }
+  },
+  {
+    "agent_id": "AGT_11500590_M_20대_000",
+    "residence": {
+      "dong_code": "11500590",
+      "dong": "화곡본동",
+      "gu": "강서구"
+    },
+    "personal": {
+      "age_group": "20대",
+      "gender": "M",
+      "job": "하역 및 적재 관련 단순 종사원",
+      "income_level": "중",
+      "life_stage": "사회초년생"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 5,
+      "weekend_spending_level": 6,
+      "daily_spending_weekday": 89977,
+      "daily_spending_weekend": 59035,
+      "weekend_weekday_spending_ratio": 0.656,
+      "weekday_top_categories": {
+        "식사": 0.4453,
+        "편의점": 0.3062,
+        "마트": 0.1362,
+        "여가": 0.0455,
+        "카페": 0.0266
+      },
+      "weekend_top_categories": {
+        "식사": 0.4453,
+        "편의점": 0.3062,
+        "마트": 0.1362,
+        "여가": 0.0455,
+        "카페": 0.0266
+      }
+    },
+    "behavior": {
+      "delivery_days": 16.4,
+      "shopping_days": 12,
+      "weekday_move_km": 1.29,
+      "weekend_move_km": 0.77,
+      "home_hours_weekday": 10.4,
+      "home_hours_weekend": 8.0,
+      "mobility_level": 6
+    },
+    "personality": {
+      "spending_tendency": "보통",
+      "lifestyle": "김지민 씨는 강서구 물류 현장에서 성실하게 일하며 부모님과 함께 안정을 꿈꾸는, 배려심 깊고 소박한 23세 "
+    },
+    "nvidia_persona": {
+      "summary": "김지민 씨는 강서구 물류 현장에서 성실하게 일하며 부모님과 함께 안정을 꿈꾸는, 배려심 깊고 소박한 23세 청년입니다.",
+      "hobbies": [
+        "서울식물원 풍경 사진 촬영",
+        "마곡지구 수제버거 맛집 탐방",
+        "동네 친구들과의 가벼운 술자리",
+        "자극적이지 않은 한식 메뉴 찾기"
+      ],
+      "cultural_background": "강서구 마곡동과 가양동 일대의 아파트 단지에서 성장하며 서울 서남권의 익숙한 골목 풍경 속에 삶이 배어 있습니다. 부모님과 함께 지내며 느끼는 가정의 안정감을 소중히 여기고, 친구들과 단톡방에서 실시간으로 소식을 주고받거나 유튜브 쇼츠 영상을 통해 최신 유행을 접하는 전형적인 요즘 청년의 일상을 보냅니다.",
+      "marital_status": "미혼",
+      "housing_type": "아파트",
+      "family_type": "부모와 동거",
+      "education_level": "고등학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "김지민 씨는 강서구 물류 창고에서 박스 무게 중심을 기막히게 잡아 쌓아 올리는 솜씨로 인정받으며, 거친 현장 분위기를 능청스러운 농담으로 누그러뜨리는 분위기 메이커입니다. 다만 너무 배려하는 성격 탓에 나이 많은 동료들의 잔심부름을 마다하지 못해 퇴근 시간이 조금씩 늦어지는 고질적인 습관이 있습니다.",
+      "career_goals_and_ambitions": "당장은 몸을 쓰는 일이 고되지만, 조만간 지게차 운전 기능사 자격증을 취득해 현장에서 조금 더 전문적인 역할을 맡고 싶어 합니다. 거창한 성공보다는 매달 받는 월급을 차곡차곡 모아 부모님의 짐을 덜어드리고, 언젠가 나만의 작은 보금자리를 마련하는 소박한 안정을 꿈꿉니다.",
+      "sports_persona": "김지민 씨는 주말이면 마곡 서울식물원의 널찍한 산책로를 느릿하게 걸으며 계절마다 바뀌는 나무와 꽃들의 색감을 온몸으로 느끼는 시간을 가집니다. 격렬한 운동보다는 친구들과 수다를 떨며 걷는 가벼운 산책을 즐기며, 걷다가 마음에 드는 풍경을 발견하면 멈춰 서서 사진을 찍는 정적인 움직임을 좋아합니다.",
+      "arts_persona": "김지민 씨는 스마트폰 갤러리에 서울식물원의 이름 모를 들꽃이나 구름 낀 하늘 사진을 가득 채워두고, 틈틈이 유튜브 쇼츠로 최신 유행하는 짧은 영상을 소비합니다. 거창한 예술 작품보다는 일상의 소소한 색감에 반응하며, 좋아하는 사진에 적절한 필터를 입혀 사회관계망서비스에 올리는 작은 성취감을 즐깁니다.",
+      "travel_persona": "김지민 씨는 연인이나 친구와 함께 강원도 평창의 전나무 숲길처럼 초록빛이 가득한 곳으로 여행을 떠나 아무 생각 없이 풍경을 감상하는 시간을 보냅니다. 여행 계획을 꼼꼼하게 짜기보다 동행자가 가자는 곳에 군말 없이 따라가는 편이며, 그 과정에서 상대가 만족해하는 표정을 보는 것에 더 큰 행복을 느낍니다.",
+      "culinary_persona": "김지민 씨는 마곡지구의 수제버거 가게에서 육즙이 뚝뚝 떨어지는 두툼한 패티 버거를 크게 베어 물거나, 단골 식당에서 보글보글 끓는 순두부찌개에 밥을 슥슥 비벼 먹는 식사를 즐깁니다. 주 3회 정도는 밖에서 친구들과 어울려 고기 외의 한식을 먹으며, 가끔은 집에서 배달 앱을 통해 치즈가 듬뿍 들어간 피자를 시켜 먹으며 하루의 피로를 풉니다.",
+      "family_persona": "김지민 씨는 강서구 가양동의 전세 아파트에서 부모님과 함께 지내며 퇴근길에 부모님이 좋아하시는 꽈배기나 붕어빵 같은 간식을 사 들고 들어가는 다정한 아들의 모습을 보입니다. 부모님께 짐이 되지 않으려 집안일을 도맡아 하려 애쓰지만, 정작 본인의 방은 옷가지가 널브러져 있어 어머니께 매일 잔소리를 듣곤 합니다.",
+      "skills_and_expertise": "물류 창고에서 물건이 쏟아지지 않게 무게 중심을 정확히 잡아 쌓아 올리는 손끝 감각이 좋습니다. 나이 많은 동료들 사이에서 분위기가 험악해질 때면 적절한 타이밍에 넉살 좋게 말을 건네 상황을 부드럽게 만드는 유연한 소통 능력을 갖췄습니다.",
+      "skills_and_expertise_list": "['하역물 적재 최적화 배치', '물류 센터 내 효율적 동선 파악', '다양한 연령대와의 갈등 중재', '중량물 안전 취급 및 운반']",
+      "occupation": "하역 및 적재 관련 단순 종사원",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "f50d9df5ec184e48900f2d5c88f346ac"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.328,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "f50d9df5ec184e48900f2d5c88f346ac"
+    }
+  },
+  {
+    "agent_id": "AGT_11650620_F_50대_000",
+    "residence": {
+      "dong_code": "11650620",
+      "dong": "방배3동",
+      "gu": "서초구"
+    },
+    "personal": {
+      "age_group": "50대",
+      "gender": "F",
+      "job": "승용차 및 승합차 운전원",
+      "income_level": "중",
+      "life_stage": "자녀양육"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 6,
+      "weekend_spending_level": 3,
+      "daily_spending_weekday": 101958,
+      "daily_spending_weekend": 34610,
+      "weekend_weekday_spending_ratio": 0.339,
+      "weekday_top_categories": {
+        "건강": 0.6914,
+        "식사": 0.0904,
+        "마트": 0.0716,
+        "교육": 0.059,
+        "편의점": 0.04
+      },
+      "weekend_top_categories": {
+        "건강": 0.6914,
+        "식사": 0.0904,
+        "마트": 0.0716,
+        "교육": 0.059,
+        "편의점": 0.04
+      }
+    },
+    "behavior": {
+      "delivery_days": 11.4,
+      "shopping_days": 17,
+      "weekday_move_km": 1.19,
+      "weekend_move_km": 0.75,
+      "home_hours_weekday": 13.2,
+      "home_hours_weekend": 16.6,
+      "mobility_level": 7
+    },
+    "personality": {
+      "spending_tendency": "보통",
+      "lifestyle": "전말선 씨는 강남의 복잡한 길을 누비는 베테랑 운전원으로, 타인에 대한 깊은 배려심과 정서적 예민함을 동시에"
+    },
+    "nvidia_persona": {
+      "summary": "전말선 씨는 강남의 복잡한 길을 누비는 베테랑 운전원으로, 타인에 대한 깊은 배려심과 정서적 예민함을 동시에 지닌 채 소박한 일상의 안정을 찾는 50대 여성입니다.",
+      "hobbies": [
+        "양재천 풍경 및 야생화 사진 찍기",
+        "동네 목욕탕 온탕에서 휴식하기",
+        "거실 소파에서 짧은 낮잠 자기",
+        "최신 일일 드라마 시청하며 감정 이입하기"
+      ],
+      "cultural_background": "서초구의 화려한 고층 빌딩 숲 사이, 좁은 골목이 이어진 오래된 다세대 주택가에서 가족들과 부대끼며 살아갑니다. 매일 운전대를 잡고 강남대로의 극심한 정체를 견디며 성실하게 일해온 세월이 삶의 궤적에 고스란히 남아 있습니다.",
+      "marital_status": "배우자있음",
+      "housing_type": "다세대주택",
+      "family_type": "배우자·자녀와 거주",
+      "education_level": "고등학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "전말선 씨는 서초동과 반포동의 미로 같은 골목길을 손바닥 보듯 꿰고 있으며, 뒷좌석 손님의 미세한 미간 찌푸림만 보고도 에어컨 온도를 조절하는 눈치 빠른 운전원입니다. 정해진 노선보다는 그날의 교통 상황에 따라 유연하게 움직이지만, 가끔 차량 정비 기록이나 행정 서류를 꼼꼼히 챙겨야 하는 업무 앞에서는 한숨을 내쉬며 차일피일 미루는 습관이 있습니다.",
+      "career_goals_and_ambitions": "큰 욕심 없이 지금처럼 사고 없이 무사히 운행하는 하루하루를 소중히 여기며, 직장 상사와 동료들에게 변함없이 믿음직한 사람으로 인정받아 정년까지 안정적으로 일하는 것입니다.",
+      "sports_persona": "전말선 씨는 격렬한 운동보다는 주말마다 양재천 산책길을 천천히 걸으며 계절마다 피는 이름 모를 들꽃을 살피는 정적인 활동에서 심리적 안정을 찾습니다. 운동복을 제대로 갖춰 입기보다는 편한 시장 바지를 입고 걷는 것을 좋아하며, 걷다가 예쁜 풍경을 발견하면 한참을 멈춰 서서 사진을 찍느라 동행한 친구들의 재촉을 받기도 합니다.",
+      "arts_persona": "전말선 씨는 스마트폰 카메라로 길가에 핀 꽃이나 뭉게구름 모양을 찍어 단체 채팅방에 공유하며 소소한 예술적 성취감을 느낍니다. 퇴근 후에는 거실 소파에 누워 TV 드라마의 전개에 과몰입해 함께 울고 웃으며 하루의 긴장을 풀고, 가끔 동네 문화센터의 서예 수업에 나가 붓글씨를 쓰며 어지러운 마음을 다스립니다.",
+      "travel_persona": "전말선 씨는 화려한 도심을 벗어나 강원도 평창의 전나무 숲이나 제주도의 올레길처럼 초록빛이 가득한 자연 풍경을 찾아 마음 맞는 친구들과 함께 떠나는 여행을 즐깁니다. 빽빽한 일정표를 짜기보다는 발길 닿는 대로 걷다가 마음에 드는 벤치가 나오면 한없이 앉아 쉬어가는 느긋한 여행 방식을 고수합니다.",
+      "culinary_persona": "전말선 씨는 한 달에 한 번 정도 가족들과 함께 동네 단골 돼지갈비집에서 숯불 향 가득한 고기를 구워 먹으며 가족 간의 유대를 다집니다. 가끔 기분 전환이 필요할 때는 정갈하게 나오는 초밥이나 메밀소바 같은 일식당을 찾지만, 배달 앱의 복잡한 메뉴판을 보는 것이 어려워 늘 시켜 먹던 단골 메뉴만 고집하는 단순함이 있습니다.",
+      "family_persona": "전말선 씨는 서초구의 낡은 다세대 주택에서 남편과 자녀들과 함께 북적이며 살아가는데, 가족들의 기분을 세심하게 살피는 다정한 어머니이자 아내입니다. 하지만 평소의 부드러운 모습과 달리 집안 정리가 제대로 되지 않았을 때나 가족들이 약속 시간을 어겼을 때면 갑자기 예민해져 날카로운 말을 뱉고는 금방 후회하며 미안해하는 모순적인 면이 있습니다.",
+      "skills_and_expertise": "서초동과 반포동의 복잡한 뒷길 지름길을 훤히 꿰뚫고 있으며, 뒷좌석 손님의 표정만 보고도 기분을 읽어내어 적절한 실내 온도와 음악을 맞추는 세심한 응대 능력이 있습니다.",
+      "skills_and_expertise_list": "['강남권 최적 경로 및 지름길 파악', '승객 심리 맞춤형 유연한 응대', '차량 내부 청결 및 쾌적한 환경 유지', '돌발 교통 상황에 대한 침착한 대응']",
+      "occupation": "승용차 및 승합차 운전원",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "a491b41d5bd94b4ab51fb2e18d8a459f"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.215,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "a491b41d5bd94b4ab51fb2e18d8a459f"
+    }
+  },
+  {
+    "agent_id": "AGT_11470620_F_50대_000",
+    "residence": {
+      "dong_code": "11470620",
+      "dong": "신정1동",
+      "gu": "양천구"
+    },
+    "personal": {
+      "age_group": "50대",
+      "gender": "F",
+      "job": "건물 청소원",
+      "income_level": "중상",
+      "life_stage": "자녀양육"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 8,
+      "weekend_spending_level": 8,
+      "daily_spending_weekday": 137872,
+      "daily_spending_weekend": 78253,
+      "weekend_weekday_spending_ratio": 0.568,
+      "weekday_top_categories": {
+        "식사": 0.3113,
+        "마트": 0.2422,
+        "건강": 0.1663,
+        "교육": 0.1145,
+        "여가": 0.0488
+      },
+      "weekend_top_categories": {
+        "식사": 0.3113,
+        "마트": 0.2422,
+        "건강": 0.1663,
+        "교육": 0.1145,
+        "여가": 0.0488
+      }
+    },
+    "behavior": {
+      "delivery_days": 12.4,
+      "shopping_days": 12,
+      "weekday_move_km": 0.85,
+      "weekend_move_km": 0.69,
+      "home_hours_weekday": 2.5,
+      "home_hours_weekend": 5.3,
+      "mobility_level": 5
+    },
+    "personality": {
+      "spending_tendency": "소비형",
+      "lifestyle": "정희정 씨는 가족의 안녕과 자신의 건강한 노후를 위해 묵묵히 청소 도구를 든, 외강내유형의 성실한 우리 시대"
+    },
+    "nvidia_persona": {
+      "summary": "정희정 씨는 가족의 안녕과 자신의 건강한 노후를 위해 묵묵히 청소 도구를 든, 외강내유형의 성실한 우리 시대 어머니입니다.",
+      "hobbies": [
+        "북한산 둘레길 트레킹",
+        "유튜브 건강 상식 채널 시청",
+        "동네 지인들과의 막걸리 모임",
+        "거실 소파에서의 짧은 낮잠"
+      ],
+      "cultural_background": "양천구 신월동의 오래된 아파트 단지에서 어머니를 모시고 살며, 학업보다는 일찍부터 생업에 뛰어들어 가족의 생계를 책임져온 세대의 삶을 살아왔습니다. 평소에는 조용하지만 마음 맞는 동네 지인들과는 가감 없이 속내를 터놓으며 정을 나눕니다.",
+      "marital_status": "배우자있음",
+      "housing_type": "아파트",
+      "family_type": "배우자·자녀·어머니와 거주",
+      "education_level": "중학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "정희정 씨는 상가 바닥 재질만 보고도 어떤 세정제를 써야 얼룩이 가장 빨리 지워질지 바로 알아채며, 좁은 복도에서도 헛걸음 없이 빠르게 청소를 마치는 베테랑입니다. 다만 효율을 너무 따지다 보니 가끔 구석진 곳의 먼지를 놓치고 지나치는 덜렁거리는 면이 있습니다.",
+      "career_goals_and_ambitions": "지금 하는 일을 무리 없이 계속하며 자녀들이 독립할 때까지 안정적인 수입을 유지하는 것에 만족하며, 최근에는 공복혈당 수치를 낮춰 건강하게 정년까지 일하는 것을 최우선으로 둡니다.",
+      "sports_persona": "정희정 씨는 주말이면 등산복을 갖춰 입고 북한산 둘레길을 걷는 모임에 나가 숲 공기를 마시며 일주일의 피로를 씻어냅니다. 산을 오를 때는 조용히 풍경을 즐기지만, 하산 후 식당에서 막걸리 잔을 기울일 때면 누구보다 솔직하고 시원시원하게 속내를 털어놓습니다.",
+      "arts_persona": "정희정 씨는 거창한 예술 활동보다는 거실 소파에 누워 유튜브의 짧은 드라마 요약 클립이나 TV 프로그램을 시청하며 소소한 재미를 찾습니다. 최신 유행하는 콘텐츠보다는 중년들의 삶과 애환이 담긴 이야기를 보며 공감하고 눈물짓는 시간을 즐깁니다.",
+      "travel_persona": "정희정 씨는 동네 지인들과 함께 전국 각지의 숲이나 바다처럼 탁 트인 자연 풍경을 찾아다니는 여행을 통해 마음의 여유를 얻습니다. 꼼꼼하게 짜인 일정표보다는 그날그날의 기분과 날씨에 따라 발길 닿는 대로 움직이는 느긋한 방식을 취합니다.",
+      "culinary_persona": "정희정 씨는 한 달에 한 번쯤 가족들과 함께 돼지갈비 집에서 외식을 하고, 일주일에 한 번은 집에서 편하게 치킨이나 족발을 배달시켜 먹습니다. 특히 등산 후 먹는 노릇노릇한 해물파전과 시원한 막걸리 한 잔은 그녀가 고된 노동을 견디게 하는 가장 큰 원동력입니다.",
+      "family_persona": "정희정 씨는 신월동의 오래된 아파트에서 연로하신 어머니와 남편, 그리고 아직 품을 떠나지 않은 자녀들과 함께 북적이며 살아갑니다. 평생 가족을 위해 헌신해왔기에 자녀들에게 지극정성이지만, 때로는 자신의 고생을 알아주지 않는 가족들에게 서운함을 느껴 툭툭 쏘아붙이는 버릇이 있습니다.",
+      "skills_and_expertise": "상가 건물 바닥의 재질에 따라 어떤 세정제를 써야 얼룩이 가장 빠르게 지워지는지 꿰고 있으며, 좁은 공간에서도 동선을 최소화해 빠르게 청소를 끝내는 요령이 좋습니다.",
+      "skills_and_expertise_list": "['바닥 자재별 맞춤 오염 제거법', '대형 건물 효율적 청소 동선 설계', '가계부 기반의 알뜰한 생활비 관리', '노인 돌봄 및 수발 노하우']",
+      "occupation": "건물 청소원",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "525bccbd4f194cab9899117620627f2f"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.272,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "525bccbd4f194cab9899117620627f2f"
+    }
+  },
+  {
+    "agent_id": "AGT_11530790_M_60대_000",
+    "residence": {
+      "dong_code": "11530790",
+      "dong": "수궁동",
+      "gu": "구로구"
+    },
+    "personal": {
+      "age_group": "60대",
+      "gender": "M",
+      "job": "사무 보조원",
+      "income_level": "중상",
+      "life_stage": "독립"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 8,
+      "weekend_spending_level": 8,
+      "daily_spending_weekday": 140032,
+      "daily_spending_weekend": 81590,
+      "weekend_weekday_spending_ratio": 0.583,
+      "weekday_top_categories": {
+        "식사": 0.3936,
+        "마트": 0.2455,
+        "편의점": 0.1954,
+        "건강": 0.0581,
+        "여가": 0.047
+      },
+      "weekend_top_categories": {
+        "식사": 0.3936,
+        "마트": 0.2455,
+        "편의점": 0.1954,
+        "건강": 0.0581,
+        "여가": 0.047
+      }
+    },
+    "behavior": {
+      "delivery_days": 7.8,
+      "shopping_days": 11,
+      "weekday_move_km": 1.62,
+      "weekend_move_km": 0.86,
+      "home_hours_weekday": 18.0,
+      "home_hours_weekend": 11.4,
+      "mobility_level": 3
+    },
+    "personality": {
+      "spending_tendency": "소비형",
+      "lifestyle": "김영록 씨는 구로공단의 기억을 품고 성실하게 살아가는 60대 남성으로, 꼼꼼한 업무 능력과 소박한 취미를 통"
+    },
+    "nvidia_persona": {
+      "summary": "김영록 씨는 구로공단의 기억을 품고 성실하게 살아가는 60대 남성으로, 꼼꼼한 업무 능력과 소박한 취미를 통해 고독을 이겨내는 현실적인 인물입니다.",
+      "hobbies": [
+        "관악산 둘레길 걷기",
+        "프로야구 경기 시청",
+        "동네 친구들과의 소주 한 잔",
+        "청국장 및 나물 반찬 맛집 탐방",
+        "유튜브로 옛날 가요 듣기"
+      ],
+      "cultural_background": "구로공단 시절의 활기를 기억하며 구로구의 낡은 아파트 단지에서 홀로 지낸 지 수년째입니다. 아내를 먼저 보낸 뒤 적막해진 집안 공기를 견디려 일부러 구로디지털단지 근처의 북적이는 식당가를 자주 서성입니다.",
+      "marital_status": "사별",
+      "housing_type": "아파트",
+      "family_type": "혼자 거주",
+      "education_level": "고등학교"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "김영록 씨는 구로구 소매점에서 낡은 종이 장부의 숫자들을 엑셀 칸에 오차 없이 옮겨 적으며, 사장님이 찾는 서류를 단숨에 꺼내 놓는 꼼꼼함으로 신뢰받는 사무 보조원입니다.",
+      "career_goals_and_ambitions": "큰 욕심 없이 지금처럼 매일 아침 정해진 시간에 출근해 누군가에게 도움이 되는 일상을 유지하고 싶어 합니다. 월급날이면 적은 금액이라도 꼬박꼬박 저축해 나중에 몸이 더 불편해질 때를 대비한 최소한의 비상금을 모으는 것에 집중합니다.",
+      "sports_persona": "김영록 씨는 낡은 등산화를 신고 관악산 바위 틈을 오르며 땀을 씻어내고, 금요일 밤에는 거실 소파에 기대어 야구 중계 방송에 몰입하며 소리를 지르곤 합니다.",
+      "arts_persona": "김영록 씨는 화려한 공연장 대신 TV 속 세상과 구로디지털단지의 북적이는 거리 풍경을 구경하며, 세월의 흔적이 묻은 옛 가요를 흥얼거리는 소소한 즐거움을 누립니다.",
+      "travel_persona": "김영록 씨는 오랜 친구들과 함께 전국의 이름 모를 숲길이나 탁 트인 바닷가를 찾아가 말없이 풍경을 바라보며 마음의 적막을 지워내는 여행을 떠납니다.",
+      "culinary_persona": "김영록 씨는 하산 후 친구들과 김이 모락모락 나는 청국장 찌개를 나누어 먹고, 일주일에 한 번은 단골집에서 치킨 반 마리를 시켜 시원한 캔맥주와 함께 하루를 마무리합니다.",
+      "family_persona": "김영록 씨는 사별 후 정적이 흐르는 구로구의 낡은 아파트에서 홀로 지내며, 가끔 가족들을 방문해 손주들의 재롱을 보며 아내의 빈자리를 달랩니다.",
+      "skills_and_expertise": "소매점의 수많은 품목 번호와 입고 날짜를 오차 없이 엑셀 시트에 정리해두어 사장님이 전적으로 믿고 맡깁니다. 낡은 종이 장부와 디지털 파일 사이의 간극을 메우며 필요한 서류를 단번에 찾아내는 꼼꼼함이 몸에 배어 있습니다.",
+      "skills_and_expertise_list": "['엑셀 데이터 입력 및 관리', '재고 목록 최신화', '거래처 송장 분류 및 정리', '기본 행정 문서 작성']",
+      "occupation": "사무 보조원",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "64b544ce9a44434a920b52aab1001d62"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.528,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "64b544ce9a44434a920b52aab1001d62"
+    }
+  },
+  {
+    "agent_id": "AGT_11140520_M_40대_000",
+    "residence": {
+      "dong_code": "11140520",
+      "dong": "소공동",
+      "gu": "중구"
+    },
+    "personal": {
+      "age_group": "40대",
+      "gender": "M",
+      "job": "범용 소프트웨어 프로그래머",
+      "income_level": "중상",
+      "life_stage": "자녀양육"
+    },
+    "workplace": {
+      "dong_code": null,
+      "dong": null,
+      "commute_min": null
+    },
+    "spending": {
+      "weekday_spending_level": 7,
+      "weekend_spending_level": 10,
+      "daily_spending_weekday": 119486,
+      "daily_spending_weekend": 256320,
+      "weekend_weekday_spending_ratio": 2.145,
+      "weekday_top_categories": {
+        "식사": 0.4391,
+        "기타": 0.2152,
+        "편의점": 0.0689,
+        "마트": 0.0521,
+        "교육": 0.0521
+      },
+      "weekend_top_categories": {
+        "식사": 0.4391,
+        "기타": 0.2152,
+        "편의점": 0.0689,
+        "마트": 0.0521,
+        "교육": 0.0521
+      }
+    },
+    "behavior": {
+      "delivery_days": 13.4,
+      "shopping_days": 8,
+      "weekday_move_km": 1.12,
+      "weekend_move_km": 0.76,
+      "home_hours_weekday": 21.2,
+      "home_hours_weekend": 12.6,
+      "mobility_level": 10
+    },
+    "personality": {
+      "spending_tendency": "소비형",
+      "lifestyle": "한승필 씨는 보수적인 방송 환경 속에서 정교한 코딩으로 세상을 잇는 개발자이자, 내 집 마련의 꿈을 위해 절"
+    },
+    "nvidia_persona": {
+      "summary": "한승필 씨는 보수적인 방송 환경 속에서 정교한 코딩으로 세상을 잇는 개발자이자, 내 집 마련의 꿈을 위해 절제하며 살아가는 40대 가장입니다.",
+      "hobbies": [
+        "동네 배드민턴 클럽 활동",
+        "건축 및 디자인 다큐멘터리 시청",
+        "하이볼 제조 및 시음",
+        "고전 영화 큐레이션 시청",
+        "줄넘기를 통한 체력 관리"
+      ],
+      "cultural_background": "서울 중구 을지로의 낡은 인쇄소 골목과 세련된 고층 빌딩이 공존하는 풍경 속에서 매일을 보냅니다. 전문대 졸업 후 현장에서 몸으로 부딪히며 배운 실무 지식을 바탕으로, 보수적인 방송 업계의 질서와 유연한 개발자 문화 사이에서 적절한 균형을 잡으며 살아가는 40대 가장입니다.",
+      "marital_status": "배우자있음",
+      "housing_type": "아파트",
+      "family_type": "배우자·자녀·어머니와 거주",
+      "education_level": "2~3년제 전문대학"
+    },
+    "nvidia_reserved": {
+      "professional_persona": "한승필 씨는 을지로의 낡은 인쇄 골목을 지나 출근하는 방송 시스템 개발자로, 보수적인 방송국 상사들과 유연한 개발자 문화 사이에서 아슬아슬한 줄타기를 하며 실시간 송출 최적화에 매달립니다. 꼼꼼한 성격 탓에 코드 한 줄의 오차도 견디지 못해 밤늦게까지 예외 처리를 수정하느라 눈이 충혈되곤 합니다.",
+      "career_goals_and_ambitions": "단순한 기능 구현을 넘어 사용자의 감각을 자극하는 인터랙티브 영상 플랫폼의 전체 아키텍처를 직접 설계하는 핵심 개발자가 되고 싶어 합니다. 동시에 가족들이 마음 편히 쉴 수 있는 내 집 마련을 위해 매달 정해진 저축 액수를 철저히 지키며 내실을 다지고 있습니다.",
+      "sports_persona": "한승필 씨는 토요일 아침이면 동네 체육관에서 셔틀콕을 강하게 내리치며 일주일 동안 쌓인 업무 스트레스를 날려버립니다. 줄넘기를 하며 숨이 턱 끝까지 차오를 때 비로소 머릿속의 복잡한 알고리즘 설계도가 정리되는 기분을 느낍니다.",
+      "arts_persona": "한승필 씨는 거실의 모든 불을 끄고 안도 타다오 같은 건축가의 다큐멘터리를 시청하며 정교한 공간 설계의 미학에 빠져드는 시간을 가장 소중히 여깁니다. 상상력이 풍부해 가끔은 현실의 제약을 벗어난 기상천외한 영상 인터페이스를 구상하며 혼자 옅은 미소를 짓기도 합니다.",
+      "travel_persona": "한승필 씨는 가족들과 함께 강원도 양양의 서핑 해변이나 제주도의 오름을 찾아다니며 몸을 움직이는 활동적인 여행을 계획하고 이를 하나하나 실행에 옮깁니다. 여행지에서도 엑셀로 짠 분 단위 일정표를 고집하다가 때로는 아내에게 너무 빡빡하다는 핀잔을 듣습니다.",
+      "culinary_persona": "한승필 씨는 한 달에 단 한 번 외식을 하며 주로 나물 정식 같은 정갈한 한식이나 파스타 같은 양식당을 방문합니다. 2주에 한 번 배달시켜 먹는 치킨보다는 퇴근길 집 앞 작은 이자카야에서 마시는 시원한 하이볼 한 잔의 청량함에 더 깊이 만족합니다.",
+      "family_persona": "한승필 씨는 연로하신 어머니와 아내, 그리고 자녀까지 함께 사는 집안의 기둥으로서 책임감이 막중하며, 때로는 무뚝뚝하지만 가족을 위해 묵묵히 집안일을 돕습니다. 조용한 성격이라 가족들과의 갈등이 생기면 대화로 풀기보다 혼자만의 방으로 들어가 생각을 정리하는 시간을 가집니다.",
+      "skills_and_expertise": "실시간 방송 송출 시스템의 오차 없는 구동을 위한 정교한 코딩과 예외 처리 설계에 능숙합니다. 특히 영상 처리 알고리즘을 최적화하여 대용량 트래픽 속에서도 끊김 없는 시청 환경을 구현하는 데 탁월한 감각을 발휘합니다.",
+      "skills_and_expertise_list": "['실시간 스트리밍 최적화', 'C++/Java 기반 시스템 개발', '방송 송출 프로토콜 설계', '영상 코덱 분석 및 적용', '시스템 예외 상황 디버깅']",
+      "occupation": "범용 소프트웨어 프로그래머",
+      "bachelors_field": "해당없음",
+      "military_status": "비현역",
+      "uuid": "2332c7f1518c45648ef3fc805d3782ac"
+    },
+    "_match": {
+      "method": "conditional-graft",
+      "dong_pick_level": "gu_sex_age",
+      "nvidia_ses": 0.588,
+      "ses_hint": true,
+      "hobby_adjust": true,
+      "nvidia_uuid": "2332c7f1518c45648ef3fc805d3782ac"
+    }
+  }
+]
