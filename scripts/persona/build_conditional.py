@@ -123,7 +123,8 @@ def adjust_l1_by_hobbies(l1_ratio: dict[str, float], nv_rec: dict,
 # 메인 빌드
 # ---------------------------------------------------------------------------
 def build(limit: int = 0, seed: int = 42,
-          ses_hint: bool = True, hobby_adjust: bool = True) -> list[dict]:
+          ses_hint: bool = True, hobby_adjust: bool = True,
+          reconcile: bool = False) -> list[dict]:
     stats = load_bdc_stats()
     nv = load_nvidia_seoul()
     profiles = stats["profiles"]
@@ -167,8 +168,14 @@ def build(limit: int = 0, seed: int = 42,
         seq = seq_by_cell[(adm8, sex, age)]
         seq_by_cell[(adm8, sex, age)] += 1
 
-        out.append(_assemble(nv_rec, prof, adm8, sex, age, seq, quant,
-                             dong_level, ses, ses_hint, hobby_adjust))
+        persona = _assemble(nv_rec, prof, adm8, sex, age, seq, quant,
+                            dong_level, ses, ses_hint, hobby_adjust)
+
+        # 방식 C(hybrid): 규칙기반 모순 검출 + 봉합
+        if reconcile:
+            from reconcile import reconcile_spending
+            persona = reconcile_spending(persona, ses, prof, deciles, rng)
+        out.append(persona)
 
     if limit:
         out = out[:limit]
@@ -229,19 +236,28 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--no-ses-hint", action="store_true", help="2단계 SES 힌트 끔 (가장 안전)")
     ap.add_argument("--no-hobby-adjust", action="store_true", help="3단계 취미 보정 끔")
-    ap.add_argument("--out", type=Path,
-                    default=PROJECT_ROOT / "output" / "personas" / "conditional_graft_sample.json")
+    ap.add_argument("--reconcile", action="store_true",
+                    help="방식 C(hybrid): 규칙기반 모순 검출 + 봉합 레이어 적용")
+    ap.add_argument("--out", type=Path, default=None)
     args = ap.parse_args()
 
     personas = build(limit=args.limit, seed=args.seed,
                      ses_hint=not args.no_ses_hint,
-                     hobby_adjust=not args.no_hobby_adjust)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(personas, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[conditional-graft] {len(personas)} personas → {args.out}")
+                     hobby_adjust=not args.no_hobby_adjust,
+                     reconcile=args.reconcile)
+    out = args.out or (PROJECT_ROOT / "output" / "personas" /
+                       ("hybrid_sample.json" if args.reconcile else "conditional_graft_sample.json"))
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(personas, ensure_ascii=False, indent=2), encoding="utf-8")
+    label = "hybrid(C)" if args.reconcile else "conditional-graft(B)"
+    print(f"[{label}] {len(personas)} personas → {out}")
     from collections import Counter
     levels = Counter(p["_match"]["dong_pick_level"] for p in personas)
     print(f"  dong pick levels: {dict(levels)}")
+    if args.reconcile:
+        n_recon = sum(1 for p in personas if p["_match"].get("reconciled"))
+        n_warn = sum(1 for p in personas if p["_match"].get("warnings"))
+        print(f"  reconciled: {n_recon}/{len(personas)}, 잔여 경고: {n_warn}")
     return 0
 
 
