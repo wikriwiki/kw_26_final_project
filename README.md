@@ -49,6 +49,8 @@ final_project/
 
 ### scripts/bdc/ — 빅데이터캠퍼스 전처리·페르소나 생성
 
+상세 파이프라인 문서: [scripts/bdc/README.md](scripts/bdc/README.md)
+
 | 파일 | 역할 |
 |---|---|
 | `file_discovery.py`         | data/raw/ 안의 압축·CSV 자동 탐지 (FileEntry 추상화) |
@@ -164,4 +166,5 @@ VWorld API로 주소 → 위경도. `cache.sqlite` 에 결과 영속화.
 - [docs/schedule_generation_plan/](docs/schedule_generation_plan/) — 시뮬 설계·온톨로지
 - [docs/BDC/](docs/BDC/) — BDC 데이터 핸들링 결정·런북
 - [docs/FINAL_REPORT_7D.md](docs/FINAL_REPORT_7D.md) — 최신 7일 풀런 결과
+- [scripts/bdc/README.md](scripts/bdc/README.md) — Agent Persona Pipeline (전처리→통계→생성→검증)
 - [scripts/policy_pipeline/README.md](scripts/policy_pipeline/README.md) — 정책 인제스션 파이프라인
