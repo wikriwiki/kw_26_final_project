@@ -33,6 +33,9 @@ output/sim/visualization/*.json
 # 페르소나 생성용 통계 JSON (다른 작업자 reuse 위해 push)
 !output/stats/
 !output/stats/*.json
+# 최종 보고서 (md + html + 차트 PNG)
+!output/sim/report/
+!output/sim/report/**
 
 # Claude state (Drive 동기화 전용, git 추적 X)
 _claude_state/

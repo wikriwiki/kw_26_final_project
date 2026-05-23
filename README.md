@@ -24,14 +24,14 @@ final_project/
 │  ├─ mapping/          # 코드 매핑 (mopas_nso 등)
 │  ├─ policies/         # 정책 JSON (raw → processed → failed)
 │  └─ neo4j_load/       # 적재용 중간 파일 (POI, agent)
-├─ docs/                # 설계 문서·런북·보고서
+├─ docs/                # 설계 문서·런북
 │  ├─ BDC/              # BDC 데이터 핸들링·전처리 결정
-│  ├─ schedule_generation_plan/  # 스케줄 생성·온톨로지 설계 문서
-│  └─ FINAL_REPORT_7D.{md,html}  # 7일 풀런 최종 보고서
+│  └─ schedule_generation_plan/  # 스케줄 생성·온톨로지 설계 문서
 ├─ output/              # 생성물 (대부분 .gitignore)
 │  ├─ stats/            # 페르소나 생성용 통계 JSON 10종 (트래킹)
 │  ├─ agents/           # agents_final.json
 │  ├─ sim/              # 시뮬 메트릭·시각화 dump
+│  │  └─ report/        # 최종 보고서 (FINAL_REPORT_*.{md,html} + 차트 PNG)
 │  └─ policy_pipeline/  # 정책 처리 결과
 ├─ tests/               # pytest 단위 테스트
 ├─ prototype/           # 옛 시뮬 잔재 (별도 브랜치, gitignore)
@@ -143,7 +143,7 @@ VWorld API로 주소 → 위경도. `cache.sqlite` 에 결과 영속화.
                                                      ↓
                           scripts/sim/generate_final_report.py
                                                      ↓
-                               docs/FINAL_REPORT_*.{md,html}
+                         output/sim/report/FINAL_REPORT_*.{md,html}
 ```
 
 각 단계별 상세 커맨드는 [SETUP.md](SETUP.md) 참고.
@@ -165,6 +165,6 @@ VWorld API로 주소 → 위경도. `cache.sqlite` 에 결과 영속화.
 - [SETUP.md](SETUP.md) — 환경 셋업·실행 절차
 - [docs/schedule_generation_plan/](docs/schedule_generation_plan/) — 시뮬 설계·온톨로지
 - [docs/BDC/](docs/BDC/) — BDC 데이터 핸들링 결정·런북
-- [docs/FINAL_REPORT_7D.md](docs/FINAL_REPORT_7D.md) — 최신 7일 풀런 결과
+- [output/sim/report/FINAL_REPORT_7D.md](output/sim/report/FINAL_REPORT_7D.md) — 최신 7일 풀런 결과
 - [scripts/bdc/README.md](scripts/bdc/README.md) — Agent Persona Pipeline (전처리→통계→생성→검증)
 - [scripts/policy_pipeline/README.md](scripts/policy_pipeline/README.md) — 정책 인제스션 파이프라인

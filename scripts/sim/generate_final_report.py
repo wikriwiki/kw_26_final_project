@@ -17,7 +17,7 @@
 CLI:
   python scripts/sim/generate_final_report.py \\
       --start 2026-05-01 --days 7 --policy-from 2026-05-02 \\
-      --out docs/FINAL_REPORT_7D.md
+      --out output/sim/report/FINAL_REPORT_7D.md
 """
 from __future__ import annotations
 
@@ -1239,7 +1239,7 @@ def main():
     ap.add_argument("--start", default="2026-05-01")
     ap.add_argument("--days", type=int, default=7)
     ap.add_argument("--policy-from", default=None, help="정책 effective_from (ISO date)")
-    ap.add_argument("--out", default="docs/FINAL_REPORT.md")
+    ap.add_argument("--out", default="output/sim/report/FINAL_REPORT.md")
     ap.add_argument("--skip-interview", action="store_true", help="인터뷰 생략 (LLM 호출 X)")
     args = ap.parse_args()
 
