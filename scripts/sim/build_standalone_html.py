@@ -59,22 +59,40 @@ def main():
     )
 
     # loadData를 임베디드 데이터로 교체
-    new_load = """async function loadData() {
+    new_load = """function computeAppointmentStats(memories) {
+  let visitedCount = 0, rumorCount = 0;
+  const allConvIds = new Set();
+  const realizedConvIds = new Set();
+  for (const aid in memories) {
+    const mem = memories[aid] || {};
+    visitedCount += (mem.visited || []).length;
+    rumorCount += (mem.memories || []).filter(m => m.type === 'rumor').length;
+    for (const appt of (mem.appointments || [])) {
+      const convId = appt.conv_id || [appt.day, appt.with_agent, appt.target_time, appt.hint].join('|');
+      allConvIds.add(convId);
+      if (appt.within_window) realizedConvIds.add(convId);
+    }
+  }
+  return {
+    visitedCount,
+    rumorCount,
+    appointmentCount: allConvIds.size,
+    realizedAppointmentCount: realizedConvIds.size,
+  };
+}
+
+async function loadData() {
   try {
     AGENTS = window.__AGENTS__; TIMELINE = window.__TIMELINE__;
     MEMORIES = window.__MEMORIES__; EVENTS = window.__EVENTS__;
     if (!AGENTS || !TIMELINE) throw new Error('embedded data missing');
     AGENTS.forEach(ag => agentById[ag.id] = ag);
     document.getElementById('total-agents').textContent = AGENTS.length.toLocaleString();
-    let totMem = 0, totAppt = 0, totRumor = 0;
-    for (const aid in MEMORIES) {
-      totMem += (MEMORIES[aid].visited || []).length;
-      totAppt += (MEMORIES[aid].appointments || []).length;
-      totRumor += (MEMORIES[aid].memories || []).filter(m => m.type === 'rumor').length;
-    }
-    document.getElementById('total-mem').textContent = totMem.toLocaleString();
-    const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = totAppt.toLocaleString();
-    const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = totRumor.toLocaleString();
+    const stats = computeAppointmentStats(MEMORIES);
+    document.getElementById('total-mem').textContent = stats.visitedCount.toLocaleString();
+    const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = stats.appointmentCount.toLocaleString();
+    const el1b = document.getElementById('total-appt-realized'); if (el1b) el1b.textContent = stats.realizedAppointmentCount.toLocaleString();
+    const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = stats.rumorCount.toLocaleString();
     initMap();
     buildMarkers();
     document.getElementById('frame-slider').max = Math.max(0, TIMELINE.length - 1);

@@ -171,7 +171,7 @@ MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category {name: $sub_category})
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 OPTIONAL MATCH (a)-[:LIVES_AT|WORKS_AT]->(anchor:POI)
-WITH p, kp, anchor,
+WITH p, c, kp, anchor,
      CASE WHEN anchor IS NOT NULL AND p.lon IS NOT NULL THEN
        point.distance(point({longitude: p.lon, latitude: p.lat}),
                       point({longitude: anchor.lon, latitude: anchor.lat})) / 1000.0
@@ -181,6 +181,11 @@ RETURN p.id AS poi_id, p.name AS name,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        coalesce(kp.affinity, 0.0) AS affinity,
+       kp.last_visit AS last_visit,
+       size(coalesce(kp.recent_visit_dates, [])) AS v30,
+       c.recovery_tau_days AS cat_tau,
+       c.desire_drop AS cat_drop,
+       c.saturation_n AS cat_sat_n,
        kp.source AS source,
        km
 ORDER BY known DESC, km ASC LIMIT $limit
@@ -197,6 +202,11 @@ RETURN p.id AS poi_id, p.name AS name,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        coalesce(kp.affinity, 0.0) AS affinity,
+       kp.last_visit AS last_visit,
+       size(coalesce(kp.recent_visit_dates, [])) AS v30,
+       c.recovery_tau_days AS cat_tau,
+       c.desire_drop AS cat_drop,
+       c.saturation_n AS cat_sat_n,
        kp.source AS source,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
@@ -213,6 +223,11 @@ RETURN p.id AS poi_id, p.name AS name,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        coalesce(kp.affinity, 0.0) AS affinity,
+       kp.last_visit AS last_visit,
+       size(coalesce(kp.recent_visit_dates, [])) AS v30,
+       c.recovery_tau_days AS cat_tau,
+       c.desire_drop AS cat_drop,
+       c.saturation_n AS cat_sat_n,
        kp.source AS source,
        NULL AS km
 ORDER BY known DESC LIMIT $limit

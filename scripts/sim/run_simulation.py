@@ -12,13 +12,21 @@
   $SIM_OUTPUT_DIR/metrics/day_<day>.jsonl        # agent별 토큰·소요·만족도·정책hits
 
 CLI:
-  python run_simulation.py --start 2026-05-01 --days 3 --workers 16
+  python run_simulation.py --start 2026-05-01 --days 3 --workers 32
   python run_simulation.py --start 2026-05-01 --days 1 --gu 11680 --limit 100  # 강남 100명 1일
+
+권장 workers (A100 80GB + Qwen3-32B-AWQ 기준):
+  · 16: 안전 baseline, GPU 사용률 ~70%
+  · 32: sweet spot, throughput +30~50%, KV cache 안전
+  · 48: 최대치, throughput +50~80%, mem-fraction 0.88 거의 가득
+  · 64+: SGLang 의 KV pool 한계 도달 시 cache evict 발생 (역효과)
+  실제 sweet spot 은 `curl :30000/metrics` 의 `num_running_reqs` 모니터링으로 확인.
 
 환경변수:
   SIM_OUTPUT_DIR  : 출력 디렉토리 (기본 ~/sim_output)
-  LLM_MODE        : qwen32b | qwen9b | exaone (기본 qwen32b)
+  LLM_MODE        : qwen32b | qwen14b | qwen9b | exaone (기본 qwen32b)
   SGLANG_BASE_URL : LLM 서버 URL (기본 http://localhost:30000/v1, vLLM 8000 폴백)
+  NEO4J_POOL_SIZE : Neo4j 드라이버 connection pool 크기 (기본 100, workers 의 2~3배 권장)
 """
 from __future__ import annotations
 
@@ -97,7 +105,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
-        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona)
+        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
         events = merge_to_final_events(s1, s2, ctx.persona)
 
         # 정책 cap 잔액 추적 (만족도 가산은 없음 — LLM 자율 해석)
@@ -164,6 +172,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "fb_hallucinations_dropped": m2.get("hallucinations_dropped", 0),
             "fb_order_mismatch": m2.get("order_mismatch", 0),
             "fb_missing_picks_filled": m2.get("missing_picks_filled", 0),
+            # 같은 (dong, sub_cat) 이벤트 후보 풀 분할 (같은 날 반복 방문 차단)
+            "fb_pool_split_groups": m2.get("pool_split_groups", 0),
+            "fb_pool_split_events": m2.get("pool_split_events", 0),
         }
     except Exception as e:
         return {

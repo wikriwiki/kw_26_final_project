@@ -58,7 +58,7 @@ CREATE (p)-[:INCLUDES {
   actual_spent: coalesce(ev.actual_spent, 0),
   // 사고과정 흔적 (인터뷰 가능성 확보용)
   reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
-  trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/habit/top_category/mood/none
+  trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/top_category/mood/none
   pick_reason: ev.pick_reason,       // Stage 2: 왜 후보풀 중 이 POI
   pick_factor: ev.pick_factor        // Stage 2: known/distance/satisfaction/rumor/novelty/random
 }]->(poi)
@@ -223,18 +223,25 @@ CREATE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 CREATE (m)-[:ABOUT_POI]->(poi)
 
 // KNOWS_POI MERGE + 집계 갱신
+// recent_visit_dates: 30일 슬라이딩 윈도우 (saturation 계산용).
+// Python 등가: scripts.sim.visit_window.trim_and_push_visit
 MERGE (a)-[kp:KNOWS_POI]->(poi)
 ON CREATE SET
   kp.since = date($yesterday), kp.source = 'visited',
   kp.visit_count = 1, kp.avg_satisfaction = i.actual_satisfaction,
   kp.last_visit = date($yesterday),
-  kp.affinity = 0.3 + 0.4 * i.actual_satisfaction
+  kp.affinity = 0.3 + 0.4 * i.actual_satisfaction,
+  kp.recent_visit_dates = [date($yesterday)]
 ON MATCH SET
   kp.visit_count = coalesce(kp.visit_count, 0) + 1,
   kp.avg_satisfaction = (coalesce(kp.avg_satisfaction, 0.5) * coalesce(kp.visit_count, 0) + i.actual_satisfaction)
                          / (coalesce(kp.visit_count, 0) + 1),
   kp.last_visit = date($yesterday),
-  kp.affinity = coalesce(kp.affinity, 0.5) * 0.7 + i.actual_satisfaction * 0.3
+  kp.affinity = coalesce(kp.affinity, 0.5) * 0.7 + i.actual_satisfaction * 0.3,
+  kp.recent_visit_dates =
+    [d IN coalesce(kp.recent_visit_dates, [])
+     WHERE duration.inDays(d, date($yesterday)).days < 30]
+    + [date($yesterday)]
 RETURN count(m) AS n_memories
 """
 
@@ -343,7 +350,7 @@ if __name__ == "__main__":
     s1, m1 = call_stage1(args.aid, today, ctx=ctx, verbose=args.verbose)
 
     print("[3/5] Stage 2")
-    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, verbose=args.verbose)
+    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, today, verbose=args.verbose)
     events = merge_to_final_events(s1, s2, ctx.persona)
 
     print("[4/5] 만족도 룰 적용 (정책 효과는 Stage 1 LLM 단계에서 자연어로 반영됨)")

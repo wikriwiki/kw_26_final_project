@@ -35,6 +35,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 
 from _common import driver_session  # noqa: E402
+from stage1_intent import normalize_trigger  # noqa: E402
+
+
+def _aggregate_triggers(rows):
+    """raw trigger row (t, n) 리스트 → normalize_trigger 적용 후 재집계, n DESC 정렬."""
+    agg: dict[str, int] = {}
+    for r in rows:
+        k = normalize_trigger(r["t"]) or r["t"]
+        agg[k] = agg.get(k, 0) + int(r["n"])
+    return sorted(({"t": k, "n": v} for k, v in agg.items()), key=lambda x: -x["n"])
 
 METRICS_DIR = Path(os.environ.get("SIM_OUTPUT_DIR",
                                   os.path.expanduser("~/sim_output"))) / "metrics"
@@ -158,11 +168,12 @@ def main():
             L.append("")
             L.append("| trigger | 건수 | 비율 |")
             L.append("|---|---:|---:|")
-            for x in s.run("""
+            raw = s.run("""
                 MATCH (:Plan {day: date($d)})-[i:INCLUDES]->()
                 WHERE i.trigger IS NOT NULL AND NOT i.category IN ['집','직장']
                 RETURN i.trigger AS t, count(*) AS n ORDER BY n DESC
-            """, d=day).data():
+            """, d=day).data()
+            for x in _aggregate_triggers(raw):
                 pct = x["n"] / r["total"] * 100
                 L.append(f"| {x['t']} | {x['n']:,} | {pct:.2f}% |")
             L.append("")
@@ -353,7 +364,10 @@ def main():
             WHERE i.trigger IS NOT NULL AND NOT i.category IN ['집','직장']
             RETURN i.trigger AS t, count(*) AS n
         """, d=day).data()
-        tr_map = {x["t"]: x["n"] for x in tr}
+        tr_map: dict[str, int] = {}
+        for x in tr:
+            k = normalize_trigger(x["t"]) or x["t"]
+            tr_map[k] = tr_map.get(k, 0) + int(x["n"])
         n_policy = tr_map.get("policy", 0)
         n_total = sum(tr_map.values())
         if is_baseline and n_policy > n_total * 0.005:
@@ -365,7 +379,7 @@ def main():
             L.append(f"📊 활성 일자, policy trigger {n_policy}건 ({n_policy/max(n_total,1)*100:.2f}%)")
         # 분포 균형 — top_category 편중 여부
         n_top = tr_map.get("top_category", 0)
-        n_habit = tr_map.get("habit", 0)
+        n_lifestyle = tr_map.get("lifestyle", 0)
         L.append(f"- top_category 비중: **{n_top/max(n_total,1)*100:.1f}%** "
                  f"(60%↑이면 LLM이 안전 라벨로 쏠림 — diversity 낮음)")
         L.append(f"- 다양성: rumor {tr_map.get('rumor',0)} · mood {tr_map.get('mood',0)} · "

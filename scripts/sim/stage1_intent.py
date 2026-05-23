@@ -35,6 +35,45 @@ except ImportError:
     raise
 
 
+# ─── trigger 정규화 ───
+# 행동 동기에서 '습관(habit)' 과 '라이프스타일(lifestyle)' 은 분리하지 않고
+# **lifestyle 로 통일**. habit / life_style / routine 등은 모두 lifestyle 에 흡수.
+# 페르소나의 lifestyle 필드는 별개의 트레잇으로 reasoning 에 인용될 뿐 — trigger 라벨과
+# 의미가 겹치는 게 자연스럽다는 판단.
+# 또한 LLM 이 가끔 환각으로 만들어내는 비표준 라벨(workplace, neighbor, campaign,
+# health 등)은 정규화 시점에 'none' 으로 흡수.
+CANONICAL_TRIGGERS = {
+    "appointment", "rumor", "policy", "lifestyle",
+    "top_category", "mood", "none",
+}
+_TRIGGER_ALIASES = {
+    "habit":      "lifestyle",
+    "life_style": "lifestyle",
+    "life-style": "lifestyle",
+    "routine":    "lifestyle",
+}
+
+
+def normalize_trigger(t):
+    """트리거 라벨을 표준 enum 으로 정규화.
+
+    - None / 빈 문자열 → None (변경 없음)
+    - 'habit'/'life_style' → 'lifestyle'
+    - 표준 enum 에 속하면 그대로
+    - 그 외 비표준 (LLM 환각) → 'none'
+    """
+    if not t:
+        return t
+    t = str(t).strip().lower()
+    if not t:
+        return None
+    if t in _TRIGGER_ALIASES:
+        return _TRIGGER_ALIASES[t]
+    if t in CANONICAL_TRIGGERS:
+        return t
+    return "none"
+
+
 class Stage1Event(BaseModel):
     time: str = Field(..., description="HH:MM 24시간제")
     anchor: str = Field(..., description="residence | workplace | zone:<dong_code>")
@@ -45,10 +84,15 @@ class Stage1Event(BaseModel):
     # 왜 이 시간·카테고리·anchor를 골랐는지 페르소나·기억·정책·약속·소문 중
     # 무엇이 결정 요인인지 1~3문장으로. trigger는 아래 enum.
     reasoning: str | None = Field(default=None, description="이 이벤트를 선택한 이유 (1~3문장)")
-    trigger: str | None = Field(default=None, description="appointment | rumor | policy | habit | top_category | mood | none")
+    trigger: str | None = Field(default=None, description="appointment | rumor | policy | lifestyle | top_category | mood | none")
     # ──────────────────────────────────────────────────────────────────
     pinned_poi: str | None = None
     with_agents: list[str] | None = None
+
+    @field_validator("trigger")
+    @classmethod
+    def _normalize_trigger(cls, v):
+        return normalize_trigger(v)
 
     @field_validator("time")
     @classmethod
@@ -170,8 +214,8 @@ trigger enum (반드시 이 중 하나):
 - "appointment"  : 약속 블록의 항목 때문 (다음날 만남으로 잡힌 약속)
 - "rumor"        : 어제·그제 들은 소문/추천 때문 (Memory에 source/topic_value 있는 rumor 항목)
 - "policy"       : 정책 블록의 쿠폰·바우처·캠페인 때문 (해당 카테고리·동 우선 방문)
-- "habit"        : 페르소나의 평일/주말 Top 카테고리 비중 (정형적 루틴)
-- "top_category" : 페르소나 Top 카테고리 강하게 반영 (habit보다 더 명시적, 예: 헬스장 30%)
+- "lifestyle"    : 페르소나의 정형적 루틴 + 라이프스타일에서 비롯된 일상 패턴 (이 둘은 분리하지 않고 lifestyle 하나로 통일. 'habit' 같은 라벨도 lifestyle 로 정규화됨).
+- "top_category" : 페르소나 Top 카테고리 강하게 반영 (lifestyle 보다 더 명시적, 예: 헬스장 30%)
 - "mood"         : 어제 만족도·mood·fatigue 같은 컨디션 반영 (피곤해서 단축, 기분 좋아서 외출 추가)
 - "none"         : 집·직장 같은 자동 anchor 이벤트 또는 특별 사유 없음
 
@@ -185,7 +229,7 @@ reasoning 작성 규칙:
 예시:
 {"time":"12:00","anchor":"zone:11680670","category":"식사","sub_category":"한식","intent":"점심",
  "reasoning":"평일 Top 1위가 한식(14%)이고 어제 두부마을찬 sat 0.65로 만족했음. 직장 같은 동이라 도보 5분.",
- "trigger":"habit"}
+ "trigger":"lifestyle"}
 
 {"time":"15:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"오후 휴식",
  "reasoning":"강남 여름 카페 바우처 잔액 45,000원 남았고, 라이프스타일이 '가족 중심·실속형'이라 30% 환급 매력적.",
@@ -210,10 +254,10 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
 {"events": [
   {"time":"08:10","anchor":"residence","category":"집","intent":"기상",
    "reasoning":"평일 아침 기상. 라이프스타일=가족중심이라 출근 전 가벼운 식사 위해 일찍 일어남.",
-   "trigger":"habit"},
+   "trigger":"lifestyle"},
   {"time":"08:50","anchor":"zone:11680103","category":"편의점","sub_category":"편의점","intent":"출근길 음료",
    "reasoning":"평일 Top 카테고리에 편의점 5% 포함. 출근 전 음료 사는 루틴.",
-   "trigger":"habit"},
+   "trigger":"lifestyle"},
   {"time":"12:00","anchor":"zone:11680111","category":"식사","sub_category":"한식","intent":"점심",
    "reasoning":"평일 Top 1위 한식 14% + 어제 두부마을찬 만족도 0.65 좋았음. 직장 같은 동.",
    "trigger":"top_category"},

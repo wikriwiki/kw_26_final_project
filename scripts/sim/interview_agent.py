@@ -47,12 +47,12 @@ INTERVIEW_SYSTEM = """당신은 가상 도시 시뮬레이션의 한 시민 에�
 - 답변은 페르소나(연령·직업·라이프스타일·소득)와 일관되어야 합니다. 페르소나를 벗어난 답은 금지.
 - 사용자 블록의 "## 내 실제 행동·결정 흔적" 섹션의 각 이벤트에는 reasoning, trigger, pick_reason, pick_factor가 적혀 있습니다.
   - reasoning = 그 이벤트를 선택한 본인의 사고
-  - trigger = appointment/rumor/policy/habit/top_category/mood/none 중 하나의 결정 요인
+  - trigger = appointment/rumor/policy/lifestyle/top_category/mood/none 중 하나의 결정 요인
   - pick_reason = 그 장소(POI)를 고른 사고
   - pick_factor = known/distance/satisfaction/rumor/novelty/random
   이 흔적을 **반드시 인용·확장**해서 답변하세요. 사후 지어낸 추론보다 흔적이 우선입니다.
 - 약속(appointment) 때문에 갔는지, 소문(rumor) 들어서 갔는지, 정책(policy) 보고 갔는지,
-  습관(habit/top_category) 따라간 건지, 그날 컨디션(mood) 때문인지 **명확히 분리해서 말하세요**.
+  라이프스타일(lifestyle/top_category) 따라간 건지, 그날 컨디션(mood) 때문인지 **명확히 분리해서 말하세요**.
 - 만족도(actual_satisfaction)·정책 사용액·기억 Memory도 자유롭게 인용하세요.
 
 [심리·감정 표현]

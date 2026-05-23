@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -90,9 +91,10 @@ def get_active_mode() -> str:
 
 
 # ═══════════════════════════════════════════
-# 클라이언트 (싱글톤)
+# 클라이언트 (싱글톤, thread-safe)
 # ═══════════════════════════════════════════
 _CLIENT: OpenAI | None = None
+_CLIENT_LOCK = threading.Lock()
 
 
 def make_client(base_url: str | None = None) -> OpenAI:
@@ -124,10 +126,18 @@ def _autodetect_base_url() -> str:
 
 
 def get_client() -> OpenAI:
-    """싱글톤 클라이언트. 스레드 안전."""
+    """싱글톤 클라이언트. double-checked locking 으로 thread-safe.
+
+    workers=32+ 의 첫 호출에서 race condition 으로 다중 client 생성 방지.
+    OpenAI SDK 내부 httpx 클라이언트가 connection pool 을 가지므로 단일
+    인스턴스 재사용이 HTTP keep-alive 효과 극대화.
+    """
     global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = make_client()
+    if _CLIENT is not None:
+        return _CLIENT
+    with _CLIENT_LOCK:
+        if _CLIENT is None:
+            _CLIENT = make_client()
     return _CLIENT
 
 

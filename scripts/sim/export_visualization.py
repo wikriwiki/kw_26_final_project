@@ -273,6 +273,8 @@ def fetch_memories(s, agent_ids: list[str]):
 
     # 약속 (Conversation intent='약속') — 양쪽 agent 모두에게 표시되도록 PARTICIPATES_IN으로 fetch
     appointments = defaultdict(list)
+    sim_start = date.fromisoformat(DAYS[0])
+    sim_end = date.fromisoformat(DAYS[-1])
     for r in s.run("""
         MATCH (a:Agent)-[part:PARTICIPATES_IN]->(c:Conversation {intent:'약속'})
         WHERE a.id IN $aids
@@ -292,10 +294,23 @@ def fetch_memories(s, agent_ids: list[str]):
                c.summary AS summary
         ORDER BY c.day ASC
     """, aids=agent_ids):
+        target_day = None
+        within_window = False
+        if r["day"] and r["offset_days"] is not None:
+            try:
+                target_dt = date.fromisoformat(r["day"]) + timedelta(days=int(r["offset_days"]))
+                target_day = target_dt.isoformat()
+                within_window = sim_start <= target_dt <= sim_end
+            except Exception:
+                target_day = None
+                within_window = False
+
         appointments[r["aid"]].append({
             "conv_id": r["conv_id"],
             "day": r["day"],
             "offset_days": r["offset_days"],
+            "target_day": target_day,
+            "within_window": within_window,
             "target_time": r["target_time"],
             "hint": r["hint"],
             "meeting_poi_id": r["meeting_poi_id"],
@@ -304,7 +319,25 @@ def fetch_memories(s, agent_ids: list[str]):
             "role": r["role"],
             "summary": r["summary"],
         })
-    print(f"  appointments: {sum(len(v) for v in appointments.values()):,}")
+    participant_views = sum(len(v) for v in appointments.values())
+    unique_conv_ids = {
+        appt["conv_id"]
+        for rows in appointments.values()
+        for appt in rows
+        if appt.get("conv_id")
+    }
+    realized_conv_ids = {
+        appt["conv_id"]
+        for rows in appointments.values()
+        for appt in rows
+        if appt.get("conv_id") and appt.get("within_window")
+    }
+    print(
+        "  appointments: "
+        f"participant views {participant_views:,}, "
+        f"unique conversations {len(unique_conv_ids):,}, "
+        f"realized in window {len(realized_conv_ids):,}"
+    )
 
     return {
         aid: {

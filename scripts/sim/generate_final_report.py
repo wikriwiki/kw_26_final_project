@@ -40,6 +40,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 
 from _common import driver_session  # noqa: E402
+from stage1_intent import normalize_trigger  # noqa: E402
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -301,13 +302,17 @@ def section4_1_triggers(start: date, days: int, out_dir: Path) -> tuple[dict, st
             ORDER BY n DESC
         """).data()
     total = sum(r["n"] for r in rows) or 1
-    dist = {r["trigger"]: r["n"] for r in rows}
+    # 라이프스타일·기타 환각 라벨은 normalize_trigger 가 흡수.
+    dist: dict[str, int] = {}
+    for r in rows:
+        k = normalize_trigger(r["trigger"]) or r["trigger"]
+        dist[k] = dist.get(k, 0) + r["n"]
     dist_pct = {k: round(v / total * 100, 2) for k, v in dist.items()}
 
     plt = _setup_mpl()
     fig, ax = plt.subplots(figsize=(9, 5))
     labels_kr = {"appointment": "약속", "rumor": "소문", "policy": "정책",
-                 "habit": "습관", "top_category": "Top 카테고리", "mood": "컨디션",
+                 "lifestyle": "라이프스타일", "top_category": "Top 카테고리", "mood": "컨디션",
                  "none": "기타"}
     sorted_items = sorted(dist.items(), key=lambda x: -x[1])
     xs = [labels_kr.get(k, k) for k, _ in sorted_items]
@@ -380,15 +385,26 @@ def section4_2_regulars(start: date, days: int, out_dir: Path) -> tuple[dict, st
 # ═══════════════════════════════════════════════════════════════
 def section4_3_satisfaction(start: date, days: int, out_dir: Path) -> tuple[dict, str]:
     with driver_session() as s:
-        by_trigger = s.run("""
+        by_trigger_raw = s.run("""
             MATCH ()-[i:INCLUDES]->()
             WHERE i.actual_satisfaction IS NOT NULL AND i.trigger IS NOT NULL
               AND NOT i.category IN ['집','직장']
             RETURN i.trigger AS trigger,
-                   avg(i.actual_satisfaction) AS avg_sat,
+                   sum(i.actual_satisfaction) AS sum_sat,
                    count(*) AS n
-            ORDER BY avg_sat DESC
         """).data()
+        # normalize_trigger 로 habit / life_style → lifestyle 등 통합 후 재집계
+        agg: dict[str, dict] = {}
+        for r in by_trigger_raw:
+            k = normalize_trigger(r["trigger"]) or r["trigger"]
+            slot = agg.setdefault(k, {"sum": 0.0, "n": 0})
+            slot["sum"] += float(r["sum_sat"] or 0)
+            slot["n"]   += int(r["n"] or 0)
+        by_trigger = sorted(
+            ({"trigger": k, "avg_sat": (v["sum"] / v["n"] if v["n"] else 0.0), "n": v["n"]}
+             for k, v in agg.items()),
+            key=lambda x: -x["avg_sat"],
+        )
         by_cat = s.run("""
             MATCH ()-[i:INCLUDES]->()
             WHERE i.actual_satisfaction IS NOT NULL
@@ -402,7 +418,7 @@ def section4_3_satisfaction(start: date, days: int, out_dir: Path) -> tuple[dict
     plt = _setup_mpl()
     fig, axs = plt.subplots(1, 2, figsize=(13, 5))
     labels_kr = {"appointment": "약속", "rumor": "소문", "policy": "정책",
-                 "habit": "습관", "top_category": "Top 카테고리", "mood": "컨디션",
+                 "lifestyle": "라이프스타일", "top_category": "Top 카테고리", "mood": "컨디션",
                  "none": "기타"}
     # 좌: trigger별
     xs = [labels_kr.get(r["trigger"], r["trigger"]) for r in by_trigger]
@@ -557,7 +573,7 @@ def build_markdown(start: date, days: int, policy_from: str | None,
     lines.append("| 동기 | 건수 | 비율 |")
     lines.append("|---|---:|---:|")
     labels_kr = {"appointment": "약속", "rumor": "소문", "policy": "정책",
-                 "habit": "습관", "top_category": "Top 카테고리", "mood": "컨디션", "none": "기타"}
+                 "lifestyle": "라이프스타일", "top_category": "Top 카테고리", "mood": "컨디션", "none": "기타"}
     for k, v in sorted(s41_data["distribution"].items(), key=lambda x: -x[1]):
         pct = s41_data["distribution_pct"].get(k, 0)
         lines.append(f"| {labels_kr.get(k, k)} | {v:,} | {pct}% |")
@@ -986,7 +1002,7 @@ def build_html(start: date, days: int, policy_from: str | None,
     )
 
     labels_kr = {"appointment": "약속", "rumor": "소문", "policy": "정책",
-                 "habit": "습관", "top_category": "Top 카테고리", "mood": "컨디션",
+                 "lifestyle": "라이프스타일", "top_category": "Top 카테고리", "mood": "컨디션",
                  "none": "기타"}
     label_kr_intv = {"positive": "정책 적극 활용 + 만족도 ↑",
                      "negative": "정책 무관심 + 만족도 ↓",
