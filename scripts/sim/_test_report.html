@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>서울 상권정책 시뮬레이션 — 최종 보고서</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0b0d17;
+  --bg-primary: #111827;
+  --bg-card: #1e293b;
+  --border-subtle: rgba(148, 163, 184, 0.1);
+  --border-glass: rgba(148, 163, 184, 0.15);
+  --cyan: #06b6d4;
+  --purple: #8b5cf6;
+  --gradient: linear-gradient(135deg, #06b6d4, #8b5cf6);
+  --gradient-text: linear-gradient(135deg, #22d3ee, #a78bfa);
+  --emerald: #10b981;
+  --emerald-soft: rgba(16, 185, 129, 0.12);
+  --rose: #f43f5e;
+  --rose-soft: rgba(244, 63, 94, 0.12);
+  --amber: #f59e0b;
+  --neutral: #64748b;
+  --neutral-soft: rgba(100, 116, 139, 0.12);
+  --text-bright: #f1f5f9;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.15);
+  --shadow-glow-purple: 0 0 20px rgba(139, 92, 246, 0.15);
+  --radius: 12px;
+  --radius-lg: 16px;
+}
+body.light-theme {
+  --bg-deep: #f8fafc;
+  --bg-primary: #f1f5f9;
+  --bg-card: #ffffff;
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-glass: rgba(15, 23, 42, 0.06);
+  --cyan: #0284c7;
+  --purple: #4f46e5;
+  --gradient: linear-gradient(135deg, #3b82f6, #6366f1);
+  --gradient-text: linear-gradient(135deg, #1e40af, #4f46e5);
+  --emerald: #059669;
+  --emerald-soft: rgba(5, 150, 105, 0.08);
+  --rose: #e11d48;
+  --rose-soft: rgba(225, 29, 72, 0.08);
+  --amber: #d97706;
+  --neutral: #475569;
+  --neutral-soft: rgba(71, 85, 105, 0.08);
+  --text-bright: #0f172a;
+  --text-primary: #334155;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.04), 0 4px 6px -2px rgba(0,0,0,0.02);
+  --shadow-glow-cyan: 0 4px 20px rgba(59, 130, 246, 0.08);
+  --shadow-glow-purple: 0 4px 20px rgba(99, 102, 241, 0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  line-height: 1.7;
+  font-size: 15px;
+}
+.layout { display: flex; min-height: 100vh; }
+
+/* ─── sidebar ─── */
+.sidebar {
+  width: 272px;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border-subtle);
+  padding: 32px 20px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 2px; }
+.sidebar .brand {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.sidebar h2 {
+  color: var(--text-bright);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 16px;
+}
+.sidebar nav a {
+  display: block;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 9px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  margin: 2px 0;
+  border-left: 2px solid transparent;
+  transition: all 0.25s ease;
+}
+.sidebar nav a:hover {
+  background: rgba(6, 182, 212, 0.08);
+  color: var(--text-bright);
+  border-left-color: var(--cyan);
+}
+.sidebar nav a.active {
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--cyan);
+  border-left-color: var(--cyan);
+  font-weight: 500;
+}
+.sidebar nav .lvl2 { padding-left: 28px; font-size: 12px; }
+.sidebar .tech-info {
+  margin-top: 40px;
+  padding: 16px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.sidebar .tech-info span { color: var(--purple); font-weight: 500; }
+
+/* ─── main ─── */
+.main {
+  flex: 1;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 64px 80px;
+}
+
+/* ─── cover / hero ─── */
+header.cover {
+  margin-bottom: 56px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+}
+.cover::before {
+  content: '';
+  position: absolute;
+  top: -56px; left: -64px; right: -64px;
+  height: 400px;
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(6,182,212,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 0%, rgba(139,92,246,0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+.cover > * { position: relative; z-index: 1; }
+.cover .meta {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.cover h1 {
+  color: var(--text-bright);
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 18px;
+  letter-spacing: -0.5px;
+}
+.cover .subtitle {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.cover .badges { margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(6,182,212,0.08);
+  color: var(--cyan);
+  border: 1px solid rgba(6,182,212,0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.badge:hover { background: rgba(6,182,212,0.15); }
+.badge.alt { background: rgba(16,185,129,0.08); color: var(--emerald); border-color: rgba(16,185,129,0.2); }
+.badge.alt:hover { background: rgba(16,185,129,0.15); }
+.badge.purple { background: rgba(139,92,246,0.08); color: var(--purple); border-color: rgba(139,92,246,0.2); }
+.badge.purple:hover { background: rgba(139,92,246,0.15); }
+
+/* ─── sections ─── */
+section { margin-bottom: 56px; }
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+h2 {
+  color: var(--text-bright);
+  font-size: 22px;
+  font-weight: 700;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+  scroll-margin-top: 24px;
+  position: relative;
+}
+h2::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--gradient);
+  border-radius: 1px;
+}
+h3 {
+  color: var(--text-bright);
+  font-size: 17px;
+  font-weight: 600;
+  margin: 28px 0 14px;
+  scroll-margin-top: 24px;
+}
+h4 { font-size: 14px; color: var(--text-secondary); margin: 20px 0 10px; }
+p  { margin-bottom: 14px; color: var(--text-secondary); }
+
+/* ─── tables ─── */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0 24px;
+  font-size: 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-glass);
+  overflow: hidden;
+}
+thead {
+  background: linear-gradient(135deg, rgba(6,182,212,0.12), rgba(139,92,246,0.12));
+}
+th, td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+th {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+tbody tr { transition: background 0.15s ease; }
+tbody tr:hover { background: rgba(6,182,212,0.04); }
+tbody tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td strong { color: var(--cyan); }
+
+/* ─── figures ─── */
+figure {
+  margin: 24px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  text-align: center;
+  transition: all 0.3s ease;
+}
+figure:hover {
+  border-color: rgba(6,182,212,0.2);
+  box-shadow: var(--shadow-glow-cyan);
+}
+figure img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  transition: transform 0.3s ease;
+}
+figure:hover img { transform: scale(1.01); }
+figcaption {
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* ─── interview cards ─── */
+.interview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  margin: 24px 0;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.interview-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+}
+.interview-card:hover {
+  border-color: rgba(148,163,184,0.2);
+  transform: translateY(-1px);
+}
+.interview-card.positive::before { background: linear-gradient(180deg, var(--emerald), #34d399); }
+.interview-card.positive:hover { box-shadow: 0 0 24px rgba(16,185,129,0.1); }
+.interview-card.negative::before { background: linear-gradient(180deg, var(--rose), #fb7185); }
+.interview-card.negative:hover { box-shadow: 0 0 24px rgba(244,63,94,0.1); }
+.interview-card.neutral::before  { background: linear-gradient(180deg, var(--neutral), #94a3b8); }
+
+.label-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.interview-card.positive .label-tag { background: var(--emerald-soft); color: var(--emerald); }
+.interview-card.negative .label-tag { background: var(--rose-soft); color: var(--rose); }
+.interview-card.neutral  .label-tag { background: var(--neutral-soft); color: var(--neutral); }
+
+.interview-card .persona {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(139,92,246,0.04);
+  border: 1px solid rgba(139,92,246,0.1);
+  padding: 14px 18px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  line-height: 1.7;
+}
+.interview-card .persona strong { color: var(--purple); }
+
+.qa { margin: 16px 0; }
+.qa .q {
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.qa .q::before {
+  content: 'Q';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  background: var(--gradient);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.qa .a {
+  background: rgba(6,182,212,0.04);
+  border: 1px solid rgba(6,182,212,0.08);
+  padding: 14px 18px;
+  margin: 8px 0 16px 30px;
+  border-radius: 4px 12px 12px 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+/* ─── KPI cards ─── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+.kpi {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  padding: 22px 24px;
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--gradient);
+}
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow-cyan);
+  border-color: rgba(6,182,212,0.25);
+}
+.kpi .icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  background: rgba(6,182,212,0.1);
+}
+.kpi .icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--cyan);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kpi .value {
+  font-size: 28px;
+  font-weight: 800;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.kpi .label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.kpi.pos::before { background: linear-gradient(135deg, var(--emerald), #34d399); }
+.kpi.pos .value {
+  background: linear-gradient(135deg, var(--emerald), #34d399);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.kpi.pos .icon { background: var(--emerald-soft); }
+.kpi.pos .icon svg { stroke: var(--emerald); }
+
+/* ─── code · callout · footer ─── */
+code {
+  background: rgba(139,92,246,0.1);
+  border: 1px solid rgba(139,92,246,0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', 'D2Coding', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--purple);
+}
+.callout {
+  background: rgba(6,182,212,0.06);
+  border: 1px solid rgba(6,182,212,0.15);
+  border-left: 4px solid var(--cyan);
+  padding: 16px 20px;
+  border-radius: 4px 10px 10px 4px;
+  margin: 18px 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.callout strong { color: var(--cyan); }
+.callout.warn {
+  border-left-color: var(--amber);
+  border-color: rgba(245,158,11,0.15);
+  background: rgba(245,158,11,0.06);
+}
+.callout.warn strong { color: var(--amber); }
+
+.footer {
+  margin-top: 72px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* ─── animations ─── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── responsive ─── */
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  .sidebar {
+    width: 100%; height: auto; position: relative;
+    backdrop-filter: none; -webkit-backdrop-filter: none;
+  }
+  .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
+  .sidebar nav a { padding: 6px 12px; }
+  .main { padding: 32px 20px; }
+  .cover h1 { font-size: 26px; }
+  .cover::before { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ─── print ─── */
+@media print {
+  :root {
+    --bg-deep: #fff; --bg-primary: #fff; --bg-card: #fff;
+    --text-bright: #111; --text-primary: #333; --text-secondary: #555;
+    --border-subtle: #ddd; --border-glass: #ddd;
+  }
+  .sidebar { display: none; }
+  .main { padding: 0; max-width: 100%; }
+  .cover::before { display: none; }
+  figure, .interview-card, table, .kpi {
+    box-shadow: none; border: 1px solid #ddd;
+  }
+  .kpi .value, .cover .meta, .sidebar .brand {
+    -webkit-text-fill-color: initial;
+    background: none; color: #111;
+  }
+  .reveal { opacity: 1 !important; transform: none !important; }
+  * { animation: none !important; transition: none !important; }
+}
+
+/* ─── theme toggle button ─── */
+.theme-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.theme-toggle-btn:hover {
+  background: var(--border-subtle);
+  color: var(--text-bright);
+}
+.theme-toggle-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ─── light theme overrides ─── */
+body.light-theme {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+body.light-theme .sidebar {
+  background: linear-gradient(185deg, #eff6ff 0%, #e0e7ff 100%);
+  border-right: 1px solid rgba(226, 232, 240, 0.8);
+}
+body.light-theme .sidebar h2 {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+body.light-theme .sidebar nav a:hover {
+  background: rgba(59, 130, 246, 0.06);
+  color: var(--text-bright);
+}
+body.light-theme .sidebar nav a.active {
+  background: rgba(59, 130, 246, 0.10);
+  color: var(--cyan);
+}
+body.light-theme .sidebar .tech-info {
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+}
+body.light-theme .sidebar .tech-info span {
+  color: var(--purple);
+}
+body.light-theme thead {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(99, 102, 241, 0.06));
+}
+body.light-theme .qa .a {
+  background: rgba(59, 130, 246, 0.03);
+  border-color: rgba(59, 130, 246, 0.06);
+}
+body.light-theme .cover::before {
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(59, 130, 246, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 0%, rgba(99, 102, 241, 0.03) 0%, transparent 60%);
+}
+body.light-theme .interview-card .persona {
+  background: rgba(99, 102, 241, 0.03);
+  border-color: rgba(99, 102, 241, 0.06);
+}
+
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+      <div class="brand" style="margin-bottom:0;">SEOUL POLICY SIMULATION</div>
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">
+        <svg class="sun-icon" viewBox="0 0 24 24" style="display:none; width:16px; height:16px;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </div>
+    <h2>목차</h2>
+    <nav><a class="" href="#s-summary">1. 시뮬레이션 개요</a><a class="" href="#s-sales">2. 정책 시행 전 vs 후</a><a class="" href="#s-spillover">3. 간접 영향 (Spillover)</a><a class="" href="#s-behavior">4. 소비자 행동 분석</a><a class="lvl2" href="#s-trigger">4-1. 결정 동기 분포</a><a class="lvl2" href="#s-regular">4-2. 단골 vs 신규</a><a class="lvl2" href="#s-satisfaction">4-3. 만족도</a><a class="" href="#s-interview">5. 1대1 인터뷰</a><a class="" href="#s-appendix">부록</a></nav>
+    <div class="tech-info">
+      <span>Qwen3-14B-AWQ</span><br/>
+      <span>Neo4j 5.x</span><br/>
+      ABM × Generative Agent
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="cover">
+      <div class="meta">FINAL REPORT · 2026-05-24</div>
+      <h1>서울시 상권 활성화 정책<br/>시뮬레이션 결과 보고서</h1>
+      <div class="subtitle">
+        <strong>2026-05-01 ~ 2026-05-07</strong> · 에이전트 1,247명 · 정책 발효 2026-05-02<br/>
+        강남구 여름 카페·디저트 원소 바우처 (자연어 정책 자동 주입) 효과 분석
+      </div>
+      <div class="badges">
+        <span class="badge alt">Qwen3-14B-AWQ</span>
+        <span class="badge purple">Neo4j Graph DB</span>
+        <span class="badge">DID 분석</span>
+        <span class="badge">설명가능 AI</span>
+      </div>
+
+      <div class="kpi-grid" style="margin-top:32px;">
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="value">1,247</div><div class="label">에이전트</div>
+        </div>
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div class="value">8,729</div><div class="label">생성된 Plan</div>
+        </div>
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="value">3,038</div><div class="label">사회적 상호작용</div>
+        </div>
+        <div class="kpi pos">
+          <div class="icon"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+          <div class="value">+23.93%p</div><div class="label">정책 DID 순효과</div>
+        </div>
+      </div>
+    </header>
+
+    <section id="s-summary" class="reveal">
+      <h2>1. 시뮬레이션 개요</h2>
+      <p>본 보고서는 서울시 25개 자치구의 에이전트 1,247명을 대상으로,
+        강남구 단일 정책의 효과를 정책 시행 전·후 시간축으로 분석한 결과를 정리합니다.
+        각 에이전트는 매일 LLM이 생성한 일정에 따라 외출·소비를 하며, 그 결정의
+        사유(reasoning)와 동기(trigger)가 그래프 DB에 영구 저장되어 사후 인터뷰가 가능합니다.</p>
+      <table>
+        <thead><tr><th>항목</th><th class="num">값</th></tr></thead>
+        <tbody><tr><td>기간</td><td>2026-05-01 ~ 2026-05-07</td></tr><tr><td>일수</td><td class='num'>7</td></tr><tr><td>정책_시행일</td><td>2026-05-02</td></tr><tr><td>Agent 수</td><td class='num'>1,247</td></tr><tr><td>Plan 수</td><td class='num'>8,729</td></tr><tr><td>INCLUDES 엣지</td><td class='num'>43,645</td></tr><tr><td>State 수</td><td class='num'>8,729</td></tr><tr><td>Memory(visited)</td><td class='num'>12,380</td></tr><tr><td>Memory(rumor)</td><td class='num'>3,456</td></tr><tr><td>Conversation 약속</td><td class='num'>892</td></tr><tr><td>Conversation 추천</td><td class='num'>1,234</td></tr><tr><td>Conversation 이슈</td><td class='num'>567</td></tr><tr><td>Conversation 기타</td><td class='num'>345</td></tr></tbody>
+      </table>
+    </section>
+
+    <section id="s-sales" class="reveal">
+      <h2>2. 정책 시행 전 vs 후 매출 추이</h2>
+      <p>강남구 카페·디저트 바우처(30% 환급, 인당 5만원 한도)가
+        시행된 <code>2026-05-02</code> 시점을 기준으로
+        정책 대상 카테고리(식사·카페·디저트)의 일별 매출을 비교합니다.
+        세 관점 — (A) 인구 비례 1인당 매출, (B) baseline 대비 변화율, (C) DID — 으로 분석합니다.</p>
+      <p style="color:var(--text-muted);font-style:italic">(차트는 실제 시뮬레이션 데이터로 생성됩니다)</p>
+      <h3>평균 일간 매출 비교</h3>
+      <table>
+        <thead><tr><th>자치구</th><th class="num">시행 전</th><th class="num">시행 후</th><th class="num">변화율</th></tr></thead>
+        <tbody><tr><td><strong>강남 (정책 대상)</strong></td><td class='num'>4,523,000원</td><td class='num'>5,891,000원</td><td class='num'><strong>+30.25%</strong></td></tr><tr><td>비강남 (대조군)</td><td class='num'>12,340,000원</td><td class='num'>13,120,000원</td><td class='num'>+6.32%</td></tr></tbody>
+      </table>
+      <div class='callout'><strong>DID (정책 순효과)</strong>: 강남 변화율 − 비강남 변화율 = <strong style='font-size:18px;color:var(--cyan);'>+23.93%p</strong></div>
+    </section>
+
+    <section id="s-spillover" class="reveal">
+      <h2>3. 간접 영향 (Spillover)</h2>
+      <p>강남 정책이 직접 적용되지 않은 인접 자치구(서초·송파)와 멀리 떨어진 강북에 미친 영향을 비교합니다.
+        인접 자치구의 매출 변화가 강북보다 두드러지면 spillover로 해석할 수 있습니다.</p>
+      <p style="color:var(--text-muted);font-style:italic">(차트는 실제 시뮬레이션 데이터로 생성됩니다)</p>
+    </section>
+
+    <section id="s-behavior" class="reveal">
+      <h2>4. 소비자 행동 분석</h2>
+
+      <h3 id="s-trigger">4-1. 결정 동기 분포</h3>
+      <p>외출(집·직장 제외) 시 어떤 요인이 결정을 이끌었는지 LLM이 trigger 라벨로 분류한 분포입니다.</p>
+      <table>
+        <thead><tr><th>동기</th><th class="num">건수</th><th class="num">비율</th></tr></thead>
+        <tbody><tr><td>습관</td><td class='num'>3,210</td><td class='num'>29.5%</td></tr><tr><td>약속</td><td class='num'>2,345</td><td class='num'>21.5%</td></tr><tr><td>소문</td><td class='num'>1,890</td><td class='num'>17.3%</td></tr><tr><td>정책</td><td class='num'>1,456</td><td class='num'>13.4%</td></tr><tr><td>Top 카테고리</td><td class='num'>987</td><td class='num'>9.1%</td></tr><tr><td>컨디션</td><td class='num'>654</td><td class='num'>6.0%</td></tr><tr><td>기타</td><td class='num'>321</td><td class='num'>2.9%</td></tr></tbody>
+      </table>
+
+      <h3 id="s-regular">4-2. 단골 vs 신규</h3>
+      <p>각 에이전트의 POI 인지 관계(KNOWS_POI) 빈도 분포와, 그 관계가 어떻게 형성되었는지(출처) 분석합니다.</p>
+      <table>
+        <thead><tr><th>구분</th><th class="num">관계 수</th></tr></thead>
+        <tbody><tr><td>신규 (1회 방문)</td><td class='num'>5,432</td></tr><tr><td>재방문 (2~4회)</td><td class='num'>3,210</td></tr><tr><td>단골 (5회+)</td><td class='num'>1,098</td></tr></tbody>
+      </table>
+      <p style="color:var(--text-muted);font-size:13px">전체 KNOWS_POI 관계 수: <strong style="color:var(--cyan)">9,740</strong></p>
+
+      <h3 id="s-satisfaction">4-3. 만족도 — 어떤 동기가 더 만족스러웠나</h3>
+      <p>결정 동기(trigger)별 평균 만족도를 비교해 어떤 동기로 외출했을 때 가장 만족도가 높은지 측정합니다.</p>
+      <table>
+        <thead><tr><th>동기</th><th class="num">평균 만족도</th><th class="num">표본 수</th></tr></thead>
+        <tbody><tr><td>약속</td><td class='num'>0.823</td><td class='num'>2,345</td></tr><tr><td>정책</td><td class='num'>0.791</td><td class='num'>1,456</td></tr><tr><td>소문</td><td class='num'>0.756</td><td class='num'>1,890</td></tr><tr><td>습관</td><td class='num'>0.712</td><td class='num'>3,210</td></tr><tr><td>컨디션</td><td class='num'>0.689</td><td class='num'>654</td></tr><tr><td>Top 카테고리</td><td class='num'>0.654</td><td class='num'>987</td></tr></tbody>
+      </table>
+    </section>
+
+    <section id="s-interview" class="reveal">
+      <h2>5. 1대1 인터뷰 — 페르소나별 대표</h2>
+      <p>정책 사용액과 만족도(mood)를 기준으로 세 유형의 군집을 정의하고, 각 군집에서 대표 1명씩 자동
+        추출하여 LLM이 그 페르소나로 인터뷰에 응답합니다.</p>
+      
+    <div class="interview-card positive">
+      <span class="label-tag">positive</span>
+      <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
+        정책 적극 활용 + 만족도 ↑ <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>agent_0042</code></span>
+      </h3>
+      <div class="persona">
+        <strong>페르소나:</strong> 30대 여성
+        · 마케터 · 역삼1동 거주 · 소득 중상<br/>
+        <strong>라이프스타일:</strong> 트렌디한 카페 탐방, SNS 맛집 리뷰
+      </div>
+      <div class="qa"><div class="q">정책에 대해 어떻게 느끼셨나요?</div><div class="a">정말 좋았어요! 평소 자주 가던 역삼역 근처 카페에서 30% 할인을 받으니 부담 없이 더 자주 가게 되었습니다.</div></div><div class="qa"><div class="q">가장 자주 가신 가게는?</div><div class="a">역삼역 2번 출구 근처 &#x27;블루보틀&#x27;이요. 원래 단골이었는데 바우처 덕분에 거의 매일 갔어요.</div></div><div class="qa"><div class="q">친구가 추천한 곳에 가신 적 있나요?</div><div class="a">네! 직장 동료가 선릉역 근처 새로 생긴 디저트 카페를 추천해줘서 갔는데, 바우처도 되고 맛도 좋아서 단골이 됐습니다.</div></div>
+    </div>
+    
+    <div class="interview-card negative">
+      <span class="label-tag">negative</span>
+      <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
+        정책 무관심 + 만족도 ↓ <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>agent_0891</code></span>
+      </h3>
+      <div class="persona">
+        <strong>페르소나:</strong> 50대 남성
+        · 자영업자 · 도봉1동 거주 · 소득 중<br/>
+        <strong>라이프스타일:</strong> 집 근처 위주 활동, 익숙한 곳 선호
+      </div>
+      <div class="qa"><div class="q">정책에 대해 어떻게 느끼셨나요?</div><div class="a">솔직히 저랑은 관련이 없었습니다. 강남까지 카페 마시러 갈 이유가 없어요.</div></div><div class="qa"><div class="q">가장 자주 가신 가게는?</div><div class="a">집 앞 편의점이랑 동네 분식집이요. 가깝고 편하니까요.</div></div>
+    </div>
+    
+    <div class="interview-card neutral">
+      <span class="label-tag">neutral</span>
+      <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
+        정책 무관심 + 만족도 보통 <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>agent_0567</code></span>
+      </h3>
+      <div class="persona">
+        <strong>페르소나:</strong> 20대 남성
+        · 대학원생 · 신림동 거주 · 소득 하<br/>
+        <strong>라이프스타일:</strong> 학교와 연구실 중심 생활
+      </div>
+      <div class="qa"><div class="q">정책에 대해 어떻게 느끼셨나요?</div><div class="a">존재는 알고 있었는데 적극적으로 활용하진 않았어요. 강남에 갈 일이 가끔 있긴 한데, 바우처를 쓸 만큼 자주 가지는 않았습니다.</div></div><div class="qa"><div class="q">이번 주 가장 만족스러웠던 외출은?</div><div class="a">연구실 동기들과 함께 학교 앞 삼겹살집에서 저녁 먹은 게 제일 좋았어요.</div></div>
+    </div>
+    
+    </section>
+
+    <section id="s-appendix" class="reveal">
+      <h2>부록</h2>
+      <ul>
+        <li>본 보고서는 <code>scripts/sim/generate_final_report.py</code>로 자동 생성되었습니다.</li>
+        <li>시뮬 원본 데이터는 Neo4j에 보존됩니다 (Plan / State / Memory / Conversation 노드).</li>
+        <li>인터랙티브 시각화: <code>output/sim/visualization/sim_standalone.html</code></li>
+        <li>인터뷰 LLM 모듈: <code>scripts/sim/interview_agent.py</code></li>
+      </ul>
+    </section>
+
+    <div class="footer">
+      Generated by <code>generate_final_report.py</code> · 2026-05-24 20:32 KST<br/>
+      Kw Capstone · 서울시 상권정책 시뮬레이션 프로젝트
+    </div>
+  </main>
+</div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var obs = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) e.target.classList.add('visible');
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
+
+  var sections = document.querySelectorAll('section[id]');
+  var navLinks = document.querySelectorAll('.sidebar nav a');
+  var spy = new IntersectionObserver(function(entries) {
+    entries.forEach(function(e) {
+      if (e.isIntersecting) {
+        navLinks.forEach(function(a) { a.classList.remove('active'); });
+        var link = document.querySelector('.sidebar nav a[href="#' + e.target.id + '"]');
+        if (link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -80% 0px' });
+  sections.forEach(function(s) { spy.observe(s); });
+
+  // Theme toggle functionality
+  var toggleBtn = document.getElementById('theme-toggle');
+  var sunIcon = toggleBtn.querySelector('.sun-icon');
+  var moonIcon = toggleBtn.querySelector('.moon-icon');
+
+  function updateTheme(isLight) {
+    if (isLight) {
+      document.body.classList.add('light-theme');
+      sunIcon.style.display = 'block';
+      moonIcon.style.display = 'none';
+    } else {
+      document.body.classList.remove('light-theme');
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'block';
+    }
+  }
+
+  toggleBtn.addEventListener('click', function() {
+    var isLight = !document.body.classList.contains('light-theme');
+    updateTheme(isLight);
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  });
+
+  var savedTheme = localStorage.getItem('theme') || 'dark';
+  updateTheme(savedTheme === 'light');
+});
+</script>
+</body>
+</html>
