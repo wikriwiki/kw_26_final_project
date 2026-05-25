@@ -228,7 +228,7 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0, help="생성 수 제한 (0=전체 15000)")
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", type=Path,
-                    default=PROJECT_ROOT / "output" / "personas" / "rank_coupling_sample.json")
+                    default=PROJECT_ROOT / "output" / "personas" / "samples" / "A_rank_coupling.json")
     args = ap.parse_args()
 
     personas = build(limit=args.limit, seed=args.seed)

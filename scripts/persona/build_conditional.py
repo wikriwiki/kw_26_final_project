@@ -245,8 +245,8 @@ def main() -> int:
                      ses_hint=not args.no_ses_hint,
                      hobby_adjust=not args.no_hobby_adjust,
                      reconcile=args.reconcile)
-    out = args.out or (PROJECT_ROOT / "output" / "personas" /
-                       ("hybrid_sample.json" if args.reconcile else "conditional_graft_sample.json"))
+    out = args.out or (PROJECT_ROOT / "output" / "personas" / "samples" /
+                       ("C_hybrid.json" if args.reconcile else "B_conditional_graft.json"))
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(personas, ensure_ascii=False, indent=2), encoding="utf-8")
     label = "hybrid(C)" if args.reconcile else "conditional-graft(B)"
