@@ -149,12 +149,13 @@ def build(limit: int = 0, seed: int = 42,
     if limit:
         out = _diverse_sample(out, limit, seed)
 
-    # 방식 A + LLM: rank-coupling 후 남은 모순만 LLM(또는 stub)이 서사 봉합
+    # 방식 A + LLM: rank-coupling 후 모든 페르소나를 LLM(또는 stub)이 전수 검증,
+    # 모순이면 서사 봉합 (숫자는 불변)
     if llm_reconcile:
-        from llm_reconcile import llm_reconcile_persona, make_llm_fixer, stub_fixer
-        fixer = stub_fixer if llm_stub else make_llm_fixer(llm_mode)
+        from llm_reconcile import llm_audit_persona, make_llm_judge, stub_judge
+        judge = stub_judge if llm_stub else make_llm_judge(llm_mode)
         for p in out:
-            llm_reconcile_persona(p, fixer=fixer)
+            llm_audit_persona(p, judge=judge)
     return out
 
 
@@ -239,7 +240,7 @@ def main() -> int:
     ap.add_argument("--out", type=Path,
                     default=PROJECT_ROOT / "output" / "personas" / "samples" / "A_rank_coupling.json")
     ap.add_argument("--llm-reconcile", action="store_true",
-                    help="rank-coupling 후 모순 페르소나만 LLM이 서사 봉합 (방식 A+LLM)")
+                    help="rank-coupling 후 모든 페르소나를 LLM이 전수 검증, 모순이면 서사 봉합 (방식 A+LLM)")
     ap.add_argument("--llm-stub", action="store_true",
                     help="LLM 서버 없이 결정적 stub fixer 사용 (테스트/오프라인)")
     ap.add_argument("--llm-mode", type=str, default=None,
@@ -262,10 +263,12 @@ def main() -> int:
     levels = Counter(p["_match"]["match_level"] for p in personas)
     print(f"  match levels: {dict(levels)}")
     if args.llm_reconcile:
-        n_contra = sum(1 for p in personas if p["_match"].get("llm_contradictions"))
+        n_aud = sum(1 for p in personas if p["_match"].get("llm_audited"))
+        n_incons = sum(1 for p in personas if p["_match"].get("llm_consistent") is False)
         n_fixed = sum(1 for p in personas if p["_match"].get("llm_reconciled"))
         mode_lbl = "stub" if args.llm_stub else (args.llm_mode or "env/default")
-        print(f"  llm({mode_lbl}): 모순탐지 {n_contra}/{len(personas)}, 봉합 {n_fixed}")
+        print(f"  llm({mode_lbl}): 전수검증 {n_aud}/{len(personas)}, "
+              f"모순발견 {n_incons}, 봉합 {n_fixed}")
     return 0
 
 

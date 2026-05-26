@@ -50,7 +50,7 @@
     },
     "personality": {
       "spending_tendency": "소비형",
-      "lifestyle": "이은미 씨는 노원구에 거주하는 조사 전문가로(으로), 여유 있는 소비로 취미와 외식을 적극적으로 즐긴다. 여가로는 목동 일식 맛집 지도 만들기을(를) 즐긴다."
+      "lifestyle": "이은미 씨는 양천구 신월동에서 가족과 함께 살며, 섬세한 관찰력과 책임감으로 지역 사회 복지 발전을 꿈꾸는 "
     },
     "nvidia_persona": {
       "summary": "이은미 씨는 양천구 신월동에서 가족과 함께 살며, 섬세한 관찰력과 책임감으로 지역 사회 복지 발전을 꿈꾸는 조사 전문가입니다.",
@@ -64,8 +64,7 @@
       "marital_status": "배우자있음",
       "housing_type": "단독주택",
       "family_type": "배우자·자녀와 거주",
-      "education_level": "4년제 대학교",
-      "fused_lifestyle": "이은미 씨는 노원구에 거주하는 조사 전문가로(으로), 여유 있는 소비로 취미와 외식을 적극적으로 즐긴다. 여가로는 목동 일식 맛집 지도 만들기을(를) 즐긴다."
+      "education_level": "4년제 대학교"
     },
     "nvidia_reserved": {
       "professional_persona": "이은미 씨는 양천구청 인근 사무실에서 조사 전문가로 근무하며, 낯가림이 심한 응답자의 마음을 여는 특유의 다정한 말투와 유연한 질문법으로 설문 참여율을 높입니다. 이은미 씨는 수집한 통계 수치 속에서 지역 주민들의 실제 고충을 읽어내어, 이를 바탕으로 실효성 있는 복지 정책 초안을 작성해 구청에 제안하는 실무적 성취를 꿈꿉니다.",
@@ -88,11 +87,9 @@
       "consume_percentile": 0.87,
       "nvidia_ses": 0.812,
       "nvidia_uuid": "2e6a4b447d294e268cb6237285767204",
-      "llm_contradictions": [
-        "location_conflict:양천구≠노원구"
-      ],
-      "llm_reconciled": true,
-      "llm_resolution": "[STUB] 거주지를 현재 통계 기준으로 정합화 (실제 LLM 재생성 필요)"
+      "llm_audited": true,
+      "llm_consistent": true,
+      "llm_reconciled": false
     }
   },
   {
@@ -183,7 +180,8 @@
       "consume_percentile": 0.794,
       "nvidia_ses": 0.763,
       "nvidia_uuid": "f549c11bfdac4d5583f10c2410680fb3",
-      "llm_contradictions": [],
+      "llm_audited": true,
+      "llm_consistent": true,
       "llm_reconciled": false
     }
   },
@@ -275,7 +273,8 @@
       "consume_percentile": 0.75,
       "nvidia_ses": 0.85,
       "nvidia_uuid": "cdbaefb14e8948c0b8ba0f7e8574a01e",
-      "llm_contradictions": [],
+      "llm_audited": true,
+      "llm_consistent": true,
       "llm_reconciled": false
     }
   },
@@ -367,7 +366,8 @@
       "consume_percentile": 0.352,
       "nvidia_ses": 0.675,
       "nvidia_uuid": "7fe664b9b05249a59b470ff33678f58e",
-      "llm_contradictions": [],
+      "llm_audited": true,
+      "llm_consistent": true,
       "llm_reconciled": false
     }
   },
@@ -422,7 +422,7 @@
     },
     "personality": {
       "spending_tendency": "보통",
-      "lifestyle": "박정숙 씨는 서대문구에 거주하는 그 외 자동차 운전원로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 중랑천 산책로 걷기을(를) 즐긴다."
+      "lifestyle": "박정숙 씨는 서울의 길을 훤히 꿰뚫는 숙련된 운전원이자, 가족을 위해 검소하고 성실하게 살아가는 중랑구의 다"
     },
     "nvidia_persona": {
       "summary": "박정숙 씨는 서울의 길을 훤히 꿰뚫는 숙련된 운전원이자, 가족을 위해 검소하고 성실하게 살아가는 중랑구의 다정한 이웃입니다.",
@@ -436,8 +436,7 @@
       "marital_status": "배우자있음",
       "housing_type": "아파트",
       "family_type": "배우자·자녀와 거주",
-      "education_level": "고등학교",
-      "fused_lifestyle": "박정숙 씨는 서대문구에 거주하는 그 외 자동차 운전원로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 중랑천 산책로 걷기을(를) 즐긴다."
+      "education_level": "고등학교"
     },
     "nvidia_reserved": {
       "professional_persona": "박정숙 씨는 서울 시내의 복잡한 지름길과 시간대별 정체 구간을 손바닥 보듯 꿰고 있는 베테랑 운전원입니다. 차량 엔진에서 들리는 미세한 잡음만으로도 정비소에 갈 때를 알아채는 예민한 감각으로 직장에서 두터운 신뢰를 받고 있습니다.",
@@ -460,11 +459,9 @@
       "consume_percentile": 0.295,
       "nvidia_ses": 0.328,
       "nvidia_uuid": "8be7c691a1fb400baef0be05931fa441",
-      "llm_contradictions": [
-        "location_conflict:중랑구≠서대문구"
-      ],
-      "llm_reconciled": true,
-      "llm_resolution": "[STUB] 거주지를 현재 통계 기준으로 정합화 (실제 LLM 재생성 필요)"
+      "llm_audited": true,
+      "llm_consistent": true,
+      "llm_reconciled": false
     }
   },
   {
@@ -555,7 +552,8 @@
       "consume_percentile": 0.982,
       "nvidia_ses": 0.675,
       "nvidia_uuid": "98fd3e2410de469388c2b9472ab6c10c",
-      "llm_contradictions": [],
+      "llm_audited": true,
+      "llm_consistent": true,
       "llm_reconciled": false
     }
   },
@@ -610,7 +608,7 @@
     },
     "personality": {
       "spending_tendency": "보통",
-      "lifestyle": "김상환 씨는 서초구에 거주하는 무직로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 스마트폰 바둑 및 장기 게임을(를) 즐긴다."
+      "lifestyle": "김상환 씨는 성동구의 변화를 지켜본 꼼꼼한 성격의 은퇴자로, 가족과 이웃 사이에서 인정받으며 안정적인 노후를"
     },
     "nvidia_persona": {
       "summary": "김상환 씨는 성동구의 변화를 지켜본 꼼꼼한 성격의 은퇴자로, 가족과 이웃 사이에서 인정받으며 안정적인 노후를 보내고자 하는 60대 남성입니다.",
@@ -625,8 +623,7 @@
       "marital_status": "배우자있음",
       "housing_type": "아파트",
       "family_type": "배우자·자녀와 거주",
-      "education_level": "고등학교",
-      "fused_lifestyle": "김상환 씨는 서초구에 거주하는 무직로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 스마트폰 바둑 및 장기 게임을(를) 즐긴다."
+      "education_level": "고등학교"
     },
     "nvidia_reserved": {
       "professional_persona": "김상환 씨는 아파트 관리 위원회나 지역 봉사직을 맡아 단지 내 낡은 시설 보수나 주차 분쟁 같은 까다로운 민원들을 서류 한 장까지 꼼꼼하게 챙겨 해결하며 이웃들에게 여전히 유능한 사람으로 인정받길 원합니다.",
@@ -649,11 +646,9 @@
       "consume_percentile": 0.682,
       "nvidia_ses": 0.528,
       "nvidia_uuid": "4f00685c9c9140de886f0ec3995a5f91",
-      "llm_contradictions": [
-        "location_conflict:성동구≠서초구"
-      ],
-      "llm_reconciled": true,
-      "llm_resolution": "[STUB] 거주지를 현재 통계 기준으로 정합화 (실제 LLM 재생성 필요)"
+      "llm_audited": true,
+      "llm_consistent": true,
+      "llm_reconciled": false
     }
   },
   {
@@ -744,7 +739,8 @@
       "consume_percentile": 0.644,
       "nvidia_ses": 0.328,
       "nvidia_uuid": "8be7c691a1fb400baef0be05931fa441",
-      "llm_contradictions": [],
+      "llm_audited": true,
+      "llm_consistent": true,
       "llm_reconciled": false
     }
   },
@@ -799,7 +795,7 @@
     },
     "personality": {
       "spending_tendency": "보통",
-      "lifestyle": "오영철 씨는 중랑구에 거주하는 건물 경비원로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 모바일 전략 시뮬레이션 게임을(를) 즐긴다."
+      "lifestyle": "오영철 씨는 행정학 전공의 꼼꼼함을 경비 업무에 녹여내며, 소박한 수입과 게임, 목욕이라는 확실한 소확행으로"
     },
     "nvidia_persona": {
       "summary": "오영철 씨는 행정학 전공의 꼼꼼함을 경비 업무에 녹여내며, 소박한 수입과 게임, 목욕이라는 확실한 소확행으로 노후의 안정을 찾아가는 강북구의 독신 남성입니다.",
@@ -813,8 +809,7 @@
       "marital_status": "미혼",
       "housing_type": "아파트",
       "family_type": "혼자 거주",
-      "education_level": "4년제 대학교",
-      "fused_lifestyle": "오영철 씨는 중랑구에 거주하는 건물 경비원로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 모바일 전략 시뮬레이션 게임을(를) 즐긴다."
+      "education_level": "4년제 대학교"
     },
     "nvidia_reserved": {
       "professional_persona": "오영철 씨는 강북구의 낡은 아파트 단지 경비실에서 근무하며, 복잡한 공동주택 관리규약을 척척 해석해 입주민들의 주차 시비를 논리적으로 잠재우는 해결사 역할을 합니다. 오영철 씨는 꼼꼼한 서류 처리 능력 덕분에 관리소장조차 중요한 공문을 띄우기 전 그의 검토를 먼저 거칠 만큼 직무 전문성을 인정받고 있습니다.",
@@ -837,11 +832,9 @@
       "consume_percentile": 0.52,
       "nvidia_ses": 0.475,
       "nvidia_uuid": "1983f3bd0c3641c7b44875370a0c01a1",
-      "llm_contradictions": [
-        "location_conflict:강북구≠중랑구"
-      ],
-      "llm_reconciled": true,
-      "llm_resolution": "[STUB] 거주지를 현재 통계 기준으로 정합화 (실제 LLM 재생성 필요)"
+      "llm_audited": true,
+      "llm_consistent": true,
+      "llm_reconciled": false
     }
   },
   {
@@ -895,7 +888,7 @@
     },
     "personality": {
       "spending_tendency": "보통",
-      "lifestyle": "권호정 씨는 중랑구에 거주하는 양식 조리사로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 EPL 경기 시청을(를) 즐긴다."
+      "lifestyle": "권호정 씨는 서대문구에서 양식 조리사로 일하며 가족의 안정과 소박한 내 가게의 꿈을 키워가는 현실적이고 섬세"
     },
     "nvidia_persona": {
       "summary": "권호정 씨는 서대문구에서 양식 조리사로 일하며 가족의 안정과 소박한 내 가게의 꿈을 키워가는 현실적이고 섬세한 가장입니다.",
@@ -909,8 +902,7 @@
       "marital_status": "배우자있음",
       "housing_type": "아파트",
       "family_type": "배우자·자녀와 거주",
-      "education_level": "2~3년제 전문대학",
-      "fused_lifestyle": "권호정 씨는 중랑구에 거주하는 양식 조리사로(으로), 무리하지 않는 선에서 일상 소비를 유지한다. 여가로는 EPL 경기 시청을(를) 즐긴다."
+      "education_level": "2~3년제 전문대학"
     },
     "nvidia_reserved": {
       "professional_persona": "권호정 씨는 주방의 열기 속에서 고기의 육즙을 완벽하게 가두는 시어링 기술과 진한 풍미의 데미글라스 소스를 뽑아내는 데 자부심을 느끼는 조리사입니다. 권호정 씨는 식재료 하나하나의 낭비를 줄이는 깐깐한 재고 관리 능력을 갖췄지만, 정작 본인의 개인 소지품 정리에는 서툴러 늘 지갑이나 열쇠를 찾는 모습이 보입니다.",
@@ -933,11 +925,9 @@
       "consume_percentile": 0.333,
       "nvidia_ses": 0.588,
       "nvidia_uuid": "19ebbdd30b6c4aabbdc2424dfee02b1a",
-      "llm_contradictions": [
-        "location_conflict:서대문구≠중랑구"
-      ],
-      "llm_reconciled": true,
-      "llm_resolution": "[STUB] 거주지를 현재 통계 기준으로 정합화 (실제 LLM 재생성 필요)"
+      "llm_audited": true,
+      "llm_consistent": true,
+      "llm_reconciled": false
     }
   }
 ]

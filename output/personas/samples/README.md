@@ -9,7 +9,7 @@ NVIDIA Nemotron-Personas-Korea(정성 서사)와 우리 BDC 통계(정량 소비
 | 파일 | 방식 | 생성 스크립트 | 핵심 |
 |------|------|----------------|------|
 | `A_rank_coupling.json` | A · rank-coupling | `build_rank_coupling.py` | SES 순위로 NVIDIA↔통계 짝짓기 |
-| `A_rank_coupling_llm.json` | A+LLM · 모순 보정 | `build_rank_coupling.py --llm-reconcile` | A 후 **모순만 LLM이 서사 봉합** (숫자 불변) |
+| `A_rank_coupling_llm.json` | A+LLM · 전수 검증 | `build_rank_coupling.py --llm-reconcile` | A 후 **모든 페르소나를 LLM이 검증**, 모순이면 서사 봉합 (숫자 불변) |
 | `B_conditional_graft.json` | B · conditional-graft | `build_conditional.py` | NVIDIA 사람에게 통계를 조건부 부여 |
 | `C_hybrid.json` | C · hybrid | `build_conditional.py --reconcile` | B + 규칙기반 모순 검출·봉합 |
 
@@ -22,7 +22,7 @@ NVIDIA Nemotron-Personas-Korea(정성 서사)와 우리 BDC 통계(정량 소비
 ```bash
 # A — rank-coupling
 python scripts/persona/build_rank_coupling.py --limit 10
-# A+LLM — 모순만 LLM 봉합 (서버 필요). 오프라인 검증은 --llm-stub
+# A+LLM — 모든 페르소나 LLM 전수 검증 (서버 필요). 오프라인 검증은 --llm-stub
 python scripts/persona/build_rank_coupling.py --limit 10 --llm-reconcile            # 실 서버
 python scripts/persona/build_rank_coupling.py --limit 10 --llm-reconcile --llm-stub # 오프라인
 # B — conditional-graft
