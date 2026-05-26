@@ -34,7 +34,7 @@ from _common import (  # noqa: E402
     age_to_group, build_quant_from_cell, industry_to_l1_ratio,
     load_bdc_stats, load_nvidia_seoul,
     nvidia_cell, nvidia_gu, nvidia_sex, parse_cell_key, ses_proxy,
-    split_nvidia_fields, top_categories,
+    split_nvidia_fields, top_categories, write_personas,
 )
 
 
@@ -239,16 +239,21 @@ def main() -> int:
     ap.add_argument("--reconcile", action="store_true",
                     help="방식 C(hybrid): 규칙기반 모순 검출 + 봉합 레이어 적용")
     ap.add_argument("--out", type=Path, default=None)
+    ap.add_argument("--jsonl", action="store_true",
+                    help="JSONL 라인 출력 (대용량 13만건 권장 — 메모리 절약)")
     args = ap.parse_args()
 
     personas = build(limit=args.limit, seed=args.seed,
                      ses_hint=not args.no_ses_hint,
                      hobby_adjust=not args.no_hobby_adjust,
                      reconcile=args.reconcile)
-    out = args.out or (PROJECT_ROOT / "output" / "personas" / "samples" /
-                       ("C_hybrid.json" if args.reconcile else "B_conditional_graft.json"))
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(personas, ensure_ascii=False, indent=2), encoding="utf-8")
+    if args.out:
+        out = args.out
+    else:
+        ext = "jsonl" if args.jsonl else "json"
+        name = ("C_hybrid" if args.reconcile else "B_conditional_graft") + f".{ext}"
+        out = PROJECT_ROOT / "output" / "personas" / "samples" / name
+    write_personas(personas, out, jsonl=args.jsonl)
     label = "hybrid(C)" if args.reconcile else "conditional-graft(B)"
     print(f"[{label}] {len(personas)} personas → {out}")
     from collections import Counter

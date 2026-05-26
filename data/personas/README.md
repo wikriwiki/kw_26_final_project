@@ -16,16 +16,32 @@ NVIDIA **Nemotron-Personas-Korea** 데이터셋에서 `province == "서울"` 인
 `family_type`, `housing_type`, `education_level`, `bachelors_field`, `occupation`,
 `district`, `province`, `country`), `uuid`.
 
-### 전체 데이터로 교체
-실제 풀런에서는 1M 전체에서 서울 subset(약 13%, ~13만)을 받아 쓰면 매칭 풀이 커진다:
+## 실데이터로 전체 생성 (production)
 
-```python
-from datasets import load_dataset
-import json
-ds = load_dataset("nvidia/Nemotron-Personas-Korea", split="train", streaming=True)
-seoul = [r for r in ds if r.get("province") == "서울"]
-json.dump(seoul, open("data/personas/nvidia_seoul_full.json","w",encoding="utf-8"),
-          ensure_ascii=False)
+레포 동봉 fixture는 120건뿐이라 B/C는 120명까지만 생성된다. 실제 풀런에서는
+1M 전체에서 서울 subset(약 13만)을 받아 쓴다. **준비 스크립트**로 한 번에 처리:
+
+```bash
+# 0) 의존성 (다운로드 시에만 필요 — 생성 자체는 불필요)
+pip install "datasets>=2.14"
+
+# 1) 서울 실데이터 다운로드 + 필터 + 저장 (대용량이라 jsonl 권장)
+python scripts/persona/prepare_nvidia.py --jsonl
+#   → data/personas/nvidia_seoul_full.jsonl (약 13만건)
+#   옵션: --province 경기 / --all(전국 1M) / --limit 2000(스모크)
+
+# 2) 전체 페르소나 생성 (로더가 full 파일을 자동 우선 사용)
+python scripts/persona/build_conditional.py --jsonl              # B (~13만명)
+python scripts/persona/build_conditional.py --reconcile --jsonl  # C
+python scripts/persona/build_rank_coupling.py --jsonl            # A (15,000명, NVIDIA 풀 13만에서 매칭)
+python scripts/persona/build_rank_coupling.py --llm-reconcile --jsonl   # A+LLM (SGLang 서버 필요)
 ```
 
-로더는 `nvidia_seoul_full.json` 이 있으면 우선 사용, 없으면 `nvidia_seoul_sample.json` fallback.
+### 로더 우선순위 (`_common.load_nvidia_seoul`)
+1. env `NVIDIA_PERSONA_PATH` (경로 직접 지정) — `.json`/`.jsonl` 모두 가능
+2. `nvidia_seoul_full.jsonl`
+3. `nvidia_seoul_full.json`
+4. `nvidia_seoul_sample.json` (fixture fallback)
+
+> `nvidia_seoul_full.*` 는 용량이 커서 git 커밋 대상이 아니다(.gitignore 권장).
+> 각 환경에서 `prepare_nvidia.py` 로 받아 쓴다.

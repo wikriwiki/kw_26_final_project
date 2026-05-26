@@ -17,6 +17,7 @@ LLM 호출 없음. 모두 결정적 통계 샘플링(seed 고정 가능).
 from __future__ import annotations
 
 import json
+import os
 import random
 import re
 from dataclasses import dataclass, field
@@ -40,13 +41,65 @@ def load_bdc_stats(stats_dir: Path | None = None) -> dict:
     }
 
 
-def load_nvidia_seoul(persona_dir: Path | None = None) -> list[dict]:
-    """NVIDIA 서울 풀. full 있으면 우선, 없으면 sample."""
-    d = persona_dir or PERSONA_DIR
-    full = d / "nvidia_seoul_full.json"
-    sample = d / "nvidia_seoul_sample.json"
-    path = full if full.exists() else sample
+def _read_persona_records(path: Path) -> list[dict]:
+    """`.json`(배열) 또는 `.jsonl`(라인당 1레코드) 모두 지원."""
+    if path.suffix == ".jsonl":
+        out: list[dict] = []
+        with path.open(encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    out.append(json.loads(line))
+        return out
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def resolve_nvidia_path(persona_dir: Path | None = None) -> Path:
+    """NVIDIA 입력 경로 결정.
+
+    우선순위:
+      1. env `NVIDIA_PERSONA_PATH` (실데이터 경로 직접 지정)
+      2. nvidia_seoul_full.jsonl  (prepare_nvidia.py --jsonl 산출)
+      3. nvidia_seoul_full.json   (prepare_nvidia.py 산출, 실데이터)
+      4. nvidia_seoul_sample.json (레포 동봉 120건 fixture, fallback)
+    """
+    env = os.getenv("NVIDIA_PERSONA_PATH")
+    if env:
+        return Path(env)
+    d = persona_dir or PERSONA_DIR
+    for name in ("nvidia_seoul_full.jsonl", "nvidia_seoul_full.json",
+                 "nvidia_seoul_sample.json"):
+        p = d / name
+        if p.exists():
+            return p
+    return d / "nvidia_seoul_sample.json"
+
+
+def load_nvidia_seoul(persona_dir: Path | None = None) -> list[dict]:
+    """NVIDIA 서울 풀 로드. 실데이터(full) 우선, 없으면 sample fallback.
+
+    `NVIDIA_PERSONA_PATH` env 로 경로 직접 지정 가능. `.json`/`.jsonl` 모두 지원.
+    """
+    path = resolve_nvidia_path(persona_dir)
+    if not path.exists():
+        raise FileNotFoundError(
+            f"NVIDIA 페르소나 파일 없음: {path}. "
+            f"실데이터는 `python scripts/persona/prepare_nvidia.py` 로 받으세요."
+        )
+    return _read_persona_records(path)
+
+
+def write_personas(personas: list[dict], out: Path, jsonl: bool = False) -> Path:
+    """페르소나 저장. jsonl=True 면 라인당 1건(대용량 메모리 절약)."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    if jsonl:
+        with out.open("w", encoding="utf-8") as f:
+            for p in personas:
+                f.write(json.dumps(p, ensure_ascii=False) + "\n")
+    else:
+        out.write_text(json.dumps(personas, ensure_ascii=False, indent=2),
+                       encoding="utf-8")
+    return out
 
 
 # ---------------------------------------------------------------------------

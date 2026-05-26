@@ -28,7 +28,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import (  # noqa: E402
     PROJECT_ROOT, PersonaRecord,
     age_to_group, build_quant_from_cell, load_bdc_stats, load_nvidia_seoul,
-    nvidia_cell, parse_cell_key, ses_proxy, split_nvidia_fields,
+    nvidia_cell, parse_cell_key, ses_proxy, split_nvidia_fields, write_personas,
 )
 
 
@@ -244,15 +244,19 @@ def main() -> int:
                     help="LLM 서버 없이 결정적 stub fixer 사용 (테스트/오프라인)")
     ap.add_argument("--llm-mode", type=str, default=None,
                     help="LLM 모드 (qwen32b/qwen14b/qwen9b/exaone). 미지정 시 env/기본값")
+    ap.add_argument("--jsonl", action="store_true",
+                    help="JSONL 라인 출력 (대용량 권장 — 메모리 절약)")
     args = ap.parse_args()
 
     personas = build(limit=args.limit, seed=args.seed,
                      llm_reconcile=args.llm_reconcile, llm_mode=args.llm_mode,
                      llm_stub=args.llm_stub)
-    args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(personas, ensure_ascii=False, indent=2), encoding="utf-8")
+    out = args.out
+    if args.jsonl and out.suffix == ".json":
+        out = out.with_suffix(".jsonl")
+    write_personas(personas, out, jsonl=args.jsonl)
     label = "rank-coupling+LLM" if args.llm_reconcile else "rank-coupling"
-    print(f"[{label}] {len(personas)} personas → {args.out}")
+    print(f"[{label}] {len(personas)} personas → {out}")
     # 매칭 레벨 분포
     from collections import Counter
     levels = Counter(p["_match"]["match_level"] for p in personas)
