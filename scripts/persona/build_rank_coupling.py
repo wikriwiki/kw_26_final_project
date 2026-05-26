@@ -86,7 +86,9 @@ def pick_nvidia_by_rank(
 # ---------------------------------------------------------------------------
 # 메인 빌드
 # ---------------------------------------------------------------------------
-def build(limit: int = 0, seed: int = 42) -> list[dict]:
+def build(limit: int = 0, seed: int = 42,
+          llm_reconcile: bool = False, llm_mode: str | None = None,
+          llm_stub: bool = False) -> list[dict]:
     stats = load_bdc_stats()
     nv = load_nvidia_seoul()
     profiles = stats["profiles"]
@@ -146,6 +148,13 @@ def build(limit: int = 0, seed: int = 42) -> list[dict]:
 
     if limit:
         out = _diverse_sample(out, limit, seed)
+
+    # 방식 A + LLM: rank-coupling 후 남은 모순만 LLM(또는 stub)이 서사 봉합
+    if llm_reconcile:
+        from llm_reconcile import llm_reconcile_persona, make_llm_fixer, stub_fixer
+        fixer = stub_fixer if llm_stub else make_llm_fixer(llm_mode)
+        for p in out:
+            llm_reconcile_persona(p, fixer=fixer)
     return out
 
 
@@ -229,16 +238,30 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", type=Path,
                     default=PROJECT_ROOT / "output" / "personas" / "samples" / "A_rank_coupling.json")
+    ap.add_argument("--llm-reconcile", action="store_true",
+                    help="rank-coupling 후 모순 페르소나만 LLM이 서사 봉합 (방식 A+LLM)")
+    ap.add_argument("--llm-stub", action="store_true",
+                    help="LLM 서버 없이 결정적 stub fixer 사용 (테스트/오프라인)")
+    ap.add_argument("--llm-mode", type=str, default=None,
+                    help="LLM 모드 (qwen32b/qwen14b/qwen9b/exaone). 미지정 시 env/기본값")
     args = ap.parse_args()
 
-    personas = build(limit=args.limit, seed=args.seed)
+    personas = build(limit=args.limit, seed=args.seed,
+                     llm_reconcile=args.llm_reconcile, llm_mode=args.llm_mode,
+                     llm_stub=args.llm_stub)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(personas, ensure_ascii=False, indent=2), encoding="utf-8")
-    print(f"[rank-coupling] {len(personas)} personas → {args.out}")
+    label = "rank-coupling+LLM" if args.llm_reconcile else "rank-coupling"
+    print(f"[{label}] {len(personas)} personas → {args.out}")
     # 매칭 레벨 분포
     from collections import Counter
     levels = Counter(p["_match"]["match_level"] for p in personas)
     print(f"  match levels: {dict(levels)}")
+    if args.llm_reconcile:
+        n_contra = sum(1 for p in personas if p["_match"].get("llm_contradictions"))
+        n_fixed = sum(1 for p in personas if p["_match"].get("llm_reconciled"))
+        mode_lbl = "stub" if args.llm_stub else (args.llm_mode or "env/default")
+        print(f"  llm({mode_lbl}): 모순탐지 {n_contra}/{len(personas)}, 봉합 {n_fixed}")
     return 0
 
 
