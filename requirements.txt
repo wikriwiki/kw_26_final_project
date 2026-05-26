@@ -14,3 +14,7 @@ openai>=1.54,<2
 
 # Policy pipeline — Watchdog 워커 실행 시 필요
 watchdog>=4.0,<7
+
+# Persona — NVIDIA 실데이터 다운로드 (scripts/persona/prepare_nvidia.py) 시에만 필요
+# 페르소나 생성 자체(build_*)는 datasets 불필요. 동봉 fixture/full 파일만 읽음.
+datasets>=2.14

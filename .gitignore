@@ -82,3 +82,7 @@ prototype/
 
 # Sim output (메트릭·체크포인트는 로컬만)
 sim_output/
+
+# NVIDIA 실데이터 (prepare_nvidia.py 산출, 대용량 — 각 환경서 받음)
+data/personas/nvidia_seoul_full.json
+data/personas/nvidia_seoul_full.jsonl
