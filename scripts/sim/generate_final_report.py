@@ -927,6 +927,10 @@ figure img {
   border-radius: 8px;
   transition: transform 0.3s ease;
 }
+figure img.chart-light { display: none; }
+figure img.chart-dark { display: block; margin: 0 auto; }
+body.light-theme figure img.chart-dark { display: none; }
+body.light-theme figure img.chart-light { display: block; margin: 0 auto; }
 figure:hover img { transform: scale(1.01); }
 figcaption {
   margin-top: 14px;
@@ -1248,6 +1252,191 @@ body.light-theme .interview-card .persona {
   border-color: rgba(99, 102, 241, 0.06);
 }
 
+/* ─── interview chat UI ─── */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 400px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 20px;
+}
+body.light-theme .chat-container {
+  background: rgba(241, 245, 249, 0.6);
+}
+.chat-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+.chat-messages::-webkit-scrollbar {
+  width: 6px;
+}
+.chat-messages::-webkit-scrollbar-thumb {
+  background: var(--border-glass);
+  border-radius: 3px;
+}
+.chat-bubble {
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  position: relative;
+  animation: fadeInBubble 0.25s ease-out forwards;
+}
+@keyframes fadeInBubble {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.chat-bubble.agent {
+  align-self: flex-start;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-glass);
+  border-top-left-radius: 4px;
+}
+body.light-theme .chat-bubble.agent {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+.chat-bubble.user {
+  align-self: flex-end;
+  background: var(--gradient);
+  color: #ffffff;
+  border-top-right-radius: 4px;
+}
+.chat-bubble .meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.chat-bubble.user .meta {
+  color: rgba(255, 255, 255, 0.7);
+}
+.chat-bubble .text {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.chat-input-area {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  gap: 12px;
+}
+body.light-theme .chat-input-area {
+  background: #ffffff;
+}
+.chat-input {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid var(--border-glass);
+  color: var(--text-bright);
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-size: 13.5px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+body.light-theme .chat-input {
+  background: #f8fafc;
+}
+.chat-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+.chat-send-btn {
+  background: var(--gradient);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  flex-shrink: 0;
+}
+.chat-send-btn:hover {
+  transform: scale(1.05);
+  opacity: 0.95;
+}
+.chat-send-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.chat-send-btn:active {
+  transform: scale(0.95);
+}
+.chat-send-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+/* Typing Indicator */
+.typing-indicator {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: 12px;
+  border-top-left-radius: 4px;
+  align-self: flex-start;
+  margin-top: 4px;
+}
+body.light-theme .typing-indicator {
+  background: #ffffff;
+}
+.typing-indicator span {
+  width: 6px;
+  height: 6px;
+  background-color: var(--text-muted);
+  border-radius: 50%;
+  display: inline-block;
+  animation: typingBounce 1.4s infinite ease-in-out both;
+}
+.typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+.typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+@keyframes typingBounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1.0); }
+}
+.fallback-banner {
+  font-size: 11px;
+  color: var(--amber);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.15);
+  padding: 6px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+.fallback-banner svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
 """
 
 
@@ -1375,29 +1564,71 @@ def build_html(start: date, days: int, policy_from: str | None,
             )
             continue
         p = d["persona"]
-        qa_html = "".join(
-            f'<div class="qa"><div class="q">{_h(qa["q"])}</div>'
-            f'<div class="a">{_h(qa["a"])}</div></div>'
-            for qa in d["qa"]
-        )
+        agent_id = d.get("agent_id", "")
+        label_kr = label_kr_intv.get(label, label)
+        age = p.get("age", "")
+        gender = p.get("gender", "")
+        job = p.get("job", "")
+        home_dong = p.get("home_dong", "")
+        income = p.get("income", "")
+        lifestyle = p.get("lifestyle", "")
+
+        initial_bubbles = ""
+        for qa in d["qa"]:
+            q_text = qa["q"]
+            a_text = qa["a"]
+            initial_bubbles += (
+                f'<div class="chat-bubble user">'
+                f'<div class="meta"><span class="sender">인터뷰어</span></div>'
+                f'<div class="text">{_h(q_text)}</div>'
+                f'</div>'
+                f'<div class="chat-bubble agent">'
+                f'<div class="meta"><span class="sender">에이전트 ({_h(agent_id)})</span></div>'
+                f'<div class="text">{_h(a_text)}</div>'
+                f'</div>'
+            )
+
         interview_html += f"""
-        <div class="interview-card {label}">
+        <div class="interview-card {label}" data-agent-id="{_h(agent_id)}">
           <span class="label-tag">{_h(label)}</span>
           <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
-            {_h(label_kr_intv[label])} <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>{_h(d['agent_id'])}</code></span>
+            {_h(label_kr)} <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>{_h(agent_id)}</code></span>
           </h3>
           <div class="persona">
-            <strong>페르소나:</strong> {_h(p.get('age'))} {_h(p.get('gender'))}
-            · {_h(p.get('job'))} · {_h(p.get('home_dong'))} 거주 · 소득 {_h(p.get('income'))}<br/>
-            <strong>라이프스타일:</strong> {_h(p.get('lifestyle'))}
+            <strong>페르소나:</strong> {_h(age)} {_h(gender)}
+            · {_h(job)} · {_h(home_dong)} 거주 · 소득 {_h(income)}<br/>
+            <strong>라이프스타일:</strong> {_h(lifestyle)}
           </div>
-          {qa_html}
+
+          <div class="fallback-banner" id="fallback-banner-{label}">
+            <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+            <span>API 서버가 실행 중이지 않아 시뮬레이션 모드로 답변합니다.</span>
+          </div>
+
+          <div class="chat-container">
+            <div class="chat-messages" id="chat-messages-{label}">
+              {initial_bubbles}
+            </div>
+            
+            <div class="typing-indicator" id="typing-indicator-{label}">
+              <span></span><span></span><span></span>
+            </div>
+
+            <div class="chat-input-area">
+              <input type="text" class="chat-input" id="chat-input-{label}" placeholder="{_h(label_kr)} 에이전트에게 질문을 입력해보세요..." />
+              <button class="chat-send-btn" id="chat-send-{label}" onclick="sendChatMessage('{label}')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
         """
 
-    # JavaScript — scroll reveal + sidebar scroll-spy
     js_code = """
     document.addEventListener('DOMContentLoaded', function() {
+      // IntersectionObserver for reveal animations
       var obs = new IntersectionObserver(function(entries) {
         entries.forEach(function(e) {
           if (e.isIntersecting) e.target.classList.add('visible');
@@ -1405,6 +1636,7 @@ def build_html(start: date, days: int, policy_from: str | None,
       }, { threshold: 0.1 });
       document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
 
+      // Scroll-spy for sidebar navigation
       var sections = document.querySelectorAll('section[id]');
       var navLinks = document.querySelectorAll('.sidebar nav a');
       var spy = new IntersectionObserver(function(entries) {
@@ -1443,7 +1675,175 @@ def build_html(start: date, days: int, policy_from: str | None,
 
       var savedTheme = localStorage.getItem('theme') || 'dark';
       updateTheme(savedTheme === 'light');
+
+      // Initialize Chat inputs and scroll to bottom
+      document.querySelectorAll('.chat-input').forEach(function(input) {
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            const label = this.id.replace('chat-input-', '');
+            sendChatMessage(label);
+          }
+        });
+      });
+
+      document.querySelectorAll('.chat-messages').forEach(function(box) {
+        box.scrollTop = box.scrollHeight;
+      });
     });
+
+    // Send Chat Message
+    window.sendChatMessage = async function(label) {
+      const inputEl = document.getElementById('chat-input-' + label);
+      const messagesEl = document.getElementById('chat-messages-' + label);
+      const sendBtnEl = document.getElementById('chat-send-' + label);
+      const typingEl = document.getElementById('typing-indicator-' + label);
+      const cardEl = messagesEl.closest('.interview-card');
+      const agentId = cardEl.getAttribute('data-agent-id');
+      const text = inputEl.value.trim();
+      
+      if (!text) return;
+      
+      // Clear input and disable UI
+      inputEl.value = '';
+      inputEl.disabled = true;
+      sendBtnEl.disabled = true;
+      
+      // Append user bubble
+      appendBubble(messagesEl, 'user', '인터뷰어', text);
+      
+      // Show typing indicator
+      typingEl.style.display = 'flex';
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      
+      // Prepare chat history
+      const history = getChatHistory(messagesEl);
+      
+      let reply = '';
+      let isFallback = false;
+      
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+        
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_id: agentId,
+            message: text,
+            history: history
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) throw new Error('Server returned error status');
+        const data = await response.json();
+        reply = data.reply;
+      } catch (err) {
+        console.warn('Failed to call API chat backend, using local simulation:', err);
+        isFallback = true;
+        
+        // Add a small natural-feeling delay for fallback thinking
+        await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 800));
+        reply = generateMockReply(label, text);
+      }
+      
+      // Hide typing indicator
+      typingEl.style.display = 'none';
+      
+      // Show warning banner if fallback was used
+      if (isFallback) {
+        const banner = document.getElementById('fallback-banner-' + label);
+        if (banner) banner.style.display = 'flex';
+      }
+      
+      // Append agent reply
+      appendBubble(messagesEl, 'agent', '에이전트 (' + agentId + ')', reply);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      
+      // Re-enable UI
+      inputEl.disabled = false;
+      sendBtnEl.disabled = false;
+      inputEl.focus();
+    };
+
+    function appendBubble(container, role, sender, text) {
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble ' + role;
+      
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      
+      const senderSpan = document.createElement('span');
+      senderSpan.className = 'sender';
+      senderSpan.textContent = sender;
+      
+      const timeSpan = document.createElement('span');
+      const now = new Date();
+      timeSpan.textContent = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+      
+      meta.appendChild(senderSpan);
+      meta.appendChild(timeSpan);
+      
+      const textDiv = document.createElement('div');
+      textDiv.className = 'text';
+      textDiv.textContent = text;
+      
+      bubble.appendChild(meta);
+      bubble.appendChild(textDiv);
+      container.appendChild(bubble);
+    }
+
+    function getChatHistory(messagesEl) {
+      const history = [];
+      messagesEl.querySelectorAll('.chat-bubble').forEach(bubble => {
+        const role = bubble.classList.contains('user') ? 'user' : 'assistant';
+        const text = bubble.querySelector('.text').textContent;
+        history.push({ role: role, content: text });
+      });
+      return history;
+    }
+
+    function generateMockReply(label, text) {
+      const lower = text.toLowerCase();
+      
+      if (label === 'positive') {
+        if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+          return "저는 주로 역삼역 2번 출구 근처의 '블루보틀'을 매일 방문했어요. 분위기가 마음에 들고 바우처 할인이 적용되니까 매일 가기에 정말 좋았거든요!";
+        }
+        if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+          return "바우처 정책 덕분에 30%나 할인받을 수 있었던 건 진짜 최고였어요! 부담 없이 맛있는 음료와 디저트를 마음껏 즐겼습니다.";
+        }
+        if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+          return "네, 직장 동료가 선릉역 주변의 분위기 좋은 디저트 카페를 추천해줘서 다녀왔는데, 바우처 사용이 가능해서 아주 기분 좋게 다녀왔어요.";
+        }
+        return "바우처 혜택 덕분에 최근 제 일상과 카페 탐방에 큰 보탬이 되었답니다. 다음 주에도 이 혜택을 계속 이용할 생각이에요. 혹시 다른 것도 알고 싶으신가요?";
+      } else if (label === 'negative') {
+        if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+          return "저는 굳이 멀리 안 나가고 집 근처 편의점이나 아는 동네 식당 위주로 다녀요. 이동하기 번거로워서 집 주변이 가장 마음 편합니다.";
+        }
+        if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+          return "강남까지 갈 일이 없는 저 같은 거주자들에겐 전혀 혜택이 없었어요. 특정 자치구에만 쏠린 바우처 정책은 실효성이 크지 않다고 봅니다.";
+        }
+        if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+          return "주변 사람들이 아무리 좋다고 추천을 해줘도, 거리가 멀다면 귀찮아서 결국 가던 곳만 가게 되더라고요.";
+        }
+        return "저는 강남까지 갈 동기가 없어서 정책 혜택을 받지 못했어요. 서울시 전반의 균형 잡힌 골목 상권 활성화 정책이 필요하다고 생각합니다.";
+      } else {
+        // neutral
+        if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+          return "저는 특별히 한 가게를 고집하기보다, 학교 근처의 밥집이나 커피점들을 동선 맞춰서 가끔 가는 편이에요.";
+        }
+        if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+          return "정책의 취지는 대충 들었지만, 제가 자주 가는 구역이 아니기도 하고 신청 절차도 눈에 띄지 않아서 굳이 찾아 쓰지는 않았습니다.";
+        }
+        if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+          return "가끔 동기들이나 친구들의 추천으로 가까운 음식점에 가거나 약속을 잡을 때는 있어요. 그럴 때는 그냥 무난한 식사를 해요.";
+        }
+        return "특별한 혜택을 직접적으로 느끼진 못했던 기간이었습니다. 정책이 있다는 건 긍정적이지만 저와 같은 동선의 대학원생들에겐 체감이 덜 되는 편이네요.";
+      }
+    }
     """
 
     # 최종 HTML

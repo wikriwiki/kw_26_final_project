@@ -25,11 +25,20 @@ def _img_data_uri(path):
     b64 = base64.b64encode(path.read_bytes()).decode("ascii")
     return f"data:image/png;base64,{b64}"
 
-def _figure(path, caption):
-    if not path or not path.exists():
+def _figure_dual(path_dark, path_light, caption):
+    dark_exists = path_dark and path_dark.exists()
+    light_exists = path_light and path_light.exists()
+    if not dark_exists and not light_exists:
         return ""
-    return (f'<figure><img src="{_img_data_uri(path)}" alt="{_h(caption)}"/>'
-            f'<figcaption>{_h(caption)}</figcaption></figure>')
+    dark_uri = _img_data_uri(path_dark) if dark_exists else ""
+    light_uri = _img_data_uri(path_light) if light_exists else dark_uri
+    if not dark_uri:
+        dark_uri = light_uri
+    return f"""<figure>
+  <img class="chart-dark" src="{dark_uri}" alt="{_h(caption)}"/>
+  <img class="chart-light" src="{light_uri}" alt="{_h(caption)}"/>
+  <figcaption>{_h(caption)}</figcaption>
+</figure>"""
 
 # ── Dummy data ──
 s1 = {
@@ -57,7 +66,11 @@ s2_data = {"summary": {
     "gangnam_change_pct": 30.25, "non_gangnam_change_pct": 6.32,
     "DID_pct_points": 23.93,
 }, "daily": []}
-s2_figs = "fig2_dummy.png"
+s2_figs = {
+    "per_capita": {"dark": "fig2a_per_capita_dark.png", "light": "fig2a_per_capita_light.png"},
+    "change_rate": {"dark": "fig2b_change_rate_dark.png", "light": "fig2b_change_rate_light.png"},
+    "did": {"dark": "fig2c_did_dark.png", "light": "fig2c_did_light.png"}
+}
 sm = s2_data["summary"]
 did_str = f"{sm.get('DID_pct_points',0):+}%p" if sm else "—"
 policy_from = "2026-05-02"
@@ -108,7 +121,7 @@ sales_rows = (
 )
 did_callout = (
     f"<div class='callout'><strong>DID (정책 순효과)</strong>: "
-    f"강남 변화율 − 비강남 변화율 = "
+    f"강남 변화율 - 비강남 변화율 = "
     f"<strong style='font-size:18px;color:var(--cyan);'>"
     f"{sm['DID_pct_points']:+}%p</strong></div>"
 )
@@ -189,13 +202,21 @@ for label in ["positive", "negative", "neutral"]:
         )
         continue
     p = d["persona"]
-    qa_html = "".join(
-        f'<div class="qa"><div class="q">{_h(qa["q"])}</div>'
-        f'<div class="a">{_h(qa["a"])}</div></div>'
-        for qa in d["qa"]
-    )
+    initial_bubbles = ""
+    for qa in d["qa"]:
+        initial_bubbles += f"""
+        <div class="chat-bubble user">
+          <div class="meta"><span class="sender">인터뷰어</span></div>
+          <div class="text">{_h(qa["q"])}</div>
+        </div>
+        <div class="chat-bubble agent">
+          <div class="meta"><span class="sender">에이전트 ({_h(d['agent_id'])})</span></div>
+          <div class="text">{_h(qa["a"])}</div>
+        </div>
+        """
+
     interview_html += f"""
-    <div class="interview-card {label}">
+    <div class="interview-card {label}" data-agent-id="{_h(d['agent_id'])}">
       <span class="label-tag">{_h(label)}</span>
       <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
         {_h(label_kr_intv[label])} <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>{_h(d['agent_id'])}</code></span>
@@ -205,21 +226,303 @@ for label in ["positive", "negative", "neutral"]:
         · {_h(p.get('job'))} · {_h(p.get('home_dong'))} 거주 · 소득 {_h(p.get('income'))}<br/>
         <strong>라이프스타일:</strong> {_h(p.get('lifestyle'))}
       </div>
-      {qa_html}
+
+      <div class="fallback-banner" id="fallback-banner-{label}">
+        <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+        <span>API 서버가 실행 중이지 않아 시뮬레이션 모드로 답변합니다.</span>
+      </div>
+
+      <div class="chat-container">
+        <div class="chat-messages" id="chat-messages-{label}">
+          {initial_bubbles}
+        </div>
+        
+        <div class="typing-indicator" id="typing-indicator-{label}">
+          <span></span><span></span><span></span>
+        </div>
+
+        <div class="chat-input-area">
+          <input type="text" class="chat-input" id="chat-input-{label}" placeholder="{_h(label_kr_intv[label])} 에이전트에게 질문을 입력해보세요..." />
+          <button class="chat-send-btn" id="chat-send-{label}" onclick="sendChatMessage('{label}')">
+            <svg viewBox="0 0 24 24">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
     """
 
-# ── Chart dir (no actual charts — figures will just be empty) ──
+def generate_dummy_charts(chart_dir):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib import font_manager
+    installed = {f.name for f in font_manager.fontManager.ttflist}
+    candidates = ["Malgun Gothic", "AppleGothic",
+                  "Noto Sans CJK KR", "Noto Sans KR",
+                  "NanumGothic", "Nanum Gothic",
+                  "Noto Sans CJK SC", "Noto Sans CJK JP",
+                  "DejaVu Sans"]
+    chosen = next((f for f in candidates if f in installed), "DejaVu Sans")
+    plt.rcParams["font.family"] = chosen
+    plt.rcParams["axes.unicode_minus"] = False
+
+    def _apply_premium_theme(fig, axs, is_light=False):
+        if is_light:
+            bg_color = "#ffffff"
+            text_color = "#334155"
+            grid_color = "#e2e8f0"
+        else:
+            bg_color = "#1e293b" # Matches var(--bg-card)
+            text_color = "#f1f5f9" # Matches var(--text-bright)
+            grid_color = "#334155" # Matches var(--border-glass)
+        
+        fig.patch.set_facecolor(bg_color)
+        
+        if hasattr(axs, "flat"):
+            ax_list = list(axs.flat)
+        elif isinstance(axs, (list, tuple)):
+            ax_list = list(axs)
+        else:
+            ax_list = [axs]
+            
+        for ax in ax_list:
+            ax.set_facecolor(bg_color)
+            
+            # Hide top/right spines
+            for spine in ["top", "right"]:
+                ax.spines[spine].set_visible(False)
+            for spine in ["bottom", "left"]:
+                ax.spines[spine].set_color(grid_color)
+                ax.spines[spine].set_linewidth(1.2)
+                
+            ax.tick_params(colors=text_color, which='both', labelsize=11, length=4, width=1.2)
+            ax.xaxis.label.set_color(text_color)
+            ax.xaxis.label.set_size(12)
+            ax.yaxis.label.set_color(text_color)
+            ax.yaxis.label.set_size(12)
+            ax.title.set_color(text_color)
+            ax.title.set_size(14)
+            ax.title.set_weight("bold")
+            
+            # Grid
+            ax.grid(True, color=grid_color, linestyle=':', linewidth=0.8, alpha=0.7)
+            
+            # Legend styling if exists
+            legend = ax.get_legend()
+            if legend:
+                legend.get_frame().set_facecolor(bg_color)
+                legend.get_frame().set_edgecolor(grid_color)
+                legend.get_frame().set_linewidth(1)
+                for text in legend.get_texts():
+                    text.set_color(text_color)
+                    text.set_size(10)
+
+    for is_light in [False, True]:
+        suffix = "_light" if is_light else "_dark"
+        cyan = "#0284c7" if is_light else "#06b6d4"
+        purple = "#4f46e5" if is_light else "#8b5cf6"
+        emerald = "#059669" if is_light else "#10b981"
+        rose = "#e11d48" if is_light else "#f43f5e"
+        txt_color = "#334155" if is_light else "#f1f5f9"
+        border_clr = "#e2e8f0" if is_light else "#334155"
+        bg_pie = "#ffffff" if is_light else "#1e293b"
+        lbl_ann_clr = "#475569" if is_light else "#94a3b8"
+
+        GN_POP = 1247
+        NG_POP = 3500
+        daily = [
+            {"day": "2026-05-01", "phase": "before", "gangnam_spend": 4500000, "non_gangnam_spend": 12000000},
+            {"day": "2026-05-02", "phase": "after", "gangnam_spend": 5200000, "non_gangnam_spend": 12500000},
+            {"day": "2026-05-03", "phase": "after", "gangnam_spend": 5500000, "non_gangnam_spend": 12800000},
+            {"day": "2026-05-04", "phase": "after", "gangnam_spend": 5800000, "non_gangnam_spend": 13100000},
+            {"day": "2026-05-05", "phase": "after", "gangnam_spend": 6000000, "non_gangnam_spend": 13300000},
+            {"day": "2026-05-06", "phase": "after", "gangnam_spend": 6100000, "non_gangnam_spend": 13500000},
+            {"day": "2026-05-07", "phase": "after", "gangnam_spend": 6200000, "non_gangnam_spend": 13700000},
+        ]
+        xs = list(range(len(daily)))
+        labels = [x["day"][5:] for x in daily]
+        cut_idx = 1
+        policy_from = "2026-05-02"
+
+        # ── (A) 1인당 매출 ──
+        gn_per = [x["gangnam_spend"] / GN_POP for x in daily]
+        ng_per = [x["non_gangnam_spend"] / NG_POP for x in daily]
+        fig, ax = plt.subplots(figsize=(11, 5.5))
+        ax.plot(xs, gn_per, marker="o", markersize=8, label=f"강남 (n={GN_POP:,})", color=cyan, linewidth=2.5)
+        ax.plot(xs, ng_per, marker="s", markersize=8, label=f"비강남 (n={NG_POP:,})", color=purple, linewidth=2.5)
+        ax.axvline(cut_idx - 0.5, color="#64748b", linestyle="--", linewidth=1.5)
+        ax.text(cut_idx - 0.45, max(gn_per + ng_per) * 0.95, f" 정책 시행 {policy_from}", color=lbl_ann_clr, fontsize=11)
+        ax.set_xticks(xs); ax.set_xticklabels(labels)
+        ax.set_xlabel("날짜"); ax.set_ylabel("1인당 매출 (원)")
+        ax.set_title("(A) 1인당 일별 매출 — 인구 비례 환산 후 절대 비교", pad=12)
+        ax.legend(loc="upper left")
+        ax.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda x, _: f'{int(x):,}'))
+        _apply_premium_theme(fig, ax, is_light)
+        plt.tight_layout()
+        plt.savefig(chart_dir / f"fig2a_per_capita{suffix}.png", dpi=140, bbox_inches="tight")
+        plt.close()
+
+        # ── (B) baseline 대비 변화율 ──
+        gn_base = max(daily[0]["gangnam_spend"], 1)
+        ng_base = max(daily[0]["non_gangnam_spend"], 1)
+        gn_chg = [(x["gangnam_spend"] - gn_base) / gn_base * 100 for x in daily]
+        ng_chg = [(x["non_gangnam_spend"] - ng_base) / ng_base * 100 for x in daily]
+        fig, ax = plt.subplots(figsize=(11, 5.5))
+        ax.plot(xs, gn_chg, marker="o", markersize=8, label="강남구", color=cyan, linewidth=2.5)
+        ax.plot(xs, ng_chg, marker="s", markersize=8, label="비강남", color=purple, linewidth=2.5)
+        ax.axhline(0, color="#64748b", linewidth=1)
+        ax.axvline(cut_idx - 0.5, color="#64748b", linestyle="--", linewidth=1.5)
+        top_y = max(max(gn_chg), max(ng_chg))
+        ax.text(cut_idx - 0.45, top_y * 0.95 if top_y > 0 else 3, f" 정책 시행 {policy_from}", color=lbl_ann_clr, fontsize=11)
+        ax.set_xticks(xs); ax.set_xticklabels(labels)
+        ax.set_xlabel("날짜"); ax.set_ylabel(f"{daily[0]['day'][5:]} 대비 변화율 (%)")
+        ax.set_title("(B) baseline 대비 매출 변화율", pad=12)
+        ax.legend(loc="upper left")
+        _apply_premium_theme(fig, ax, is_light)
+        plt.tight_layout()
+        plt.savefig(chart_dir / f"fig2b_change_rate{suffix}.png", dpi=140, bbox_inches="tight")
+        plt.close()
+
+        # ── (C) DID ──
+        did = [g - n for g, n in zip(gn_chg, ng_chg)]
+        fig, ax = plt.subplots(figsize=(11, 5.5))
+        colors_list = ['#64748b' if i == 0 else (emerald if v >= 0 else rose) for i, v in enumerate(did)]
+        bars = ax.bar(xs, did, color=colors_list, edgecolor=border_clr, linewidth=1, width=0.6)
+        ax.axhline(0, color="#64748b", linewidth=1)
+        ax.axvline(cut_idx - 0.5, color="#64748b", linestyle="--", linewidth=1.5)
+        for i, (bar, v) in enumerate(zip(bars, did)):
+            if i == 0: continue
+            offset = max(abs(min(did)), abs(max(did))) * 0.04
+            ax.text(i, v + (offset if v >= 0 else -offset), f"{v:+.1f}%p", ha="center",
+                    va="bottom" if v >= 0 else "top", fontsize=11,
+                    color=emerald if v >= 0 else rose, fontweight='bold')
+        ax.set_xticks(xs); ax.set_xticklabels(labels)
+        ax.set_xlabel("날짜"); ax.set_ylabel("DID (%p)")
+        ax.set_title("(C) DID — 강남 변화율 - 비강남 변화율 (정책 순효과)", pad=12)
+        _apply_premium_theme(fig, ax, is_light)
+        plt.tight_layout()
+        plt.savefig(chart_dir / f"fig2c_did{suffix}.png", dpi=140, bbox_inches="tight")
+        plt.close()
+
+        # ── Section 3: Spillover ──
+        by_group = {
+            "강남": [4.5e6, 5.2e6, 5.5e6, 5.8e6, 6.0e6, 6.1e6, 6.2e6],
+            "서초": [3.8e6, 4.0e6, 4.2e6, 4.3e6, 4.4e6, 4.5e6, 4.6e6],
+            "송파": [3.5e6, 3.6e6, 3.7e6, 3.8e6, 3.9e6, 4.0e6, 4.1e6],
+            "강북": [1.2e6, 1.2e6, 1.3e6, 1.3e6, 1.3e6, 1.4e6, 1.4e6]
+        }
+        fig, ax = plt.subplots(figsize=(11, 5))
+        xs_spill = list(range(7))
+        colors_spill = {"강남": cyan, "서초": purple, "송파": emerald, "강북": "#64748b"}
+        for name, vals in by_group.items():
+            ax.plot(xs_spill, [v / 1e6 for v in vals], marker="o", label=name, color=colors_spill[name], linewidth=2.5, markersize=6)
+        ax.set_xticks(xs_spill)
+        ax.set_xticklabels(labels)
+        ax.set_xlabel("날짜")
+        ax.set_ylabel("매출 합계 (백만원)")
+        ax.set_title("자치구별 매출 추이 — 강남 정책의 간접 영향 추적")
+        ax.legend(loc="upper left")
+        _apply_premium_theme(fig, ax, is_light)
+        plt.tight_layout()
+        plt.savefig(chart_dir / f"fig3_spillover{suffix}.png", dpi=120, bbox_inches="tight")
+        plt.close()
+
+        # ── Section 4-1: Triggers ──
+        dist = {"habit": 3210, "appointment": 2345, "rumor": 1890, "policy": 1456, "top_category": 987, "mood": 654, "none": 321}
+        total = sum(dist.values()) or 1
+        fig, ax = plt.subplots(figsize=(9, 5))
+        labels_kr = {"appointment": "약속", "rumor": "소문", "policy": "정책", "habit": "습관", "top_category": "Top 카테고리", "mood": "컨디션", "none": "기타"}
+        sorted_items = sorted(dist.items(), key=lambda x: -x[1])
+        xs_trig = [labels_kr.get(k, k) for k, _ in sorted_items]
+        ys_trig = [v for _, v in sorted_items]
+        
+        trig_colors = [purple, cyan, emerald, rose, "#d97706" if is_light else "#f59e0b", "#6366f1" if is_light else "#a78bfa", "#475569" if is_light else "#64748b"]
+        bars = ax.bar(xs_trig, ys_trig, color=trig_colors[:len(xs_trig)], edgecolor=border_clr, linewidth=1, width=0.6)
+        for bar, n in zip(bars, ys_trig):
+            ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + total*0.01, f"{n:,}\n({n/total*100:.1f}%)", ha="center", va="bottom", fontsize=10, color=txt_color)
+        ax.set_title("외출 이벤트의 결정 동기 (trigger 분포)")
+        ax.set_ylabel("이벤트 수")
+        _apply_premium_theme(fig, ax, is_light)
+        plt.tight_layout()
+        plt.savefig(chart_dir / f"fig4_1_triggers{suffix}.png", dpi=120, bbox_inches="tight")
+        plt.close()
+
+        # ── Section 4-2: regulars ──
+        dist_reg = {"신규 (1회 방문)": 5432, "재방문 (2~4회)": 3210, "단골 (5회+)": 1098}
+        src_dist = {"initial": 4000, "visit": 3500, "rumor": 2240}
+        fig, axs = plt.subplots(1, 2, figsize=(11, 4.8))
+        axs[0].bar(dist_reg.keys(), dist_reg.values(), color=[purple, cyan, emerald], edgecolor=border_clr, linewidth=1, width=0.55)
+        axs[0].set_title("방문 빈도 분포 (KNOWS_POI)")
+        axs[0].set_ylabel("관계 수")
+        for i, (k, v) in enumerate(dist_reg.items()):
+            axs[0].text(i, v + 100, f"{v:,}", ha="center", va="bottom", fontsize=11, color=txt_color)
+            
+        wedges, texts, autotexts = axs[1].pie(src_dist.values(), labels=src_dist.keys(), autopct="%1.1f%%",
+                                              colors=[cyan, purple, emerald, "#6366f1" if is_light else "#a78bfa"][:len(src_dist)],
+                                              wedgeprops=dict(edgecolor=bg_pie, linewidth=2),
+                                              textprops=dict(color=txt_color, fontsize=11))
+        axs[1].set_title("KNOWS_POI 출처 (왜 알게 됐나)")
+        _apply_premium_theme(fig, axs, is_light)
+        plt.tight_layout()
+        plt.savefig(chart_dir / f"fig4_2_regulars{suffix}.png", dpi=120, bbox_inches="tight")
+        plt.close()
+
+        # ── Section 4-3: satisfaction ──
+        by_trigger = [
+            {"trigger": "appointment", "avg_sat": 0.823, "n": 2345},
+            {"trigger": "policy", "avg_sat": 0.791, "n": 1456},
+            {"trigger": "rumor", "avg_sat": 0.756, "n": 1890},
+            {"trigger": "habit", "avg_sat": 0.712, "n": 3210},
+            {"trigger": "mood", "avg_sat": 0.689, "n": 654},
+            {"trigger": "top_category", "avg_sat": 0.654, "n": 987},
+        ]
+        by_cat = [
+            {"cat": "한식", "avg_sat": 0.85, "n": 1200},
+            {"cat": "카페", "avg_sat": 0.82, "n": 2500},
+            {"cat": "양식", "avg_sat": 0.80, "n": 900},
+            {"cat": "디저트", "avg_sat": 0.79, "n": 1500},
+            {"cat": "일식", "avg_sat": 0.77, "n": 800},
+            {"cat": "중식", "avg_sat": 0.75, "n": 600},
+        ]
+        fig, axs = plt.subplots(1, 2, figsize=(13, 5))
+        xs_sat = [labels_kr.get(r["trigger"], r["trigger"]) for r in by_trigger]
+        ys_sat = [round(r["avg_sat"], 3) for r in by_trigger]
+        axs[0].barh(xs_sat, ys_sat, color=cyan, edgecolor=border_clr, linewidth=1, height=0.55)
+        axs[0].set_xlabel("평균 만족도")
+        axs[0].set_title("결정 동기별 만족도")
+        axs[0].set_xlim(0, 1)
+        for i, (lbl, v, r) in enumerate(zip(xs_sat, ys_sat, by_trigger)):
+            axs[0].text(v + 0.02, i, f"{v:.3f} (n={r['n']:,})", va="center", fontsize=10, color=txt_color)
+        
+        xs_cat = [r["cat"] for r in by_cat]
+        ys_cat = [round(r["avg_sat"], 3) for r in by_cat]
+        axs[1].barh(xs_cat[::-1], ys_cat[::-1], color=purple, edgecolor=border_clr, linewidth=1, height=0.55)
+        axs[1].set_xlabel("평균 만족도")
+        axs[1].set_title("카테고리별 만족도 Top")
+        axs[1].set_xlim(0, 1)
+        for i, (lbl, v, r) in enumerate(zip(xs_cat[::-1], ys_cat[::-1], by_cat[::-1])):
+             axs[1].text(v + 0.02, i, f"{v:.3f}", va="center", fontsize=10, color=txt_color)
+             
+        _apply_premium_theme(fig, axs, is_light)
+        plt.tight_layout()
+        plt.savefig(chart_dir / f"fig4_3_satisfaction{suffix}.png", dpi=120, bbox_inches="tight")
+        plt.close()
+
+# ── Chart dir setup ──
 chart_dir = Path(__file__).parent / "_test_charts"
 chart_dir.mkdir(exist_ok=True)
-s3_fig = "fig3_dummy.png"
-s41_fig = "fig41_dummy.png"
-s42_fig = "fig42_dummy.png"
-s43_fig = "fig43_dummy.png"
+s3_figs = {"dark": "fig3_spillover_dark.png", "light": "fig3_spillover_light.png"}
+s41_figs = {"dark": "fig4_1_triggers_dark.png", "light": "fig4_1_triggers_light.png"}
+s42_figs = {"dark": "fig4_2_regulars_dark.png", "light": "fig4_2_regulars_light.png"}
+s43_figs = {"dark": "fig4_3_satisfaction_dark.png", "light": "fig4_3_satisfaction_light.png"}
 
-# JavaScript
+generate_dummy_charts(chart_dir)
+
 js_code = """
 document.addEventListener('DOMContentLoaded', function() {
+  // IntersectionObserver for reveal animations
   var obs = new IntersectionObserver(function(entries) {
     entries.forEach(function(e) {
       if (e.isIntersecting) e.target.classList.add('visible');
@@ -227,6 +530,7 @@ document.addEventListener('DOMContentLoaded', function() {
   }, { threshold: 0.1 });
   document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
 
+  // Scroll-spy for sidebar navigation
   var sections = document.querySelectorAll('section[id]');
   var navLinks = document.querySelectorAll('.sidebar nav a');
   var spy = new IntersectionObserver(function(entries) {
@@ -265,7 +569,175 @@ document.addEventListener('DOMContentLoaded', function() {
 
   var savedTheme = localStorage.getItem('theme') || 'dark';
   updateTheme(savedTheme === 'light');
+
+  // Initialize Chat inputs and scroll to bottom
+  document.querySelectorAll('.chat-input').forEach(function(input) {
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const label = this.id.replace('chat-input-', '');
+        sendChatMessage(label);
+      }
+    });
+  });
+
+  document.querySelectorAll('.chat-messages').forEach(function(box) {
+    box.scrollTop = box.scrollHeight;
+  });
 });
+
+// Send Chat Message
+window.sendChatMessage = async function(label) {
+  const inputEl = document.getElementById('chat-input-' + label);
+  const messagesEl = document.getElementById('chat-messages-' + label);
+  const sendBtnEl = document.getElementById('chat-send-' + label);
+  const typingEl = document.getElementById('typing-indicator-' + label);
+  const cardEl = messagesEl.closest('.interview-card');
+  const agentId = cardEl.getAttribute('data-agent-id');
+  const text = inputEl.value.trim();
+  
+  if (!text) return;
+  
+  // Clear input and disable UI
+  inputEl.value = '';
+  inputEl.disabled = true;
+  sendBtnEl.disabled = true;
+  
+  // Append user bubble
+  appendBubble(messagesEl, 'user', '인터뷰어', text);
+  
+  // Show typing indicator
+  typingEl.style.display = 'flex';
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  
+  // Prepare chat history
+  const history = getChatHistory(messagesEl);
+  
+  let reply = '';
+  let isFallback = false;
+  
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 1500); // 1.5s timeout for fast test report response
+    
+    const response = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent_id: agentId,
+        message: text,
+        history: history
+      }),
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) throw new Error('Server returned error status');
+    const data = await response.json();
+    reply = data.reply;
+  } catch (err) {
+    console.warn('Failed to call API chat backend, using local simulation:', err);
+    isFallback = true;
+    
+    // Add a small natural-feeling delay for fallback thinking
+    await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 800));
+    reply = generateMockReply(label, text);
+  }
+  
+  // Hide typing indicator
+  typingEl.style.display = 'none';
+  
+  // Show warning banner if fallback was used
+  if (isFallback) {
+    const banner = document.getElementById('fallback-banner-' + label);
+    if (banner) banner.style.display = 'flex';
+  }
+  
+  // Append agent reply
+  appendBubble(messagesEl, 'agent', '에이전트 (' + agentId + ')', reply);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  
+  // Re-enable UI
+  inputEl.disabled = false;
+  sendBtnEl.disabled = false;
+  inputEl.focus();
+};
+
+function appendBubble(container, role, sender, text) {
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble ' + role;
+  
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  
+  const senderSpan = document.createElement('span');
+  senderSpan.className = 'sender';
+  senderSpan.textContent = sender;
+  
+  const timeSpan = document.createElement('span');
+  const now = new Date();
+  timeSpan.textContent = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  
+  meta.appendChild(senderSpan);
+  meta.appendChild(timeSpan);
+  
+  const textDiv = document.createElement('div');
+  textDiv.className = 'text';
+  textDiv.textContent = text;
+  
+  bubble.appendChild(meta);
+  bubble.appendChild(textDiv);
+  container.appendChild(bubble);
+}
+
+function getChatHistory(messagesEl) {
+  const history = [];
+  messagesEl.querySelectorAll('.chat-bubble').forEach(bubble => {
+    const role = bubble.classList.contains('user') ? 'user' : 'assistant';
+    const text = bubble.querySelector('.text').textContent;
+    history.push({ role: role, content: text });
+  });
+  return history;
+}
+
+function generateMockReply(label, text) {
+  const lower = text.toLowerCase();
+  
+  if (label === 'positive') {
+    if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+      return "저는 주로 역삼역 2번 출구 근처의 '블루보틀'을 매일 방문했어요. 분위기가 마음에 들고 바우처 할인이 적용되니까 매일 가기에 정말 좋았거든요!";
+    }
+    if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+      return "바우처 정책 덕분에 30%나 할인받을 수 있었던 건 진짜 최고였어요! 부담 없이 맛있는 음료와 디저트를 마음껏 즐겼습니다.";
+    }
+    if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+      return "네, 직장 동료가 선릉역 주변의 분위기 좋은 디저트 카페를 추천해줘서 다녀왔는데, 바우처 사용이 가능해서 아주 기분 좋게 다녀왔어요.";
+    }
+    return "바우처 혜택 덕분에 최근 제 일상과 카페 탐방에 큰 보탬이 되었답니다. 다음 주에도 이 혜택을 계속 이용할 생각이에요. 혹시 다른 것도 알고 싶으신가요?";
+  } else if (label === 'negative') {
+    if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+      return "저는 굳이 멀리 안 나가고 집 근처 편의점이나 아는 동네 식당 위주로 다녀요. 이동하기 번거로워서 집 주변이 가장 마음 편합니다.";
+    }
+    if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+      return "강남까지 갈 일이 없는 저 같은 거주자들에겐 전혀 혜택이 없었어요. 특정 자치구에만 쏠린 바우처 정책은 실효성이 크지 않다고 봅니다.";
+    }
+    if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+      return "주변 사람들이 아무리 좋다고 추천을 해줘도, 거리가 멀다면 귀찮아서 결국 가던 곳만 가게 되더라고요.";
+    }
+    return "저는 강남까지 갈 동기가 없어서 정책 혜택을 받지 못했어요. 서울시 전반의 균형 잡힌 골목 상권 활성화 정책이 필요하다고 생각합니다.";
+  } else {
+    // neutral
+    if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+      return "저는 특별히 한 가게를 고집하기보다, 학교 근처의 밥집이나 커피점들을 동선 맞춰서 가끔 가는 편이에요.";
+    }
+    if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+      return "정책의 취지는 대충 들었지만, 제가 자주 가는 구역이 아니기도 하고 신청 절차도 눈에 띄지 않아서 굳이 찾아 쓰지는 않았습니다.";
+    }
+    if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+      return "가끔 동기들이나 친구들의 추천으로 가까운 음식점에 가거나 약속을 잡을 때는 있어요. 그럴 때는 그냥 무난한 식사를 해요.";
+    }
+    return "특별한 혜택을 직접적으로 느끼진 못했던 기간이었습니다. 정책이 있다는 건 긍정적이지만 저와 같은 동선의 대학원생들에겐 체감이 덜 되는 편이네요.";
+  }
+}
 """
 
 # ── Build final HTML ──
@@ -351,7 +823,10 @@ html = f"""<!DOCTYPE html>
         시행된 <code>{_h(policy_from)}</code> 시점을 기준으로
         정책 대상 카테고리(식사·카페·디저트)의 일별 매출을 비교합니다.
         세 관점 — (A) 인구 비례 1인당 매출, (B) baseline 대비 변화율, (C) DID — 으로 분석합니다.</p>
-      <p style="color:var(--text-muted);font-style:italic">(차트는 실제 시뮬레이션 데이터로 생성됩니다)</p>
+      {_figure_dual(chart_dir / s2_figs['per_capita']['dark'], chart_dir / s2_figs['per_capita']['light'],
+               '(A) 1인당 일별 매출 — 인구 비례 환산 후 강남 vs 비강남 절대 비교') if isinstance(s2_figs, dict) else _figure_dual(chart_dir / s2_figs, chart_dir / s2_figs, '정책 전/후 분석 생략')}
+      {_figure_dual(chart_dir / s2_figs['change_rate']['dark'], chart_dir / s2_figs['change_rate']['light'], '(B) baseline 대비 매출 변화율 — 같은 0% 출발점에서 패턴 비교') if isinstance(s2_figs, dict) else ''}
+      {_figure_dual(chart_dir / s2_figs['did']['dark'], chart_dir / s2_figs['did']['light'], '(C) DID — 강남 변화율 - 비강남 변화율 (정책 순효과)') if isinstance(s2_figs, dict) else ''}
       <h3>평균 일간 매출 비교</h3>
       <table>
         <thead><tr><th>자치구</th><th class="num">시행 전</th><th class="num">시행 후</th><th class="num">변화율</th></tr></thead>
@@ -364,7 +839,7 @@ html = f"""<!DOCTYPE html>
       <h2>3. 간접 영향 (Spillover)</h2>
       <p>강남 정책이 직접 적용되지 않은 인접 자치구(서초·송파)와 멀리 떨어진 강북에 미친 영향을 비교합니다.
         인접 자치구의 매출 변화가 강북보다 두드러지면 spillover로 해석할 수 있습니다.</p>
-      <p style="color:var(--text-muted);font-style:italic">(차트는 실제 시뮬레이션 데이터로 생성됩니다)</p>
+      {_figure_dual(chart_dir / s3_figs['dark'], chart_dir / s3_figs['light'], '자치구별 매출 추이 — 강남 정책의 간접 영향 추적')}
     </section>
 
     <section id="s-behavior" class="reveal">
@@ -372,6 +847,7 @@ html = f"""<!DOCTYPE html>
 
       <h3 id="s-trigger">4-1. 결정 동기 분포</h3>
       <p>외출(집·직장 제외) 시 어떤 요인이 결정을 이끌었는지 LLM이 trigger 라벨로 분류한 분포입니다.</p>
+      {_figure_dual(chart_dir / s41_figs['dark'], chart_dir / s41_figs['light'], '외출 이벤트의 결정 동기 (trigger) 분포')}
       <table>
         <thead><tr><th>동기</th><th class="num">건수</th><th class="num">비율</th></tr></thead>
         <tbody>{trigger_rows}</tbody>
@@ -379,6 +855,7 @@ html = f"""<!DOCTYPE html>
 
       <h3 id="s-regular">4-2. 단골 vs 신규</h3>
       <p>각 에이전트의 POI 인지 관계(KNOWS_POI) 빈도 분포와, 그 관계가 어떻게 형성되었는지(출처) 분석합니다.</p>
+      {_figure_dual(chart_dir / s42_figs['dark'], chart_dir / s42_figs['light'], '방문 빈도 분포 + KNOWS_POI 출처')}
       <table>
         <thead><tr><th>구분</th><th class="num">관계 수</th></tr></thead>
         <tbody>{regular_rows}</tbody>
@@ -387,6 +864,7 @@ html = f"""<!DOCTYPE html>
 
       <h3 id="s-satisfaction">4-3. 만족도 — 어떤 동기가 더 만족스러웠나</h3>
       <p>결정 동기(trigger)별 평균 만족도를 비교해 어떤 동기로 외출했을 때 가장 만족도가 높은지 측정합니다.</p>
+      {_figure_dual(chart_dir / s43_figs['dark'], chart_dir / s43_figs['light'], '결정 동기별 + 카테고리별 평균 만족도')}
       <table>
         <thead><tr><th>동기</th><th class="num">평균 만족도</th><th class="num">표본 수</th></tr></thead>
         <tbody>{sat_rows}</tbody>
