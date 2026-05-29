@@ -103,6 +103,42 @@ def _policy_match(ev: dict, pol: dict, home_dist5: str, work_dist5: str) -> bool
     return cat_ok
 
 
+# 소득별 현금 지급액 테이블 (type='grant' 정책용)
+INCOME_GRANT_TABLE: dict[str, int] = {
+    "중상": 100_000,
+    "중":   250_000,
+    "중하": 450_000,
+    "하":   600_000,
+}
+INCOME_GRANT_EXCLUDED = {"상"}
+
+
+def apply_grant_to_prev_state(aid: str, today: date, grant: int) -> None:
+    """grant 정책 effective_from 당일, 전날 State 잔액에 지원금 추가.
+
+    Stage 1 Dawn 컨텍스트가 이 업데이트를 반영해 LLM이 추가 예산을 인식한다.
+    """
+    yesterday = (today - timedelta(days=1)).isoformat()
+    with driver_session() as s:
+        s.run(
+            "MATCH (a:Agent {id:$aid})-[:HAS_STATE]->(st:State) "
+            "WHERE toString(st.day) = $yest "
+            "SET st.balance = coalesce(st.balance, 0) + $grant",
+            aid=aid, yest=yesterday, grant=grant,
+        )
+
+
+def get_grant_amount(income: str, policies: list[dict]) -> int:
+    """오늘 적용 가능한 grant 정책의 지급액 반환. 해당 없으면 0."""
+    for pol in policies:
+        if pol.get("type") != "grant":
+            continue
+        if income in INCOME_GRANT_EXCLUDED:
+            return 0
+        return INCOME_GRANT_TABLE.get(income, 0)
+    return 0
+
+
 def track_policy_usage(
     events: list[dict],
     persona: dict,

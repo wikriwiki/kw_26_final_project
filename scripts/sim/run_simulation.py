@@ -55,6 +55,7 @@ from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
 from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
     night_finalize_yesterday, night_create_state,
+    apply_grant_to_prev_state, get_grant_amount,
 )
 
 
@@ -103,6 +104,23 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         ctx = build_dawn_context(aid, today)
         if not ctx.persona:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
+
+        # grant 정책 — effective_from 당일 새벽에 전날 State 잔액에 지원금 추가
+        # Dawn 컨텍스트가 업데이트된 잔액을 보여줘 LLM이 추가 예산 인식
+        grant_applied = 0
+        for pol in (ctx.policy or []):
+            if pol.get("type") == "grant":
+                eff = pol.get("effective_from", "")
+                if str(today) == eff:
+                    income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
+                    grant_applied = get_grant_amount(income, ctx.policy)
+                    if grant_applied > 0:
+                        apply_grant_to_prev_state(aid, today, grant_applied)
+                    break
+
+        # grant 적용 후 컨텍스트 재빌드 (잔액 반영)
+        if grant_applied > 0:
+            ctx = build_dawn_context(aid, today)
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
