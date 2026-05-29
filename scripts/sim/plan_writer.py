@@ -189,17 +189,18 @@ WHERE i.anchor STARTS WITH 'zone:' OR (i.category IS NOT NULL AND NOT i.category
 WITH a, p, i, poi,
      0.5 + 1.5 * i.actual_satisfaction AS importance,
      poi.name + '(' + coalesce(i.sub_category, i.category) + ') 방문, 만족도 ' +
-       toString(round(i.actual_satisfaction * 100) / 100.0) AS summary
-CREATE (m:Memory {
-  id: 'mem_' + randomUUID(),
-  type: 'visited',
-  day: date($yesterday),
-  importance: importance,
-  summary: summary,
-  satisfaction: i.actual_satisfaction
-})
-CREATE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
-CREATE (m)-[:ABOUT_POI]->(poi)
+       toString(round(i.actual_satisfaction * 100) / 100.0) AS summary,
+     // 결정적 id (agent + poi + day + order) — resume 재실행 시 중복 방지
+     'mem_vis_' + a.id + '_' + poi.id + '_' + $yesterday + '_' + toString(i.order) AS mem_id
+MERGE (m:Memory {id: mem_id})
+  ON CREATE SET
+    m.type = 'visited',
+    m.day = date($yesterday),
+    m.importance = importance,
+    m.summary = summary,
+    m.satisfaction = i.actual_satisfaction
+MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
+MERGE (m)-[:ABOUT_POI]->(poi)
 
 // KNOWS_POI MERGE + 집계 갱신
 // recent_visit_dates: 30일 슬라이딩 윈도우 (saturation 계산용).

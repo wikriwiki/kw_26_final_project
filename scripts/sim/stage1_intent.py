@@ -54,6 +54,64 @@ _TRIGGER_ALIASES = {
 }
 
 
+# sub_category → L1 대분류 정규화 맵
+# Stage 1 LLM이 세부업종('한식', '약국' 등)을 category로 출력하면 fallback fetch 실패 → 드롭.
+# 아래 맵으로 대분류('식사', '건강')로 올려준다.
+_CAT_TO_L1: dict[str, str] = {
+    # 식사
+    "한식": "식사", "중식": "식사", "일식": "식사", "양식": "식사",
+    "분식": "식사", "패스트푸드": "식사", "뷔페": "식사", "도시락": "식사",
+    "기타요식": "식사", "음식점": "식사", "점심": "식사", "저녁": "식사",
+    # 카페
+    "커피": "카페", "카페·커피": "카페",
+    # 디저트
+    "제과": "디저트", "베이커리": "디저트", "아이스크림": "디저트",
+    "제과점": "디저트", "케이크": "디저트",
+    # 건강
+    "병원": "건강", "의원": "건강", "한의원": "건강", "약국": "건강",
+    "치과": "건강", "일반병원": "건강", "피부과": "건강", "안과": "건강",
+    "정형외과": "건강", "내과": "건강", "의료기관": "건강",
+    # 마트
+    "슈퍼마켓": "마트", "슈퍼": "마트", "할인점": "마트", "대형마트": "마트",
+    "이마트": "마트", "홈플러스": "마트",
+    # 미용
+    "헤어샵": "미용", "미용실": "미용", "네일": "미용", "피부관리": "미용",
+    "이발소": "미용", "헤어": "미용",
+    # 여가
+    "영화": "여가", "공연": "여가", "스포츠": "여가", "헬스": "여가",
+    "수영": "여가", "운동": "여가", "볼링": "여가", "독서실": "여가",
+    # 교육
+    "학원": "교육", "과외": "교육", "학교": "교육", "보습": "교육",
+    # 주점
+    "술집": "주점", "바": "주점", "호프": "주점", "포차": "주점",
+}
+
+L1_CATEGORIES = {
+    "식사", "카페", "디저트", "건강", "마트", "미용",
+    "여가", "교육", "주점", "쇼핑", "편의점", "기타",
+    "집", "직장",
+}
+
+
+def normalize_category(cat: str | None, sub: str | None = None) -> tuple[str | None, str | None]:
+    """Stage 1 category 출력을 L1 대분류로 정규화.
+
+    cat이 이미 L1이면 그대로, 세부업종이면 _CAT_TO_L1으로 올려준다.
+    sub_category는 원본 세부업종을 보존한다.
+    """
+    if not cat:
+        return cat, sub
+    if cat in L1_CATEGORIES:
+        return cat, sub
+    # 세부업종 → L1 매핑
+    mapped = _CAT_TO_L1.get(cat)
+    if mapped:
+        # 원본 세부업종을 sub_category로 내려보냄
+        return mapped, sub or cat
+    # 매핑 없으면 기타로
+    return "기타", sub or cat
+
+
 def normalize_trigger(t):
     """트리거 라벨을 표준 enum 으로 정규화.
 
@@ -427,6 +485,14 @@ def call_stage1(
             json_str = _extract_json(raw)
             data = json.loads(json_str)
             parsed = Stage1Output.model_validate(data)
+
+            # category 정규화 — 세부업종('한식') → L1('식사')
+            for ev in parsed.events:
+                norm_cat, norm_sub = normalize_category(ev.category, ev.sub_category)
+                if norm_cat != ev.category:
+                    ev.category = norm_cat
+                if norm_sub != ev.sub_category:
+                    ev.sub_category = norm_sub
 
             # Post-validation: 평일 보수성 검증 (외출 의무)
             has_work = bool(ctx.persona.get("work_poi_id"))

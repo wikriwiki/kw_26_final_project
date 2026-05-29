@@ -351,23 +351,21 @@ UNWIND $rows AS r
 MATCH (a:Agent {id:r.initiator})
 MATCH (b:Agent {id:r.recipient})
 WITH r, a, b
-CREATE (c:Conversation {
-  id: r.cid,
-  day: date(r.day),
-  intent: r.intent,
-  initiator_id: r.initiator,
-  recipient_id: r.recipient,
-  topic_type: r.topic_type,
-  topic_value: r.topic_value,
-  should_inject: r.should_inject,
-  target_day_offset: r.target_day_offset,
-  target_time: r.target_time,
-  meeting_location_hint: r.meeting_location_hint,
-  // 사고과정 흔적 (인터뷰용)
-  reasoning: r.reasoning
-})
-CREATE (a)-[:PARTICIPATES_IN {role:'initiator'}]->(c)
-CREATE (b)-[:PARTICIPATES_IN {role:'recipient'}]->(c)
+MERGE (c:Conversation {id: r.cid})
+  ON CREATE SET
+    c.day = date(r.day),
+    c.intent = r.intent,
+    c.initiator_id = r.initiator,
+    c.recipient_id = r.recipient,
+    c.topic_type = r.topic_type,
+    c.topic_value = r.topic_value,
+    c.should_inject = r.should_inject,
+    c.target_day_offset = r.target_day_offset,
+    c.target_time = r.target_time,
+    c.meeting_location_hint = r.meeting_location_hint,
+    c.reasoning = r.reasoning
+MERGE (a)-[:PARTICIPATES_IN {role:'initiator'}]->(c)
+MERGE (b)-[:PARTICIPATES_IN {role:'recipient'}]->(c)
 """
 
 # 이슈·추천 공통 — Memory{rumor} + REMEMBERS + FROM_CONVERSATION (노션 §5)
@@ -378,19 +376,17 @@ LINK_RUMOR_MEMORY_CYPHER = """
 UNWIND $rows AS r
 MATCH (c:Conversation {id:r.cid})
 MATCH (b:Agent {id:r.recipient})
-CREATE (m:Memory {
-  id: r.mem_id,
-  type: 'rumor',
-  day: c.day,
-  source: r.initiator,
-  topic_type: c.topic_type,
-  topic_value: c.topic_value,
-  importance: r.importance,
-  // Conversation의 reasoning을 그대로 복사 — Memory에서 직접 인용 가능
-  summary: c.reasoning
-})
-CREATE (b)-[:REMEMBERS {day: c.day}]->(m)
-CREATE (m)-[:FROM_CONVERSATION]->(c)
+MERGE (m:Memory {id: r.mem_id})
+  ON CREATE SET
+    m.type = 'rumor',
+    m.day = c.day,
+    m.source = r.initiator,
+    m.topic_type = c.topic_type,
+    m.topic_value = c.topic_value,
+    m.importance = r.importance,
+    m.summary = c.reasoning
+MERGE (b)-[:REMEMBERS {day: c.day}]->(m)
+MERGE (m)-[:FROM_CONVERSATION]->(c)
 """
 
 # 추천 의도 추가 효과 — MENTIONS_POI + KNOWS_POI{rumor} MERGE + Memory.ABOUT_POI
