@@ -14,7 +14,7 @@
 
 CLI:
   python scripts/sim/day_health_check.py --day 2026-05-01 \\
-      --out docs/DAY_HEALTH_2026-05-01.md
+      --out docs/archive/DAY_HEALTH_2026-05-01.md
 """
 from __future__ import annotations
 
@@ -354,7 +354,7 @@ def main():
         # 10-B. trigger 정합성 (Day 0=정책 비활성 baseline)
         L.append("### 10-B. trigger 정합성")
         L.append("")
-        cutoff_iso = "2026-05-02"  # 정책 발효일
+        cutoff_iso = "2026-05-20"  # 정책 발효일 (현재 시뮬: P008 강남 보행친화거리)
         is_baseline = day < cutoff_iso
         L.append(f"오늘({day}) 정책 발효 여부: "
                  f"**{'❌ 비활성 (baseline)' if is_baseline else '✅ 활성'}**")
@@ -411,42 +411,103 @@ def main():
                 L.append(f"✅ 균형 (known {n_known/pf_total*100:.1f}% / novelty {n_novel/pf_total*100:.1f}%)")
         L.append("")
 
-        # 10-D. 단일 정책 baseline 검증 (Day 0 강남 vs 비강남 매출)
-        L.append("### 10-D. 강남 vs 비강남 매출 (단일 정책 검증)")
+        # 10-D. 정책 효과 정밀 측정 (P008 강남 보행친화거리 — 동 단위 layered DID)
+        #   한계 극복: ① 분모 동적 카운트 ② 동 단위 L1/L2/Control 그룹 ③ 거주지+매장 위치 둘 다.
+        L.append("### 10-D. 정책 효과 정밀 측정 (P008 동 단위 layered)")
         L.append("")
-        sales = s.run("""
-            MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)
+
+        # P008 적용 그룹 정의 — applied_to 관계에서 동적으로 가져옴 (하드코드 회피)
+        l1_dongs = ["역삼1동", "역삼2동", "도곡1동"]   # 사업 구간
+        l2_dongs = ["도곡2동", "삼성1동", "삼성2동", "논현1동", "논현2동"]  # 도보권 인접
+
+        # 분모 — 실제 거주 agent 수 (동적)
+        denoms = s.run("""
+            MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(d:Dong)
               <-[:HAS_DONG]-(dist:District)
-            MATCH (a)-[:HAS_PLAN {day: date($d)}]->(:Plan)
+            WITH a, d.name AS dong, dist.name AS gu
+            RETURN
+              sum(CASE WHEN dong IN $l1 THEN 1 ELSE 0 END) AS n_l1,
+              sum(CASE WHEN dong IN $l2 THEN 1 ELSE 0 END) AS n_l2,
+              sum(CASE WHEN gu = '강남구' AND NOT dong IN ($l1 + $l2) THEN 1 ELSE 0 END) AS n_l3,
+              sum(CASE WHEN gu <> '강남구' THEN 1 ELSE 0 END) AS n_l4,
+              count(*) AS n_total
+        """, l1=l1_dongs, l2=l2_dongs).single()
+        L.append(f"실측 거주 agent 분포: L1 {denoms['n_l1']:,} / L2 {denoms['n_l2']:,} / "
+                 f"강남 비도보권 {denoms['n_l3']:,} / 비강남 {denoms['n_l4']:,} = 총 {denoms['n_total']:,}")
+        L.append("")
+
+        # (1) 매장 위치 기준 — POI가 어느 동에 있는지로 그룹
+        L.append("**[매장 위치 기준]** 정책 대상 카테고리 (식사·카페·디저트·여가) 매출:")
+        L.append("")
+        sales_poi = s.run("""
+            MATCH (:Agent)-[:HAS_PLAN {day: date($d)}]->(:Plan)
               -[i:INCLUDES]->(p:POI {type:'commerce'})
-            WHERE i.category IN ['카페','디저트']
-            RETURN dist.code AS dist, sum(coalesce(i.actual_spent,0)) AS spend,
-                   count(*) AS n
-        """, d=day).data()
-        gn = next((r for r in sales if r["dist"] == "11680"), None)
-        ng_spend = sum(r["spend"] for r in sales if r["dist"] != "11680")
-        ng_n = sum(r["n"] for r in sales if r["dist"] != "11680")
-        L.append("정책 대상 카테고리 (카페·디저트) 매출:")
-        L.append("")
-        L.append("| 자치구 | 매출 | 이벤트 수 |")
+              -[:IN_DONG]->(pd:Dong)<-[:HAS_DONG]-(pgu:District)
+            WHERE i.category IN ['식사','카페','디저트','여가']
+            WITH pd.name AS dong, pgu.name AS gu, i
+            RETURN
+              sum(CASE WHEN dong IN $l1 THEN coalesce(i.actual_spent,0) ELSE 0 END) AS s_l1,
+              sum(CASE WHEN dong IN $l2 THEN coalesce(i.actual_spent,0) ELSE 0 END) AS s_l2,
+              sum(CASE WHEN gu = '강남구' AND NOT dong IN ($l1 + $l2) THEN coalesce(i.actual_spent,0) ELSE 0 END) AS s_l3,
+              sum(CASE WHEN gu <> '강남구' THEN coalesce(i.actual_spent,0) ELSE 0 END) AS s_l4,
+              sum(CASE WHEN dong IN $l1 THEN 1 ELSE 0 END) AS n_l1,
+              sum(CASE WHEN dong IN $l2 THEN 1 ELSE 0 END) AS n_l2
+        """, d=day, l1=l1_dongs, l2=l2_dongs).single()
+        L.append("| 매장 위치 | 매출 | 거래 수 |")
         L.append("|---|---:|---:|")
-        if gn:
-            L.append(f"| **강남 (정책 대상)** | {gn['spend']:,}원 | {gn['n']:,} |")
-        L.append(f"| 비강남 (대조군) | {ng_spend:,}원 | {ng_n:,} |")
-        # 1인당으로 환산 (강남 14,560 × ~12.5% = 1,820명 / 비강남 12,740명 추정)
-        gn_per = (gn["spend"] / 1820) if gn else 0
-        ng_per = ng_spend / 12740
+        L.append(f"| **L1 사업 구간 매장** (역삼1·2·도곡1) | {sales_poi['s_l1']:,}원 | {sales_poi['n_l1']:,} |")
+        L.append(f"| **L2 도보권 매장** (도곡2·삼성1·2·논현1·2) | {sales_poi['s_l2']:,}원 | {sales_poi['n_l2']:,} |")
+        L.append(f"| 강남 비도보권 매장 | {sales_poi['s_l3']:,}원 | — |")
+        L.append(f"| 비강남 매장 | {sales_poi['s_l4']:,}원 | — |")
         L.append("")
-        L.append(f"- 강남 1인당 ~{gn_per:,.0f}원 / 비강남 1인당 ~{ng_per:,.0f}원")
-        diff_pct = (gn_per - ng_per) / max(ng_per, 1) * 100
+
+        # (2) 거주지 기준 — agent 거주 동으로 그룹 (외출 의지·spillover 측정)
+        L.append("**[거주지 기준]** 카페·디저트 외출 1인당 매출:")
+        L.append("")
+        sales_res = s.run("""
+            MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(d:Dong)
+              <-[:HAS_DONG]-(dist:District)
+            OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($d)}]->(:Plan)
+              -[i:INCLUDES]->(:POI {type:'commerce'})
+            WITH a, d.name AS dong, dist.name AS gu,
+                 sum(CASE WHEN i.category IN ['카페','디저트'] THEN coalesce(i.actual_spent,0) ELSE 0 END) AS spent
+            RETURN
+              sum(CASE WHEN dong IN $l1 THEN spent ELSE 0 END) AS s_l1,
+              sum(CASE WHEN dong IN $l2 THEN spent ELSE 0 END) AS s_l2,
+              sum(CASE WHEN gu = '강남구' AND NOT dong IN ($l1 + $l2) THEN spent ELSE 0 END) AS s_l3,
+              sum(CASE WHEN gu <> '강남구' THEN spent ELSE 0 END) AS s_l4
+        """, d=day, l1=l1_dongs, l2=l2_dongs).single()
+
+        def _per(spend, n):
+            return (spend / n) if n > 0 else 0
+        per_l1 = _per(sales_res['s_l1'], denoms['n_l1'])
+        per_l2 = _per(sales_res['s_l2'], denoms['n_l2'])
+        per_l3 = _per(sales_res['s_l3'], denoms['n_l3'])
+        per_l4 = _per(sales_res['s_l4'], denoms['n_l4'])
+
+        L.append("| 거주 그룹 | 매출 | 분모(실측) | 1인당 |")
+        L.append("|---|---:|---:|---:|")
+        L.append(f"| **L1 사업 구간 거주** | {sales_res['s_l1']:,}원 | {denoms['n_l1']:,} | {per_l1:,.0f}원 |")
+        L.append(f"| **L2 도보권 거주** | {sales_res['s_l2']:,}원 | {denoms['n_l2']:,} | {per_l2:,.0f}원 |")
+        L.append(f"| 강남 비도보권 거주 | {sales_res['s_l3']:,}원 | {denoms['n_l3']:,} | {per_l3:,.0f}원 |")
+        L.append(f"| 비강남 거주 (Control) | {sales_res['s_l4']:,}원 | {denoms['n_l4']:,} | {per_l4:,.0f}원 |")
+        L.append("")
+
+        # 격차 계산 — Control(L4) 대비
+        d_l1 = (per_l1 - per_l4) / max(per_l4, 1) * 100
+        d_l2 = (per_l2 - per_l4) / max(per_l4, 1) * 100
+        d_l3 = (per_l3 - per_l4) / max(per_l4, 1) * 100
         if is_baseline:
-            if abs(diff_pct) > 30:
-                L.append(f"⚠️ baseline 일자인데 강남이 비강남 대비 **{diff_pct:+.1f}%** — "
-                         f"인구·소득 분포 효과로 일부 차이는 정상, 30%↑이면 점검 필요")
-            else:
-                L.append(f"✅ baseline 일자, 강남·비강남 격차 {diff_pct:+.1f}% (정상 범위)")
+            L.append(f"✓ baseline 일자 — 각 그룹의 *cohort 격차* (정책 효과 X, DID 분석에서 cancel out):")
+            L.append(f"  · L1 vs Control: {d_l1:+.1f}%")
+            L.append(f"  · L2 vs Control: {d_l2:+.1f}%  ← spillover 측정 기준선")
+            L.append(f"  · 강남 비도보권 vs Control: {d_l3:+.1f}%")
         else:
-            L.append(f"📊 정책 활성 일자, 격차 {diff_pct:+.1f}% (이게 정책 효과)")
+            L.append(f"📊 정책 활성 일자 — Control 대비 격차:")
+            L.append(f"  · **L1 (direct + spillover)**: {d_l1:+.1f}%")
+            L.append(f"  · **L2 (순수 spillover)**: {d_l2:+.1f}%  ← 민주님 자료 핵심 지표")
+            L.append(f"  · 강남 비도보권: {d_l3:+.1f}%  ← 정책 인지권 밖이지만 강남 거주")
+            L.append(f"  · (DID 분석: baseline 일자의 동일 격차와 비교해서 변화량이 정책 효과)")
         L.append("")
 
         # 10-E. 새 필드 적재율 (v3 5개 필드 + Night reasoning)

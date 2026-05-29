@@ -91,7 +91,10 @@ def fetch_agents(s):
               home.name AS home_poi_name, home.lon AS home_lon, home.lat AS home_lat,
               work.id AS work_poi_id, work.name AS work_poi_name,
               work.lon AS work_lon, work.lat AS work_lat,
-              wr.commute_min AS commute
+              wr.commute_min AS commute,
+              (EXISTS {(a)-[:PARTICIPATES_IN]->(:Conversation {intent:'약속'})}
+               OR EXISTS {(a)-[:HAS_PLAN]->(:Plan)-[i2:INCLUDES]->()
+                          WHERE i2.trigger IN ['약속','appointment']}) AS has_appointment
             ORDER BY suffix
             LIMIT $limit
         """, dc=dist_code, limit=limit)
@@ -119,6 +122,7 @@ def fetch_timeline(s, agent_ids: list[str]):
         MATCH (a:Agent)-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->(poi:POI)
         WHERE a.id IN $aids AND toString(p.day) IN $days
         OPTIONAL MATCH (poi)-[:IN_CATEGORY]->(c:Category)
+        OPTIONAL MATCH (poi)-[:IN_DONG]->(pd:Dong)
         RETURN a.id AS aid, p.day AS day, i.order AS ord,
                toString(i.time) AS time, i.anchor AS anchor,
                i.category AS cat, i.sub_category AS sub_cat,
@@ -128,7 +132,7 @@ def fetch_timeline(s, agent_ids: list[str]):
                i.pick_reason AS pick_reason, i.pick_factor AS pick_factor,
                poi.id AS poi_id, poi.name AS poi_name,
                poi.lon AS lon, poi.lat AS lat, poi.type AS poi_type,
-               c.parent AS l1
+               c.parent AS l1, pd.name AS dong
     """, aids=agent_ids, days=DAYS)
 
     # agent별 시간순 이벤트 list
@@ -146,7 +150,7 @@ def fetch_timeline(s, agent_ids: list[str]):
             "pick_reason": r["pick_reason"], "pick_factor": r["pick_factor"],
             "poi_id": r["poi_id"], "poi_name": r["poi_name"] or "",
             "lon": r["lon"], "lat": r["lat"],
-            "poi_type": r["poi_type"], "l1": r["l1"],
+            "poi_type": r["poi_type"], "l1": r["l1"], "dong": r["dong"],
         })
     # 시간순 정렬
     for aid in by_agent:
@@ -181,6 +185,7 @@ def fetch_timeline(s, agent_ids: list[str]):
                         "lon": current["lon"], "lat": current["lat"],
                         "cat": current.get("cat") or "집",
                         "l1": current.get("l1"),
+                        "dong": current.get("dong"),
                         "intent": current["intent"],
                         "sat": current["sat"],
                         "spent": current.get("spent") or 0,

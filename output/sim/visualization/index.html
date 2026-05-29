@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<title>서울 상권정책 시뮬 — 풀런 7일 (Qwen3-14B + 강남 카페·디저트 바우처) · 25개 자치구 표본</title>
+<title>서울 상권정책 시뮬 — 풀런 5일 (Qwen3-14B + 강남역–역삼역 보행친화거리 P008) · 25개 자치구 표본</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -65,7 +65,7 @@
 <div id="map"></div>
 
 <div class="panel" id="info">
-  <h3>🏙️ Seoul Sim — 풀런 7일 (Qwen3-14B)</h3>
+  <h3>🏙️ Seoul Sim — 풀런 5일 (Qwen3-14B)</h3>
   <div class="row"><span class="label">현재 프레임</span><span class="val" id="frame-label">-</span></div>
   <div class="row"><span class="label">활동 agent</span><span class="val" id="active-cnt">-</span></div>
   <div class="row"><span class="label">표본 자치구</span><span class="val">25개구 균등</span></div>
@@ -84,7 +84,8 @@
     <select id="color-mode">
       <option value="dist">자치구별</option>
       <option value="cat">카테고리별</option>
-      <option value="policy">정책 대상 vs 외</option>
+      <option value="policy">정책 구간 vs 외</option>
+      <option value="appointment">약속 있는 agent</option>
     </select>
   </div>
   <div style="margin:6px 0;">
@@ -196,7 +197,8 @@ const COLORS_L1 = {
   '건강': '#06d6a0', '교육': '#118ab2', '기타': '#888',
   '집': '#555', '직장': '#777',
 };
-const POLICY_TARGETS = new Set(['식사','카페','디저트']);
+// P008 보행친화거리 사업 구간 (역삼1·역삼2·도곡1동) — POI가 위치한 동 기준
+const POLICY_DONGS = new Set(['역삼1동','역삼2동','도곡1동']);
 
 let AGENTS = [], TIMELINE = [], MEMORIES = {}, EVENTS = {};
 let agentById = {}, markers = {};
@@ -332,9 +334,14 @@ function updateLegend() {
   } else if (mode === 'cat') {
     el.innerHTML = Object.entries(COLORS_L1).slice(0, 12).map(([k,v]) =>
       `<div class="item"><span class="dot" style="background:${v}"></span>${k}</div>`).join('');
+  } else if (mode === 'appointment') {
+    el.innerHTML = `
+      <div class="item"><span class="dot" style="background:#9d4edd"></span>약속 있는 agent (약속 잡음/약속 외출)</div>
+      <div class="item"><span class="dot" style="background:#888"></span>약속 없음</div>
+    `;
   } else {
     el.innerHTML = `
-      <div class="item"><span class="dot" style="background:#e76f51"></span>정책 대상 (식사·카페·디저트)</div>
+      <div class="item"><span class="dot" style="background:#e76f51"></span>정책 구간 POI 방문 (역삼1·2·도곡1동)</div>
       <div class="item"><span class="dot" style="background:#888"></span>그 외</div>
     `;
   }
@@ -366,7 +373,9 @@ function setFrame(idx) {
       // 활동 없음 = 집에 있음 — 활성 agent와 동일 투명도/크기
       m.setLatLng([ag.home_lat, ag.home_lon]);
       // 색상은 자치구 기본 (활성 색상 모드와 일관)
-      const homeColor = COLORS_DIST[ag.dist_code] || '#888';
+      const homeColor = (mode === 'appointment')
+        ? (ag.has_appointment ? '#9d4edd' : '#888')
+        : (COLORS_DIST[ag.dist_code] || '#888');
       m.setStyle({ color: homeColor, fillColor: homeColor,
                    fillOpacity: 0.85, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
       return;
@@ -377,7 +386,8 @@ function setFrame(idx) {
     let color;
     if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
     else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
-    else color = POLICY_TARGETS.has(pos.cat) || POLICY_TARGETS.has(pos.l1) ? '#e76f51' : '#888';
+    else if (mode === 'appointment') color = ag.has_appointment ? '#9d4edd' : '#888';
+    else color = POLICY_DONGS.has(pos.dong) ? '#e76f51' : '#888';
     m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
   });
 

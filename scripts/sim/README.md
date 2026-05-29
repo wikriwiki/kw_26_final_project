@@ -91,7 +91,7 @@ python scripts/sim/build_standalone_html.py
 | `night_interaction.py` | Phase 2 — 상호작용 대상 선정 (Exposure·Relationship·Urgency 3축 + 그리디 매칭) |
 | `night_intent_llm.py` | Phase 2 — 의도 분류 LLM **v2** (약속/이슈/추천/기타) + Conversation·Memory{rumor} 적재. 약속은 `target_day_offset` + `should_inject=true` 로 다음날 Dawn ④에서 자동 주입 |
 
-> Night Phase 2의 상세 설계는 [`docs/NIGHT_INTERACTION_REPORT.md`](../../docs/NIGHT_INTERACTION_REPORT.md), 노션 다이어그램 12박스 ↔ 코드 1:1 매핑은 [`docs/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/NIGHT_NOTION_DIAGRAM_MAPPING.md) 참고. 의도분류 v2 정합 적용 완료 (2026-05).
+> Night Phase 2의 상세 설계는 [`docs/design/NIGHT_INTERACTION_REPORT.md`](../../docs/design/NIGHT_INTERACTION_REPORT.md), 노션 다이어그램 12박스 ↔ 코드 1:1 매핑은 [`docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md) 참고. 의도분류 v2 정합 적용 완료 (2026-05).
 
 ### Policy Pipeline (외부 모듈) — 시뮬 Dawn에 자동 연결
 
@@ -200,12 +200,12 @@ python scripts/sim/night_intent_llm.py \
 
 | 문서 | 내용 |
 |---|---|
-| [`docs/NEO4J_SETUP_GUIDE.md`](../../docs/NEO4J_SETUP_GUIDE.md) | Neo4j Day 0 환경·DDL·적재 통합 가이드 |
-| [`docs/NIGHT_INTERACTION_REPORT.md`](../../docs/NIGHT_INTERACTION_REPORT.md) | Night Phase 2 통합 보고 (v2 의도분류 정합 반영) |
-| [`docs/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/NIGHT_NOTION_DIAGRAM_MAPPING.md) | 노션 다이어그램 12박스 ↔ 코드 1:1 매핑 |
+| [`docs/guides/NEO4J_SETUP_GUIDE.md`](../../docs/guides/NEO4J_SETUP_GUIDE.md) | Neo4j Day 0 환경·DDL·적재 통합 가이드 |
+| [`docs/design/NIGHT_INTERACTION_REPORT.md`](../../docs/design/NIGHT_INTERACTION_REPORT.md) | Night Phase 2 통합 보고 (v2 의도분류 정합 반영) |
+| [`docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md) | 노션 다이어그램 12박스 ↔ 코드 1:1 매핑 |
 | [`scripts/policy_pipeline/`](../policy_pipeline/) | 정책 주입 파이프라인 (자연어 .txt watchdog + LLM 추출 + 검증 + Neo4j 적재) |
 | [`SETUP.md`](../../SETUP.md) | 전체 설치·실행 통합 가이드 (정책 파이프라인 포함) |
-| [`docs/SGLANG_MIGRATION.md`](../../docs/SGLANG_MIGRATION.md) | vLLM → SGLang 마이그레이션 (RadixAttention·structured output) |
+| [`docs/archive/SGLANG_MIGRATION.md`](../../docs/archive/SGLANG_MIGRATION.md) | vLLM → SGLang 마이그레이션 (RadixAttention·structured output) |
 | [`docs/schedule_generation_plan/agent_ontology.md`](../../docs/schedule_generation_plan/agent_ontology.md) | 정적 노드 5종 + 엣지 명세 |
 | [`docs/schedule_generation_plan/runtime_ontology.md`](../../docs/schedule_generation_plan/runtime_ontology.md) | 런타임 노드 5종 (State/Plan/Memory/Conversation/Policy) + 엣지 |
 

@@ -298,58 +298,64 @@ def ask(data: dict, question: str, temperature: float = 0.7) -> str:
 # ═══════════════════════════════════════════════════════════════
 # 군집 대표 추출 (긍정/부정/변화없음)
 # ═══════════════════════════════════════════════════════════════
+# P008 보행친화거리 사업 구간 (직접 정책 대상 동)
+POLICY_L1_DONGS = ["역삼1동", "역삼2동", "도곡1동"]
+
+
 def find_label_sample(label: str, last_day: str) -> str | None:
     """label ∈ {positive, negative, neutral}.
 
-    APOC 미설치 환경 호환:
-      positive: policy_used가 빈 JSON 아님 + mood >= 0.6 (정책 사용 + 만족)
-      negative: policy_used = '{}' or null + mood <= 0.4
-      neutral : policy_used = '{}' or null + mood 0.4~0.6
-    Python으로 JSON 파싱해서 total 계산 — Cypher는 raw 가져오기만.
+    P008 은 type=facility(보행친화거리) 정책으로 금전 혜택(policy_used)이 없다.
+    따라서 '정책 사용액·mood' 기준 대신 *정책 구간(L1) 방문 + 만족도* 로 라벨링:
+      positive: 정책 구간(L1) 2회 이상 방문 + 평균 만족도 상위 → "보행환경 개선 수혜·만족"
+      negative: 정책 구간 미방문 + 평균 만족도 하위 → "정책 무관·불만"
+      neutral : 정책 구간 미방문 + 평균 만족도 중간
+    만족도 분포(p10=0.50·p50=0.59·p90=0.68) 기준으로 임계값 설정.
     """
-    import json as _json
     if label not in ("positive", "negative", "neutral"):
         return None
     with driver_session() as s:
-        # 일단 후보 풀 (당일 State 있는 강남 거주 agent 중심)
-        rows = s.run("""
-            MATCH (a:Agent)-[:HAS_STATE]->(s:State)
-            WHERE toString(s.day) = $d
-              AND s.mood IS NOT NULL
-            RETURN a.id AS id, s.mood AS mood, s.policy_used AS pu
-            LIMIT 5000
-        """, d=last_day).data()
-    candidates = []
-    for r in rows:
-        used_total = 0
-        pu = r.get("pu")
-        if pu and pu != "{}":
-            try:
-                d = _json.loads(pu) if isinstance(pu, str) else pu
-                if isinstance(d, dict):
-                    used_total = sum(v for v in d.values() if isinstance(v, (int, float)))
-            except Exception:
-                pass
-        mood = r["mood"]
-        if label == "positive" and used_total >= 30000 and mood >= 0.6:
-            candidates.append(r["id"])
-        elif label == "negative" and used_total == 0 and mood <= 0.4:
-            candidates.append(r["id"])
-        elif label == "neutral" and used_total == 0 and 0.4 < mood < 0.6:
-            candidates.append(r["id"])
-    if not candidates:
-        # 완화 fallback — 조건 약하게
         if label == "positive":
-            candidates = [r["id"] for r in rows
-                          if r.get("pu") and r["pu"] != "{}" and r["mood"] >= 0.55]
+            # 강남구 거주 + 정책구간(L1) 방문 — 거주·활동 모두 정책 지역이라 위치 혼동 없음
+            rows = s.run("""
+                MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)
+                      <-[:HAS_DONG]-(:District {name:'강남구'})
+                MATCH (a)-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->(:POI)-[:IN_DONG]->(d:Dong)
+                WHERE p.day >= date('2026-05-20') AND d.name IN $l1
+                  AND i.actual_satisfaction IS NOT NULL
+                WITH a, avg(i.actual_satisfaction) AS sat, count(i) AS visits
+                WHERE visits >= 2 AND sat >= 0.6
+                RETURN a.id AS id ORDER BY visits DESC, sat DESC LIMIT 50
+            """, l1=POLICY_L1_DONGS).data()
         elif label == "negative":
-            candidates = [r["id"] for r in rows if r["mood"] <= 0.45]
-        else:
-            candidates = [r["id"] for r in rows if 0.45 < r["mood"] < 0.55]
-    if not candidates:
+            # agent별 평균 만족도가 0.57 근처 집중 → 임계값 대신 하위 정렬로 추출
+            rows = s.run("""
+                MATCH (a:Agent)-[:HAS_PLAN]->(:Plan)-[i:INCLUDES]->(:POI)
+                WHERE i.actual_satisfaction IS NOT NULL
+                WITH a, avg(i.actual_satisfaction) AS sat, count(i) AS n
+                WHERE n >= 3
+                  AND NOT EXISTS {
+                    MATCH (a)-[:HAS_PLAN]->(:Plan)-[:INCLUDES]->(:POI)-[:IN_DONG]->(dd:Dong)
+                    WHERE dd.name IN $l1
+                  }
+                RETURN a.id AS id ORDER BY sat ASC LIMIT 50
+            """, l1=POLICY_L1_DONGS).data()
+        else:  # neutral
+            rows = s.run("""
+                MATCH (a:Agent)-[:HAS_PLAN]->(:Plan)-[i:INCLUDES]->(:POI)
+                WHERE i.actual_satisfaction IS NOT NULL
+                WITH a, avg(i.actual_satisfaction) AS sat
+                WHERE sat >= 0.55 AND sat <= 0.62
+                  AND NOT EXISTS {
+                    MATCH (a)-[:HAS_PLAN]->(:Plan)-[:INCLUDES]->(:POI)-[:IN_DONG]->(dd:Dong)
+                    WHERE dd.name IN $l1
+                  }
+                RETURN a.id AS id LIMIT 100
+            """, l1=POLICY_L1_DONGS).data()
+    if not rows:
         return None
     import random as _random
-    return _random.choice(candidates)
+    return _random.choice([r["id"] for r in rows])
 
 
 # ═══════════════════════════════════════════════════════════════

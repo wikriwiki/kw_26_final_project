@@ -38,6 +38,15 @@ RETURN
   a.personal_job_raw AS job,
   a.pr_spending_tendency AS tendency,
   a.personality_lifestyle_raw AS lifestyle,
+  // NVIDIA Nemotron 봉합 페르소나 필드 (load_fusion_to_neo4j.py 로 적재됨, 미적재 시 NULL)
+  a.nvidia_summary AS nv_summary,
+  a.nvidia_hobbies AS nv_hobbies,
+  a.nvidia_cultural_background AS nv_cultural,
+  a.nvidia_education_level AS nv_education,
+  a.nvidia_marital_status AS nv_marital,
+  a.nvidia_family_type AS nv_family,
+  a.nvidia_career_goals AS nv_career,
+  a.nvidia_skills AS nv_skills,
   a.s_daily_wd AS daily_wd,
   a.s_daily_we AS daily_we,
   a.spending_we_wd_ratio AS we_wd_ratio,
@@ -313,6 +322,10 @@ def _format_persona(p: dict) -> str:
         lines.append("직장: 없음")
     if lifestyle:
         lines.append(f"라이프스타일: {lifestyle}")
+    # NVIDIA 봉합 결과는 personality_lifestyle_raw 한 줄(200자)에 응축되어 있음 (가이드 §7).
+    # 그 외 풍부 필드(summary/hobbies/cultural/career/skills/education/marital/family)는
+    # Neo4j 에 보존되어 인터뷰·시각화·사후 분석에서 활용되지만, Stage 1 reasoning 프롬프트
+    # 에는 토큰 절감을 위해 노출하지 않는다.
     return "\n".join(lines)
 
 

@@ -163,8 +163,11 @@ VWorld API로 주소 → 위경도. `cache.sqlite` 에 결과 영속화.
 ## 참고 문서
 
 - [SETUP.md](SETUP.md) — 환경 셋업·실행 절차
+- [docs/guides/](docs/guides/) — Neo4j 셋업·페르소나 실행 가이드
+- [docs/design/](docs/design/) — 설계·정책 계약·Night/온톨로지
 - [docs/schedule_generation_plan/](docs/schedule_generation_plan/) — 시뮬 설계·온톨로지
+- [docs/archive/](docs/archive/) — 일회성 결과·디버그·폐기 문서(파일럿·폴백 등)
 - [docs/BDC/](docs/BDC/) — BDC 데이터 핸들링 결정·런북
-- [output/sim/report/FINAL_REPORT_7D.md](output/sim/report/FINAL_REPORT_7D.md) — 최신 7일 풀런 결과
+- [output/sim/report/FINAL_REPORT_5D_FULL.md](output/sim/report/FINAL_REPORT_5D_FULL.md) — 최신 5일 풀런 최종 보고서(인터뷰·부록 A~D)
 - [scripts/bdc/README.md](scripts/bdc/README.md) — Agent Persona Pipeline (전처리→통계→생성→검증)
 - [scripts/policy_pipeline/README.md](scripts/policy_pipeline/README.md) — 정책 인제스션 파이프라인
