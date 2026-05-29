@@ -45,8 +45,11 @@ except ImportError:
 class Stage2Pick(BaseModel):
     order: int
     poi_id: str
-    actual_spent: float | None = None        # LLM이 설정 (원, 양수)
+    actual_spent: float | None = None        # LLM이 설정 (원, 양수, 총 소비액)
     actual_satisfaction: float | None = None # LLM이 설정 (0~1)
+    # actual_spent 중 정책 지원금에서 사용한 금액 — {"P009": 5000} 형태.
+    # 평소 잔액으로 쓴 부분 = actual_spent - sum(policy_spend.values())
+    policy_spend: dict[str, float] | None = None
     pick_reason: str | None = None
     pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | random
 
@@ -264,12 +267,20 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 최근 3일 이내 방문한 POI(⚠️ 표시)는 특별한 사유 없이 재선택하지 마세요.
 - 같은 날 여러 이벤트가 있을 때 동일 POI를 두 번 선택하지 마세요.
 
-**소비액 설정 (actual_spent)**
-- 에이전트의 일일 예산(daily_wd)과 페르소나 소비 성향을 종합해 오늘 방문하는 commerce POI에 자유롭게 배분합니다.
-- 정책 지원금/쿠폰 잔액이 있으면 그 범위 안에서 적극 활용해 추가 소비도 고려합니다.
-  · 지원금이 들어왔다면 단순히 잔액에 합치지 말고, '평소 daily_wd 외 추가로 쓰는 돈'으로 분리해서 사고합니다.
-  · 절약형 페르소나는 지원금 일부만 쓰고 일부는 절약, 소비형은 더 적극 활용.
-- 단가는 POI 카테고리 일반 통념이 아니라 페르소나·상황·가게 종류에 맞춰 자유롭게 정합니다.
+**소비액 설정 (actual_spent + policy_spend)**
+- `actual_spent`: 이 거래의 총 소비액 (원, 양수). 평소 잔액 + 정책 지원금 합계.
+- `policy_spend`: 그 중 정책 지원금에서 쓴 금액 분리. `{"P009": 5000}` 형태.
+  · 정책 지원금을 안 쓴 거래는 null 또는 `{}`.
+  · 한 거래에서 여러 정책 동시 사용 가능 (드물지만): `{"P009": 3000, "P008": 2000}`.
+  · sum(policy_spend.values()) ≤ actual_spent 이어야 함.
+  · sum(policy_spend.values()) ≤ 해당 정책의 잔여 가용액 이어야 함 (정책 예산 헤더 참조).
+
+소비 결정 방식:
+- 에이전트의 일일 예산(daily_wd)과 페르소나 소비 성향을 종합해 자유롭게 배분합니다.
+- 정책 지원금이 있으면 평소 daily_wd 외 추가 가용액으로 분리해서 사고합니다.
+  · 절약형 페르소나: 지원금 일부만 쓰고 남김 (잔여 확보) — 거래에 policy_spend 적게 또는 안 함.
+  · 소비형 페르소나: 지원금 적극 활용 — 거래에 policy_spend 비중 ↑.
+- 단가는 POI 카테고리 통념이 아니라 페르소나·상황·가게 종류로 자유 결정.
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
 
 **만족도 설정 (actual_satisfaction)**
@@ -284,8 +295,18 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
     "order": 0,
     "poi_id": "C_xxxxxx",
     "actual_spent": 12000,
+    "policy_spend": null,
     "actual_satisfaction": 0.71,
     "pick_reason": "단골 한식집. 어제 sat 0.72로 만족도 높음. 직장 0.05km. 평소 한식 즐겨 찾는 성향.",
+    "pick_factor": "satisfaction"
+  },
+  {
+    "order": 2,
+    "poi_id": "C_yyyyyy",
+    "actual_spent": 25000,
+    "policy_spend": {"P009": 15000},
+    "actual_satisfaction": 0.68,
+    "pick_reason": "P009 지원금으로 평소 못 가본 카페 시도. 페르소나 소비형이라 grant 적극 활용.",
     "pick_factor": "satisfaction"
   }
 ]}
@@ -587,6 +608,8 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
             "with_agents": ev.with_agents or [],
             "actual_satisfaction": pick_obj.actual_satisfaction if pick_obj else None,
             "actual_spent": pick_obj.actual_spent if pick_obj else 0,
+            # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
+            "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
             # ───── 사고과정 흔적 (인터뷰용) ─────
             "reasoning": ev.reasoning,                 # Stage 1: 왜 이 의도·카테고리·anchor
             "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...

@@ -68,7 +68,9 @@ MATCH (a:Agent {id: $aid})-[:HAS_STATE {day: $yesterday}]->(s:State)
 RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.fatigue AS fatigue, s.yesterday_satisfaction AS yest_sat,
        s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc,
-       s.policy_used AS policy_used
+       s.policy_used AS policy_used,
+       s.grant_received AS grant_received,
+       s.grant_remaining AS grant_remaining
 """
 
 

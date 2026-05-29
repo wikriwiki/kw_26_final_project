@@ -57,6 +57,7 @@ from plan_writer import (  # noqa: E402
     night_finalize_yesterday, night_create_state,
     apply_grant_to_prev_state, get_grant_amount,
     _grant_for_single_policy,
+    aggregate_policy_spend, validate_policy_spend,
 )
 
 
@@ -99,33 +100,40 @@ def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[s
 # 한 agent의 1일 처리 (스레드 워커)
 # =========================================================
 def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: dict[str, int] | None,
-                                  grants_applied_today: dict[str, int] | None = None) -> str:
+                                  grants_applied_today: dict[str, int] | None = None,
+                                  grant_remaining: dict[str, int] | None = None) -> str:
     """Stage2 LLM에 노출할 정책 예산 요약 텍스트.
 
     - subsidy/voucher: 잔여 cap = cap - used
-    - grant: 오늘 받은 지원금 명시 (잔액에 이미 반영됐어도 'P009로 25만원 받음'을 별도로 알림)
+    - grant: 오늘 받은 지원금 + 누적 잔여액 명시 (LLM이 거래별 policy_spend 분리할 때 참조)
     """
     if not policies:
         return ""
     used = prev_policy_used or {}
     grants_today = grants_applied_today or {}
+    remaining = grant_remaining or {}
     lines = []
     for pol in policies:
         pid = pol.get("id") or ""
         name = pol.get("name") or pid
         ptype = pol.get("type") or ""
-        # grant — 오늘 받은 지원금 강조
-        if ptype == "grant" and pid in grants_today:
-            amt = grants_today[pid]
-            lines.append(f"{pid}({name}): 오늘 지원금 +{amt:,}원 (잔액에 반영됨, 추가 가용 예산)")
+        # grant — 오늘 받은 지원금 + 잔여
+        if ptype == "grant":
+            today_amt = grants_today.get(pid, 0)
+            rem = remaining.get(pid, 0)
+            parts = []
+            if today_amt > 0:
+                parts.append(f"오늘 +{today_amt:,}원")
+            parts.append(f"누적 잔여 {rem:,}원")
+            lines.append(f"{pid}({name}) [grant]: {' / '.join(parts)} — 거래에서 policy_spend로 사용 가능")
             continue
         # subsidy/voucher — 잔여 cap
         cap = pol.get("cap") or 0
         rate = pol.get("rate") or 0.0
         if cap > 0 and rate > 0:
             spent = used.get(pid, 0)
-            remaining = max(0, cap - spent)
-            lines.append(f"{pid}({name}): 환급률 {int(rate*100)}% / 한도 {cap:,}원 / 사용 {spent:,}원 / 잔여 {remaining:,}원")
+            rem_sub = max(0, cap - spent)
+            lines.append(f"{pid}({name}) [subsidy {int(rate*100)}%]: 한도 {cap:,}원 / 사용 {spent:,}원 / 잔여 {rem_sub:,}원")
     return " | ".join(lines)
 
 
@@ -201,21 +209,62 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         merged_grant_received = dict(prev_grant_received)
         for pid, amt in grants_applied_today.items():
             merged_grant_received[pid] = merged_grant_received.get(pid, 0) + amt
+        # 어제 grant_remaining 파싱 (Stage2 LLM에 노출할 잔여 grant)
+        import json as _json_dawn
+        raw_rem = (ctx.state or {}).get("grant_remaining") or "{}"
+        try:
+            prev_grant_remaining_for_budget = _json_dawn.loads(raw_rem) if isinstance(raw_rem, str) else (raw_rem or {})
+            if not isinstance(prev_grant_remaining_for_budget, dict):
+                prev_grant_remaining_for_budget = {}
+        except Exception:
+            prev_grant_remaining_for_budget = {}
+        # 오늘 받은 grant 추가 (LLM은 오늘 받음+어제까지 잔여 = 가용액으로 인식)
+        grant_remaining_for_budget = {str(k): int(v) for k, v in prev_grant_remaining_for_budget.items()}
+        for pid, amt in grants_applied_today.items():
+            grant_remaining_for_budget[pid] = grant_remaining_for_budget.get(pid, 0) + int(amt)
         ctx.persona["policy_budget_summary"] = _build_policy_budget_summary(
-            ctx.policy, prev_used_for_budget, grants_applied_today
+            ctx.policy, prev_used_for_budget, grants_applied_today, grant_remaining_for_budget
         )
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
         events = merge_to_final_events(s1, s2, ctx.persona)
 
-        # 정책 cap 잔액 추적 (만족도·소비액은 Stage2 LLM이 설정)
+        # LLM policy_spend 환각 검증 (sum > actual_spent 보정)
+        policy_spend_corrected = validate_policy_spend(events)
+
+        # 오늘 거래별 policy_spend 집계 → 정책별 오늘 사용액
+        today_policy_spend = aggregate_policy_spend(events)
+
+        # 정책 cap 잔액 추적 (subsidy/voucher만 — grant는 policy_spend로 따로 추적)
         prev_policy_used = ctx.get_policy_used()
         updated_policy_used = track_policy_usage(
             events, ctx.persona,
             active_policies=ctx.policy,
             policy_used=prev_policy_used,
         )
+
+        # grant_remaining = 누적 received - 누적 spend
+        # 어제 grant_remaining + 오늘 받은 - 오늘 쓴
+        prev_remaining = _read_grant_received(ctx.state)  # grant_remaining도 같은 파서로
+        # 어제 State에 grant_remaining이 있으면 그걸 베이스, 없으면 받은 만큼
+        prev_state = ctx.state or {}
+        import json as _json
+        raw_remaining = prev_state.get("grant_remaining") or "{}"
+        try:
+            prev_remaining_dict = _json.loads(raw_remaining) if isinstance(raw_remaining, str) else (raw_remaining or {})
+            if not isinstance(prev_remaining_dict, dict):
+                prev_remaining_dict = {}
+        except Exception:
+            prev_remaining_dict = {}
+        merged_grant_remaining: dict[str, int] = {str(k): int(v) for k, v in prev_remaining_dict.items()}
+        # 오늘 받은 grant 추가
+        for pid, amt in grants_applied_today.items():
+            merged_grant_remaining[pid] = merged_grant_remaining.get(pid, 0) + int(amt)
+        # 오늘 사용분 차감 (음수 방지)
+        for pid, amt in today_policy_spend.items():
+            cur = merged_grant_remaining.get(pid, 0)
+            merged_grant_remaining[pid] = max(0, cur - int(amt))
 
         # 활성 정책 카테고리 셋 (오늘 Dawn 컨텍스트에서 추출) — 사후 측정용 라벨
         active_policy_cats: set[str] = set()
@@ -243,6 +292,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             policy_used=updated_policy_used,
             policy_lifecycle=merged_policy_lifecycle,
             grant_received=merged_grant_received,
+            grant_remaining=merged_grant_remaining,
         )
 
         # 만족도 평균
@@ -270,6 +320,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "fatigue": round(state.get("fatigue", 0), 3) if state else None,
             "tokens_in": tokens_in, "tokens_out": tokens_out,
             "policy_hits": policy_hits,
+            # 정책 사용 트래킹 (옵션 A)
+            "grant_applied_today": sum(grants_applied_today.values()),
+            "policy_spend_today": sum(today_policy_spend.values()),
+            "grant_remaining_total": sum(merged_grant_remaining.values()),
+            "policy_spend_corrected": policy_spend_corrected,
             "s1_attempts": m1["attempt"] + 1,
             "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
             # Stage 2 fallback 카운트 (사후 분석용)

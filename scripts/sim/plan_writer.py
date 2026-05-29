@@ -55,6 +55,9 @@ CREATE (p)-[:INCLUDES {
   with_agents: ev.with_agents,
   actual_satisfaction: ev.actual_satisfaction,
   actual_spent: coalesce(ev.actual_spent, 0),
+  // 정책 지원금에서 사용한 금액 JSON 형태 ({"P009": 5000})
+  // 분석 시: 정책별 사용처/누적 사용액 추적 가능
+  spent_from_policy: coalesce(ev.spent_from_policy_json, '{}'),
   // 사고과정 흔적 (인터뷰 가능성 확보용)
   reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
   trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/mood/none
@@ -68,9 +71,14 @@ def write_plan(
     aid: str, today: date, events: list[dict], day_type: str,
     tokens_in: int = 0, tokens_out: int = 0,
 ):
+    import json as _json
     plan_id = f"{aid}_{today.isoformat()}"
     # poi_id가 None인 이벤트는 적재 스킵 (직장 POI 비어있는 경우 등)
-    valid_events = [e for e in events if e.get("poi_id")]
+    valid_events = [dict(e) for e in events if e.get("poi_id")]
+    # policy_spend dict → JSON 문자열로 변환 (Neo4j relationship property는 nested dict 미지원)
+    for ev in valid_events:
+        ps = ev.get("policy_spend") or {}
+        ev["spent_from_policy_json"] = _json.dumps(ps, ensure_ascii=False) if ps else "{}"
     with driver_session() as s:
         s.run(WRITE_PLAN_CYPHER,
               aid=aid, plan_id=plan_id, day=today.isoformat(), day_type=day_type,
@@ -173,6 +181,50 @@ def get_grant_amount(income: str, policies: list[dict]) -> int:
     for pol in policies:
         total += _grant_for_single_policy(income, pol)
     return total
+
+
+def aggregate_policy_spend(events: list[dict]) -> dict[str, int]:
+    """오늘 모든 INCLUDES의 policy_spend 합계 → {정책ID: 오늘 사용액}.
+
+    LLM이 Stage2에서 거래별로 분리해 출력한 policy_spend를 정책별로 누적.
+    grant 잔여액 계산용 (grant_remaining = received - 누적 spend).
+    """
+    out: dict[str, int] = {}
+    for e in events:
+        ps = e.get("policy_spend") or {}
+        if not isinstance(ps, dict):
+            continue
+        for pid, amt in ps.items():
+            try:
+                v = int(amt)
+                if v > 0:
+                    out[str(pid)] = out.get(str(pid), 0) + v
+            except (TypeError, ValueError):
+                continue
+    return out
+
+
+def validate_policy_spend(events: list[dict]) -> int:
+    """LLM 환각 검증: sum(policy_spend) > actual_spent 인 거래는 policy_spend 캡.
+
+    각 이벤트의 policy_spend 총합이 actual_spent를 넘으면 비율 축소.
+    반환: 보정된 거래 수.
+    """
+    corrected = 0
+    for e in events:
+        ps = e.get("policy_spend") or {}
+        if not isinstance(ps, dict) or not ps:
+            continue
+        total = sum(int(v) for v in ps.values() if isinstance(v, (int, float)) and v > 0)
+        spent = e.get("actual_spent") or 0
+        if total > spent and total > 0:
+            # 비율로 축소 (각 정책 사용액을 actual_spent에 맞춰 cap)
+            ratio = spent / total
+            for pid in list(ps.keys()):
+                ps[pid] = max(0, int(ps[pid] * ratio))
+            e["policy_spend"] = {k: v for k, v in ps.items() if v > 0}
+            corrected += 1
+    return corrected
 
 
 def track_policy_usage(
@@ -317,7 +369,8 @@ SET s.agent_id = $aid,
     s.month_spent = prev_month_spent + today_spent,
     s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json,   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
-    s.grant_received = $grant_received_json  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
+    s.grant_received = $grant_received_json,  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
+    s.grant_remaining = $grant_remaining_json // 정책별 grant 잔여액 JSON ({"P009": 175000} — 받은액 - 누적 사용)
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
@@ -329,6 +382,7 @@ def night_create_state(
     policy_used: dict[str, int] | None = None,
     policy_lifecycle: dict[str, bool] | str | None = None,
     grant_received: dict[str, int] | str | None = None,
+    grant_remaining: dict[str, int] | str | None = None,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -337,6 +391,8 @@ def night_create_state(
         Dawn에서 주입된 정책 ID들이 들어옴. 외부에서 안 주면 빈 dict.
     grant_received: 정책별 누적 grant 수령액 dict ({"P009": 250000} 형식).
         resume 시 중복 적용 방지용 — 어제 State에 이미 기록된 정책은 skip.
+    grant_remaining: 정책별 grant 잔여액 dict ({"P009": 175000} 형식).
+        분석용: 받은 grant 중 아직 안 쓴 잔액 추적.
     """
     import json as _json
     yesterday = today - timedelta(days=1)
@@ -349,12 +405,17 @@ def night_create_state(
         grant_json = grant_received
     else:
         grant_json = _json.dumps(grant_received or {}, ensure_ascii=False)
+    if isinstance(grant_remaining, str):
+        grant_rem_json = grant_remaining
+    else:
+        grant_rem_json = _json.dumps(grant_remaining or {}, ensure_ascii=False)
     with driver_session() as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
                   policy_used_json=used_json,
                   policy_lifecycle_json=lifecycle_json,
-                  grant_received_json=grant_json).single()
+                  grant_received_json=grant_json,
+                  grant_remaining_json=grant_rem_json).single()
         return dict(r) if r else {}
 
 
