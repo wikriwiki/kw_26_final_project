@@ -1022,7 +1022,7 @@ def build_html(start: date, days: int, policy_from: str | None,
     )
 
     labels_kr = {"appointment": "약속", "rumor": "소문", "policy": "정책",
-                 "lifestyle": "라이프스타일", "top_category": "Top 카테고리", "mood": "컨디션",
+                 "habit": "습관", "top_category": "Top 카테고리", "mood": "컨디션",
                  "none": "기타"}
     label_kr_intv = {"positive": "정책 적극 활용 + 만족도 ↑",
                      "negative": "정책 무관심 + 만족도 ↓",
@@ -1087,31 +1087,293 @@ def build_html(start: date, days: int, policy_from: str | None,
         if "error" in d:
             interview_html += (
                 f'<div class="interview-card {label}">'
-                f'<span class="label">{_h(label)}</span>'
-                f'<p style="color:var(--neutral-400)">샘플 없음 — {_h(d.get("error",""))}</p>'
+                f'<span class="label-tag">{_h(label)}</span>'
+                f'<p style="color:var(--text-muted)">샘플 없음 — {_h(d.get("error",""))}</p>'
                 f'</div>'
             )
             continue
         p = d["persona"]
-        qa_html = "".join(
-            f'<div class="qa"><div class="q">Q. {_h(qa["q"])}</div>'
-            f'<div class="a">{_h(qa["a"])}</div></div>'
-            for qa in d["qa"]
-        )
+        agent_id = d.get("agent_id", "")
+        label_kr = label_kr_intv.get(label, label)
+        age = p.get("age", "")
+        gender = p.get("gender", "")
+        job = p.get("job", "")
+        home_dong = p.get("home_dong", "")
+        income = p.get("income", "")
+        lifestyle = p.get("lifestyle", "")
+
+        initial_bubbles = ""
+        for qa in d["qa"]:
+            q_text = qa["q"]
+            a_text = qa["a"]
+            initial_bubbles += (
+                f'<div class="chat-bubble user">'
+                f'<div class="meta"><span class="sender">인터뷰어</span></div>'
+                f'<div class="text">{_h(q_text)}</div>'
+                f'</div>'
+                f'<div class="chat-bubble agent">'
+                f'<div class="meta"><span class="sender">에이전트 ({_h(agent_id)})</span></div>'
+                f'<div class="text">{_h(a_text)}</div>'
+                f'</div>'
+            )
+
         interview_html += f"""
-        <div class="interview-card {label}">
-          <span class="label">{_h(label)}</span>
-          <h3 style="margin:0 0 12px 0;color:var(--primary)">
-            {_h(label_kr_intv[label])} <span style="font-weight:400;font-size:13px;color:var(--neutral-400)">— <code>{_h(d['agent_id'])}</code></span>
+        <div class="interview-card {label}" data-agent-id="{_h(agent_id)}">
+          <span class="label-tag">{_h(label)}</span>
+          <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
+            {_h(label_kr)} <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>{_h(agent_id)}</code></span>
           </h3>
           <div class="persona">
-            <strong>페르소나:</strong> {_h(p.get('age'))} {_h(p.get('gender'))}
-            · {_h(p.get('job'))} · {_h(p.get('home_dong'))} 거주 · 소득 {_h(p.get('income'))}<br/>
-            <strong>라이프스타일:</strong> {_h(p.get('lifestyle'))}
+            <strong>페르소나:</strong> {_h(age)} {_h(gender)}
+            · {_h(job)} · {_h(home_dong)} 거주 · 소득 {_h(income)}<br/>
+            <strong>라이프스타일:</strong> {_h(lifestyle)}
           </div>
-          {qa_html}
+
+          <div class="fallback-banner" id="fallback-banner-{label}">
+            <svg viewBox="0 0 20 20"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+            <span>API 서버가 실행 중이지 않아 시뮬레이션 모드로 답변합니다.</span>
+          </div>
+
+          <div class="chat-container">
+            <div class="chat-messages" id="chat-messages-{label}">
+              {initial_bubbles}
+            </div>
+            
+            <div class="typing-indicator" id="typing-indicator-{label}">
+              <span></span><span></span><span></span>
+            </div>
+
+            <div class="chat-input-area">
+              <input type="text" class="chat-input" id="chat-input-{label}" placeholder="{_h(label_kr)} 에이전트에게 질문을 입력해보세요..." />
+              <button class="chat-send-btn" id="chat-send-{label}" onclick="sendChatMessage('{label}')">
+                <svg viewBox="0 0 24 24">
+                  <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
         """
+
+    js_code = """
+    document.addEventListener('DOMContentLoaded', function() {
+      // IntersectionObserver for reveal animations
+      var obs = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) e.target.classList.add('visible');
+        });
+      }, { threshold: 0.1 });
+      document.querySelectorAll('.reveal').forEach(function(el) { obs.observe(el); });
+
+      // Scroll-spy for sidebar navigation
+      var sections = document.querySelectorAll('section[id]');
+      var navLinks = document.querySelectorAll('.sidebar nav a');
+      var spy = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) {
+          if (e.isIntersecting) {
+            navLinks.forEach(function(a) { a.classList.remove('active'); });
+            var link = document.querySelector('.sidebar nav a[href=\"#' + e.target.id + '\"]');
+            if (link) link.classList.add('active');
+          }
+        });
+      }, { rootMargin: '-20% 0px -80% 0px' });
+      sections.forEach(function(s) { spy.observe(s); });
+
+      // Theme toggle functionality
+      var toggleBtn = document.getElementById('theme-toggle');
+      var sunIcon = toggleBtn.querySelector('.sun-icon');
+      var moonIcon = toggleBtn.querySelector('.moon-icon');
+
+      function updateTheme(isLight) {
+        if (isLight) {
+          document.body.classList.add('light-theme');
+          sunIcon.style.display = 'block';
+          moonIcon.style.display = 'none';
+        } else {
+          document.body.classList.remove('light-theme');
+          sunIcon.style.display = 'none';
+          moonIcon.style.display = 'block';
+        }
+      }
+
+      toggleBtn.addEventListener('click', function() {
+        var isLight = !document.body.classList.contains('light-theme');
+        updateTheme(isLight);
+        localStorage.setItem('theme', isLight ? 'light' : 'dark');
+      });
+
+      var savedTheme = localStorage.getItem('theme') || 'dark';
+      updateTheme(savedTheme === 'light');
+
+      // Initialize Chat inputs and scroll to bottom
+      document.querySelectorAll('.chat-input').forEach(function(input) {
+        input.addEventListener('keypress', function(e) {
+          if (e.key === 'Enter') {
+            const label = this.id.replace('chat-input-', '');
+            sendChatMessage(label);
+          }
+        });
+      });
+
+      document.querySelectorAll('.chat-messages').forEach(function(box) {
+        box.scrollTop = box.scrollHeight;
+      });
+    });
+
+    // Send Chat Message
+    window.sendChatMessage = async function(label) {
+      const inputEl = document.getElementById('chat-input-' + label);
+      const messagesEl = document.getElementById('chat-messages-' + label);
+      const sendBtnEl = document.getElementById('chat-send-' + label);
+      const typingEl = document.getElementById('typing-indicator-' + label);
+      const cardEl = messagesEl.closest('.interview-card');
+      const agentId = cardEl.getAttribute('data-agent-id');
+      const text = inputEl.value.trim();
+      
+      if (!text) return;
+      
+      // Clear input and disable UI
+      inputEl.value = '';
+      inputEl.disabled = true;
+      sendBtnEl.disabled = true;
+      
+      // Append user bubble
+      appendBubble(messagesEl, 'user', '인터뷰어', text);
+      
+      // Show typing indicator
+      typingEl.style.display = 'flex';
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      
+      // Prepare chat history
+      const history = getChatHistory(messagesEl);
+      
+      let reply = '';
+      let isFallback = false;
+      
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6s timeout
+        
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            agent_id: agentId,
+            message: text,
+            history: history
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+        
+        if (!response.ok) throw new Error('Server returned error status');
+        const data = await response.json();
+        reply = data.reply;
+      } catch (err) {
+        console.warn('Failed to call API chat backend, using local simulation:', err);
+        isFallback = true;
+        
+        // Add a small natural-feeling delay for fallback thinking
+        await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 800));
+        reply = generateMockReply(label, text);
+      }
+      
+      // Hide typing indicator
+      typingEl.style.display = 'none';
+      
+      // Show warning banner if fallback was used
+      if (isFallback) {
+        const banner = document.getElementById('fallback-banner-' + label);
+        if (banner) banner.style.display = 'flex';
+      }
+      
+      // Append agent reply
+      appendBubble(messagesEl, 'agent', '에이전트 (' + agentId + ')', reply);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      
+      // Re-enable UI
+      inputEl.disabled = false;
+      sendBtnEl.disabled = false;
+      inputEl.focus();
+    };
+
+    function appendBubble(container, role, sender, text) {
+      const bubble = document.createElement('div');
+      bubble.className = 'chat-bubble ' + role;
+      
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      
+      const senderSpan = document.createElement('span');
+      senderSpan.className = 'sender';
+      senderSpan.textContent = sender;
+      
+      const timeSpan = document.createElement('span');
+      const now = new Date();
+      timeSpan.textContent = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+      
+      meta.appendChild(senderSpan);
+      meta.appendChild(timeSpan);
+      
+      const textDiv = document.createElement('div');
+      textDiv.className = 'text';
+      textDiv.textContent = text;
+      
+      bubble.appendChild(meta);
+      bubble.appendChild(textDiv);
+      container.appendChild(bubble);
+    }
+
+    function getChatHistory(messagesEl) {
+      const history = [];
+      messagesEl.querySelectorAll('.chat-bubble').forEach(bubble => {
+        const role = bubble.classList.contains('user') ? 'user' : 'assistant';
+        const text = bubble.querySelector('.text').textContent;
+        history.push({ role: role, content: text });
+      });
+      return history;
+    }
+
+    function generateMockReply(label, text) {
+      const lower = text.toLowerCase();
+      
+      if (label === 'positive') {
+        if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+          return "저는 주로 역삼역 2번 출구 근처의 '블루보틀'을 매일 방문했어요. 분위기가 마음에 들고 바우처 할인이 적용되니까 매일 가기에 정말 좋았거든요!";
+        }
+        if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+          return "바우처 정책 덕분에 30%나 할인받을 수 있었던 건 진짜 최고였어요! 부담 없이 맛있는 음료와 디저트를 마음껏 즐겼습니다.";
+        }
+        if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+          return "네, 직장 동료가 선릉역 주변의 분위기 좋은 디저트 카페를 추천해줘서 다녀왔는데, 바우처 사용이 가능해서 아주 기분 좋게 다녀왔어요.";
+        }
+        return "바우처 혜택 덕분에 최근 제 일상과 카페 탐방에 큰 보탬이 되었답니다. 다음 주에도 이 혜택을 계속 이용할 생각이에요. 혹시 다른 것도 알고 싶으신가요?";
+      } else if (label === 'negative') {
+        if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+          return "저는 굳이 멀리 안 나가고 집 근처 편의점이나 아는 동네 식당 위주로 다녀요. 이동하기 번거로워서 집 주변이 가장 마음 편합니다.";
+        }
+        if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+          return "강남까지 갈 일이 없는 저 같은 거주자들에겐 전혀 혜택이 없었어요. 특정 자치구에만 쏠린 바우처 정책은 실효성이 크지 않다고 봅니다.";
+        }
+        if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+          return "주변 사람들이 아무리 좋다고 추천을 해줘도, 거리가 멀다면 귀찮아서 결국 가던 곳만 가게 되더라고요.";
+        }
+        return "저는 강남까지 갈 동기가 없어서 정책 혜택을 받지 못했어요. 서울시 전반의 균형 잡힌 골목 상권 활성화 정책이 필요하다고 생각합니다.";
+      } else {
+        // neutral
+        if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+          return "저는 특별히 한 가게를 고집하기보다, 학교 근처의 밥집이나 커피점들을 동선 맞춰서 가끔 가는 편이에요.";
+        }
+        if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+          return "정책의 취지는 대충 들었지만, 제가 자주 가는 구역이 아니기도 하고 신청 절차도 눈에 띄지 않아서 굳이 찾아 쓰지는 않았습니다.";
+        }
+        if (lower.includes('친구') || lower.includes('추천') || lower.includes('동료')) {
+          return "가끔 동기들이나 친구들의 추천으로 가까운 음식점에 가거나 약속을 잡을 때는 있어요. 그럴 때는 그냥 무난한 식사를 해요.";
+        }
+        return "특별한 혜택을 직접적으로 느끼진 못했던 기간이었습니다. 정책이 있다는 건 긍정적이지만 저와 같은 동선의 대학원생들에겐 체감이 덜 되는 편이네요.";
+      }
+    }
+    """
 
     # 최종 HTML
     return f"""<!DOCTYPE html>
@@ -1120,19 +1382,25 @@ def build_html(start: date, days: int, policy_from: str | None,
 <meta charset="utf-8"/>
 <title>서울 상권정책 시뮬레이션 — 최종 보고서</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>{HTML_STYLE}</style>
 </head>
 <body>
 <div class="layout">
 
   <aside class="sidebar">
-    <div class="brand">SEOUL POLICY SIMULATION</div>
+    <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+      <div class="brand" style="margin-bottom:0;">SEOUL POLICY SIMULATION</div>
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">
+        <svg class="sun-icon" viewBox="0 0 24 24" style="display:none; width:16px; height:16px;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </div>
     <h2>목차</h2>
     <nav>{nav}</nav>
-    <div style="margin-top:32px; font-size:11px; color:#718096; line-height:1.6">
-      Qwen3-14B-AWQ<br/>
-      Neo4j 5.x<br/>
+    <div class="tech-info">
+      <span>Qwen3-14B-AWQ</span><br/>
+      <span>Neo4j 5.x</span><br/>
       ABM × Generative Agent
     </div>
   </aside>
@@ -1143,24 +1411,36 @@ def build_html(start: date, days: int, policy_from: str | None,
       <h1>서울시 상권 활성화 정책<br/>시뮬레이션 결과 보고서</h1>
       <div class="subtitle">
         <strong>{_h(s1.get('기간'))}</strong> · 에이전트 {n_agent:,}명 · 정책 발효 {_h(s1.get('정책_시행일'))}<br/>
-        강남역–역삼역 보행친화거리 조성사업(P008, 보도 확장·가로 조명·휴식 벤치) 효과 분석
+        강남구 여름 카페·디저트 원소 바우처 (자연어 정책 자동 주입) 효과 분석
       </div>
       <div class="badges">
         <span class="badge alt">Qwen3-14B-AWQ</span>
-        <span class="badge">Neo4j Graph DB</span>
+        <span class="badge purple">Neo4j Graph DB</span>
         <span class="badge">DID 분석</span>
         <span class="badge">설명가능 AI</span>
       </div>
 
       <div class="kpi-grid" style="margin-top:32px;">
-        <div class="kpi"><div class="value">{n_agent:,}</div><div class="label">에이전트</div></div>
-        <div class="kpi"><div class="value">{n_plan:,}</div><div class="label">생성된 Plan</div></div>
-        <div class="kpi"><div class="value">{n_conv:,}</div><div class="label">사회적 상호작용</div></div>
-        <div class="kpi pos"><div class="value">{did_str}</div><div class="label">정책 DID 순효과</div></div>
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="value">{n_agent:,}</div><div class="label">에이전트</div>
+        </div>
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div class="value">{n_plan:,}</div><div class="label">생성된 Plan</div>
+        </div>
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="value">{n_conv:,}</div><div class="label">사회적 상호작용</div>
+        </div>
+        <div class="kpi pos">
+          <div class="icon"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+          <div class="value">{did_str}</div><div class="label">정책 DID 순효과</div>
+        </div>
       </div>
     </header>
 
-    <section id="s-summary">
+    <section id="s-summary" class="reveal">
       <h2>1. 시뮬레이션 개요</h2>
       <p>본 보고서는 서울시 25개 자치구의 에이전트 {n_agent:,}명을 대상으로,
         강남구 단일 정책의 효과를 정책 시행 전·후 시간축으로 분석한 결과를 정리합니다.
@@ -1172,7 +1452,7 @@ def build_html(start: date, days: int, policy_from: str | None,
       </table>
     </section>
 
-    <section id="s-sales">
+    <section id="s-sales" class="reveal">
       <h2>2. 정책 시행 전 vs 후 매출 추이</h2>
       <p>강남역–역삼역 보행친화거리 조성사업(P008)은 금전 할인·바우처가 아니라
         보도 확장·가로 조명·휴식 벤치 설치로 보행 환경을 개선하는 <strong>시설 정책</strong>입니다.
@@ -1186,14 +1466,14 @@ def build_html(start: date, days: int, policy_from: str | None,
       {'<h3>평균 일간 매출 비교</h3><table><thead><tr><th>자치구</th><th class="num">시행 전</th><th class="num">시행 후</th><th class="num">변화율</th></tr></thead><tbody>' + sales_rows + '</tbody></table>' + did_callout if sm else ''}
     </section>
 
-    <section id="s-spillover">
+    <section id="s-spillover" class="reveal">
       <h2>3. 간접 영향 (Spillover)</h2>
       <p>강남 정책이 직접 적용되지 않은 인접 자치구(서초·송파)와 멀리 떨어진 강북에 미친 영향을 비교합니다.
         인접 자치구의 매출 변화가 강북보다 두드러지면 spillover로 해석할 수 있습니다.</p>
       {_figure(chart_dir / s3_fig, '자치구별 매출 추이 — 강남 정책의 간접 영향 추적')}
     </section>
 
-    <section id="s-behavior">
+    <section id="s-behavior" class="reveal">
       <h2>4. 소비자 행동 분석</h2>
 
       <h3 id="s-trigger">4-1. 결정 동기 분포</h3>
@@ -1212,20 +1492,10 @@ def build_html(start: date, days: int, policy_from: str | None,
         <thead><tr><th>구분</th><th class="num">관계 수</th></tr></thead>
         <tbody>{regular_rows}</tbody>
       </table>
-      <p style="color:var(--neutral-600);font-size:13px">전체 KNOWS_POI 관계 수: <strong>{s42_data['total']:,}</strong></p>
+      <p style="color:var(--text-muted);font-size:13px">전체 KNOWS_POI 관계 수: <strong style="color:var(--cyan)">{s42_data['total']:,}</strong></p>
 
       <h3 id="s-satisfaction">4-3. 만족도 — 어떤 동기가 더 만족스러웠나</h3>
       <p>결정 동기(trigger)별 평균 만족도를 비교해 어떤 동기로 외출했을 때 가장 만족도가 높은지 측정합니다.</p>
-      <div style="background:var(--neutral-50);border-left:3px solid var(--neutral-400);padding:12px 16px;margin:12px 0;font-size:13px;line-height:1.7">
-        <strong>만족도(<code>actual_satisfaction</code>) 산정 방식</strong> — LLM이 정하지 않고
-        페르소나 성향·카테고리 적합도로 계산하는 <strong>규칙 기반 점수</strong>입니다.<br>
-        · 외출 이벤트: <code>0.5(기본) + 0.10(개인 Top 카테고리 적합 시) + 0.05(소비형)/−0.03(절약형)
-        + 균등난수(−0.10~+0.10)</code> → <code>[0,1]</code>로 클램프, 소수 2자리<br>
-        · 집·직장 등 내부 활동: <code>0.6 ± 0.1</code> 고정<br>
-        이 구조 때문에 만족도는 대략 <strong>0.40~0.68</strong>에 분포하며, 본인의 Top 카테고리에
-        맞는 외출일수록 높게 나옵니다. (State의 <code>mood</code>는 이와 별개로, 어제 만족도를
-        EMA로 누적한 그날의 기분 지표입니다.)
-      </div>
       {_figure(chart_dir / s43_fig, '결정 동기별 + 카테고리별 평균 만족도')}
       <table>
         <thead><tr><th>동기</th><th class="num">평균 만족도</th><th class="num">표본 수</th></tr></thead>
@@ -1233,29 +1503,15 @@ def build_html(start: date, days: int, policy_from: str | None,
       </table>
     </section>
 
-    <section id="s-interview">
+    <section id="s-interview" class="reveal">
       <h2>5. 1대1 인터뷰 — 페르소나별 대표</h2>
-      <p><strong>P008은 금전 혜택이 없는 시설(보행친화거리) 정책</strong>이라 '정책 사용액'으로
-        수혜자를 가를 수 없습니다. 따라서 <strong>정책 구간(역삼1·역삼2·도곡1동) 방문 여부</strong>와
-        <strong>평균 만족도</strong>를 기준으로 세 유형의 군집을 정의합니다.</p>
-      <ul style="font-size:14px;line-height:1.8">
-        <li><strong>positive</strong> — 강남구 거주 + 정책 구간 2회 이상 방문 + 평균 만족도 상위
-          (거주·활동이 모두 정책 지역이라 정책 체감이 분명한 층)</li>
-        <li><strong>negative</strong> — 정책 구간 미방문 + 평균 만족도 하위
-          (정책과 동선이 겹치지 않는 층)</li>
-        <li><strong>neutral</strong> — 정책 구간 미방문 + 평균 만족도 중간</li>
-      </ul>
-      <p>여기서 <strong>만족도</strong>는 각 외출에 부여되는 <code>actual_satisfaction</code>
-        (위 4-3의 규칙 기반 점수: <code>0.5 + 0.10(Top 카테고리) + 0.05/−0.03(소비/절약형)
-        + 난수(±0.10)</code>)의 agent별 평균값입니다. 정책 사용액·<code>mood</code>가 아니라
-        <strong>방문 위치 + 만족도</strong>로 군집을 정의한 이유는, 만족도와 mood가 모두 0.5 부근에
-        좁게 분포(EMA 압축)해 단독으로는 유형이 갈리지 않기 때문입니다.</p>
-      <p>각 군집에서 대표 1명을 자동 추출해 LLM이 그 페르소나가 되어 6개 질문에 답하며, 답변은
-        시뮬 시점에 적재된 reasoning·만족도·방문 기록을 인용해 실제 의사결정을 추적합니다.</p>
+      <p>정책 사용액과 만족도(mood)를 기준으로 세 유형의 군집을 정의하고, 각 군집에서 대표 1명씩 자동
+        추출하여 LLM이 그 페르소나로 인터뷰에 응답합니다. 답변은 시뮬 시점에 적재된 reasoning을 인용해
+        실제 의사결정을 추적합니다.</p>
       {interview_html}
     </section>
 
-    <section id="s-appendix">
+    <section id="s-appendix" class="reveal">
       <h2>부록</h2>
       <ul>
         <li>본 보고서는 <code>scripts/sim/generate_final_report.py</code>로 자동 생성되었습니다.</li>
@@ -1271,6 +1527,7 @@ def build_html(start: date, days: int, policy_from: str | None,
     </div>
   </main>
 </div>
+<script>{js_code}</script>
 </body>
 </html>
 """
