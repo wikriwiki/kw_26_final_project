@@ -42,11 +42,18 @@ MODELS: dict[str, ModelSpec] = {
         family="qwen",
         description="기본값. AWQ 4-bit 양자화. RTX 5090 / A100 80GB 1장에서 동작.",
     ),
+    "qwen8b": ModelSpec(
+        key="qwen8b",
+        hf_id="Qwen/Qwen3-8B",
+        family="qwen",
+        description="텍스트 전용 8B 모델. BF16, RTX 5090 32GB에 여유. "
+                    "Qwen3-14B-AWQ 대비 ~30% 빠름. 페르소나 요약·시뮬 기본값.",
+    ),
     "qwen9b": ModelSpec(
         key="qwen9b",
-        hf_id="Qwen/Qwen3.5-9B",
+        hf_id="Qwen/Qwen3-8B",
         family="qwen",
-        description="개발/디버깅용 9B 모델.",
+        description="(deprecated) qwen8b alias — Qwen3.5-9B 멀티모달 회피. qwen8b 사용 권장.",
     ),
     "qwen14b": ModelSpec(
         key="qwen14b",
@@ -63,7 +70,7 @@ MODELS: dict[str, ModelSpec] = {
     ),
 }
 
-DEFAULT_MODE = "qwen9b"
+DEFAULT_MODE = "qwen8b"
 DEFAULT_BASE_URL = "http://localhost:30000/v1"   # SGLang 기본 포트
 VLLM_FALLBACK_URL = "http://localhost:8000/v1"   # vLLM 기존 포트 (호환)
 

@@ -156,7 +156,7 @@ def build(limit: int = 0, seed: int = 42,
         print(f"[LLM 5줄 요약] {len(out):,}명 / workers={max_workers}", file=sys.stderr, flush=True)
 
         def _summarize_one(p: dict) -> None:
-            summary = summarize_persona_llm(p, llm_mode=llm_mode or "qwen9b")
+            summary = summarize_persona_llm(p, llm_mode=llm_mode or "qwen8b")
             # personality_lifestyle_raw 를 5줄 요약으로 교체
             if "personality" not in p:
                 p["personality"] = {}
@@ -302,7 +302,7 @@ def _build_persona_summary_prompt(agent: dict) -> str:
     return "\n".join(lines)
 
 
-def summarize_persona_llm(agent: dict, llm_mode: str = "qwen9b") -> str:
+def summarize_persona_llm(agent: dict, llm_mode: str = "qwen8b") -> str:
     """NVIDIA 전체 필드를 vLLM으로 5줄 요약. 반환: 5줄 문자열."""
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sim"))
@@ -340,8 +340,8 @@ def main() -> int:
                     help="NVIDIA 전체 필드 → vLLM 5줄 요약 (llm_reconcile 대체)")
     ap.add_argument("--llm-stub", action="store_true",
                     help="LLM 서버 없이 결정적 stub fixer 사용 (테스트/오프라인)")
-    ap.add_argument("--llm-mode", default="qwen9b",
-                    help="LLM 모드 (qwen32b/qwen14b/qwen9b/exaone). 기본값: qwen9b")
+    ap.add_argument("--llm-mode", default="qwen8b",
+                    help="LLM 모드 (qwen32b/qwen14b/qwen8b/exaone). 기본값: qwen8b")
     ap.add_argument("--jsonl", action="store_true",
                     help="JSONL 라인 출력 (대용량 권장 — 메모리 절약)")
     args = ap.parse_args()
