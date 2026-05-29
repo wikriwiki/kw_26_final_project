@@ -91,7 +91,10 @@ def fetch_agents(s):
               home.name AS home_poi_name, home.lon AS home_lon, home.lat AS home_lat,
               work.id AS work_poi_id, work.name AS work_poi_name,
               work.lon AS work_lon, work.lat AS work_lat,
-              wr.commute_min AS commute
+              wr.commute_min AS commute,
+              (EXISTS {(a)-[:PARTICIPATES_IN]->(:Conversation {intent:'약속'})}
+               OR EXISTS {(a)-[:HAS_PLAN]->(:Plan)-[i2:INCLUDES]->()
+                          WHERE i2.trigger IN ['약속','appointment']}) AS has_appointment
             ORDER BY suffix
             LIMIT $limit
         """, dc=dist_code, limit=limit)
