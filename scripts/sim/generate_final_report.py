@@ -452,7 +452,7 @@ def section4_3_satisfaction(start: date, days: int, out_dir: Path) -> tuple[dict
 # 섹션 5 — 1대1 인터뷰 자동 (positive / negative / neutral)
 # ═══════════════════════════════════════════════════════════════
 INTERVIEW_QUESTIONS = [
-    "정책(강남구 카페·디저트 바우처)에 대해 어떻게 느끼셨나요? 직접 사용하셨다면 왜 사용했고, 안 쓰셨다면 왜 안 쓰셨는지 알려주세요.",
+    "강남역-역삼역 보행친화거리 조성사업(보도 확장·가로 조명 개선·휴식 벤치 설치)에 대해 어떻게 느끼셨나요? 그 거리를 더 자주 걷거나 오래 머물게 됐는지, 아니면 별 영향이 없었는지 알려주세요. (※ 이 정책은 금전 할인·바우처가 아니라 보행 환경 개선 사업입니다.)",
     "가장 자주 가신 가게는 어디고, 왜 그곳을 자주 갔나요?",
     "친구·동료가 추천한 곳에 가신 적 있나요? 있다면 누가 추천했고, 갔더니 어땠나요?",
     "약속을 잡으신 적이 있다면 그 약속이 왜 잡혔는지 설명해주세요.",
@@ -597,6 +597,16 @@ def build_markdown(start: date, days: int, policy_from: str | None,
     s43_data, s43_fig = s4_3
     lines.append("### 4-3. 만족도·피드백 — 어떤 동기로 외출했을 때 더 만족했나")
     lines.append("")
+    lines.append("> **만족도(`actual_satisfaction`) 산정 방식** — LLM이 정하지 않고 페르소나 성향·"
+                 "카테고리 적합도로 계산하는 규칙 기반 점수다.")
+    lines.append(">")
+    lines.append("> 외출 이벤트: `0.5(기본) + 0.10(Top 카테고리 매칭) + 0.05(소비형)/−0.03(절약형) "
+                 "+ 균등난수(−0.10~+0.10)` → `[0,1]` 범위로 클램프, 소수 2자리.")
+    lines.append(">")
+    lines.append("> 집·직장 등 내부 활동: `0.6 ± 0.1` 고정. "
+                 "이 구조 때문에 만족도는 0.5 부근(대략 0.40~0.68)에 분포하며, "
+                 "Top 카테고리 적합 외출일수록 높게 나온다.")
+    lines.append("")
     lines.append(f"![만족도]({chart_dir_rel}/{s43_fig})")
     lines.append("")
     lines.append("| 동기 | 평균 만족도 | 표본 수 |")
@@ -608,9 +618,19 @@ def build_markdown(start: date, days: int, policy_from: str | None,
     # 5) 인터뷰
     lines.append("## 5. 1대1 인터뷰 — 페르소나별 대표 (positive / negative / neutral)")
     lines.append("")
-    label_kr = {"positive": "정책 적극 활용 + 만족도 ↑",
-                "negative": "정책 무관심 + 만족도 ↓",
-                "neutral":  "정책 무관심 + 만족도 보통"}
+    lines.append("> P008은 금전 혜택이 없는 **시설(보행친화거리) 정책**이라, 정책 구간"
+                 "(역삼1·역삼2·도곡1동) 방문 여부와 만족도를 기준으로 세 유형을 정의했다.")
+    lines.append(">")
+    lines.append("> - **positive**: 강남 거주 + 정책 구간 2회 이상 방문 + 평균 만족도 높음")
+    lines.append("> - **negative**: 정책 구간 미방문 + 평균 만족도 하위")
+    lines.append("> - **neutral**: 정책 구간 미방문 + 평균 만족도 중간")
+    lines.append(">")
+    lines.append("> 각 군집 대표 1명을 자동 추출해 LLM이 그 페르소나로 답변하며, 시뮬 시점에 적재된 "
+                 "reasoning·만족도·방문 기록을 인용한다.")
+    lines.append("")
+    label_kr = {"positive": "정책 구간 방문 잦음 + 만족도 ↑",
+                "negative": "정책 구간 미방문 + 만족도 ↓",
+                "neutral":  "정책 구간 미방문 + 만족도 보통"}
     for label in ["positive", "negative", "neutral"]:
         d = s5.get(label, {})
         if "error" in d:
@@ -1123,7 +1143,7 @@ def build_html(start: date, days: int, policy_from: str | None,
       <h1>서울시 상권 활성화 정책<br/>시뮬레이션 결과 보고서</h1>
       <div class="subtitle">
         <strong>{_h(s1.get('기간'))}</strong> · 에이전트 {n_agent:,}명 · 정책 발효 {_h(s1.get('정책_시행일'))}<br/>
-        강남구 여름 카페·디저트 원소 바우처 (자연어 정책 자동 주입) 효과 분석
+        강남역–역삼역 보행친화거리 조성사업(P008, 보도 확장·가로 조명·휴식 벤치) 효과 분석
       </div>
       <div class="badges">
         <span class="badge alt">Qwen3-14B-AWQ</span>
@@ -1154,9 +1174,10 @@ def build_html(start: date, days: int, policy_from: str | None,
 
     <section id="s-sales">
       <h2>2. 정책 시행 전 vs 후 매출 추이</h2>
-      <p>강남구 카페·디저트 바우처(30% 환급, 인당 5만원 한도)가
-        시행된 <code>{_h(policy_from or '—')}</code> 시점을 기준으로
-        정책 대상 카테고리(식사·카페·디저트)의 일별 매출을 비교합니다.
+      <p>강남역–역삼역 보행친화거리 조성사업(P008)은 금전 할인·바우처가 아니라
+        보도 확장·가로 조명·휴식 벤치 설치로 보행 환경을 개선하는 <strong>시설 정책</strong>입니다.
+        시행 시점 <code>{_h(policy_from or '—')}</code>을 기준으로, 보행 체류 증가로 영향을 받는
+        업종(식사·카페·디저트·여가)의 일별 매출을 비교합니다.
         세 관점 — (A) 인구 비례 1인당 매출, (B) baseline 대비 변화율, (C) DID — 으로 분석합니다.</p>
       {_figure(chart_dir / s2_figs['per_capita'] if isinstance(s2_figs, dict) else chart_dir / s2_figs,
                '(A) 1인당 일별 매출 — 인구 비례 환산 후 강남 vs 비강남 절대 비교')}
@@ -1195,6 +1216,16 @@ def build_html(start: date, days: int, policy_from: str | None,
 
       <h3 id="s-satisfaction">4-3. 만족도 — 어떤 동기가 더 만족스러웠나</h3>
       <p>결정 동기(trigger)별 평균 만족도를 비교해 어떤 동기로 외출했을 때 가장 만족도가 높은지 측정합니다.</p>
+      <div style="background:var(--neutral-50);border-left:3px solid var(--neutral-400);padding:12px 16px;margin:12px 0;font-size:13px;line-height:1.7">
+        <strong>만족도(<code>actual_satisfaction</code>) 산정 방식</strong> — LLM이 정하지 않고
+        페르소나 성향·카테고리 적합도로 계산하는 <strong>규칙 기반 점수</strong>입니다.<br>
+        · 외출 이벤트: <code>0.5(기본) + 0.10(개인 Top 카테고리 적합 시) + 0.05(소비형)/−0.03(절약형)
+        + 균등난수(−0.10~+0.10)</code> → <code>[0,1]</code>로 클램프, 소수 2자리<br>
+        · 집·직장 등 내부 활동: <code>0.6 ± 0.1</code> 고정<br>
+        이 구조 때문에 만족도는 대략 <strong>0.40~0.68</strong>에 분포하며, 본인의 Top 카테고리에
+        맞는 외출일수록 높게 나옵니다. (State의 <code>mood</code>는 이와 별개로, 어제 만족도를
+        EMA로 누적한 그날의 기분 지표입니다.)
+      </div>
       {_figure(chart_dir / s43_fig, '결정 동기별 + 카테고리별 평균 만족도')}
       <table>
         <thead><tr><th>동기</th><th class="num">평균 만족도</th><th class="num">표본 수</th></tr></thead>
@@ -1204,9 +1235,23 @@ def build_html(start: date, days: int, policy_from: str | None,
 
     <section id="s-interview">
       <h2>5. 1대1 인터뷰 — 페르소나별 대표</h2>
-      <p>정책 사용액과 만족도(mood)를 기준으로 세 유형의 군집을 정의하고, 각 군집에서 대표 1명씩 자동
-        추출하여 LLM이 그 페르소나로 인터뷰에 응답합니다. 답변은 시뮬 시점에 적재된 reasoning을 인용해
-        실제 의사결정을 추적합니다.</p>
+      <p><strong>P008은 금전 혜택이 없는 시설(보행친화거리) 정책</strong>이라 '정책 사용액'으로
+        수혜자를 가를 수 없습니다. 따라서 <strong>정책 구간(역삼1·역삼2·도곡1동) 방문 여부</strong>와
+        <strong>평균 만족도</strong>를 기준으로 세 유형의 군집을 정의합니다.</p>
+      <ul style="font-size:14px;line-height:1.8">
+        <li><strong>positive</strong> — 강남구 거주 + 정책 구간 2회 이상 방문 + 평균 만족도 상위
+          (거주·활동이 모두 정책 지역이라 정책 체감이 분명한 층)</li>
+        <li><strong>negative</strong> — 정책 구간 미방문 + 평균 만족도 하위
+          (정책과 동선이 겹치지 않는 층)</li>
+        <li><strong>neutral</strong> — 정책 구간 미방문 + 평균 만족도 중간</li>
+      </ul>
+      <p>여기서 <strong>만족도</strong>는 각 외출에 부여되는 <code>actual_satisfaction</code>
+        (위 4-3의 규칙 기반 점수: <code>0.5 + 0.10(Top 카테고리) + 0.05/−0.03(소비/절약형)
+        + 난수(±0.10)</code>)의 agent별 평균값입니다. 정책 사용액·<code>mood</code>가 아니라
+        <strong>방문 위치 + 만족도</strong>로 군집을 정의한 이유는, 만족도와 mood가 모두 0.5 부근에
+        좁게 분포(EMA 압축)해 단독으로는 유형이 갈리지 않기 때문입니다.</p>
+      <p>각 군집에서 대표 1명을 자동 추출해 LLM이 그 페르소나가 되어 6개 질문에 답하며, 답변은
+        시뮬 시점에 적재된 reasoning·만족도·방문 기록을 인용해 실제 의사결정을 추적합니다.</p>
       {interview_html}
     </section>
 

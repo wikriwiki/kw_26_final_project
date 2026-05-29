@@ -19,9 +19,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import sys
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -154,8 +156,26 @@ def build(limit: int = 0, seed: int = 42,
     if llm_reconcile:
         from llm_reconcile import llm_audit_persona, make_llm_judge, stub_judge
         judge = stub_judge if llm_stub else make_llm_judge(llm_mode)
-        for p in out:
-            llm_audit_persona(p, judge=judge)
+        if llm_stub:
+            # stub 은 네트워크 호출이 없어 직렬로 충분
+            for p in out:
+                llm_audit_persona(p, judge=judge)
+        else:
+            # 실제 LLM 은 vLLM/SGLang 의 동시 처리 능력을 활용하려고 ThreadPool 병렬화.
+            # llm_client.get_client() 는 thread-safe 싱글톤이고 persona 객체는 워커마다 다름.
+            # 워커 수는 PERSONA_RECONCILE_WORKERS 로 조절 (기본 10).
+            max_workers = int(os.environ.get("PERSONA_RECONCILE_WORKERS", "10"))
+            print(f"[LLM 봉합] {len(out):,}명 / workers={max_workers}", file=sys.stderr, flush=True)
+            with ThreadPoolExecutor(max_workers=max_workers) as pool:
+                futs = [pool.submit(llm_audit_persona, p, judge=judge) for p in out]
+                done = 0
+                for f in as_completed(futs):
+                    f.result()  # 예외 즉시 propagate
+                    done += 1
+                    if done % 100 == 0 or done == len(out):
+                        pct = done / len(out) * 100
+                        print(f"[LLM 봉합] {done:,}/{len(out):,} ({pct:.1f}%)",
+                              file=sys.stderr, flush=True)
     return out
 
 

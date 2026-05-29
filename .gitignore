@@ -29,7 +29,8 @@ output/
 !output/sim/visualization/
 !output/sim/visualization/index.html
 output/sim/visualization/*.json
-# sim_standalone.html은 Git LFS로 추적 (97MB+ 단일 시각화 번들)
+# sim_standalone.html은 327MB로 GitHub 단일파일 제한 초과 — git 제외, 드라이브로 공유
+output/sim/visualization/sim_standalone.html
 # 페르소나 생성용 통계 JSON (다른 작업자 reuse 위해 push)
 !output/stats/
 !output/stats/*.json
