@@ -1,8 +1,8 @@
-"""Plan 적재 + 만족도 룰 + Night Phase (visited Memory + KNOWS_POI 갱신).
+"""Plan 적재 + 정책 cap 추적 + Night Phase (visited Memory + KNOWS_POI 갱신).
 
 흐름:
   1. write_plan: Stage 1+2 병합 결과를 :Plan + [:INCLUDES]로 적재
-  2. simulate_satisfaction: 각 이벤트의 actual_satisfaction을 룰로 부여 (낮 시뮬 대체)
+  2. track_policy_usage: 정책 subsidy cap 잔액 추적 (만족도·소비액 설정은 Stage2 LLM이 담당)
   3. night_finalize: 어제 INCLUDES → :Memory{type:'visited'} CREATE + KNOWS_POI MERGE/UPDATE
   4. night_state_update: 오늘 :State CREATE (잔액·에너지·mood·fatigue 갱신)
 
@@ -10,7 +10,6 @@ Conversation 적재(Night Phase 2)는 별도 night_phase.py로 (LLM 의도 분�
 """
 from __future__ import annotations
 
-import random
 import sys
 import uuid
 from datetime import date, timedelta
@@ -58,7 +57,7 @@ CREATE (p)-[:INCLUDES {
   actual_spent: coalesce(ev.actual_spent, 0),
   // 사고과정 흔적 (인터뷰 가능성 확보용)
   reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
-  trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/top_category/mood/none
+  trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/mood/none
   pick_reason: ev.pick_reason,       // Stage 2: 왜 후보풀 중 이 POI
   pick_factor: ev.pick_factor        // Stage 2: known/distance/satisfaction/rumor/novelty/random
 }]->(poi)
@@ -82,24 +81,9 @@ def write_plan(
 
 
 # =========================================================
-# 만족도 룰 (낮 시뮬 대체)
+# 정책 cap 추적
 # =========================================================
 INTERNAL_CATS = {"집", "직장"}
-
-# 카테고리별 평균 1회 소비액 (원). 시뮬 단순화용 룰.
-SPEND_BY_CAT = {
-    "편의점": 5000, "마트": 25000,
-    "식사": 12000, "카페": 6000, "디저트": 8000, "주점": 30000,
-    "미용": 30000, "쇼핑": 50000,
-    "여가": 20000, "건강": 15000, "교육": 50000, "기타": 10000,
-}
-
-
-def _estimate_spend(cat: str | None, sub: str | None) -> int:
-    """이벤트의 추정 소비액."""
-    if not cat or cat in INTERNAL_CATS:
-        return 0
-    return SPEND_BY_CAT.get(cat, 10000)
 
 
 def _policy_match(ev: dict, pol: dict, home_dist5: str, work_dist5: str) -> bool:
@@ -119,61 +103,34 @@ def _policy_match(ev: dict, pol: dict, home_dist5: str, work_dist5: str) -> bool
     return cat_ok
 
 
-def simulate_satisfaction(
-    persona: dict, events: list[dict],
+def track_policy_usage(
+    events: list[dict],
+    persona: dict,
     active_policies: list[dict] | None = None,
     policy_used: dict[str, int] | None = None,
-    seed: int | None = None,
-) -> tuple[list[dict], dict[str, int]]:
-    """각 이벤트의 actual_satisfaction 부여 + 정책 cap 잔액 추적 (만족도 가산 X).
+) -> dict[str, int]:
+    """정책 subsidy cap 잔액 추적 (만족도·소비액 설정은 Stage2 LLM이 담당).
 
-    정책 효과는 임의 modifier로 가산하지 않는다. 정책은 dawn_context.POLICY_CYPHER로
-    자연어 description 형태로 Stage 1 프롬프트에 전달되어, LLM이 행동에 자율 반영.
-
-    이 함수는 만족도 가산 대신 **subsidy 정책의 cap_per_agent 잔액만 추적**한다.
-    다음날 Dawn 컨텍스트에 "P007 누적 사용 X원 / 한도 Y원" 형태로 LLM에 노출되어
-    LLM이 잔액 보고 외출 의사결정. cap 미지정 subsidy는 추적 안 함.
-
-    Args:
-        active_policies: Dawn에서 받은 활성 정책 list (id/type/cap/rate/regions/target_l1s)
-        policy_used: 어제까지 정책별 누적 사용액. {"P007": 87000, ...}
-    Returns:
-        (events, updated_policy_used) — events에 actual_spent도 부여됨
+    actual_spent가 Stage2에서 설정됐으면 그 값 기준으로 cap 차감 추적.
+    아직 설정 안 됐으면 skip.
     """
-    rng = random.Random(seed)
-    top_wd = _parse_top_cats(persona.get("top_wd_json"))
-    top_we = _parse_top_cats(persona.get("top_we_json"))
     home_dist5 = (persona.get("home_dong_code") or "")[:5]
     work_dist5 = (persona.get("work_dong_code") or "")[:5]
-    tendency = persona.get("tendency") or ""
     policies = active_policies or []
     used = dict(policy_used or {})
 
     for e in events:
         cat = e.get("category")
         if cat in INTERNAL_CATS or not e.get("poi_id"):
-            e["actual_satisfaction"] = round(0.6 + rng.uniform(-0.1, 0.1), 2)
-            e["actual_spent"] = 0
             continue
-
-        score = 0.5
-        sub = e.get("sub_category") or ""
-        if sub in top_wd or sub in top_we or cat in top_wd or cat in top_we:
-            score += 0.10
-        if tendency == "소비형":
-            score += 0.05
-        elif tendency == "절약형":
-            score -= 0.03
-
-        # 정책 cap 잔액 추적 (만족도 가산 없음 — LLM 자율 해석)
-        # type 무관 cap+rate 있으면 추적 (subsidy/voucher/cashback 등 모두 포함)
-        spend = _estimate_spend(cat, sub)
-        e["actual_spent"] = spend
+        spend = e.get("actual_spent") or 0
+        if spend <= 0:
+            continue
         for pol in policies:
             cap = pol.get("cap") or 0
             rate = pol.get("rate") or 0.0
             if cap <= 0 or rate <= 0:
-                continue   # 잔액 추적 대상 아님 (regulation/facility/campaign 등)
+                continue
             if not _policy_match(e, pol, home_dist5, work_dist5):
                 continue
             pid = pol.get("id")
@@ -181,21 +138,7 @@ def simulate_satisfaction(
             if remaining > 0:
                 refund = min(int(spend * rate), remaining)
                 used[pid] = used.get(pid, 0) + refund
-
-        score += rng.uniform(-0.10, 0.10)
-        e["actual_satisfaction"] = round(max(0.0, min(1.0, score)), 2)
-    return events, used
-
-
-def _parse_top_cats(raw_json: str | None) -> set[str]:
-    if not raw_json:
-        return set()
-    try:
-        import json
-        d = json.loads(raw_json)
-        return set(d.keys())
-    except Exception:
-        return set()
+    return used
 
 
 # =========================================================
@@ -230,14 +173,12 @@ ON CREATE SET
   kp.since = date($yesterday), kp.source = 'visited',
   kp.visit_count = 1, kp.avg_satisfaction = i.actual_satisfaction,
   kp.last_visit = date($yesterday),
-  kp.affinity = 0.3 + 0.4 * i.actual_satisfaction,
   kp.recent_visit_dates = [date($yesterday)]
 ON MATCH SET
   kp.visit_count = coalesce(kp.visit_count, 0) + 1,
   kp.avg_satisfaction = (coalesce(kp.avg_satisfaction, 0.5) * coalesce(kp.visit_count, 0) + i.actual_satisfaction)
                          / (coalesce(kp.visit_count, 0) + 1),
   kp.last_visit = date($yesterday),
-  kp.affinity = coalesce(kp.affinity, 0.5) * 0.7 + i.actual_satisfaction * 0.3,
   kp.recent_visit_dates =
     [d IN coalesce(kp.recent_visit_dates, [])
      WHERE duration.inDays(d, date($yesterday)).days < 30]
@@ -353,11 +294,8 @@ if __name__ == "__main__":
     s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, today, verbose=args.verbose)
     events = merge_to_final_events(s1, s2, ctx.persona)
 
-    print("[4/5] 만족도 룰 적용 (정책 효과는 Stage 1 LLM 단계에서 자연어로 반영됨)")
-    events = simulate_satisfaction(
-        ctx.persona, events,
-        seed=hash(args.aid + str(today)),
-    )
+    print("[4/5] 정책 cap 추적 (만족도·소비액은 Stage2 LLM이 설정)")
+    policy_used = track_policy_usage(events, ctx.persona)
 
     print("[5/5] Plan 적재 + Night Phase")
     tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
@@ -365,11 +303,11 @@ if __name__ == "__main__":
     plan_id, n_inc = write_plan(args.aid, today, events, day_type, tokens_in, tokens_out)
     print(f"  Plan id={plan_id}, INCLUDES x {n_inc}")
 
-    state = night_create_state(args.aid, today)
+    state = night_create_state(args.aid, today, policy_used=policy_used)
     print(f"  State: {state}")
 
     print("\n=== 최종 events ===")
     for e in events:
-        print(f"  [{e['order']}] {e['time']} {e['anchor']:25} {(e['category'] or ''):6} sat={e['actual_satisfaction']} → {e['poi_id']} ({e['intent']})")
+        print(f"  [{e['order']}] {e['time']} {e['anchor']:25} {(e['category'] or ''):6} sat={e.get('actual_satisfaction')} → {e['poi_id']} ({e['intent']})")
 
     print(f"\n총 tokens: in={tokens_in}, out={tokens_out}")

@@ -44,7 +44,7 @@ except ImportError:
 # health 등)은 정규화 시점에 'none' 으로 흡수.
 CANONICAL_TRIGGERS = {
     "appointment", "rumor", "policy", "lifestyle",
-    "top_category", "mood", "none",
+    "mood", "none",
 }
 _TRIGGER_ALIASES = {
     "habit":      "lifestyle",
@@ -84,7 +84,7 @@ class Stage1Event(BaseModel):
     # 왜 이 시간·카테고리·anchor를 골랐는지 페르소나·기억·정책·약속·소문 중
     # 무엇이 결정 요인인지 1~3문장으로. trigger는 아래 enum.
     reasoning: str | None = Field(default=None, description="이 이벤트를 선택한 이유 (1~3문장)")
-    trigger: str | None = Field(default=None, description="appointment | rumor | policy | lifestyle | top_category | mood | none")
+    trigger: str | None = Field(default=None, description="appointment | rumor | policy | lifestyle | mood | none")
     # ──────────────────────────────────────────────────────────────────
     pinned_poi: str | None = None
     with_agents: list[str] | None = None
@@ -287,7 +287,6 @@ trigger를 먼저 정해두고 reasoning을 짜맞추지 말 것):
 - "rumor"        : 어제·그제 들은 소문·추천이 결정의 주된 동인
 - "policy"       : 정책의 쿠폰·바우처·캠페인이 결정에 영향
 - "lifestyle"    : 페르소나의 장기 성향이 주된 동인 (정형적 루틴 포함)
-- "top_category" : Top 카테고리 비중이 결정의 주된 동인
 - "mood"         : 오늘의 컨디션(mood/fatigue/yesterday_satisfaction)이 결정을 흔듦
 - "none"         : 집·직장 같은 자동 anchor 또는 특정 한 가지 동인이 두드러지지 않음
 
@@ -308,7 +307,7 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
    "trigger":"lifestyle"},
   {"time":"12:00","anchor":"zone:11680111","category":"식사","sub_category":"한식","intent":"점심",
    "reasoning":"어제 두부마을찬에서 sat 0.65로 음식이 좋았던 잔상이 남음. 평소 한식 자주 가는 편이지만 오늘 굳이 거기 가는 건 그 잔상 때문.",
-   "trigger":"top_category"},
+   "trigger":"lifestyle"},
   {"time":"15:00","anchor":"zone:11680111","category":"카페","sub_category":"카페","intent":"오후 휴식",
    "reasoning":"강남 카페 바우처 잔액 45,000원 남았고, 어제 거기 갔을 때 분위기가 의외로 차분해서 한참 앉아있었던 게 좋았음. 30% 환급도 매력적이라 자연스럽게 또 가게 됨.",
    "trigger":"policy"},

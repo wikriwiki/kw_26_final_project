@@ -50,8 +50,6 @@ RETURN
   a.s_daily_wd AS daily_wd,
   a.s_daily_we AS daily_we,
   a.spending_we_wd_ratio AS we_wd_ratio,
-  a.spending_top_wd_json AS top_wd_json,
-  a.spending_top_we_json AS top_we_json,
   a.behavior_delivery_days AS delivery_days,
   a.behavior_home_h_wd AS home_h_wd,
   a.behavior_home_h_we AS home_h_we,
@@ -189,15 +187,9 @@ RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
        kp.last_visit AS last_visit,
-       size(coalesce(kp.recent_visit_dates, [])) AS v30,
-       c.recovery_tau_days AS cat_tau,
-       c.desire_drop AS cat_drop,
-       c.saturation_n AS cat_sat_n,
-       kp.source AS source,
        km
-ORDER BY known DESC, km ASC LIMIT $limit
+ORDER BY km ASC LIMIT $limit
 """
 
 # Fallback: sub_category 매칭 실패 시 L1 단위로 같은 dong에서 fetch
@@ -210,13 +202,7 @@ RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
        kp.last_visit AS last_visit,
-       size(coalesce(kp.recent_visit_dates, [])) AS v30,
-       c.recovery_tau_days AS cat_tau,
-       c.desire_drop AS cat_drop,
-       c.saturation_n AS cat_sat_n,
-       kp.source AS source,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
@@ -231,13 +217,7 @@ RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
        kp.last_visit AS last_visit,
-       size(coalesce(kp.recent_visit_dates, [])) AS v30,
-       c.recovery_tau_days AS cat_tau,
-       c.desire_drop AS cat_drop,
-       c.saturation_n AS cat_sat_n,
-       kp.source AS source,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
@@ -289,30 +269,15 @@ class DawnContext:
             return {}
 
 
-def _safe_top_cats(raw_json: str | None, k: int = 3) -> str:
-    if not raw_json:
-        return ""
-    try:
-        d = json.loads(raw_json)
-    except Exception:
-        return ""
-    top = sorted(d.items(), key=lambda x: -x[1])[:k]
-    return ", ".join(f"{k_}({int(v*100)}%)" for k_, v in top)
-
-
 def _format_persona(p: dict) -> str:
     if not p:
         return "(페르소나 없음)"
-    top_wd = _safe_top_cats(p.get("top_wd_json"))
-    top_we = _safe_top_cats(p.get("top_we_json"))
     job = (p.get("job") or "").strip()
     lifestyle = (p.get("lifestyle") or "").strip()[:140]
     lines = [
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
         f"소비: 평일 {p.get('daily_wd',0):,}원, 주말 {p.get('daily_we',0):,}원 (주말/평일 {p.get('we_wd_ratio',1):.2f}배) / 성향: {p.get('tendency','')}",
-        f"평일 Top 카테고리: {top_wd or '(없음)'}",
-        f"주말 Top 카테고리: {top_we or '(없음)'}",
         f"행태: 배달 {p.get('delivery_days',0)}일/월, 평일 재택 {p.get('home_h_wd',0):.1f}h, 주말 재택 {p.get('home_h_we',0):.1f}h, 이동성 분위 {p.get('mobility',0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]

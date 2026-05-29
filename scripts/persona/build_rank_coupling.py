@@ -151,31 +151,37 @@ def build(limit: int = 0, seed: int = 42,
     if limit:
         out = _diverse_sample(out, limit, seed)
 
-    # 방식 A + LLM: rank-coupling 후 모든 페르소나를 LLM(또는 stub)이 전수 검증,
-    # 모순이면 서사 봉합 (숫자는 불변)
     if llm_reconcile:
-        from llm_reconcile import llm_audit_persona, make_llm_judge, stub_judge
-        judge = stub_judge if llm_stub else make_llm_judge(llm_mode)
+        max_workers = int(os.environ.get("PERSONA_RECONCILE_WORKERS", "10"))
+        print(f"[LLM 5줄 요약] {len(out):,}명 / workers={max_workers}", file=sys.stderr, flush=True)
+
+        def _summarize_one(p: dict) -> None:
+            summary = summarize_persona_llm(p, llm_mode=llm_mode or "qwen9b")
+            # personality_lifestyle_raw 를 5줄 요약으로 교체
+            if "personality" not in p:
+                p["personality"] = {}
+            p["personality"]["lifestyle"] = summary
+
         if llm_stub:
-            # stub 은 네트워크 호출이 없어 직렬로 충분
             for p in out:
-                llm_audit_persona(p, judge=judge)
+                _summarize_one(p)
         else:
-            # 실제 LLM 은 vLLM/SGLang 의 동시 처리 능력을 활용하려고 ThreadPool 병렬화.
-            # llm_client.get_client() 는 thread-safe 싱글톤이고 persona 객체는 워커마다 다름.
-            # 워커 수는 PERSONA_RECONCILE_WORKERS 로 조절 (기본 10).
-            max_workers = int(os.environ.get("PERSONA_RECONCILE_WORKERS", "10"))
-            print(f"[LLM 봉합] {len(out):,}명 / workers={max_workers}", file=sys.stderr, flush=True)
             with ThreadPoolExecutor(max_workers=max_workers) as pool:
-                futs = [pool.submit(llm_audit_persona, p, judge=judge) for p in out]
+                futs = [pool.submit(_summarize_one, p) for p in out]
                 done = 0
                 for f in as_completed(futs):
-                    f.result()  # 예외 즉시 propagate
+                    f.result()
                     done += 1
                     if done % 100 == 0 or done == len(out):
-                        pct = done / len(out) * 100
-                        print(f"[LLM 봉합] {done:,}/{len(out):,} ({pct:.1f}%)",
+                        print(f"[LLM 5줄 요약] {done:,}/{len(out):,} ({done/len(out)*100:.1f}%)",
                               file=sys.stderr, flush=True)
+
+    for p in out:
+        p.pop("_nvidia_raw", None)
+        p.pop("_cell", None)
+        p.pop("_consume_rank_key", None)
+        p.pop("_quant", None)
+
     return out
 
 
@@ -230,7 +236,9 @@ def _assemble(agent: dict, nv_rec: dict, match_level: str, pct: float) -> dict:
                     "nvidia_ses": round(ses_proxy(nv_rec), 3),
                     "nvidia_uuid": nv_rec.get("uuid")},
     )
-    return rec.to_dict()
+    d = rec.to_dict()
+    d["_nvidia_raw"] = nv_rec  # LLM 요약용 원본 보존
+    return d
 
 
 def _income_from_level(lv: int) -> str:
@@ -253,6 +261,73 @@ def _life_stage(nv_rec: dict) -> str:
     return "독립"
 
 
+def _build_persona_summary_prompt(agent: dict) -> str:
+    """NVIDIA 전체 필드 + 정량 데이터를 합쳐 LLM 요약 프롬프트 생성."""
+    p = agent
+    # 기본 인구학
+    personal = p.get("personal", {})
+    spending = p.get("spending", {})
+    behavior = p.get("behavior", {})
+    residence = p.get("residence", {})
+    workplace = p.get("workplace", {})
+    personality = p.get("personality", {})
+    nvidia = p.get("_nvidia_raw", {})  # NVIDIA 원본 레코드
+
+    lines = [
+        f"[인구학] 나이: {personal.get('age','')}세 ({personal.get('age_group','')}), "
+        f"성별: {personal.get('gender','')}, 직업: {personal.get('job','')}, "
+        f"소득: {personal.get('income_level','')}, 생애주기: {personal.get('life_stage','')}",
+        f"[소비] 평일 {spending.get('daily_spending_weekday',0):,}원/일, "
+        f"주말 {spending.get('daily_spending_weekend',0):,}원/일, "
+        f"소비성향: {personality.get('spending_tendency','')}, "
+        f"평일 주요지출: {list((spending.get('weekday_top_categories') or {}).keys())[:3]}",
+        f"[행태] 배달 {behavior.get('delivery_days',0)}회/월, "
+        f"쇼핑 {behavior.get('shopping_days',0)}일/월, "
+        f"평일 이동 {behavior.get('weekday_move_km',0):.1f}km, "
+        f"평일 재택 {behavior.get('home_hours_weekday',0):.1f}h, "
+        f"이동성 분위 {behavior.get('mobility_level',0)}",
+        f"[거주/직장] {residence.get('gu','')} {residence.get('dong','')} 거주, "
+        f"통근 {workplace.get('commute_min',0)}분",
+    ]
+    # NVIDIA 추가 필드 (있는 것만)
+    nvidia_extras = []
+    for k in ["hobbies", "cultural_activities", "career_background", "skills",
+              "education", "marital_status", "family_situation", "summary"]:
+        v = nvidia.get(k)
+        if v:
+            nvidia_extras.append(f"{k}: {str(v)[:80]}")
+    if nvidia_extras:
+        lines.append("[NVIDIA 추가] " + " / ".join(nvidia_extras[:4]))
+
+    return "\n".join(lines)
+
+
+def summarize_persona_llm(agent: dict, llm_mode: str = "qwen9b") -> str:
+    """NVIDIA 전체 필드를 vLLM으로 5줄 요약. 반환: 5줄 문자열."""
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sim"))
+    from llm_client import call_chat
+
+    prompt_data = _build_persona_summary_prompt(agent)
+    system = (
+        "당신은 에이전트 페르소나 요약 전문가입니다. "
+        "주어진 데이터를 바탕으로 이 사람의 생활 방식과 소비 패턴을 "
+        "자연스러운 한국어 5줄로 요약하세요. "
+        "각 줄은 완결된 문장이어야 하며, 숫자 나열이 아닌 서술형으로 작성하세요. "
+        "소비 수준(하루 예산), 주요 활동 카테고리, 생활 패턴, 성격/성향을 반드시 포함하세요. "
+        "출력은 5줄 텍스트만, 번호나 불릿 기호 없이."
+    )
+    user = f"다음 에이전트 데이터를 5줄로 요약하세요:\n\n{prompt_data}\n\n/no_think"
+
+    try:
+        resp = call_chat(None, system, user, temperature=0.7, max_tokens=300)
+        result = resp.choices[0].message.content.strip()
+        return result
+    except Exception as e:
+        # 실패 시 기존 1줄 lifestyle 유지
+        return agent.get("personality", {}).get("lifestyle", "")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0, help="생성 수 제한 (0=전체 15000)")
@@ -261,16 +336,19 @@ def main() -> int:
                     default=PROJECT_ROOT / "output" / "personas" / "samples" / "A_rank_coupling.json")
     ap.add_argument("--llm-reconcile", action="store_true",
                     help="rank-coupling 후 모든 페르소나를 LLM이 전수 검증, 모순이면 서사 봉합 (방식 A+LLM)")
+    ap.add_argument("--summarize", action="store_true",
+                    help="NVIDIA 전체 필드 → vLLM 5줄 요약 (llm_reconcile 대체)")
     ap.add_argument("--llm-stub", action="store_true",
                     help="LLM 서버 없이 결정적 stub fixer 사용 (테스트/오프라인)")
-    ap.add_argument("--llm-mode", type=str, default=None,
-                    help="LLM 모드 (qwen32b/qwen14b/qwen9b/exaone). 미지정 시 env/기본값")
+    ap.add_argument("--llm-mode", default="qwen9b",
+                    help="LLM 모드 (qwen32b/qwen14b/qwen9b/exaone). 기본값: qwen9b")
     ap.add_argument("--jsonl", action="store_true",
                     help="JSONL 라인 출력 (대용량 권장 — 메모리 절약)")
     args = ap.parse_args()
 
     personas = build(limit=args.limit, seed=args.seed,
-                     llm_reconcile=args.llm_reconcile, llm_mode=args.llm_mode,
+                     llm_reconcile=args.summarize or args.llm_reconcile,
+                     llm_mode=args.llm_mode,
                      llm_stub=args.llm_stub)
     out = args.out
     if args.jsonl and out.suffix == ".json":

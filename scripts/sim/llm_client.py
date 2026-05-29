@@ -63,7 +63,7 @@ MODELS: dict[str, ModelSpec] = {
     ),
 }
 
-DEFAULT_MODE = "qwen32b"
+DEFAULT_MODE = "qwen9b"
 DEFAULT_BASE_URL = "http://localhost:30000/v1"   # SGLang 기본 포트
 VLLM_FALLBACK_URL = "http://localhost:8000/v1"   # vLLM 기존 포트 (호환)
 
