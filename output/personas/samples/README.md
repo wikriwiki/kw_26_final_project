@@ -50,4 +50,4 @@ _match(방식별 추적 메타)
 - **B**: `method=conditional-graft`, `dong_pick_level`, `ses_hint`, `hobby_adjust`
 - **C**: B와 동일 + `reconciled`(봉합 여부), `warnings`(잔여 모순 감사 로그)
 
-방식별 상세 비교·장단점은 `docs/PERSONA_NVIDIA_METHODS.md` 참고.
+방식별 상세 비교·장단점은 `docs/archive/PERSONA_NVIDIA_METHODS.md` 참고.

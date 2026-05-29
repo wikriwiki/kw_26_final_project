@@ -191,7 +191,7 @@ policies/inbox/*.txt
 | `scripts/neo4j_load/load_p007.py` | 사용자 측 loader (참고용. 일반화된 적재 로직) |
 | `data/neo4j_load/categories/categories.yaml` | 12개 L1 + 93개 L2 카테고리 정의 |
 | `data/neo4j_load/admin/KIKcd_H.xlsx` | 25 자치구 + 427 행정동 정확한 명칭 |
-| `docs/NEO4J_SETUP_GUIDE.md` | Neo4j 환경·DDL 통합 가이드 |
+| `docs/guides/NEO4J_SETUP_GUIDE.md` | Neo4j 환경·DDL 통합 가이드 |
 | `docs/schedule_generation_plan/runtime_ontology.md` | 정책 노드·엣지 온톨로지 |
 
 ---

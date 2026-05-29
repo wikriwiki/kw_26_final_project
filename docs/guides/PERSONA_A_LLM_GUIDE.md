@@ -8,7 +8,7 @@
 > - **룰 기반 사전탐지를 쓰지 않는다.** 규칙은 부정확하므로, LLM이 전수 판정한다.
 > - 프롬프트에는 합격/불합격 **기준(임계값·규칙)을 적지 않고**, LLM이 **무엇을 보고
 >   판단할지(정보 차원)** 만 안내한다 → 룰 베이스와 구분.
-> - 원본 NVIDIA 서사는 보존된다. (방법론 비교는 `docs/PERSONA_NVIDIA_METHODS.md`.)
+> - 원본 NVIDIA 서사는 보존된다. (방법론 비교는 `docs/archive/PERSONA_NVIDIA_METHODS.md`.)
 
 ---
 
@@ -62,7 +62,7 @@ bash scripts/serve/serve_qwen32b.sh
 python scripts/sim/llm_client.py        # healthcheck JSON 출력 (base_url/active_model/served_match)
 ```
 > `llm_client`가 포트를 자동 감지한다: **SGLang(30000) 우선 → 없으면 vLLM(8000) 폴백.**
-> 자세한 서버 셋업은 `docs/SGLANG_MIGRATION.md`.
+> 자세한 서버 셋업은 `docs/archive/SGLANG_MIGRATION.md`.
 
 ---
 
@@ -183,7 +183,7 @@ python scripts/persona/build_rank_coupling.py --llm-reconcile --jsonl
 
 - **호출 수 = 전체 페르소나 수** (전수 검증). 방식 A는 15,000 → LLM 콜 15,000회.
   룰 게이트 버전(모순난 것만)보다 **호출이 많다** — 정확도(LLM 종합 판단)와의 트레이드오프.
-- SGLang RadixAttention + 배치 처리로 동시성을 높여 처리(자세히 `docs/SGLANG_MIGRATION.md`).
+- SGLang RadixAttention + 배치 처리로 동시성을 높여 처리(자세히 `docs/archive/SGLANG_MIGRATION.md`).
   시스템 프롬프트가 전 호출 공통이라 prefix cache 적중률이 높음.
 - 비용 절감이 필요하면: 작은 모델(`qwen14b`)로 검증, 또는 `--limit`으로 표본 검증 후 확대.
 - 모델 선택 가이드: 디버깅 `qwen9b/14b`, 본런 `qwen32b`, 국내대회 `exaone`.

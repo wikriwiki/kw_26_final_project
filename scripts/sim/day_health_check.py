@@ -14,7 +14,7 @@
 
 CLI:
   python scripts/sim/day_health_check.py --day 2026-05-01 \\
-      --out docs/DAY_HEALTH_2026-05-01.md
+      --out docs/archive/DAY_HEALTH_2026-05-01.md
 """
 from __future__ import annotations
 

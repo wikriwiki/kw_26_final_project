@@ -159,8 +159,8 @@ Total 시뮬 시간 (Night 2 2회 포함, 마지막 1회 생략): **약 14시간
 | 시뮬 로그 | `C:/Users/Administrator/sim_output/fullrun_2d_v2.log` + `fullrun_day2_v2.log` |
 | 메트릭 jsonl | `C:/Users/Administrator/sim_output/metrics/day_*.jsonl` |
 | 평가 출력 | `C:/Users/Administrator/sim_output/eval_3d_v2.txt` |
-| Fallback 집계 | `docs/SIM_QWEN14B_3D_V2_FALLBACK.md` / `.json` |
-| **본 결과 md** | `docs/SIM_QWEN14B_3D_V2_RESULTS.md` (이 파일) |
+| Fallback 집계 | `docs/archive/SIM_QWEN14B_3D_V2_FALLBACK.md` / `.json` |
+| **본 결과 md** | `docs/archive/SIM_QWEN14B_3D_V2_RESULTS.md` (이 파일) |
 | 정책 NL 원문 | `data/policies/processed/policy_gangnam_summer_cafe.txt` |
 | Neo4j 런타임 노드 | Plan 43,959 / State 43,959 / Memory ~155K (visited+rumor) / Conversation ~38K |
 | 시각화 산출물 | `output/sim/visualization/sim_standalone.html` (LFS 추적) |
