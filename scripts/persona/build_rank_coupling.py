@@ -50,36 +50,78 @@ def index_nvidia_pool(nv: list[dict]) -> dict[tuple, list[dict]]:
     return dict(by_cell)
 
 
+# age_group 인접 이웃 정의 — sex·age 무시되는 fallback 차단용
+_AGE_NEIGHBORS = {
+    "10대":      ["20대"],
+    "20대":      ["10대", "30대"],
+    "30대":      ["20대", "40대"],
+    "40대":      ["30대", "50대"],
+    "50대":      ["40대", "60대"],
+    "60대":      ["50대", "70대이상"],
+    "70대이상":  ["60대"],
+}
+
+
+def _unique_filter(pool: list[dict], used_uuids: set | None) -> list[dict]:
+    """이미 사용된 NVIDIA UUID 제외한 풀 반환."""
+    if not used_uuids:
+        return pool
+    return [r for r in pool if r.get("uuid") not in used_uuids]
+
+
 def pick_nvidia_by_rank(
     pool_index: dict[tuple, list[dict]],
     nv_all_sorted: list[dict],
     cell: tuple, percentile: float,
+    used_uuids: set | None = None,
 ) -> tuple[dict, str]:
-    """(gu,sex,age) 셀에서 percentile 위치의 NVIDIA. 셀 비면 fallback.
+    """(gu,sex,age) 셀에서 percentile 위치의 NVIDIA. 이미 사용된 UUID는 제외.
+
+    매칭 우선순위 (sex·age 매칭 보장 + 중복 회피):
+      1) (gu, sex, age) 풀 중 사용 안 된 것
+      2) (sex, age) 사용 안 된 것
+      3) (sex, age 인접) 사용 안 된 것
+      4) (sex만) 사용 안 된 것
+    NVIDIA 18.5만 > BDC 1.5만이라 1:1 unique 매칭이 정상적으로 가능.
 
     percentile ∈ [0,1] — 우리 에이전트의 셀 내 소비분위 순위.
     반환: (NVIDIA record, 사용된 매칭 레벨)
     """
     gu, sex, age = cell
+
     # 1차: (gu, sex, age)
-    pool = pool_index.get(cell)
+    pool = _unique_filter(pool_index.get(cell) or [], used_uuids)
     level = "gu_sex_age"
+
     # 2차: (sex, age) — gu 무시
     if not pool:
-        merged = [r for c, lst in pool_index.items() if c[1] == sex and c[2] == age for r in lst]
+        merged = [r for c, lst in pool_index.items()
+                  if c[1] == sex and c[2] == age for r in lst]
         merged.sort(key=ses_proxy)
-        pool = merged or None
+        pool = _unique_filter(merged, used_uuids)
         level = "sex_age"
-    # 3차: (sex) only
+
+    # 3차: (sex, age 인접)
+    if not pool:
+        adjacent = set(_AGE_NEIGHBORS.get(age, []))
+        if adjacent:
+            merged = [r for c, lst in pool_index.items()
+                      if c[1] == sex and c[2] in adjacent for r in lst]
+            merged.sort(key=ses_proxy)
+            pool = _unique_filter(merged, used_uuids)
+            level = "sex_adjacent_age"
+
+    # 4차: (sex만) — 마지노선
     if not pool:
         merged = [r for c, lst in pool_index.items() if c[1] == sex for r in lst]
         merged.sort(key=ses_proxy)
-        pool = merged or None
-        level = "sex"
-    # 4차: 전체
+        pool = _unique_filter(merged, used_uuids)
+        level = "sex_only"
+
     if not pool:
-        pool = nv_all_sorted
-        level = "any"
+        # sex도 모자람 — 데이터 이상이지만 폴백
+        pool = _unique_filter(nv_all_sorted, used_uuids) or nv_all_sorted
+        level = "any_emergency"
 
     idx = round(percentile * (len(pool) - 1)) if len(pool) > 1 else 0
     return pool[idx], level
@@ -139,14 +181,33 @@ def build(limit: int = 0, seed: int = 42,
             agents.append(agent)
 
     # 2) 셀 내 rank-coupling: 우리 소비순위 ↔ NVIDIA SES순위
+    #    중복 방지: 한 번 사용된 NVIDIA uuid는 다른 agent에 재할당 금지
     out: list[dict] = []
+    used_uuids: set = set()
+    match_level_counts: dict[str, int] = defaultdict(int)
     for cell, cell_agents in by_gu_cell.items():
         cell_agents.sort(key=lambda a: a["_consume_rank_key"])
         m = len(cell_agents)
         for i, agent in enumerate(cell_agents):
             pct = i / (m - 1) if m > 1 else 0.5
-            nv_rec, level = pick_nvidia_by_rank(pool_index, nv_all_sorted, cell, pct)
+            nv_rec, level = pick_nvidia_by_rank(
+                pool_index, nv_all_sorted, cell, pct, used_uuids=used_uuids,
+            )
+            uuid = nv_rec.get("uuid")
+            if uuid:
+                used_uuids.add(uuid)
+            match_level_counts[level] += 1
             out.append(_assemble(agent, nv_rec, level, pct))
+
+    # 매칭 품질 보고 — sex_age 매칭률이 핵심 지표
+    total_matched = sum(match_level_counts.values())
+    if total_matched > 0:
+        print(f"[NVIDIA 매칭] 총 {total_matched:,}명 / NVIDIA pool {len(nv_all_sorted):,}", file=sys.stderr)
+        for lvl in ["gu_sex_age", "sex_age", "sex_adjacent_age", "sex_only", "any_emergency"]:
+            cnt = match_level_counts.get(lvl, 0)
+            if cnt > 0:
+                pct = cnt / total_matched * 100
+                print(f"  · {lvl}: {cnt:,} ({pct:.1f}%)", file=sys.stderr)
 
     if limit:
         out = _diverse_sample(out, limit, seed)
@@ -262,68 +323,135 @@ def _life_stage(nv_rec: dict) -> str:
 
 
 def _build_persona_summary_prompt(agent: dict) -> str:
-    """NVIDIA 전체 필드 + 정량 데이터를 합쳐 LLM 요약 프롬프트 생성."""
+    """NVIDIA 자연어 페르소나 + BDC 정량 데이터를 LLM 봉합용 프롬프트로.
+
+    구조:
+      [BDC 정량] — 우리 통계로 계산한 소비 수준·행태 (이게 fact, 기준)
+      [NVIDIA 자연어] — culinary/sports/arts/travel/family/professional 페르소나 텍스트
+        ↳ LLM이 BDC 정량에 모순되는 부분을 조정해 5줄로 통합
+    """
     p = agent
-    # 기본 인구학
     personal = p.get("personal", {})
     spending = p.get("spending", {})
     behavior = p.get("behavior", {})
     residence = p.get("residence", {})
     workplace = p.get("workplace", {})
     personality = p.get("personality", {})
-    nvidia = p.get("_nvidia_raw", {})  # NVIDIA 원본 레코드
+    nvidia = p.get("_nvidia_raw", {})
 
-    lines = [
-        f"[인구학] 나이: {personal.get('age','')}세 ({personal.get('age_group','')}), "
-        f"성별: {personal.get('gender','')}, 직업: {personal.get('job','')}, "
-        f"소득: {personal.get('income_level','')}, 생애주기: {personal.get('life_stage','')}",
-        f"[소비] 평일 {spending.get('daily_spending_weekday',0):,}원/일, "
-        f"주말 {spending.get('daily_spending_weekend',0):,}원/일, "
-        f"소비성향: {personality.get('spending_tendency','')}, "
-        f"평일 주요지출: {list((spending.get('weekday_top_categories') or {}).keys())[:3]}",
-        f"[행태] 배달 {behavior.get('delivery_days',0)}회/월, "
+    # === BDC 정량 (fact) ===
+    bdc_lines = ["## [BDC 정량 데이터 — fact, 기준값]"]
+    bdc_lines.append(
+        f"- 인구학: {personal.get('age_group','')} {personal.get('gender','')}, "
+        f"직업: {personal.get('job','') or '미상'}, 소득: {personal.get('income_level','')}, "
+        f"생애주기: {personal.get('life_stage','')}"
+    )
+    wd = spending.get('daily_spending_weekday', 0) or 0
+    we = spending.get('daily_spending_weekend', 0) or 0
+    bdc_lines.append(
+        f"- 일일 소비: 평일 **{wd:,}원**, 주말 **{we:,}원** (소비성향 {personality.get('spending_tendency','') or '보통'})"
+    )
+    bdc_lines.append(
+        f"- 행태: 배달 {behavior.get('delivery_days',0)}회/월, "
         f"쇼핑 {behavior.get('shopping_days',0)}일/월, "
         f"평일 이동 {behavior.get('weekday_move_km',0):.1f}km, "
-        f"평일 재택 {behavior.get('home_hours_weekday',0):.1f}h, "
-        f"이동성 분위 {behavior.get('mobility_level',0)}",
-        f"[거주/직장] {residence.get('gu','')} {residence.get('dong','')} 거주, "
-        f"통근 {workplace.get('commute_min',0)}분",
-    ]
-    # NVIDIA 추가 필드 (있는 것만)
-    nvidia_extras = []
-    for k in ["hobbies", "cultural_activities", "career_background", "skills",
-              "education", "marital_status", "family_situation", "summary"]:
+        f"재택 {behavior.get('home_hours_weekday',0):.1f}h, "
+        f"이동성분위 {behavior.get('mobility_level',0)}"
+    )
+    bdc_lines.append(
+        f"- 거주/직장: {residence.get('gu','')} {residence.get('dong','')}, "
+        f"통근 {workplace.get('commute_min',0) or 0}분"
+    )
+
+    # === NVIDIA 자연어 페르소나 ===
+    nv_lines = ["", "## [NVIDIA 자연어 페르소나 — BDC 소비 수준에 맞춰 조정 필요]"]
+    one_liner = nvidia.get("persona") or ""
+    if one_liner:
+        nv_lines.append(f"- 한 줄 요약: {str(one_liner)[:200]}")
+
+    # 식습관·취미·문화 — 소비 수준과 직접 연관
+    for key, label in [
+        ("culinary_persona", "식습관/외식"),
+        ("hobbies_and_interests", "취미·관심사"),
+        ("sports_persona", "운동/여가"),
+        ("arts_persona", "예술/문화"),
+        ("travel_persona", "여행"),
+        ("family_persona", "가족생활"),
+        ("professional_persona", "직업/일상"),
+    ]:
+        v = nvidia.get(key)
+        if v:
+            nv_lines.append(f"- {label}: {str(v)[:220]}")
+
+    # 배경 정보
+    bg_extras = []
+    for k, label in [("cultural_background", "문화배경"),
+                     ("skills_and_expertise", "전문성"),
+                     ("career_goals_and_ambitions", "목표"),
+                     ("marital_status", "혼인"),
+                     ("family_type", "가족형태")]:
         v = nvidia.get(k)
         if v:
-            nvidia_extras.append(f"{k}: {str(v)[:80]}")
-    if nvidia_extras:
-        lines.append("[NVIDIA 추가] " + " / ".join(nvidia_extras[:4]))
+            bg_extras.append(f"{label}: {str(v)[:100]}")
+    if bg_extras:
+        nv_lines.append(f"- 배경: {' / '.join(bg_extras[:3])}")
 
-    return "\n".join(lines)
+    return "\n".join(bdc_lines + nv_lines)
+
+
+_SUMMARY_SYSTEM_PROMPT = (
+    "당신은 시뮬레이션 에이전트의 '살아있는 페르소나'를 봉합·요약하는 전문가입니다.\n"
+    "이 요약은 시뮬에서 LLM이 매일 의사결정할 때 행동의 근거가 됩니다.\n"
+    "그래서 정적인 신상정보(나이·직업·동네 나열)보다 **그 사람의 성격·취향·선택 패턴**이 보여야 합니다.\n"
+    "\n"
+    "[입력]\n"
+    "- BDC 정량 데이터: 통계 기반 소비 금액·행태 (fact, 절대 바꾸지 마세요).\n"
+    "- NVIDIA 자연어 페르소나: 식습관·취미·여행·가족·일·문화배경 등 다면적 텍스트.\n"
+    "\n"
+    "[당신의 작업]\n"
+    "1) BDC 일일 소비 금액·소비성향을 기준으로 NVIDIA 페르소나에서 모순되는 부분을 자연스럽게 조정.\n"
+    "   - 예: NVIDIA '고급 레스토랑' + BDC 1만원 → '평소 분식·한식, 특별한 날만 살짝 사치'.\n"
+    "   - 예: NVIDIA '검소 식사' + BDC 8만원 → '집밥은 절약, 외식·배달은 자주 즐김'.\n"
+    "2) 단순 사실 나열 대신 **성격·태도·선택 경향**이 드러나는 5줄을 작성.\n"
+    "   - 좋은 표현: '꼼꼼하고 단골을 챙기는 편', '새로운 곳보다 익숙한 곳을 선호', "
+    "'몸이 피곤한 날엔 외출을 줄이는 성향'.\n"
+    "   - 피할 표현: '서울 종로구 청운효자동 거주, 사무직 계약직, 25세 여성' 같은 신상 나열.\n"
+    "\n"
+    "[5줄 구성 (이 흐름을 따르되 자연스럽게)]\n"
+    "①성향 한 줄: 핵심 성격·태도 (예: 절약하지만 가족 챙기는, 호기심 많고 새로운 곳 시도하는).\n"
+    "②소비 패턴: 일일 예산 수준과 어떤 식으로 쓰는지 (예: '하루 평균 1만원대, 외식보다 집밥·편의점').\n"
+    "③일상 동선·활동: 평일·주말·재택·이동 등 행태에서 드러나는 리듬.\n"
+    "④관심·취향: 어떤 카테고리·장소·경험을 좋아하는지 (NVIDIA 페르소나에서 조정한 후).\n"
+    "⑤관계·맥락: 가족·동료·이웃과의 관계, 의사결정에 영향을 주는 사회적 배경.\n"
+    "\n"
+    "[출력 규칙]\n"
+    "- 5줄, 줄바꿈만으로 구분. 번호·불릿 기호 금지.\n"
+    "- 각 줄은 완결된 문장. 자연스러운 서술형.\n"
+    "- 신상 항목 나열보다 '이 사람이 어떻게 살고 무엇을 좋아하는가'가 묻어나야 함.\n"
+    "- 일일 소비 수준은 한 번 정도만 자연스럽게 녹임 (반복 금지).\n"
+)
 
 
 def summarize_persona_llm(agent: dict, llm_mode: str = "qwen8b") -> str:
-    """NVIDIA 전체 필드를 vLLM으로 5줄 요약. 반환: 5줄 문자열."""
+    """BDC 정량을 기준으로 NVIDIA 자연어 페르소나를 조정 + 5줄 요약."""
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sim"))
     from llm_client import call_chat
 
     prompt_data = _build_persona_summary_prompt(agent)
-    system = (
-        "당신은 에이전트 페르소나 요약 전문가입니다. "
-        "주어진 데이터를 바탕으로 이 사람의 생활 방식과 소비 패턴을 "
-        "자연스러운 한국어 5줄로 요약하세요. "
-        "각 줄은 완결된 문장이어야 하며, 숫자 나열이 아닌 서술형으로 작성하세요. "
-        "소비 수준(하루 예산), 주요 활동 카테고리, 생활 패턴, 성격/성향을 반드시 포함하세요. "
-        "출력은 5줄 텍스트만, 번호나 불릿 기호 없이."
+    user = (
+        "다음 페르소나를 BDC 정량 기준으로 조정한 뒤 5줄로 요약해 주세요.\n\n"
+        f"{prompt_data}\n\n/no_think"
     )
-    user = f"다음 에이전트 데이터를 5줄로 요약하세요:\n\n{prompt_data}\n\n/no_think"
 
     try:
-        resp = call_chat(None, system, user, temperature=0.7, max_tokens=300)
-        result = resp.choices[0].message.content.strip()
+        resp = call_chat(None, _SUMMARY_SYSTEM_PROMPT, user, temperature=0.7, max_tokens=400)
+        result = (resp.choices[0].message.content or "").strip()
+        # think 토큰 흔적 제거
+        if "</think>" in result:
+            result = result.split("</think>", 1)[1].strip()
         return result
-    except Exception as e:
+    except Exception:
         # 실패 시 기존 1줄 lifestyle 유지
         return agent.get("personality", {}).get("lifestyle", "")
 
