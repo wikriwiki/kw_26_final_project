@@ -265,19 +265,18 @@ WITH a, prev,
      coalesce(prev.energy, 0.8) AS prev_energy,
      coalesce(prev.mood, 0.5) AS prev_mood,
      coalesce(prev.fatigue, 0.3) AS prev_fatigue,
-     coalesce(prev.month_spent, 0) AS prev_month_spent,
-     coalesce(prev.policy_lifecycle, '{}') AS prev_lc
+     coalesce(prev.month_spent, 0) AS prev_month_spent
 
 // 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만)
 OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDES]->()
-WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent, prev_lc,
+WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent,
      count(i) AS n_events,
      avg(i.actual_satisfaction) AS avg_sat,
      sum(coalesce(i.actual_spent, 0)) AS today_spent
 
 // mood EMA: 0.7 * prev + 0.3 * avg_sat
 // fatigue: 0.5 * prev + 0.05 * n_events + (0.2 if low_sat else 0) - (0.1 if home_dominant else 0)
-WITH a, prev_balance, prev_energy, prev_lc, prev_month_spent,
+WITH a, prev_balance, prev_energy, prev_month_spent,
      toInteger(today_spent) AS today_spent,
      coalesce(avg_sat, prev_mood) AS today_avg_sat,
      n_events,
@@ -287,7 +286,7 @@ WITH a, prev_balance, prev_energy, prev_lc, prev_month_spent,
        ELSE 0.5 * prev_fatigue + 0.05 * n_events
      END AS new_fatigue_raw
 
-WITH a, prev_balance, prev_energy, prev_lc, prev_month_spent, today_spent, today_avg_sat, n_events,
+WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat, n_events,
      new_mood,
      CASE WHEN new_fatigue_raw > 1.0 THEN 1.0
           WHEN new_fatigue_raw < 0.0 THEN 0.0
@@ -302,25 +301,36 @@ SET s.agent_id = $aid,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
     s.month_spent = prev_month_spent + today_spent,
-    s.policy_lifecycle = prev_lc,
+    s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
 
 
-def night_create_state(aid: str, today: date, policy_used: dict[str, int] | None = None) -> dict:
+def night_create_state(
+    aid: str,
+    today: date,
+    policy_used: dict[str, int] | None = None,
+    policy_lifecycle: dict[str, bool] | str | None = None,
+) -> dict:
     """오늘 State 노드 CREATE.
 
     policy_used: 정책별 누적 사용액 dict. 그래프에 JSON string으로 저장.
+    policy_lifecycle: 정책주입된 정책 ID를 담는 최소 JSON dict/string.
     """
     import json as _json
     yesterday = today - timedelta(days=1)
     used_json = _json.dumps(policy_used or {}, ensure_ascii=False)
+    if isinstance(policy_lifecycle, str):
+        lifecycle_json = policy_lifecycle
+    else:
+        lifecycle_json = _json.dumps(policy_lifecycle or {}, ensure_ascii=False)
     with driver_session() as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
-                  policy_used_json=used_json).single()
+                  policy_used_json=used_json,
+                  policy_lifecycle_json=lifecycle_json).single()
         return dict(r) if r else {}
 
 
