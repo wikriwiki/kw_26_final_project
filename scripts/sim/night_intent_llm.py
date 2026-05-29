@@ -100,18 +100,18 @@ SYSTEM_PROMPT = """너는 Night 단계의 상호작용 의도분류기다.
 - AGENT_A, AGENT_B: role, agent_id, job, lifestyle, mood, fatigue, daily_log
 - persona 판단에는 agent_id, job, lifestyle, mood, fatigue만 사용한다.
 - daily_log 각 줄 형식: time: HH:MM-HH:MM | dong: ... | poi: ... | category: ... | activity: ...
-- 정책/뉴스 노출은 poi 필드에 "exposure: P001" 형태로 포함된다.
+- POLICY_CONTEXT가 있을 수 있다. 이 블록에는 policy id, name, description, aware_a, aware_b가 포함된다.
+- POLICY_CONTEXT는 정책 관련 대화 후보를 보여주는 참고 정보이며, 자동으로 "이슈"를 뜻하지 않는다.
 - home, workplace, residence 같은 anchor 이벤트도 의도 판단의 단서로 활용한다.
 
 분류 우선순위 및 규칙 (위에서부터 순서대로 적용):
 1. 미래에 둘이 다시 만나거나 함께 무엇을 하자는 제안이 핵심이면 → "약속"
-   - 예: "다음에 같이 가자", "언제 밥 먹자", "주말에 보자"
-   - 실제 대화문은 없으므로, 같은 시간대·동선 겹침·공유 장소 경험·반복 방문·생활 패턴 적합성을 근거로 미래 만남 제안을 추정할 수 있다.
-   - 단, 단순한 장소 겹침만으로는 부족하고, "함께 하자"의 미래성이 핵심일 때만 약속이다.
-   - 정책/뉴스가 대화의 직접적인 주제라면, 만남 제안이 일부 섞여 있어도 우선 "이슈"를 검토한다.
+   - 실제 대화문은 없으므로, 같은 시간대·동선 겹침·공유 장소 경험·반복 방문·생활 패턴 적합성이 함께 보이면 미래 만남 제안을 적극 추정할 수 있다.
+   - 단순한 장소 겹침만으로는 부족하지만, 반복적인 교집합과 생활 패턴 적합성이 함께 있으면 약속 가능성을 높게 본다.
 
 2. 정책, 뉴스, 사건 전달이 핵심이면 → "이슈"
    - 정책/뉴스 노출이나 정보 비대칭이 보이면, 그 내용을 상대에게 전하는 흐름을 우선 검토한다.
+   - POLICY_CONTEXT가 있더라도 자동으로 이슈로 보내지 말고, 정책 내용이 두 agent의 당일 동선, 방문 동, 방문 카테고리와 실제로 맞닿을 때만 이슈를 적극 고려한다.
    - 같은 정책이나 뉴스는 여러 agent 사이에서 반복 전파될 수 있으므로, 관련 노출이 있으면 소극적으로 기타로 보내지 말고 이슈를 적극 고려한다.
 
 3. 장소나 행동을 권유하거나, 자신의 경험을 바탕으로 가보라고 하거나 피하는 것이 좋다고 조언하는 흐름이 핵심이면 → "추천"
@@ -123,7 +123,8 @@ SYSTEM_PROMPT = """너는 Night 단계의 상호작용 의도분류기다.
 
 4. 그 외는 → "기타"
    - 위 세 intent를 뒷받침할 구체적 단서가 부족할 때만 기타다.
-   - 단순히 매칭 점수가 낮다는 이유만으로 기타로 보내지 말고, 정책/장소/약속으로 이어질 명확한 주제가 없으면 기타로 분류한다. 
+   - 단순히 매칭 점수가 낮다는 이유만으로 기타로 보내지 말고, 정책/장소/약속으로 이어질 명확한 주제가 없으면 기타로 분류한다.
+   - POLICY_CONTEXT가 보이더라도 대화의 핵심 주제가 불분명하면 기타로 둘 수 있다.
 
 출력 규칙:
 - initiator_id: AGENT_A의 agent_id 값
@@ -140,7 +141,7 @@ SYSTEM_PROMPT = """너는 Night 단계의 상호작용 의도분류기다.
     · 평일 저녁 회식·동료 약속: D+2 ~ D+4
     · 주말 친구·가족 약속: D+3 ~ D+5
     · 멀리 잡는 약속(생일·기념일·이벤트): D+6 ~ D+7
-    실제 사회 관계처럼 D+1 한 군데로 쏠리지 않게 다양한 offset을 사용.
+    실제 사회 관계처럼 D+1 한 군데로 쏠리지 않게 다양한 offset을 사용한다.
     약속은 시뮬레이션 종료일 안에 들어오는 경우만 고르지 말고, 대화 흐름상 자연스러운 날짜를 고른다.
 - plan_signal.target_time: 약속일 때 "HH:MM" 형식 (예: "19:00"). 나머지는 null
 - plan_signal.meeting_location_hint: 약속 장소 자유 문자열 힌트 (예: "봉피양 역삼본점"). 없거나 약속이 아니면 null
@@ -152,9 +153,9 @@ intent별 필드 매핑 규칙:
 - 기타: topic_type = none / topic_value = null / plan_signal 전부 null·false
 
 [reasoning — 인터뷰 가능성을 위한 핵심]
-reasoning 필드에 **두 agent의 어떤 페르소나·일정·정책 요소가** 이 의도로 이끌었는지 1~2문장 명시.
+reasoning 필드에 **두 agent의 어떤 페르소나·일정·정책 요소가** 이 의도로 이끌었는지 1~2문장 명시한다.
 - 약속 → 누가 누구에게, 왜 (예: "AGT_A는 동료 친밀도 0.6 + 같은 동 점심 자주 겹쳐서 토요일 외식 제안.")
-- 이슈 → 어떤 정책·뉴스가 화제 (예: "정책 P001 노출이 일정에 두 번 잡혀 강남 쿠폰 화제로 전환.")
+- 이슈 → 어떤 정책·뉴스가 화제 (예: "정책 P001이 두 사람의 강남역 일대 동선과 맞닿아 보행환경 개선 이야기가 화제로 이어짐.")
 - 추천 → 누가 어디를 권유 (예: "AGT_A가 어제 만족도 0.7로 만족한 두부마을찬을 AGT_B에게 추천.")
 - 기타 → 일상 잡담 사유 (예: "라이프스타일·일정 모두 무관한 동선 겹침. 간단한 인사 수준.")
 
@@ -190,9 +191,9 @@ RETURN
   pair.aid_a AS aid_a, pair.aid_b AS aid_b,
   pair.score AS score, pair.exposure AS exp, pair.relationship AS rel, pair.urgency AS urg,
   a.personal_job_raw AS a_job, a.personality_lifestyle_raw AS a_life,
-  sa.mood AS a_mood, sa.fatigue AS a_fatigue,
+  sa.mood AS a_mood, sa.fatigue AS a_fatigue, sa.policy_lifecycle AS a_policy_lc,
   b.personal_job_raw AS b_job, b.personality_lifestyle_raw AS b_life,
-  sb.mood AS b_mood, sb.fatigue AS b_fatigue,
+  sb.mood AS b_mood, sb.fatigue AS b_fatigue, sb.policy_lifecycle AS b_policy_lc,
   pa.id AS plan_a_id, pb.id AS plan_b_id
 """
 
@@ -207,11 +208,29 @@ RETURN pid AS plan_id, i.order AS ord, toString(i.time) AS time,
 ORDER BY pid, ord
 """
 
+FETCH_POLICY_CYPHER = """
+UNWIND $agent_ids AS aid
+MATCH (a:Agent {id: $aid})-[:LIVES_AT|WORKS_AT]->(:POI)-[:IN_DONG]->(d:Dong)<-[:HAS_DONG]-(dist:District)
+WITH aid, collect(DISTINCT d) AS my_dongs, collect(DISTINCT dist) AS my_dists
+MATCH (pol:Policy)-[:applied_to]->(target)
+WHERE date($d) >= pol.effective_from AND date($d) <= pol.effective_until
+  AND (target IN my_dongs OR target IN my_dists)
+WITH aid, DISTINCT pol
+OPTIONAL MATCH (pol)-[:applied_to]->(reg)
+WITH aid, pol, collect(DISTINCT coalesce(reg.code, '')) AS region_codes
+OPTIONAL MATCH (pol)-[:targets]->(cat:Category)
+WITH aid, pol, region_codes, collect(DISTINCT cat.parent) AS target_l1s
+RETURN aid, pol.id AS id, pol.name AS name, pol.description AS description,
+       region_codes, target_l1s
+ORDER BY aid, id
+"""
+
 
 def fetch_pair_data(pairs: list[dict], day: date) -> dict:
     """각 쌍에 필요한 입력 데이터를 한 번에 fetch."""
     pair_data = {}
     plan_ids = []
+    agent_ids = set()
     BATCH = 500
     with driver_session() as s:
         for i in range(0, len(pairs), BATCH):
@@ -220,12 +239,17 @@ def fetch_pair_data(pairs: list[dict], day: date) -> dict:
                 pair_data[key] = {
                     "score": r["score"], "exp": r["exp"], "rel": r["rel"], "urg": r["urg"],
                     "a": {"job": r["a_job"] or "", "life": r["a_life"] or "",
-                          "mood": r["a_mood"], "fatigue": r["a_fatigue"]},
+                          "mood": r["a_mood"], "fatigue": r["a_fatigue"],
+                          "policy_lifecycle": r["a_policy_lc"] or "{}"},
                     "b": {"job": r["b_job"] or "", "life": r["b_life"] or "",
-                          "mood": r["b_mood"], "fatigue": r["b_fatigue"]},
+                          "mood": r["b_mood"], "fatigue": r["b_fatigue"],
+                          "policy_lifecycle": r["b_policy_lc"] or "{}"},
                     "plan_a_id": r["plan_a_id"], "plan_b_id": r["plan_b_id"],
                     "events_a": [], "events_b": [],
+                    "policies_a": [], "policies_b": [],
                 }
+                agent_ids.add(r["aid_a"])
+                agent_ids.add(r["aid_b"])
                 if r["plan_a_id"]: plan_ids.append(r["plan_a_id"])
                 if r["plan_b_id"]: plan_ids.append(r["plan_b_id"])
 
@@ -235,10 +259,24 @@ def fetch_pair_data(pairs: list[dict], day: date) -> dict:
             for r in s.run(FETCH_EVENTS_CYPHER, plan_ids=plan_ids[i:i+BATCH]):
                 events_by_plan.setdefault(r["plan_id"], []).append(dict(r))
 
+        policies_by_agent = {}
+        agent_id_list = sorted(agent_ids)
+        for i in range(0, len(agent_id_list), BATCH):
+            for r in s.run(FETCH_POLICY_CYPHER, agent_ids=agent_id_list[i:i+BATCH], d=day.isoformat()):
+                policies_by_agent.setdefault(r["aid"], []).append({
+                    "id": r["id"],
+                    "name": r["name"] or "",
+                    "description": r["description"] or "",
+                    "region_codes": [x for x in (r["region_codes"] or []) if x],
+                    "target_l1s": [x for x in (r["target_l1s"] or []) if x],
+                })
+
     # pair_data에 이벤트 매핑
     for key, d in pair_data.items():
         d["events_a"] = events_by_plan.get(d["plan_a_id"], [])
         d["events_b"] = events_by_plan.get(d["plan_b_id"], [])
+        d["policies_a"] = policies_by_agent.get(key[0], [])
+        d["policies_b"] = policies_by_agent.get(key[1], [])
     return pair_data
 
 
@@ -246,6 +284,70 @@ def _format_event_line(ev: dict) -> str:
     poi = ev["poi_name"] or ev["poi_id"]
     return (f"  - time: {ev['time'][:5]}~ | dong: {ev['dong_name']} | poi: {poi} | "
             f"category: {ev['cat'] or '?'} | activity: {ev['intent'] or '?'}")
+
+
+def _parse_policy_lifecycle(raw) -> set[str]:
+    if not raw:
+        return set()
+    try:
+        parsed = json.loads(raw) if isinstance(raw, str) else raw
+    except Exception:
+        return set()
+    if not isinstance(parsed, dict):
+        return set()
+    return {str(k) for k, v in parsed.items() if v}
+
+
+def _select_relevant_policies(data: dict) -> list[dict]:
+    aware_a = _parse_policy_lifecycle(data["a"].get("policy_lifecycle"))
+    aware_b = _parse_policy_lifecycle(data["b"].get("policy_lifecycle"))
+    event_dongs = {
+        e.get("dong_code") for e in (data.get("events_a") or []) + (data.get("events_b") or [])
+        if e.get("dong_code")
+    }
+    event_cats = {
+        e.get("cat") for e in (data.get("events_a") or []) + (data.get("events_b") or [])
+        if e.get("cat")
+    }
+    selected = []
+    seen = set()
+    for pol in (data.get("policies_a") or []) + (data.get("policies_b") or []):
+        pid = pol.get("id")
+        if not pid or pid in seen:
+            continue
+        aware_a_hit = pid in aware_a
+        aware_b_hit = pid in aware_b
+        relevant = bool(set(pol.get("region_codes") or []) & event_dongs) or bool(
+            set(pol.get("target_l1s") or []) & event_cats
+        )
+        if (aware_a_hit or aware_b_hit) and relevant:
+            selected.append({
+                "id": pid,
+                "name": pol.get("name") or "",
+                "description": pol.get("description") or "",
+                "aware_a": aware_a_hit,
+                "aware_b": aware_b_hit,
+            })
+            seen.add(pid)
+        if len(selected) >= 2:
+            break
+    return selected
+
+
+def _format_policy_context(data: dict) -> str:
+    policies = _select_relevant_policies(data)
+    if not policies:
+        return ""
+    lines = ["### [POLICY_CONTEXT]"]
+    for pol in policies:
+        desc = " ".join((pol["description"] or "").split())
+        if len(desc) > 180:
+            desc = desc[:177].rstrip() + "..."
+        lines.append(f"- {pol['id']} | {pol['name']}")
+        lines.append(f"  description: {desc}")
+        lines.append(f"  aware_a: {str(pol['aware_a']).lower()}")
+        lines.append(f"  aware_b: {str(pol['aware_b']).lower()}")
+    return "\n".join(lines)
 
 
 def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
@@ -257,6 +359,8 @@ def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
     b_fatigue = b['fatigue'] if b['fatigue'] is not None else 0.3
     ev_a = "\n".join(_format_event_line(e) for e in data["events_a"]) or "  (이벤트 없음)"
     ev_b = "\n".join(_format_event_line(e) for e in data["events_b"]) or "  (이벤트 없음)"
+    policy_block = _format_policy_context(data)
+    policy_section = f"\n\n{policy_block}" if policy_block else ""
     return f"""### [MATCHING_ANALYSIS]
 - interaction_score: {data['score']:.2f}
 - exposure_score: {data['exp']:.2f}
@@ -281,7 +385,7 @@ def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
 - mood: {b_mood:.2f}
 - fatigue: {b_fatigue:.2f}
 - daily_log:
-{ev_b}
+{ev_b}{policy_section}
 
 위 입력만 근거로 상호작용 의도를 1개 분류하고 JSON만 출력하라."""
 
