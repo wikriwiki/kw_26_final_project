@@ -96,20 +96,25 @@ L1_CATEGORIES = {
 def normalize_category(cat: str | None, sub: str | None = None) -> tuple[str | None, str | None]:
     """Stage 1 category 출력을 L1 대분류로 정규화.
 
-    cat이 이미 L1이면 그대로, 세부업종이면 _CAT_TO_L1으로 올려준다.
-    sub_category는 원본 세부업종을 보존한다.
+    1. cat이 L1이면 그대로 통과
+    2. 세부업종이면 _CAT_TO_L1 매핑으로 L1 승격 (원본 세부업종은 sub_category로 보존)
+    3. 매핑에 없으면 cat 원본 유지 (Stage2 fallback Cypher가 Category.name으로 매칭 시도)
+       → '기타' 강등으로 정보 손실 방지
+
+    sub_category가 비어있고 cat이 L1이 아니면 cat을 sub로 복사해
+    Stage2 candidate fetch가 세부업종 매칭 → L1 매칭 → district L1 매칭 순으로 시도 가능.
     """
     if not cat:
         return cat, sub
     if cat in L1_CATEGORIES:
         return cat, sub
-    # 세부업종 → L1 매핑
+    # 세부업종 → L1 매핑 (정확한 매핑 존재)
     mapped = _CAT_TO_L1.get(cat)
     if mapped:
-        # 원본 세부업종을 sub_category로 내려보냄
         return mapped, sub or cat
-    # 매핑 없으면 기타로
-    return "기타", sub or cat
+    # 매핑 없음 — 원본 cat 유지, sub=cat 복사
+    # 후처리 fallback에서 Category.name 매칭으로 처리하게 둠 (기타 강등 X)
+    return cat, sub or cat
 
 
 def normalize_trigger(t):

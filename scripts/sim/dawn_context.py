@@ -195,10 +195,11 @@ ORDER BY km ASC LIMIT $limit
 """
 
 # Fallback: sub_category 매칭 실패 시 L1 단위로 같은 dong에서 fetch
+# Stage1 cat이 미매핑 세부업종이라도 Category.name으로도 매칭 시도 (parent OR name)
 STAGE2_FALLBACK_L1_DONG_CYPHER = """
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
-WHERE c.parent = $l1
+WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
@@ -210,10 +211,11 @@ ORDER BY known DESC LIMIT $limit
 """
 
 # Fallback: dong에 아예 commerce POI 부족 시 자치구 단위 L1 fetch
+# Category.name도 매칭 (미매핑 세부업종 대응)
 STAGE2_FALLBACK_L1_DISTRICT_CYPHER = """
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(d:District {code: $district_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
-WHERE c.parent = $l1
+WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,

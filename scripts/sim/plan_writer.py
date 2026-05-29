@@ -150,22 +150,29 @@ def _parse_excluded_income(raw) -> set[str]:
     return set()
 
 
-def get_grant_amount(income: str, policies: list[dict]) -> int:
-    """오늘 적용 가능한 grant 정책의 지급액 반환. 해당 없으면 0.
+def _grant_for_single_policy(income: str, pol: dict) -> int:
+    """단일 grant 정책에서 해당 소득이 받을 금액. excluded_income이면 0."""
+    if pol.get("type") != "grant":
+        return 0
+    excluded = _parse_excluded_income(pol.get("excluded_income"))
+    if income in excluded:
+        return 0
+    grants = _parse_income_grants(pol.get("income_grants"))
+    return grants.get(income, 0)
 
-    정책 객체의 income_grants(소득별 지급액 dict)·excluded_income(제외 소득 list)을
+
+def get_grant_amount(income: str, policies: list[dict]) -> int:
+    """오늘 적용 가능한 모든 grant 정책의 지급액 합계. 해당 없으면 0.
+
+    여러 grant 정책이 동시에 활성이면 누적 합산.
+    각 정책의 income_grants(소득별 지급액 dict)·excluded_income(제외 소득 list)을
     동적으로 읽어서 처리. P009 같은 차등 지급 정책 외에도 income_grants가 있는 어떤
     grant 정책이든 자동 처리.
     """
+    total = 0
     for pol in policies:
-        if pol.get("type") != "grant":
-            continue
-        excluded = _parse_excluded_income(pol.get("excluded_income"))
-        if income in excluded:
-            return 0
-        grants = _parse_income_grants(pol.get("income_grants"))
-        return grants.get(income, 0)
-    return 0
+        total += _grant_for_single_policy(income, pol)
+    return total
 
 
 def track_policy_usage(
@@ -309,7 +316,8 @@ SET s.agent_id = $aid,
     s.fatigue = new_fatigue,
     s.month_spent = prev_month_spent + today_spent,
     s.policy_lifecycle = $policy_lifecycle_json,
-    s.policy_used = $policy_used_json   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
+    s.policy_used = $policy_used_json,   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
+    s.grant_received = $grant_received_json  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
@@ -320,12 +328,15 @@ def night_create_state(
     today: date,
     policy_used: dict[str, int] | None = None,
     policy_lifecycle: dict[str, bool] | str | None = None,
+    grant_received: dict[str, int] | str | None = None,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
     policy_used: 정책별 누적 사용액 dict. 그래프에 JSON string으로 저장.
     policy_lifecycle: 정책 인지 상태 dict ({"P009": true} 형식).
         Dawn에서 주입된 정책 ID들이 들어옴. 외부에서 안 주면 빈 dict.
+    grant_received: 정책별 누적 grant 수령액 dict ({"P009": 250000} 형식).
+        resume 시 중복 적용 방지용 — 어제 State에 이미 기록된 정책은 skip.
     """
     import json as _json
     yesterday = today - timedelta(days=1)
@@ -334,11 +345,16 @@ def night_create_state(
         lifecycle_json = policy_lifecycle
     else:
         lifecycle_json = _json.dumps(policy_lifecycle or {}, ensure_ascii=False)
+    if isinstance(grant_received, str):
+        grant_json = grant_received
+    else:
+        grant_json = _json.dumps(grant_received or {}, ensure_ascii=False)
     with driver_session() as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
                   policy_used_json=used_json,
-                  policy_lifecycle_json=lifecycle_json).single()
+                  policy_lifecycle_json=lifecycle_json,
+                  grant_received_json=grant_json).single()
         return dict(r) if r else {}
 
 

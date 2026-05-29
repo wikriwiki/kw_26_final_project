@@ -45,7 +45,7 @@ except ImportError:
 class Stage2Pick(BaseModel):
     order: int
     poi_id: str
-    actual_spent: float | None = None        # LLM이 설정 (원)
+    actual_spent: float | None = None        # LLM이 설정 (원, 양수)
     actual_satisfaction: float | None = None # LLM이 설정 (0~1)
     pick_reason: str | None = None
     pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | random
@@ -53,6 +53,32 @@ class Stage2Pick(BaseModel):
 
 class Stage2Output(BaseModel):
     picks: list[Stage2Pick]
+
+
+# commerce 이벤트에 actual_spent가 0/None이면 카테고리·소득별 fallback 값 부여.
+# 가급적 LLM이 직접 정하게 하되, 환각·누락 시 cap 추적 무력화 방지용 안전망.
+_SPEND_FALLBACK_BY_L1 = {
+    "편의점": 5000, "마트": 25000,
+    "식사": 12000, "카페": 6000, "디저트": 8000, "주점": 30000,
+    "미용": 30000, "쇼핑": 50000,
+    "여가": 20000, "건강": 15000, "교육": 50000, "기타": 10000,
+}
+
+
+def _ensure_positive_spend(pick: "Stage2Pick", category: str | None, daily_wd: float | int | None) -> None:
+    """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 카테고리 fallback 부여.
+
+    track_policy_usage가 spend<=0 이면 cap 추적을 skip하므로,
+    여기서 최소값을 강제해 정책 효과 측정 신뢰도 확보.
+    """
+    cur = pick.actual_spent or 0
+    if cur > 0:
+        return
+    base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
+    if daily_wd and daily_wd > 0:
+        # daily_wd가 매우 작은 경우 비율 보정 (예: 절약형 페르소나)
+        base = min(base, int(daily_wd * 0.4))
+    pick.actual_spent = max(1000, base)
 
 
 # =========================================================
@@ -239,10 +265,12 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 같은 날 여러 이벤트가 있을 때 동일 POI를 두 번 선택하지 마세요.
 
 **소비액 설정 (actual_spent)**
-- 에이전트의 일일 예산(daily_wd)을 오늘 방문하는 모든 commerce POI에 자연스럽게 배분합니다.
-- 정책 쿠폰/바우처 잔액이 있으면 적극 활용해 추가 소비도 고려합니다.
-- 각 카테고리의 특성을 반영하세요 (식사 > 카페 > 편의점 순으로 단가 높음).
-- 0원은 불가 (commerce 이벤트는 반드시 소비 발생).
+- 에이전트의 일일 예산(daily_wd)과 페르소나 소비 성향을 종합해 오늘 방문하는 commerce POI에 자유롭게 배분합니다.
+- 정책 지원금/쿠폰 잔액이 있으면 그 범위 안에서 적극 활용해 추가 소비도 고려합니다.
+  · 지원금이 들어왔다면 단순히 잔액에 합치지 말고, '평소 daily_wd 외 추가로 쓰는 돈'으로 분리해서 사고합니다.
+  · 절약형 페르소나는 지원금 일부만 쓰고 일부는 절약, 소비형은 더 적극 활용.
+- 단가는 POI 카테고리 일반 통념이 아니라 페르소나·상황·가게 종류에 맞춰 자유롭게 정합니다.
+- 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
 
 **만족도 설정 (actual_satisfaction)**
 - 0.0 ~ 1.0 범위의 실수입니다.
@@ -451,6 +479,14 @@ def call_stage2(
             picks_before_fill = len(parsed.picks)
             parsed = _fill_missing_picks(parsed, stage1.events, cands_by_order, aid=aid)
             missing_filled = len(parsed.picks) - picks_before_fill
+
+            # 후처리: actual_spent 0/None인 commerce 이벤트에 카테고리 fallback (cap 추적 무력화 방지)
+            daily_wd = persona.get("daily_wd") or 0
+            cat_by_order = {i: ev.category for i, ev in enumerate(stage1.events)}
+            for pick in parsed.picks:
+                cat = cat_by_order.get(pick.order)
+                if cat and cat not in INTERNAL_CATS:
+                    _ensure_positive_spend(pick, cat, daily_wd)
 
             meta = {
                 "attempt": attempt,

@@ -56,6 +56,7 @@ from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
     night_finalize_yesterday, night_create_state,
     apply_grant_to_prev_state, get_grant_amount,
+    _grant_for_single_policy,
 )
 
 
@@ -97,6 +98,52 @@ def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[s
 # =========================================================
 # 한 agent의 1일 처리 (스레드 워커)
 # =========================================================
+def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: dict[str, int] | None,
+                                  grants_applied_today: dict[str, int] | None = None) -> str:
+    """Stage2 LLM에 노출할 정책 예산 요약 텍스트.
+
+    - subsidy/voucher: 잔여 cap = cap - used
+    - grant: 오늘 받은 지원금 명시 (잔액에 이미 반영됐어도 'P009로 25만원 받음'을 별도로 알림)
+    """
+    if not policies:
+        return ""
+    used = prev_policy_used or {}
+    grants_today = grants_applied_today or {}
+    lines = []
+    for pol in policies:
+        pid = pol.get("id") or ""
+        name = pol.get("name") or pid
+        ptype = pol.get("type") or ""
+        # grant — 오늘 받은 지원금 강조
+        if ptype == "grant" and pid in grants_today:
+            amt = grants_today[pid]
+            lines.append(f"{pid}({name}): 오늘 지원금 +{amt:,}원 (잔액에 반영됨, 추가 가용 예산)")
+            continue
+        # subsidy/voucher — 잔여 cap
+        cap = pol.get("cap") or 0
+        rate = pol.get("rate") or 0.0
+        if cap > 0 and rate > 0:
+            spent = used.get(pid, 0)
+            remaining = max(0, cap - spent)
+            lines.append(f"{pid}({name}): 환급률 {int(rate*100)}% / 한도 {cap:,}원 / 사용 {spent:,}원 / 잔여 {remaining:,}원")
+    return " | ".join(lines)
+
+
+def _read_grant_received(state_dict: dict | None) -> dict[str, int]:
+    """전날 State.grant_received JSON 파싱. {정책ID: 누적금액}"""
+    import json
+    if not state_dict:
+        return {}
+    raw = state_dict.get("grant_received") or "{}"
+    if isinstance(raw, dict):
+        return {str(k): int(v) for k, v in raw.items()}
+    try:
+        d = json.loads(raw) if isinstance(raw, str) else {}
+        return {str(k): int(v) for k, v in d.items()} if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
 def _merge_policy_lifecycle(raw_lifecycle, policies: list[dict] | None) -> dict[str, bool]:
     """기존 policy_lifecycle JSON에 오늘 Dawn 정책 ID를 true로 병합."""
     import json
@@ -124,21 +171,39 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
 
         # grant 정책 — effective_from 당일 새벽에 전날 State 잔액에 지원금 추가
-        # Dawn 컨텍스트가 업데이트된 잔액을 보여줘 LLM이 추가 예산 인식
-        grant_applied = 0
+        # 멱등성: 어제 State.grant_received에 이미 기록된 정책은 skip (resume 시 중복 적용 방지)
+        prev_grant_received = _read_grant_received(ctx.state)
+        income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
+        grants_applied_today: dict[str, int] = {}
         for pol in (ctx.policy or []):
-            if pol.get("type") == "grant":
-                eff = pol.get("effective_from", "")
-                if str(today) == eff:
-                    income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
-                    grant_applied = get_grant_amount(income, ctx.policy)
-                    if grant_applied > 0:
-                        apply_grant_to_prev_state(aid, today, grant_applied)
-                    break
+            if pol.get("type") != "grant":
+                continue
+            pid = pol.get("id") or ""
+            if pid in prev_grant_received:
+                # 이미 적용된 grant — skip (resume 멱등 가드)
+                continue
+            eff = pol.get("effective_from", "")
+            if str(today) != eff:
+                continue
+            # 이 정책에서 받을 금액
+            amt = _grant_for_single_policy(income, pol)
+            if amt > 0:
+                apply_grant_to_prev_state(aid, today, amt)
+                grants_applied_today[pid] = amt
 
         # grant 적용 후 컨텍스트 재빌드 (잔액 반영)
-        if grant_applied > 0:
+        if grants_applied_today:
             ctx = build_dawn_context(aid, today)
+
+        # Stage2 LLM에 노출할 정책 예산 요약 (정책 쿠폰 잔액·오늘 받은 지원금 명시)
+        prev_used_for_budget = ctx.get_policy_used()
+        # 누적 grant_received 갱신 (이번에 적용된 것 합산)
+        merged_grant_received = dict(prev_grant_received)
+        for pid, amt in grants_applied_today.items():
+            merged_grant_received[pid] = merged_grant_received.get(pid, 0) + amt
+        ctx.persona["policy_budget_summary"] = _build_policy_budget_summary(
+            ctx.policy, prev_used_for_budget, grants_applied_today
+        )
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
@@ -177,6 +242,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             aid, today,
             policy_used=updated_policy_used,
             policy_lifecycle=merged_policy_lifecycle,
+            grant_received=merged_grant_received,
         )
 
         # 만족도 평균
