@@ -103,16 +103,6 @@ def _policy_match(ev: dict, pol: dict, home_dist5: str, work_dist5: str) -> bool
     return cat_ok
 
 
-# 소득별 현금 지급액 테이블 (type='grant' 정책용)
-INCOME_GRANT_TABLE: dict[str, int] = {
-    "중상": 100_000,
-    "중":   250_000,
-    "중하": 450_000,
-    "하":   600_000,
-}
-INCOME_GRANT_EXCLUDED = {"상"}
-
-
 def apply_grant_to_prev_state(aid: str, today: date, grant: int) -> None:
     """grant 정책 effective_from 당일, 전날 State 잔액에 지원금 추가.
 
@@ -128,14 +118,53 @@ def apply_grant_to_prev_state(aid: str, today: date, grant: int) -> None:
         )
 
 
+def _parse_income_grants(raw) -> dict[str, int]:
+    """policy.income_grants 파싱. dict / JSON string / None 처리."""
+    import json as _json
+    if raw is None:
+        return {}
+    if isinstance(raw, dict):
+        return {str(k): int(v) for k, v in raw.items()}
+    if isinstance(raw, str):
+        try:
+            d = _json.loads(raw)
+            return {str(k): int(v) for k, v in d.items()} if isinstance(d, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _parse_excluded_income(raw) -> set[str]:
+    """policy.excluded_income 파싱. list / JSON string / None 처리."""
+    import json as _json
+    if raw is None:
+        return set()
+    if isinstance(raw, (list, tuple, set)):
+        return {str(x) for x in raw}
+    if isinstance(raw, str):
+        try:
+            d = _json.loads(raw)
+            return {str(x) for x in d} if isinstance(d, (list, tuple)) else set()
+        except Exception:
+            return set()
+    return set()
+
+
 def get_grant_amount(income: str, policies: list[dict]) -> int:
-    """오늘 적용 가능한 grant 정책의 지급액 반환. 해당 없으면 0."""
+    """오늘 적용 가능한 grant 정책의 지급액 반환. 해당 없으면 0.
+
+    정책 객체의 income_grants(소득별 지급액 dict)·excluded_income(제외 소득 list)을
+    동적으로 읽어서 처리. P009 같은 차등 지급 정책 외에도 income_grants가 있는 어떤
+    grant 정책이든 자동 처리.
+    """
     for pol in policies:
         if pol.get("type") != "grant":
             continue
-        if income in INCOME_GRANT_EXCLUDED:
+        excluded = _parse_excluded_income(pol.get("excluded_income"))
+        if income in excluded:
             return 0
-        return INCOME_GRANT_TABLE.get(income, 0)
+        grants = _parse_income_grants(pol.get("income_grants"))
+        return grants.get(income, 0)
     return 0
 
 
@@ -243,19 +272,18 @@ WITH a, prev,
      coalesce(prev.energy, 0.8) AS prev_energy,
      coalesce(prev.mood, 0.5) AS prev_mood,
      coalesce(prev.fatigue, 0.3) AS prev_fatigue,
-     coalesce(prev.month_spent, 0) AS prev_month_spent,
-     coalesce(prev.policy_lifecycle, '{}') AS prev_lc
+     coalesce(prev.month_spent, 0) AS prev_month_spent
 
 // 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만)
 OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDES]->()
-WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent, prev_lc,
+WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent,
      count(i) AS n_events,
      avg(i.actual_satisfaction) AS avg_sat,
      sum(coalesce(i.actual_spent, 0)) AS today_spent
 
 // mood EMA: 0.7 * prev + 0.3 * avg_sat
 // fatigue: 0.5 * prev + 0.05 * n_events + (0.2 if low_sat else 0) - (0.1 if home_dominant else 0)
-WITH a, prev_balance, prev_energy, prev_lc, prev_month_spent,
+WITH a, prev_balance, prev_energy, prev_month_spent,
      toInteger(today_spent) AS today_spent,
      coalesce(avg_sat, prev_mood) AS today_avg_sat,
      n_events,
@@ -265,7 +293,7 @@ WITH a, prev_balance, prev_energy, prev_lc, prev_month_spent,
        ELSE 0.5 * prev_fatigue + 0.05 * n_events
      END AS new_fatigue_raw
 
-WITH a, prev_balance, prev_energy, prev_lc, prev_month_spent, today_spent, today_avg_sat, n_events,
+WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat, n_events,
      new_mood,
      CASE WHEN new_fatigue_raw > 1.0 THEN 1.0
           WHEN new_fatigue_raw < 0.0 THEN 0.0
@@ -280,25 +308,37 @@ SET s.agent_id = $aid,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
     s.month_spent = prev_month_spent + today_spent,
-    s.policy_lifecycle = prev_lc,
+    s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
 
 
-def night_create_state(aid: str, today: date, policy_used: dict[str, int] | None = None) -> dict:
+def night_create_state(
+    aid: str,
+    today: date,
+    policy_used: dict[str, int] | None = None,
+    policy_lifecycle: dict[str, bool] | str | None = None,
+) -> dict:
     """오늘 State 노드 CREATE.
 
     policy_used: 정책별 누적 사용액 dict. 그래프에 JSON string으로 저장.
+    policy_lifecycle: 정책 인지 상태 dict ({"P009": true} 형식).
+        Dawn에서 주입된 정책 ID들이 들어옴. 외부에서 안 주면 빈 dict.
     """
     import json as _json
     yesterday = today - timedelta(days=1)
     used_json = _json.dumps(policy_used or {}, ensure_ascii=False)
+    if isinstance(policy_lifecycle, str):
+        lifecycle_json = policy_lifecycle
+    else:
+        lifecycle_json = _json.dumps(policy_lifecycle or {}, ensure_ascii=False)
     with driver_session() as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
-                  policy_used_json=used_json).single()
+                  policy_used_json=used_json,
+                  policy_lifecycle_json=lifecycle_json).single()
         return dict(r) if r else {}
 
 

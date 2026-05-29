@@ -97,6 +97,24 @@ def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[s
 # =========================================================
 # 한 agent의 1일 처리 (스레드 워커)
 # =========================================================
+def _merge_policy_lifecycle(raw_lifecycle, policies: list[dict] | None) -> dict[str, bool]:
+    """기존 policy_lifecycle JSON에 오늘 Dawn 정책 ID를 true로 병합."""
+    import json
+    lifecycle: dict[str, bool] = {}
+    if raw_lifecycle:
+        try:
+            parsed = json.loads(raw_lifecycle) if isinstance(raw_lifecycle, str) else raw_lifecycle
+            if isinstance(parsed, dict):
+                lifecycle = {str(k): bool(v) for k, v in parsed.items()}
+        except Exception:
+            lifecycle = {}
+    for pol in policies or []:
+        pid = pol.get("id")
+        if pid:
+            lifecycle[str(pid)] = True
+    return lifecycle
+
+
 def process_one(aid: str, today: date, day_idx: int) -> dict:
     """1 agent 1일. 결과 메타 dict 반환 (실패 시 status='error')."""
     t0 = time.time()
@@ -150,7 +168,16 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         n_mem = 0
         if day_idx >= 1:
             n_mem = night_finalize_yesterday(aid, today)
-        state = night_create_state(aid, today, policy_used=updated_policy_used)
+        # 정책 인지 상태 — 어제 lifecycle에 오늘 Dawn 정책 ID를 true로 병합
+        merged_policy_lifecycle = _merge_policy_lifecycle(
+            (ctx.state or {}).get("policy_lc"),
+            ctx.policy,
+        )
+        state = night_create_state(
+            aid, today,
+            policy_used=updated_policy_used,
+            policy_lifecycle=merged_policy_lifecycle,
+        )
 
         # 만족도 평균
         sats = [e["actual_satisfaction"] for e in events if e["actual_satisfaction"] is not None]
