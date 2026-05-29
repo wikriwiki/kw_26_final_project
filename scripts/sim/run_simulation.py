@@ -137,12 +137,15 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
     return " | ".join(lines)
 
 
-def _read_grant_received(state_dict: dict | None) -> dict[str, int]:
-    """전날 State.grant_received JSON 파싱. {정책ID: 누적금액}"""
-    import json
+def _read_state_json(state_dict: dict | None, key: str) -> dict[str, int]:
+    """State 노드의 JSON string 필드 파싱 헬퍼 — {ID: int} dict 반환.
+
+    grant_received, grant_remaining 등 정책별 정수 dict 필드용.
+    파싱 실패·dict 아님·문자열 빈 dict면 빈 dict 반환.
+    """
     if not state_dict:
         return {}
-    raw = state_dict.get("grant_received") or "{}"
+    raw = state_dict.get(key) or "{}"
     if isinstance(raw, dict):
         return {str(k): int(v) for k, v in raw.items()}
     try:
@@ -152,9 +155,14 @@ def _read_grant_received(state_dict: dict | None) -> dict[str, int]:
         return {}
 
 
+# 하위호환 alias
+def _read_grant_received(state_dict: dict | None) -> dict[str, int]:
+    """DEPRECATED. _read_state_json(state, 'grant_received') 사용 권장."""
+    return _read_state_json(state_dict, "grant_received")
+
+
 def _merge_policy_lifecycle(raw_lifecycle, policies: list[dict] | None) -> dict[str, bool]:
     """기존 policy_lifecycle JSON에 오늘 Dawn 정책 ID를 true로 병합."""
-    import json
     lifecycle: dict[str, bool] = {}
     if raw_lifecycle:
         try:
@@ -180,7 +188,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
 
         # grant 정책 — effective_from 당일 새벽에 전날 State 잔액에 지원금 추가
         # 멱등성: 어제 State.grant_received에 이미 기록된 정책은 skip (resume 시 중복 적용 방지)
-        prev_grant_received = _read_grant_received(ctx.state)
+        prev_grant_received = _read_state_json(ctx.state, "grant_received")
         income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
         grants_applied_today: dict[str, int] = {}
         for pol in (ctx.policy or []):
@@ -209,29 +217,22 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         merged_grant_received = dict(prev_grant_received)
         for pid, amt in grants_applied_today.items():
             merged_grant_received[pid] = merged_grant_received.get(pid, 0) + amt
-        # 어제 grant_remaining 파싱 (Stage2 LLM에 노출할 잔여 grant)
-        import json as _json_dawn
-        raw_rem = (ctx.state or {}).get("grant_remaining") or "{}"
-        try:
-            prev_grant_remaining_for_budget = _json_dawn.loads(raw_rem) if isinstance(raw_rem, str) else (raw_rem or {})
-            if not isinstance(prev_grant_remaining_for_budget, dict):
-                prev_grant_remaining_for_budget = {}
-        except Exception:
-            prev_grant_remaining_for_budget = {}
-        # 오늘 받은 grant 추가 (LLM은 오늘 받음+어제까지 잔여 = 가용액으로 인식)
-        grant_remaining_for_budget = {str(k): int(v) for k, v in prev_grant_remaining_for_budget.items()}
+        # 어제 grant_remaining 파싱 → 1번만, 아래에서 재사용
+        prev_grant_remaining = _read_state_json(ctx.state, "grant_remaining")
+        # Stage2 LLM 노출용 잔여 가용액 (어제까지 잔여 + 오늘 받음)
+        grant_avail_today: dict[str, int] = dict(prev_grant_remaining)
         for pid, amt in grants_applied_today.items():
-            grant_remaining_for_budget[pid] = grant_remaining_for_budget.get(pid, 0) + int(amt)
+            grant_avail_today[pid] = grant_avail_today.get(pid, 0) + int(amt)
         ctx.persona["policy_budget_summary"] = _build_policy_budget_summary(
-            ctx.policy, prev_used_for_budget, grants_applied_today, grant_remaining_for_budget
+            ctx.policy, prev_used_for_budget, grants_applied_today, grant_avail_today
         )
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
         events = merge_to_final_events(s1, s2, ctx.persona)
 
-        # LLM policy_spend 환각 검증 (sum > actual_spent 보정)
-        policy_spend_corrected = validate_policy_spend(events)
+        # LLM policy_spend 환각 검증 — 거래 단위(sum>actual) + 정책 단위(잔여액 초과) 보정
+        policy_spend_corrected = validate_policy_spend(events, policy_remaining=grant_avail_today)
 
         # 오늘 거래별 policy_spend 집계 → 정책별 오늘 사용액
         today_policy_spend = aggregate_policy_spend(events)
@@ -244,27 +245,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             policy_used=prev_policy_used,
         )
 
-        # grant_remaining = 누적 received - 누적 spend
-        # 어제 grant_remaining + 오늘 받은 - 오늘 쓴
-        prev_remaining = _read_grant_received(ctx.state)  # grant_remaining도 같은 파서로
-        # 어제 State에 grant_remaining이 있으면 그걸 베이스, 없으면 받은 만큼
-        prev_state = ctx.state or {}
-        import json as _json
-        raw_remaining = prev_state.get("grant_remaining") or "{}"
-        try:
-            prev_remaining_dict = _json.loads(raw_remaining) if isinstance(raw_remaining, str) else (raw_remaining or {})
-            if not isinstance(prev_remaining_dict, dict):
-                prev_remaining_dict = {}
-        except Exception:
-            prev_remaining_dict = {}
-        merged_grant_remaining: dict[str, int] = {str(k): int(v) for k, v in prev_remaining_dict.items()}
-        # 오늘 받은 grant 추가
-        for pid, amt in grants_applied_today.items():
-            merged_grant_remaining[pid] = merged_grant_remaining.get(pid, 0) + int(amt)
-        # 오늘 사용분 차감 (음수 방지)
+        # grant_remaining = 어제 잔여 + 오늘 받음 − 오늘 사용 (음수 방지)
+        merged_grant_remaining: dict[str, int] = dict(grant_avail_today)
         for pid, amt in today_policy_spend.items():
-            cur = merged_grant_remaining.get(pid, 0)
-            merged_grant_remaining[pid] = max(0, cur - int(amt))
+            merged_grant_remaining[pid] = max(0, merged_grant_remaining.get(pid, 0) - int(amt))
 
         # 활성 정책 카테고리 셋 (오늘 Dawn 컨텍스트에서 추출) — 사후 측정용 라벨
         active_policy_cats: set[str] = set()

@@ -204,25 +204,54 @@ def aggregate_policy_spend(events: list[dict]) -> dict[str, int]:
     return out
 
 
-def validate_policy_spend(events: list[dict]) -> int:
-    """LLM 환각 검증: sum(policy_spend) > actual_spent 인 거래는 policy_spend 캡.
+def validate_policy_spend(
+    events: list[dict],
+    policy_remaining: dict[str, int] | None = None,
+) -> int:
+    """LLM 환각 보정 — 두 가지 제약 강제:
+      (1) 거래 단위: sum(policy_spend.values()) ≤ actual_spent
+      (2) 정책 단위: 누적 policy_spend[pid] ≤ policy_remaining[pid]
 
-    각 이벤트의 policy_spend 총합이 actual_spent를 넘으면 비율 축소.
+    각 이벤트를 시간순으로 처리하면서 잔여 가용액을 차감. 초과분은 잘라냄.
+    policy_remaining=None이면 (1)만 검증 (하위호환).
     반환: 보정된 거래 수.
     """
     corrected = 0
+    # 정책별 잔여 가용액 (시간순 차감)
+    pol_rem = dict(policy_remaining or {})
     for e in events:
         ps = e.get("policy_spend") or {}
         if not isinstance(ps, dict) or not ps:
             continue
-        total = sum(int(v) for v in ps.values() if isinstance(v, (int, float)) and v > 0)
+        # 정수 정규화 + 양수만
+        ps = {str(k): int(v) for k, v in ps.items()
+              if isinstance(v, (int, float)) and v > 0}
+        if not ps:
+            e["policy_spend"] = {}
+            continue
+        changed = False
+        # (2) 정책 단위 잔여액 cap
+        if policy_remaining is not None:
+            for pid in list(ps.keys()):
+                avail = pol_rem.get(pid, 0)
+                if ps[pid] > avail:
+                    ps[pid] = max(0, avail)
+                    changed = True
+            ps = {k: v for k, v in ps.items() if v > 0}
+        # (1) 거래 단위 actual_spent cap (정책 총합 ≤ 거래 총액)
         spent = e.get("actual_spent") or 0
+        total = sum(ps.values())
         if total > spent and total > 0:
-            # 비율로 축소 (각 정책 사용액을 actual_spent에 맞춰 cap)
             ratio = spent / total
             for pid in list(ps.keys()):
                 ps[pid] = max(0, int(ps[pid] * ratio))
-            e["policy_spend"] = {k: v for k, v in ps.items() if v > 0}
+            ps = {k: v for k, v in ps.items() if v > 0}
+            changed = True
+        # 잔여 차감
+        for pid, amt in ps.items():
+            pol_rem[pid] = max(0, pol_rem.get(pid, 0) - amt)
+        e["policy_spend"] = ps
+        if changed:
             corrected += 1
     return corrected
 

@@ -131,16 +131,14 @@ def fetch_candidates_for_events(
 ) -> dict[int, list[dict]]:
     """이벤트별 candidate POI dict. key=order, value=list of candidate dicts.
 
-    두 가지 동시 처리:
+    정렬 (단순화 — 2026-05-30):
+      avg_satisfaction 내림차순 → km 오름차순.
+      복잡한 desire 4요인 곱셈(affinity·recency·saturation·novelty)은 폐기.
+      반복 억제는 Stage 2 프롬프트의 '최근 3일 방문 POI' 헤더로 LLM이 자율 처리.
 
-    (1) **다른 날 반복 차단** — 각 cand 의 `desire` 점수 계산 후 desire 내림차순
-        정렬. desire = baseline(affinity, sat) × recency(Δ) × saturation(v30) + novelty.
-        어제 방문한 단골은 recency 가 낮아 desire 가 새 가게보다 낮을 수 있음 →
-        같은 단골 매일 픽 패턴 약화.
-
-    (2) **같은 날 반복 차단** — 같은 (dong, sub_category) 이벤트가 N개면 후보를
-        N×k_per_event 크기로 한 번에 fetch + desire 정렬 후 round-robin 분할.
-        같은 POI 가 두 이벤트 풀에 동시 등장 못 함.
+    같은 날 반복 차단:
+      같은 (dong, sub_category) 이벤트가 N개면 후보를 N×k_per_event 크기로 한 번에
+      fetch + 정렬 후 round-robin 분할. 같은 POI가 두 이벤트 풀에 동시 등장 못 함.
 
     stats: fallback 카운트 dict (mutate). 누적 키:
       - resolve_dong_placeholder_fallback
@@ -220,11 +218,11 @@ def fetch_candidates_for_events(
 def _split_pool_round_robin(
     cands: list[dict], n: int, k_per_event: int,
 ) -> list[list[dict]]:
-    """정렬된 풀(desire DESC) 을 N개 이벤트 풀로 round-robin 분할.
+    """정렬된 풀(avg_satisfaction DESC, km ASC)을 N개 이벤트 풀로 round-robin 분할.
 
     같은 POI 가 여러 버킷에 들어가지 않음 — 한 cand 는 idx % n 한 곳만 들어감.
-    상위 → 하위 순서대로 라운드로빈이라 각 버킷이 desire 분포를 골고루 받는다.
-    가장 이른 시간 이벤트(idx 0)가 단골 1순위를 받음.
+    상위 → 하위 순서대로 라운드로빈이라 각 버킷이 만족도 분포를 골고루 받는다.
+    가장 이른 시간 이벤트(idx 0)가 만족도 1순위를 받음.
     """
     buckets: list[list[dict]] = [[] for _ in range(n)]
     for idx, c in enumerate(cands):
@@ -313,16 +311,6 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 
 pick_factor enum: known | distance | satisfaction | rumor | appointment | random
 /no_think"""
-
-
-def _recency_label(d_since: int | None) -> str:
-    if d_since is None:
-        return "안 가봄"
-    if d_since == 0:
-        return "오늘"
-    if d_since == 1:
-        return "어제"
-    return f"{d_since}일 전"
 
 
 def _format_event_with_candidates(
