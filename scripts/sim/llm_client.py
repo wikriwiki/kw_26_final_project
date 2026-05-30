@@ -169,12 +169,17 @@ def call_chat(
     temperature: float = 0.7,
     max_tokens: int = 1200,
     client: OpenAI | None = None,
+    response_format: dict | None = None,
 ) -> Any:
-    """동기 호출. response 객체 그대로 반환 (usage·choices 등 메타 필요)."""
+    """동기 호출. response 객체 그대로 반환 (usage·choices 등 메타 필요).
+
+    response_format: vLLM `response_format` 전달 — strict JSON schema 강제.
+    예: {"type":"json_schema","json_schema":{"name":"...","strict":True,"schema":{...}}}
+    """
     spec = get_spec(mode)
     cli = client or get_client()
     extra = _extra_body_for(spec.family)
-    return cli.chat.completions.create(
+    kwargs: dict = dict(
         model=spec.hf_id,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -184,6 +189,9 @@ def call_chat(
         max_tokens=max_tokens,
         extra_body=extra or None,
     )
+    if response_format:
+        kwargs["response_format"] = response_format
+    return cli.chat.completions.create(**kwargs)
 
 
 # ═══════════════════════════════════════════

@@ -275,11 +275,29 @@ class DawnContext:
             return {}
 
 
+def _strip_lifestyle_first_line(lifestyle: str) -> str:
+    """5줄 페르소나에서 첫 줄(성격/계획성 요약)을 제거.
+
+    LLM에는 토큰 절감 + 행동 다양성 유도 위해 ②~⑤만 노출.
+    형식이 다양해 ② 마커 우선, 없으면 줄 단위 첫 줄 제거.
+    """
+    if not lifestyle:
+        return ""
+    s = lifestyle.strip()
+    for marker in ("②", "②", "**②"):
+        if marker in s:
+            return s[s.find(marker):].strip()
+    lines = [ln for ln in s.split("\n") if ln.strip()]
+    if len(lines) <= 1:
+        return s
+    return "\n".join(lines[1:]).strip()
+
+
 def _format_persona(p: dict) -> str:
     if not p:
         return "(페르소나 없음)"
     job = (p.get("job") or "").strip()
-    lifestyle = (p.get("lifestyle") or "").strip()[:140]
+    lifestyle = _strip_lifestyle_first_line(p.get("lifestyle") or "")[:280]
     lines = [
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",

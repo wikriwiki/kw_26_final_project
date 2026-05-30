@@ -126,7 +126,7 @@ def _score_and_sort_by_desire(cands: list[dict], today: date) -> list[dict]:
 
 def fetch_candidates_for_events(
     aid: str, events: list, persona: dict, today: date,
-    k_per_event: int = 15,
+    k_per_event: int = 12,
     stats: dict | None = None,
 ) -> dict[int, list[dict]]:
     """이벤트별 candidate POI dict. key=order, value=list of candidate dicts.
@@ -253,7 +253,9 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 **POI 선택**
 - 각 이벤트는 반드시 자기 자신의 candidates 풀에서만 선택합니다.
 - 후보 ID를 절대 지어내지 마세요. 목록에 있는 poi_id만 사용합니다.
-- order는 0-base 정수입니다.
+- order는 0-base 정수이고, 각 외출 이벤트(residence/workplace/pinned 제외) 모두에 정확히 1개의 pick을 만듭니다.
+- 픽 누락 금지: events에 표시된 모든 외출 order 각각에 대해 반드시 1개의 pick을 생성합니다.
+- 같은 order에 대해 중복 pick 금지.
 - residence/workplace/집/직장 이벤트, pinned_poi 이벤트는 picks에 포함하지 않습니다.
 
 **페르소나 기반 선택 (핵심)**
@@ -436,6 +438,48 @@ def call_stage2(
         recent_poi_ids=recent_poi_ids,
     )
 
+    # 환각 차단용 JSON schema — poi_id는 전체 후보풀 union enum 강제.
+    # order-별 enum은 아니지만 후보풀 외 POI는 0건 보장. order_mismatch는 fallback에서 처리.
+    all_pids = sorted({c["poi_id"] for cs in cands_by_order.values() for c in cs})
+    expected_orders = [
+        i for i, ev in enumerate(stage1.events)
+        if ev.category not in INTERNAL_CATS and not ev.pinned_poi and cands_by_order.get(i)
+    ]
+    s2_schema = None
+    if all_pids and expected_orders:
+        s2_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "stage2_picks", "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "picks": {
+                            "type": "array",
+                            "minItems": len(expected_orders),
+                            "maxItems": len(expected_orders),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "order": {"type": "integer", "enum": expected_orders},
+                                    "poi_id": {"type": "string", "enum": all_pids},
+                                    "actual_spent": {"type": ["number", "null"]},
+                                    "actual_satisfaction": {"type": ["number", "null"]},
+                                    "policy_spend": {"type": ["object", "null"]},
+                                    "pick_reason": {"type": ["string", "null"]},
+                                    "pick_factor": {"type": ["string", "null"]},
+                                },
+                                "required": ["order", "poi_id"],
+                                "additionalProperties": False,
+                            },
+                        }
+                    },
+                    "required": ["picks"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
     last_err = None
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.1 * attempt
@@ -443,6 +487,7 @@ def call_stage2(
             resp = _llm_call(
                 None, SYSTEM_S2, user_block,
                 temperature=temp, max_tokens=1200,  # pick_reason 필드 추가로 출력량 ↑
+                response_format=s2_schema,
             )
             raw = resp.choices[0].message.content
             if verbose:

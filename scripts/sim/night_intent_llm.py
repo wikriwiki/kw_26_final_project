@@ -44,6 +44,7 @@ except Exception:
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import driver_session  # noqa: E402
+from dawn_context import _strip_lifestyle_first_line  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 
 try:
@@ -373,7 +374,7 @@ def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
 - role: initiator
 - agent_id: {aid_a}
 - job: {a['job'][:60]}
-- lifestyle: {(a['life'] or '')[:100]}
+- lifestyle: {_strip_lifestyle_first_line(a['life'] or '')[:200]}
 - mood: {a_mood:.2f}
 - fatigue: {a_fatigue:.2f}
 - daily_log:
@@ -383,7 +384,7 @@ def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
 - role: recipient
 - agent_id: {aid_b}
 - job: {b['job'][:60]}
-- lifestyle: {(b['life'] or '')[:100]}
+- lifestyle: {_strip_lifestyle_first_line(b['life'] or '')[:200]}
 - mood: {b_mood:.2f}
 - fatigue: {b_fatigue:.2f}
 - daily_log:
