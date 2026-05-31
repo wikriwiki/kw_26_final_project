@@ -2,237 +2,536 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<title>서울 상권정책 시뮬 — 풀런 2일 (Qwen3-14B + NL 정책) · 25개 자치구 표본</title>
+<title>서울 상권정책 시뮬레이션 — 인터랙티브 대시보드</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Segoe UI', system-ui, sans-serif; background:#0a0a14; color:#eee; }
-  #map { position:fixed; top:0; left:0; width:100vw; height:100vh; }
-  .panel {
-    position:fixed; background:rgba(15,15,30,0.92); padding:14px 18px; border-radius:12px;
-    color:#eee; border:1px solid rgba(255,255,255,0.08); backdrop-filter:blur(10px);
-    box-shadow:0 4px 24px rgba(0,0,0,0.5); z-index:1000;
-  }
-  .panel h3 { font-size:14px; color:#4cc9f0; margin-bottom:8px; }
-  .panel h4 { font-size:12px; color:#e76f51; margin:8px 0 4px; }
-  #ctrl { bottom:18px; left:50%; transform:translateX(-50%); padding:12px 18px;
-          display:flex; gap:12px; align-items:center; }
-  #ctrl button {
-    background:#4cc9f0; color:#0a0a14; border:none; padding:6px 14px;
-    border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;
-  }
-  #ctrl button:hover { background:#72efdd; }
-  #ctrl button.active { background:#e76f51; color:#fff; }
-  #ctrl input[type=range] { width:300px; accent-color:#4cc9f0; }
-  #ctrl select { background:#1a1a2e; color:#eee; border:1px solid #4cc9f0;
-                 padding:4px 8px; border-radius:5px; font-size:11px; }
-  #ctrl label { font-size:11px; color:#aaa; }
-  #ctrl .frame-label { font-size:12px; color:#72efdd; font-weight:600; min-width:170px; }
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 
-  #info { top:18px; left:18px; min-width:240px; }
-  #info .row { display:flex; justify-content:space-between; padding:2px 0; font-size:12px; }
-  #info .label { color:#888; } #info .val { color:#72efdd; font-weight:600; }
-  .divider { height:1px; background:rgba(255,255,255,0.1); margin:6px 0; }
+/* ═══════════ CSS Variables ═══════════ */
+:root {
+  --bg-base: #060a13;
+  --bg-panel: rgba(8,12,24,0.88);
+  --bg-card: rgba(255,255,255,0.03);
+  --bg-card-hover: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.06);
+  --border-hover: rgba(34,211,238,0.25);
+  --accent: #22d3ee;
+  --accent-glow: rgba(34,211,238,0.3);
+  --accent2: #a78bfa;
+  --accent2-glow: rgba(167,139,250,0.25);
+  --green: #10b981;
+  --amber: #f59e0b;
+  --rose: #f43f5e;
+  --orange: #f4a261;
+  --text: #e2e8f0;
+  --text-dim: #94a3b8;
+  --text-muted: #64748b;
+  --text-bright: #f8fafc;
+  --radius: 14px;
+  --font: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', 'Consolas', monospace;
+}
 
-  #legend { top:18px; right:18px; min-width:200px; font-size:11px; }
-  #legend .item { display:flex; align-items:center; gap:6px; margin:3px 0; }
-  #legend .dot { width:10px; height:10px; border-radius:50%; }
+/* ═══════════ Reset & Base ═══════════ */
+*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:var(--font); background:var(--bg-base); color:var(--text); overflow:hidden; line-height:1.5; }
+::-webkit-scrollbar { width:4px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:2px; }
+::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.2); }
 
-  #detail { right:18px; top:230px; max-width:380px; max-height:65vh;
-            overflow-y:auto; display:none; }
-  #detail h3 { font-size:13px; color:#e76f51; }
-  #detail h4 { font-size:11px; color:#4cc9f0; margin:8px 0 4px; border-bottom:1px solid #4cc9f0; padding-bottom:2px; }
-  #detail .close { position:absolute; top:8px; right:14px; cursor:pointer;
-                   color:#888; font-size:18px; }
-  #detail .tag { display:inline-block; background:rgba(76,201,240,0.18);
-                 color:#4cc9f0; padding:1px 6px; border-radius:4px;
-                 font-size:10px; margin:1px 2px; }
-  #detail .mem-item { margin:4px 0; padding:5px 8px; background:rgba(255,255,255,0.04);
-                      border-radius:5px; font-size:11px; line-height:1.5; }
-  #detail .mem-item .meta { color:#888; font-size:10px; }
-  #detail .visited { border-left:3px solid #72efdd; }
-  #detail .known { border-left:3px solid #e76f51; }
-  #detail .state-block { background:rgba(231,111,81,0.08); padding:6px 10px;
-                         border-radius:6px; font-size:11px; margin:4px 0; }
+/* ═══════════ Map ═══════════ */
+#map { position:fixed; inset:0; z-index:1; }
 
-  .agent-marker { transition:transform 0.2s; cursor:pointer; }
-  .agent-marker:hover { transform:scale(1.6); }
+/* ═══════════ Panel Base ═══════════ */
+.panel {
+  position:fixed; z-index:1000;
+  background:var(--bg-panel);
+  backdrop-filter:blur(20px); -webkit-backdrop-filter:blur(20px);
+  border:1px solid var(--border);
+  box-shadow:0 8px 40px rgba(0,0,0,0.5);
+  color:var(--text);
+  transition:all .3s cubic-bezier(.4,0,.2,1);
+}
+
+/* ═══════════ Left Sidebar ═══════════ */
+#left-sidebar {
+  top:16px; left:16px; bottom:16px; width:310px;
+  border-radius:var(--radius); padding:0;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+.sb-header {
+  padding:20px 18px 16px; border-bottom:1px solid var(--border);
+}
+.sb-header h1 { font-size:14px; font-weight:800; letter-spacing:-.02em; color:var(--text-bright); }
+.sb-header .subtitle { font-size:10px; color:var(--text-muted); margin-top:2px; }
+.sb-header .frame-now {
+  font-family:var(--mono); font-size:11px; color:var(--accent);
+  margin-top:6px; font-weight:500;
+}
+.sb-scroll { flex:1; overflow-y:auto; padding:14px 18px; display:flex; flex-direction:column; gap:18px; }
+.sb-section-title {
+  font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em;
+  color:var(--accent); display:flex; align-items:center; gap:5px; margin-bottom:8px;
+}
+
+/* KPI Grid */
+.kpi-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+.kpi {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:10px; padding:10px 10px 8px; transition:all .2s;
+}
+.kpi:hover { background:var(--bg-card-hover); border-color:var(--border-hover); }
+.kpi-val { font-family:var(--mono); font-size:17px; font-weight:700; color:var(--text-bright); }
+.kpi-lbl { font-size:9px; color:var(--text-muted); margin-top:1px; }
+
+/* Search */
+.search-row { display:flex; gap:5px; }
+.search-row input {
+  flex:1; background:var(--bg-card); border:1px solid var(--border);
+  border-radius:8px; padding:7px 10px; color:#fff; font-size:11px; outline:none;
+  transition:border-color .2s, box-shadow .2s;
+}
+.search-row input:focus { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent-glow); }
+.search-row input::placeholder { color:var(--text-muted); }
+.search-row button {
+  background:var(--accent); border:none; border-radius:8px; width:32px;
+  color:#000; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:13px; transition:all .15s;
+}
+.search-row button:hover { filter:brightness(1.15); box-shadow:0 0 8px var(--accent-glow); }
+
+/* Controls */
+.ctrl-group { margin-bottom:6px; }
+.ctrl-group label { display:block; font-size:10px; color:var(--text-muted); margin-bottom:3px; }
+.ctrl-group select {
+  width:100%; background:rgba(0,0,0,.4); border:1px solid var(--border);
+  border-radius:8px; padding:7px 10px; color:var(--text); font-size:11px;
+  outline:none; cursor:pointer; transition:border-color .2s;
+  -webkit-appearance:none; appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E");
+  background-repeat:no-repeat; background-position:right 10px center;
+}
+.ctrl-group select:focus { border-color:var(--accent); }
+
+/* Legend */
+#legend-items { font-size:10px; }
+#legend-items .item { display:flex; align-items:center; gap:6px; padding:2px 0; }
+#legend-items .dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* ═══════════ Right Detail Drawer ═══════════ */
+#detail {
+  top:16px; right:16px; bottom:16px; width:400px;
+  border-radius:var(--radius);
+  display:none; flex-direction:column; overflow:hidden;
+  transform:translateX(calc(100% + 20px)); opacity:0;
+}
+#detail.open { transform:translateX(0); opacity:1; }
+
+/* Drawer Header */
+.dw-header {
+  padding:16px 18px; border-bottom:1px solid var(--border);
+  display:flex; justify-content:space-between; align-items:center;
+}
+.dw-header-left { display:flex; align-items:center; gap:10px; }
+.dw-avatar {
+  width:36px; height:36px; border-radius:50%;
+  background:linear-gradient(135deg, rgba(34,211,238,.12), rgba(167,139,250,.12));
+  border:1.5px solid rgba(34,211,238,.3);
+  display:flex; align-items:center; justify-content:center; font-size:16px;
+}
+.dw-header h3 { font-size:14px; font-weight:700; color:var(--text-bright); }
+.dw-header .sub { font-size:10px; color:var(--text-muted); }
+.dw-close {
+  width:28px; height:28px; border-radius:8px; border:none;
+  background:transparent; color:var(--text-muted); cursor:pointer;
+  font-size:16px; display:flex; align-items:center; justify-content:center;
+  transition:all .15s;
+}
+.dw-close:hover { background:rgba(255,255,255,.06); color:var(--text-bright); }
+
+/* Tabs */
+.dw-tabs {
+  display:flex; border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.15); padding:0 4px;
+}
+.tab-btn {
+  flex:1; background:none; border:none; border-bottom:2px solid transparent;
+  padding:9px 0; color:var(--text-muted); font-size:10.5px; font-weight:700;
+  cursor:pointer; transition:all .15s; text-transform:uppercase; letter-spacing:.04em;
+}
+.tab-btn:hover { color:var(--text); }
+.tab-btn.active { color:var(--accent); border-bottom-color:var(--accent); background:rgba(34,211,238,.04); }
+
+/* Drawer Body */
+.dw-body { flex:1; overflow-y:auto; padding:16px 18px; }
+.tab-pane { display:none; }
+.tab-pane.active { display:block; }
+
+/* Detail Styles */
+.info-card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:10px; padding:12px 14px; margin-bottom:10px;
+  font-size:11px; line-height:1.65;
+}
+.tag {
+  display:inline-block; background:rgba(34,211,238,.1); color:var(--accent);
+  padding:1px 7px; border-radius:4px; font-size:9px; margin:1px 2px;
+  border:1px solid rgba(34,211,238,.18);
+}
+.section-label {
+  font-size:10px; font-weight:800; color:var(--text-dim); text-transform:uppercase;
+  letter-spacing:.04em; margin:14px 0 8px; display:flex; justify-content:space-between; align-items:center;
+}
+.section-label:first-child { margin-top:0; }
+.toggle-link { font-size:9px; color:var(--accent); cursor:pointer; text-decoration:underline; text-transform:none; letter-spacing:0; font-weight:500; }
+
+/* Memory / Schedule Items */
+.ev-item {
+  padding:8px 10px; margin:4px 0;
+  background:var(--bg-card); border:1px solid var(--border); border-radius:8px;
+  font-size:11px; line-height:1.55; border-left:3px solid var(--text-muted);
+}
+.ev-item .meta { color:var(--text-muted); font-size:9.5px; margin-top:2px; }
+.ev-item .ev-time { font-family:var(--mono); color:var(--accent); font-weight:600; font-size:11px; }
+.ev-item .ev-place { color:var(--text-bright); font-weight:600; margin-left:4px; }
+.ev-item .ev-intent { color:var(--text-dim); font-style:italic; font-size:10px; margin-top:2px; }
+.ev-item.current { background:rgba(244,63,94,.06); border-color:var(--rose); }
+.ev-item.past { opacity:.7; }
+.ev-item.future { opacity:.4; }
+
+/* State Gauges */
+.gauge-group { display:flex; flex-direction:column; gap:12px; margin-top:6px; }
+.gauge-item {}
+.gauge-header { display:flex; justify-content:space-between; font-size:11px; color:var(--text); margin-bottom:4px; }
+.gauge-bar { width:100%; height:6px; background:rgba(255,255,255,.06); border-radius:3px; overflow:hidden; }
+.gauge-fill { height:100%; border-radius:3px; transition:width .5s ease; }
+.gauge-fill.balance { background:linear-gradient(90deg,var(--green),var(--accent)); }
+.gauge-fill.mood    { background:linear-gradient(90deg,#3b82f6,var(--accent2)); }
+.gauge-fill.fatigue { background:linear-gradient(90deg,var(--amber),var(--rose)); }
+.gauge-fill.sat     { background:linear-gradient(90deg,var(--accent2),#ec4899); }
+
+/* ═══════════ Bottom Control Capsule ═══════════ */
+#ctrl {
+  bottom:20px; left:50%; transform:translateX(-50%);
+  width:600px; max-width:calc(100vw - 360px);
+  padding:10px 22px; border-radius:40px;
+  display:flex; align-items:center; gap:14px;
+}
+#play-btn {
+  width:34px; height:34px; border-radius:50%; border:none;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#060a13; cursor:pointer; font-size:12px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 12px var(--accent-glow); transition:all .15s; flex-shrink:0;
+}
+#play-btn:hover { transform:scale(1.08); box-shadow:0 4px 20px var(--accent-glow); }
+.slider-wrap { flex:1; display:flex; align-items:center; }
+input[type=range] { -webkit-appearance:none; width:100%; background:transparent; }
+input[type=range]:focus { outline:none; }
+input[type=range]::-webkit-slider-runnable-track {
+  width:100%; height:4px; cursor:pointer;
+  background:rgba(255,255,255,.1); border-radius:2px;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; height:14px; width:14px; border-radius:50%;
+  background:var(--accent); cursor:pointer; margin-top:-5px;
+  box-shadow:0 0 6px var(--accent-glow); transition:all .1s;
+}
+input[type=range]::-webkit-slider-thumb:hover {
+  transform:scale(1.25); background:#fff; box-shadow:0 0 10px #fff;
+}
+input[type=range]::-moz-range-track { width:100%; height:4px; background:rgba(255,255,255,.1); border-radius:2px; }
+input[type=range]::-moz-range-thumb { height:14px; width:14px; border-radius:50%; background:var(--accent); border:none; cursor:pointer; }
+.clock { min-width:130px; text-align:center; }
+#frame-label-ctrl { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--accent); }
+.speed-wrap { display:flex; align-items:center; gap:6px; flex-shrink:0; }
+.speed-wrap label { font-size:10px; color:var(--text-muted); }
+.speed-wrap select {
+  background:rgba(255,255,255,.05); border:1px solid var(--border);
+  border-radius:6px; padding:3px 8px; color:var(--text); font-size:10px; outline:none; cursor:pointer;
+  -webkit-appearance:none; appearance:none;
+}
+
+/* ═══════════ Tooltip ═══════════ */
+.dark-tooltip {
+  background:var(--bg-panel) !important; border:1px solid var(--border) !important;
+  color:var(--text) !important; border-radius:8px !important; padding:6px 10px !important;
+  font-size:10.5px !important; font-family:var(--font) !important;
+  box-shadow:0 4px 20px rgba(0,0,0,.5) !important; line-height:1.5 !important;
+}
+.dark-tooltip::before { border-top-color:var(--bg-panel) !important; }
+
+/* ═══════════ Marker ═══════════ */
+.agent-marker { transition:transform .15s; cursor:pointer; }
+.agent-marker:hover { transform:scale(1.6); }
+
+/* ═══════════ Empty state ═══════════ */
+.empty { font-size:11px; color:var(--text-muted); padding:6px 0; }
+
+/* ═══════════ Renewed Features ═══════════ */
+.news-ticker {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2000;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none;
+}
+.toast {
+  background: rgba(8, 12, 24, 0.95); border: 1px solid var(--accent);
+  color: var(--text-bright); padding: 12px 20px; border-radius: 12px;
+  font-size: 13px; font-weight: 700; box-shadow: 0 4px 20px rgba(34,211,238,0.4);
+  animation: slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards, fadeOut 0.5s ease 4.5s forwards;
+  display: flex; align-items: center; gap: 10px;
+}
+@keyframes slideDown { from { transform: translateY(-20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@keyframes fadeOut { to { opacity: 0; transform: translateY(-10px); } }
+
+.macro-panel {
+  position: fixed; right: 16px; bottom: 80px; width: 360px;
+  display: flex; flex-direction: column; gap: 8px; pointer-events: none; z-index: 1500;
+  transition: opacity 0.3s ease;
+}
+.macro-card {
+  background: var(--bg-panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px;
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+}
+.macro-title { font-size: 11px; font-weight: 800; color: var(--text-bright); margin-bottom: 4px; }
+.chart-container { position: relative; height: 110px; }
+
+.ripple-marker {
+  animation: svgPulse 1.5s infinite;
+}
+@keyframes svgPulse {
+  0% { stroke-width: 0; stroke-opacity: 1; }
+  100% { stroke-width: 15px; stroke-opacity: 0; }
+}
 </style>
 </head>
 <body>
+
+<!-- ═══════ Map ═══════ -->
 <div id="map"></div>
 
-<div class="panel" id="info">
-  <h3>🏙️ Seoul Sim — 풀런 2일 (Qwen3-14B)</h3>
-  <div class="row"><span class="label">현재 프레임</span><span class="val" id="frame-label">-</span></div>
-  <div class="row"><span class="label">활동 agent</span><span class="val" id="active-cnt">-</span></div>
-  <div class="row"><span class="label">표본 자치구</span><span class="val">25개구 균등</span></div>
-  <div class="divider"></div>
-  <div class="row"><span class="label">총 agent</span><span class="val" id="total-agents">-</span></div>
-  <div class="row"><span class="label">총 visited memory</span><span class="val" id="total-mem">-</span></div>
-  <div class="row"><span class="label">총 약속</span><span class="val" id="total-appt">-</span></div>
-  <div class="row"><span class="label">총 들은 소문</span><span class="val" id="total-rumor">-</span></div>
+<!-- ═══════ Renewed Features ═══════ -->
+<div id="news-ticker" class="news-ticker"></div>
+
+<div class="macro-panel">
+  <div class="macro-card">
+    <div class="macro-title">📈 정책 대상 카테고리 누적 소비액</div>
+    <div class="chart-container"><canvas id="chartCat"></canvas></div>
+  </div>
+  <div class="macro-card">
+    <div class="macro-title">📍 정책 타겟 자치구 누적 소비액</div>
+    <div class="chart-container"><canvas id="chartDist"></canvas></div>
+  </div>
 </div>
 
-<div class="panel" id="legend">
-  <h3>🎨 범례 / 필터</h3>
-  <div style="margin:6px 0;">
-    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:3px;">색상 모드</label>
-    <select id="color-mode">
-      <option value="dist">자치구별</option>
-      <option value="cat">카테고리별</option>
-      <option value="policy">정책 대상 vs 외</option>
-    </select>
+<!-- ═══════ Left Sidebar ═══════ -->
+<aside class="panel" id="left-sidebar">
+  <div class="sb-header">
+    <h1>🏙️ Seoul Policy Sim</h1>
+    <div class="subtitle">풀런 2일 · Qwen3-14B · 25개 자치구</div>
+    <div class="frame-now" id="frame-label">-</div>
   </div>
-  <div style="margin:6px 0;">
-    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:3px;">히트맵</label>
-    <select id="heat-mode">
-      <option value="off">OFF</option>
-      <option value="density">밀집도</option>
-      <option value="spending">소비금액</option>
-    </select>
-  </div>
-  <div style="margin:6px 0;">
-    <label style="display:block; font-size:11px; color:#aaa; margin-bottom:3px;">자치구 필터</label>
-    <select id="dist-filter">
-      <option value="all">전체</option>
-      <option value="11110">종로구</option>
-      <option value="11140">중구</option>
-      <option value="11170">용산구</option>
-      <option value="11200">성동구</option>
-      <option value="11215">광진구</option>
-      <option value="11230">동대문구</option>
-      <option value="11260">중랑구</option>
-      <option value="11290">성북구</option>
-      <option value="11305">강북구</option>
-      <option value="11320">도봉구</option>
-      <option value="11350">노원구</option>
-      <option value="11380">은평구</option>
-      <option value="11410">서대문구</option>
-      <option value="11440">마포구</option>
-      <option value="11470">양천구</option>
-      <option value="11500">강서구</option>
-      <option value="11530">구로구</option>
-      <option value="11545">금천구</option>
-      <option value="11560">영등포구</option>
-      <option value="11590">동작구</option>
-      <option value="11620">관악구</option>
-      <option value="11650">서초구</option>
-      <option value="11680">강남구</option>
-      <option value="11710">송파구</option>
-      <option value="11740">강동구</option>
-    </select>
-  </div>
-  <div id="legend-items" style="margin-top:8px;"></div>
-</div>
 
-<div class="panel" id="detail">
-  <span class="close" onclick="closeDetail()">✕</span>
-  <h3 id="d-id">-</h3>
-  <div id="d-persona"></div>
-  <div id="d-current"></div>
-  <h4>🗓️ 오늘 스케줄</h4>
-  <div id="d-schedule"></div>
-  <h4>🧠 기억 메모리 (Memory Stream) <span id="d-mem-toggle" style="float:right;font-size:10px;color:#4cc9f0;cursor:pointer;text-decoration:underline;">전체 보기</span></h4>
-  <div id="d-memories"></div>
-  <h4>💬 들은 소문 (rumor)</h4>
-  <div id="d-rumors"></div>
-  <h4>🤝 잡은 약속 (appointment)</h4>
-  <div id="d-appointments"></div>
-  <h4>⭐ 단골 POI (KNOWS_POI Top)</h4>
-  <div id="d-knows"></div>
-  <h4>📊 어제 State</h4>
-  <div id="d-state"></div>
-</div>
+  <div class="sb-scroll">
+    <!-- KPI -->
+    <div>
+      <div class="sb-section-title">📊 실시간 통계</div>
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-val" id="active-cnt">-</div><div class="kpi-lbl">활동 에이전트</div></div>
+        <div class="kpi"><div class="kpi-val" id="total-agents">-</div><div class="kpi-lbl">총 인구</div></div>
+        <div class="kpi"><div class="kpi-val" id="total-mem">-</div><div class="kpi-lbl">방문 기억</div></div>
+        <div class="kpi"><div class="kpi-val" id="total-appt">-</div><div class="kpi-lbl">약속</div></div>
+        <div class="kpi" style="grid-column:span 2"><div class="kpi-val" id="total-rumor">-</div><div class="kpi-lbl">들은 소문</div></div>
+      </div>
+    </div>
 
+    <!-- Search -->
+    <div>
+      <div class="sb-section-title">🔍 에이전트 검색</div>
+      <div class="search-row">
+        <input type="text" id="search-input" placeholder="ID 입력 (예: agent_0042)"/>
+        <button id="search-btn" onclick="searchAgent()">→</button>
+      </div>
+    </div>
+
+    <!-- Filters -->
+    <div>
+      <div class="sb-section-title">⚙️ 필터</div>
+      <div class="ctrl-group">
+        <label>색상 모드</label>
+        <select id="color-mode">
+          <option value="dist">자치구별</option>
+          <option value="cat">카테고리별</option>
+          <option value="policy">정책 대상 vs 외</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <label>히트맵</label>
+        <select id="heat-mode">
+          <option value="off">OFF</option>
+          <option value="density">밀집도</option>
+          <option value="spending">소비금액</option>
+        </select>
+      </div>
+      <div class="ctrl-group">
+        <label>자치구 필터</label>
+        <select id="dist-filter">
+          <option value="all">전체</option>
+          <option value="11110">종로구</option><option value="11140">중구</option>
+          <option value="11170">용산구</option><option value="11200">성동구</option>
+          <option value="11215">광진구</option><option value="11230">동대문구</option>
+          <option value="11260">중랑구</option><option value="11290">성북구</option>
+          <option value="11305">강북구</option><option value="11320">도봉구</option>
+          <option value="11350">노원구</option><option value="11380">은평구</option>
+          <option value="11410">서대문구</option><option value="11440">마포구</option>
+          <option value="11470">양천구</option><option value="11500">강서구</option>
+          <option value="11530">구로구</option><option value="11545">금천구</option>
+          <option value="11560">영등포구</option><option value="11590">동작구</option>
+          <option value="11620">관악구</option><option value="11650">서초구</option>
+          <option value="11680">강남구</option><option value="11710">송파구</option>
+          <option value="11740">강동구</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div>
+      <div class="sb-section-title">🎨 범례</div>
+      <div id="legend-items"></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════ Right Detail Drawer ═══════ -->
+<aside class="panel" id="detail">
+  <div class="dw-header">
+    <div class="dw-header-left">
+      <div class="dw-avatar">👤</div>
+      <div><h3 id="d-id">-</h3><div class="sub" id="d-sub">에이전트 정보</div></div>
+    </div>
+    <button class="dw-close" onclick="closeDetail()">✕</button>
+  </div>
+  <div class="dw-tabs">
+    <button class="tab-btn active" data-tab="profile">프로필</button>
+    <button class="tab-btn" data-tab="schedule">스케줄</button>
+    <button class="tab-btn" data-tab="memory">기억</button>
+    <button class="tab-btn" data-tab="social">소셜</button>
+    <button class="tab-btn" data-tab="state">상태</button>
+  </div>
+  <div class="dw-body">
+    <div class="tab-pane active" id="pane-profile">
+      <div id="d-persona"></div>
+      <div class="info-card" style="margin-top:10px; padding-bottom:4px;">
+        <div style="font-size:10px; font-weight:800; color:var(--text-dim); margin-bottom:6px;">📊 카테고리별 소비 포트폴리오</div>
+        <div style="position:relative; height:120px;"><canvas id="doughnutChart"></canvas></div>
+      </div>
+      <div id="d-current"></div>
+    </div>
+    <div class="tab-pane" id="pane-schedule">
+      <div id="d-schedule"></div>
+    </div>
+    <div class="tab-pane" id="pane-memory">
+      <div class="section-label">⭐ 단골 POI</div>
+      <div id="d-knows"></div>
+      <div class="section-label" style="margin-top:16px;">🧠 방문 기억 <span id="d-mem-toggle" class="toggle-link">전체 보기</span></div>
+      <div id="d-memories"></div>
+    </div>
+    <div class="tab-pane" id="pane-social">
+      <div class="section-label">🤝 약속</div>
+      <div id="d-appointments"></div>
+      <div class="section-label" style="margin-top:16px;">💬 소문</div>
+      <div id="d-rumors"></div>
+    </div>
+    <div class="tab-pane" id="pane-state">
+      <div id="d-state"></div>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════ Bottom Control Capsule ═══════ -->
 <div class="panel" id="ctrl">
   <button id="play-btn">▶</button>
-  <input type="range" id="frame-slider" min="0" max="0" value="0">
-  <span class="frame-label" id="frame-label-ctrl">Day 1 00:00</span>
-  <label>속도</label>
-  <select id="speed">
-    <option value="600">느림</option>
-    <option value="300" selected>보통</option>
-    <option value="100">빠름</option>
-  </select>
+  <div class="slider-wrap"><input type="range" id="frame-slider" min="0" max="0" value="0"></div>
+  <div class="clock"><span id="frame-label-ctrl">Day 1 00:00</span></div>
+  <div class="speed-wrap">
+    <label>속도</label>
+    <select id="speed">
+      <option value="600">느림</option>
+      <option value="300" selected>보통</option>
+      <option value="100">빠름</option>
+    </select>
+  </div>
 </div>
 
 <script>
-// 25개 자치구 색상 — HSL 색상환 균등 분포 (구분 잘 되도록)
+/* ═══════════ Constants ═══════════ */
 const COLORS_DIST = {
-  '11110': '#e76f51',  // 종로
-  '11140': '#f4a261',  // 중구
-  '11170': '#f4d35e',  // 용산
-  '11200': '#83c5be',  // 성동
-  '11215': '#52b788',  // 광진
-  '11230': '#06d6a0',  // 동대문
-  '11260': '#118ab2',  // 중랑
-  '11290': '#4cc9f0',  // 성북
-  '11305': '#72efdd',  // 강북
-  '11320': '#9d4edd',  // 도봉
-  '11350': '#c9184a',  // 노원
-  '11380': '#ff70a6',  // 은평
-  '11410': '#7b2cbf',  // 서대문
-  '11440': '#fb8500',  // 마포
-  '11470': '#ffb703',  // 양천
-  '11500': '#219ebc',  // 강서
-  '11530': '#8ecae6',  // 구로
-  '11545': '#bdb2ff',  // 금천
-  '11560': '#a0c4ff',  // 영등포
-  '11590': '#ffc6ff',  // 동작
-  '11620': '#caffbf',  // 관악
-  '11650': '#fdffb6',  // 서초
-  '11680': '#ff006e',  // 강남 (강조)
-  '11710': '#8338ec',  // 송파
-  '11740': '#3a86ff',  // 강동
+  '11110':'#e76f51','11140':'#f4a261','11170':'#f4d35e','11200':'#83c5be',
+  '11215':'#52b788','11230':'#06d6a0','11260':'#118ab2','11290':'#4cc9f0',
+  '11305':'#72efdd','11320':'#9d4edd','11350':'#c9184a','11380':'#ff70a6',
+  '11410':'#7b2cbf','11440':'#fb8500','11470':'#ffb703','11500':'#219ebc',
+  '11530':'#8ecae6','11545':'#bdb2ff','11560':'#a0c4ff','11590':'#ffc6ff',
+  '11620':'#caffbf','11650':'#fdffb6','11680':'#ff006e','11710':'#8338ec','11740':'#3a86ff',
 };
 const COLORS_L1 = {
-  '식사': '#e76f51', '카페': '#f4a261', '디저트': '#f4d35e',
-  '주점': '#c9184a', '편의점': '#83c5be', '마트': '#52b788',
-  '미용': '#ff70a6', '쇼핑': '#9d4edd', '여가': '#7b2cbf',
-  '건강': '#06d6a0', '교육': '#118ab2', '기타': '#888',
-  '집': '#555', '직장': '#777',
+  '식사':'#e76f51','카페':'#f4a261','디저트':'#f4d35e','주점':'#c9184a',
+  '편의점':'#83c5be','마트':'#52b788','미용':'#ff70a6','쇼핑':'#9d4edd',
+  '여가':'#7b2cbf','건강':'#06d6a0','교육':'#118ab2','기타':'#888','집':'#555','직장':'#777',
+};
+const DIST_NAMES = {
+  '11110':'종로구','11140':'중구','11170':'용산구','11200':'성동구','11215':'광진구',
+  '11230':'동대문구','11260':'중랑구','11290':'성북구','11305':'강북구','11320':'도봉구',
+  '11350':'노원구','11380':'은평구','11410':'서대문구','11440':'마포구','11470':'양천구',
+  '11500':'강서구','11530':'구로구','11545':'금천구','11560':'영등포구','11590':'동작구',
+  '11620':'관악구','11650':'서초구','11680':'강남구','11710':'송파구','11740':'강동구',
 };
 const POLICY_TARGETS = new Set(['식사','카페','디저트']);
 
-let AGENTS = [], TIMELINE = [], MEMORIES = {}, EVENTS = {};
-let agentById = {}, markers = {};
-let map, selected = null, currentFrame = 0, isPlaying = false, playerHandle = null;
-let heatLayer = null;
+/* ═══════════ State ═══════════ */
+let AGENTS=[], TIMELINE=[], MEMORIES={}, EVENTS={};
+let agentById={}, markers={};
+let map, selected=null, currentFrame=0, isPlaying=false, playerHandle=null, heatLayer=null;
+let doughnutChartInstance=null;
+let chartCatInstance=null, chartDistInstance=null;
+let newsTriggered=new Set();
 
+/* ═══════════ Data Loading ═══════════ */
 async function loadData() {
-  const [a, t, m, e] = await Promise.all([
-    fetch('agents.json').then(r => r.json()),
-    fetch('timeline.json').then(r => r.json()),
-    fetch('memories.json').then(r => r.json()),
-    fetch('events.json').then(r => r.json()),
+  const [a,t,m,e] = await Promise.all([
+    fetch('agents.json').then(r=>r.json()),
+    fetch('timeline.json').then(r=>r.json()),
+    fetch('memories.json').then(r=>r.json()),
+    fetch('events.json').then(r=>r.json()),
   ]);
-  AGENTS = a; TIMELINE = t; MEMORIES = m; EVENTS = e;
-  AGENTS.forEach(ag => agentById[ag.id] = ag);
+  AGENTS=a; TIMELINE=t; MEMORIES=m; EVENTS=e;
+  AGENTS.forEach(ag=>agentById[ag.id]=ag);
   document.getElementById('total-agents').textContent = AGENTS.length.toLocaleString();
-  let totMem = 0, totAppt = 0, totRumor = 0;
+  let totMem=0, totAppt=0, totRumor=0;
   for (const aid in MEMORIES) {
-    totMem += (MEMORIES[aid].visited || []).length;
-    totAppt += (MEMORIES[aid].appointments || []).length;
-    totRumor += (MEMORIES[aid].memories || []).filter(m => m.type === 'rumor').length;
+    totMem  += (MEMORIES[aid].visited||[]).length;
+    totAppt += (MEMORIES[aid].appointments||[]).length;
+    totRumor+= (MEMORIES[aid].memories||[]).filter(m=>m.type==='rumor').length;
   }
-  document.getElementById('total-mem').textContent = totMem.toLocaleString();
-  const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = totAppt.toLocaleString();
-  const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = totRumor.toLocaleString();
+  document.getElementById('total-mem').textContent   = totMem.toLocaleString();
+  const el1=document.getElementById('total-appt');  if(el1) el1.textContent=totAppt.toLocaleString();
+  const el2=document.getElementById('total-rumor'); if(el2) el2.textContent=totRumor.toLocaleString();
   initMap();
   buildMarkers();
-  // 슬라이더 max를 timeline 길이에 맞춰 동적 설정 (3일=72, 5일=120 등)
-  document.getElementById('frame-slider').max = Math.max(0, TIMELINE.length - 1);
+  document.getElementById('frame-slider').max = Math.max(0, TIMELINE.length-1);
+  initMacroCharts();
   setFrame(0);
   initEvents();
 }
 
 function initMap() {
-  map = L.map('map', { zoomControl: true, preferCanvas: true })
+  map = L.map('map', { zoomControl:false, preferCanvas:true })
     .setView([37.530, 127.020], 13);
+  L.control.zoom({ position:'topright' }).addTo(map);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '© OSM · CARTO', maxZoom: 19,
   }).addTo(map);
@@ -240,370 +539,524 @@ function initMap() {
 
 function buildMarkers() {
   AGENTS.forEach(ag => {
-    if (ag.home_lon == null || ag.home_lat == null) return;
+    if (ag.home_lon==null || ag.home_lat==null) return;
     const m = L.circleMarker([ag.home_lat, ag.home_lon], {
-      radius: 2.5, weight: 0, color: COLORS_DIST[ag.dist_code] || '#888',
-      fillColor: COLORS_DIST[ag.dist_code] || '#888', fillOpacity: 0.75,
-      className: 'agent-marker',
+      radius:2.5, weight:0, color:COLORS_DIST[ag.dist_code]||'#888',
+      fillColor:COLORS_DIST[ag.dist_code]||'#888', fillOpacity:0.75,
+      className:'agent-marker',
     });
-    m.on('click', () => showDetail(ag.id));
+    m.bindTooltip(
+      `<b>${ag.id}</b><br>${ag.gender||''} / ${ag.age||''}<br>${DIST_NAMES[ag.dist_code]||''}`,
+      { direction:'top', className:'dark-tooltip', opacity:1 }
+    );
+    m.on('click', ()=>showDetail(ag.id));
     m.addTo(map);
     markers[ag.id] = m;
   });
   updateLegend();
 }
 
-// ===== Heatmap (leaflet.heat) =====
+/* ═══════════ Heatmap ═══════════ */
 function toggleHeatmap() {
   const mode = document.getElementById('heat-mode').value;
-  if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
+  if (heatLayer) { map.removeLayer(heatLayer); heatLayer=null; }
   if (mode !== 'off') {
     heatLayer = L.heatLayer([], {
-      radius: 22, blur: 16, maxZoom: 17,
-      gradient: {0.2:'#0000ff', 0.4:'#00ffff', 0.6:'#00ff00', 0.8:'#ffff00', 1.0:'#ff0000'},
+      radius:22, blur:16, maxZoom:17,
+      gradient:{0.2:'#0000ff',0.4:'#00ffff',0.6:'#00ff00',0.8:'#ffff00',1.0:'#ff0000'},
     }).addTo(map);
     updateHeatmap();
   }
 }
-
 function updateHeatmap() {
   if (!heatLayer) return;
   const mode = document.getElementById('heat-mode').value;
-  const f = TIMELINE[currentFrame];
-  if (!f) return;
+  const f = TIMELINE[currentFrame]; if(!f) return;
   let pts;
-  if (mode === 'density') {
-    // 밀집도 — 외출 agent 동일 intensity
-    pts = f.agents.map(a => [a.lat, a.lon, 0.6]);
-  } else {
-    // 소비금액 — intensity = spent/30000 (clamp 0~1)
-    pts = f.agents
-      .filter(a => (a.spent || 0) > 0)
-      .map(a => [a.lat, a.lon, Math.min(1.0, (a.spent || 0) / 30000)]);
-  }
+  if (mode==='density') pts = f.agents.map(a=>[a.lat,a.lon,0.6]);
+  else pts = f.agents.filter(a=>(a.spent||0)>0).map(a=>[a.lat,a.lon,Math.min(1,(a.spent||0)/30000)]);
   heatLayer.setLatLngs(pts);
 }
 
-// 자치구 코드 → 이름 (legend·필터 양쪽에서 사용)
-const DIST_NAMES = {
-  '11110':'종로구','11140':'중구','11170':'용산구','11200':'성동구',
-  '11215':'광진구','11230':'동대문구','11260':'중랑구','11290':'성북구',
-  '11305':'강북구','11320':'도봉구','11350':'노원구','11380':'은평구',
-  '11410':'서대문구','11440':'마포구','11470':'양천구','11500':'강서구',
-  '11530':'구로구','11545':'금천구','11560':'영등포구','11590':'동작구',
-  '11620':'관악구','11650':'서초구','11680':'강남구','11710':'송파구','11740':'강동구',
-};
-
+/* ═══════════ Legend ═══════════ */
 function updateLegend() {
   const mode = document.getElementById('color-mode').value;
   const el = document.getElementById('legend-items');
-  if (mode === 'dist') {
-    // 25개 자치구 전체 — 2열 그리드로 컴팩트하게
-    el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 8px;max-height:240px;overflow-y:auto;font-size:10px;">' +
-      Object.entries(COLORS_DIST).map(([code, c]) =>
-        `<div class="item" style="margin:1px 0;"><span class="dot" style="background:${c}"></span>${DIST_NAMES[code] || code}</div>`
-      ).join('') + '</div>';
-  } else if (mode === 'cat') {
-    el.innerHTML = Object.entries(COLORS_L1).slice(0, 12).map(([k,v]) =>
-      `<div class="item"><span class="dot" style="background:${v}"></span>${k}</div>`).join('');
+  if (mode==='dist') {
+    el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 6px;">'+
+      Object.entries(COLORS_DIST).map(([c,clr])=>
+        `<div class="item"><span class="dot" style="background:${clr}"></span>${DIST_NAMES[c]||c}</div>`
+      ).join('')+'</div>';
+  } else if (mode==='cat') {
+    el.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:1px 6px;">'+
+      Object.entries(COLORS_L1).map(([k,v])=>
+        `<div class="item"><span class="dot" style="background:${v}"></span>${k}</div>`
+      ).join('')+'</div>';
   } else {
     el.innerHTML = `
       <div class="item"><span class="dot" style="background:#e76f51"></span>정책 대상 (식사·카페·디저트)</div>
-      <div class="item"><span class="dot" style="background:#888"></span>그 외</div>
-    `;
+      <div class="item"><span class="dot" style="background:#888"></span>그 외</div>`;
   }
 }
 
+/* ═══════════ Frame ═══════════ */
 function setFrame(idx) {
   currentFrame = idx;
   document.getElementById('frame-slider').value = idx;
-  const f = TIMELINE[idx];
-  const label = f.label;
-  document.getElementById('frame-label').textContent = label;
-  document.getElementById('frame-label-ctrl').textContent = label;
+  const f = TIMELINE[idx]; if(!f) return;
+  document.getElementById('frame-label').textContent = f.label;
+  document.getElementById('frame-label-ctrl').textContent = f.label;
 
   const distFilter = document.getElementById('dist-filter').value;
   const mode = document.getElementById('color-mode').value;
-
   let active = 0;
   const positions = {};
-  f.agents.forEach(a => { positions[a.id] = a; });
+  f.agents.forEach(a=>{ positions[a.id]=a; });
 
   AGENTS.forEach(ag => {
-    const m = markers[ag.id]; if (!m) return;
-    // 필터
-    if (distFilter !== 'all' && ag.dist_code !== distFilter) {
-      m.setStyle({ fillOpacity: 0.0, opacity: 0.0 }); return;
-    }
+    const m = markers[ag.id]; if(!m) return;
+    if (distFilter!=='all' && ag.dist_code!==distFilter) { m.setStyle({fillOpacity:0,opacity:0}); return; }
     const pos = positions[ag.id];
     if (!pos) {
-      // 활동 없음 = 집에 있음
       m.setLatLng([ag.home_lat, ag.home_lon]);
-      m.setStyle({ fillOpacity: 0.25, opacity: 0.45, radius: 1.8 });
-      return;
+      m.setStyle({fillOpacity:0.25, opacity:0.45, radius:1.8}); return;
     }
     active++;
     m.setLatLng([pos.lat, pos.lon]);
-    // 색상
     let color;
-    if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
-    else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
-    else color = POLICY_TARGETS.has(pos.cat) || POLICY_TARGETS.has(pos.l1) ? '#e76f51' : '#888';
-    m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 1, radius: 3 });
+    if (mode==='dist') color = COLORS_DIST[ag.dist_code]||'#888';
+    else if (mode==='cat') color = COLORS_L1[pos.l1||pos.cat]||'#888';
+    else color = POLICY_TARGETS.has(pos.cat)||POLICY_TARGETS.has(pos.l1) ? '#e76f51':'#888';
+    m.setStyle({color, fillColor:color, fillOpacity:0.85, opacity:1, radius:3});
   });
-
   document.getElementById('active-cnt').textContent = active.toLocaleString();
-
-  // 히트맵 갱신
   if (heatLayer) updateHeatmap();
-
-  // 디테일 패널 열려있으면 현재 활동·스케줄도 갱신
   if (selected) showDetail(selected);
+  updateMacroCharts(idx);
+  checkNews(idx);
 }
 
+/* ═══════════ Tabs ═══════════ */
+function switchTab(tabId) {
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('pane-'+tabId).classList.add('active');
+  document.querySelector(`.tab-btn[data-tab="${tabId}"]`).classList.add('active');
+}
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>switchTab(btn.dataset.tab));
+});
+
+/* ═══════════ Search ═══════════ */
+function searchAgent() {
+  const q = document.getElementById('search-input').value.trim();
+  if (!q) return;
+  const ag = agentById[q];
+  if (!ag) { alert('에이전트를 찾을 수 없습니다: '+q); return; }
+  showDetail(q);
+  if (ag.home_lat!=null) {
+    map.setView([ag.home_lat, ag.home_lon], 16);
+    const mk = markers[q];
+    if (mk) {
+      mk.openTooltip();
+      let c=0;
+      const iv=setInterval(()=>{ mk.setRadius(c%2===0?10:3); c++; if(c>7){clearInterval(iv);mk.setRadius(3);} },140);
+    }
+  }
+}
+document.getElementById('search-input').addEventListener('keydown', e=>{ if(e.key==='Enter') searchAgent(); });
+
+/* ═══════════ Show Detail ═══════════ */
 function showDetail(aid) {
   selected = aid;
-  const ag = agentById[aid]; if (!ag) return;
-  const mem = MEMORIES[aid] || { visited: [], knows_poi: [], state: {} };
+  const ag = agentById[aid]; if(!ag) return;
+  const mem = MEMORIES[aid] || { visited:[], knows_poi:[], state:{}, memories:[], appointments:[] };
   const events = EVENTS[aid] || [];
   const f = TIMELINE[currentFrame];
 
-  document.getElementById('detail').style.display = 'block';
+  // Open drawer
+  const el = document.getElementById('detail');
+  el.style.display = 'flex';
+  requestAnimationFrame(()=>requestAnimationFrame(()=>el.classList.add('open')));
+  const macro = document.querySelector('.macro-panel');
+  if (macro) macro.style.opacity = '0';
+
   document.getElementById('d-id').textContent = aid;
+  document.getElementById('d-sub').textContent =
+    `${DIST_NAMES[ag.dist_code]||ag.district||''} · ${ag.gender||''} / ${ag.age||''}`;
 
-  // 페르소나
-  let topCats = '';
-  try {
-    const d = JSON.parse(ag.top_wd || '{}');
-    topCats = Object.entries(d).slice(0, 3).map(([k,v]) =>
-      `${k}(${Math.round(v*100)}%)`).join(', ');
-  } catch (e) {}
+  // ── Profile Tab ──
+  let topCats='';
+  try { const d=JSON.parse(ag.top_wd||'{}'); topCats=Object.entries(d).slice(0,3).map(([k,v])=>`${k}(${Math.round(v*100)}%)`).join(', '); } catch(e){}
   document.getElementById('d-persona').innerHTML = `
-    <div style="font-size:11px; line-height:1.7;">
-      <span class="tag">${ag.age} ${ag.gender}</span>
-      <span class="tag">${ag.life_stage || ''}</span>
-      <span class="tag">소득 ${ag.income || ''}</span>
-      <span class="tag">${ag.tendency || ''}</span><br/>
-      직업: ${ag.job || '-'} · 평일 ${(ag.daily_wd||0).toLocaleString()}원<br/>
-      평일 Top: ${topCats}<br/>
-      거주: ${ag.home_dong} ${ag.home_poi_name || ''}<br/>
-      ${ag.work_poi_name ? '직장: ' + ag.work_poi_name + ' (' + (ag.commute||0) + '분)' : '직장: 없음'}
-    </div>
-  `;
+    <div class="info-card">
+      <div style="margin-bottom:6px;">
+        <span class="tag">${ag.age||''} ${ag.gender||''}</span>
+        <span class="tag">${ag.life_stage||''}</span>
+        <span class="tag">소득 ${ag.income||'-'}</span>
+        <span class="tag">${ag.tendency||''}</span>
+      </div>
+      <b>직업:</b> ${ag.job||'-'} · <b>평일:</b> ${(ag.daily_wd||0).toLocaleString()}원<br/>
+      <b>선호:</b> ${topCats||'-'}<br/>
+      <b>거주:</b> ${ag.home_dong||''} ${ag.home_poi_name||''}<br/>
+      <b>직장:</b> ${ag.work_poi_name ? ag.work_poi_name+' ('+( ag.commute||0)+'분)' : '없음'}
+    </div>`;
 
-  // 현재 시점 활동
-  const currentDay = f.day;
-  const currentHour = f.hour;
-  // 그 시점까지 발생한 events 추출
-  const pastEvents = events.filter(ev =>
-    ev.day < currentDay ||
-    (ev.day === currentDay && parseInt(ev.time.slice(0,2)) <= currentHour)
-  );
-  const lastEvent = pastEvents[pastEvents.length - 1];
-  document.getElementById('d-current').innerHTML = lastEvent ? `
-    <div style="background:rgba(76,201,240,0.1); padding:6px 10px; border-radius:6px; margin-top:6px; font-size:11px;">
-      <b>📍 현재 활동</b> ${lastEvent.time} ${lastEvent.anchor}<br/>
-      ${lastEvent.cat || ''}${lastEvent.sub ? ' · '+lastEvent.sub : ''} — ${lastEvent.intent || ''}<br/>
-      장소: ${lastEvent.poi_name || lastEvent.poi_id}
-      ${lastEvent.sat != null ? ' / 만족도 ' + lastEvent.sat.toFixed(2) : ''}
-    </div>
-  ` : '<div style="font-size:11px; color:#888;">아직 활동 없음 (집)</div>';
+  // Current activity
+  const currentDay = f.day, currentHour = f.hour;
+  const pastEvents = events.filter(ev=> ev.day<currentDay || (ev.day===currentDay && parseInt(ev.time.slice(0,2))<=currentHour));
+  const lastEvent = pastEvents[pastEvents.length-1];
 
-  // 오늘 스케줄 (currentDay 전체, 시간순)
-  const todayEvents = events.filter(ev => ev.day === currentDay);
-  document.getElementById('d-schedule').innerHTML = todayEvents.length === 0
-    ? '<div style="font-size:11px; color:#888;">(오늘 스케줄 없음)</div>'
-    : todayEvents.map(ev => {
-        const eh = parseInt(ev.time.slice(0,2));
-        const past = eh <= currentHour;
-        const isCurrent = lastEvent && ev.ord === lastEvent.ord;
-        const bg = isCurrent ? 'rgba(231,111,81,0.25)' : (past ? 'rgba(255,255,255,0.04)' : 'transparent');
-        const opacity = past ? 1 : 0.55;
-        // 장소 표시: POI ID prefix 기준
-        //   R_* (residence) → "🏠 집" (또는 집에서 한 활동)
-        //   W_* (workplace) → "💼 직장" (또는 직장 근처 활동)
-        //   C_* (commerce) → "📍 {점포명}" (실제 외출)
-        const poiId = ev.poi_id || '';
-        let placeLabel;
-        if (poiId.startsWith('C_')) {
-          // 실제 외출 — 점포명
-          placeLabel = '📍 ' + (ev.poi_name || poiId);
-        } else if (poiId.startsWith('R_')) {
-          // 집 (또는 stage 2가 외출 POI 결정 못해 집 anchor 사용)
-          placeLabel = ev.cat && ev.cat !== '집'
-            ? `🏠 집 — ${ev.cat}`     // "🏠 집 — 편의점" 식
-            : '🏠 집';
-        } else if (poiId.startsWith('W_')) {
-          placeLabel = ev.cat && ev.cat !== '직장'
-            ? `💼 직장 — ${ev.cat}`   // "💼 직장 — 한식" 식
-            : '💼 직장';
-        } else {
-          placeLabel = '📍 ' + (ev.poi_name || poiId || '?');
-        }
-        // 카테고리 (L1 + sub)
-        const catLine = ev.cat ? (ev.sub && ev.sub !== ev.cat ? `${ev.cat} · ${ev.sub}` : ev.cat) : '';
-        const satLine = ev.sat != null ? '만족도 ' + ev.sat.toFixed(2) : '';
-        const metaParts = [catLine, satLine].filter(Boolean).join(' · ');
-        return `
-          <div class="mem-item" style="background:${bg}; opacity:${opacity}; border-left:3px solid ${COLORS_L1[ev.cat] || '#888'};">
-            <div><b>${ev.time}</b> <span style="color:#fff;">${placeLabel}</span></div>
-            ${metaParts ? '<div class="meta">'+metaParts+'</div>' : ''}
-            ${ev.intent ? '<div class="meta" style="color:#aaa;">'+ev.intent+'</div>' : ''}
-          </div>
-        `;
-      }).join('');
-
-  // 기억 메모리 패널 — visited(방문 회상)만 렌더 (rumor·appointment는 아래 별도 블록).
-  // visited 중 R_/W_ POI는 stage 2 fallback이라 실제 외출 아님 → 제외
-  const visitedMems = (mem.memories || []).filter(m => {
-    if (m.type !== 'visited') return false;
-    const pid = m.poi_id || '';
-    return pid.startsWith('C_');  // commerce만 진짜 외출 기억
-  });
-  // rumor는 별도 섹션
-  const rumorMems = (mem.memories || []).filter(m => m.type === 'rumor');
-  // 토글: showAllMem=true면 전체, false면 currentDay 이전만 (현 시점까지의 기억)
-  const filterByFrame = !window.__showAllMem;
-  const visibleVisited = filterByFrame ? visitedMems.filter(m => m.day < currentDay) : visitedMems;
-  const visibleRumor = filterByFrame ? rumorMems.filter(m => m.day < currentDay) : rumorMems;
-  document.getElementById('d-mem-toggle').textContent = filterByFrame ? '전체 보기' : '현재 시점까지만';
-
-  document.getElementById('d-memories').innerHTML = visibleVisited.length === 0
-    ? '<div style="font-size:11px; color:#888;">(누적된 방문 기억 없음)</div>'
-    : visibleVisited.slice(0, 40).map(m => `
-        <div class="mem-item visited">
-          <div><span style="color:#fff;">📍 ${m.poi_name || m.poi_id || '?'}</span></div>
-          <div class="meta">${m.day} · 만족도 ${m.sat != null ? m.sat.toFixed(2) : '?'} · 중요도 ${(m.imp||0).toFixed(2)}</div>
-        </div>
-      `).join('');
-
-  // 💬 들은 소문 (rumor) — Night Phase 2 의도분류로 적재된 Memory{type:'rumor'}
-  document.getElementById('d-rumors').innerHTML = visibleRumor.length === 0
-    ? '<div style="font-size:11px; color:#888;">(들은 소문 없음)</div>'
-    : visibleRumor.slice(0, 30).map(m => {
-        const src = m.source || '?';
-        const topic = m.topic_value ? `${m.topic_type || ''}: ${m.topic_value}`.trim() : '';
-        return `
-          <div class="mem-item" style="border-left:3px solid #f4a261;">
-            <div>
-              <span style="background:rgba(244,162,97,0.2); color:#f4a261; font-size:10px; padding:1px 6px; border-radius:3px;">💬 ${src} 한테 들음</span>
-            </div>
-            ${topic ? `<div class="meta" style="color:#fff;">${topic}</div>` : ''}
-            ${m.poi_name ? `<div class="meta">→ ${m.poi_name}</div>` : ''}
-            <div class="meta">${m.day} · 중요도 ${(m.imp||0).toFixed(2)}</div>
-            ${m.summary ? '<div class="meta" style="color:#aaa;">'+m.summary+'</div>' : ''}
-          </div>
-        `;
-      }).join('');
-
-  // 🤝 잡은 약속 (appointment) — Conversation{intent:'약속'}
-  const appts = (mem.appointments || []);
-  // target_day = day + offset_days (실제 만남 예정일)
-  function _targetDay(a) {
-    if (!a.day || a.offset_days == null) return a.day;
-    const d = new Date(a.day + 'T00:00:00Z');
-    d.setUTCDate(d.getUTCDate() + a.offset_days);
-    return d.toISOString().slice(0,10);
+  // Update Doughnut Chart (Dynamic)
+  const ctxD = document.getElementById('doughnutChart');
+  if (ctxD) {
+    const catSpend = {};
+    pastEvents.forEach(e => {
+       if ((e.spent||0) > 0) {
+          const c = e.cat || '기타';
+          catSpend[c] = (catSpend[c]||0) + e.spent;
+       }
+    });
+    const cLabels = Object.keys(catSpend);
+    const cData = Object.values(catSpend);
+    
+    if (cLabels.length > 0) {
+      ctxD.style.display = 'block';
+      const emptyDiv = ctxD.parentElement.querySelector('.empty');
+      if (emptyDiv) emptyDiv.remove();
+      
+      if (doughnutChartInstance) {
+        doughnutChartInstance.data.labels = cLabels;
+        doughnutChartInstance.data.datasets[0].data = cData;
+        doughnutChartInstance.data.datasets[0].backgroundColor = cLabels.map(l => COLORS_L1[l] || '#888');
+        doughnutChartInstance.update();
+      } else {
+        doughnutChartInstance = new Chart(ctxD, {
+          type: 'doughnut',
+          data: {
+            labels: cLabels,
+            datasets: [{ data: cData, backgroundColor: cLabels.map(l => COLORS_L1[l] || '#888'), borderWidth: 0 }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { position: 'right', labels: { boxWidth:8, font:{size:9}, color:'#e2e8f0' } } }
+          }
+        });
+      }
+    } else {
+      ctxD.style.display = 'none';
+      if (!ctxD.parentElement.querySelector('.empty')) {
+        const emptyDiv = document.createElement('div');
+        emptyDiv.className = 'empty';
+        emptyDiv.textContent = '(소비 내역 없음)';
+        ctxD.parentElement.appendChild(emptyDiv);
+      }
+    }
   }
-  const visibleAppts = filterByFrame
-    ? appts.filter(a => a.day <= currentDay)  // 잡은 날짜 기준
-    : appts;
-  document.getElementById('d-appointments').innerHTML = visibleAppts.length === 0
-    ? '<div style="font-size:11px; color:#888;">(잡은 약속 없음)</div>'
-    : visibleAppts.slice(0, 20).map(a => {
-        const tgt = _targetDay(a);
-        const tm = a.target_time ? ` ${a.target_time}` : '';
-        const where = a.meeting_poi_name || a.hint || '미정';
-        const role = a.role === 'initiator' ? '내가 제안' : '상대가 제안';
-        return `
-          <div class="mem-item" style="border-left:3px solid #4cc9f0;">
-            <div>
-              <span style="background:rgba(76,201,240,0.2); color:#4cc9f0; font-size:10px; padding:1px 6px; border-radius:3px;">🤝 ${role}</span>
-              <span style="color:#fff; margin-left:4px;">${a.with_agent || '?'}</span>
-            </div>
-            <div class="meta" style="color:#fff;">📅 만남일: <b>${tgt}${tm}</b> @ ${where}</div>
-            <div class="meta">잡은 날: ${a.day}</div>
-            ${a.summary ? '<div class="meta" style="color:#aaa;">'+a.summary+'</div>' : ''}
-          </div>
-        `;
+  document.getElementById('d-current').innerHTML = lastEvent ? `
+    <div class="info-card" style="border-left:3px solid var(--accent);background:rgba(34,211,238,.04);">
+      <b style="color:var(--accent);">📍 현재 (${lastEvent.time})</b> — ${lastEvent.anchor||''}<br/>
+      <span style="color:var(--text-bright);font-weight:600;">${lastEvent.cat||''}${lastEvent.sub?' · '+lastEvent.sub:''}</span>
+      ${lastEvent.intent ? ' — <i style="color:var(--text-dim);">'+lastEvent.intent+'</i>' : ''}<br/>
+      장소: ${lastEvent.poi_name||lastEvent.poi_id||'?'}
+      ${lastEvent.sat!=null ? ' <span class="tag" style="background:rgba(167,139,250,.1);color:var(--accent2);border-color:rgba(167,139,250,.2);">만족도 '+lastEvent.sat.toFixed(2)+'</span>' : ''}
+    </div>` : '<div class="empty">아직 활동 없음 (집)</div>';
+
+  // ── Schedule Tab ──
+  const todayEvents = events.filter(ev=>ev.day===currentDay);
+  document.getElementById('d-schedule').innerHTML = todayEvents.length===0
+    ? '<div class="empty">(오늘 스케줄 없음)</div>'
+    : todayEvents.map(ev=>{
+        const eh = parseInt(ev.time.slice(0,2));
+        const past = eh<=currentHour;
+        const isCurr = lastEvent && ev.ord===lastEvent.ord;
+        const cls = isCurr ? 'current' : (past ? 'past' : 'future');
+        const poiId = ev.poi_id||'';
+        let place;
+        if(poiId.startsWith('C_')) place='📍 '+(ev.poi_name||poiId);
+        else if(poiId.startsWith('R_')) place=ev.cat&&ev.cat!=='집'?`🏠 집 — ${ev.cat}`:'🏠 집';
+        else if(poiId.startsWith('W_')) place=ev.cat&&ev.cat!=='직장'?`💼 직장 — ${ev.cat}`:'💼 직장';
+        else place='📍 '+(ev.poi_name||poiId||'?');
+        const catLine = ev.cat?(ev.sub&&ev.sub!==ev.cat?`${ev.cat} · ${ev.sub}`:ev.cat):'';
+        const satLine = ev.sat!=null?'만족도 '+ev.sat.toFixed(2):'';
+        const meta = [catLine,satLine].filter(Boolean).join(' · ');
+        return `<div class="ev-item ${cls}" style="border-left-color:${COLORS_L1[ev.cat]||'var(--text-muted)'}">
+          <div><span class="ev-time">${ev.time}</span><span class="ev-place">${place}</span></div>
+          ${meta?'<div class="meta">'+meta+'</div>':''}
+          ${ev.intent?'<div class="ev-intent">"'+ev.intent+'"</div>':''}
+        </div>`;
       }).join('');
 
-  // 단골 KNOWS_POI Top — R_/W_ POI는 자기 집·직장이라 의미 없음. commerce만.
-  const knownTop = (mem.knows_poi || [])
-    .filter(k => (k.poi_id || '').startsWith('C_'))
-    .slice(0, 10);
-  document.getElementById('d-knows').innerHTML = knownTop.length === 0
-    ? '<div style="font-size:11px; color:#888;">(아직 단골 POI 없음)</div>'
-    : knownTop.map(k => `
-        <div class="mem-item known">
-          <div>${k.poi_name || k.poi_id}
-            ${k.cat ? '<span class="tag">'+k.cat+'</span>' : ''}
-          </div>
-          <div class="meta">방문 ${k.visit_count}회 · affinity ${(k.affinity||0).toFixed(2)} · 출처 ${k.source}</div>
-        </div>
-      `).join('');
+  // ── Memory Tab ──
+  const visitedMems = (mem.memories||[]).filter(m=>m.type==='visited'&&(m.poi_id||'').startsWith('C_'));
+  const rumorMems   = (mem.memories||[]).filter(m=>m.type==='rumor');
+  const filterByFrame = !window.__showAllMem;
+  const visibleVisited = filterByFrame ? visitedMems.filter(m=>m.day<currentDay) : visitedMems;
+  document.getElementById('d-mem-toggle').textContent = filterByFrame ? '전체 보기':'현재 시점까지만';
 
-  // 어제 State (현재 프레임의 day 직전)
-  const dayList = ['2026-04-30','2026-05-01','2026-05-02','2026-05-03'];
-  const dayIdx = dayList.indexOf(currentDay);
-  const yesterday = dayIdx > 0 ? dayList[dayIdx - 1] : null;
+  const knownTop = (mem.knows_poi||[]).filter(k=>(k.poi_id||'').startsWith('C_')).slice(0,10);
+  document.getElementById('d-knows').innerHTML = knownTop.length===0
+    ? '<div class="empty">(단골 POI 없음)</div>'
+    : knownTop.map(k=>`
+      <div class="ev-item" style="border-left-color:var(--amber);">
+        <div style="font-weight:600;color:var(--text-bright);">${k.poi_name||k.poi_id} ${k.cat?'<span class="tag">'+k.cat+'</span>':''}</div>
+        <div class="meta">방문 ${k.visit_count}회 · 친밀도 ${(k.affinity||0).toFixed(2)} · 출처 ${k.source}</div>
+      </div>`).join('');
+
+  document.getElementById('d-memories').innerHTML = visibleVisited.length===0
+    ? '<div class="empty">(방문 기억 없음)</div>'
+    : visibleVisited.slice(0,40).map(m=>`
+      <div class="ev-item" style="border-left-color:var(--green);">
+        <div style="color:var(--text-bright);font-weight:600;">📍 ${m.poi_name||m.poi_id||'?'}</div>
+        <div class="meta">${m.day} · 만족도 ${m.sat!=null?m.sat.toFixed(2):'?'} · 중요도 ${(m.imp||0).toFixed(2)}</div>
+      </div>`).join('');
+
+  // ── Social Tab ──
+  const visibleRumor = filterByFrame ? rumorMems.filter(m=>m.day<currentDay) : rumorMems;
+  const appts = mem.appointments||[];
+  function _targetDay(a){if(!a.day||a.offset_days==null)return a.day;const d=new Date(a.day+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+a.offset_days);return d.toISOString().slice(0,10);}
+  const visibleAppts = filterByFrame ? appts.filter(a=>a.day<=currentDay) : appts;
+
+  document.getElementById('d-appointments').innerHTML = visibleAppts.length===0
+    ? '<div class="empty">(약속 없음)</div>'
+    : visibleAppts.slice(0,20).map(a=>{
+        const tgt=_targetDay(a), tm=a.target_time?' '+a.target_time:'';
+        const where=a.meeting_poi_name||a.hint||'미정';
+        const role=a.role==='initiator'?'내가 제안':'상대가 제안';
+        return `<div class="ev-item" style="border-left-color:var(--accent2);">
+          <div><span class="tag" style="background:rgba(167,139,250,.1);color:var(--accent2);border-color:rgba(167,139,250,.2);">🤝 ${role}</span>
+          <span style="color:var(--text-bright);font-weight:600;margin-left:4px;">${a.with_agent||'?'}</span></div>
+          <div class="meta" style="color:var(--text);">📅 ${tgt}${tm} @ ${where}</div>
+          <div class="meta">잡은 날: ${a.day}</div>
+          ${a.summary?'<div class="meta" style="color:var(--text-dim);">'+a.summary+'</div>':''}
+        </div>`;
+      }).join('');
+
+  document.getElementById('d-rumors').innerHTML = visibleRumor.length===0
+    ? '<div class="empty">(소문 없음)</div>'
+    : visibleRumor.slice(0,30).map(m=>{
+        const src=m.source||'?';
+        const topic=m.topic_value?`${m.topic_type||''}: ${m.topic_value}`.trim():'';
+        return `<div class="ev-item" style="border-left-color:var(--orange);">
+          <div><span class="tag" style="background:rgba(244,162,97,.1);color:var(--orange);border-color:rgba(244,162,97,.2);">💬 ${src}</span></div>
+          ${topic?'<div style="color:var(--text-bright);font-weight:500;font-size:11px;margin-top:2px;">'+topic+'</div>':''}
+          ${m.poi_name?'<div class="meta">→ '+m.poi_name+'</div>':''}
+          <div class="meta">${m.day} · 중요도 ${(m.imp||0).toFixed(2)}</div>
+          ${m.summary?'<div class="meta" style="color:var(--text-dim);">'+m.summary+'</div>':''}
+        </div>`;
+      }).join('');
+
+  // ── State Tab ──
+  // Dynamically find yesterday based on timeline days
+  const allDays = [...new Set(TIMELINE.map(f=>f.day))].sort();
+  const dayIdx = allDays.indexOf(currentDay);
+  const yesterday = dayIdx>0 ? allDays[dayIdx-1] : null;
   const st = yesterday && mem.state ? mem.state[yesterday] : null;
-  document.getElementById('d-state').innerHTML = st ? `
-    <div class="state-block">
-      <b>${yesterday}</b><br/>
-      잔액 ${(st.balance||0).toLocaleString()}원 ·
-      mood ${(st.mood||0).toFixed(2)} ·
-      fatigue ${(st.fatigue||0).toFixed(2)} ·
-      어제 만족도 ${(st.yest_sat||0).toFixed(2)}
-    </div>
-  ` : '<div style="font-size:11px; color:#888;">(어제 State 없음)</div>';
+  if (st) {
+    const balPct = Math.min(100, (st.balance||0)/1000000*100);
+    const moodPct = Math.min(100, Math.max(0, (st.mood||0)*100));
+    const fatPct = Math.min(100, Math.max(0, (st.fatigue||0)*100));
+    const satPct = Math.min(100, Math.max(0, (st.yest_sat||0)*100));
+    document.getElementById('d-state').innerHTML = `
+      <div class="info-card">
+        <div style="font-size:11px;color:var(--text-dim);margin-bottom:10px;">📅 기준: <b style="color:var(--text-bright);">${yesterday}</b></div>
+        <div class="gauge-group">
+          <div class="gauge-item">
+            <div class="gauge-header"><span>💰 잔액</span><span style="font-family:var(--mono);font-size:10px;">${(st.balance||0).toLocaleString()}원</span></div>
+            <div class="gauge-bar"><div class="gauge-fill balance" style="width:${balPct}%"></div></div>
+          </div>
+          <div class="gauge-item">
+            <div class="gauge-header"><span>✨ Mood</span><span style="font-family:var(--mono);font-size:10px;">${(st.mood||0).toFixed(2)}</span></div>
+            <div class="gauge-bar"><div class="gauge-fill mood" style="width:${moodPct}%"></div></div>
+          </div>
+          <div class="gauge-item">
+            <div class="gauge-header"><span>🔋 Fatigue</span><span style="font-family:var(--mono);font-size:10px;">${(st.fatigue||0).toFixed(2)}</span></div>
+            <div class="gauge-bar"><div class="gauge-fill fatigue" style="width:${fatPct}%"></div></div>
+          </div>
+          <div class="gauge-item">
+            <div class="gauge-header"><span>😊 어제 만족도</span><span style="font-family:var(--mono);font-size:10px;">${(st.yest_sat||0).toFixed(2)}</span></div>
+            <div class="gauge-bar"><div class="gauge-fill sat" style="width:${satPct}%"></div></div>
+          </div>
+        </div>
+      </div>`;
+  } else {
+    document.getElementById('d-state').innerHTML = '<div class="empty">(어제 State 없음)</div>';
+  }
 }
 
 function closeDetail() {
-  document.getElementById('detail').style.display = 'none';
+  const el = document.getElementById('detail');
+  el.classList.remove('open');
+  setTimeout(()=>{ if(!el.classList.contains('open')) el.style.display='none'; }, 300);
   selected = null;
+  const macro = document.querySelector('.macro-panel');
+  if (macro) macro.style.opacity = '1';
 }
 
-// Memory 토글 (currentDay 시점까지 vs 전체)
-function toggleMemView() {
-  window.__showAllMem = !window.__showAllMem;
-  if (selected) showDetail(selected);
-}
-// detail 패널이 DOM에 있으므로 한 번만 바인딩
-document.addEventListener('click', (e) => {
-  if (e.target && e.target.id === 'd-mem-toggle') toggleMemView();
-});
+// Memory toggle
+document.addEventListener('click', e=>{ if(e.target&&e.target.id==='d-mem-toggle'){ window.__showAllMem=!window.__showAllMem; if(selected) showDetail(selected); }});
 
+/* ═══════════ Playback ═══════════ */
 function play() {
-  if (isPlaying) {
-    clearInterval(playerHandle); isPlaying = false;
-    document.getElementById('play-btn').textContent = '▶'; return;
-  }
-  isPlaying = true;
-  document.getElementById('play-btn').textContent = '⏸';
+  if (isPlaying) { clearInterval(playerHandle); isPlaying=false; document.getElementById('play-btn').textContent='▶'; return; }
+  isPlaying=true;
+  document.getElementById('play-btn').textContent='⏸';
   const speed = parseInt(document.getElementById('speed').value);
-  playerHandle = setInterval(() => {
-    let next = currentFrame + 1;
-    if (next >= TIMELINE.length) next = 0;
+  playerHandle = setInterval(()=>{
+    let next = currentFrame+1;
+    if (next>=TIMELINE.length) next=0;
     setFrame(next);
     if (selected) showDetail(selected);
   }, speed);
 }
 
+/* ═══════════ Init Events ═══════════ */
 function initEvents() {
-  document.getElementById('frame-slider').addEventListener('input', e => {
+  document.getElementById('frame-slider').addEventListener('input', e=>{
     setFrame(parseInt(e.target.value));
     if (selected) showDetail(selected);
   });
   document.getElementById('play-btn').addEventListener('click', play);
-  document.getElementById('color-mode').addEventListener('change', () => {
-    setFrame(currentFrame); updateLegend();
-  });
-  document.getElementById('dist-filter').addEventListener('change', () => setFrame(currentFrame));
+  document.getElementById('color-mode').addEventListener('change', ()=>{ setFrame(currentFrame); updateLegend(); });
+  document.getElementById('dist-filter').addEventListener('change', ()=>setFrame(currentFrame));
   document.getElementById('heat-mode').addEventListener('change', toggleHeatmap);
-  document.getElementById('speed').addEventListener('change', () => {
-    if (isPlaying) { play(); play(); }  // restart with new speed
+  document.getElementById('speed').addEventListener('change', ()=>{ if(isPlaying){play();play();} });
+}
+
+const verticalLinePlugin = {
+  id: 'verticalLine',
+  afterDraw: (chart, args, options) => {
+    const meta = chart.getDatasetMeta(0);
+    const ctx = chart.ctx, yAxis = chart.scales.y;
+    
+    // Policy Line
+    if (options.policyIdx !== undefined && options.policyIdx >= 0 && meta.data[options.policyIdx]) {
+      const px = meta.data[options.policyIdx].x;
+      ctx.save(); ctx.beginPath(); ctx.moveTo(px, yAxis.top); ctx.lineTo(px, yAxis.bottom);
+      ctx.lineWidth = 1.5; ctx.strokeStyle = '#f43f5e'; ctx.setLineDash([4, 4]); ctx.stroke();
+      ctx.fillStyle = '#f43f5e'; ctx.font = 'bold 9px sans-serif'; ctx.fillText('정책발효', px + 4, yAxis.top + 8);
+      ctx.restore();
+    }
+    
+    // Current Time Line
+    if (options.currentIdx !== undefined && options.currentIdx >= 0 && meta.data[options.currentIdx]) {
+      const cx = meta.data[options.currentIdx].x;
+      ctx.save(); ctx.beginPath(); ctx.moveTo(cx, yAxis.top); ctx.lineTo(cx, yAxis.bottom);
+      ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.stroke();
+      ctx.restore();
+    }
+  }
+};
+Chart.register(verticalLinePlugin);
+
+function initMacroCharts() {
+  Chart.defaults.color = '#94a3b8';
+  Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+  
+  const targetCats = ['식사', '카페', '디저트'];
+  const targetDists = ['11110', '11140'];
+  
+  const labels = [];
+  const catData = [[], [], []];
+  const distData = [[], []];
+  
+  const curCat = [0, 0, 0];
+  const curDist = [0, 0];
+  
+  TIMELINE.forEach(f => {
+    labels.push(f.day.slice(5) + ' ' + f.hour + 'h');
+    f.agents.forEach(a => {
+      if ((a.spent||0)>0) {
+        let cIdx = targetCats.indexOf(a.cat||'');
+        if (cIdx === -1 && targetCats.indexOf(a.l1||'') !== -1) cIdx = targetCats.indexOf(a.l1||'');
+        if (cIdx >= 0) curCat[cIdx] += a.spent;
+        
+        const ag = agentById[a.id];
+        const d = ag ? ag.dist_code : null;
+        const dIdx = targetDists.indexOf(d);
+        if (dIdx >= 0) curDist[dIdx] += a.spent;
+      }
+    });
+    curCat.forEach((v,i) => catData[i].push(v));
+    curDist.forEach((v,i) => distData[i].push(v));
   });
+
+  let policyFrameIdx = TIMELINE.findIndex(f => f.day === '2026-05-02' && f.hour === 12);
+  
+  const makeOpt = (pIdx) => ({
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: { legend: { position: 'top', labels: { boxWidth:8, font: {size:9} } }, tooltip: { mode: 'index', intersect: false }, verticalLine: { policyIdx: pIdx, currentIdx: 0 } },
+    scales: { x: { ticks: { maxTicksLimit: 6, font: {size:8} }, grid:{color:'rgba(255,255,255,0.05)'} }, y: { ticks: { callback: v=> Math.floor(v/10000)+'만', font: {size:8} }, grid:{color:'rgba(255,255,255,0.05)'} } },
+    interaction: { mode: 'index', intersect: false }
+  });
+
+  const catColors = ['#e76f51', '#f4a261', '#e9c46a'];
+  const catLabels = ['식사', '카페', '디저트'];
+  chartCatInstance = new Chart(document.getElementById('chartCat').getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: catLabels.map((l,i) => ({ label: l, data: catData[i], borderColor: catColors[i], tension: 0.2, pointRadius: 0 })) },
+    options: makeOpt(policyFrameIdx)
+  });
+  
+  const distColors = ['#8338ec', '#3a86ff'];
+  const distLabels = ['종로구', '중구'];
+  chartDistInstance = new Chart(document.getElementById('chartDist').getContext('2d'), {
+    type: 'line',
+    data: { labels, datasets: distLabels.map((l,i) => ({ label: l, data: distData[i], borderColor: distColors[i], tension: 0.2, pointRadius: 0 })) },
+    options: makeOpt(policyFrameIdx)
+  });
+}
+
+function updateMacroCharts(idx) {
+  if (chartCatInstance) {
+    chartCatInstance.options.plugins.verticalLine.currentIdx = idx;
+    chartCatInstance.update();
+  }
+  if (chartDistInstance) {
+    chartDistInstance.options.plugins.verticalLine.currentIdx = idx;
+    chartDistInstance.update();
+  }
+}
+
+function showToast(msg) {
+  const container = document.getElementById('news-ticker');
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.innerHTML = msg;
+  container.appendChild(el);
+  setTimeout(()=>el.remove(), 5500);
+}
+
+function checkNews(idx) {
+  const f = TIMELINE[idx];
+  if (!f) return;
+  const day = f.day;
+  
+  // Mock policy injection
+  if (day === '2026-05-02' && f.hour === 12 && !newsTriggered.has('policy_start')) {
+    newsTriggered.add('policy_start');
+    showToast(`🚨 [${f.label}] 종로구/중구 외식·카페 지원 정책 전면 발효!`);
+  }
+  if (day === '2026-05-03' && f.hour === 18 && !newsTriggered.has('trend_up')) {
+    newsTriggered.add('trend_up');
+    showToast(`📈 [${f.label}] 타겟 상권 누적 매출 전주 대비 300% 증가 포착!`);
+  }
+  
+  // Ripple effect for agents at policy targets
+  if (idx % 2 === 0) {
+     let rippled = 0;
+     f.agents.forEach(a => {
+       if (rippled > 15) return;
+       if (POLICY_TARGETS.has(a.cat)) {
+          const m = markers[a.id];
+          if (m && m._path) {
+            m._path.classList.add('ripple-marker');
+            setTimeout(()=> { if(m._path) m._path.classList.remove('ripple-marker'); }, 1500);
+            rippled++;
+          }
+       }
+     });
+  }
 }
 
 loadData().catch(e => {

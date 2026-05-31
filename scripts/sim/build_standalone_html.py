@@ -24,6 +24,7 @@ VIZ_DIR = Path(os.environ.get(
 LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
 LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
 LEAFLET_HEAT_JS_URL = "https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"
+GOOGLE_FONTS_URL = "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
 
 
 def fetch_url(url: str) -> str:
@@ -38,6 +39,16 @@ def main():
     leaflet_css = fetch_url(LEAFLET_CSS_URL)
     leaflet_js = fetch_url(LEAFLET_JS_URL)
     leaflet_heat_js = fetch_url(LEAFLET_HEAT_JS_URL)
+
+    # Google Fonts CSS 다운로드 (오프라인 대응)
+    try:
+        req = urllib.request.Request(GOOGLE_FONTS_URL, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req) as r:
+            gfonts_css = r.read().decode("utf-8")
+        print(f"  downloaded Google Fonts CSS ({len(gfonts_css)} bytes)")
+    except Exception as exc:
+        print(f"  WARNING: Google Fonts download failed ({exc}), falling back to system fonts")
+        gfonts_css = ""
 
     payload = {}
     for key, fname in [("agents", "agents.json"),
@@ -115,6 +126,10 @@ def main():
         .replace('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>', "")
         .replace('<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>', "")
     )
+    # Google Fonts @import → 인라인 CSS로 교체
+    if gfonts_css:
+        import_line = "@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');"
+        standalone = standalone.replace(import_line, f"/* Google Fonts (embedded) */\n{gfonts_css}")
     head_close = standalone.find("</head>")
     standalone = standalone[:head_close] + embed_block + standalone[head_close:]
 
@@ -140,7 +155,7 @@ def main():
     out_path = VIZ_DIR / "sim_standalone.html"
     out_path.write_text(standalone, encoding="utf-8")
     print(f"\n  → {out_path}: {out_path.stat().st_size / 1024 / 1024:.1f} MB")
-    print(f"  Leaflet 임베디드 ✓ · OSM 폴백 타일 ✓ · 에러 표시 ✓")
+    print(f"  Leaflet 임베디드 ✓ · Google Fonts 임베디드 ✓ · OSM 폴백 타일 ✓ · 에러 표시 ✓")
 
 
 if __name__ == "__main__":
