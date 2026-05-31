@@ -144,6 +144,7 @@ RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.description AS description,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
        pol.effective_from AS from_, pol.effective_until AS until_,
+       toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
        pol.income_grants AS income_grants,
        pol.excluded_income AS excluded_income,
        regions, region_codes, target_l1s

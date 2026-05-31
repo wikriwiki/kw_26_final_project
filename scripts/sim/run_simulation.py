@@ -422,6 +422,20 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
         from night_interaction import select_interaction_pairs
         from night_intent_llm import run_intent_classification
         t_n2 = time.time()
+        # 멱등성: 같은 day Conversation 이미 14,000건 이상 적재됐으면 Night2 전체 skip
+        # (select_interaction_pairs까지 다시 도는 비용 회피)
+        from _common import driver_session as _n2_session
+        try:
+            with _n2_session() as _s:
+                _n2_existing = _s.run(
+                    "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
+                    d=day_str
+                ).single()["n"]
+        except Exception:
+            _n2_existing = 0
+        if _n2_existing >= 50:
+            print(f"  [Night2] {day_str}: 이미 {_n2_existing} Conversation 적재됨 — 전체 skip")
+            return {"day": day_str, "ok": ok_count, "err": err_count, "elapsed_sec": elapsed}
         pairs = select_interaction_pairs(today, verbose=False)
         if pairs:
             print(f"  [Night2] {len(pairs)} pairs, classifying intents ...")

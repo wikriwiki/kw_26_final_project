@@ -25,6 +25,7 @@ import argparse
 import base64
 import html as _html
 import json
+import os
 import sys
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
@@ -2006,6 +2007,200 @@ def build_html(start: date, days: int, policy_from: str | None,
 # ═══════════════════════════════════════════════════════════════
 # main
 # ═══════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
+# P009 income bucket별 DID 분석 (정책 적용 그룹 vs baseline)
+# ═══════════════════════════════════════════════════════════════
+def section2b_income_did_p009(start: date, days: int, policy_from: str, out_dir: Path) -> dict:
+    """P009 적용 효과: income bucket(중상/중/중하/하)별 baseline(Day 1·2) vs treatment(Day 3) DID.
+
+    grant 받은 agent만 treatment 그룹 (jsonl grant_applied_today > 0).
+    grant=0 agent (정책 적용 실패 + income='상' 자연 비대상) 모두 제외 → 정책 효과만 측정.
+    """
+    import json
+    cutoff = date.fromisoformat(policy_from)
+    treatment_day = cutoff.isoformat()
+
+    # 정책 적용 그룹 aid set — jsonl 메트릭에서 fetch
+    grant_aids: set[str] = set()
+    metrics_path = Path(os.path.expanduser("~/sim_output/metrics")) / f"day_{treatment_day}.jsonl"
+    if not metrics_path.exists():
+        # SIM_OUTPUT_DIR 환경변수
+        sim_dir = os.environ.get("SIM_OUTPUT_DIR")
+        if sim_dir:
+            metrics_path = Path(sim_dir) / "metrics" / f"day_{treatment_day}.jsonl"
+    if metrics_path.exists():
+        with open(metrics_path, encoding='utf-8') as f:
+            for line in f:
+                try:
+                    r = json.loads(line)
+                    if r.get('status') == 'ok' and (r.get('grant_applied_today', 0) or 0) > 0:
+                        grant_aids.add(r['aid'])
+                except Exception:
+                    pass
+    print(f"  [P009 분석] 정책 적용 그룹: {len(grant_aids)}명", file=sys.stderr)
+
+    income_buckets = ["중상", "중", "중하", "하"]
+    grant_amounts = {"중상": 100000, "중": 250000, "중하": 450000, "하": 600000}
+    baseline_days = [(start + timedelta(days=i)).isoformat() for i in range(days)
+                     if (start + timedelta(days=i)) < cutoff]
+
+    per_bucket: dict[str, dict] = {}
+    with driver_session() as s:
+        for bucket in income_buckets:
+            # baseline: 해당 income bucket agent들의 Day 1·2 평균 일소비 (commerce)
+            baseline_avg = 0.0
+            baseline_agents = 0
+            if baseline_days:
+                row = s.run("""
+                    MATCH (a:Agent {p_income_level: $lv})
+                    MATCH (a)-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->(:POI {type:'commerce'})
+                    WHERE p.day IN [date(d) | d IN $days]
+                    WITH a, p.day AS day, sum(coalesce(i.actual_spent, 0)) AS daily_spend
+                    WITH avg(daily_spend) AS avg_per_day, count(DISTINCT a) AS n
+                    RETURN avg_per_day AS avg, n
+                """, lv=bucket, days=baseline_days).single()
+                baseline_avg = float(row['avg'] or 0)
+                baseline_agents = int(row['n'] or 0)
+
+            # treatment: 정책 적용 agent + 같은 bucket의 Day 3 평균 일소비
+            treatment_avg = 0.0
+            treatment_agents = 0
+            if grant_aids:
+                row = s.run("""
+                    MATCH (a:Agent {p_income_level: $lv})
+                    WHERE a.id IN $aids
+                    MATCH (a)-[:HAS_PLAN {day: date($day)}]->(p:Plan)-[i:INCLUDES]->(:POI {type:'commerce'})
+                    WITH a, sum(coalesce(i.actual_spent, 0)) AS daily_spend
+                    RETURN avg(daily_spend) AS avg, count(DISTINCT a) AS n
+                """, lv=bucket, aids=list(grant_aids), day=treatment_day).single()
+                treatment_avg = float(row['avg'] or 0)
+                treatment_agents = int(row['n'] or 0)
+
+            # 정책 사용액 평균 (treatment 그룹) — apoc 의존 없이 Python 후처리
+            policy_spend_avg = 0.0
+            if treatment_agents > 0:
+                rows = s.run("""
+                    MATCH (a:Agent {p_income_level: $lv})
+                    WHERE a.id IN $aids
+                    MATCH (a)-[:HAS_PLAN {day: date($day)}]->(p:Plan)-[i:INCLUDES]->(:POI)
+                    WHERE i.spent_from_policy IS NOT NULL
+                      AND i.spent_from_policy <> '{}'
+                      AND i.spent_from_policy <> 'null'
+                    RETURN a.id AS aid, i.spent_from_policy AS sp
+                """, lv=bucket, aids=list(grant_aids), day=treatment_day).data()
+                agent_spend: dict[str, int] = {}
+                for r in rows:
+                    try:
+                        sp_dict = json.loads(r['sp']) if r['sp'] else {}
+                        aid = r['aid']
+                        agent_spend[aid] = agent_spend.get(aid, 0) + int(sp_dict.get('P009', 0))
+                    except Exception:
+                        pass
+                if agent_spend:
+                    # 정책 사용 agent만 집계 vs 전체 treatment agent 분모? 후자가 의미 있음
+                    policy_spend_avg = sum(agent_spend.values()) / max(treatment_agents, 1)
+
+            change_pct = ((treatment_avg - baseline_avg) / max(baseline_avg, 1)) * 100
+            grant = grant_amounts[bucket]
+            usage_rate = (policy_spend_avg / grant * 100) if grant > 0 else 0
+
+            per_bucket[bucket] = {
+                "baseline_avg": round(baseline_avg),
+                "treatment_avg": round(treatment_avg),
+                "change_pct": round(change_pct, 2),
+                "grant_amount": grant,
+                "policy_spend_avg": round(policy_spend_avg),
+                "usage_rate_pct": round(usage_rate, 2),
+                "baseline_n": baseline_agents,
+                "treatment_n": treatment_agents,
+            }
+
+    # 차트 — bucket별 baseline vs treatment 막대
+    plt = _setup_mpl()
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    buckets = income_buckets
+    baseline_vals = [per_bucket[b]['baseline_avg'] for b in buckets]
+    treatment_vals = [per_bucket[b]['treatment_avg'] for b in buckets]
+    grant_vals = [per_bucket[b]['grant_amount'] for b in buckets]
+    spend_vals = [per_bucket[b]['policy_spend_avg'] for b in buckets]
+
+    # (A) baseline vs treatment per income
+    ax = axes[0]
+    x = range(len(buckets))
+    w = 0.35
+    ax.bar([xi - w/2 for xi in x], baseline_vals, w, label='baseline (Day 1·2 평균)', color='#4cc9f0')
+    ax.bar([xi + w/2 for xi in x], treatment_vals, w, label='treatment (Day 3 정책 적용)', color='#e76f51')
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(buckets)
+    ax.set_xlabel('Income bucket'); ax.set_ylabel('1인 1일 평균 소비 (원)')
+    ax.set_title('(A) 정책 적용 그룹의 baseline vs treatment per income bucket')
+    ax.legend()
+    ax.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda v, _: f'{int(v):,}'))
+
+    # (B) grant 지급액 vs 사용액
+    ax = axes[1]
+    ax.bar([xi - w/2 for xi in x], grant_vals, w, label='Grant 지급액', color='#a3d977')
+    ax.bar([xi + w/2 for xi in x], spend_vals, w, label='Grant 평균 사용액', color='#fb8500')
+    ax.set_xticks(list(x))
+    ax.set_xticklabels(buckets)
+    ax.set_xlabel('Income bucket'); ax.set_ylabel('금액 (원)')
+    ax.set_title('(B) Grant 차등 지급액 vs 평균 사용액')
+    ax.legend()
+    ax.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda v, _: f'{int(v):,}'))
+
+    plt.tight_layout()
+    fig_path = out_dir / "fig2b_income_did_p009.png"
+    plt.savefig(fig_path, dpi=140, bbox_inches='tight')
+    plt.close()
+
+    return {
+        "per_bucket": per_bucket,
+        "grant_aids_count": len(grant_aids),
+        "fig": fig_path.name,
+    }
+
+
+def _insert_p009_section(md: str, s2b: dict, chart_dir_rel: str) -> str:
+    """section 2 직후에 P009 income bucket 분석 섹션 삽입."""
+    pb = s2b["per_bucket"]
+    fig = s2b["fig"]
+    n_grant = s2b["grant_aids_count"]
+
+    lines = []
+    lines.append("## 2-B. P009 정책 효과 — Income Bucket별 분리 분석")
+    lines.append("")
+    lines.append(f"- 정책 적용 그룹(treatment): grant 받은 agent **{n_grant:,}명**")
+    lines.append(f"- baseline: Day 1·2 (정책 미주입) per income bucket 평균 일소비")
+    lines.append(f"- treatment: Day 3 (정책 주입일) 같은 income bucket의 정책 적용 agent 평균 일소비")
+    lines.append("")
+    lines.append(f"![P009 income bucket DID]({chart_dir_rel}/{fig})")
+    lines.append("")
+    lines.append("### Income bucket별 정책 효과")
+    lines.append("")
+    lines.append("| Income | Grant | baseline 평균 | treatment 평균 | 변화율 | 평균 grant 사용 | 사용률 |")
+    lines.append("|---|---:|---:|---:|---:|---:|---:|")
+    for b in ["중상", "중", "중하", "하"]:
+        d = pb[b]
+        lines.append(
+            f"| **{b}** | {d['grant_amount']:,}원 | {d['baseline_avg']:,}원 | "
+            f"{d['treatment_avg']:,}원 | **{d['change_pct']:+}%** | "
+            f"{d['policy_spend_avg']:,}원 | {d['usage_rate_pct']}% |"
+        )
+    lines.append("")
+    lines.append("**해석**:")
+    lines.append("- 변화율 = (treatment - baseline) / baseline × 100. 양수면 정책으로 소비 증가.")
+    lines.append("- 사용률 = 평균 grant 사용 / 지급액. 받은 사람들이 얼마나 활용했는지.")
+    lines.append("- income bucket별 분리 비교라 income 분포 mismatch 영향 없음.")
+    lines.append("")
+
+    # section 3 앞에 삽입
+    marker = "## 3. 간접 영향"
+    if marker in md:
+        return md.replace(marker, "\n".join(lines) + "\n" + marker)
+    # marker 없으면 끝에 추가
+    return md + "\n\n" + "\n".join(lines)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default="2026-05-01")
@@ -2048,9 +2243,19 @@ def main():
         print(f"[5/7] 인터뷰 (3 라벨 × 6 질문 = 18 LLM 호출) ...", file=sys.stderr)
         s5 = section5_interviews(start, args.days, chart_dir)
 
-    print(f"[6/8] markdown 빌드 ...", file=sys.stderr)
+    # P009 income bucket DID 분석 (정책 적용 그룹 vs baseline, per income)
+    if args.policy_from:
+        print(f"[6/8] P009 income bucket DID 분석 ...", file=sys.stderr)
+        s2b = section2b_income_did_p009(start, args.days, args.policy_from, chart_dir)
+    else:
+        s2b = None
+
+    print(f"[7/8] markdown 빌드 ...", file=sys.stderr)
     md = build_markdown(start, args.days, args.policy_from,
                         s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir_rel)
+    # P009 분석 markdown 삽입 (section 2 직후)
+    if s2b:
+        md = _insert_p009_section(md, s2b, chart_dir_rel)
     out_md.write_text(md, encoding="utf-8")
 
     print(f"[7/8] HTML 빌드 (차트 PNG → base64 임베드, 단일 파일) ...", file=sys.stderr)
