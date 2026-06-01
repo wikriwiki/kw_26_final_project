@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>서울 상권정책 시뮬레이션 — 최종 보고서 (예시)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-deep: #0b0d17;
+  --bg-primary: #111827;
+  --bg-card: #1e293b;
+  --border-subtle: rgba(148, 163, 184, 0.1);
+  --border-glass: rgba(148, 163, 184, 0.15);
+  --cyan: #06b6d4;
+  --purple: #8b5cf6;
+  --gradient: linear-gradient(135deg, #06b6d4, #8b5cf6);
+  --gradient-text: linear-gradient(135deg, #22d3ee, #a78bfa);
+  --emerald: #10b981;
+  --emerald-soft: rgba(16, 185, 129, 0.12);
+  --rose: #f43f5e;
+  --rose-soft: rgba(244, 63, 94, 0.12);
+  --amber: #f59e0b;
+  --neutral: #64748b;
+  --neutral-soft: rgba(100, 116, 139, 0.12);
+  --text-bright: #f1f5f9;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-glow-cyan: 0 0 20px rgba(6, 182, 212, 0.15);
+  --shadow-glow-purple: 0 0 20px rgba(139, 92, 246, 0.15);
+  --radius: 12px;
+  --radius-lg: 16px;
+}
+body.light-theme {
+  --bg-deep: #f8fafc;
+  --bg-primary: #f1f5f9;
+  --bg-card: #ffffff;
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-glass: rgba(15, 23, 42, 0.06);
+  --cyan: #0284c7;
+  --purple: #4f46e5;
+  --gradient: linear-gradient(135deg, #3b82f6, #6366f1);
+  --gradient-text: linear-gradient(135deg, #1e40af, #4f46e5);
+  --emerald: #059669;
+  --emerald-soft: rgba(5, 150, 105, 0.08);
+  --rose: #e11d48;
+  --rose-soft: rgba(225, 29, 72, 0.08);
+  --amber: #d97706;
+  --neutral: #475569;
+  --neutral-soft: rgba(71, 85, 105, 0.08);
+  --text-bright: #0f172a;
+  --text-primary: #334155;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+  --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.04), 0 4px 6px -2px rgba(0,0,0,0.02);
+  --shadow-glow-cyan: 0 4px 20px rgba(59, 130, 246, 0.08);
+  --shadow-glow-purple: 0 4px 20px rgba(99, 102, 241, 0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', 'Noto Sans KR', 'Apple SD Gothic Neo', sans-serif;
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  line-height: 1.7;
+  font-size: 15px;
+  transition: background 0.3s, color 0.3s;
+}
+.layout { display: flex; min-height: 100vh; }
+
+/* sidebar */
+.sidebar {
+  width: 272px;
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid var(--border-subtle);
+  padding: 32px 20px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 2px; }
+.sidebar .brand {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.sidebar h2 {
+  color: var(--text-bright);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 16px;
+}
+.sidebar nav a {
+  display: block;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 9px 14px;
+  font-size: 13px;
+  border-radius: 8px;
+  margin: 2px 0;
+  border-left: 2px solid transparent;
+  transition: all 0.25s ease;
+}
+.sidebar nav a:hover {
+  background: rgba(6, 182, 212, 0.08);
+  color: var(--text-bright);
+  border-left-color: var(--cyan);
+}
+.sidebar nav a.active {
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--cyan);
+  border-left-color: var(--cyan);
+  font-weight: 500;
+}
+.sidebar nav .lvl2 { padding-left: 28px; font-size: 12px; }
+.sidebar .tech-info {
+  margin-top: 40px;
+  padding: 16px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.sidebar .tech-info span { color: var(--purple); font-weight: 500; }
+
+/* main */
+.main {
+  flex: 1;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 56px 64px 80px;
+}
+
+header.cover {
+  margin-bottom: 56px;
+  padding-bottom: 36px;
+  border-bottom: 1px solid var(--border-subtle);
+  position: relative;
+}
+.cover::before {
+  content: '';
+  position: absolute;
+  top: -56px; left: -64px; right: -64px;
+  height: 400px;
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(6,182,212,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 0%, rgba(139,92,246,0.06) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+.cover > * { position: relative; z-index: 1; }
+.cover .meta {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.cover h1 {
+  color: var(--text-bright);
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.3;
+  margin-bottom: 18px;
+  letter-spacing: -0.5px;
+}
+.cover .subtitle {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.cover .badges { margin-top: 20px; display: flex; gap: 8px; flex-wrap: wrap; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(6,182,212,0.08);
+  color: var(--cyan);
+  border: 1px solid rgba(6,182,212,0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+.badge:hover { background: rgba(6,182,212,0.15); }
+.badge.alt { background: rgba(16,185,129,0.08); color: var(--emerald); border-color: rgba(16,185,129,0.2); }
+.badge.purple { background: rgba(139,92,246,0.08); color: var(--purple); border-color: rgba(139,92,246,0.2); }
+
+/* sections */
+section { margin-bottom: 56px; }
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.reveal.visible { opacity: 1; transform: translateY(0); }
+
+h2 {
+  color: var(--text-bright);
+  font-size: 22px;
+  font-weight: 700;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 20px;
+  scroll-margin-top: 24px;
+  position: relative;
+}
+h2::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 60px;
+  height: 2px;
+  background: var(--gradient);
+  border-radius: 1px;
+}
+h3 {
+  color: var(--text-bright);
+  font-size: 17px;
+  font-weight: 600;
+  margin: 28px 0 14px;
+  scroll-margin-top: 24px;
+}
+p  { margin-bottom: 14px; color: var(--text-secondary); }
+
+/* tables */
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0 24px;
+  font-size: 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border-glass);
+  overflow: hidden;
+}
+thead {
+  background: linear-gradient(135deg, rgba(6,182,212,0.12), rgba(139,92,246,0.12));
+}
+th, td {
+  padding: 12px 16px;
+  text-align: left;
+  border-bottom: 1px solid var(--border-subtle);
+}
+th {
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+tbody tr { transition: background 0.15s ease; }
+tbody tr:hover { background: rgba(6,182,212,0.04); }
+tbody tr:last-child td { border-bottom: none; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+td strong { color: var(--cyan); }
+
+/* figures */
+figure {
+  margin: 24px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  text-align: center;
+  transition: all 0.3s ease;
+}
+figure:hover {
+  border-color: rgba(6,182,212,0.2);
+  box-shadow: var(--shadow-glow-cyan);
+}
+figcaption {
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* chart SVGs styling */
+.chart-svg {
+  width: 100%;
+  height: auto;
+  max-height: 380px;
+  background: #111827;
+  border-radius: 8px;
+}
+body.light-theme .chart-svg {
+  background: #f8fafc;
+}
+
+/* interview cards */
+.interview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-lg);
+  padding: 28px 32px;
+  margin: 24px 0;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.interview-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; bottom: 0;
+  width: 4px;
+}
+.interview-card:hover {
+  border-color: rgba(148,163,184,0.2);
+  transform: translateY(-1px);
+}
+.interview-card.positive::before { background: linear-gradient(180deg, var(--emerald), #34d399); }
+.interview-card.positive:hover { box-shadow: 0 0 24px rgba(16,185,129,0.1); }
+.interview-card.negative::before { background: linear-gradient(180deg, var(--rose), #fb7185); }
+.interview-card.negative:hover { box-shadow: 0 0 24px rgba(244,63,94,0.1); }
+.interview-card.neutral::before  { background: linear-gradient(180deg, var(--neutral), #94a3b8); }
+
+.label-tag {
+  display: inline-block;
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.interview-card.positive .label-tag { background: var(--emerald-soft); color: var(--emerald); }
+.interview-card.negative .label-tag { background: var(--rose-soft); color: var(--rose); }
+.interview-card.neutral  .label-tag { background: var(--neutral-soft); color: var(--neutral); }
+
+.interview-card .persona {
+  font-size: 13px;
+  color: var(--text-secondary);
+  background: rgba(139,92,246,0.04);
+  border: 1px solid rgba(139,92,246,0.1);
+  padding: 14px 18px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  line-height: 1.7;
+}
+.interview-card .persona strong { color: var(--purple); }
+
+.qa { margin: 16px 0; }
+.qa .q {
+  font-weight: 600;
+  color: var(--text-bright);
+  margin-bottom: 8px;
+  font-size: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.qa .q::before {
+  content: 'Q';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  background: var(--gradient);
+  color: #fff;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.qa .a {
+  background: rgba(6,182,212,0.04);
+  border: 1px solid rgba(6,182,212,0.08);
+  padding: 14px 18px;
+  margin: 8px 0 16px 30px;
+  border-radius: 4px 12px 12px 12px;
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+/* KPI cards */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 28px 0;
+}
+.kpi {
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  padding: 22px 24px;
+  border-radius: var(--radius);
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--gradient);
+}
+.kpi:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-glow-cyan);
+  border-color: rgba(6,182,212,0.25);
+}
+.kpi .icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  background: rgba(6,182,212,0.1);
+}
+.kpi .icon svg {
+  width: 18px;
+  height: 18px;
+  stroke: var(--cyan);
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.kpi .value {
+  font-size: 28px;
+  font-weight: 800;
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.kpi .label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.kpi.pos::before { background: linear-gradient(135deg, var(--emerald), #34d399); }
+.kpi.pos .value {
+  background: linear-gradient(135deg, var(--emerald), #34d399);
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+.kpi.pos .icon { background: var(--emerald-soft); }
+.kpi.pos .icon svg { stroke: var(--emerald); }
+
+/* callout · footer */
+code {
+  background: rgba(139,92,246,0.1);
+  border: 1px solid rgba(139,92,246,0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', 'D2Coding', 'Consolas', monospace;
+  font-size: 13px;
+  color: var(--purple);
+}
+.callout {
+  background: rgba(6,182,212,0.06);
+  border: 1px solid rgba(6,182,212,0.15);
+  border-left: 4px solid var(--cyan);
+  padding: 16px 20px;
+  border-radius: 4px 10px 10px 4px;
+  margin: 18px 0;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+.callout.warn {
+  border-left-color: var(--amber);
+  border-color: rgba(245,158,11,0.15);
+  background: rgba(245,158,11,0.06);
+}
+.callout strong { color: var(--cyan); }
+.callout.warn strong { color: var(--amber); }
+
+.footer {
+  margin-top: 72px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+  line-height: 1.8;
+}
+
+/* theme toggle button */
+.theme-toggle-btn {
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.theme-toggle-btn:hover {
+  background: var(--border-subtle);
+  color: var(--text-bright);
+}
+.theme-toggle-btn svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* light theme overrides */
+body.light-theme {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+}
+body.light-theme .sidebar {
+  background: linear-gradient(185deg, #eff6ff 0%, #e0e7ff 100%);
+  border-right: 1px solid rgba(226, 232, 240, 0.8);
+}
+body.light-theme .sidebar h2 {
+  border-bottom-color: rgba(15, 23, 42, 0.08);
+}
+body.light-theme .sidebar nav a:hover {
+  background: rgba(59, 130, 246, 0.06);
+  color: var(--text-bright);
+}
+body.light-theme .sidebar nav a.active {
+  background: rgba(59, 130, 246, 0.10);
+  color: var(--cyan);
+}
+body.light-theme .sidebar .tech-info {
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+}
+body.light-theme thead {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(99, 102, 241, 0.06));
+}
+body.light-theme .cover::before {
+  background:
+    radial-gradient(ellipse at 30% 0%, rgba(59, 130, 246, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse at 70% 0%, rgba(99, 102, 241, 0.03) 0%, transparent 60%);
+}
+body.light-theme .interview-card .persona {
+  background: rgba(99, 102, 241, 0.03);
+  border-color: rgba(99, 102, 241, 0.06);
+}
+
+/* chat UI */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: 360px;
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-top: 20px;
+}
+body.light-theme .chat-container {
+  background: rgba(241, 245, 249, 0.6);
+}
+.chat-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  scroll-behavior: smooth;
+}
+.chat-messages::-webkit-scrollbar { width: 6px; }
+.chat-messages::-webkit-scrollbar-thumb {
+  background: var(--border-glass);
+  border-radius: 3px;
+}
+.chat-bubble {
+  max-width: 80%;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  position: relative;
+  animation: fadeInBubble 0.25s ease-out forwards;
+}
+@keyframes fadeInBubble {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.chat-bubble.agent {
+  align-self: flex-start;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border-glass);
+  border-top-left-radius: 4px;
+}
+body.light-theme .chat-bubble.agent {
+  background: #ffffff;
+  border-color: rgba(15, 23, 42, 0.08);
+}
+.chat-bubble.user {
+  align-self: flex-end;
+  background: var(--gradient);
+  color: #ffffff;
+  border-top-right-radius: 4px;
+}
+.chat-bubble .meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.chat-bubble.user .meta {
+  color: rgba(255, 255, 255, 0.7);
+}
+.chat-bubble .text {
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+.chat-input-area {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  gap: 12px;
+}
+body.light-theme .chat-input-area {
+  background: #ffffff;
+}
+.chat-input {
+  flex: 1;
+  background: rgba(15, 23, 42, 0.3);
+  border: 1px solid var(--border-glass);
+  color: var(--text-bright);
+  padding: 10px 16px;
+  border-radius: 20px;
+  font-size: 13.5px;
+  outline: none;
+  transition: all 0.2s ease;
+}
+body.light-theme .chat-input {
+  background: #f8fafc;
+}
+.chat-input:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 2px rgba(6, 182, 212, 0.2);
+}
+.chat-send-btn {
+  background: var(--gradient);
+  border: none;
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+  flex-shrink: 0;
+}
+.chat-send-btn:hover {
+  transform: scale(1.05);
+  opacity: 0.95;
+}
+.chat-send-btn:active {
+  transform: scale(0.95);
+}
+.chat-send-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+.fallback-banner {
+  font-size: 11px;
+  color: var(--emerald);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  padding: 6px 12px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fallback-banner svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+@media (max-width: 900px) {
+  .layout { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: relative; }
+  .sidebar nav { display: flex; flex-wrap: wrap; gap: 4px; }
+  .main { padding: 32px 20px; }
+  .cover h1 { font-size: 26px; }
+  .cover::before { display: none; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+
+  <aside class="sidebar">
+    <div class="sidebar-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 24px;">
+      <div class="brand" style="margin-bottom:0;">SEOUL POLICY SIMULATION</div>
+      <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle theme">
+        <svg class="sun-icon" viewBox="0 0 24 24" style="display:none; width:16px; height:16px;"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" style="width:16px; height:16px;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg>
+      </button>
+    </div>
+    <h2>목차</h2>
+    <nav>
+      <a href="#s-summary">1. 시뮬레이션 개요</a>
+      <a href="#s-sales">2. 정책 시행 전 vs 후</a>
+      <a href="#s-spillover">3. 간접 영향 (Spillover)</a>
+      <a href="#s-behavior">4. 소비자 행동 분석</a>
+      <a class="lvl2" href="#s-trigger">4-1. 결정 동기 분포</a>
+      <a class="lvl2" href="#s-regular">4-2. 단골 vs 신규</a>
+      <a class="lvl2" href="#s-satisfaction">4-3. 만족도</a>
+      <a href="#s-interview">5. 1대1 인터뷰</a>
+    </nav>
+    <div class="tech-info">
+      <span>Qwen3-14B-AWQ</span><br/>
+      <span>Neo4j 5.x</span><br/>
+      ABM × Generative Agent
+    </div>
+  </aside>
+
+  <main class="main">
+    <header class="cover">
+      <div class="meta">FINAL REPORT · 2026-06-01</div>
+      <h1>서울시 상권 활성화 정책<br/>시뮬레이션 결과 보고서</h1>
+      <div class="subtitle">
+        <strong>2026-05-01 ~ 2026-05-07</strong> · 에이전트 15,000명 · 정책 발효 2026-05-02<br/>
+        강남구 여름 카페·디저트 30% 바우처 (자연어 정책 자동 주입) 효과 분석
+      </div>
+      <div class="badges">
+        <span class="badge alt">Qwen3-14B-AWQ</span>
+        <span class="badge purple">Neo4j Graph DB</span>
+        <span class="badge">DID 분석</span>
+        <span class="badge">설명가능 AI</span>
+      </div>
+
+      <div class="kpi-grid" style="margin-top:32px;">
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+          <div class="value">15,000</div><div class="label">에이전트</div>
+        </div>
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+          <div class="value">105,000</div><div class="label">시뮬레이션 일수 합계</div>
+        </div>
+        <div class="kpi">
+          <div class="icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+          <div class="value">17,490</div><div class="label">사회적 상호작용</div>
+        </div>
+        <div class="kpi pos">
+          <div class="icon"><svg viewBox="0 0 24 24"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg></div>
+          <div class="value">+15.0%p</div><div class="label">정책 DID 순효과</div>
+        </div>
+      </div>
+    </header>
+
+    <section id="s-summary" class="reveal visible">
+      <h2>1. 시뮬레이션 개요</h2>
+      <p>본 보고서는 서울시 25개 자치구의 에이전트 15,000명을 대상으로, 강남구 단일 정책의 효과를 정책 시행 전·후 시간축으로 분석한 결과를 정리합니다. 각 에이전트는 매일 LLM이 생성한 일정에 따라 외출·소비를 하며, 그 결정의 사유(reasoning)와 동기(trigger)가 그래프 DB에 영구 저장되어 사후 인터뷰 및 추적이 가능합니다.</p>
+      <table>
+        <thead><tr><th>항목</th><th class="num">값</th></tr></thead>
+        <tbody>
+          <tr><td>기간</td><td>2026-05-01 ~ 2026-05-07</td></tr>
+          <tr><td>일수</td><td class="num">7</td></tr>
+          <tr><td>정책_시행일</td><td>2026-05-02</td></tr>
+          <tr><td>Agent 수</td><td class="num">15,000</td></tr>
+          <tr><td>Memory(visited)</td><td class="num">42,150</td></tr>
+          <tr><td>Memory(rumor)</td><td class="num">18,320</td></tr>
+          <tr><td>Conversation 약속</td><td class="num">3,420</td></tr>
+          <tr><td>Conversation 추천</td><td class="num">5,120</td></tr>
+          <tr><td>Conversation 이슈</td><td class="num">2,150</td></tr>
+          <tr><td>Conversation 기타</td><td class="num">6,800</td></tr>
+        </tbody>
+      </table>
+
+      <h3>주입된 정책</h3>
+      <p>시뮬레이션에 실제로 주입된 정책 목록과 상세 조건입니다. 에이전트가 정책 발효일부터 이 정보를 컨텍스트로 받아 의사결정에 반영합니다.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>정책 ID</th>
+            <th>정책명</th>
+            <th>유형</th>
+            <th>적용 지역</th>
+            <th>대상 업종</th>
+            <th>혜택</th>
+            <th>시행 기간</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>P007</code></td>
+            <td>강남구 여름 카페·디저트 30% 바우처</td>
+            <td>환급/쿠폰</td>
+            <td>강남구</td>
+            <td>카페, 디저트</td>
+            <td>30% 환급 (인당 50,000원 한도)</td>
+            <td>2026-05-02 ~ 2026-06-30</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout">
+        <strong>강남구 여름 카페·디저트 30% 바우처</strong>: 강남구 내 지정 카페 및 디저트 전문점 결제 시 결제 금액의 30%를 사후 환급해 드립니다. 시뮬레이션 기간 동안 인당 최대 50,000원까지 지원 한도가 설정되어 있습니다.
+      </div>
+    </section>
+
+    <section id="s-sales" class="reveal visible">
+      <h2>2. 정책 시행 전 vs 후 매출 추이</h2>
+      <p>강남구 카페·디저트 바우처(30% 환급, 인당 5만원 한도)가 시행된 2026-05-02 시점을 기준으로 정책 대상 카테고리(식사·카페·디저트)의 일별 매출을 비교합니다. 세 관점 — (A) 인구 비례 1인당 매출, (B) baseline 대비 변화율, (C) DID — 으로 분석합니다.</p>
+
+      <figure>
+        <!-- (A) 1인당 매출 차트 -->
+        <svg class="chart-svg" viewBox="0 0 600 300">
+          <rect width="100%" height="100%" fill="none"/>
+          <g transform="translate(60, 40)">
+            <!-- Gridlines -->
+            <line x1="0" y1="200" x2="500" y2="200" stroke="#334155" stroke-dasharray="3"/>
+            <line x1="0" y1="150" x2="500" y2="150" stroke="#334155" stroke-dasharray="3"/>
+            <line x1="0" y1="100" x2="500" y2="100" stroke="#334155" stroke-dasharray="3"/>
+            <line x1="0" y1="50" x2="500" y2="50" stroke="#334155" stroke-dasharray="3"/>
+            <!-- Policy Line -->
+            <line x1="71" y1="0" x2="71" y2="220" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="4"/>
+            <text x="75" y="15" fill="#f59e0b" font-size="10" font-weight="bold">정책 시행 (5/2)</text>
+            <!-- X & Y Axes -->
+            <line x1="0" y1="220" x2="500" y2="220" stroke="#475569" stroke-width="2"/>
+            <line x1="0" y1="0" x2="0" y2="220" stroke="#475569" stroke-width="2"/>
+            <!-- Y-labels -->
+            <text x="-10" y="205" fill="#94a3b8" font-size="10" text-anchor="end">10k</text>
+            <text x="-10" y="155" fill="#94a3b8" font-size="10" text-anchor="end">20k</text>
+            <text x="-10" y="105" fill="#94a3b8" font-size="10" text-anchor="end">30k</text>
+            <text x="-10" y="55" fill="#94a3b8" font-size="10" text-anchor="end">40k</text>
+            <!-- X-labels -->
+            <text x="0" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/1</text>
+            <text x="71" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/2</text>
+            <text x="142" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/3</text>
+            <text x="213" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/4</text>
+            <text x="284" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/5</text>
+            <text x="355" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/6</text>
+            <text x="426" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/7</text>
+            <!-- Lines -->
+            <!-- Gangnam Line -->
+            <path d="M 0,160 L 71,155 L 142,105 L 213,95 L 284,80 L 355,85 L 426,75" fill="none" stroke="#e76f51" stroke-width="3"/>
+            <!-- Non-Gangnam Line -->
+            <path d="M 0,165 L 71,168 L 142,158 L 213,161 L 284,155 L 355,159 L 426,156" fill="none" stroke="#4cc9f0" stroke-width="3"/>
+            <!-- Dots -->
+            <circle cx="0" cy="160" r="4" fill="#e76f51"/><circle cx="71" cy="155" r="4" fill="#e76f51"/>
+            <circle cx="142" cy="105" r="4" fill="#e76f51"/><circle cx="213" cy="95" r="4" fill="#e76f51"/>
+            <circle cx="284" cy="80" r="4" fill="#e76f51"/><circle cx="355" cy="85" r="4" fill="#e76f51"/>
+            <circle cx="426" cy="75" r="4" fill="#e76f51"/>
+            <circle cx="0" cy="165" r="4" fill="#4cc9f0"/><circle cx="71" cy="168" r="4" fill="#4cc9f0"/>
+            <circle cx="142" cy="158" r="4" fill="#4cc9f0"/><circle cx="213" cy="161" r="4" fill="#4cc9f0"/>
+            <circle cx="284" cy="155" r="4" fill="#4cc9f0"/><circle cx="355" cy="159" r="4" fill="#4cc9f0"/>
+            <circle cx="426" cy="156" r="4" fill="#4cc9f0"/>
+          </g>
+        </svg>
+        <figcaption>(A) 1인당 일별 매출 — 인구 비례 환산 후 강남(주황색) vs 비강남(파란색) 절대 비교</figcaption>
+      </figure>
+
+      <figure>
+        <!-- (C) DID 차트 -->
+        <svg class="chart-svg" viewBox="0 0 600 240">
+          <rect width="100%" height="100%" fill="none"/>
+          <g transform="translate(60, 30)">
+            <!-- Axis lines -->
+            <line x1="0" y1="100" x2="500" y2="100" stroke="#475569" stroke-width="1.5"/>
+            <!-- Policy line -->
+            <line x1="71" y1="0" x2="71" y2="180" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="3"/>
+            <!-- Bars -->
+            <!-- 5/1: 0% -->
+            <!-- 5/2: +2% -->
+            <rect x="56" y="80" width="30" height="20" fill="#38a169"/>
+            <text x="71" y="75" fill="#38a169" font-size="9" text-anchor="middle" font-weight="bold">+2.1%p</text>
+            <!-- 5/3: +11% -->
+            <rect x="127" y="30" width="30" height="70" fill="#38a169"/>
+            <text x="142" y="25" fill="#38a169" font-size="9" text-anchor="middle" font-weight="bold">+11.2%p</text>
+            <!-- 5/4: +12% -->
+            <rect x="198" y="25" width="30" height="75" fill="#38a169"/>
+            <text x="213" y="20" fill="#38a169" font-size="9" text-anchor="middle" font-weight="bold">+12.4%p</text>
+            <!-- 5/5: +17% -->
+            <rect x="269" y="10" width="30" height="90" fill="#38a169"/>
+            <text x="284" y="5" fill="#38a169" font-size="9" text-anchor="middle" font-weight="bold">+17.8%p</text>
+            <!-- 5/6: +15% -->
+            <rect x="340" y="15" width="30" height="85" fill="#38a169"/>
+            <text x="355" y="10" fill="#38a169" font-size="9" text-anchor="middle" font-weight="bold">+15.1%p</text>
+            <!-- 5/7: +18% -->
+            <rect x="411" y="5" width="30" height="95" fill="#38a169"/>
+            <text x="426" y="0" fill="#38a169" font-size="9" text-anchor="middle" font-weight="bold">+18.0%p</text>
+            
+            <!-- labels -->
+            <text x="0" y="200" fill="#94a3b8" font-size="10" text-anchor="middle">5/1</text>
+            <text x="71" y="200" fill="#94a3b8" font-size="10" text-anchor="middle">5/2</text>
+            <text x="142" y="200" fill="#94a3b8" font-size="10" text-anchor="middle">5/3</text>
+            <text x="213" y="200" fill="#94a3b8" font-size="10" text-anchor="middle">5/4</text>
+            <text x="284" y="200" fill="#94a3b8" font-size="10" text-anchor="middle">5/5</text>
+            <text x="355" y="200" fill="#94a3b8" font-size="10" text-anchor="middle">5/6</text>
+            <text x="426" y="200" fill="#94a3b8" font-size="10" text-anchor="middle">5/7</text>
+          </g>
+        </svg>
+        <figcaption>(C) DID — 강남 변화율 − 비강남 변화율 (정책 순효과, %p)</figcaption>
+      </figure>
+
+      <h3>평균 일간 매출 비교</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>자치구</th>
+            <th class="num">시행 전</th>
+            <th class="num">시행 후</th>
+            <th class="num">변화율</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>강남 (정책 대상)</strong></td>
+            <td class="num">124,500,000원</td>
+            <td class="num">148,155,000원</td>
+            <td class="num"><strong>+19.0%</strong></td>
+          </tr>
+          <tr>
+            <td>비강남 (대조군)</td>
+            <td class="num">98,400,000원</td>
+            <td class="num">102,336,000원</td>
+            <td class="num">+4.0%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="callout">
+        <strong>DID(이중차분법, Difference-in-Differences)</strong>란 정책 대상 그룹(처치군)과 비대상 그룹(대조군)의 시행 전→후 변화율 차이를 구하여, 시간에 따른 공통 추세를 제거한 <strong>정책의 순수 인과 효과</strong>를 추정하는 기법입니다.
+      </div>
+      <div class="callout">
+        <strong>DID (정책 순효과)</strong>: 처치군 변화율(+19.0%) − 대조군 변화율(+4.0%) = 
+        <strong style="font-size:18px;color:var(--cyan);">+15.0%p</strong>
+        <br/><span style="font-size:13px;color:var(--text-muted)">DID &gt; 0이면 정책이 강남구 매출을 대조군 대비 추가로 끌어올렸음을 의미합니다.</span>
+      </div>
+    </section>
+
+    <section id="s-spillover" class="reveal visible">
+      <h2>3. 간접 영향 (Spillover)</h2>
+      <p>강남 정책이 직접 적용되지 않은 인접 자치구(서초·송파)와 멀리 떨어진 강북에 미친 영향을 비교합니다. 인접 자치구의 매출 변화가 강북보다 두드러지면 spillover로 해석할 수 있습니다.</p>
+      
+      <figure>
+        <svg class="chart-svg" viewBox="0 0 600 280">
+          <g transform="translate(60, 40)">
+            <line x1="0" y1="200" x2="500" y2="200" stroke="#334155" stroke-dasharray="3"/>
+            <line x1="0" y1="100" x2="500" y2="100" stroke="#334155" stroke-dasharray="3"/>
+            <line x1="0" y1="220" x2="500" y2="220" stroke="#475569" stroke-width="2"/>
+            <!-- Line 강남 -->
+            <path d="M 0,60 L 71,62 L 142,40 L 213,38 L 284,20 L 355,25 L 426,18" fill="none" stroke="#e76f51" stroke-width="2.5"/>
+            <!-- Line 서초 -->
+            <path d="M 0,110 L 71,108 L 142,95 L 213,90 L 284,80 L 355,83 L 426,78" fill="none" stroke="#f4a261" stroke-width="2"/>
+            <!-- Line 송파 -->
+            <path d="M 0,120 L 71,125 L 142,112 L 213,115 L 284,102 L 355,105 L 426,98" fill="none" stroke="#f4d35e" stroke-width="2"/>
+            <!-- Line 강북 -->
+            <path d="M 0,180 L 71,182 L 142,180 L 213,185 L 284,181 L 355,183 L 426,180" fill="none" stroke="#8ecae6" stroke-width="2"/>
+            <!-- Legends -->
+            <circle cx="20" cy="-15" r="5" fill="#e76f51"/><text x="32" y="-11" fill="#94a3b8" font-size="10">강남</text>
+            <circle cx="100" cy="-15" r="5" fill="#f4a261"/><text x="112" y="-11" fill="#94a3b8" font-size="10">서초</text>
+            <circle cx="180" cy="-15" r="5" fill="#f4d35e"/><text x="192" y="-11" fill="#94a3b8" font-size="10">송파</text>
+            <circle cx="260" cy="-15" r="5" fill="#8ecae6"/><text x="272" y="-11" fill="#94a3b8" font-size="10">강북</text>
+            
+            <text x="0" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/1</text>
+            <text x="142" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/3</text>
+            <text x="284" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/5</text>
+            <text x="426" y="235" fill="#94a3b8" font-size="10" text-anchor="middle">5/7</text>
+          </g>
+        </svg>
+        <figcaption>자치구별 매출 추이 — 강남 정책의 간접 영향 추적 (백만 원 단위)</figcaption>
+      </figure>
+      <p>강남구 정책 시행 이후, 인접 자치구인 서초구와 송파구의 일간 매출이 강남구의 상승세와 맞물려 완만하게 동반 상승하는 경향(+6.5% ~ +8.0%)을 보였습니다. 반면, 지리적으로 격리된 강북구의 경우 통계적으로 유의미한 변화가 관찰되지 않아, 정책의 긍정적인 Spillover(간접 파급) 효과가 강남 인접 자치구 중심으로 국한되어 작용했음을 시사합니다.</p>
+    </section>
+
+    <section id="s-behavior" class="reveal visible">
+      <h2>4. 소비자 행동 분석</h2>
+
+      <h3 id="s-trigger">4-1. 결정 동기 분포</h3>
+      <p>외출(집·직장 제외) 시 어떤 요인이 결정을 이끌었는지 LLM이 trigger 라벨로 분류한 분포입니다. 7-라벨 enum(약속·소문·정책·습관·Top 카테고리·컨디션·기타)로 정량화됩니다.</p>
+      
+      <figure>
+        <svg class="chart-svg" viewBox="0 0 600 240">
+          <g transform="translate(40, 20)">
+            <!-- Y grid lines -->
+            <line x1="50" y1="180" x2="520" y2="180" stroke="#334155" stroke-dasharray="2"/>
+            <line x1="50" y1="120" x2="520" y2="120" stroke="#334155" stroke-dasharray="2"/>
+            <line x1="50" y1="60" x2="520" y2="60" stroke="#334155" stroke-dasharray="2"/>
+            <line x1="50" y1="190" x2="520" y2="190" stroke="#475569" stroke-width="1.5"/>
+            <!-- Bars -->
+            <!-- 약속 42.5% -->
+            <rect x="80" y="60" width="35" height="130" fill="#e76f51"/>
+            <text x="97.5" y="52" fill="#e76f51" font-size="9" text-anchor="middle" font-weight="bold">42.5%</text>
+            <text x="97.5" y="205" fill="#94a3b8" font-size="10" text-anchor="middle">약속</text>
+
+            <!-- 습관 21.0% -->
+            <rect x="145" y="125" width="35" height="65" fill="#f4a261"/>
+            <text x="162.5" y="117" fill="#f4a261" font-size="9" text-anchor="middle" font-weight="bold">21.0%</text>
+            <text x="162.5" y="205" fill="#94a3b8" font-size="10" text-anchor="middle">습관</text>
+
+            <!-- 소문 15.3% -->
+            <rect x="210" y="143" width="35" height="47" fill="#4cc9f0"/>
+            <text x="227.5" y="135" fill="#4cc9f0" font-size="9" text-anchor="middle" font-weight="bold">15.3%</text>
+            <text x="227.5" y="205" fill="#94a3b8" font-size="10" text-anchor="middle">소문</text>
+
+            <!-- 정책 11.2% -->
+            <rect x="275" y="156" width="35" height="34" fill="#83c5be"/>
+            <text x="292.5" y="148" fill="#83c5be" font-size="9" text-anchor="middle" font-weight="bold">11.2%</text>
+            <text x="292.5" y="205" fill="#94a3b8" font-size="10" text-anchor="middle">정책</text>
+
+            <!-- Top카테고리 6.0% -->
+            <rect x="340" y="172" width="35" height="18" fill="#06d6a0"/>
+            <text x="357.5" y="164" fill="#06d6a0" font-size="9" text-anchor="middle" font-weight="bold">6.0%</text>
+            <text x="357.5" y="205" fill="#94a3b8" font-size="10" text-anchor="middle">카테고리</text>
+
+            <!-- 컨디션 3.0% -->
+            <rect x="405" y="181" width="35" height="9" fill="#9d4edd"/>
+            <text x="422.5" y="173" fill="#9d4edd" font-size="9" text-anchor="middle" font-weight="bold">3.0%</text>
+            <text x="422.5" y="205" fill="#94a3b8" font-size="10" text-anchor="middle">컨디션</text>
+
+            <!-- 기타 1.0% -->
+            <rect x="470" y="187" width="35" height="3" fill="#888"/>
+            <text x="487.5" y="179" fill="#888" font-size="9" text-anchor="middle" font-weight="bold">1.0%</text>
+            <text x="487.5" y="205" fill="#94a3b8" font-size="10" text-anchor="middle">기타</text>
+          </g>
+        </svg>
+        <figcaption>외출 이벤트의 결정 동기 (trigger) 분포</figcaption>
+      </figure>
+
+      <table>
+        <thead>
+          <tr>
+            <th>동기</th>
+            <th class="num">건수</th>
+            <th class="num">비율</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>약속 (appointment)</td><td class="num">18,520</td><td class="num">42.50%</td></tr>
+          <tr><td>습관 (habit)</td><td class="num">9,150</td><td class="num">21.00%</td></tr>
+          <tr><td>소문 (rumor)</td><td class="num">6,670</td><td class="num">15.30%</td></tr>
+          <tr><td>정책 (policy)</td><td class="num">4,880</td><td class="num">11.20%</td></tr>
+          <tr><td>Top 카테고리 (top_category)</td><td class="num">2,610</td><td class="num">6.00%</td></tr>
+          <tr><td>컨디션 (mood)</td><td class="num">1,310</td><td class="num">3.00%</td></tr>
+          <tr><td>기타 (none)</td><td class="num">436</td><td class="num">1.00%</td></tr>
+        </tbody>
+      </table>
+
+      <h3 id="s-regular">4-2. 단골 vs 신규</h3>
+      <p>각 에이전트의 POI 인지 관계(KNOWS_POI) 빈도 분포와, 그 관계가 어떻게 형성되었는지(출처) 분석합니다.</p>
+      
+      <figure>
+        <svg class="chart-svg" viewBox="0 0 600 220">
+          <g transform="translate(60, 20)">
+            <line x1="0" y1="160" x2="500" y2="160" stroke="#475569" stroke-width="1.5"/>
+            <!-- 신규 -->
+            <rect x="60" y="40" width="50" height="120" fill="#bdb2ff"/>
+            <text x="85" y="32" fill="#bdb2ff" font-size="10" text-anchor="middle" font-weight="bold">12,450</text>
+            <text x="85" y="180" fill="#94a3b8" font-size="11" text-anchor="middle">신규 (1회)</text>
+
+            <!-- 재방문 -->
+            <rect x="220" y="80" width="50" height="80" fill="#83c5be"/>
+            <text x="245" y="72" fill="#83c5be" font-size="10" text-anchor="middle" font-weight="bold">8,320</text>
+            <text x="245" y="180" fill="#94a3b8" font-size="11" text-anchor="middle">재방문 (2~4회)</text>
+
+            <!-- 단골 -->
+            <rect x="380" y="139" width="50" height="21" fill="#e76f51"/>
+            <text x="405" y="131" fill="#e76f51" font-size="10" text-anchor="middle" font-weight="bold">2,150</text>
+            <text x="405" y="180" fill="#94a3b8" font-size="11" text-anchor="middle">단골 (5회+)</text>
+          </g>
+        </svg>
+        <figcaption>방문 빈도 분포 (KNOWS_POI)</figcaption>
+      </figure>
+
+      <table>
+        <thead>
+          <tr>
+            <th>구분</th>
+            <th class="num">관계 수</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>신규 (1회 방문)</td><td class="num">12,450</td></tr>
+          <tr><td>재방문 (2~4회)</td><td class="num">8,320</td></tr>
+          <tr><td>단골 (5회+)</td><td class="num">2,150</td></tr>
+        </tbody>
+      </table>
+      <p style="color:var(--text-muted);font-size:13px">전체 KNOWS_POI 관계 수: <strong style="color:var(--cyan)">22,920</strong></p>
+
+      <h3 id="s-satisfaction">4-3. 만족도 — 어떤 동기가 더 만족스러웠나</h3>
+      <p>결정 동기(trigger)별 평균 만족도를 비교해 어떤 동기로 외출했을 때 가장 만족도가 높은지 측정합니다.</p>
+      
+      <figure>
+        <svg class="chart-svg" viewBox="0 0 600 200">
+          <g transform="translate(100, 20)">
+            <line x1="0" y1="0" x2="0" y2="150" stroke="#475569" stroke-width="1.5"/>
+            <!-- Horizontal Bars -->
+            <!-- 정책 -->
+            <rect x="0" y="15" width="314" height="20" fill="#4cc9f0"/>
+            <text x="-10" y="29" fill="#94a3b8" font-size="11" text-anchor="end">정책 (policy)</text>
+            <text x="324" y="29" fill="#4cc9f0" font-size="11" font-weight="bold">0.785 (n=2,150)</text>
+
+            <!-- 약속 -->
+            <rect x="0" y="50" width="297" height="20" fill="#e76f51"/>
+            <text x="-10" y="64" fill="#94a3b8" font-size="11" text-anchor="end">약속 (appointment)</text>
+            <text x="307" y="64" fill="#e76f51" font-size="11" font-weight="bold">0.742 (n=8,200)</text>
+
+            <!-- 소문 -->
+            <rect x="0" y="85" width="284" height="20" fill="#f4a261"/>
+            <text x="-10" y="99" fill="#94a3b8" font-size="11" text-anchor="end">소문 (rumor)</text>
+            <text x="294" y="99" fill="#f4a261" font-size="11" font-weight="bold">0.710 (n=3,150)</text>
+
+            <!-- 습관 -->
+            <rect x="0" y="120" width="260" height="20" fill="#888"/>
+            <text x="-10" y="134" fill="#94a3b8" font-size="11" text-anchor="end">습관 (habit)</text>
+            <text x="270" y="134" fill="#888" font-size="11" font-weight="bold">0.650 (n=4,200)</text>
+          </g>
+        </svg>
+        <figcaption>결정 동기별 평균 만족도</figcaption>
+      </figure>
+
+      <table>
+        <thead>
+          <tr>
+            <th>동기</th>
+            <th class="num">평균 만족도</th>
+            <th class="num">표본 수</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>정책 (policy)</td><td class="num">0.785</td><td class="num">2,150</td></tr>
+          <tr><td>약속 (appointment)</td><td class="num">0.742</td><td class="num">8,200</td></tr>
+          <tr><td>소문 (rumor)</td><td class="num">0.710</td><td class="num">3,150</td></tr>
+          <tr><td>습관 (habit)</td><td class="num">0.650</td><td class="num">4,200</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="s-interview" class="reveal visible">
+      <h2>5. 1대1 인터뷰 — 페르소나별 대표</h2>
+      <p>정책 사용액과 만족도(mood)를 기준으로 세 유형의 군집을 정의하고, 각 군집에서 대표 1명씩 자동 추출하여 LLM이 그 페르소나로 인터뷰에 응답합니다. 답변은 시뮬 시점에 적재된 reasoning을 인용해 실제 의사결정을 추적합니다.</p>
+
+      <!-- positive interview -->
+      <div class="interview-card positive" data-agent-id="AGT_11680_003">
+        <span class="label-tag">positive</span>
+        <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
+          정책 적극 활용 + 만족도 ↑ <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>AGT_11680_003</code></span>
+        </h3>
+        <div class="persona">
+          <strong>페르소나:</strong> 20대 여성 · 대학생 · 대치동 거주 · 소득 하<br/>
+          <strong>라이프스타일:</strong> 카페 투어 선호, 트렌드 민감, 인스타그램 맛집 탐방이 주 취미
+        </div>
+
+        <div class="fallback-banner">
+          <svg viewBox="0 0 20 20" style="width:14px;height:14px;fill:currentColor;"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+          <span>이 인터뷰는 사후 분석 LLM 모드로 작동하고 있습니다. 대화창을 통해 에이전트와 직접 추가 인터뷰를 해보세요.</span>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-messages" id="chat-messages-positive">
+            <div class="chat-bubble user">
+              <div class="meta"><span class="sender">인터뷰어</span></div>
+              <div class="text">정책(강남구 카페·디저트 바우처)에 대해 어떻게 느끼셨나요? 직접 사용하셨다면 왜 사용했고, 안 쓰셨다면 왜 안 쓰셨는지 알려주세요.</div>
+            </div>
+            <div class="chat-bubble agent">
+              <div class="meta"><span class="sender">에이전트 (AGT_11680_003)</span></div>
+              <div class="text">정책 덕분에 평소 가고 싶었던 강남구 핫플레이스 카페들을 부담 없이 자주 다닐 수 있어 정말 만족스러웠습니다. 30% 환급 할인이 되니까 주머니 사정이 가벼운 대학생 입장에서 큰 도움이 되었고, 매일 가던 곳 대신 새로운 카페를 가볼 용기가 났어요.</div>
+            </div>
+            <div class="chat-bubble user">
+              <div class="meta"><span class="sender">인터뷰어</span></div>
+              <div class="text">가장 자주 가신 가게는 어디고, 왜 그곳을 자주 갔나요?</div>
+            </div>
+            <div class="chat-bubble agent">
+              <div class="meta"><span class="sender">에이전트 (AGT_11680_003)</span></div>
+              <div class="text">신사동 가로수길에 있는 디저트 숍에 가장 많이 갔습니다. 타르트와 커피 세트 메뉴가 마음에 들었고, 이번 바우처 혜택 적용 가맹점이라 매주 주말마다 찾은 것 같아요.</div>
+            </div>
+          </div>
+          <div class="typing-indicator" id="typing-indicator-positive">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chat-input-positive" placeholder="positive 에이전트에게 질문을 입력해보세요..." />
+            <button class="chat-send-btn" id="chat-send-positive" onclick="sendChatMessage('positive')">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- negative interview -->
+      <div class="interview-card negative" data-agent-id="AGT_11305_012">
+        <span class="label-tag">negative</span>
+        <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
+          정책 무관심 + 만족도 ↓ <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>AGT_11305_012</code></span>
+        </h3>
+        <div class="persona">
+          <strong>페르소나:</strong> 40대 남성 · 회사원 · 강북구 번동 거주 · 소득 중<br/>
+          <strong>라이프스타일:</strong> 주중 퇴근 후 집에서 휴식 선호, 주말엔 가족과 소박하게 시간 보냄
+        </div>
+
+        <div class="fallback-banner">
+          <svg viewBox="0 0 20 20" style="width:14px;height:14px;fill:currentColor;"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+          <span>이 인터뷰는 사후 분석 LLM 모드로 작동하고 있습니다. 대화창을 통해 에이전트와 직접 추가 인터뷰를 해보세요.</span>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-messages" id="chat-messages-negative">
+            <div class="chat-bubble user">
+              <div class="meta"><span class="sender">인터뷰어</span></div>
+              <div class="text">정책(강남구 카페·디저트 바우처)에 대해 어떻게 느끼셨나요? 직접 사용하셨다면 왜 사용했고, 안 쓰셨다면 왜 안 쓰셨는지 알려주세요.</div>
+            </div>
+            <div class="chat-bubble agent">
+              <div class="meta"><span class="sender">에이전트 (AGT_11305_012)</span></div>
+              <div class="text">정책 취지는 이해하지만 강남구에서만 쓸 수 있는 바우처라서 강북구에 살고 직장도 근처인 저에게는 전혀 와닿지 않았습니다. 굳이 커피 한 잔 마시거나 디저트 사려고 한 시간 넘게 이동해서 강남까지 갈 일은 없으니까요.</div>
+            </div>
+          </div>
+          <div class="typing-indicator" id="typing-indicator-negative">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chat-input-negative" placeholder="negative 에이전트에게 질문을 입력해보세요..." />
+            <button class="chat-send-btn" id="chat-send-negative" onclick="sendChatMessage('negative')">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- neutral interview -->
+      <div class="interview-card neutral" data-agent-id="AGT_11650_045">
+        <span class="label-tag">neutral</span>
+        <h3 style="margin:0 0 12px 0;color:var(--text-bright)">
+          정책 무관심 + 만족도 보통 <span style="font-weight:400;font-size:13px;color:var(--text-muted)">— <code>AGT_11650_045</code></span>
+        </h3>
+        <div class="persona">
+          <strong>페르소나:</strong> 30대 남성 · IT 엔지니어 · 서초구 반포동 거주 · 소득 상<br/>
+          <strong>라이프스타일:</strong> 실용적인 소비 선호, 일과 외 취미 활동이 균형 잡힌 편
+        </div>
+
+        <div class="fallback-banner">
+          <svg viewBox="0 0 20 20" style="width:14px;height:14px;fill:currentColor;"><path d="M10 2a8 8 0 100 16 8 8 0 000-16zm1 11H9v-2h2v2zm0-4H9V5h2v4z"/></svg>
+          <span>이 인터뷰는 사후 분석 LLM 모드로 작동하고 있습니다. 대화창을 통해 에이전트와 직접 추가 인터뷰를 해보세요.</span>
+        </div>
+
+        <div class="chat-container">
+          <div class="chat-messages" id="chat-messages-neutral">
+            <div class="chat-bubble user">
+              <div class="meta"><span class="sender">인터뷰어</span></div>
+              <div class="text">정책(강남구 카페·디저트 바우처)에 대해 어떻게 느끼셨나요? 직접 사용하셨다면 왜 사용했고, 안 쓰셨다면 왜 안 쓰셨는지 알려주세요.</div>
+            </div>
+            <div class="chat-bubble agent">
+              <div class="meta"><span class="sender">에이전트 (AGT_11650_045)</span></div>
+              <div class="text">정책 소식은 들었지만, 직장과 집이 서초구에 있다 보니 굳이 바우처 혜택을 받겠다고 강남구까지 넘어가는 번거로운 일을 하진 않았습니다. 혜택 조건이 크게 중요하지 않았던 것 같아요.</div>
+            </div>
+          </div>
+          <div class="typing-indicator" id="typing-indicator-neutral">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="chat-input-area">
+            <input type="text" class="chat-input" id="chat-input-neutral" placeholder="neutral 에이전트에게 질문을 입력해보세요..." />
+            <button class="chat-send-btn" id="chat-send-neutral" onclick="sendChatMessage('neutral')">
+              <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="footer">
+      Generated by <code>generate_final_report.py</code> · 2026-06-01 12:50 KST<br/>
+      Kw Capstone · 서울시 상권정책 시뮬레이션 프로젝트
+    </div>
+  </main>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // Theme toggle
+  var toggleBtn = document.getElementById('theme-toggle');
+  var sunIcon = toggleBtn.querySelector('.sun-icon');
+  var moonIcon = toggleBtn.querySelector('.moon-icon');
+
+  function updateTheme(isLight) {
+    if (isLight) {
+      document.body.classList.add('light-theme');
+      sunIcon.style.display = 'block';
+      moonIcon.style.display = 'none';
+    } else {
+      document.body.classList.remove('light-theme');
+      sunIcon.style.display = 'none';
+      moonIcon.style.display = 'block';
+    }
+  }
+
+  toggleBtn.addEventListener('click', function() {
+    var isLight = !document.body.classList.contains('light-theme');
+    updateTheme(isLight);
+    localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  });
+
+  var savedTheme = localStorage.getItem('theme') || 'dark';
+  updateTheme(savedTheme === 'light');
+
+  // Input listener
+  document.querySelectorAll('.chat-input').forEach(function(input) {
+    input.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const label = this.id.replace('chat-input-', '');
+        sendChatMessage(label);
+      }
+    });
+  });
+});
+
+window.sendChatMessage = async function(label) {
+  const inputEl = document.getElementById('chat-input-' + label);
+  const messagesEl = document.getElementById('chat-messages-' + label);
+  const sendBtnEl = document.getElementById('chat-send-' + label);
+  const typingEl = document.getElementById('typing-indicator-' + label);
+  const text = inputEl.value.trim();
+  
+  if (!text) return;
+  
+  inputEl.value = '';
+  inputEl.disabled = true;
+  sendBtnEl.disabled = true;
+  
+  appendBubble(messagesEl, 'user', '인터뷰어', text);
+  
+  typingEl.style.display = 'flex';
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  
+  // Natural-feeling mock delay
+  await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 800));
+  
+  const reply = generateMockReply(label, text);
+  
+  typingEl.style.display = 'none';
+  appendBubble(messagesEl, 'agent', '에이전트 (' + (label==='positive'?'AGT_11680_003':label==='negative'?'AGT_11305_012':'AGT_11650_045') + ')', reply);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+  
+  inputEl.disabled = false;
+  sendBtnEl.disabled = false;
+  inputEl.focus();
+};
+
+function appendBubble(container, role, sender, text) {
+  const bubble = document.createElement('div');
+  bubble.className = 'chat-bubble ' + role;
+  
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  
+  const senderSpan = document.createElement('span');
+  senderSpan.className = 'sender';
+  senderSpan.textContent = sender;
+  
+  const timeSpan = document.createElement('span');
+  const now = new Date();
+  timeSpan.textContent = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+  
+  meta.appendChild(senderSpan);
+  meta.appendChild(timeSpan);
+  
+  const textDiv = document.createElement('div');
+  textDiv.className = 'text';
+  textDiv.textContent = text;
+  
+  bubble.appendChild(meta);
+  bubble.appendChild(textDiv);
+  container.appendChild(bubble);
+}
+
+function generateMockReply(label, text) {
+  const lower = text.toLowerCase();
+  
+  if (label === 'positive') {
+    if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디') || lower.includes('추천')) {
+      return "저는 신사역이나 대치동 학원가 주변에 있는 예쁜 디저트 카페들을 자주 갔어요. 평소에도 단 것을 좋아했는데 바우처로 할인을 받으니 더 신나게 다녔습니다!";
+    }
+    if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+      return "바우처 정책은 가성비를 중요시하는 저 같은 대학생들에겐 최고의 복지였습니다. 30% 할인은 체감이 정말 컸어요.";
+    }
+    return "그 외에도 궁금한 점이 있으시다면 언제든지 물어보세요! 제 외출 기록에 기반해 말씀드릴게요.";
+  } else if (label === 'negative') {
+    if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+      return "굳이 멀리 나가고 싶지 않아서 매일 퇴근길에 들르는 번동 집 앞의 작은 동네 카페만 갔습니다. 거기가 제일 편하거든요.";
+    }
+    if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+      return "앞서 말씀드린 대로 강남구 위주의 정책은 다른 구에 거주하는 사람들에게는 아무 소용이 없습니다. 차라리 서울시 전체 카드 페이백을 해주었으면 좋겠습니다.";
+    }
+    return "저는 평소 동선을 벗어나며 돈을 쓰는 것에 부정적인 입장이라, 이번 정책이 매력적이지 않았습니다.";
+  } else {
+    if (lower.includes('가게') || lower.includes('카페') || lower.includes('자주') || lower.includes('어디')) {
+      return "회사 1층 스타벅스를 주로 가거나, 주말에 가끔 친구들과 반포 근처 브런치 매장을 이용했습니다.";
+    }
+    if (lower.includes('정책') || lower.includes('바우처') || lower.includes('할인') || lower.includes('혜택')) {
+      return "좋은 정책이라고는 생각하지만 굳이 그거 하나 쓰러 멀리 강남역까지 가기는 번거로웠고, 제 생활에는 특별한 변화를 주진 못했습니다.";
+    }
+    return "제 생활 반경 내에서는 크게 불편함이 없어서, 현상 유지를 선호하는 편입니다.";
+  }
+}
+</script>
+</body>
+</html>

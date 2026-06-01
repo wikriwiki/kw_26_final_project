@@ -594,8 +594,9 @@ function updateLegend() {
       ).join('')+'</div>';
   } else {
     el.innerHTML = `
-      <div class="item"><span class="dot" style="background:#e76f51"></span>정책 대상 (식사·카페·디저트)</div>
-      <div class="item"><span class="dot" style="background:#888"></span>그 외</div>`;
+      <div class="item"><span class="dot" style="background:#e76f51"></span>정책 인지 + 대상 소비</div>
+      <div class="item"><span class="dot" style="background:#f4a261"></span>정책 인지 + 기타 소비</div>
+      <div class="item"><span class="dot" style="background:#444"></span>정책 미인지 (무색)</div>`;
   }
 }
 
@@ -624,10 +625,27 @@ function setFrame(idx) {
     active++;
     m.setLatLng([pos.lat, pos.lon]);
     let color;
-    if (mode==='dist') color = COLORS_DIST[ag.dist_code]||'#888';
-    else if (mode==='cat') color = COLORS_L1[pos.l1||pos.cat]||'#888';
-    else color = POLICY_TARGETS.has(pos.cat)||POLICY_TARGETS.has(pos.l1) ? '#e76f51':'#888';
-    m.setStyle({color, fillColor:color, fillOpacity:0.85, opacity:1, radius:3});
+    if (mode==='dist') {
+      color = COLORS_DIST[ag.dist_code]||'#888';
+      m.setStyle({color, fillColor:color, fillOpacity:0.85, opacity:1, radius:3});
+    } else if (mode==='cat') {
+      color = COLORS_L1[pos.l1||pos.cat]||'#888';
+      m.setStyle({color, fillColor:color, fillOpacity:0.85, opacity:1, radius:3});
+    } else {
+      const isTarget = POLICY_TARGETS.has(pos.cat) || POLICY_TARGETS.has(pos.l1);
+      const mems = MEMORIES[ag.id] && MEMORIES[ag.id].memories ? MEMORIES[ag.id].memories : [];
+      const knowsPolicy = mems.some(mem => mem.type === 'rumor' && mem.topic_type === 'policy' && mem.day <= f.day);
+      if (knowsPolicy && isTarget) {
+        color = '#e76f51';
+        m.setStyle({color, fillColor:color, fillOpacity:0.95, opacity:1, radius:4.5});
+      } else if (knowsPolicy && !isTarget) {
+        color = '#f4a261';
+        m.setStyle({color, fillColor:color, fillOpacity:0.6, opacity:0.8, radius:3});
+      } else {
+        color = '#444';
+        m.setStyle({color, fillColor:color, fillOpacity:0.2, opacity:0.3, radius:2});
+      }
+    }
   });
   document.getElementById('active-cnt').textContent = active.toLocaleString();
   if (heatLayer) updateHeatmap();

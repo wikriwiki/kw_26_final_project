@@ -76,9 +76,6 @@ def section1_conditions(start: date, days: int, policy_from: str | None) -> dict
     with driver_session() as s:
         for k, q in [
             ("Agent 수", "MATCH (a:Agent) RETURN count(a) AS n"),
-            ("Plan 수", "MATCH (p:Plan) RETURN count(p) AS n"),
-            ("INCLUDES 엣지", "MATCH ()-[i:INCLUDES]->() RETURN count(i) AS n"),
-            ("State 수", "MATCH (s:State) RETURN count(s) AS n"),
             ("Memory(visited)", "MATCH (m:Memory {type:'visited'}) RETURN count(m) AS n"),
             ("Memory(rumor)", "MATCH (m:Memory {type:'rumor'}) RETURN count(m) AS n"),
             ("Conversation 약속", "MATCH (c:Conversation {intent:'약속'}) RETURN count(c) AS n"),
@@ -88,6 +85,55 @@ def section1_conditions(start: date, days: int, policy_from: str | None) -> dict
         ]:
             out[k] = s.run(q).single()["n"]
     return out
+
+
+def fetch_injected_policies() -> list[dict]:
+    """Neo4j에서 주입된 Policy 노드 상세 정보를 조회."""
+    _POLICY_TYPE_LABEL = {
+        "subsidy": "환급/쿠폰", "regulation": "규제", "facility": "시설",
+        "campaign": "홍보", "tax": "세제", "transit": "교통", "environment": "환경",
+    }
+    with driver_session() as s:
+        rows = s.run("""
+            MATCH (pol:Policy)
+            OPTIONAL MATCH (pol)-[:applied_to]->(reg)
+            WITH pol,
+                 collect(DISTINCT coalesce(reg.name, '')) AS regions
+            OPTIONAL MATCH (pol)-[:targets]->(cat:Category)
+            WITH pol, regions, collect(DISTINCT cat.parent) AS target_l1s
+            RETURN pol.id AS id, pol.name AS name, pol.type AS type,
+                   pol.description AS description,
+                   pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
+                   pol.effective_from AS from_, pol.effective_until AS until_,
+                   regions, target_l1s
+            ORDER BY pol.effective_from
+        """).data()
+    policies = []
+    for r in rows:
+        type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
+        regions = ", ".join([x for x in (r.get("regions") or []) if x]) or "전체"
+        target_l1s = r.get("target_l1s") or []
+        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(업종 비특정)"
+        rate = r.get("rate")
+        cap = r.get("cap")
+        benefit = ""
+        if rate and cap:
+            benefit = f"{int(rate*100)}% 환급 (인당 {cap:,}원 한도)"
+        elif rate:
+            benefit = f"{int(rate*100)}% 환급"
+        elif cap:
+            benefit = f"인당 {cap:,}원 한도"
+        policies.append({
+            "id": r["id"],
+            "name": r["name"],
+            "type_label": type_label,
+            "description": r.get("description") or "",
+            "regions": regions,
+            "targets": targets,
+            "benefit": benefit,
+            "period": f"{r['from_']} ~ {r['until_']}",
+        })
+    return policies
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -485,7 +531,8 @@ def section5_interviews(start: date, days: int, out_dir: Path) -> dict:
 def build_markdown(start: date, days: int, policy_from: str | None,
                    s1: dict, s2: tuple, s3: tuple, s4_1: tuple,
                    s4_2: tuple, s4_3: tuple, s5: dict,
-                   chart_dir_rel: str) -> str:
+                   chart_dir_rel: str,
+                   injected_policies: list[dict] | None = None) -> str:
     lines: list[str] = []
     lines.append(f"# 서울 상권정책 시뮬레이션 — 최종 보고서")
     lines.append("")
@@ -504,6 +551,22 @@ def build_markdown(start: date, days: int, policy_from: str | None,
     for k, v in s1.items():
         lines.append(f"| {k} | {v:,} |" if isinstance(v, int) else f"| {k} | {v} |")
     lines.append("")
+
+    # 1-1) 주입된 정책 상세
+    pols = injected_policies or []
+    if pols:
+        lines.append("### 주입된 정책")
+        lines.append("")
+        lines.append("| 정책 ID | 정책명 | 유형 | 적용 지역 | 대상 업종 | 혜택 | 시행 기간 |")
+        lines.append("|---|---|---|---|---|---|---|")
+        for p in pols:
+            lines.append(f"| {p['id']} | {p['name']} | {p['type_label']} | "
+                         f"{p['regions']} | {p['targets']} | {p['benefit']} | {p['period']} |")
+        lines.append("")
+        for p in pols:
+            if p['description']:
+                lines.append(f"> **{p['name']}**: {p['description']}")
+                lines.append("")
 
     # 2) 매출 추이 — 3장
     s2_data, s2_figs = s2
@@ -530,8 +593,18 @@ def build_markdown(start: date, days: int, policy_from: str | None,
         lines.append(f"| 비강남 (대조군) | {sm['before_ng_daily']:,}원 | {sm['after_ng_daily']:,}원 | "
                      f"{sm['non_gangnam_change_pct']:+}% |")
         lines.append("")
-        lines.append(f"**DID (정책 순효과)**: 강남 변화율 − 비강남 변화율 = "
+        lines.append("### DID (Difference-in-Differences) 분석")
+        lines.append("")
+        lines.append("> **DID(이중차분법)** 란 정책 대상 그룹(처치군)과 비대상 그룹(대조군)의 "
+                     "시행 전→후 변화율 차이를 구하여, 시간에 따른 공통 추세를 제거한 "
+                     "**정책의 순수 인과 효과**를 추정하는 기법입니다.")
+        lines.append("")
+        lines.append(f"- **처치군 (강남구)** 변화율: {sm['gangnam_change_pct']:+}%")
+        lines.append(f"- **대조군 (비강남)** 변화율: {sm['non_gangnam_change_pct']:+}%")
+        lines.append(f"- **DID (정책 순효과)**: 처치군 변화율 − 대조군 변화율 = "
                      f"**{sm['DID_pct_points']:+}%p**")
+        lines.append("")
+        lines.append("DID > 0이면 정책이 강남구 매출을 대조군 대비 추가로 끌어올렸음을 의미합니다.")
         lines.append("")
 
     # 3) spillover
@@ -616,12 +689,6 @@ def build_markdown(start: date, days: int, policy_from: str | None,
         lines.append("---")
         lines.append("")
 
-    lines.append("## 부록")
-    lines.append("")
-    lines.append("- 본 보고서는 `scripts/sim/generate_final_report.py`로 자동 생성됨.")
-    lines.append("- 시뮬 원본 데이터는 Neo4j에 보존 (Plan/State/Memory/Conversation 노드).")
-    lines.append("- 인터랙티브 시각화: `output/sim/visualization/sim_standalone.html`")
-    lines.append("")
     return "\n".join(lines)
 
 
@@ -1460,7 +1527,8 @@ def _figure(path: Path | None, caption: str) -> str:
 
 def build_html(start: date, days: int, policy_from: str | None,
                s1: dict, s2: tuple, s3: tuple, s4_1: tuple,
-               s4_2: tuple, s4_3: tuple, s5: dict, chart_dir: Path) -> str:
+               s4_2: tuple, s4_3: tuple, s5: dict, chart_dir: Path,
+               injected_policies: list[dict] | None = None) -> str:
     s2_data, s2_figs = s2
     s3_data, s3_fig = s3
     s41_data, s41_fig = s4_1
@@ -1485,7 +1553,6 @@ def build_html(start: date, days: int, policy_from: str | None,
         ("s-regular", "4-2. 단골 vs 신규", True),
         ("s-satisfaction", "4-3. 만족도", True),
         ("s-interview", "5. 1대1 인터뷰"),
-        ("s-appendix", "부록"),
     ]
     nav = "".join(
         f'<a class="{"lvl2" if (len(t)>2 and t[2]) else ""}" href="#{tid}">{label}</a>'
@@ -1507,6 +1574,33 @@ def build_html(start: date, days: int, policy_from: str | None,
         for k, v in s1.items()
     )
 
+    # 주입된 정책 상세 HTML
+    pols = injected_policies or []
+    policy_detail_html = ""
+    if pols:
+        pol_rows = "".join(
+            f"<tr><td><code>{_h(p['id'])}</code></td><td>{_h(p['name'])}</td>"
+            f"<td>{_h(p['type_label'])}</td><td>{_h(p['regions'])}</td>"
+            f"<td>{_h(p['targets'])}</td><td>{_h(p['benefit'])}</td>"
+            f"<td>{_h(p['period'])}</td></tr>"
+            for p in pols
+        )
+        pol_descs = "".join(
+            f"<div class='callout'><strong>{_h(p['name'])}</strong>: {_h(p['description'])}</div>"
+            for p in pols if p['description']
+        )
+        policy_detail_html = f"""
+        <h3>주입된 정책</h3>
+        <p>시뮬레이션에 실제로 주입된 정책 목록과 상세 조건입니다. 에이전트가 정책 발효일부터 이 정보를
+           컨텍스트로 받아 의사결정에 반영합니다.</p>
+        <table>
+          <thead><tr><th>정책 ID</th><th>정책명</th><th>유형</th><th>적용 지역</th>
+                     <th>대상 업종</th><th>혜택</th><th>시행 기간</th></tr></thead>
+          <tbody>{pol_rows}</tbody>
+        </table>
+        {pol_descs}
+        """
+
     # Section 2 — 매출 표
     sales_rows = ""
     if sm:
@@ -1521,10 +1615,18 @@ def build_html(start: date, days: int, policy_from: str | None,
             f"<td class='num'>{sm['non_gangnam_change_pct']:+}%</td></tr>"
         )
         did_callout = (
-            f"<div class='callout'><strong>DID (정책 순효과)</strong>: "
-            f"강남 변화율 − 비강남 변화율 = "
-            f"<strong style='font-size:18px;color:var(--accent);'>"
-            f"{sm['DID_pct_points']:+}%p</strong></div>"
+            f"<div class='callout'>"
+            f"<strong>DID(이중차분법, Difference-in-Differences)</strong>란 "
+            f"정책 대상 그룹(처치군)과 비대상 그룹(대조군)의 시행 전→후 변화율 차이를 구하여, "
+            f"시간에 따른 공통 추세를 제거한 <strong>정책의 순수 인과 효과</strong>를 추정하는 기법입니다."
+            f"</div>"
+            f"<div class='callout'>"
+            f"<strong>DID (정책 순효과)</strong>: "
+            f"처치군 변화율({sm['gangnam_change_pct']:+}%) − 대조군 변화율({sm['non_gangnam_change_pct']:+}%) = "
+            f"<strong style='font-size:18px;color:var(--cyan);'>"
+            f"{sm['DID_pct_points']:+}%p</strong>"
+            f"<br/><span style='font-size:13px;color:var(--text-muted)'>DID &gt; 0이면 정책이 강남구 매출을 대조군 대비 추가로 끌어올렸음을 의미합니다.</span>"
+            f"</div>"
         )
     else:
         did_callout = ""
@@ -1921,6 +2023,7 @@ def build_html(start: date, days: int, policy_from: str | None,
         <thead><tr><th>항목</th><th class="num">값</th></tr></thead>
         <tbody>{cond_rows}</tbody>
       </table>
+      {policy_detail_html}
     </section>
 
     <section id="s-sales" class="reveal">
@@ -1981,15 +2084,7 @@ def build_html(start: date, days: int, policy_from: str | None,
       {interview_html}
     </section>
 
-    <section id="s-appendix" class="reveal">
-      <h2>부록</h2>
-      <ul>
-        <li>본 보고서는 <code>scripts/sim/generate_final_report.py</code>로 자동 생성되었습니다.</li>
-        <li>시뮬 원본 데이터는 Neo4j에 보존됩니다 (Plan / State / Memory / Conversation 노드).</li>
-        <li>인터랙티브 시각화: <code>output/sim/visualization/sim_standalone.html</code></li>
-        <li>인터뷰 LLM 모듈: <code>scripts/sim/interview_agent.py</code> (라벨별 또는 특정 agent ID로 호출 가능)</li>
-      </ul>
-    </section>
+
 
     <div class="footer">
       Generated by <code>generate_final_report.py</code> · {datetime.now().strftime('%Y-%m-%d %H:%M KST')}<br/>
@@ -2048,14 +2143,19 @@ def main():
         print(f"[5/7] 인터뷰 (3 라벨 × 6 질문 = 18 LLM 호출) ...", file=sys.stderr)
         s5 = section5_interviews(start, args.days, chart_dir)
 
+    print(f"[pol] 주입된 정책 조회 ...", file=sys.stderr)
+    injected_policies = fetch_injected_policies()
+
     print(f"[6/8] markdown 빌드 ...", file=sys.stderr)
     md = build_markdown(start, args.days, args.policy_from,
-                        s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir_rel)
+                        s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir_rel,
+                        injected_policies=injected_policies)
     out_md.write_text(md, encoding="utf-8")
 
     print(f"[7/8] HTML 빌드 (차트 PNG → base64 임베드, 단일 파일) ...", file=sys.stderr)
     html_doc = build_html(start, args.days, args.policy_from,
-                          s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir)
+                          s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir,
+                          injected_policies=injected_policies)
     out_html = out_md.with_suffix(".html")
     out_html.write_text(html_doc, encoding="utf-8")
 
