@@ -217,10 +217,24 @@ def validate_policy_spend(
     반환: 보정된 거래 수.
     """
     corrected = 0
+    auto_filled = 0
     # 정책별 잔여 가용액 (시간순 차감)
     pol_rem = dict(policy_remaining or {})
     for e in events:
         ps = e.get("policy_spend") or {}
+        # ★ Reasoning-JSON 자동 일치 — pick_reason에 정책 언급했으나 policy_spend 누락 시 자동 채움
+        if (not ps or not isinstance(ps, dict)) and policy_remaining is not None:
+            reason = e.get("pick_reason") or ""
+            actual = e.get("actual_spent") or 0
+            if actual > 0 and any(kw in reason for kw in ("P009", "지원금", "보조금")):
+                for pid, avail in pol_rem.items():
+                    if avail > 0:
+                        amt = min(int(actual), int(avail))
+                        e["policy_spend"] = {pid: amt}
+                        pol_rem[pid] -= amt
+                        auto_filled += 1
+                        ps = e["policy_spend"]
+                        break
         if not isinstance(ps, dict) or not ps:
             continue
         # 정수 정규화 + 양수만
@@ -279,6 +293,14 @@ def track_policy_usage(
         spend = e.get("actual_spent") or 0
         if spend <= 0:
             continue
+        # event.policy_spend (Stage2 LLM 산출) 우선 — grant 적용 분 누적
+        ps = e.get("policy_spend") or {}
+        if isinstance(ps, dict):
+            for pid, amt in ps.items():
+                if isinstance(amt, (int, float)) and amt > 0:
+                    used[str(pid)] = used.get(str(pid), 0) + int(amt)
+
+        # subsidy 정책 cap-rate 처리 (legacy)
         for pol in policies:
             cap = pol.get("cap") or 0
             rate = pol.get("rate") or 0.0
@@ -390,12 +412,12 @@ WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat,
 MERGE (s:State {id: $aid + '_' + $today})
 SET s.agent_id = $aid,
     s.day = date($today),
-    s.balance = prev_balance - today_spent,
+    s.balance = prev_balance - (today_spent - $today_policy_spent),
     s.energy = 0.8,
     s.yesterday_satisfaction = today_avg_sat,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
-    s.month_spent = prev_month_spent + today_spent,
+    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent),
     s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json,   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
     s.grant_received = $grant_received_json,  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
@@ -412,6 +434,7 @@ def night_create_state(
     policy_lifecycle: dict[str, bool] | str | None = None,
     grant_received: dict[str, int] | str | None = None,
     grant_remaining: dict[str, int] | str | None = None,
+    today_policy_spent: int = 0,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -444,7 +467,8 @@ def night_create_state(
                   policy_used_json=used_json,
                   policy_lifecycle_json=lifecycle_json,
                   grant_received_json=grant_json,
-                  grant_remaining_json=grant_rem_json).single()
+                  grant_remaining_json=grant_rem_json,
+                  today_policy_spent=int(today_policy_spent or 0)).single()
         return dict(r) if r else {}
 
 

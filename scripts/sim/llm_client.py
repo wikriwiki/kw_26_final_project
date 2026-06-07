@@ -49,6 +49,34 @@ MODELS: dict[str, ModelSpec] = {
         description="텍스트 전용 8B 모델. BF16, RTX 5090 32GB에 여유. "
                     "Qwen3-14B-AWQ 대비 ~30% 빠름. 페르소나 요약·시뮬 기본값.",
     ),
+    "qwen35_9b_awq": ModelSpec(
+        key="qwen35_9b_awq",
+        hf_id="QuantTrio/Qwen3.5-9B-AWQ",
+        family="qwen",
+        description="Qwen3.5-9B AWQ 4-bit (community 빌드). VRAM ~5GB → KV cache 대폭 여유. "
+                    "Qwen3-8B BF16 대비 환각·품질 개선 + workers 80+ 가능.",
+    ),
+    "qwen3_8b_awq": ModelSpec(
+        key="qwen3_8b_awq",
+        hf_id="Qwen/Qwen3-8B-AWQ",
+        family="qwen",
+        description="Qwen3-8B 공식 AWQ. Qwen3.5-9B-AWQ swap 실패 시 fallback. "
+                    "VRAM ~5GB. 같은 8B family라 8B BF16 대비 분석 mix 영향 최소.",
+    ),
+    "qwen36_35b_a3b_awq": ModelSpec(
+        key="qwen36_35b_a3b_awq",
+        hf_id="QuantTrio/Qwen3.6-35B-A3B-AWQ",
+        family="qwen",
+        description="Qwen3.6-35B-A3B AWQ (MoE 35B 총, 3B active). text-only 모드. "
+                    "VRAM ~18GB. throughput 25~40 agents/min 기대. workers 32~48.",
+    ),
+    "qwen3_30b_a3b_awq": ModelSpec(
+        key="qwen3_30b_a3b_awq",
+        hf_id="stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ",
+        family="qwen",
+        description="Qwen3-30B-A3B-Instruct-2507 AWQ (MoE 30B, 3B active). Qwen3.6 fallback. "
+                    "VRAM ~15GB. throughput 25~35 agents/min 기대.",
+    ),
     "qwen9b": ModelSpec(
         key="qwen9b",
         hf_id="Qwen/Qwen3-8B",

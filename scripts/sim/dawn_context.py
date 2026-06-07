@@ -259,7 +259,12 @@ class DawnContext:
             "state": _format_state(self.state),
             "memory": _format_memory(self.memory),
             "appointment": _format_appointment(self.appointment),
-            "policy": _format_policy(self.policy, policy_used=policy_used),
+            "policy": _format_policy(
+                self.policy,
+                policy_used=policy_used,
+                agent_income=(self.persona or {}).get("income"),
+                grant_remaining=self.get_grant_remaining(),
+            ),
             "social": _format_social(self.social),
             "knows_poi": _format_knows_poi(self.knows_poi_summary),
         }
@@ -268,6 +273,17 @@ class DawnContext:
         """State에서 정책별 누적 사용액 dict 반환 (없으면 {})."""
         import json as _json
         raw = (self.state or {}).get("policy_used")
+        if not raw:
+            return {}
+        try:
+            return _json.loads(raw)
+        except Exception:
+            return {}
+
+    def get_grant_remaining(self) -> dict:
+        """State에서 정책별 grant 잔액 dict 반환 (grant type 정책용)."""
+        import json as _json
+        raw = (self.state or {}).get("grant_remaining")
         if not raw:
             return {}
         try:
@@ -302,12 +318,12 @@ def _format_persona(p: dict) -> str:
     lines = [
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
-        f"소비: 평일 {p.get('daily_wd',0):,}원, 주말 {p.get('daily_we',0):,}원 (주말/평일 {p.get('we_wd_ratio',1):.2f}배) / 성향: {p.get('tendency','')}",
-        f"행태: 배달 {p.get('delivery_days',0)}일/월, 평일 재택 {p.get('home_h_wd',0):.1f}h, 주말 재택 {p.get('home_h_we',0):.1f}h, 이동성 분위 {p.get('mobility',0)}",
+        f"소비: 평일 {(p.get('daily_wd') or 0):,}원, 주말 {(p.get('daily_we') or 0):,}원 (주말/평일 {(p.get('we_wd_ratio') or 1):.2f}배) / 성향: {p.get('tendency','')}",
+        f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]
     if p.get("work_dong"):
-        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {p.get('commute_min',0)}분")
+        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {(p.get('commute_min') or 0)}분")
     else:
         lines.append("직장: 없음")
     if lifestyle:
@@ -400,41 +416,64 @@ _POLICY_TYPE_LABEL = {
 }
 
 
-def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None) -> str:
-    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액 노출.
+def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
+                   agent_income: str | None = None,
+                   grant_remaining: dict[str, int] | None = None) -> str:
+    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액, grant는 본인 수령액·잔액 노출.
 
-    policy_used: {"P007": 87000, ...} 정책별 누적 사용액. State에서 가져옴.
+    policy_used: {"P007": 87000, ...} 정책별 누적 사용액 (subsidy용). State.policy_used.
+    agent_income: 페르소나 소득 분위 ('상','중상','중','중하','하') — grant 본인 액수 lookup.
+    grant_remaining: {"P009": 599718, ...} 정책별 무료 지원금 잔액. State.grant_remaining.
     """
     if not rows:
         return "(거주·직장 동에 적용 정책 없음)"
+    import json as _json
     used = policy_used or {}
+    rem_dict = grant_remaining or {}
     lines = []
     for r in rows:
         type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
         regions = ", ".join([x for x in (r.get("regions") or []) if x]) or "?"
         target_l1s = r.get("target_l1s") or []
-        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(업종 비특정)"
+        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(모든 업종 사용 가능)"
 
         head = f"{r['id']} [{type_label}] {r['name']}"
         meta_parts = [f"적용지역: {regions}", f"대상업종: {targets}",
                       f"기간: {r['from_']}~{r['until_']}"]
 
-        # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
         rate = r.get("rate")
         cap = r.get("cap")
         ptype = r.get("type")
+
         if ptype == "subsidy" and cap:
+            # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
             cap_used = int(used.get(r["id"], 0))
             remaining = max(0, cap - cap_used)
             rate_s = f"{int(rate*100)}% 환급" if rate else "100% 차감"
             meta_parts.insert(0, f"{rate_s} (한도 {cap:,}원)")
-            # 잔액 명시 (LLM이 보고 의사결정)
             meta_parts.append(
                 f"💳 누적 사용 {cap_used:,}원 / 한도 {cap:,}원 — **남은 잔액 {remaining:,}원**"
                 + (" ⚠️ 잔액 소진" if remaining == 0 else "")
             )
+        elif ptype == "grant":
+            # grant(정부 무료 지원금): 본인 분위 수령액 + 잔액 명시
+            try:
+                grants = _json.loads(r.get("income_grants") or "{}")
+            except Exception:
+                grants = {}
+            my_amount = int(grants.get(agent_income or "", 0))
+            remaining = int(rem_dict.get(r["id"], my_amount))
+            used_amt = max(0, my_amount - remaining)
+
+            if my_amount > 0:
+                meta_parts.insert(0, f"💰 정부 무료 지원금 (추가 소비 자금) — 귀하 소득분위 '{agent_income}' 수령액 {my_amount:,}원, 별도 지갑(가계 부담 0)")
+                meta_parts.append(
+                    f"💳 사용 {used_amt:,}원 / 잔액 {remaining:,}원"
+                    + (" (소진)" if remaining == 0 else " — 평소 평균 소비액과 무관하게 자유. 안 써도/조금/많이/큰 거 시도 모두 OK")
+                )
+            elif agent_income:
+                meta_parts.insert(0, f"❌ 귀하 소득분위 '{agent_income}' — 본 지원금 제외 대상 (수령 불가)")
         elif rate:
-            # cap 없는 subsidy 등
             meta_parts.insert(0, f"{int(rate*100)}% 환급")
 
         desc = r.get("description") or ""

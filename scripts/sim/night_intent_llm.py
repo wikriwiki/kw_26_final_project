@@ -202,13 +202,13 @@ FETCH_POLICY_CYPHER = """
 UNWIND $agent_ids AS aid
 MATCH (a:Agent {id: aid})-[:LIVES_AT|WORKS_AT]->(:POI)-[:IN_DONG]->(d:Dong)<-[:HAS_DONG]-(dist:District)
 WITH aid, collect(DISTINCT d) AS my_dongs, collect(DISTINCT dist) AS my_dists
-MATCH (pol:Policy)-[:APPLIED_TO]->(target)
+MATCH (pol:Policy)-[:applied_to]->(target)
 WHERE date($d) >= pol.effective_from AND date($d) <= pol.effective_until
   AND (target IN my_dongs OR target IN my_dists)
 WITH aid, pol
-OPTIONAL MATCH (pol)-[:APPLIED_TO]->(reg)
+OPTIONAL MATCH (pol)-[:applied_to]->(reg)
 WITH aid, pol, collect(DISTINCT coalesce(reg.code, '')) AS region_codes
-OPTIONAL MATCH (pol)-[:TARGETS]->(cat:Category)
+OPTIONAL MATCH (pol)-[:targets]->(cat:Category)
 WITH aid, pol, region_codes, collect(DISTINCT cat.parent) AS target_l1s
 RETURN aid, pol.id AS id, pol.name AS name, pol.description AS description,
        region_codes, target_l1s
@@ -659,6 +659,22 @@ def run_intent_classification(
 ) -> dict:
     if not pairs:
         return {"processed": 0}
+    # 멱등성: 같은 day Conversation이 이미 90% 이상 적재됐으면 skip
+    # (resume / 모델 swap 후 재실행 시 Night2 중복 방지)
+    try:
+        with driver_session() as s:
+            existing = s.run(
+                "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
+                d=day.isoformat()
+            ).single()["n"]
+        if existing >= int(0.9 * len(pairs)):
+            if verbose:
+                print(f"[Intent] day {day}: {existing}/{len(pairs)} 이미 적재됨 — Night2 skip")
+            return {"processed": 0, "skipped": True, "existing": existing,
+                    "write": {"created": 0, "by_intent": {}}}
+    except Exception as e:
+        if verbose:
+            print(f"[Intent] idempotency 체크 실패 (계속 진행): {e}")
     t0 = time.time()
     if verbose:
         print(f"[Intent] fetching pair data for {len(pairs)} pairs ...")

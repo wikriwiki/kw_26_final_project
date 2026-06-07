@@ -186,7 +186,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         if not ctx.persona:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
 
-        # grant 정책 — effective_from 당일 새벽에 전날 State 잔액에 지원금 추가
+        # grant 정책 — effective_from 당일 지원금 수령.
+        # ★ 정책지원금 = balance·daily_wd와 분리된 독립 지갑. grant_remaining에만 적립하고
+        #   balance에는 더하지 않는다 (개인 돈과 정책 돈 완전 분리, 미사용분 누수 방지).
         # 멱등성: 어제 State.grant_received에 이미 기록된 정책은 skip (resume 시 중복 적용 방지)
         prev_grant_received = _read_state_json(ctx.state, "grant_received")
         income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
@@ -201,15 +203,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             eff = pol.get("effective_from", "")
             if str(today) != eff:
                 continue
-            # 이 정책에서 받을 금액
+            # 이 정책에서 받을 금액 — grant_remaining 독립 지갑에 적립 (balance 불변)
             amt = _grant_for_single_policy(income, pol)
             if amt > 0:
-                apply_grant_to_prev_state(aid, today, amt)
                 grants_applied_today[pid] = amt
-
-        # grant 적용 후 컨텍스트 재빌드 (잔액 반영)
-        if grants_applied_today:
-            ctx = build_dawn_context(aid, today)
 
         # Stage2 LLM에 노출할 정책 예산 요약 (정책 쿠폰 잔액·오늘 받은 지원금 명시)
         prev_used_for_budget = ctx.get_policy_used()
@@ -228,7 +225,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
-        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
+        s2, _cands, m2 = call_stage2(
+            aid, s1, ctx.persona, today,
+            active_policies=ctx.policy,
+            grant_remaining=grant_avail_today,
+        )
         events = merge_to_final_events(s1, s2, ctx.persona)
 
         # LLM policy_spend 환각 검증 — 거래 단위(sum>actual) + 정책 단위(잔여액 초과) 보정
@@ -277,6 +278,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             policy_lifecycle=merged_policy_lifecycle,
             grant_received=merged_grant_received,
             grant_remaining=merged_grant_remaining,
+            today_policy_spent=sum(today_policy_spend.values()),
         )
 
         # 만족도 평균

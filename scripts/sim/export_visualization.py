@@ -361,6 +361,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default=DEFAULT_START)
     ap.add_argument("--days", type=int, default=DEFAULT_DAYS)
+    ap.add_argument("--sample", type=int, default=0,
+                    help="agent sample 수 (0=전체). 작을수록 HTML 용량 ↓ (500 권장)")
     args = ap.parse_args()
 
     global DAYS
@@ -371,6 +373,11 @@ def main():
     with driver_session() as s:
         print("[agents] fetching ...")
         agents = fetch_agents(s)
+        if args.sample and args.sample < len(agents):
+            import random
+            random.seed(42)
+            agents = random.sample(agents, args.sample)
+            print(f"  ★ sample {args.sample}/{len(agents)} 적용 (seed=42)")
         agent_ids = [a["id"] for a in agents]
         print(f"  total agents: {len(agents)}")
 
