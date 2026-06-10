@@ -477,11 +477,12 @@ def _format_zones(zones: list[dict]) -> str:
     lines = []
     for z in zones:
         tag = _ZONE_TAG.get(z.get("type"), "상권")
+        sig = z.get("signature")
+        if z.get("type") == "hub" and sig and sig != "general":
+            tag = f"{tag}·{sig}"
         dist = z.get("distance_km")
         dist_s = f", {dist:.1f}km" if isinstance(dist, (int, float)) else ""
-        extra = ""
-        if z.get("type") == "hub":
-            extra = " ← 주말 나들이·쇼핑·외식 등에 적합"
+        extra = " ← 주말 나들이·여가 등에 적합" if z.get("type") == "hub" else ""
         lines.append(f"- [{tag}] {z['code']} {z.get('name','')}{dist_s}{extra}")
     lines.append("평일엔 주로 생활권, 주말·여가/쇼핑이면 광역상권도 자연스럽게 선택(거리·기분 고려).")
     return "\n".join(lines)
@@ -529,9 +530,11 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         rng = random.Random(hash((persona.get("id"), today.isoformat())))
         for h in mobility.suggest_hubs(home_code, exclude, day_type,
-                                       persona.get("mobility"), k=3, rng=rng):
+                                       persona.get("mobility"), k=3, rng=rng,
+                                       persona=persona):
             zones.append({"code": h["code"], "name": h.get("name", ""),
                           "gu": h.get("gu", ""), "type": "hub",
+                          "signature": h.get("signature"),
                           "distance_km": h.get("distance_km")})
     except Exception:
         pass   # 광역 prior 실패해도 생활권만으로 진행

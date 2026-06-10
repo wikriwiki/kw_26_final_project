@@ -16,6 +16,7 @@ from __future__ import annotations
 import io
 import json
 import math
+import os
 import random
 from pathlib import Path
 
@@ -138,7 +139,7 @@ def _load(stats_dir: Path | None = None) -> dict:
     key = str(sd)
     if key in _CACHE:
         return _CACHE[key]
-    data = {"top_hubs": [], "centroids": {}, "gu_fallback": {}}
+    data = {"top_hubs": [], "centroids": {}, "gu_fallback": {}, "sig": {}}
     try:
         cat = json.load(io.open(sd / "hub_catalog.json", encoding="utf-8"))
         data["top_hubs"] = [h for h in cat.get("hubs", []) if h.get("is_top_hub")]
@@ -148,6 +149,11 @@ def _load(stats_dir: Path | None = None) -> dict:
         cen = json.load(io.open(sd / "dong_centroids.json", encoding="utf-8"))
         data["centroids"] = cen.get("centroids", {})
         data["gu_fallback"] = cen.get("gu_fallback", {})
+    except Exception:
+        pass
+    try:
+        sig = json.load(io.open(sd / "hub_signature.json", encoding="utf-8"))
+        data["sig"] = {code: h.get("signature", "general") for code, h in sig.get("hubs", {}).items()}
     except Exception:
         pass
     _CACHE[key] = data
@@ -164,6 +170,43 @@ def centroid_of(code: str, data: dict) -> list[float] | None:
     return data["gu_fallback"].get(code[:5])
 
 
+# ── 페르소나 × 허브 성격 친화도 (Problem A 세분화) ──
+_YOUNG = {"10대", "20대", "30대"}
+_MID = {"30대", "40대", "50대"}
+_OLDER = {"50대", "60대", "70대이상"}
+_HIGH_INC = {"중상", "상"}
+_LOW_INC = {"하", "중하"}
+
+
+def persona_affinity(signature: str | None, age: str | None,
+                     gender: str | None, income: str | None) -> float:
+    """허브 성격(signature) × 페르소나(나이·성별·소득) → 매력도 가감 배수 [0.6, 1.6].
+
+    데이터 기반 허브 성격에 인구학 경향을 약하게 결합:
+    쇼핑·미용 → 젊은·여성·고소득↑ / 교육(학원가) → 30~50대↑ / 건강 → 고령↑ /
+    카페·여가·주점 → 젊은층↑. general(변별 없음)은 1.0.
+    """
+    if not signature or signature == "general":
+        return 1.0
+    m = 1.0
+    young, mid, older = age in _YOUNG, age in _MID, age in _OLDER
+    if signature in ("쇼핑", "미용"):
+        if young: m *= 1.15
+        if gender == "F": m *= 1.10
+        if income in _HIGH_INC: m *= 1.15
+        if older: m *= 0.90
+        if income in _LOW_INC: m *= 0.92
+    elif signature == "교육":
+        m *= 1.22 if mid else 0.88
+    elif signature == "건강":
+        if older: m *= 1.20
+        if young: m *= 0.90
+    elif signature in ("카페", "여가", "주점", "디저트"):
+        if young: m *= 1.18
+        if older: m *= 0.85
+    return max(0.6, min(1.6, m))
+
+
 def suggest_hubs(
     home_dong_code: str,
     exclude_codes: set[str],
@@ -172,16 +215,23 @@ def suggest_hubs(
     k: int = 3,
     rng: random.Random | None = None,
     stats_dir: Path | None = None,
+    persona: dict | None = None,
 ) -> list[dict]:
-    """거주지 기준 Huff prior로 광역 상권 허브 k개 추천.
+    """거주지 기준 Huff prior로 광역 상권 허브 k개 추천 (페르소나 친화도 반영).
 
-    반환: [{code, name, gu, attraction, distance_km, prob}, ...] (prob 내림차순).
+    persona 주어지고 HUB_PERSONA_AFFINITY!=off 면, 허브 성격×나이·성별·소득으로 매력도를
+    약하게 가감 → 압구정(쇼핑)·대치(교육)·서초(건강)에 다른 사람이 끌리게.
+    반환: [{code, name, gu, signature, attraction, distance_km, prob}, ...] (prob 내림차순).
     카탈로그/좌표 없거나 거주지 좌표 없으면 빈 리스트(→ 생활권만으로 자연 degrade).
     """
     data = _load(stats_dir)
     home_c = centroid_of(home_dong_code, data)
     if not home_c or not data["top_hubs"]:
         return []
+    use_aff = (persona is not None) and (os.environ.get("HUB_PERSONA_AFFINITY", "on") != "off")
+    age = persona.get("age_group") if persona else None
+    gender = persona.get("gender") if persona else None
+    income = persona.get("income") if persona else None
     cand: list[dict] = []
     for h in data["top_hubs"]:
         code = h["code"]
@@ -190,9 +240,13 @@ def suggest_hubs(
         hc = centroid_of(code, data)
         if not hc:
             continue
+        sig = data["sig"].get(code, "general")
+        attraction = h.get("attraction", 0.0)
+        if use_aff:
+            attraction *= persona_affinity(sig, age, gender, income)
         cand.append({
             "code": code, "name": h.get("name", ""), "gu": h.get("gu", ""),
-            "attraction": h.get("attraction", 0.0),
+            "signature": sig, "attraction": attraction,
             "distance_km": round(haversine_km(home_c[0], home_c[1], hc[0], hc[1]), 2),
         })
     if not cand:
