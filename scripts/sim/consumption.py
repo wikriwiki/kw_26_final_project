@@ -15,6 +15,7 @@ calibration 보존: 지원금 없는 평상일에 p = ANCHOR_PROPENSITY 이면 s
 from __future__ import annotations
 
 ANCHOR_PROPENSITY = 0.70   # p0: 지원금 無·평상일에 이 값이면 지출 = daily_wd (BDC 앵커)
+INTERNAL_CATS = {"집", "직장"}   # 머무름 — 소비 대상 아님
 
 # 소득 등급별 소비성향 prior 중심값 — MPC 이질성(저소득↑) 반영.
 # Jappelli & Pistaferri(2014): 저소득·유동성제약 가구일수록 한계소비성향 높음.
@@ -136,6 +137,64 @@ def distribute_budget(total: int, weights: list[float]) -> list[int]:
     return out
 
 
+def apply_consumption_model(
+    events: list[dict],
+    *,
+    daily: float | int | None,
+    income_tier: str | None,
+    tendency: str | None,
+    balance: float | int | None,
+    grant_avail: dict[str, int] | None = None,
+    llm_propensity: float | None = None,
+) -> dict:
+    """Stage2 결과(events)에 소비성향 모델을 적용 — 사후 재정규화.
+
+    Stage2 LLM의 `actual_spent`는 **상대 가중치**로만 사용하고, 오늘 총지출을
+    `propensity × 가용자산(지원금 포함)`으로 다시 잡아 이벤트에 배분한다.
+    지원금 사용분(grant_part)은 지출 비례로 각 거래의 `policy_spend`에 기입.
+
+    events 를 in-place 수정(actual_spent, policy_spend). 반환: 메타 dict.
+    """
+    grant_avail = {k: int(v) for k, v in (grant_avail or {}).items() if int(v) > 0}
+    grant_total = sum(grant_avail.values())
+
+    commerce = [e for e in events if (e.get("category") not in INTERNAL_CATS) and e.get("poi_id")]
+    if not commerce:
+        return {"applied": False, "reason": "no_commerce"}
+
+    # 상대 가중치 = Stage2가 정한 금액(없으면 균등)
+    weights = [max(0.0, float(e.get("actual_spent") or 0)) for e in commerce]
+
+    p = clamp_propensity(llm_propensity, income_tier, balance=balance, daily_wd=daily, tendency=tendency)
+    budget = spend_today(p, daily, grant_total)
+
+    spends = distribute_budget(budget["total"], weights)
+    # 지원금 사용분을 지출 비례로 거래에 배분
+    grant_per_event = distribute_budget(budget["grant_part"], [float(x) for x in spends])
+
+    for e, sp, gp in zip(commerce, spends, grant_per_event):
+        e["actual_spent"] = int(sp)
+        if gp > 0 and grant_total > 0:
+            # 여러 grant 정책이면 잔여 비례로 분할
+            ps: dict[str, int] = {}
+            alloc = distribute_budget(gp, [float(grant_avail[k]) for k in grant_avail])
+            for pid, amt in zip(grant_avail.keys(), alloc):
+                if amt > 0:
+                    ps[pid] = amt
+            e["policy_spend"] = ps
+        else:
+            e["policy_spend"] = {}
+
+    return {
+        "applied": True,
+        "propensity": budget["propensity"],
+        "today_total": budget["total"],
+        "grant_part": budget["grant_part"],
+        "available": budget["available"],
+        "n_commerce": len(commerce),
+    }
+
+
 # =========================================================
 # 자체 테스트
 # =========================================================
@@ -162,3 +221,23 @@ if __name__ == "__main__":
 
     print("\n=== ③ 분배: 오늘 총지출 47,000원을 4개 이벤트(가중치)로 ===")
     print("  ", distribute_budget(47000, [3, 1, 2, 1]), "합", sum(distribute_budget(47000, [3, 1, 2, 1])))
+
+    print("\n=== ④ apply_consumption_model: Stage2 events 재정규화 (저소득+지원금) ===")
+    evs = [
+        {"category": "집", "poi_id": "R_1", "actual_spent": 0, "policy_spend": {}},
+        {"category": "식사", "poi_id": "C_1", "actual_spent": 9000, "policy_spend": {}},
+        {"category": "카페", "poi_id": "C_2", "actual_spent": 5000, "policy_spend": {}},
+        {"category": "마트", "poi_id": "C_3", "actual_spent": 30000, "policy_spend": {}},
+    ]
+    meta = apply_consumption_model(
+        evs, daily=30000, income_tier="하", tendency="알뜰 절약형",
+        balance=500000, grant_avail={"P009": 600000}, llm_propensity=None,
+    )
+    print("  meta:", meta)
+    tot = sum(e["actual_spent"] for e in evs if e["category"] not in INTERNAL_CATS)
+    gpt = sum(sum(e.get("policy_spend", {}).values()) for e in evs)
+    print(f"  거래별 지출: {[e['actual_spent'] for e in evs if e['category'] not in INTERNAL_CATS]} 합={tot:,}")
+    print(f"  지원금 사용분 합={gpt:,} (today_total={meta['today_total']:,}, grant_part={meta['grant_part']:,})")
+    assert tot == meta["today_total"], "지출 합 = today_total 불일치"
+    assert gpt == meta["grant_part"], "정책사용 합 = grant_part 불일치"
+    print("  ✔ 합 일치 검증 통과")

@@ -233,6 +233,23 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
         events = merge_to_final_events(s1, s2, ctx.persona)
 
+        # ── 소비성향(propensity) 모델 — Problem B (EconAgent 방식) ──
+        # Stage2 actual_spent를 상대 가중치로만 쓰고, 오늘 총지출을 p×가용자산(지원금 포함)으로
+        # 재정규화 → 소득탄력성·MPC 정상화. CONSUMPTION_MODEL=legacy 로 기존 동작 복귀.
+        cm_meta = {"applied": False}
+        if os.environ.get("CONSUMPTION_MODEL", "propensity") != "legacy":
+            from consumption import apply_consumption_model
+            _is_weekend = today.weekday() >= 5
+            cm_meta = apply_consumption_model(
+                events,
+                daily=ctx.persona.get("daily_we") if _is_weekend else ctx.persona.get("daily_wd"),
+                income_tier=income,
+                tendency=ctx.persona.get("tendency"),
+                balance=(ctx.state or {}).get("balance"),
+                grant_avail=grant_avail_today,
+                llm_propensity=getattr(s1, "daily_propensity", None),
+            )
+
         # LLM policy_spend 환각 검증 — 거래 단위(sum>actual) + 정책 단위(잔여액 초과) 보정
         policy_spend_corrected = validate_policy_spend(events, policy_remaining=grant_avail_today)
 
@@ -311,6 +328,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "policy_spend_today": sum(today_policy_spend.values()),
             "grant_remaining_total": sum(merged_grant_remaining.values()),
             "policy_spend_corrected": policy_spend_corrected,
+            # 소비성향 모델 메타 (Problem B)
+            "cm_applied": cm_meta.get("applied", False),
+            "cm_propensity": cm_meta.get("propensity"),
+            "cm_today_total": cm_meta.get("today_total"),
+            "cm_grant_part": cm_meta.get("grant_part"),
             "s1_attempts": m1["attempt"] + 1,
             "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
             # Stage 2 fallback 카운트 (사후 분석용)

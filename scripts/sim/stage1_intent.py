@@ -179,6 +179,19 @@ class Stage1Event(BaseModel):
 
 class Stage1Output(BaseModel):
     events: list[Stage1Event]
+    # 오늘 소비성향 p∈[0,1] — "가진 돈(지원금 포함) 중 얼마나 쓸지". consumption 모델이
+    # 소득별 prior 밴드 안으로 클램프해 사용(미출력 시 prior 중심값 사용).
+    daily_propensity: float | None = Field(default=None, description="오늘 소비성향 0~1")
+
+    @field_validator("daily_propensity")
+    @classmethod
+    def _clip_propensity(cls, v):
+        if v is None:
+            return v
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return None
 
     @field_validator("events")
     @classmethod
@@ -353,6 +366,12 @@ trigger를 먼저 정해두고 reasoning을 짜맞추지 말 것):
 - "mood"         : 오늘의 컨디션(mood/fatigue/yesterday_satisfaction)이 결정을 흔듦
 - "none"         : 집·직장 같은 자동 anchor 또는 특정 한 가지 동인이 두드러지지 않음
 
+[소비성향 daily_propensity — 최상위 필드]
+최상위에 오늘의 **소비성향 `daily_propensity` (0~1)** 를 출력한다 = "오늘 가진 돈(잔액+지원금) 중
+얼마나 쓸지". 금액이 아니라 *비율*이다. 어제 컨디션·잔액·지원금·페르소나 소득/성향으로 판단:
+- 소득이 낮거나 지원금을 막 받았으면 → 높게(쓸 곳이 많고 여윳돈이 귀함).
+- 여유롭거나 저축 성향이면 → 낮게(남겨둠). 단가는 Stage2가 정하므로 여기선 성향만.
+
 [출력 형식]
 다음 JSON 스키마만 출력. 다른 텍스트 금지.
 zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 페르소나 블록의 거주 동 코드·직장 동 코드를 그대로 복사할 것.
@@ -361,7 +380,8 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
 **모든 이벤트는 reasoning + trigger 필드를 반드시 포함**. 절대 생략 금지.
 
 예시 (실제 dong_code는 페르소나 블록 참조 / reasoning은 페르소나 → 행동 직결이 아닌 살아있는 흐름):
-{"events": [
+{"daily_propensity": 0.72,
+ "events": [
   {"time":"08:10","anchor":"residence","category":"집","intent":"기상",
    "reasoning":"평일 아침 기상. 어제 fatigue 0.4로 그리 피곤하진 않았음. 가족이 깰 시간 맞춰 자연스럽게 일어남.",
    "trigger":"none"},
