@@ -281,12 +281,12 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
   · sum(policy_spend.values()) ≤ actual_spent 이어야 함.
   · sum(policy_spend.values()) ≤ 해당 정책의 잔여 가용액 이어야 함 (정책 예산 헤더 참조).
 
-소비 결정 방식:
-- 에이전트의 일일 예산(daily_wd)과 페르소나 소비 성향을 종합해 자유롭게 배분합니다.
-- 정책 지원금이 있으면 평소 daily_wd 외 추가 가용액으로 분리해서 사고합니다.
-  · 절약형 페르소나: 지원금 일부만 쓰고 남김 (잔여 확보) — 거래에 policy_spend 적게 또는 안 함.
-  · 소비형 페르소나: 지원금 적극 활용 — 거래에 policy_spend 비중 ↑.
+소비 결정 방식 (거래 간 '상대적 크기'에 집중):
+- actual_spent는 그 거래의 **상대적 크기**를 반영합니다 (예: 마트 > 외식 > 카페 > 편의점,
+  가게 종류·상황에 따라). 하루 총 지출 규모는 에이전트의 그날 소비성향으로 **별도 결정**되니,
+  여기서는 거래들 사이의 비율과 단가 감각에만 집중하세요. (헤더의 '평소 1일 소비규모'는 스케일 참고용.)
 - 단가는 POI 카테고리 통념이 아니라 페르소나·상황·가게 종류로 자유 결정.
+- 정책 지원금(policy_spend)은 절약형이면 적게·남기고, 소비형이면 적극 사용하는 식으로 성향 반영.
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
 
 **만족도 설정 (actual_satisfaction)**
@@ -362,7 +362,7 @@ def build_stage2_prompt(
         daily_we = persona.get("daily_we") or 0
         tendency = persona.get("tendency") or ""
         lifestyle = (persona.get("lifestyle") or "").strip()
-        budget_info = f"일일 예산: 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
         header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency}")
         # 정책 예산 (있으면)
         policy_budget = persona.get("policy_budget_summary") or ""
