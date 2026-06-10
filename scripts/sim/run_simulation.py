@@ -207,9 +207,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 apply_grant_to_prev_state(aid, today, amt)
                 grants_applied_today[pid] = amt
 
-        # grant 적용 후 컨텍스트 재빌드 (잔액 반영)
+        # grant 적용 후 잔액 반영 — [perf] 전체 Dawn(7 Cypher) 재빌드 대신 balance만 in-place 패치.
+        # apply_grant_to_prev_state는 어제 State.balance에만 +grant 하므로 ctx.state.balance 갱신과 등가.
         if grants_applied_today:
-            ctx = build_dawn_context(aid, today)
+            if ctx.state:
+                ctx.state["balance"] = (ctx.state.get("balance") or 0) + sum(grants_applied_today.values())
 
         # Stage2 LLM에 노출할 정책 예산 요약 (정책 쿠폰 잔액·오늘 받은 지원금 명시)
         prev_used_for_budget = ctx.get_policy_used()

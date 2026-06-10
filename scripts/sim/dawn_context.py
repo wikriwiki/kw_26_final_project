@@ -507,40 +507,47 @@ def build_dawn_context(
     )
 
 
+def _run_candidates(cypher: str, session=None, **params) -> list[dict]:
+    """후보 Cypher 실행. session 주어지면 재사용(권장 — agent-day당 1세션),
+    없으면 단발 세션 오픈(하위호환). 세션 재사용으로 커넥션/세션 생성 오버헤드 제거."""
+    if session is not None:
+        return [dict(r) for r in session.run(cypher, **params)]
+    with driver_session() as s:
+        return [dict(r) for r in s.run(cypher, **params)]
+
+
 def build_stage2_candidates(
     aid: str,
     dong_code: str,
     sub_category: str,
     limit: int = 30,
+    session=None,
 ) -> list[dict]:
     """Stage 2 candidate POI Top-K."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_CANDIDATE_CYPHER,
-            aid=aid, dong_code=dong_code, sub_category=sub_category, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_CANDIDATE_CYPHER, session=session,
+        aid=aid, dong_code=dong_code, sub_category=sub_category, limit=limit,
+    )
 
 
 def build_stage2_candidates_l1_dong(
-    aid: str, dong_code: str, l1: str, limit: int = 30,
+    aid: str, dong_code: str, l1: str, limit: int = 30, session=None,
 ) -> list[dict]:
     """Fallback: 같은 dong에서 L1 카테고리 단위로 commerce POI fetch."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_FALLBACK_L1_DONG_CYPHER,
-            aid=aid, dong_code=dong_code, l1=l1, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_FALLBACK_L1_DONG_CYPHER, session=session,
+        aid=aid, dong_code=dong_code, l1=l1, limit=limit,
+    )
 
 
 def build_stage2_candidates_l1_district(
-    aid: str, district_code: str, l1: str, limit: int = 30,
+    aid: str, district_code: str, l1: str, limit: int = 30, session=None,
 ) -> list[dict]:
     """Fallback: 자치구 안에서 L1 카테고리 단위로 commerce POI fetch."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_FALLBACK_L1_DISTRICT_CYPHER,
-            aid=aid, district_code=district_code, l1=l1, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_FALLBACK_L1_DISTRICT_CYPHER, session=session,
+        aid=aid, district_code=district_code, l1=l1, limit=limit,
+    )
 
 
 # =========================================================

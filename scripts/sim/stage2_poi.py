@@ -147,6 +147,7 @@ def fetch_candidates_for_events(
       - pool_split_events : 분할 적용된 이벤트 수
     """
     from collections import defaultdict
+    from _common import driver_session
 
     out: dict[int, list[dict]] = {}
     s = stats if stats is not None else {}
@@ -174,43 +175,48 @@ def fetch_candidates_for_events(
     for i, key in group_key_for.items():
         groups[key].append(i)
 
+    if not groups:
+        return out
+
     # 3) 그룹별 fetch + round-robin 분할 (fallback 체인 그룹 단위 1회)
-    for (dong_code, sub_cat), event_idxs in groups.items():
-        n = len(event_idxs)
-        pool_size = k_per_event if n == 1 else n * k_per_event
-        l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
+    #     [perf] agent-day의 모든 후보 조회를 단일 세션으로 — 그룹마다 세션 생성 제거.
+    with driver_session() as sess:
+        for (dong_code, sub_cat), event_idxs in groups.items():
+            n = len(event_idxs)
+            pool_size = k_per_event if n == 1 else n * k_per_event
+            l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
 
-        cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size)
-        if cands:
-            s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
-        else:
-            if l1 and l1 not in INTERNAL_CATS:
-                cands = build_stage2_candidates_l1_dong(aid, dong_code, l1, limit=pool_size)
-                if cands:
-                    s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + n
-            if not cands and l1:
-                district_code = dong_code[:5] if len(dong_code) >= 5 else None
-                if district_code:
-                    cands = build_stage2_candidates_l1_district(
-                        aid, district_code, l1, limit=pool_size,
-                    )
-                    if cands:
-                        s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
-            if not cands:
-                s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
-
-        # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
-        cands = _score_and_sort_by_desire(cands or [], today)
-
-        if n == 1:
-            out[event_idxs[0]] = cands[:k_per_event]
-        else:
-            buckets = _split_pool_round_robin(cands, n, k_per_event)
-            for bucket, ev_i in zip(buckets, event_idxs):
-                out[ev_i] = bucket
+            cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size, session=sess)
             if cands:
-                s["pool_split_groups"] = s.get("pool_split_groups", 0) + 1
-                s["pool_split_events"] = s.get("pool_split_events", 0) + n
+                s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
+            else:
+                if l1 and l1 not in INTERNAL_CATS:
+                    cands = build_stage2_candidates_l1_dong(aid, dong_code, l1, limit=pool_size, session=sess)
+                    if cands:
+                        s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + n
+                if not cands and l1:
+                    district_code = dong_code[:5] if len(dong_code) >= 5 else None
+                    if district_code:
+                        cands = build_stage2_candidates_l1_district(
+                            aid, district_code, l1, limit=pool_size, session=sess,
+                        )
+                        if cands:
+                            s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
+                if not cands:
+                    s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
+
+            # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
+            cands = _score_and_sort_by_desire(cands or [], today)
+
+            if n == 1:
+                out[event_idxs[0]] = cands[:k_per_event]
+            else:
+                buckets = _split_pool_round_robin(cands, n, k_per_event)
+                for bucket, ev_i in zip(buckets, event_idxs):
+                    out[ev_i] = bucket
+                if cands:
+                    s["pool_split_groups"] = s.get("pool_split_groups", 0) + 1
+                    s["pool_split_events"] = s.get("pool_split_events", 0) + n
 
     return out
 
