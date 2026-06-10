@@ -374,7 +374,7 @@ trigger를 먼저 정해두고 reasoning을 짜맞추지 말 것):
 
 [출력 형식]
 다음 JSON 스키마만 출력. 다른 텍스트 금지.
-zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 페르소나 블록의 거주 동 코드·직장 동 코드를 그대로 복사할 것.
+zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 위 'zone 후보' 목록의 코드만 그대로 복사할 것.
 플레이스홀더 텍스트 (`<home_dong_code>` 등)는 **금지**. 실제 숫자만.
 
 **모든 이벤트는 reasoning + trigger 필드를 반드시 포함**. 절대 생략 금지.
@@ -400,17 +400,12 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
 
 def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     blocks = ctx.to_prompt_blocks()
-    # zone anchor에 쓸 실제 dong code를 명시적으로 추출 (LLM이 placeholder 출력 방지)
-    home_dong = ctx.persona.get("home_dong_code") or ""
-    work_dong = ctx.persona.get("work_dong_code") or ""
-    dong_codes = f"- 거주 동 코드 (zone:으로 사용 시): {home_dong}\n"
-    if work_dong:
-        dong_codes += f"- 직장 동 코드 (zone:으로 사용 시): {work_dong}\n"
     return f"""## 페르소나
 {blocks['persona']}
 
-## zone anchor 코드 (반드시 이 값들 중 하나만 사용)
-{dong_codes}
+## 오늘 갈 수 있는 zone 후보 (외출 anchor=zone:<코드> 에는 아래 코드만 사용)
+{blocks['zones']}
+
 ## 어제 상태
 {blocks['state']}
 

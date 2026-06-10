@@ -13,8 +13,11 @@ Huff(1964): P(목적지 j) = (A_j / d_ij^β) / Σ_k (A_k / d_ik^β)
 """
 from __future__ import annotations
 
+import io
+import json
 import math
 import random
+from pathlib import Path
 
 BASE_BETA = 1.8          # 소매 중력모형 통상 β(1.5~2.5) 중앙
 DIST_FLOOR_KM = 0.3      # 거주 동 자기 자신(거리≈0) 무한가중 방지
@@ -113,6 +116,91 @@ def sample_destinations(
 
 
 # =========================================================
+# 거리 + 카탈로그 로딩 + 허브 추천 (런타임 Stage1 후보 zone)
+# =========================================================
+_STATS = Path(__file__).resolve().parents[2] / "output" / "stats"
+_CACHE: dict = {}
+
+
+def haversine_km(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
+    """두 좌표(경도, 위도) 사이 대권거리(km)."""
+    r = 6371.0
+    p1, p2 = math.radians(lat1), math.radians(lat2)
+    dp = math.radians(lat2 - lat1)
+    dl = math.radians(lon2 - lon1)
+    a = math.sin(dp / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(dl / 2) ** 2
+    return r * 2 * math.asin(math.sqrt(a))
+
+
+def _load(stats_dir: Path | None = None) -> dict:
+    """hub_catalog + dong_centroids 로드(캐시). 파일 없으면 빈 구조."""
+    sd = stats_dir or _STATS
+    key = str(sd)
+    if key in _CACHE:
+        return _CACHE[key]
+    data = {"top_hubs": [], "centroids": {}, "gu_fallback": {}}
+    try:
+        cat = json.load(io.open(sd / "hub_catalog.json", encoding="utf-8"))
+        data["top_hubs"] = [h for h in cat.get("hubs", []) if h.get("is_top_hub")]
+    except Exception:
+        pass
+    try:
+        cen = json.load(io.open(sd / "dong_centroids.json", encoding="utf-8"))
+        data["centroids"] = cen.get("centroids", {})
+        data["gu_fallback"] = cen.get("gu_fallback", {})
+    except Exception:
+        pass
+    _CACHE[key] = data
+    return data
+
+
+def centroid_of(code: str, data: dict) -> list[float] | None:
+    """동 중심좌표 → 없으면 자치구(5자리) fallback → 없으면 None."""
+    if not code:
+        return None
+    c = data["centroids"].get(code)
+    if c:
+        return c
+    return data["gu_fallback"].get(code[:5])
+
+
+def suggest_hubs(
+    home_dong_code: str,
+    exclude_codes: set[str],
+    day_type: str,
+    mobility_level: int | None,
+    k: int = 3,
+    rng: random.Random | None = None,
+    stats_dir: Path | None = None,
+) -> list[dict]:
+    """거주지 기준 Huff prior로 광역 상권 허브 k개 추천.
+
+    반환: [{code, name, gu, attraction, distance_km, prob}, ...] (prob 내림차순).
+    카탈로그/좌표 없거나 거주지 좌표 없으면 빈 리스트(→ 생활권만으로 자연 degrade).
+    """
+    data = _load(stats_dir)
+    home_c = centroid_of(home_dong_code, data)
+    if not home_c or not data["top_hubs"]:
+        return []
+    cand: list[dict] = []
+    for h in data["top_hubs"]:
+        code = h["code"]
+        if code in exclude_codes:
+            continue
+        hc = centroid_of(code, data)
+        if not hc:
+            continue
+        cand.append({
+            "code": code, "name": h.get("name", ""), "gu": h.get("gu", ""),
+            "attraction": h.get("attraction", 0.0),
+            "distance_km": round(haversine_km(home_c[0], home_c[1], hc[0], hc[1]), 2),
+        })
+    if not cand:
+        return []
+    return sample_destinations(cand, day_type, mobility_level, k=k, rng=rng)
+
+
+# =========================================================
 # 자체 테스트
 # =========================================================
 if __name__ == "__main__":
@@ -140,3 +228,16 @@ if __name__ == "__main__":
     print("=== 주말 k=2 표본 2000회 선택 빈도 ===")
     for name, c in cnt.most_common():
         print(f"  {name:6} {c}")
+
+    # 실제 카탈로그/좌표 기반 suggest_hubs (강북 주거동 예시)
+    print("\n=== suggest_hubs(실데이터) — 거주지 11305xxx 가정 ===")
+    data = _load()
+    print(f"  로드: top_hubs={len(data['top_hubs'])} centroids={len(data['centroids'])} "
+          f"gu_fallback={len(data['gu_fallback'])}")
+    # 좌표가 있는 임의 거주동 하나 선택
+    home = next(iter(data["centroids"]), None)
+    if home:
+        for dt, lv in [("weekday", 5), ("weekend", 8)]:
+            hubs = suggest_hubs(home, {home}, dt, lv, k=3, rng=random.Random(1))
+            tag = ", ".join(f"{h['name']}({h['distance_km']}km,p={h['prob']:.3f})" for h in hubs)
+            print(f"  {dt:8} home={home}: {tag or '(없음)'}")
