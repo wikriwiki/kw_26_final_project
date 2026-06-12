@@ -199,6 +199,8 @@ OPTIONAL MATCH (b)-[:HAS_PLAN {day:date($d)}]->(pb:Plan)
 RETURN
   pair.aid_a AS aid_a, pair.aid_b AS aid_b,
   pair.score AS score, pair.exposure AS exp, pair.relationship AS rel, pair.urgency AS urg,
+  pair.threshold_used AS threshold_used,
+  pair.ambient_threshold_applied AS ambient_threshold_applied,
   a.personal_job_raw AS a_job, a.personality_lifestyle_raw AS a_life,
   sa.mood AS a_mood, sa.fatigue AS a_fatigue, sa.policy_lifecycle AS a_policy_lc,
   b.personal_job_raw AS b_job, b.personality_lifestyle_raw AS b_life,
@@ -248,6 +250,8 @@ def fetch_pair_data(pairs: list[dict], day: date) -> dict:
                 key = (r["aid_a"], r["aid_b"])
                 pair_data[key] = {
                     "score": r["score"], "exp": r["exp"], "rel": r["rel"], "urg": r["urg"],
+                    "threshold_used": r["threshold_used"],
+                    "ambient_threshold_applied": bool(r["ambient_threshold_applied"]),
                     "a": {"job": r["a_job"] or "", "life": r["a_life"] or "",
                           "mood": r["a_mood"], "fatigue": r["a_fatigue"],
                           "policy_lifecycle": r["a_policy_lc"] or "{}"},
@@ -445,9 +449,12 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
                 "meeting_location_hint": parsed.plan_signal.meeting_location_hint,
                 "reasoning": parsed.reasoning,   # ← Conversation.reasoning + Memory.summary 로 흐름
                 # 매칭 점수(importance 계산용 — 노션 §9)
+                "interaction_score": data.get("score", 0.0),
                 "exposure_score": data.get("exp", 0.0),
                 "relationship_score": data.get("rel", 0.0),
                 "urgency_score": data.get("urg", 0.0),
+                "threshold_used": data.get("threshold_used"),
+                "ambient_threshold_applied": bool(data.get("ambient_threshold_applied")),
                 "tokens_in": resp.usage.prompt_tokens,
                 "tokens_out": resp.usage.completion_tokens,
                 "attempt": attempt,
@@ -481,7 +488,13 @@ MERGE (c:Conversation {id: r.cid})
     c.target_day_offset = r.target_day_offset,
     c.target_time = r.target_time,
     c.meeting_location_hint = r.meeting_location_hint,
-    c.reasoning = r.reasoning
+    c.reasoning = r.reasoning,
+    c.interaction_score = r.interaction_score,
+    c.exposure_score = r.exposure_score,
+    c.relationship_score = r.relationship_score,
+    c.urgency_score = r.urgency_score,
+    c.threshold_used = r.threshold_used,
+    c.ambient_threshold_applied = r.ambient_threshold_applied
 MERGE (a)-[:PARTICIPATES_IN {role:'initiator'}]->(c)
 MERGE (b)-[:PARTICIPATES_IN {role:'recipient'}]->(c)
 """
@@ -591,6 +604,13 @@ def write_conversations(day: date, results: list[dict]):
             "meeting_location_hint": r.get("meeting_location_hint"),
             # 사고과정 흔적 (인터뷰 인용용)
             "reasoning": r.get("reasoning"),
+            # Night pair selection debug fields
+            "interaction_score": r.get("interaction_score"),
+            "exposure_score": r.get("exposure_score"),
+            "relationship_score": r.get("relationship_score"),
+            "urgency_score": r.get("urgency_score"),
+            "threshold_used": r.get("threshold_used"),
+            "ambient_threshold_applied": bool(r.get("ambient_threshold_applied")),
         })
 
         # intent별 분기

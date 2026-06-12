@@ -381,6 +381,8 @@ def select_interaction_pairs(
                 "exposure": round(exp, 4),
                 "relationship": round(rel, 4),
                 "urgency": round(urg, 4),
+                "threshold_used": round(min_score, 4),
+                "ambient_threshold_applied": rel == 0 and urg == 0,
             })
     if verbose:
         print(f"  scoring: {time.time()-t1:.1f}s, above threshold: {len(scored):,}")
