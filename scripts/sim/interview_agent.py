@@ -298,60 +298,79 @@ def ask(data: dict, question: str, temperature: float = 0.7) -> str:
 # ═══════════════════════════════════════════════════════════════
 # 군집 대표 추출 (긍정/부정/변화없음)
 # ═══════════════════════════════════════════════════════════════
-# P008 보행친화거리 사업 구간 (직접 정책 대상 동)
-POLICY_L1_DONGS = ["역삼1동", "역삼2동", "도곡1동"]
+# P009 grant 정책 (소득별 현금 지원금: 중상=100k, 중=250k, 중하=450k, 하=600k, 상=제외)
+# effective_from=2026-05-27 (3일 sim의 Day 3)
+POLICY_DAY = "2026-05-27"
 
 
 def find_label_sample(label: str, last_day: str) -> str | None:
     """label ∈ {positive, negative, neutral}.
 
-    P008 은 type=facility(보행친화거리) 정책으로 금전 혜택(policy_used)이 없다.
-    따라서 '정책 사용액·mood' 기준 대신 *정책 구간(L1) 방문 + 만족도* 로 라벨링:
-      positive: 정책 구간(L1) 2회 이상 방문 + 평균 만족도 상위 → "보행환경 개선 수혜·만족"
-      negative: 정책 구간 미방문 + 평균 만족도 하위 → "정책 무관·불만"
-      neutral : 정책 구간 미방문 + 평균 만족도 중간
-    만족도 분포(p10=0.50·p50=0.59·p90=0.68) 기준으로 임계값 설정.
+    P009는 type=grant 정책. 소득별 현금 지원금이 잔액에 추가되고,
+    LLM이 거래마다 policy_spend(쿠폰 사용액)를 자율 결정.
+    INCLUDES.spent_from_policy JSON에 거래별 정책 사용액 적재됨.
+
+    라벨링 (grant 수혜 + 사용 + 만족도 기반):
+      positive: grant 대상 (income != '상') + 정책일 grant 사용 거래 ≥ 1 + 평균 만족도 상위
+                → "지원금 수혜·활용·만족"
+      negative: grant 대상 + 정책일 grant 사용 거래 = 0 + 만족도 하위
+                → "지원금 받았지만 미사용·불만"
+      neutral : grant 대상 + 정책일 grant 사용 거래 ≥ 1 + 만족도 중간
+                → "지원금 사용했지만 평균적"
     """
     if label not in ("positive", "negative", "neutral"):
         return None
+
+    # spent_from_policy JSON이 의미있는 값(`{}`·`null`·NULL 아님)을 정책 사용으로 간주
+    USED_FILTER = (
+        "i.spent_from_policy IS NOT NULL "
+        "AND i.spent_from_policy <> '{}' "
+        "AND i.spent_from_policy <> 'null'"
+    )
+
     with driver_session() as s:
         if label == "positive":
-            # 강남구 거주 + 정책구간(L1) 방문 — 거주·활동 모두 정책 지역이라 위치 혼동 없음
-            rows = s.run("""
-                MATCH (a:Agent)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)
-                      <-[:HAS_DONG]-(:District {name:'강남구'})
-                MATCH (a)-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->(:POI)-[:IN_DONG]->(d:Dong)
-                WHERE p.day >= date('2026-05-20') AND d.name IN $l1
-                  AND i.actual_satisfaction IS NOT NULL
-                WITH a, avg(i.actual_satisfaction) AS sat, count(i) AS visits
-                WHERE visits >= 2 AND sat >= 0.6
-                RETURN a.id AS id ORDER BY visits DESC, sat DESC LIMIT 50
-            """, l1=POLICY_L1_DONGS).data()
+            # grant 대상 + 정책일 grant 사용 + 만족 상위
+            rows = s.run(f"""
+                MATCH (a:Agent)
+                WHERE a.p_income_level <> '상'
+                MATCH (a)-[:HAS_PLAN {{day: date('{POLICY_DAY}')}}]->(:Plan)-[i:INCLUDES]->(:POI)
+                WHERE i.actual_satisfaction IS NOT NULL
+                WITH a,
+                     avg(i.actual_satisfaction) AS sat,
+                     sum(CASE WHEN {USED_FILTER} THEN 1 ELSE 0 END) AS policy_uses,
+                     count(i) AS visits
+                WHERE policy_uses >= 1 AND sat >= 0.6 AND visits >= 2
+                RETURN a.id AS id ORDER BY policy_uses DESC, sat DESC LIMIT 50
+            """).data()
         elif label == "negative":
-            # agent별 평균 만족도가 0.57 근처 집중 → 임계값 대신 하위 정렬로 추출
-            rows = s.run("""
-                MATCH (a:Agent)-[:HAS_PLAN]->(:Plan)-[i:INCLUDES]->(:POI)
+            # grant 대상이지만 정책일 grant 사용 안 함 + 만족도 하위
+            rows = s.run(f"""
+                MATCH (a:Agent)
+                WHERE a.p_income_level <> '상'
+                MATCH (a)-[:HAS_PLAN {{day: date('{POLICY_DAY}')}}]->(:Plan)-[i:INCLUDES]->(:POI)
                 WHERE i.actual_satisfaction IS NOT NULL
-                WITH a, avg(i.actual_satisfaction) AS sat, count(i) AS n
-                WHERE n >= 3
-                  AND NOT EXISTS {
-                    MATCH (a)-[:HAS_PLAN]->(:Plan)-[:INCLUDES]->(:POI)-[:IN_DONG]->(dd:Dong)
-                    WHERE dd.name IN $l1
-                  }
+                WITH a,
+                     avg(i.actual_satisfaction) AS sat,
+                     sum(CASE WHEN {USED_FILTER} THEN 1 ELSE 0 END) AS policy_uses,
+                     count(i) AS visits
+                WHERE policy_uses = 0 AND visits >= 2
                 RETURN a.id AS id ORDER BY sat ASC LIMIT 50
-            """, l1=POLICY_L1_DONGS).data()
+            """).data()
         else:  # neutral
-            rows = s.run("""
-                MATCH (a:Agent)-[:HAS_PLAN]->(:Plan)-[i:INCLUDES]->(:POI)
+            # grant 사용했지만 평균 만족도 중간 — "수혜 있었지만 인상 없음"
+            rows = s.run(f"""
+                MATCH (a:Agent)
+                WHERE a.p_income_level <> '상'
+                MATCH (a)-[:HAS_PLAN {{day: date('{POLICY_DAY}')}}]->(:Plan)-[i:INCLUDES]->(:POI)
                 WHERE i.actual_satisfaction IS NOT NULL
-                WITH a, avg(i.actual_satisfaction) AS sat
-                WHERE sat >= 0.55 AND sat <= 0.62
-                  AND NOT EXISTS {
-                    MATCH (a)-[:HAS_PLAN]->(:Plan)-[:INCLUDES]->(:POI)-[:IN_DONG]->(dd:Dong)
-                    WHERE dd.name IN $l1
-                  }
+                WITH a,
+                     avg(i.actual_satisfaction) AS sat,
+                     sum(CASE WHEN {USED_FILTER} THEN 1 ELSE 0 END) AS policy_uses,
+                     count(i) AS visits
+                WHERE policy_uses >= 1 AND sat >= 0.55 AND sat <= 0.62 AND visits >= 2
                 RETURN a.id AS id LIMIT 100
-            """, l1=POLICY_L1_DONGS).data()
+            """).data()
     if not rows:
         return None
     import random as _random

@@ -50,8 +50,6 @@ RETURN
   a.s_daily_wd AS daily_wd,
   a.s_daily_we AS daily_we,
   a.spending_we_wd_ratio AS we_wd_ratio,
-  a.spending_top_wd_json AS top_wd_json,
-  a.spending_top_we_json AS top_we_json,
   a.behavior_delivery_days AS delivery_days,
   a.behavior_home_h_wd AS home_h_wd,
   a.behavior_home_h_we AS home_h_we,
@@ -70,7 +68,9 @@ MATCH (a:Agent {id: $aid})-[:HAS_STATE {day: $yesterday}]->(s:State)
 RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.fatigue AS fatigue, s.yesterday_satisfaction AS yest_sat,
        s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc,
-       s.policy_used AS policy_used
+       s.policy_used AS policy_used,
+       s.grant_received AS grant_received,
+       s.grant_remaining AS grant_remaining
 """
 
 
@@ -144,6 +144,9 @@ RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.description AS description,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
        pol.effective_from AS from_, pol.effective_until AS until_,
+       toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
+       pol.income_grants AS income_grants,
+       pol.excluded_income AS excluded_income,
        regions, region_codes, target_l1s
 """
 
@@ -189,55 +192,39 @@ RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
        kp.last_visit AS last_visit,
-       size(coalesce(kp.recent_visit_dates, [])) AS v30,
-       c.recovery_tau_days AS cat_tau,
-       c.desire_drop AS cat_drop,
-       c.saturation_n AS cat_sat_n,
-       kp.source AS source,
        km
-ORDER BY known DESC, km ASC LIMIT $limit
+ORDER BY km ASC LIMIT $limit
 """
 
 # Fallback: sub_category 매칭 실패 시 L1 단위로 같은 dong에서 fetch
+# Stage1 cat이 미매핑 세부업종이라도 Category.name으로도 매칭 시도 (parent OR name)
 STAGE2_FALLBACK_L1_DONG_CYPHER = """
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
-WHERE c.parent = $l1
+WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
        kp.last_visit AS last_visit,
-       size(coalesce(kp.recent_visit_dates, [])) AS v30,
-       c.recovery_tau_days AS cat_tau,
-       c.desire_drop AS cat_drop,
-       c.saturation_n AS cat_sat_n,
-       kp.source AS source,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
 
 # Fallback: dong에 아예 commerce POI 부족 시 자치구 단위 L1 fetch
+# Category.name도 매칭 (미매핑 세부업종 대응)
 STAGE2_FALLBACK_L1_DISTRICT_CYPHER = """
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(d:District {code: $district_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
-WHERE c.parent = $l1
+WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
        kp.last_visit AS last_visit,
-       size(coalesce(kp.recent_visit_dates, [])) AS v30,
-       c.recovery_tau_days AS cat_tau,
-       c.desire_drop AS cat_drop,
-       c.saturation_n AS cat_sat_n,
-       kp.source AS source,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
@@ -272,7 +259,12 @@ class DawnContext:
             "state": _format_state(self.state),
             "memory": _format_memory(self.memory),
             "appointment": _format_appointment(self.appointment),
-            "policy": _format_policy(self.policy, policy_used=policy_used),
+            "policy": _format_policy(
+                self.policy,
+                policy_used=policy_used,
+                agent_income=(self.persona or {}).get("income"),
+                grant_remaining=self.get_grant_remaining(),
+            ),
             "social": _format_social(self.social),
             "knows_poi": _format_knows_poi(self.knows_poi_summary),
         }
@@ -288,36 +280,50 @@ class DawnContext:
         except Exception:
             return {}
 
+    def get_grant_remaining(self) -> dict:
+        """State에서 정책별 grant 잔액 dict 반환 (grant type 정책용)."""
+        import json as _json
+        raw = (self.state or {}).get("grant_remaining")
+        if not raw:
+            return {}
+        try:
+            return _json.loads(raw)
+        except Exception:
+            return {}
 
-def _safe_top_cats(raw_json: str | None, k: int = 3) -> str:
-    if not raw_json:
+
+def _strip_lifestyle_first_line(lifestyle: str) -> str:
+    """5줄 페르소나에서 첫 줄(성격/계획성 요약)을 제거.
+
+    LLM에는 토큰 절감 + 행동 다양성 유도 위해 ②~⑤만 노출.
+    형식이 다양해 ② 마커 우선, 없으면 줄 단위 첫 줄 제거.
+    """
+    if not lifestyle:
         return ""
-    try:
-        d = json.loads(raw_json)
-    except Exception:
-        return ""
-    top = sorted(d.items(), key=lambda x: -x[1])[:k]
-    return ", ".join(f"{k_}({int(v*100)}%)" for k_, v in top)
+    s = lifestyle.strip()
+    for marker in ("②", "②", "**②"):
+        if marker in s:
+            return s[s.find(marker):].strip()
+    lines = [ln for ln in s.split("\n") if ln.strip()]
+    if len(lines) <= 1:
+        return s
+    return "\n".join(lines[1:]).strip()
 
 
 def _format_persona(p: dict) -> str:
     if not p:
         return "(페르소나 없음)"
-    top_wd = _safe_top_cats(p.get("top_wd_json"))
-    top_we = _safe_top_cats(p.get("top_we_json"))
     job = (p.get("job") or "").strip()
-    lifestyle = (p.get("lifestyle") or "").strip()[:140]
+    lifestyle = _strip_lifestyle_first_line(p.get("lifestyle") or "")[:280]
     lines = [
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
-        f"소비: 평일 {p.get('daily_wd',0):,}원, 주말 {p.get('daily_we',0):,}원 (주말/평일 {p.get('we_wd_ratio',1):.2f}배) / 성향: {p.get('tendency','')}",
-        f"평일 Top 카테고리: {top_wd or '(없음)'}",
-        f"주말 Top 카테고리: {top_we or '(없음)'}",
-        f"행태: 배달 {p.get('delivery_days',0)}일/월, 평일 재택 {p.get('home_h_wd',0):.1f}h, 주말 재택 {p.get('home_h_we',0):.1f}h, 이동성 분위 {p.get('mobility',0)}",
+        f"소비: 평일 {(p.get('daily_wd') or 0):,}원, 주말 {(p.get('daily_we') or 0):,}원 (주말/평일 {(p.get('we_wd_ratio') or 1):.2f}배) / 성향: {p.get('tendency','')}",
+        f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]
     if p.get("work_dong"):
-        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {p.get('commute_min',0)}분")
+        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {(p.get('commute_min') or 0)}분")
     else:
         lines.append("직장: 없음")
     if lifestyle:
@@ -410,41 +416,64 @@ _POLICY_TYPE_LABEL = {
 }
 
 
-def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None) -> str:
-    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액 노출.
+def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
+                   agent_income: str | None = None,
+                   grant_remaining: dict[str, int] | None = None) -> str:
+    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액, grant는 본인 수령액·잔액 노출.
 
-    policy_used: {"P007": 87000, ...} 정책별 누적 사용액. State에서 가져옴.
+    policy_used: {"P007": 87000, ...} 정책별 누적 사용액 (subsidy용). State.policy_used.
+    agent_income: 페르소나 소득 분위 ('상','중상','중','중하','하') — grant 본인 액수 lookup.
+    grant_remaining: {"P009": 599718, ...} 정책별 무료 지원금 잔액. State.grant_remaining.
     """
     if not rows:
         return "(거주·직장 동에 적용 정책 없음)"
+    import json as _json
     used = policy_used or {}
+    rem_dict = grant_remaining or {}
     lines = []
     for r in rows:
         type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
         regions = ", ".join([x for x in (r.get("regions") or []) if x]) or "?"
         target_l1s = r.get("target_l1s") or []
-        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(업종 비특정)"
+        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(모든 업종 사용 가능)"
 
         head = f"{r['id']} [{type_label}] {r['name']}"
         meta_parts = [f"적용지역: {regions}", f"대상업종: {targets}",
                       f"기간: {r['from_']}~{r['until_']}"]
 
-        # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
         rate = r.get("rate")
         cap = r.get("cap")
         ptype = r.get("type")
+
         if ptype == "subsidy" and cap:
+            # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
             cap_used = int(used.get(r["id"], 0))
             remaining = max(0, cap - cap_used)
             rate_s = f"{int(rate*100)}% 환급" if rate else "100% 차감"
             meta_parts.insert(0, f"{rate_s} (한도 {cap:,}원)")
-            # 잔액 명시 (LLM이 보고 의사결정)
             meta_parts.append(
                 f"💳 누적 사용 {cap_used:,}원 / 한도 {cap:,}원 — **남은 잔액 {remaining:,}원**"
                 + (" ⚠️ 잔액 소진" if remaining == 0 else "")
             )
+        elif ptype == "grant":
+            # grant(정부 무료 지원금): 본인 분위 수령액 + 잔액 명시
+            try:
+                grants = _json.loads(r.get("income_grants") or "{}")
+            except Exception:
+                grants = {}
+            my_amount = int(grants.get(agent_income or "", 0))
+            remaining = int(rem_dict.get(r["id"], my_amount))
+            used_amt = max(0, my_amount - remaining)
+
+            if my_amount > 0:
+                meta_parts.insert(0, f"💰 정부 무료 지원금 (추가 소비 자금) — 귀하 소득분위 '{agent_income}' 수령액 {my_amount:,}원, 별도 지갑(가계 부담 0)")
+                meta_parts.append(
+                    f"💳 사용 {used_amt:,}원 / 잔액 {remaining:,}원"
+                    + (" (소진)" if remaining == 0 else " — 평소 평균 소비액과 무관하게 자유. 안 써도/조금/많이/큰 거 시도 모두 OK")
+                )
+            elif agent_income:
+                meta_parts.insert(0, f"❌ 귀하 소득분위 '{agent_income}' — 본 지원금 제외 대상 (수령 불가)")
         elif rate:
-            # cap 없는 subsidy 등
             meta_parts.insert(0, f"{int(rate*100)}% 환급")
 
         desc = r.get("description") or ""

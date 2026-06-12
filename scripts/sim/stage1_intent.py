@@ -44,7 +44,7 @@ except ImportError:
 # health 등)은 정규화 시점에 'none' 으로 흡수.
 CANONICAL_TRIGGERS = {
     "appointment", "rumor", "policy", "lifestyle",
-    "top_category", "mood", "none",
+    "mood", "none",
 }
 _TRIGGER_ALIASES = {
     "habit":      "lifestyle",
@@ -52,6 +52,69 @@ _TRIGGER_ALIASES = {
     "life-style": "lifestyle",
     "routine":    "lifestyle",
 }
+
+
+# sub_category → L1 대분류 정규화 맵
+# Stage 1 LLM이 세부업종('한식', '약국' 등)을 category로 출력하면 fallback fetch 실패 → 드롭.
+# 아래 맵으로 대분류('식사', '건강')로 올려준다.
+_CAT_TO_L1: dict[str, str] = {
+    # 식사
+    "한식": "식사", "중식": "식사", "일식": "식사", "양식": "식사",
+    "분식": "식사", "패스트푸드": "식사", "뷔페": "식사", "도시락": "식사",
+    "기타요식": "식사", "음식점": "식사", "점심": "식사", "저녁": "식사",
+    # 카페
+    "커피": "카페", "카페·커피": "카페",
+    # 디저트
+    "제과": "디저트", "베이커리": "디저트", "아이스크림": "디저트",
+    "제과점": "디저트", "케이크": "디저트",
+    # 건강
+    "병원": "건강", "의원": "건강", "한의원": "건강", "약국": "건강",
+    "치과": "건강", "일반병원": "건강", "피부과": "건강", "안과": "건강",
+    "정형외과": "건강", "내과": "건강", "의료기관": "건강",
+    # 마트
+    "슈퍼마켓": "마트", "슈퍼": "마트", "할인점": "마트", "대형마트": "마트",
+    "이마트": "마트", "홈플러스": "마트",
+    # 미용
+    "헤어샵": "미용", "미용실": "미용", "네일": "미용", "피부관리": "미용",
+    "이발소": "미용", "헤어": "미용",
+    # 여가
+    "영화": "여가", "공연": "여가", "스포츠": "여가", "헬스": "여가",
+    "수영": "여가", "운동": "여가", "볼링": "여가", "독서실": "여가",
+    # 교육
+    "학원": "교육", "과외": "교육", "학교": "교육", "보습": "교육",
+    # 주점
+    "술집": "주점", "바": "주점", "호프": "주점", "포차": "주점",
+}
+
+L1_CATEGORIES = {
+    "식사", "카페", "디저트", "건강", "마트", "미용",
+    "여가", "교육", "주점", "쇼핑", "편의점", "기타",
+    "집", "직장",
+}
+
+
+def normalize_category(cat: str | None, sub: str | None = None) -> tuple[str | None, str | None]:
+    """Stage 1 category 출력을 L1 대분류로 정규화.
+
+    1. cat이 L1이면 그대로 통과
+    2. 세부업종이면 _CAT_TO_L1 매핑으로 L1 승격 (원본 세부업종은 sub_category로 보존)
+    3. 매핑에 없으면 cat 원본 유지 (Stage2 fallback Cypher가 Category.name으로 매칭 시도)
+       → '기타' 강등으로 정보 손실 방지
+
+    sub_category가 비어있고 cat이 L1이 아니면 cat을 sub로 복사해
+    Stage2 candidate fetch가 세부업종 매칭 → L1 매칭 → district L1 매칭 순으로 시도 가능.
+    """
+    if not cat:
+        return cat, sub
+    if cat in L1_CATEGORIES:
+        return cat, sub
+    # 세부업종 → L1 매핑 (정확한 매핑 존재)
+    mapped = _CAT_TO_L1.get(cat)
+    if mapped:
+        return mapped, sub or cat
+    # 매핑 없음 — 원본 cat 유지, sub=cat 복사
+    # 후처리 fallback에서 Category.name 매칭으로 처리하게 둠 (기타 강등 X)
+    return cat, sub or cat
 
 
 def normalize_trigger(t):
@@ -84,7 +147,7 @@ class Stage1Event(BaseModel):
     # 왜 이 시간·카테고리·anchor를 골랐는지 페르소나·기억·정책·약속·소문 중
     # 무엇이 결정 요인인지 1~3문장으로. trigger는 아래 enum.
     reasoning: str | None = Field(default=None, description="이 이벤트를 선택한 이유 (1~3문장)")
-    trigger: str | None = Field(default=None, description="appointment | rumor | policy | lifestyle | top_category | mood | none")
+    trigger: str | None = Field(default=None, description="appointment | rumor | policy | lifestyle | mood | none")
     # ──────────────────────────────────────────────────────────────────
     pinned_poi: str | None = None
     with_agents: list[str] | None = None
@@ -186,6 +249,7 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 
 [정책·기억·소식 반영]
 - 정책 type별 메커니즘:
+  * grant (정부 무료 지원금): 정책 블록의 "수령액 N원 / 잔액 M원" 확인. 본인 돈이 아닌 별도 정부 지갑에서 차감되므로 개인 잔액·소비액에 영향 없음 (가계 부담 0). 기간 종료 시 미사용 잔액 소멸. 한도 내 적극 활용 권장 — 평소 못 가던 곳, 평소보다 다양한 카테고리 시도. 페르소나·소비 성향에 맞춰 분산 사용 (한 번에 풀로 쓰지 말고 기간 내 여러 번).
   * subsidy (쿠폰·환급): 정책 블록의 "남은 잔액 N원" 확인. 잔액 있으면 대상 카테고리 우선, 잔액 0원이면 일반 카테고리로 전환. 무한 사용 금지.
   * regulation (규제): 해당 카테고리·시간대 회피.
   * facility (시설): 해당 시설 방문 권장.
@@ -193,7 +257,6 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 
 - 페르소나에 따라 정책은 다르게 *해석*된다 (공식 매칭이 아니라 경향):
   * 소비분위가 낮을수록 작은 혜택도 행동 변화로 크게 와닿는 경향이 있음.
-  * 소비분위가 높을수록 정책에 둔감하고 평소 패턴을 유지하는 편.
   * 라이프스타일이 정책 도메인과 결이 맞으면(건강 정책 ↔ 운동·자기관리형) 자연스럽게 끌림.
   * 라이프스타일이 외부 정보 차단·내향·일·가족 중심이면 정책 자체를 인지하지 않을 수도 있음.
   * 같은 정책이라도 시점·강도·횟수가 agent마다 다르게 나타나야 한다.
@@ -287,7 +350,6 @@ trigger를 먼저 정해두고 reasoning을 짜맞추지 말 것):
 - "rumor"        : 어제·그제 들은 소문·추천이 결정의 주된 동인
 - "policy"       : 정책의 쿠폰·바우처·캠페인이 결정에 영향
 - "lifestyle"    : 페르소나의 장기 성향이 주된 동인 (정형적 루틴 포함)
-- "top_category" : Top 카테고리 비중이 결정의 주된 동인
 - "mood"         : 오늘의 컨디션(mood/fatigue/yesterday_satisfaction)이 결정을 흔듦
 - "none"         : 집·직장 같은 자동 anchor 또는 특정 한 가지 동인이 두드러지지 않음
 
@@ -308,7 +370,7 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
    "trigger":"lifestyle"},
   {"time":"12:00","anchor":"zone:11680111","category":"식사","sub_category":"한식","intent":"점심",
    "reasoning":"어제 두부마을찬에서 sat 0.65로 음식이 좋았던 잔상이 남음. 평소 한식 자주 가는 편이지만 오늘 굳이 거기 가는 건 그 잔상 때문.",
-   "trigger":"top_category"},
+   "trigger":"lifestyle"},
   {"time":"15:00","anchor":"zone:11680111","category":"카페","sub_category":"카페","intent":"오후 휴식",
    "reasoning":"강남 카페 바우처 잔액 45,000원 남았고, 어제 거기 갔을 때 분위기가 의외로 차분해서 한참 앉아있었던 게 좋았음. 30% 환급도 매력적이라 자연스럽게 또 가게 됨.",
    "trigger":"policy"},
@@ -428,6 +490,14 @@ def call_stage1(
             json_str = _extract_json(raw)
             data = json.loads(json_str)
             parsed = Stage1Output.model_validate(data)
+
+            # category 정규화 — 세부업종('한식') → L1('식사')
+            for ev in parsed.events:
+                norm_cat, norm_sub = normalize_category(ev.category, ev.sub_category)
+                if norm_cat != ev.category:
+                    ev.category = norm_cat
+                if norm_sub != ev.sub_category:
+                    ev.sub_category = norm_sub
 
             # Post-validation: 평일 보수성 검증 (외출 의무)
             has_work = bool(ctx.persona.get("work_poi_id"))

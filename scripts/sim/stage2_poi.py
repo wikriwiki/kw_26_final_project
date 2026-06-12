@@ -35,8 +35,6 @@ from dawn_context import (  # noqa: E402
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 
-# desire 함수 — 모듈 레벨 import (hot path 에서 함수 내 import 회피)
-from desire import compute_desire, inputs_from_candidate_row  # noqa: E402
 
 try:
     from pydantic import BaseModel, Field
@@ -47,15 +45,43 @@ except ImportError:
 class Stage2Pick(BaseModel):
     order: int
     poi_id: str
-    # ───────────── 사고과정 흔적 (인터뷰용) ─────────────
-    # 왜 후보 풀 중에서 이 POI를 골랐는지 1~2문장
-    # 단골 점수·거리·약속 pin·소문 추천 등 어느 신호가 결정 요인이었는지.
+    actual_spent: float | None = None        # LLM이 설정 (원, 양수, 총 소비액)
+    actual_satisfaction: float | None = None # LLM이 설정 (0~1)
+    # actual_spent 중 정책 지원금에서 사용한 금액 — {"P009": 5000} 형태.
+    # 평소 잔액으로 쓴 부분 = actual_spent - sum(policy_spend.values())
+    policy_spend: dict[str, float] | None = None
     pick_reason: str | None = None
-    pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | novelty | random
+    pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | random
 
 
 class Stage2Output(BaseModel):
     picks: list[Stage2Pick]
+
+
+# commerce 이벤트에 actual_spent가 0/None이면 카테고리·소득별 fallback 값 부여.
+# 가급적 LLM이 직접 정하게 하되, 환각·누락 시 cap 추적 무력화 방지용 안전망.
+_SPEND_FALLBACK_BY_L1 = {
+    "편의점": 5000, "마트": 25000,
+    "식사": 12000, "카페": 6000, "디저트": 8000, "주점": 30000,
+    "미용": 30000, "쇼핑": 50000,
+    "여가": 20000, "건강": 15000, "교육": 50000, "기타": 10000,
+}
+
+
+def _ensure_positive_spend(pick: "Stage2Pick", category: str | None, daily_wd: float | int | None) -> None:
+    """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 카테고리 fallback 부여.
+
+    track_policy_usage가 spend<=0 이면 cap 추적을 skip하므로,
+    여기서 최소값을 강제해 정책 효과 측정 신뢰도 확보.
+    """
+    cur = pick.actual_spent or 0
+    if cur > 0:
+        return
+    base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
+    if daily_wd and daily_wd > 0:
+        # daily_wd가 매우 작은 경우 비율 보정 (예: 절약형 페르소나)
+        base = min(base, int(daily_wd * 0.4))
+    pick.actual_spent = max(1000, base)
 
 
 # =========================================================
@@ -89,44 +115,30 @@ INTERNAL_CATS = {"집", "직장"}  # residence/workplace anchor에서 사용. PO
 
 
 def _score_and_sort_by_desire(cands: list[dict], today: date) -> list[dict]:
-    """각 cand 에 desire 점수 부여 후 내림차순 정렬 (in-place).
-
-    Cypher RETURN 의 last_visit 은 neo4j.time.Date (or None) — datetime.date 로
-    변환 후 days_since_visit 계산. desire 함수가 카테고리별 tau/drop/sat_n 을
-    cand row 에서 직접 받음 (Category 노드 backfill 안 됐으면 fallback 사용).
-    """
+    """avg_satisfaction 내림차순 → km 오름차순 정렬."""
     for c in cands:
-        last = c.get("last_visit")
-        if last is not None and hasattr(last, "to_native"):
-            last = last.to_native()
-        if last is not None and isinstance(last, date):
-            days_since = (today - last).days
-        else:
-            days_since = None
-        inputs = inputs_from_candidate_row(c, days_since)
-        c["desire"] = compute_desire(inputs)
-        c["days_since_visit"] = days_since
-    cands.sort(key=lambda c: -c["desire"])
+        sat = c.get("avg_satisfaction")
+        c["desire"] = float(sat) if sat is not None else 0.0
+    # 1순위: avg_satisfaction 내림차순, 2순위: km 오름차순 (None은 뒤)
+    cands.sort(key=lambda c: (-c["desire"], c.get("km") or 9999))
     return cands
 
 
 def fetch_candidates_for_events(
     aid: str, events: list, persona: dict, today: date,
-    k_per_event: int = 15,
+    k_per_event: int = 12,
     stats: dict | None = None,
 ) -> dict[int, list[dict]]:
     """이벤트별 candidate POI dict. key=order, value=list of candidate dicts.
 
-    두 가지 동시 처리:
+    정렬 (단순화 — 2026-05-30):
+      avg_satisfaction 내림차순 → km 오름차순.
+      복잡한 desire 4요인 곱셈(affinity·recency·saturation·novelty)은 폐기.
+      반복 억제는 Stage 2 프롬프트의 '최근 3일 방문 POI' 헤더로 LLM이 자율 처리.
 
-    (1) **다른 날 반복 차단** — 각 cand 의 `desire` 점수 계산 후 desire 내림차순
-        정렬. desire = baseline(affinity, sat) × recency(Δ) × saturation(v30) + novelty.
-        어제 방문한 단골은 recency 가 낮아 desire 가 새 가게보다 낮을 수 있음 →
-        같은 단골 매일 픽 패턴 약화.
-
-    (2) **같은 날 반복 차단** — 같은 (dong, sub_category) 이벤트가 N개면 후보를
-        N×k_per_event 크기로 한 번에 fetch + desire 정렬 후 round-robin 분할.
-        같은 POI 가 두 이벤트 풀에 동시 등장 못 함.
+    같은 날 반복 차단:
+      같은 (dong, sub_category) 이벤트가 N개면 후보를 N×k_per_event 크기로 한 번에
+      fetch + 정렬 후 round-robin 분할. 같은 POI가 두 이벤트 풀에 동시 등장 못 함.
 
     stats: fallback 카운트 dict (mutate). 누적 키:
       - resolve_dong_placeholder_fallback
@@ -206,11 +218,11 @@ def fetch_candidates_for_events(
 def _split_pool_round_robin(
     cands: list[dict], n: int, k_per_event: int,
 ) -> list[list[dict]]:
-    """정렬된 풀(desire DESC) 을 N개 이벤트 풀로 round-robin 분할.
+    """정렬된 풀(avg_satisfaction DESC, km ASC)을 N개 이벤트 풀로 round-robin 분할.
 
     같은 POI 가 여러 버킷에 들어가지 않음 — 한 cand 는 idx % n 한 곳만 들어감.
-    상위 → 하위 순서대로 라운드로빈이라 각 버킷이 desire 분포를 골고루 받는다.
-    가장 이른 시간 이벤트(idx 0)가 단골 1순위를 받음.
+    상위 → 하위 순서대로 라운드로빈이라 각 버킷이 만족도 분포를 골고루 받는다.
+    가장 이른 시간 이벤트(idx 0)가 만족도 1순위를 받음.
     """
     buckets: list[list[dict]] = [[] for _ in range(n)]
     for idx, c in enumerate(cands):
@@ -233,102 +245,179 @@ def _guess_sub_from_l1(l1: str) -> str | None:
 # =========================================================
 # 프롬프트 빌더
 # =========================================================
-SYSTEM_S2 = """당신은 Stage 1에서 결정된 의도 시퀀스를 받아, 각 외출 이벤트의 구체 POI를 결정하는 Daily Planner의 두 번째 단계입니다.
-규칙:
-- **각 이벤트는 자기 자신의 candidates 풀에서만 선택**. 다른 이벤트의 후보를 가져오지 마세요.
-- order는 **0부터 시작하는 정수** (이벤트 0, 이벤트 1, …). 사용자 블록의 "### 이벤트 N" 의 N 그대로 사용.
-- 후보 POI 중에서만 선택. 다른 ID 지어내지 마세요.
-- 후보 라인의 **"욕구" 점수**는 단골/거리/만족도/최근 방문/포화도가 모두 반영된 종합 점수입니다.
-  욕구가 높은 곳을 우선 선호하세요. 가끔(약 20%) 약간 낮은 곳도 OK — 탐색·다양성 차원.
-- 욕구 0.2 미만인 곳은 회피 (최근 갔거나 너무 자주 가서 시들한 곳).
-- 만족도(sat) ≤ 0.3 인 POI는 회피.
-- residence/workplace/집/직장 이벤트는 결과에 포함하지 않음 (시스템이 자동으로 home/work POI 사용).
-- pinned_poi가 있는 이벤트도 결과에 포함하지 않음.
+SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구체적인 방문 장소(POI)를 결정하고,
+소비 금액과 만족도를 설정하는 Daily Planner Stage 2입니다.
 
-[pick_reason + pick_factor — 인터뷰 가능성을 위한 핵심]
-각 pick에 **왜 그 POI를 골랐는지** pick_reason(1~2문장) 과 결정 요인 1개를 pick_factor에 적는다.
+## 핵심 규칙
 
-pick_factor enum:
-- "known"         : 단골 (visit_count>0 + affinity 높음)
-- "distance"      : 거리가 가장 가까움 (km 짧음)
-- "satisfaction"  : 과거 평균 만족도(avg_satisfaction)가 가장 높음
-- "rumor"         : 어제·그제 소문(rumor Memory)에서 들은 POI라 처음 시도
-- "appointment"   : 약속 pin이 걸려 강제 (실제로는 pin이면 Stage 2 picks에 포함 안 됨, 회피 명목)
-- "novelty"       : 단골 외 새로운 곳 시도 (탐색)
-- "random"        : 후보들이 거의 동등해서 임의 선택
+**POI 선택**
+- 각 이벤트는 반드시 자기 자신의 candidates 풀에서만 선택합니다.
+- 후보 ID를 절대 지어내지 마세요. 목록에 있는 poi_id만 사용합니다.
+- order는 0-base 정수이고, 각 외출 이벤트(residence/workplace/pinned 제외) 모두에 정확히 1개의 pick을 만듭니다.
+- 픽 누락 금지: events에 표시된 모든 외출 order 각각에 대해 반드시 1개의 pick을 생성합니다.
+- 같은 order에 대해 중복 pick 금지.
+- residence/workplace/집/직장 이벤트, pinned_poi 이벤트는 picks에 포함하지 않습니다.
 
-pick_reason 작성 규칙:
-- 후보 풀의 **실제 수치를 인용**한다 (예: "방문 3회·sat 0.72·0.05km" 같이).
-- 페르소나의 성향과 매핑 (예: "라이프스타일=실속형이라 단골 우선").
-- 같은 카테고리라도 매번 reasoning이 달라야 함.
+**페르소나 기반 선택 (핵심)**
+- 에이전트의 라이프스타일·성향·직업·생활 패턴을 고려해 자연스럽게 어울리는 장소를 선택합니다.
+- 과거 만족도(avg_sat)가 높은 곳을 선호하되, 페르소나가 탐색형이면 새 곳도 도전합니다.
+- avg_sat이 없는 신규 장소는 거리(km)가 가까운 곳을 우선합니다.
 
-예시:
-{"order":2,"poi_id":"C_MA010120220801029607",
- "pick_reason":"두부마을찬 — 어제 sat 0.65로 가장 만족도 높았고 직장에서 0.02km. 라이프스타일 실속형이라 단골 재방문.",
- "pick_factor":"known"}
+**단순 반복 억제**
+- 최근 3일 이내 방문한 POI(⚠️ 표시)는 특별한 사유 없이 재선택하지 마세요.
+- 같은 날 여러 이벤트가 있을 때 동일 POI를 두 번 선택하지 마세요.
 
-{"order":5,"poi_id":"C_MA0106202506A0725508",
- "pick_reason":"개포 타임스터디카페 — KNOWS_POI에 없는 신규지만 이웃이 어제 추천. 후보 중 거리 0.3km로 적당.",
- "pick_factor":"rumor"}
+**소비액 설정 (actual_spent + policy_spend)**
 
-출력 형식 (JSON만, order는 0-base):
+`actual_spent` = 이 거래의 총 소비액 (양수).
+`policy_spend` = 그중 grant에서 쓴 부분 분리. `{"P009": 5000}` 형태. grant 안 쓰면 null/`{}`.
+제약: sum(policy_spend) ≤ actual_spent / 잔액.
+
+소비 결정 방식:
+- 본인 예산 부분은 페르소나·POI·기분 따라 자연스럽게.
+- grant는 **별도 지갑(가계 부담 0)에서 차감되는 추가 소비 자금**. 본인 잔액 영향 없음.
+- **actual_spent는 평소 평균에 묶일 필요는 없지만**, **페르소나·라이프스타일에 일관되게** 결정.
+- 매일 grant 풀 사용 같은 비현실적 폭주는 X — 사람은 기분·상황에 따라 변동.
+- POI·기분·페르소나 조합이 결정 요인. 평소 평균에 맞출 필요는 없지만 페르소나 성격은 일관되게.
+- 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
+
+★★ **JSON 필수 일치**: pick_reason에 "P009"/"지원금"/"활용" 등 정책 활용 의도를 적었다면 **반드시 `policy_spend: {"P009": N}` 필드를 채울 것**. 의도만 적고 빈 dict로 두는 누락은 절대 금지. `policy_spend`는 null 또는 실제 사용 금액 dict. 모호한 경우 actual_spent 전액을 policy_spend로 (잔액 한도 내).
+
+**만족도 설정 (actual_satisfaction)**
+- 0.0 ~ 1.0 범위의 실수입니다.
+- 과거 방문 기록(avg_sat)이 있으면 그 근처에서 페르소나 성향을 반영해 조정합니다.
+- 처음 가는 곳은 페르소나·카테고리·거리 등을 고려해 자유롭게 설정합니다.
+- 값이 높을수록 만족, 낮을수록 불만족입니다.
+
+## 출력 형식 (JSON만, 다른 텍스트 금지)
 {"picks": [
-  {"order": 0, "poi_id": "C_xxxxxx", "pick_reason": "...", "pick_factor": "known"},
-  {"order": 2, "poi_id": "C_yyyyyy", "pick_reason": "...", "pick_factor": "rumor"},
-  ...
+  {
+    "order": 0,
+    "poi_id": "C_xxxxxx",
+    "actual_spent": 12000,
+    "policy_spend": null,
+    "actual_satisfaction": 0.71,
+    "pick_reason": "단골 한식집. 어제 sat 0.72로 만족도 높음. 직장 0.05km. 평소 한식 즐겨 찾는 성향.",
+    "pick_factor": "satisfaction"
+  },
+  {
+    "order": 2,
+    "poi_id": "C_yyyyyy",
+    "actual_spent": 25000,
+    "policy_spend": {"P009": 15000},
+    "actual_satisfaction": 0.68,
+    "pick_reason": "P009 지원금으로 평소 못 가본 카페 시도. 페르소나 소비형이라 grant 적극 활용.",
+    "pick_factor": "satisfaction"
+  }
 ]}
-"""
+
+pick_factor enum: known | distance | satisfaction | rumor | appointment | random
+/no_think"""
 
 
-def _recency_label(d_since: int | None) -> str:
-    if d_since is None:
-        return "안 가봄"
-    if d_since == 0:
-        return "오늘"
-    if d_since == 1:
-        return "어제"
-    return f"{d_since}일 전"
-
-
-def _format_event_with_candidates(i: int, ev, cands: list[dict]) -> str:
+def _format_event_with_candidates(
+    i: int, ev, cands: list[dict], recent_poi_ids: set[str] | None = None
+) -> str:
     if not cands:
         return ""
-    lines = [f"### 이벤트 {i} | {ev.time} | {ev.anchor} | {ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}"]
+    lines = [
+        f"### 이벤트 {i} | {ev.time} | {ev.anchor} | "
+        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}"
+    ]
+    recent = recent_poi_ids or set()
     for c in cands:
         known_mark = "★" if c["known"] else " "
-        v30 = c.get("v30") or 0
+        recent_mark = "⚠️" if c["poi_id"] in recent else ""
         sat = c.get("avg_satisfaction")
         km = c.get("km")
-        desire = c.get("desire", 0.5)
-        d_since = c.get("days_since_visit")
+        visit_count = c.get("visit_count") or 0
 
-        recency_s = _recency_label(d_since)
-        v30_s = f"(30일 {v30}회)" if v30 > 0 else ""
-        sat_s = f"sat={sat:.2f}" if sat is not None else ""
+        sat_s = f"avg_sat={sat:.2f}" if sat is not None else "신규"
         km_s = f"{km:.2f}km" if km is not None else ""
+        visit_s = f"({visit_count}회)" if visit_count > 0 else ""
 
         lines.append(
-            f"  {known_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | {km_s} | "
-            f"{recency_s} {v30_s} {sat_s} | 욕구 {desire:.2f}"
+            f"  {known_mark}{recent_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | "
+            f"{km_s} | {sat_s} {visit_s}"
         )
     return "\n".join(lines)
 
 
-def build_stage2_prompt(events: list, cands_by_order: dict[int, list[dict]]) -> str:
+def build_stage2_prompt(
+    events: list,
+    cands_by_order: dict[int, list[dict]],
+    persona: dict | None = None,
+    recent_poi_ids: set[str] | None = None,
+    active_policies: list[dict] | None = None,
+    grant_remaining: dict[str, int] | None = None,
+) -> str:
+    import json as _json
+    # 페르소나 헤더
+    header_parts = []
+    if persona:
+        daily_wd = persona.get("daily_wd") or 0
+        daily_we = persona.get("daily_we") or 0
+        tendency = persona.get("tendency") or ""
+        lifestyle = (persona.get("lifestyle") or "").strip()
+        income = persona.get("income") or ""
+        budget_info = f"일일 예산: 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}")
+
+        # 활성 정책 명시 (grant 위주, LLM이 policy_spend 책정 시 참조)
+        rem = grant_remaining or {}
+        pol_lines = []
+        for pol in (active_policies or []):
+            pid = pol.get("id") or ""
+            ptype = pol.get("type") or ""
+            pname = pol.get("name") or ""
+            if ptype == "grant":
+                # income_grants에서 본인 분위 수령액 lookup
+                try:
+                    grants = _json.loads(pol.get("income_grants") or "{}")
+                except Exception:
+                    grants = {}
+                my_amount = int(grants.get(income, 0))
+                cur_rem = int(rem.get(pid, my_amount))
+                if my_amount > 0:
+                    used = max(0, my_amount - cur_rem)
+                    pol_lines.append(
+                        f"{pid} {pname} [grant 추가 소비 자금] — 수령액 {my_amount:,}원, 사용 {used:,}원, "
+                        f"잔액 {cur_rem:,}원. 별도 지갑(가계 부담 0). "
+                        f"actual_spent는 평소 평균에 맞출 필요 없음 — POI·기분·grant 활용 의지로 자유 결정"
+                    )
+                else:
+                    pol_lines.append(f"{pid} {pname} — 본인 분위 '{income}' 제외 대상")
+            elif ptype == "subsidy":
+                cap = pol.get("cap") or 0
+                if cap > 0:
+                    pol_lines.append(f"🎫 {pid} {pname} [subsidy] — 한도 {cap:,}원, 잔액 정보 별도")
+        if pol_lines:
+            header_parts.append("## 활성 정책 (policy_spend 책정 시 참조)\n" + "\n".join(pol_lines))
+
+    if recent_poi_ids:
+        header_parts.append(
+            f"## 최근 3일 방문 POI (⚠️ 표시 — 단순 반복 자제)\n"
+            + ", ".join(list(recent_poi_ids)[:20])
+        )
+
     blocks = []
     for i, ev in enumerate(events):
         cs = cands_by_order.get(i) or []
         if not cs:
             continue
-        blocks.append(_format_event_with_candidates(i, ev, cs))
+        blocks.append(_format_event_with_candidates(i, ev, cs, recent_poi_ids))
+
     if not blocks:
         return "(외부 POI 결정 필요한 이벤트 없음)"
+
+    header = "\n\n".join(header_parts) + "\n\n" if header_parts else ""
     body = "\n\n".join(blocks)
-    return f"""다음 이벤트별 candidates 중에서 각 이벤트의 poi_id를 결정하세요.
-
-{body}
-
-각 이벤트의 order(0-base index)와 선택한 poi_id를 JSON으로 출력하세요. /no_think"""
+    return (
+        f"{header}"
+        f"다음 이벤트별 candidates 중에서 POI를 선택하고 소비액·만족도를 설정하세요.\n\n"
+        f"{body}\n\n"
+        f"각 이벤트의 order·poi_id·actual_spent·actual_satisfaction·pick_reason·pick_factor를 JSON으로 출력하세요. /no_think"
+    )
 
 
 # =========================================================
@@ -343,6 +432,8 @@ def call_stage2(
     today: date,
     max_retry: int = 2,
     verbose: bool = False,
+    active_policies: list[dict] | None = None,
+    grant_remaining: dict[str, int] | None = None,
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
 
@@ -358,7 +449,71 @@ def call_stage2(
         # 외부 POI 결정 필요 없음 (전부 residence/workplace/pinned)
         return Stage2Output(picks=[]), cands_by_order, {"skipped": True, **fb_stats}
 
-    user_block = build_stage2_prompt(stage1.events, cands_by_order)
+    # 최근 3일 방문 POI (억제용)
+    recent_poi_ids: set[str] = set()
+    try:
+        from _common import driver_session
+        from datetime import timedelta
+        three_days_ago = (today - timedelta(days=3)).isoformat()
+        with driver_session() as s:
+            rows = s.run(
+                "MATCH (a:Agent {id:$aid})-[:REMEMBERS]->(m:Memory {type:'visited'})-[:ABOUT_POI]->(p:POI) "
+                "WHERE m.day >= date($since) RETURN p.id AS pid",
+                aid=aid, since=three_days_ago
+            )
+            recent_poi_ids = {r["pid"] for r in rows}
+    except Exception:
+        pass
+
+    user_block = build_stage2_prompt(
+        stage1.events, cands_by_order,
+        persona=persona,
+        recent_poi_ids=recent_poi_ids,
+        active_policies=active_policies,
+        grant_remaining=grant_remaining,
+    )
+
+    # 환각 차단용 JSON schema — poi_id는 전체 후보풀 union enum 강제.
+    # order-별 enum은 아니지만 후보풀 외 POI는 0건 보장. order_mismatch는 fallback에서 처리.
+    all_pids = sorted({c["poi_id"] for cs in cands_by_order.values() for c in cs})
+    expected_orders = [
+        i for i, ev in enumerate(stage1.events)
+        if ev.category not in INTERNAL_CATS and not ev.pinned_poi and cands_by_order.get(i)
+    ]
+    s2_schema = None
+    if all_pids and expected_orders:
+        s2_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "stage2_picks", "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "picks": {
+                            "type": "array",
+                            "minItems": len(expected_orders),
+                            "maxItems": len(expected_orders),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "order": {"type": "integer", "enum": expected_orders},
+                                    "poi_id": {"type": "string", "enum": all_pids},
+                                    "actual_spent": {"type": "number"},
+                                    "actual_satisfaction": {"type": "number"},
+                                    "policy_spend": {"type": ["object", "null"]},
+                                    "pick_reason": {"type": ["string", "null"]},
+                                    "pick_factor": {"type": ["string", "null"]},
+                                },
+                                "required": ["order", "poi_id", "actual_spent", "actual_satisfaction"],
+                                "additionalProperties": False,
+                            },
+                        }
+                    },
+                    "required": ["picks"],
+                    "additionalProperties": False,
+                },
+            },
+        }
 
     last_err = None
     for attempt in range(max_retry + 1):
@@ -367,6 +522,7 @@ def call_stage2(
             resp = _llm_call(
                 None, SYSTEM_S2, user_block,
                 temperature=temp, max_tokens=1200,  # pick_reason 필드 추가로 출력량 ↑
+                response_format=s2_schema,
             )
             raw = resp.choices[0].message.content
             if verbose:
@@ -400,8 +556,16 @@ def call_stage2(
                         order_mismatch += 1
                     if cands_for_this_order:
                         top = cands_for_this_order[:5]
-                        chosen = rng.choice(top)["poi_id"]
-                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen))
+                        chosen_c = rng.choice(top)
+                        chosen = chosen_c["poi_id"]
+                        sat_prior = chosen_c.get("avg_satisfaction")
+                        if sat_prior is None:
+                            sat_prior = 0.5
+                        corrected_picks.append(Stage2Pick(
+                            order=pick.order, poi_id=chosen,
+                            actual_spent=pick.actual_spent,  # LLM이 준 값 유지(없으면 None → 후처리)
+                            actual_satisfaction=float(sat_prior),
+                        ))
                         hallucinations += 1
                     else:
                         # 해당 order에 candidates 자체 없음 — drop
@@ -412,6 +576,14 @@ def call_stage2(
             picks_before_fill = len(parsed.picks)
             parsed = _fill_missing_picks(parsed, stage1.events, cands_by_order, aid=aid)
             missing_filled = len(parsed.picks) - picks_before_fill
+
+            # 후처리: actual_spent 0/None인 commerce 이벤트에 카테고리 fallback (cap 추적 무력화 방지)
+            daily_wd = persona.get("daily_wd") or 0
+            cat_by_order = {i: ev.category for i, ev in enumerate(stage1.events)}
+            for pick in parsed.picks:
+                cat = cat_by_order.get(pick.order)
+                if cat and cat not in INTERNAL_CATS:
+                    _ensure_positive_spend(pick, cat, daily_wd)
 
             meta = {
                 "attempt": attempt,
@@ -455,8 +627,12 @@ def _fill_missing_picks(
         if not cs:
             continue
         top = cs[:5]
-        chosen = rng.choice(top)["poi_id"]
-        new_picks.append(Stage2Pick(order=i, poi_id=chosen))
+        chosen_c = rng.choice(top)
+        chosen = chosen_c["poi_id"]
+        sat_prior = chosen_c.get("avg_satisfaction")
+        if sat_prior is None:
+            sat_prior = 0.5
+        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=float(sat_prior)))
     return Stage2Output(picks=new_picks)
 
 
@@ -510,7 +686,10 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
             "intent": ev.intent,
             "poi_id": poi_id,
             "with_agents": ev.with_agents or [],
-            "actual_satisfaction": None,
+            "actual_satisfaction": pick_obj.actual_satisfaction if pick_obj else None,
+            "actual_spent": pick_obj.actual_spent if pick_obj else 0,
+            # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
+            "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
             # ───── 사고과정 흔적 (인터뷰용) ─────
             "reasoning": ev.reasoning,                 # Stage 1: 왜 이 의도·카테고리·anchor
             "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...

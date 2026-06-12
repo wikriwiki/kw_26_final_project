@@ -44,6 +44,7 @@ except Exception:
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import driver_session  # noqa: E402
+from dawn_context import _strip_lifestyle_first_line  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 
 try:
@@ -105,7 +106,8 @@ SYSTEM_PROMPT = """너는 Night 단계의 상호작용 의도분류기다.
 - home, workplace, residence 같은 anchor 이벤트도 의도 판단의 단서로 활용한다.
 
 분류 우선순위 및 규칙 (위에서부터 순서대로 적용):
-1. 미래에 둘이 다시 만나거나 함께 무엇을 하자는 제안이 핵심이면 → "약속"
+1. 미래에 둘이 다시 만나거나 함께
+ 무엇을 하자는 제안이 핵심이면 → "약속"
    - 실제 대화문은 없으므로, 같은 시간대·동선 겹침·공유 장소 경험·반복 방문·생활 패턴 적합성이 함께 보이면 미래 만남 제안을 적극 추정할 수 있다.
    - 단순한 장소 겹침만으로는 부족하지만, 반복적인 교집합과 생활 패턴 적합성이 함께 있으면 약속 가능성을 높게 본다.
 
@@ -141,7 +143,7 @@ SYSTEM_PROMPT = """너는 Night 단계의 상호작용 의도분류기다.
     · 평일 저녁 회식·동료 약속: D+2 ~ D+4
     · 주말 친구·가족 약속: D+3 ~ D+5
     · 멀리 잡는 약속(생일·기념일·이벤트): D+6 ~ D+7
-    실제 사회 관계처럼 D+1 한 군데로 쏠리지 않게 다양한 offset을 사용한다.
+    실제 사회 관계처럼 D+1 한 군데로 쏠리지 않게 다양한 offset을 사용.
     약속은 시뮬레이션 종료일 안에 들어오는 경우만 고르지 말고, 대화 흐름상 자연스러운 날짜를 고른다.
 - plan_signal.target_time: 약속일 때 "HH:MM" 형식 (예: "19:00"). 나머지는 null
 - plan_signal.meeting_location_hint: 약속 장소 자유 문자열 힌트 (예: "봉피양 역삼본점"). 없거나 약속이 아니면 null
@@ -153,7 +155,7 @@ intent별 필드 매핑 규칙:
 - 기타: topic_type = none / topic_value = null / plan_signal 전부 null·false
 
 [reasoning — 인터뷰 가능성을 위한 핵심]
-reasoning 필드에 **두 agent의 어떤 페르소나·일정·정책 요소가** 이 의도로 이끌었는지 1~2문장 명시한다.
+reasoning 필드에 **두 agent의 어떤 페르소나·일정·정책 요소가** 이 의도로 이끌었는지 1~2문장 명시.
 - 약속 → 누가 누구에게, 왜 (예: "AGT_A는 동료 친밀도 0.6 + 같은 동 점심 자주 겹쳐서 토요일 외식 제안.")
 - 이슈 → 어떤 정책·뉴스가 화제 (예: "정책 P001이 두 사람의 강남역 일대 동선과 맞닿아 보행환경 개선 이야기가 화제로 이어짐.")
 - 추천 → 누가 어디를 권유 (예: "AGT_A가 어제 만족도 0.7로 만족한 두부마을찬을 AGT_B에게 추천.")
@@ -197,6 +199,23 @@ RETURN
   pa.id AS plan_a_id, pb.id AS plan_b_id
 """
 
+FETCH_POLICY_CYPHER = """
+UNWIND $agent_ids AS aid
+MATCH (a:Agent {id: aid})-[:LIVES_AT|WORKS_AT]->(:POI)-[:IN_DONG]->(d:Dong)<-[:HAS_DONG]-(dist:District)
+WITH aid, collect(DISTINCT d) AS my_dongs, collect(DISTINCT dist) AS my_dists
+MATCH (pol:Policy)-[:applied_to]->(target)
+WHERE date($d) >= pol.effective_from AND date($d) <= pol.effective_until
+  AND (target IN my_dongs OR target IN my_dists)
+WITH aid, pol
+OPTIONAL MATCH (pol)-[:applied_to]->(reg)
+WITH aid, pol, collect(DISTINCT coalesce(reg.code, '')) AS region_codes
+OPTIONAL MATCH (pol)-[:targets]->(cat:Category)
+WITH aid, pol, region_codes, collect(DISTINCT cat.parent) AS target_l1s
+RETURN aid, pol.id AS id, pol.name AS name, pol.description AS description,
+       region_codes, target_l1s
+ORDER BY aid, id
+"""
+
 FETCH_EVENTS_CYPHER = """
 UNWIND $plan_ids AS pid
 MATCH (p:Plan {id:pid})-[i:INCLUDES]->(poi:POI)-[:IN_DONG]->(d:Dong)
@@ -206,23 +225,6 @@ RETURN pid AS plan_id, i.order AS ord, toString(i.time) AS time,
        poi.id AS poi_id, poi.name AS poi_name, poi.type AS poi_type,
        d.code AS dong_code, d.name AS dong_name
 ORDER BY pid, ord
-"""
-
-FETCH_POLICY_CYPHER = """
-UNWIND $agent_ids AS aid
-MATCH (a:Agent {id: $aid})-[:LIVES_AT|WORKS_AT]->(:POI)-[:IN_DONG]->(d:Dong)<-[:HAS_DONG]-(dist:District)
-WITH aid, collect(DISTINCT d) AS my_dongs, collect(DISTINCT dist) AS my_dists
-MATCH (pol:Policy)-[:applied_to]->(target)
-WHERE date($d) >= pol.effective_from AND date($d) <= pol.effective_until
-  AND (target IN my_dongs OR target IN my_dists)
-WITH aid, DISTINCT pol
-OPTIONAL MATCH (pol)-[:applied_to]->(reg)
-WITH aid, pol, collect(DISTINCT coalesce(reg.code, '')) AS region_codes
-OPTIONAL MATCH (pol)-[:targets]->(cat:Category)
-WITH aid, pol, region_codes, collect(DISTINCT cat.parent) AS target_l1s
-RETURN aid, pol.id AS id, pol.name AS name, pol.description AS description,
-       region_codes, target_l1s
-ORDER BY aid, id
 """
 
 
@@ -259,6 +261,7 @@ def fetch_pair_data(pairs: list[dict], day: date) -> dict:
             for r in s.run(FETCH_EVENTS_CYPHER, plan_ids=plan_ids[i:i+BATCH]):
                 events_by_plan.setdefault(r["plan_id"], []).append(dict(r))
 
+        # 정책 (Agent별) — 두 에이전트의 거주/직장 동에 적용되는 활성 정책
         policies_by_agent = {}
         agent_id_list = sorted(agent_ids)
         for i in range(0, len(agent_id_list), BATCH):
@@ -271,19 +274,13 @@ def fetch_pair_data(pairs: list[dict], day: date) -> dict:
                     "target_l1s": [x for x in (r["target_l1s"] or []) if x],
                 })
 
-    # pair_data에 이벤트 매핑
+    # pair_data에 이벤트·정책 매핑
     for key, d in pair_data.items():
         d["events_a"] = events_by_plan.get(d["plan_a_id"], [])
         d["events_b"] = events_by_plan.get(d["plan_b_id"], [])
         d["policies_a"] = policies_by_agent.get(key[0], [])
         d["policies_b"] = policies_by_agent.get(key[1], [])
     return pair_data
-
-
-def _format_event_line(ev: dict) -> str:
-    poi = ev["poi_name"] or ev["poi_id"]
-    return (f"  - time: {ev['time'][:5]}~ | dong: {ev['dong_name']} | poi: {poi} | "
-            f"category: {ev['cat'] or '?'} | activity: {ev['intent'] or '?'}")
 
 
 def _parse_policy_lifecycle(raw) -> set[str]:
@@ -299,6 +296,7 @@ def _parse_policy_lifecycle(raw) -> set[str]:
 
 
 def _select_relevant_policies(data: dict) -> list[dict]:
+    """Awareness + Relevance 두 조건을 만족하는 정책 최대 2개 선별."""
     aware_a = _parse_policy_lifecycle(data["a"].get("policy_lifecycle"))
     aware_b = _parse_policy_lifecycle(data["b"].get("policy_lifecycle"))
     event_dongs = {
@@ -350,6 +348,12 @@ def _format_policy_context(data: dict) -> str:
     return "\n".join(lines)
 
 
+def _format_event_line(ev: dict) -> str:
+    poi = ev["poi_name"] or ev["poi_id"]
+    return (f"  - time: {ev['time'][:5]}~ | dong: {ev['dong_name']} | poi: {poi} | "
+            f"category: {ev['cat'] or '?'} | activity: {ev['intent'] or '?'}")
+
+
 def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
     aid_a, aid_b = pair_key
     a = data["a"]; b = data["b"]
@@ -371,7 +375,7 @@ def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
 - role: initiator
 - agent_id: {aid_a}
 - job: {a['job'][:60]}
-- lifestyle: {(a['life'] or '')[:100]}
+- lifestyle: {_strip_lifestyle_first_line(a['life'] or '')[:200]}
 - mood: {a_mood:.2f}
 - fatigue: {a_fatigue:.2f}
 - daily_log:
@@ -381,7 +385,7 @@ def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
 - role: recipient
 - agent_id: {aid_b}
 - job: {b['job'][:60]}
-- lifestyle: {(b['life'] or '')[:100]}
+- lifestyle: {_strip_lifestyle_first_line(b['life'] or '')[:200]}
 - mood: {b_mood:.2f}
 - fatigue: {b_fatigue:.2f}
 - daily_log:
@@ -455,23 +459,21 @@ UNWIND $rows AS r
 MATCH (a:Agent {id:r.initiator})
 MATCH (b:Agent {id:r.recipient})
 WITH r, a, b
-CREATE (c:Conversation {
-  id: r.cid,
-  day: date(r.day),
-  intent: r.intent,
-  initiator_id: r.initiator,
-  recipient_id: r.recipient,
-  topic_type: r.topic_type,
-  topic_value: r.topic_value,
-  should_inject: r.should_inject,
-  target_day_offset: r.target_day_offset,
-  target_time: r.target_time,
-  meeting_location_hint: r.meeting_location_hint,
-  // 사고과정 흔적 (인터뷰용)
-  reasoning: r.reasoning
-})
-CREATE (a)-[:PARTICIPATES_IN {role:'initiator'}]->(c)
-CREATE (b)-[:PARTICIPATES_IN {role:'recipient'}]->(c)
+MERGE (c:Conversation {id: r.cid})
+  ON CREATE SET
+    c.day = date(r.day),
+    c.intent = r.intent,
+    c.initiator_id = r.initiator,
+    c.recipient_id = r.recipient,
+    c.topic_type = r.topic_type,
+    c.topic_value = r.topic_value,
+    c.should_inject = r.should_inject,
+    c.target_day_offset = r.target_day_offset,
+    c.target_time = r.target_time,
+    c.meeting_location_hint = r.meeting_location_hint,
+    c.reasoning = r.reasoning
+MERGE (a)-[:PARTICIPATES_IN {role:'initiator'}]->(c)
+MERGE (b)-[:PARTICIPATES_IN {role:'recipient'}]->(c)
 """
 
 # 이슈·추천 공통 — Memory{rumor} + REMEMBERS + FROM_CONVERSATION (노션 §5)
@@ -482,19 +484,17 @@ LINK_RUMOR_MEMORY_CYPHER = """
 UNWIND $rows AS r
 MATCH (c:Conversation {id:r.cid})
 MATCH (b:Agent {id:r.recipient})
-CREATE (m:Memory {
-  id: r.mem_id,
-  type: 'rumor',
-  day: c.day,
-  source: r.initiator,
-  topic_type: c.topic_type,
-  topic_value: c.topic_value,
-  importance: r.importance,
-  // Conversation의 reasoning을 그대로 복사 — Memory에서 직접 인용 가능
-  summary: c.reasoning
-})
-CREATE (b)-[:REMEMBERS {day: c.day}]->(m)
-CREATE (m)-[:FROM_CONVERSATION]->(c)
+MERGE (m:Memory {id: r.mem_id})
+  ON CREATE SET
+    m.type = 'rumor',
+    m.day = c.day,
+    m.source = r.initiator,
+    m.topic_type = c.topic_type,
+    m.topic_value = c.topic_value,
+    m.importance = r.importance,
+    m.summary = c.reasoning
+MERGE (b)-[:REMEMBERS {day: c.day}]->(m)
+MERGE (m)-[:FROM_CONVERSATION]->(c)
 """
 
 # 추천 의도 추가 효과 — MENTIONS_POI + KNOWS_POI{rumor} MERGE + Memory.ABOUT_POI
@@ -660,6 +660,22 @@ def run_intent_classification(
 ) -> dict:
     if not pairs:
         return {"processed": 0}
+    # 멱등성: 같은 day Conversation이 이미 90% 이상 적재됐으면 skip
+    # (resume / 모델 swap 후 재실행 시 Night2 중복 방지)
+    try:
+        with driver_session() as s:
+            existing = s.run(
+                "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
+                d=day.isoformat()
+            ).single()["n"]
+        if existing >= int(0.9 * len(pairs)):
+            if verbose:
+                print(f"[Intent] day {day}: {existing}/{len(pairs)} 이미 적재됨 — Night2 skip")
+            return {"processed": 0, "skipped": True, "existing": existing,
+                    "write": {"created": 0, "by_intent": {}}}
+    except Exception as e:
+        if verbose:
+            print(f"[Intent] idempotency 체크 실패 (계속 진행): {e}")
     t0 = time.time()
     if verbose:
         print(f"[Intent] fetching pair data for {len(pairs)} pairs ...")

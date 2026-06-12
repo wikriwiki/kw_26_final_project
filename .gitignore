@@ -87,3 +87,14 @@ sim_output/
 # NVIDIA 실데이터 (prepare_nvidia.py 산출, 대용량 — 각 환경서 받음)
 data/personas/nvidia_seoul_full.json
 data/personas/nvidia_seoul_full.jsonl
+
+# 시각화 큰 파일들 제외
+output/sim/_archive_*/visualization/*.json
+output/sim/_archive_*/visualization/sim_standalone.html
+output/sim/visualization/timeline.json
+output/sim/visualization/memories.json
+output/sim/visualization/events.json
+output/sim/visualization/sim_standalone.html
+output/sim/visualization/sim_standalone.zip
+output/neo4j_backup_*/
+
