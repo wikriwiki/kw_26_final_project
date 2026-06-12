@@ -111,10 +111,10 @@ SYSTEM_PROMPT = """너는 Night 단계의 상호작용 의도분류기다.
    - 실제 대화문은 없으므로, 같은 시간대·동선 겹침·공유 장소 경험·반복 방문·생활 패턴 적합성이 함께 보이면 미래 만남 제안을 적극 추정할 수 있다.
    - 단순한 장소 겹침만으로는 부족하지만, 반복적인 교집합과 생활 패턴 적합성이 함께 있으면 약속 가능성을 높게 본다.
 
-2. 정책, 뉴스, 사건 전달이 핵심이면 → "이슈"
-   - 정책/뉴스 노출이나 정보 비대칭이 보이면, 그 내용을 상대에게 전하는 흐름을 우선 검토한다.
-   - POLICY_CONTEXT가 있더라도 자동으로 이슈로 보내지 말고, 정책 내용이 두 agent의 당일 동선, 방문 동, 방문 카테고리와 실제로 맞닿을 때만 이슈를 적극 고려한다.
-   - 같은 정책이나 뉴스는 여러 agent 사이에서 반복 전파될 수 있으므로, 관련 노출이 있으면 소극적으로 기타로 보내지 말고 이슈를 적극 고려한다.
+2. 정책, 뉴스, 사건 전달이나 정책 체감 공유가 핵심이면 → "이슈"
+   - POLICY_CONTEXT가 있고 aware_a != aware_b이면, 한쪽이 알게 된 정책 정보를 상대에게 전달하는 흐름을 우선 검토한다.
+   - 단, POLICY_CONTEXT가 있더라도 오늘 동선, 방문 동, 방문 카테고리, 혜택/시설 변화와 연결되지 않으면 자동으로 이슈로 분류하지 않는다.
+   - 같은 정책이나 뉴스는 여러 agent 사이에서 반복 전파될 수 있으므로, 관련 노출과 당일 관련성이 있으면 소극적으로 기타로 보내지 말고 이슈를 적극 고려한다.
 
 3. 장소나 행동을 권유하거나, 자신의 경험을 바탕으로 가보라고 하거나 피하는 것이 좋다고 조언하는 흐름이 핵심이면 → "추천"
    - 예: "거기 좋더라, 너도 가봐"
@@ -222,6 +222,7 @@ MATCH (p:Plan {id:pid})-[i:INCLUDES]->(poi:POI)-[:IN_DONG]->(d:Dong)
 RETURN pid AS plan_id, i.order AS ord, toString(i.time) AS time,
        i.anchor AS anchor, i.category AS cat, i.sub_category AS sub,
        i.intent AS intent,
+       i.actual_satisfaction AS sat,
        poi.id AS poi_id, poi.name AS poi_name, poi.type AS poi_type,
        d.code AS dong_code, d.name AS dong_name
 ORDER BY pid, ord
@@ -350,8 +351,10 @@ def _format_policy_context(data: dict) -> str:
 
 def _format_event_line(ev: dict) -> str:
     poi = ev["poi_name"] or ev["poi_id"]
+    sat = ev.get("sat")
+    sat_part = f" | sat: {float(sat):.2f}" if sat is not None else ""
     return (f"  - time: {ev['time'][:5]}~ | dong: {ev['dong_name']} | poi: {poi} | "
-            f"category: {ev['cat'] or '?'} | activity: {ev['intent'] or '?'}")
+            f"category: {ev['cat'] or '?'} | activity: {ev['intent'] or '?'}{sat_part}")
 
 
 def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
