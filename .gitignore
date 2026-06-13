@@ -99,3 +99,4 @@ prototype/
 
 # Sim output (메트릭·체크포인트는 로컬만)
 sim_output/
+.superpowers/

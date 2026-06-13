@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulation 3D Visualization</title>
+  <!-- __SIM_STYLES__ -->
+</head>
+<body>
+  <div id="map"></div>
+  <div id="scene-vignette"></div>
+
+  <header id="top-hud">
+    <div>
+      <button id="story-mode-btn" type="button">Story</button>
+      <button id="explore-mode-btn" type="button">Explore</button>
+    </div>
+    <div>
+      <button id="base-style-btn" type="button">Style</button>
+      <button id="base-google-btn" type="button">Google</button>
+      <input id="google-key-input" type="password" autocomplete="off" placeholder="Google key">
+    </div>
+    <input id="agent-search" type="search" autocomplete="off" placeholder="Agent">
+  </header>
+
+  <aside id="chapter-rail"></aside>
+
+  <section id="macro-panel">
+    <output id="active-cnt">0</output>
+    <output id="spend-total">0</output>
+    <output id="burst-cnt">0</output>
+    <canvas id="chart-cat"></canvas>
+    <canvas id="chart-dist"></canvas>
+  </section>
+
+  <aside id="detail-card">
+    <button id="detail-close" type="button" aria-label="Close detail">x</button>
+    <div id="detail-content"></div>
+  </aside>
+
+  <div id="news-banner"></div>
+
+  <footer id="transport">
+    <button id="play-btn" type="button">Play</button>
+    <input id="frame-slider" type="range" min="0" max="0" value="0">
+    <output id="frame-label">Frame 0</output>
+    <select id="speed-select">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+    </select>
+  </footer>
+
+  <!-- __SIM_DATA__ -->
+  <!-- __SIM_SCRIPTS__ -->
+</body>
+</html>
