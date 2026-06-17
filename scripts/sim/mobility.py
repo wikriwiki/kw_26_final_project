@@ -7,6 +7,10 @@
 Huff(1964): P(목적지 j) = (A_j / d_ij^β) / Σ_k (A_k / d_ik^β)
   A_j = 매력도(b069_sales, hub_catalog),  d_ij = 거주지→j 거리(km),  β = 거리 민감도.
 
+후보 풀: top-40 하드 컷이 아니라 "매출 신호 있는 전체 동(attraction ≥ HUB_ATTR_FLOOR)".
+  → 집에서 가까운 중형 상권도 풀에 들어와 Huff가 거리로 살려냄(평일 동네 나들이 복원).
+  순수 주거동(매출 미미)은 하한으로 컷해 거리빨 오선택 방지.
+
 거리 민감도 β는 요일·이동분위로 동적 조정:
   - 평일 ↑ (생활권 집중) / 주말 ↓ (광역 이동 허용)
   - mobility_level 높음 ↓ (잘 돌아다니는 사람)
@@ -22,6 +26,7 @@ from pathlib import Path
 
 BASE_BETA = 1.8          # 소매 중력모형 통상 β(1.5~2.5) 중앙
 DIST_FLOOR_KM = 0.3      # 거주 동 자기 자신(거리≈0) 무한가중 방지
+HUB_ATTR_FLOOR = 18.0    # 후보 풀 매출(b069_sales) 하한 — 이하 순수 주거동 컷 (env HUB_ATTR_FLOOR)
 _DAY_FACTOR = {"weekday": 1.35, "weekend": 0.85}
 
 
@@ -139,10 +144,12 @@ def _load(stats_dir: Path | None = None) -> dict:
     key = str(sd)
     if key in _CACHE:
         return _CACHE[key]
-    data = {"top_hubs": [], "centroids": {}, "gu_fallback": {}, "sig": {}}
+    data = {"top_hubs": [], "all_hubs": [], "centroids": {}, "gu_fallback": {}, "sig": {}}
     try:
         cat = json.load(io.open(sd / "hub_catalog.json", encoding="utf-8"))
-        data["top_hubs"] = [h for h in cat.get("hubs", []) if h.get("is_top_hub")]
+        hubs = cat.get("hubs", [])
+        data["all_hubs"] = hubs                                       # 전체 동(매출 랭킹) — 풀 소스
+        data["top_hubs"] = [h for h in hubs if h.get("is_top_hub")]   # 광역 top-40 (signature·하위호환용)
     except Exception:
         pass
     try:
@@ -217,8 +224,10 @@ def suggest_hubs(
     stats_dir: Path | None = None,
     persona: dict | None = None,
 ) -> list[dict]:
-    """거주지 기준 Huff prior로 광역 상권 허브 k개 추천 (페르소나 친화도 반영).
+    """거주지 기준 Huff prior로 상권 허브 k개 추천 (근거리 중형상권 + 광역, 페르소나 친화도 반영).
 
+    후보 풀 = 매출 신호 있는 전체 동(attraction ≥ HUB_ATTR_FLOOR). top-40만 보던 구버전은
+    env HUB_POOL=top40 로 복귀. 가까운 중형 상권이 풀에 들어와 평일 동네 나들이가 복원된다.
     persona 주어지고 HUB_PERSONA_AFFINITY!=off 면, 허브 성격×나이·성별·소득으로 매력도를
     약하게 가감 → 압구정(쇼핑)·대치(교육)·서초(건강)에 다른 사람이 끌리게.
     반환: [{code, name, gu, signature, attraction, distance_km, prob}, ...] (prob 내림차순).
@@ -226,16 +235,24 @@ def suggest_hubs(
     """
     data = _load(stats_dir)
     home_c = centroid_of(home_dong_code, data)
-    if not home_c or not data["top_hubs"]:
+    # 풀 소스: 기본 전체 동(매출 하한 컷), HUB_POOL=top40 이면 광역 40개만(구버전)
+    pool_src = data["top_hubs"] if os.environ.get("HUB_POOL", "all") == "top40" else data["all_hubs"]
+    if not home_c or not pool_src:
         return []
+    try:
+        attr_floor = float(os.environ.get("HUB_ATTR_FLOOR", HUB_ATTR_FLOOR))
+    except (TypeError, ValueError):
+        attr_floor = HUB_ATTR_FLOOR
     use_aff = (persona is not None) and (os.environ.get("HUB_PERSONA_AFFINITY", "on") != "off")
     age = persona.get("age_group") if persona else None
     gender = persona.get("gender") if persona else None
     income = persona.get("income") if persona else None
     cand: list[dict] = []
-    for h in data["top_hubs"]:
+    for h in pool_src:
         code = h["code"]
         if code in exclude_codes:
+            continue
+        if float(h.get("attraction", 0.0) or 0.0) < attr_floor:   # 순수 주거동 컷(거리빨 오선택 방지)
             continue
         hc = centroid_of(code, data)
         if not hc:
@@ -286,8 +303,10 @@ if __name__ == "__main__":
     # 실제 카탈로그/좌표 기반 suggest_hubs (강북 주거동 예시)
     print("\n=== suggest_hubs(실데이터) — 거주지 11305xxx 가정 ===")
     data = _load()
-    print(f"  로드: top_hubs={len(data['top_hubs'])} centroids={len(data['centroids'])} "
-          f"gu_fallback={len(data['gu_fallback'])}")
+    floor = float(os.environ.get("HUB_ATTR_FLOOR", HUB_ATTR_FLOOR))
+    pool_n = sum(1 for h in data["all_hubs"] if float(h.get("attraction", 0) or 0) >= floor)
+    print(f"  로드: all_hubs={len(data['all_hubs'])} (매출≥{floor} 풀={pool_n}) "
+          f"top_hubs={len(data['top_hubs'])} centroids={len(data['centroids'])}")
     # 좌표가 있는 임의 거주동 하나 선택
     home = next(iter(data["centroids"]), None)
     if home:
@@ -295,3 +314,20 @@ if __name__ == "__main__":
             hubs = suggest_hubs(home, {home}, dt, lv, k=3, rng=random.Random(1))
             tag = ", ".join(f"{h['name']}({h['distance_km']}km,p={h['prob']:.3f})" for h in hubs)
             print(f"  {dt:8} home={home}: {tag or '(없음)'}")
+
+    # 풀 전환 영향: 동일 거주동에서 top40-only vs 전체-풀 평균 거리 비교 (1000회 표본)
+    print("\n=== 풀 전환 영향 — 거주동 5곳, 평일 평균 후보거리 (top40 vs 전체+하한) ===")
+    sample_homes = [c for c in list(data["centroids"])[:5]]
+    for hm in sample_homes:
+        dists = {"top40": [], "all": []}
+        for mode in ("top40", "all"):
+            os.environ["HUB_POOL"] = mode
+            r = random.Random(7)
+            for _ in range(300):
+                for h in suggest_hubs(hm, {hm}, "weekday", 5, k=3, rng=r):
+                    dists[mode].append(h["distance_km"])
+        os.environ.pop("HUB_POOL", None)
+        def _avg(xs): return sum(xs) / len(xs) if xs else 0.0
+        nm = data["centroids"].get(hm) and hm
+        print(f"  home={hm}: top40 평균 {_avg(dists['top40']):5.1f}km → 전체 {_avg(dists['all']):5.1f}km "
+              f"(근거리화 Δ={_avg(dists['top40'])-_avg(dists['all']):+.1f}km)")
