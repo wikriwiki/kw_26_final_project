@@ -34,6 +34,7 @@ from dawn_context import (  # noqa: E402
 )
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
+from poi_review_lookup import lookup_reviews_batch, format_review_block  # noqa: E402
 
 
 try:
@@ -56,6 +57,9 @@ class Stage2Pick(BaseModel):
 
 class Stage2Output(BaseModel):
     picks: list[Stage2Pick]
+    # LLM이 신중한 결정을 위해 별점·리뷰 추가 확인을 원하는 POI id 목록.
+    # 비어 있거나 누락이면 첫 picks 그대로 채택. 채워져 있으면 별점·리뷰 첨부해서 한 번 재호출.
+    review_lookup_requests: list[str] | None = None
 
 
 # commerce 이벤트에 actual_spent가 0/None이면 카테고리·소득별 fallback 값 부여.
@@ -295,6 +299,17 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 처음 가는 곳은 페르소나·카테고리·거리 등을 고려해 자유롭게 설정합니다.
 - 값이 높을수록 만족, 낮을수록 불만족입니다.
 
+**카카오 별점·리뷰 확인 (선택적, 본인 판단)**
+- 각 후보 POI에 대해 카카오에 등록된 별점·리뷰를 추가로 조회할 수 있습니다.
+- 매 선택마다 조회할 필요 없습니다. 신중한 판단이 필요할 때만 — 예시:
+  · 가족모임·데이트처럼 실패 비용이 큰 외출인데 후보 중 단골이 없고 페르소나가 사전조사형일 때
+  · 거리·avg_sat이 비슷한 후보가 여럿이라 결정이 어려울 때
+  · 페르소나가 외향·정보탐색형이고 새 장소를 도전하려 할 때
+- 그저 거리·avg_sat·단골여부만으로 충분히 결정 가능하면 조회하지 마세요. 일상 식사·편의점 같은 루틴 거래는 보통 불필요.
+- 조회 요청: `review_lookup_requests` 필드에 확인할 POI id 목록을 적어 반환하세요. 비어 있거나 누락이면 곧장 picks가 최종으로 채택됩니다.
+- 조회된 별점·리뷰는 추가 컨텍스트로 한 번 더 제공되며, 그 후 최종 picks를 결정합니다.
+- 정보 자체에 휘둘리지 마세요 — 페르소나가 별점에 무관심한 성향이면 리뷰가 안 좋아도 갈 수 있고, 페르소나가 신중하면 별점 4.0대를 피해 4.7+만 갈 수도 있습니다.
+
 ## 출력 형식 (JSON만, 다른 텍스트 금지)
 {"picks": [
   {
@@ -315,7 +330,9 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
     "pick_reason": "P009 지원금으로 평소 못 가본 카페 시도. 페르소나 소비형이라 grant 적극 활용.",
     "pick_factor": "satisfaction"
   }
-]}
+],
+"review_lookup_requests": ["C_aaa", "C_bbb"]  // 별점·리뷰 확인이 필요한 POI id (선택). 없으면 [] 또는 누락.
+}
 
 pick_factor enum: known | distance | satisfaction | rumor | appointment | random
 /no_think"""
@@ -485,14 +502,30 @@ def call_stage2(
                 },
             },
         }
+        # review_lookup_requests 선택적 출력 허용 — POI id 목록 (전체 cand pool union)
+        s2_schema["json_schema"]["schema"]["properties"]["review_lookup_requests"] = {
+            "type": ["array", "null"],
+            "items": {"type": "string", "enum": all_pids},
+        }
 
     last_err = None
+    review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.1 * attempt
+        # review_lookup 결과가 있으면 prompt에 추가 컨텍스트 첨부
+        prompt_now = user_block
+        if review_lookup_used:
+            review_block_lines = ["", "## 추가로 조회된 카카오 별점·리뷰 (요청한 POI만)"]
+            for pid, info in review_lookup_used.items():
+                review_block_lines.append(format_review_block(pid, info))
+            prompt_now = user_block + "\n" + "\n".join(review_block_lines) + (
+                "\n\n위 정보를 참고해 최종 picks를 결정하세요. "
+                "이번 응답에서는 review_lookup_requests를 비워 두세요(이미 조회 완료).\n"
+            )
         try:
             resp = _llm_call(
-                None, SYSTEM_S2, user_block,
-                temperature=temp, max_tokens=1200,  # pick_reason 필드 추가로 출력량 ↑
+                None, SYSTEM_S2, prompt_now,
+                temperature=temp, max_tokens=1400,  # review_lookup_requests 필드 + 추가 컨텍스트
                 response_format=s2_schema,
             )
             raw = resp.choices[0].message.content
@@ -502,6 +535,21 @@ def call_stage2(
             json_str = _extract_json(raw)
             data = json.loads(json_str)
             parsed = Stage2Output.model_validate(data)
+
+            # === review_lookup_requests 처리 (한 번만, 첫 호출에서만) ===
+            if not review_lookup_used and parsed.review_lookup_requests:
+                # 후보 풀 안에 있는 poi_id만 채택 (환각 방지)
+                valid_lookup_ids = [pid for pid in parsed.review_lookup_requests
+                                    if pid in set(all_pids)]
+                if valid_lookup_ids:
+                    fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    if fetched:
+                        review_lookup_used = fetched
+                        # 같은 attempt에서 재호출이 아니라 다음 attempt에 첨부해서 한 번 더 시도
+                        # (max_retry 안 쓰고 별도 1회 — temp 0.7 그대로)
+                        if verbose:
+                            print(f"[review_lookup] fetched {len(fetched)} POIs, retrying with context")
+                        continue  # 다음 iteration에서 prompt_now에 첨부됨
 
             # 후보 풀 안에 있는지 검증 — 반드시 해당 order의 candidates 안에서만 valid.
             # (이전 버그: valid_pois = 전체 cands flat → 다른 order의 POI도 통과되어 카테고리 매칭이 깨짐)
@@ -557,6 +605,7 @@ def call_stage2(
                 "hallucinations_dropped": hallucinations_dropped,
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
+                "review_lookup_count": len(review_lookup_used),
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
