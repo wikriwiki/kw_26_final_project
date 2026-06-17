@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import json
+import os
+import random
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -19,6 +21,7 @@ try:
 except Exception:
     pass
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))            # mobility 등 동일 디렉토리
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 from _common import driver_session
 
@@ -242,6 +245,8 @@ class DawnContext:
     policy: list[dict] = field(default_factory=list)
     social: list[dict] = field(default_factory=list)
     knows_poi_summary: list[dict] = field(default_factory=list)
+    # 오늘 갈 수 있는 zone 후보 (생활권 + Huff 광역상권) — Problem A
+    zone_candidates: list[dict] = field(default_factory=list)
 
     def to_prompt_blocks(self) -> dict[str, str]:
         """각 컨텍스트를 LLM 프롬프트에 넣을 텍스트 블록으로 변환."""
@@ -267,6 +272,7 @@ class DawnContext:
             ),
             "social": _format_social(self.social),
             "knows_poi": _format_knows_poi(self.knows_poi_summary),
+            "zones": _format_zones(self.zone_candidates),
         }
 
     def get_policy_used(self) -> dict:
@@ -500,6 +506,27 @@ def _format_social(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+_ZONE_TAG = {"home": "생활권·거주", "work": "생활권·직장", "hub": "광역상권"}
+
+
+def _format_zones(zones: list[dict]) -> str:
+    """오늘 갈 수 있는 zone 후보 — Stage1이 외출 anchor(zone:<코드>)에 쓸 코드 목록."""
+    if not zones:
+        return "(zone 후보 없음 — 거주/직장 동 코드 사용)"
+    lines = []
+    for z in zones:
+        tag = _ZONE_TAG.get(z.get("type"), "상권")
+        sig = z.get("signature")
+        if z.get("type") == "hub" and sig and sig != "general":
+            tag = f"{tag}·{sig}"
+        dist = z.get("distance_km")
+        dist_s = f", {dist:.1f}km" if isinstance(dist, (int, float)) else ""
+        extra = " ← 주말 나들이·여가 등에 적합" if z.get("type") == "hub" else ""
+        lines.append(f"- [{tag}] {z['code']} {z.get('name','')}{dist_s}{extra}")
+    lines.append("평일엔 주로 생활권, 주말·여가/쇼핑이면 광역상권도 자연스럽게 선택(거리·기분 고려).")
+    return "\n".join(lines)
+
+
 def _format_knows_poi(rows: list[dict]) -> str:
     if not rows:
         return "(인지 POI 없음)"
@@ -518,6 +545,41 @@ def _format_knows_poi(rows: list[dict]) -> str:
 # =========================================================
 # 메인 엔트리
 # =========================================================
+def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
+    """오늘 갈 수 있는 zone 후보 = 생활권(거주·직장) + Huff 광역상권(MOBILITY_WIDE).
+
+    좌표/카탈로그 없거나 legacy 모드면 생활권만 → 기존 동작으로 자연 degrade.
+    런타임 Neo4j 거리쿼리 없이 dong_centroids.json + haversine 으로 계산.
+    """
+    home_code = persona.get("home_dong_code")
+    work_code = persona.get("work_dong_code")
+    zones: list[dict] = []
+    if home_code:
+        zones.append({"code": home_code, "name": persona.get("home_dong") or "",
+                      "type": "home", "distance_km": 0.0})
+    if work_code:
+        zones.append({"code": work_code, "name": persona.get("work_dong") or "",
+                      "type": "work", "distance_km": None})
+
+    if os.environ.get("MOBILITY_WIDE", "wide") == "legacy" or not home_code:
+        return zones
+    try:
+        import mobility
+        exclude = {c for c in (home_code, work_code) if c}
+        day_type = "weekend" if today.weekday() >= 5 else "weekday"
+        rng = random.Random(hash((persona.get("id"), today.isoformat())))
+        for h in mobility.suggest_hubs(home_code, exclude, day_type,
+                                       persona.get("mobility"), k=3, rng=rng,
+                                       persona=persona):
+            zones.append({"code": h["code"], "name": h.get("name", ""),
+                          "gu": h.get("gu", ""), "type": "hub",
+                          "signature": h.get("signature"),
+                          "distance_km": h.get("distance_km")})
+    except Exception:
+        pass   # 광역 prior 실패해도 생활권만으로 진행
+    return zones
+
+
 def build_dawn_context(
     aid: str,
     today: date,
@@ -543,7 +605,17 @@ def build_dawn_context(
         persona=persona, state=state, memory=memory,
         appointment=appointment, policy=policy, social=social,
         knows_poi_summary=knows_poi,
+        zone_candidates=_build_zone_candidates(persona, today),
     )
+
+
+def _run_candidates(cypher: str, session=None, **params) -> list[dict]:
+    """후보 Cypher 실행. session 주어지면 재사용(권장 — agent-day당 1세션),
+    없으면 단발 세션 오픈(하위호환). 세션 재사용으로 커넥션/세션 생성 오버헤드 제거."""
+    if session is not None:
+        return [dict(r) for r in session.run(cypher, **params)]
+    with driver_session() as s:
+        return [dict(r) for r in s.run(cypher, **params)]
 
 
 def build_stage2_candidates(
@@ -551,35 +623,33 @@ def build_stage2_candidates(
     dong_code: str,
     sub_category: str,
     limit: int = 30,
+    session=None,
 ) -> list[dict]:
     """Stage 2 candidate POI Top-K."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_CANDIDATE_CYPHER,
-            aid=aid, dong_code=dong_code, sub_category=sub_category, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_CANDIDATE_CYPHER, session=session,
+        aid=aid, dong_code=dong_code, sub_category=sub_category, limit=limit,
+    )
 
 
 def build_stage2_candidates_l1_dong(
-    aid: str, dong_code: str, l1: str, limit: int = 30,
+    aid: str, dong_code: str, l1: str, limit: int = 30, session=None,
 ) -> list[dict]:
     """Fallback: 같은 dong에서 L1 카테고리 단위로 commerce POI fetch."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_FALLBACK_L1_DONG_CYPHER,
-            aid=aid, dong_code=dong_code, l1=l1, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_FALLBACK_L1_DONG_CYPHER, session=session,
+        aid=aid, dong_code=dong_code, l1=l1, limit=limit,
+    )
 
 
 def build_stage2_candidates_l1_district(
-    aid: str, district_code: str, l1: str, limit: int = 30,
+    aid: str, district_code: str, l1: str, limit: int = 30, session=None,
 ) -> list[dict]:
     """Fallback: 자치구 안에서 L1 카테고리 단위로 commerce POI fetch."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_FALLBACK_L1_DISTRICT_CYPHER,
-            aid=aid, district_code=district_code, l1=l1, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_FALLBACK_L1_DISTRICT_CYPHER, session=session,
+        aid=aid, district_code=district_code, l1=l1, limit=limit,
+    )
 
 
 # =========================================================

@@ -147,6 +147,7 @@ def fetch_candidates_for_events(
       - pool_split_events : 분할 적용된 이벤트 수
     """
     from collections import defaultdict
+    from _common import driver_session
 
     out: dict[int, list[dict]] = {}
     s = stats if stats is not None else {}
@@ -174,43 +175,48 @@ def fetch_candidates_for_events(
     for i, key in group_key_for.items():
         groups[key].append(i)
 
+    if not groups:
+        return out
+
     # 3) 그룹별 fetch + round-robin 분할 (fallback 체인 그룹 단위 1회)
-    for (dong_code, sub_cat), event_idxs in groups.items():
-        n = len(event_idxs)
-        pool_size = k_per_event if n == 1 else n * k_per_event
-        l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
+    #     [perf] agent-day의 모든 후보 조회를 단일 세션으로 — 그룹마다 세션 생성 제거.
+    with driver_session() as sess:
+        for (dong_code, sub_cat), event_idxs in groups.items():
+            n = len(event_idxs)
+            pool_size = k_per_event if n == 1 else n * k_per_event
+            l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
 
-        cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size)
-        if cands:
-            s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
-        else:
-            if l1 and l1 not in INTERNAL_CATS:
-                cands = build_stage2_candidates_l1_dong(aid, dong_code, l1, limit=pool_size)
-                if cands:
-                    s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + n
-            if not cands and l1:
-                district_code = dong_code[:5] if len(dong_code) >= 5 else None
-                if district_code:
-                    cands = build_stage2_candidates_l1_district(
-                        aid, district_code, l1, limit=pool_size,
-                    )
-                    if cands:
-                        s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
-            if not cands:
-                s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
-
-        # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
-        cands = _score_and_sort_by_desire(cands or [], today)
-
-        if n == 1:
-            out[event_idxs[0]] = cands[:k_per_event]
-        else:
-            buckets = _split_pool_round_robin(cands, n, k_per_event)
-            for bucket, ev_i in zip(buckets, event_idxs):
-                out[ev_i] = bucket
+            cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size, session=sess)
             if cands:
-                s["pool_split_groups"] = s.get("pool_split_groups", 0) + 1
-                s["pool_split_events"] = s.get("pool_split_events", 0) + n
+                s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
+            else:
+                if l1 and l1 not in INTERNAL_CATS:
+                    cands = build_stage2_candidates_l1_dong(aid, dong_code, l1, limit=pool_size, session=sess)
+                    if cands:
+                        s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + n
+                if not cands and l1:
+                    district_code = dong_code[:5] if len(dong_code) >= 5 else None
+                    if district_code:
+                        cands = build_stage2_candidates_l1_district(
+                            aid, district_code, l1, limit=pool_size, session=sess,
+                        )
+                        if cands:
+                            s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
+                if not cands:
+                    s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
+
+            # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
+            cands = _score_and_sort_by_desire(cands or [], today)
+
+            if n == 1:
+                out[event_idxs[0]] = cands[:k_per_event]
+            else:
+                buckets = _split_pool_round_robin(cands, n, k_per_event)
+                for bucket, ev_i in zip(buckets, event_idxs):
+                    out[ev_i] = bucket
+                if cands:
+                    s["pool_split_groups"] = s.get("pool_split_groups", 0) + 1
+                    s["pool_split_events"] = s.get("pool_split_events", 0) + n
 
     return out
 
@@ -268,20 +274,20 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 같은 날 여러 이벤트가 있을 때 동일 POI를 두 번 선택하지 마세요.
 
 **소비액 설정 (actual_spent + policy_spend)**
+- `actual_spent`: 이 거래의 총 소비액 (원, 양수). 평소 잔액 + 정책 지원금 합계.
+- `policy_spend`: 그 중 정책 지원금에서 쓴 금액 분리. `{"P009": 5000}` 형태.
+  · 정책 지원금을 안 쓴 거래는 null 또는 `{}`.
+  · 한 거래에서 여러 정책 동시 사용 가능 (드물지만): `{"P009": 3000, "P008": 2000}`.
+  · sum(policy_spend.values()) ≤ actual_spent 이어야 함.
+  · sum(policy_spend.values()) ≤ 해당 정책의 잔여 가용액 이어야 함 (정책 예산 헤더 참조).
 
-`actual_spent` = 이 거래의 총 소비액 (양수).
-`policy_spend` = 그중 grant에서 쓴 부분 분리. `{"P009": 5000}` 형태. grant 안 쓰면 null/`{}`.
-제약: sum(policy_spend) ≤ actual_spent / 잔액.
-
-소비 결정 방식:
-- 본인 예산 부분은 페르소나·POI·기분 따라 자연스럽게.
-- grant는 **별도 지갑(가계 부담 0)에서 차감되는 추가 소비 자금**. 본인 잔액 영향 없음.
-- **actual_spent는 평소 평균에 묶일 필요는 없지만**, **페르소나·라이프스타일에 일관되게** 결정.
-- 매일 grant 풀 사용 같은 비현실적 폭주는 X — 사람은 기분·상황에 따라 변동.
-- POI·기분·페르소나 조합이 결정 요인. 평소 평균에 맞출 필요는 없지만 페르소나 성격은 일관되게.
+소비 결정 방식 (거래 간 '상대적 크기'에 집중):
+- actual_spent는 그 거래의 **상대적 크기**를 반영합니다 (예: 마트 > 외식 > 카페 > 편의점,
+  가게 종류·상황에 따라). 하루 총 지출 규모는 에이전트의 그날 소비성향으로 **별도 결정**되니,
+  여기서는 거래들 사이의 비율과 단가 감각에만 집중하세요. (헤더의 '평소 1일 소비규모'는 스케일 참고용.)
+- 단가는 POI 카테고리 통념이 아니라 페르소나·상황·가게 종류로 자유 결정.
+- 정책 지원금(policy_spend)은 절약형이면 적게·남기고, 소비형이면 적극 사용하는 식으로 성향 반영.
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
-
-★★ **JSON 필수 일치**: pick_reason에 "P009"/"지원금"/"활용" 등 정책 활용 의도를 적었다면 **반드시 `policy_spend: {"P009": N}` 필드를 채울 것**. 의도만 적고 빈 dict로 두는 누락은 절대 금지. `policy_spend`는 null 또는 실제 사용 금액 dict. 모호한 경우 actual_spent 전액을 policy_spend로 (잔액 한도 내).
 
 **만족도 설정 (actual_satisfaction)**
 - 0.0 ~ 1.0 범위의 실수입니다.
@@ -348,10 +354,7 @@ def build_stage2_prompt(
     cands_by_order: dict[int, list[dict]],
     persona: dict | None = None,
     recent_poi_ids: set[str] | None = None,
-    active_policies: list[dict] | None = None,
-    grant_remaining: dict[str, int] | None = None,
 ) -> str:
-    import json as _json
     # 페르소나 헤더
     header_parts = []
     if persona:
@@ -359,40 +362,12 @@ def build_stage2_prompt(
         daily_we = persona.get("daily_we") or 0
         tendency = persona.get("tendency") or ""
         lifestyle = (persona.get("lifestyle") or "").strip()
-        income = persona.get("income") or ""
-        budget_info = f"일일 예산: 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
-        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}")
-
-        # 활성 정책 명시 (grant 위주, LLM이 policy_spend 책정 시 참조)
-        rem = grant_remaining or {}
-        pol_lines = []
-        for pol in (active_policies or []):
-            pid = pol.get("id") or ""
-            ptype = pol.get("type") or ""
-            pname = pol.get("name") or ""
-            if ptype == "grant":
-                # income_grants에서 본인 분위 수령액 lookup
-                try:
-                    grants = _json.loads(pol.get("income_grants") or "{}")
-                except Exception:
-                    grants = {}
-                my_amount = int(grants.get(income, 0))
-                cur_rem = int(rem.get(pid, my_amount))
-                if my_amount > 0:
-                    used = max(0, my_amount - cur_rem)
-                    pol_lines.append(
-                        f"{pid} {pname} [grant 추가 소비 자금] — 수령액 {my_amount:,}원, 사용 {used:,}원, "
-                        f"잔액 {cur_rem:,}원. 별도 지갑(가계 부담 0). "
-                        f"actual_spent는 평소 평균에 맞출 필요 없음 — POI·기분·grant 활용 의지로 자유 결정"
-                    )
-                else:
-                    pol_lines.append(f"{pid} {pname} — 본인 분위 '{income}' 제외 대상")
-            elif ptype == "subsidy":
-                cap = pol.get("cap") or 0
-                if cap > 0:
-                    pol_lines.append(f"🎫 {pid} {pname} [subsidy] — 한도 {cap:,}원, 잔액 정보 별도")
-        if pol_lines:
-            header_parts.append("## 활성 정책 (policy_spend 책정 시 참조)\n" + "\n".join(pol_lines))
+        budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency}")
+        # 정책 예산 (있으면)
+        policy_budget = persona.get("policy_budget_summary") or ""
+        if policy_budget:
+            header_parts.append(f"정책 쿠폰 잔액: {policy_budget}")
 
     if recent_poi_ids:
         header_parts.append(
@@ -432,8 +407,6 @@ def call_stage2(
     today: date,
     max_retry: int = 2,
     verbose: bool = False,
-    active_policies: list[dict] | None = None,
-    grant_remaining: dict[str, int] | None = None,
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
 
@@ -469,8 +442,6 @@ def call_stage2(
         stage1.events, cands_by_order,
         persona=persona,
         recent_poi_ids=recent_poi_ids,
-        active_policies=active_policies,
-        grant_remaining=grant_remaining,
     )
 
     # 환각 차단용 JSON schema — poi_id는 전체 후보풀 union enum 강제.
@@ -498,13 +469,13 @@ def call_stage2(
                                 "properties": {
                                     "order": {"type": "integer", "enum": expected_orders},
                                     "poi_id": {"type": "string", "enum": all_pids},
-                                    "actual_spent": {"type": "number"},
-                                    "actual_satisfaction": {"type": "number"},
+                                    "actual_spent": {"type": ["number", "null"]},
+                                    "actual_satisfaction": {"type": ["number", "null"]},
                                     "policy_spend": {"type": ["object", "null"]},
                                     "pick_reason": {"type": ["string", "null"]},
                                     "pick_factor": {"type": ["string", "null"]},
                                 },
-                                "required": ["order", "poi_id", "actual_spent", "actual_satisfaction"],
+                                "required": ["order", "poi_id"],
                                 "additionalProperties": False,
                             },
                         }
@@ -556,16 +527,8 @@ def call_stage2(
                         order_mismatch += 1
                     if cands_for_this_order:
                         top = cands_for_this_order[:5]
-                        chosen_c = rng.choice(top)
-                        chosen = chosen_c["poi_id"]
-                        sat_prior = chosen_c.get("avg_satisfaction")
-                        if sat_prior is None:
-                            sat_prior = 0.5
-                        corrected_picks.append(Stage2Pick(
-                            order=pick.order, poi_id=chosen,
-                            actual_spent=pick.actual_spent,  # LLM이 준 값 유지(없으면 None → 후처리)
-                            actual_satisfaction=float(sat_prior),
-                        ))
+                        chosen = rng.choice(top)["poi_id"]
+                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen, actual_spent=None, actual_satisfaction=None))
                         hallucinations += 1
                     else:
                         # 해당 order에 candidates 자체 없음 — drop
@@ -627,12 +590,8 @@ def _fill_missing_picks(
         if not cs:
             continue
         top = cs[:5]
-        chosen_c = rng.choice(top)
-        chosen = chosen_c["poi_id"]
-        sat_prior = chosen_c.get("avg_satisfaction")
-        if sat_prior is None:
-            sat_prior = 0.5
-        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=float(sat_prior)))
+        chosen = rng.choice(top)["poi_id"]
+        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=None))
     return Stage2Output(picks=new_picks)
 
 

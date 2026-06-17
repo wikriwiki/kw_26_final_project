@@ -179,6 +179,19 @@ class Stage1Event(BaseModel):
 
 class Stage1Output(BaseModel):
     events: list[Stage1Event]
+    # 오늘 소비성향 p∈[0,1] — "가진 돈(지원금 포함) 중 얼마나 쓸지". consumption 모델이
+    # 소득별 prior 밴드 안으로 클램프해 사용(미출력 시 prior 중심값 사용).
+    daily_propensity: float | None = Field(default=None, description="오늘 소비성향 0~1")
+
+    @field_validator("daily_propensity")
+    @classmethod
+    def _clip_propensity(cls, v):
+        if v is None:
+            return v
+        try:
+            return max(0.0, min(1.0, float(v)))
+        except (TypeError, ValueError):
+            return None
 
     @field_validator("events")
     @classmethod
@@ -223,14 +236,15 @@ SYSTEM_PROMPT = """당신은 서울 시민 에이전트의 하루 동선을 설�
 - 주말: 외식·카페·쇼핑·여가 외출 두세 번이 자연스러운 편.
 - 외출 카테고리(commerce)는 anchor='zone:<dong_code>' 사용 (residence/workplace 아님 — 스키마 제약).
 
-[페르소나 활용 — 성향이지 공식이 아님]
-- 페르소나의 "평일 Top 카테고리"·"라이프스타일"·"소비분위"는 이 사람의 **장기 성향**이다.
-  그러나 매일의 행동이 그 성향에서 직선으로 도출되면 그건 사람이 아니라 기계다.
-- Top 카테고리는 *경향*으로 참고하되, 어떤 날은 그 패턴을 그대로 따르고 어떤 날은
-  컨디션·기억·우연한 자극에 의해 평소와 다른 결정을 한다.
-- 단, 시간의 흐름에서 보면 Top 카테고리 비중은 자연스럽게 우세하게 나타난다.
-  페르소나를 완전히 무시하기는 어렵다 — 사람은 자기 성향에서 멀리 벗어나기 어렵다.
-- 같은 페르소나·같은 시간대라도 어제와 다르게 결정해도 자연스럽다.
+[페르소나 = 성향의 큰 그림, 공식이 아님]
+페르소나(Top 카테고리·라이프스타일·소비분위)는 장기 성향이지 매일의 공식이 아니다.
+행동이 성향에서 직선으로 도출되면 기계다. 하루 행동은 다음이 함께 결정한다:
+1. 어제·그제의 잔상 — 방문지·만족도(actual_satisfaction)·만난 사람·들은 정보(visited/rumor)
+2. 오늘 컨디션 — yesterday_satisfaction·mood·fatigue (평소 성향을 일시적으로 뒤집을 수 있음)
+3. 곱씹은 기억 — 같은 사건도 페르소나라는 *렌즈*를 거쳐 다르게 해석(외향↔내향이 다른 결론)
+다만 길게 보면 Top 카테고리 비중은 우세하게 나타난다 — 성향에서 멀리 벗어나긴 어렵다.
+회상 재료는 반드시 Dawn 컨텍스트(어제 State·최근 Memory·Conversation·활성 정책) 안에서만.
+시뮬에 없는 사건(TV·길거리 광고·우연한 향기 등 가상 자극) 금지.
 
 [카테고리 어휘]
 L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 쇼핑 · 여가 · 건강 · 교육 · 기타 · 집 · 직장
@@ -247,43 +261,12 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
   - 그 외 자치구 이동(주말 나들이·약속) → zone:<other_dong_code>
 - 절대 금지: anchor='residence' + category='편의점/식사/카페/한식/...' 같은 조합. 외출 카테고리면 무조건 zone.
 
-[정책·기억·소식 반영]
-- 정책 type별 메커니즘:
-  * grant (정부 무료 지원금): 정책 블록의 "수령액 N원 / 잔액 M원" 확인. 본인 돈이 아닌 별도 정부 지갑에서 차감되므로 개인 잔액·소비액에 영향 없음 (가계 부담 0). 기간 종료 시 미사용 잔액 소멸. 한도 내 적극 활용 권장 — 평소 못 가던 곳, 평소보다 다양한 카테고리 시도. 페르소나·소비 성향에 맞춰 분산 사용 (한 번에 풀로 쓰지 말고 기간 내 여러 번).
-  * subsidy (쿠폰·환급): 정책 블록의 "남은 잔액 N원" 확인. 잔액 있으면 대상 카테고리 우선, 잔액 0원이면 일반 카테고리로 전환. 무한 사용 금지.
-  * regulation (규제): 해당 카테고리·시간대 회피.
-  * facility (시설): 해당 시설 방문 권장.
-  * campaign (홍보): description 자율 해석 (예: "걷기 좋은 거리" → 도보 외출).
-
-- 페르소나에 따라 정책은 다르게 *해석*된다 (공식 매칭이 아니라 경향):
-  * 소비분위가 낮을수록 작은 혜택도 행동 변화로 크게 와닿는 경향이 있음.
-  * 라이프스타일이 정책 도메인과 결이 맞으면(건강 정책 ↔ 운동·자기관리형) 자연스럽게 끌림.
-  * 라이프스타일이 외부 정보 차단·내향·일·가족 중심이면 정책 자체를 인지하지 않을 수도 있음.
-  * 같은 정책이라도 시점·강도·횟수가 agent마다 다르게 나타나야 한다.
-    어제 본 적이 있어도 오늘은 잊을 수 있고, 어제 안 썼던 걸 오늘 갑자기 떠올릴 수도 있다.
-
-- 어제 만족도 낮았던 카테고리/장소는 회피하거나, 같은 곳에 다시 가더라도 그 망설임이 reasoning에 드러나는 편이 자연스럽다.
-- 지인 약속(appointment)이 있으면 해당 시간·장소(anchor=zone:<dong>, pinned_poi)로 향한다. 사람은 한번 잡은 약속을 잘 깨지 않기 때문에 그 시간대는 약속이 우선된다.
-
-[살아있는 의사결정 — 매우 중요]
-당신은 매일 같은 선택을 하는 기계가 아니다. 페르소나는 *성향의 큰 그림*일 뿐,
-하루의 실제 행동은 다음 동적 요인들이 함께 결정한다:
-
-1. **어제·그제의 잔상** — 어제 어디에 갔는지, 거기서 만족스러웠는지(actual_satisfaction),
-   누구를 만났는지(Conversation), 어떤 정보를 들었는지(Memory: visited/rumor).
-2. **오늘의 컨디션** — yesterday_satisfaction, mood, fatigue.
-   컨디션이 평소 성향을 일시적으로 뒤집을 수 있다 (피곤한 날엔 단골도 안 끌리기도 함).
-3. **곱씹은 기억** — 같은 Memory라도 페르소나라는 *렌즈*를 통과하면서
-   잔상의 강도·방향·해석이 다르게 작동한다.
-   같은 "어제 사장님이 친근하게 인사했다"는 사건도:
-     · 외향·정 많은 페르소나 → 잔상이 오래, 한 번 더 가고 싶음
-     · 내향 페르소나 → 부담스러워서 오늘은 다른 데
-     · 무덤덤한 페르소나 → 별 인상 없음, 그냥 가까워서 다시 갈 뿐
-   페르소나는 *외부 자극을 해석하는 필터*다. 같은 데이터가 다른 결론으로 이어진다.
-
-회상의 재료는 **반드시 Dawn 컨텍스트에 주어진 데이터(어제 State, 최근 Memory,
-Conversation, 활성 정책) 안에서만** 가져온다. 시뮬에 없는 사건을 만들어내지 마라
-(예: TV·길거리 광고·우연한 향기 같은 가상의 외부 자극 금지).
+[정책·약속 반영]
+- subsidy(쿠폰·환급): "남은 잔액 N원" 확인 — 잔액 있으면 대상 카테고리 우선, 0원이면 일반으로(무한사용 금지).
+  regulation: 해당 카테고리·시간 회피 / facility: 시설 방문 권장 / campaign: description 자율 해석.
+- 정책은 페르소나로 다르게 해석된다(경향, 공식 아님): 소비분위 낮을수록 작은 혜택도 크게 와닿고 높을수록 둔감.
+  라이프스타일이 결이 맞으면 끌리고, 내향·정보차단형은 인지 못 할 수도. 같은 정책도 날마다 다르게(어제 본 걸 잊거나, 안 쓰던 걸 떠올리거나).
+- 어제 만족 낮은 곳은 회피하거나 망설임이 reasoning에 드러남. 약속(appointment)은 그 시간대 우선(anchor=zone, pinned_poi).
 
 [pinned_poi]
 - appointment의 meeting_poi_id가 있으면 해당 event에 pinned_poi 설정.
@@ -298,8 +281,7 @@ reasoning 작성 규칙:
   안에서 회상·인용한다. 시뮬에 없는 사건은 만들어내지 않는다.
 - 페르소나의 성향은 인용해도 좋다. **단 그것만으로 결정한 듯한 한 줄 환원형 reasoning은
   금지**. 성향은 *해석의 렌즈*로 작동해야지 *행동의 공식*이 되면 안 된다.
-- 위 [살아있는 의사결정] 섹션의 동적 요인(어제의 잔상·오늘의 컨디션·곱씹은 기억) 중
-  최소 한 가지를 자연스럽게 녹여낼 것.
+- 위 동적 요인(잔상·컨디션·곱씹은 기억) 중 최소 하나를 자연스럽게 녹일 것.
 - 정책 사용 시 잔액·할인율·카테고리를 명시 (예: "강남 카페 바우처 잔액 45,000원 남았고,
   어제 거기 분위기가 의외로 좋았던 게 떠올라 또 가고 싶음").
 - 약속 진입 시 상대 agent_id와 약속 잡힌 사유 명시.
@@ -312,56 +294,38 @@ reasoning 작성 규칙:
 - "평일 Top 한식 14%라 점심은 한식" ← 통계 → 행동 직결, 기계적.
 - "절약형이라 쿠폰 사용" ← 성향 → 행동 직결, 기계적.
 
-**좋은 예 — 같은 카테고리·다른 사고 흐름** (페르소나가 같은 사건을 다르게 해석):
-
-# 외향·정 많은 페르소나
+**좋은 예** (같은 카테고리라도 잔상·컨디션·정책이 사고 흐름을 만든다):
+# lifestyle — 어제 잔상
 {"time":"12:00","anchor":"zone:11680670","category":"식사","sub_category":"한식","intent":"점심",
- "reasoning":"어제 두부마을찬 사장님이 단골이라고 알아봐 주신 게 좋았음. 그 잔상이 남아 오늘도 자연스럽게 발이 옮겨짐. 사람 좋아하는 편이라 그런 친근함이 잘 와닿는 듯.",
- "trigger":"lifestyle"}
-
-# 내향·꼼꼼한 페르소나 (같은 어제 사건)
-{"time":"12:00","anchor":"zone:11680670","category":"식사","sub_category":"한식","intent":"점심",
- "reasoning":"어제 두부마을찬 갔을 때 사장님이 너무 친근하게 말 거셔서 좀 부담스러웠음. 오늘은 다른 단골 갈까 했지만 sat 0.65로 음식은 좋았으니 짧게 다녀오기로.",
- "trigger":"lifestyle"}
-
-# 컨디션이 평소 성향을 뒤집은 예
+ "reasoning":"어제 두부마을찬 sat 0.65로 음식이 좋았던 잔상. 한식 자주 가지만 오늘 굳이 거긴 그 잔상 때문.","trigger":"lifestyle"}
+# mood — 컨디션이 성향을 뒤집음
 {"time":"15:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"오후 휴식",
- "reasoning":"평소 카페 잘 안 가는 편인데 오늘 fatigue 0.7로 피곤함. 어제 이웃이 '거기 분위기 차분하다'고 했던 게 떠올라 한 번 가보고 싶어짐.",
- "trigger":"mood"}
+ "reasoning":"평소 카페 잘 안 가는데 fatigue 0.7로 피곤. 어제 이웃이 '거기 차분하다'던 게 떠올라 가봄.","trigger":"mood"}
+# policy — 쿠폰 잔액 + 잔상
+{"time":"19:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"퇴근 후",
+ "reasoning":"강남 카페 바우처 잔액 45,000원 남음. 어제 거기 분위기가 의외로 좋아 또 끌리고 30% 환급도 매력.","trigger":"policy"}
+(약속은 상대 agent_id·사유, 소문은 출처 agent·topic을 reasoning에 명시.)
 
-# 정책 + 잔상 결합
-{"time":"19:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"퇴근 후 한 잔",
- "reasoning":"강남 카페 바우처 잔액 45,000원 남았고, 어제 거기서 한참 앉아있었던 게 의외로 좋았음. 실속형이라 30% 환급도 매력. 단골이 될 것 같음.",
- "trigger":"policy"}
+trigger enum (reasoning을 먼저 쓰고 가장 가까운 하나 선택):
+- appointment(약속) · rumor(어제·그제 소문/추천) · policy(쿠폰·바우처·캠페인)
+- lifestyle(장기 성향·정형 루틴) · mood(오늘 컨디션) · none(집·직장 자동 anchor 등)
 
-# 약속
-{"time":"18:30","anchor":"zone:11680670","category":"식사","sub_category":"한식","intent":"동료와 저녁",
- "reasoning":"어제 night에 동료 AGT_11680670_M_40대_006이 두부마을찬 저녁 약속 제안. 친밀도 0.6이라 어색하지 않게 응함. 그 사람과 지난주에도 점심 같이 한 기억이 있어 흐름이 자연스러움.",
- "trigger":"appointment"}
-
-# 소문 따라간 신규 시도
-{"time":"19:30","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"새 카페 탐방",
- "reasoning":"3일 전 이웃 AGT_..._F_30대가 '개포타임스터디카페 분위기 좋다'고 추천. 평소 카페 잘 안 가지만 그 사람 취향이 나랑 비슷한 편이라 한 번 믿어보기로.",
- "trigger":"rumor"}
-
-trigger enum (사후 라벨링 — reasoning을 자유롭게 쓴 뒤 가장 가까운 enum 하나 선택.
-trigger를 먼저 정해두고 reasoning을 짜맞추지 말 것):
-- "appointment"  : 약속에서 비롯됨
-- "rumor"        : 어제·그제 들은 소문·추천이 결정의 주된 동인
-- "policy"       : 정책의 쿠폰·바우처·캠페인이 결정에 영향
-- "lifestyle"    : 페르소나의 장기 성향이 주된 동인 (정형적 루틴 포함)
-- "mood"         : 오늘의 컨디션(mood/fatigue/yesterday_satisfaction)이 결정을 흔듦
-- "none"         : 집·직장 같은 자동 anchor 또는 특정 한 가지 동인이 두드러지지 않음
+[소비성향 daily_propensity — 최상위 필드]
+최상위에 오늘의 **소비성향 `daily_propensity` (0~1)** 를 출력한다 = "오늘 가진 돈(잔액+지원금) 중
+얼마나 쓸지". 금액이 아니라 *비율*이다. 어제 컨디션·잔액·지원금·페르소나 소득/성향으로 판단:
+- 소득이 낮거나 지원금을 막 받았으면 → 높게(쓸 곳이 많고 여윳돈이 귀함).
+- 여유롭거나 저축 성향이면 → 낮게(남겨둠). 단가는 Stage2가 정하므로 여기선 성향만.
 
 [출력 형식]
 다음 JSON 스키마만 출력. 다른 텍스트 금지.
-zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 페르소나 블록의 거주 동 코드·직장 동 코드를 그대로 복사할 것.
+zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 위 'zone 후보' 목록의 코드만 그대로 복사할 것.
 플레이스홀더 텍스트 (`<home_dong_code>` 등)는 **금지**. 실제 숫자만.
 
 **모든 이벤트는 reasoning + trigger 필드를 반드시 포함**. 절대 생략 금지.
 
 예시 (실제 dong_code는 페르소나 블록 참조 / reasoning은 페르소나 → 행동 직결이 아닌 살아있는 흐름):
-{"events": [
+{"daily_propensity": 0.72,
+ "events": [
   {"time":"08:10","anchor":"residence","category":"집","intent":"기상",
    "reasoning":"평일 아침 기상. 어제 fatigue 0.4로 그리 피곤하진 않았음. 가족이 깰 시간 맞춰 자연스럽게 일어남.",
    "trigger":"none"},
@@ -380,17 +344,12 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
 
 def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     blocks = ctx.to_prompt_blocks()
-    # zone anchor에 쓸 실제 dong code를 명시적으로 추출 (LLM이 placeholder 출력 방지)
-    home_dong = ctx.persona.get("home_dong_code") or ""
-    work_dong = ctx.persona.get("work_dong_code") or ""
-    dong_codes = f"- 거주 동 코드 (zone:으로 사용 시): {home_dong}\n"
-    if work_dong:
-        dong_codes += f"- 직장 동 코드 (zone:으로 사용 시): {work_dong}\n"
     return f"""## 페르소나
 {blocks['persona']}
 
-## zone anchor 코드 (반드시 이 값들 중 하나만 사용)
-{dong_codes}
+## 오늘 갈 수 있는 zone 후보 (외출 anchor=zone:<코드> 에는 아래 코드만 사용)
+{blocks['zones']}
+
 ## 어제 상태
 {blocks['state']}
 
