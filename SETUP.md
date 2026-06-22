@@ -199,28 +199,28 @@ curl http://localhost:30000/v1/models
 `data/raw/` 안에 7대 원본 CSV(텔레콤·카드·KT 유동인구·집계구 결제 등)가 있어야 한다.
 데이터가 없으면 합성 데이터 모드로 진행 가능:
 ```bash
-python preprocess_join.py synthetic
+python scripts/bdc/preprocess_join.py synthetic
 ```
 
 ### 6-2. 통계 산출 + 에이전트 생성
 
 ```bash
-python preprocess_join.py original           # data/raw → output/original/
-python analyze_stats.py                      # output/stats/*.json (7종)
+python scripts/bdc/preprocess_join.py original     # data/raw → output/original/
+python scripts/bdc/analyze_stats.py                # output/stats/*.json (7종)
 
 # 에이전트 약 15,000명 생성 (LLM 호출, ~30분 ~ 2시간 GPU 의존)
-python generate_agents.py --max-concurrent 16
+python scripts/bdc/generate_agents.py --max-concurrent 16
 # 결과: output/agents/agents_final.json
 ```
 
 스모크 테스트:
 ```bash
-python generate_agents.py --limit 20 --max-concurrent 4
+python scripts/bdc/generate_agents.py --limit 20 --max-concurrent 4
 ```
 
 검증:
 ```bash
-python validate_vs_raw.py
+python scripts/bdc/validate_vs_raw.py
 ```
 
 ### 6-3. Neo4j 적재 (9단계 자동)
@@ -440,7 +440,7 @@ kw_26_final_project/
 → SGLang 서버가 안 떠 있다. `curl http://localhost:30000/v1/models` 로 살아있나 확인.
 
 **Q. agent 생성 후 `agents_final.json` 이 비어있음**
-→ LLM이 JSON 스키마 못 맞춤. `generate_agents.py --limit 5 --verbose` 로 raw 출력 봐서
+→ LLM이 JSON 스키마 못 맞춤. `scripts/bdc/generate_agents.py --limit 5 --verbose` 로 raw 출력 봐서
 어디서 깨지는지 보고, 더 작은 모델(`qwen9b`)로 디버그.
 
 **Q. 시뮬 도중 `OutOfMemory` (Neo4j)**

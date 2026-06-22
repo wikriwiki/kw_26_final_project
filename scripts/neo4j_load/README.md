@@ -39,7 +39,7 @@ python scripts/neo4j_load/run_all.py
 |---|---|
 | [`docs/schedule_generation_plan/agent_ontology.md`](../../docs/schedule_generation_plan/agent_ontology.md) | 정적 노드 5종 (`Agent`/`POI`/`District`/`Dong`/`Category`) + 엣지 |
 | [`docs/schedule_generation_plan/runtime_ontology.md`](../../docs/schedule_generation_plan/runtime_ontology.md) | 런타임 노드 (`State`/`Plan`/`Memory`/`Conversation`/`Policy`) + 엣지 |
-| [`docs/NEO4J_SETUP_GUIDE.md`](../../docs/NEO4J_SETUP_GUIDE.md) | **한 페이지 통합 가이드 (노션 공유용)** — 환경·DDL·적재 절차 1파일 |
+| [`docs/guides/NEO4J_SETUP_GUIDE.md`](../../docs/guides/NEO4J_SETUP_GUIDE.md) | **한 페이지 통합 가이드 (노션 공유용)** — 환경·DDL·적재 절차 1파일 |
 | [`data/neo4j_load/README.md`](../../data/neo4j_load/README.md) | 입력 데이터 명세 + 현황 |
 
 ## 시뮬 본체 (Day 0 적재 이후)
@@ -51,9 +51,9 @@ Day 0 그래프가 준비되면 다음 단계 = 매일 시뮬:
 | [`scripts/sim/`](../sim/) | Dawn(Stage 1·2) + Plan + Night Phase 1·2·3 통합 메인 루프 |
 | [`scripts/serve/`](../serve/) | SGLang 서버 launch (qwen32b / qwen9b / exaone 3종) |
 | [`docs/SIM_PILOT_RESULTS.md`](../../docs/SIM_PILOT_RESULTS.md) | 14,560 agent × 3일 풀런 KPI + 정책 DID 분석 |
-| [`docs/NIGHT_INTERACTION_REPORT.md`](../../docs/NIGHT_INTERACTION_REPORT.md) | Night Phase 2 (상호작용·의도 분류) 통합 보고 |
-| [`docs/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/NIGHT_NOTION_DIAGRAM_MAPPING.md) | 노션 다이어그램 12박스 → 코드 1:1 매핑 검증 |
-| [`docs/SGLANG_MIGRATION.md`](../../docs/SGLANG_MIGRATION.md) | vLLM → SGLang 마이그레이션 (RadixAttention·structured output) |
+| [`docs/design/NIGHT_INTERACTION_REPORT.md`](../../docs/design/NIGHT_INTERACTION_REPORT.md) | Night Phase 2 (상호작용·의도 분류) 통합 보고 |
+| [`docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md) | 노션 다이어그램 12박스 → 코드 1:1 매핑 검증 |
+| [`docs/archive/SGLANG_MIGRATION.md`](../../docs/archive/SGLANG_MIGRATION.md) | vLLM → SGLang 마이그레이션 (RadixAttention·structured output) |
 
 ---
 

@@ -11,11 +11,8 @@ scripts/geocode/cache/
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
-.venv/
 .venv*/
 venv/
-*.egg-info/
 
 # Data large files (kept in worktree but not committed)
 data/InboundData/
@@ -32,7 +29,14 @@ output/
 !output/sim/visualization/
 !output/sim/visualization/index.html
 output/sim/visualization/*.json
-# sim_standalone.html은 Git LFS로 추적 (97MB+ 단일 시각화 번들)
+# sim_standalone.html은 327MB로 GitHub 단일파일 제한 초과 — git 제외, 드라이브로 공유
+output/sim/visualization/sim_standalone.html
+# 페르소나 생성용 통계 JSON (다른 작업자 reuse 위해 push)
+!output/stats/
+!output/stats/*.json
+# 최종 보고서 (md + html + 차트 PNG)
+!output/sim/report/
+!output/sim/report/**
 
 # Claude state (Drive 동기화 전용, git 추적 X)
 _claude_state/
@@ -49,49 +53,29 @@ logs/
 .DS_Store
 Thumbs.db
 
-# 런타임 산출물 — 폴더 구조(.gitkeep, README.md)는 추적, 내부 파일은 무시
-output/**
-!output/
-!output/README.md
-!output/logs/
-!output/logs/.gitkeep
-!output/plans/
-!output/plans/.gitkeep
-
-# 정책 inbox/processed — 처리 결과 보관은 환경별 운영 (별도 백업 권장)
-data/policies/inbox/*
-!data/policies/inbox/.gitkeep
-data/policies/processed/*
-!data/policies/processed/.gitkeep
-
-# seed는 추적 — 다만 큰 바이너리는 LFS 검토
-
 # 대회·제안 자료 (시뮬과 무관)
 *.hwp
 *.hwpx
+# 글자 class([..])로 오인되지 않게 \[ 로 이스케이프
 \[2026*서울시*경진대회*\]*
 
-# 옛 prototype 잔재 (Nemotron 통합 폐기)
-assign_income_bucket.py
-dump_nemotron_occupations.py
-extract_ksco_codes.py
-match_occupation_to_ksco.py
-
-# 루트의 별도 옛 분석 코드
-file_discovery.py
-patch_failed_joins.py
-preprocess_join.py
-analyze_stats.py
-generate_agents.py
-synthetic_generator.py
-compare_stats.py
-compare_to_json.py
-count_seoul.py
-inspect_personas.py
-quick_validate.py
-validate_agents.py
-validate_pandas_analyze.py
-validate_pandas_workers.py
+# BDC 전처리·검증 보조 스크립트 — 핵심 4개(analyze_stats / generate_agents / preprocess_join /
+# validate_vs_raw)만 트래킹, 나머지는 로컬 전용. scripts/bdc/ 로 통합 정리 (2026-05-24).
+scripts/bdc/assign_income_bucket.py
+scripts/bdc/dump_nemotron_occupations.py
+scripts/bdc/extract_ksco_codes.py
+scripts/bdc/match_occupation_to_ksco.py
+scripts/bdc/file_discovery.py
+scripts/bdc/patch_failed_joins.py
+scripts/bdc/synthetic_generator.py
+scripts/bdc/compare_stats.py
+scripts/bdc/compare_to_json.py
+scripts/bdc/count_seoul.py
+scripts/bdc/inspect_personas.py
+scripts/bdc/quick_validate.py
+scripts/bdc/validate_agents.py
+scripts/bdc/validate_pandas_analyze.py
+scripts/bdc/validate_pandas_workers.py
 architecture_plan.md
 
 # prototype 폴더 (옛 시뮬, 별도 브랜치)
@@ -99,4 +83,24 @@ prototype/
 
 # Sim output (메트릭·체크포인트는 로컬만)
 sim_output/
+
+# NVIDIA 실데이터 (prepare_nvidia.py 산출, 대용량 — 각 환경서 받음)
+data/personas/nvidia_seoul_full.json
+data/personas/nvidia_seoul_full.jsonl
+
+# 시각화 큰 파일들 제외
+output/sim/_archive_*/visualization/*.json
+output/sim/_archive_*/visualization/sim_standalone.html
+output/sim/visualization/timeline.json
+output/sim/visualization/memories.json
+output/sim/visualization/events.json
+output/sim/visualization/sim_standalone.html
+output/sim/visualization/sim_standalone.zip
+output/neo4j_backup_*/
+
+# visualization branch: keep the final 3D bundle tracked via Git LFS
+!output/sim/visualization/sim_standalone.html
+
+# Local workspace tool state
 .superpowers/
+

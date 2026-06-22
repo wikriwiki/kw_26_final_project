@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import os
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,11 +42,46 @@ MODELS: dict[str, ModelSpec] = {
         family="qwen",
         description="기본값. AWQ 4-bit 양자화. RTX 5090 / A100 80GB 1장에서 동작.",
     ),
+    "qwen8b": ModelSpec(
+        key="qwen8b",
+        hf_id="Qwen/Qwen3-8B",
+        family="qwen",
+        description="텍스트 전용 8B 모델. BF16, RTX 5090 32GB에 여유. "
+                    "Qwen3-14B-AWQ 대비 ~30% 빠름. 페르소나 요약·시뮬 기본값.",
+    ),
+    "qwen35_9b_awq": ModelSpec(
+        key="qwen35_9b_awq",
+        hf_id="QuantTrio/Qwen3.5-9B-AWQ",
+        family="qwen",
+        description="Qwen3.5-9B AWQ 4-bit (community 빌드). VRAM ~5GB → KV cache 대폭 여유. "
+                    "Qwen3-8B BF16 대비 환각·품질 개선 + workers 80+ 가능.",
+    ),
+    "qwen3_8b_awq": ModelSpec(
+        key="qwen3_8b_awq",
+        hf_id="Qwen/Qwen3-8B-AWQ",
+        family="qwen",
+        description="Qwen3-8B 공식 AWQ. Qwen3.5-9B-AWQ swap 실패 시 fallback. "
+                    "VRAM ~5GB. 같은 8B family라 8B BF16 대비 분석 mix 영향 최소.",
+    ),
+    "qwen36_35b_a3b_awq": ModelSpec(
+        key="qwen36_35b_a3b_awq",
+        hf_id="QuantTrio/Qwen3.6-35B-A3B-AWQ",
+        family="qwen",
+        description="Qwen3.6-35B-A3B AWQ (MoE 35B 총, 3B active). text-only 모드. "
+                    "VRAM ~18GB. throughput 25~40 agents/min 기대. workers 32~48.",
+    ),
+    "qwen3_30b_a3b_awq": ModelSpec(
+        key="qwen3_30b_a3b_awq",
+        hf_id="stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ",
+        family="qwen",
+        description="Qwen3-30B-A3B-Instruct-2507 AWQ (MoE 30B, 3B active). Qwen3.6 fallback. "
+                    "VRAM ~15GB. throughput 25~35 agents/min 기대.",
+    ),
     "qwen9b": ModelSpec(
         key="qwen9b",
-        hf_id="Qwen/Qwen3.5-9B",
+        hf_id="Qwen/Qwen3-8B",
         family="qwen",
-        description="개발/디버깅용 9B 모델.",
+        description="(deprecated) qwen8b alias — Qwen3.5-9B 멀티모달 회피. qwen8b 사용 권장.",
     ),
     "qwen14b": ModelSpec(
         key="qwen14b",
@@ -62,7 +98,7 @@ MODELS: dict[str, ModelSpec] = {
     ),
 }
 
-DEFAULT_MODE = "qwen32b"
+DEFAULT_MODE = "qwen8b"
 DEFAULT_BASE_URL = "http://localhost:30000/v1"   # SGLang 기본 포트
 VLLM_FALLBACK_URL = "http://localhost:8000/v1"   # vLLM 기존 포트 (호환)
 
@@ -90,9 +126,10 @@ def get_active_mode() -> str:
 
 
 # ═══════════════════════════════════════════
-# 클라이언트 (싱글톤)
+# 클라이언트 (싱글톤, thread-safe)
 # ═══════════════════════════════════════════
 _CLIENT: OpenAI | None = None
+_CLIENT_LOCK = threading.Lock()
 
 
 def make_client(base_url: str | None = None) -> OpenAI:
@@ -124,10 +161,18 @@ def _autodetect_base_url() -> str:
 
 
 def get_client() -> OpenAI:
-    """싱글톤 클라이언트. 스레드 안전."""
+    """싱글톤 클라이언트. double-checked locking 으로 thread-safe.
+
+    workers=32+ 의 첫 호출에서 race condition 으로 다중 client 생성 방지.
+    OpenAI SDK 내부 httpx 클라이언트가 connection pool 을 가지므로 단일
+    인스턴스 재사용이 HTTP keep-alive 효과 극대화.
+    """
     global _CLIENT
-    if _CLIENT is None:
-        _CLIENT = make_client()
+    if _CLIENT is not None:
+        return _CLIENT
+    with _CLIENT_LOCK:
+        if _CLIENT is None:
+            _CLIENT = make_client()
     return _CLIENT
 
 
@@ -152,12 +197,17 @@ def call_chat(
     temperature: float = 0.7,
     max_tokens: int = 1200,
     client: OpenAI | None = None,
+    response_format: dict | None = None,
 ) -> Any:
-    """동기 호출. response 객체 그대로 반환 (usage·choices 등 메타 필요)."""
+    """동기 호출. response 객체 그대로 반환 (usage·choices 등 메타 필요).
+
+    response_format: vLLM `response_format` 전달 — strict JSON schema 강제.
+    예: {"type":"json_schema","json_schema":{"name":"...","strict":True,"schema":{...}}}
+    """
     spec = get_spec(mode)
     cli = client or get_client()
     extra = _extra_body_for(spec.family)
-    return cli.chat.completions.create(
+    kwargs: dict = dict(
         model=spec.hf_id,
         messages=[
             {"role": "system", "content": system_prompt},
@@ -167,6 +217,9 @@ def call_chat(
         max_tokens=max_tokens,
         extra_body=extra or None,
     )
+    if response_format:
+        kwargs["response_format"] = response_format
+    return cli.chat.completions.create(**kwargs)
 
 
 # ═══════════════════════════════════════════
