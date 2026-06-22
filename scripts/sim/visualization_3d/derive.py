@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import hashlib
-import math
 from datetime import date, timedelta
 from typing import Any
 
@@ -29,7 +27,6 @@ def build_viz_meta(
         "spend_bursts": _build_spend_bursts(events, frame_by_day_hour),
         "meetups": _build_meetups(memories, poi_index, frame_by_day_hour, frame_positions),
         "rumor_edges": _build_rumor_edges(memories, frame_by_day_hour),
-        "building_features": _building_features(poi_index),
     }
 
 
@@ -229,46 +226,6 @@ def _build_rumor_edges(
     return edges
 
 
-def _building_features(poi_index: dict[str, dict[str, Any]]) -> dict[str, Any]:
-    features = []
-    for poi_id, poi in sorted(poi_index.items()):
-        visits = max(1, _int_or_zero(poi.get("visit_count")))
-        spent = max(0, _int_or_zero(poi.get("spent_total")))
-        height = min(130.0, 18.0 + visits * 1.6 + math.log10(spent + 1) * 8.0)
-        angle = _stable_angle(poi_id)
-        width = 0.000055 + min(0.00011, visits * 0.000004)
-        depth = 0.000045 + min(0.00009, visits * 0.000003)
-        dx = math.cos(angle) * width
-        dy = math.sin(angle) * width
-        ex = -math.sin(angle) * depth
-        ey = math.cos(angle) * depth
-        lon = float(poi["lon"])
-        lat = float(poi["lat"])
-        coordinates = [
-            [lon - dx - ex, lat - dy - ey],
-            [lon + dx - ex, lat + dy - ey],
-            [lon + dx + ex, lat + dy + ey],
-            [lon - dx + ex, lat - dy + ey],
-            [lon - dx - ex, lat - dy - ey],
-        ]
-
-        features.append(
-            {
-                "type": "Feature",
-                "properties": {
-                    "id": poi_id,
-                    "name": poi["name"],
-                    "height": round(height, 2),
-                    "spent_total": spent,
-                    "visit_count": visits,
-                    "cat": poi.get("cat") or "기타",
-                },
-                "geometry": {"type": "Polygon", "coordinates": [coordinates]},
-            }
-        )
-    return {"type": "FeatureCollection", "features": features}
-
-
 def _frame_index_by_day_hour(timeline: list[dict[str, Any]]) -> dict[tuple[str, int], int]:
     return {
         (str(frame.get("day") or ""), int(frame.get("hour") or 0)): index
@@ -330,11 +287,6 @@ def _hour_from_time(value: str | None) -> int:
 
 def _normalize_name(value: str | None) -> str:
     return "".join(ch for ch in (value or "").casefold() if ch.isalnum())
-
-
-def _stable_angle(key: str) -> float:
-    digest = hashlib.sha1(key.encode("utf-8")).hexdigest()
-    return (int(digest[:8], 16) % 360) * math.pi / 180.0
 
 
 def _int_or_zero(value: Any) -> int:

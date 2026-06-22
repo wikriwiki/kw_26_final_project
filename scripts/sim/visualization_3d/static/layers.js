@@ -193,6 +193,8 @@
   }
 
   Sim3D.makeLayers = function makeLayers() {
+    // Map-only view: no agent / spend / interaction overlays, just the 3D map.
+    return [];
     if (!window.deck) return [];
     const z = zoom();
     const agents = typeof Sim3D.getInterpolatedAgents === "function" ? Sim3D.getInterpolatedAgents() : [];

@@ -1,5 +1,5 @@
 :root {
-  --bg: #05070d;
+  --bg: #eaeef3;
   --panel: rgba(6, 10, 18, 0.74);
   --panel-strong: rgba(6, 10, 18, 0.92);
   --line: rgba(180, 216, 255, 0.16);
@@ -608,4 +608,15 @@ select:focus-visible {
   #frame-label {
     display: none;
   }
+}
+
+/* Map-only view: hide all HUD chrome, keep just the 3D map + agent overlay. */
+#top-hud,
+#chapter-rail,
+#macro-panel,
+#detail-card,
+#news-banner,
+#transport,
+#scene-vignette {
+  display: none !important;
 }

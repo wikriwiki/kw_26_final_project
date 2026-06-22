@@ -1,56 +1,72 @@
 (function () {
   const Sim3D = (window.Sim3D = window.Sim3D || {});
 
-  function emptyFeatureCollection() {
-    return { type: "FeatureCollection", features: [] };
-  }
+  // OpenFreeMap vector tiles (no API key, free). OpenMapTiles schema.
+  // Replicates https://maplibre.org/maplibre-gl-js/docs/examples/display-buildings-in-3d/
+  const OPENFREEMAP_TILES = "https://tiles.openfreemap.org/planet";
+  const BRIGHT_STYLE_URL = "https://tiles.openfreemap.org/styles/bright";
 
-  function buildingFeatures() {
-    const state = Sim3D.state || {};
-    const features = state.meta && state.meta.building_features;
-    return features && features.type === "FeatureCollection" ? features : emptyFeatureCollection();
-  }
+  // Add the 3D buildings layer exactly as the MapLibre reference example:
+  // find the first text label layer and insert the extrusion beneath it.
+  function add3dBuildings(map) {
+    if (!map || typeof map.getStyle !== "function" || !map.getStyle()) return;
+    if (map.getLayer("3d-buildings")) return;
 
-  function styleModeMap() {
-    return {
-      version: 8,
-      sources: {
-        cityBuildings: {
-          type: "geojson",
-          data: buildingFeatures()
+    const layers = map.getStyle().layers || [];
+    let labelLayerId;
+    for (let i = 0; i < layers.length; i++) {
+      if (layers[i].type === "symbol" && layers[i].layout && layers[i].layout["text-field"]) {
+        labelLayerId = layers[i].id;
+        break;
+      }
+    }
+
+    if (!map.getSource("openfreemap")) {
+      map.addSource("openfreemap", {
+        url: OPENFREEMAP_TILES,
+        type: "vector"
+      });
+    }
+
+    map.addLayer(
+      {
+        id: "3d-buildings",
+        source: "openfreemap",
+        "source-layer": "building",
+        type: "fill-extrusion",
+        minzoom: 15,
+        filter: ["!=", ["get", "hide_3d"], true],
+        paint: {
+          "fill-extrusion-color": [
+            "interpolate",
+            ["linear"],
+            ["get", "render_height"],
+            0,
+            "lightgray",
+            200,
+            "royalblue",
+            400,
+            "lightblue"
+          ],
+          "fill-extrusion-height": [
+            "interpolate",
+            ["linear"],
+            ["zoom"],
+            15,
+            0,
+            16,
+            ["get", "render_height"]
+          ],
+          "fill-extrusion-base": [
+            "case",
+            [">=", ["get", "zoom"], 16],
+            ["get", "render_min_height"],
+            0
+          ]
         }
       },
-      layers: [
-        {
-          id: "background",
-          type: "background",
-          paint: { "background-color": "#05070d" }
-        },
-        {
-          id: "city-buildings",
-          type: "fill-extrusion",
-          source: "cityBuildings",
-          minzoom: 10,
-          paint: {
-            "fill-extrusion-color": [
-              "interpolate",
-              ["linear"],
-              ["get", "spent_total"],
-              0,
-              "#101826",
-              20000,
-              "#153046",
-              150000,
-              "#1d5b72"
-            ],
-            "fill-extrusion-height": ["coalesce", ["get", "height"], 18],
-            "fill-extrusion-base": 0,
-            "fill-extrusion-opacity": 0.72,
-            "fill-extrusion-vertical-gradient": true
-          }
-        }
-      ]
-    };
+      labelLayerId
+    );
   }
 
   function notify(message) {
@@ -75,21 +91,35 @@
     const state = Sim3D.state;
     state.map = new maplibregl.Map({
       container: "map",
-      style: styleModeMap(),
+      style: BRIGHT_STYLE_URL,
       center: [126.978, 37.566],
-      zoom: 11.2,
-      pitch: 58,
-      bearing: -18,
+      zoom: 15.5,
+      pitch: 45,
+      bearing: -17.6,
       antialias: true,
       attributionControl: false
     });
 
-    await new Promise(function (resolve, reject) {
-      state.map.once("load", resolve);
-      state.map.once("error", function (event) {
-        reject(event && event.error ? event.error : new Error("MapLibre failed to load"));
+    // Tiles/glyphs come from OpenFreeMap over the network. Treat per-resource
+    // errors as non-fatal so a slow/blocked tile never blocks the agent overlay;
+    // a safety timeout resolves even if "load" is delayed.
+    await new Promise(function (resolve) {
+      let settled = false;
+      function done() {
+        if (settled) return;
+        settled = true;
+        resolve();
+      }
+      state.map.once("load", done);
+      state.map.on("error", function (event) {
+        const error = event && event.error ? event.error : new Error("map resource failed");
+        console.warn("MapLibre resource error:", error.message || error);
+        if (!settled) notify("지도 타일을 불러오지 못했습니다. 인터넷 연결을 확인해주세요.");
       });
+      window.setTimeout(done, 15000);
     });
+
+    add3dBuildings(state.map);
 
     state.overlay = new deck.MapboxOverlay({
       interleaved: true,
@@ -130,8 +160,9 @@
 
     state.baseMode = mode;
     if (mode === "style") {
-      state.map.setStyle(styleModeMap());
+      state.map.setStyle(BRIGHT_STYLE_URL);
       state.map.once("styledata", function () {
+        add3dBuildings(state.map);
         Sim3D.refreshLayers();
       });
       return;
@@ -166,5 +197,5 @@
     state.overlay.setProps({ layers: Sim3D.makeLayers() });
   };
 
-  Sim3D.styleModeMap = styleModeMap;
+  Sim3D.add3dBuildings = add3dBuildings;
 })();

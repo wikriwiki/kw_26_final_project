@@ -65,7 +65,7 @@
     agentById: new Map(),
     frameIndex: 0,
     frameT: 0,
-    playing: false,
+    playing: true,
     speed: 1,
     mode: "story",
     baseMode: "style",
