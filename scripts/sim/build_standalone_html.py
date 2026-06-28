@@ -72,6 +72,33 @@ STATIC_JS_FILES = (
 )
 
 
+def fetch_policy_dongs_safe() -> list[dict]:
+    """정책-동 적용 범위 조회. Neo4j 접속이 안 되면(오프라인 재빌드 등) 빈 리스트로
+    폴백 — 정책 마커는 빠지지만 나머지 시각화 빌드는 계속 진행된다."""
+    try:
+        return fetch_policy_dongs()
+    except Exception as exc:  # pragma: no cover - best-effort network/db call
+        print(f"  WARNING: policy dong fetch failed ({exc}), skipping policy zones")
+        return []
+
+
+def fetch_policy_dongs() -> list[dict]:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "neo4j_load"))
+    from _common import driver_session  # noqa: PLC0415
+
+    with driver_session() as s:
+        rows = s.run(
+            """
+            MATCH (p:Policy)-[:applied_to]->(d:Dong)
+            WHERE d.lon IS NOT NULL AND d.lat IS NOT NULL
+            RETURN p.id AS policy_id, p.name AS policy_name,
+                   p.effective_from AS effective_from, p.effective_until AS effective_until,
+                   d.code AS dong_code, d.name AS dong_name, d.lon AS lon, d.lat AS lat
+            """
+        )
+        return [dict(r) for r in rows]
+
+
 def fetch_url(url: str) -> str:
     print(f"  downloading {url} ...")
     request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -98,6 +125,7 @@ def build_3d_standalone(viz_dir: Path | None = None) -> Path:
         payload["__TIMELINE__"],
         payload["__MEMORIES__"],
         payload["__EVENTS__"],
+        fetch_policy_dongs_safe(),
     )
 
     template = TEMPLATE_PATH.read_text(encoding="utf-8")

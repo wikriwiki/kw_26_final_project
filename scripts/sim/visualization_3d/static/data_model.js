@@ -247,13 +247,55 @@
     state.macroSeries = Sim3D.buildMacroSeries();
   };
 
+  Sim3D.hasAppointment = function hasAppointment(agentId) {
+    const state = getState();
+    const mem = state.memories && state.memories[agentId];
+    return !!(mem && Array.isArray(mem.appointments) && mem.appointments.length > 0);
+  };
+
+  Sim3D.computeMemoryTotals = function computeMemoryTotals() {
+    const state = getState();
+    const memories = state.memories || {};
+    let totMem = 0;
+    let totAppt = 0;
+    let totRumor = 0;
+    Object.keys(memories).forEach(function (agentId) {
+      const mem = memories[agentId] || {};
+      totMem += (mem.visited || []).length;
+      totAppt += (mem.appointments || []).length;
+      totRumor += (mem.memories || []).filter(function (item) {
+        return item.type === "rumor";
+      }).length;
+    });
+    return { totMem: totMem, totAppt: totAppt, totRumor: totRumor };
+  };
+
   Sim3D.getColorForAgentFrame = function getColorForAgentFrame(agent, agentFrame) {
-    if (!agentFrame) return [98, 115, 134, 70];
+    const state = getState();
+    const mode = state.colorMode || "cat";
+    const distCode = agent && agent.dist_code != null ? String(agent.dist_code) : "";
+
+    if (mode === "appointment") {
+      const hasAppt = Sim3D.hasAppointment(agent && agent.id);
+      return hasAppt ? [157, 78, 221, 220] : [136, 136, 136, 150];
+    }
+
+    if (!agentFrame) {
+      if (mode === "dist") {
+        const base = DIST_COLORS[distCode] || [136, 136, 136];
+        return [base[0], base[1], base[2], 70];
+      }
+      return [98, 115, 134, 70];
+    }
+
+    const alpha = finiteNumber(agentFrame.spent, 0) > 0 ? 245 : 185;
+    if (mode === "dist") {
+      const base = DIST_COLORS[distCode] || CAT_COLORS["기타"];
+      return [base[0], base[1], base[2], alpha];
+    }
 
     const category = agentFrame.l1 || agentFrame.cat;
-    const distCode = agent && agent.dist_code != null ? String(agent.dist_code) : "";
     const baseColor = CAT_COLORS[category] || DIST_COLORS[distCode] || CAT_COLORS["기타"];
-    const alpha = finiteNumber(agentFrame.spent, 0) > 0 ? 245 : 185;
     return [baseColor[0], baseColor[1], baseColor[2], alpha];
   };
 
@@ -269,7 +311,7 @@
     const nextMap = frameMaps[nextIndex] instanceof Map ? frameMaps[nextIndex] : frameMap(timeline[nextIndex]);
     const t = clamp01(state.frameT);
 
-    return collectAgents(state, currentMap, nextMap).map(function (agent) {
+    const interpolated = collectAgents(state, currentMap, nextMap).map(function (agent) {
       const id = agent.id;
       const currentFrame = getFrameFromMap(currentMap, id);
       const nextFrame = getFrameFromMap(nextMap, id);
@@ -289,6 +331,89 @@
         color: Sim3D.getColorForAgentFrame(agent, frame)
       };
     });
+
+    const distFilter = state.distFilter || "all";
+    if (distFilter === "all") return interpolated;
+    return interpolated.filter(function (item) {
+      return item.agent && String(item.agent.dist_code) === distFilter;
+    });
+  };
+
+  let lastTrailFrameIndex = -1;
+  let lastTrailWindowSize = -1;
+  let cachedTrails = [];
+
+  Sim3D.getAgentTrails = function getAgentTrails(windowSize) {
+    const state = getState();
+    const timeline = timelineFrames(state);
+    if (!timeline.length) return [];
+
+    const size = Math.max(2, intOrZero(windowSize) || 6);
+    const index = safeFrameIndex(state);
+    if (index === lastTrailFrameIndex && size === lastTrailWindowSize) {
+      return cachedTrails;
+    }
+
+    const frameMaps = ensureFrameMaps(state);
+    const start = Math.max(0, index - size + 1);
+    const byAgent = new Map();
+
+    for (let frameIndex = start; frameIndex <= index; frameIndex++) {
+      const map = frameMaps[frameIndex];
+      if (!(map instanceof Map)) continue;
+      map.forEach(function (agentFrame, id) {
+        if (agentFrame.lon == null || agentFrame.lat == null) return;
+        const key = String(id);
+        if (!byAgent.has(key)) byAgent.set(key, { id: id, path: [], timestamps: [] });
+        const entry = byAgent.get(key);
+        entry.path.push([Number(agentFrame.lon), Number(agentFrame.lat), 8]);
+        entry.timestamps.push(frameIndex - start);
+      });
+    }
+
+    cachedTrails = Array.from(byAgent.values()).filter(function (entry) {
+      return entry.path.length > 1;
+    });
+    lastTrailFrameIndex = index;
+    lastTrailWindowSize = size;
+    return cachedTrails;
+  };
+
+  let lastArcFrameIndex = -1;
+  let cachedArcs = [];
+
+  Sim3D.getAgentMoveArcs = function getAgentMoveArcs() {
+    const state = getState();
+    const timeline = timelineFrames(state);
+    if (!timeline.length) return [];
+
+    const index = safeFrameIndex(state);
+    if (index === lastArcFrameIndex) return cachedArcs;
+
+    const frameMaps = ensureFrameMaps(state);
+    const prevMap = frameMaps[Math.max(0, index - 1)];
+    const currentMap = frameMaps[index];
+    const arcs = [];
+
+    if (currentMap instanceof Map && prevMap instanceof Map && prevMap !== currentMap) {
+      currentMap.forEach(function (agentFrame, id) {
+        const prevFrame = getFrameFromMap(prevMap, id);
+        if (!prevFrame || agentFrame.lon == null || agentFrame.lat == null) return;
+        if (prevFrame.lon == null || prevFrame.lat == null) return;
+        const dLon = Number(agentFrame.lon) - Number(prevFrame.lon);
+        const dLat = Number(agentFrame.lat) - Number(prevFrame.lat);
+        if (Math.abs(dLon) < 0.0003 && Math.abs(dLat) < 0.0003) return;
+        arcs.push({
+          id: id,
+          from: [Number(prevFrame.lon), Number(prevFrame.lat)],
+          to: [Number(agentFrame.lon), Number(agentFrame.lat)]
+        });
+      });
+    }
+
+    cachedArcs = arcs;
+    lastArcFrameIndex = index;
+    return cachedArcs;
   };
 
   Sim3D.getCurrentBursts = function getCurrentBursts() {
@@ -356,4 +481,6 @@
 
   Sim3D.formatWon = formatWon;
   Sim3D.DIST_NAMES = DIST_NAMES;
+  Sim3D.CAT_COLORS = CAT_COLORS;
+  Sim3D.DIST_COLORS = DIST_COLORS;
 })();

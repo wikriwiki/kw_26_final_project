@@ -14,6 +14,7 @@ def build_viz_meta(
     timeline: list[dict[str, Any]],
     memories: dict[str, dict[str, Any]],
     events: dict[str, list[dict[str, Any]]],
+    policy_dongs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     frame_by_day_hour = _frame_index_by_day_hour(timeline)
     frame_positions = _frame_position_lookup(timeline)
@@ -27,7 +28,30 @@ def build_viz_meta(
         "spend_bursts": _build_spend_bursts(events, frame_by_day_hour),
         "meetups": _build_meetups(memories, poi_index, frame_by_day_hour, frame_positions),
         "rumor_edges": _build_rumor_edges(memories, frame_by_day_hour),
+        "policy_zones": _build_policy_zones(policy_dongs or []),
     }
+
+
+def _build_policy_zones(policy_dongs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    zones: dict[str, dict[str, Any]] = {}
+    for row in policy_dongs:
+        policy_id = row.get("policy_id")
+        dong_code = row.get("dong_code")
+        if not policy_id or not dong_code or row.get("lon") is None or row.get("lat") is None:
+            continue
+
+        zones[f"{policy_id}:{dong_code}"] = {
+            "policy_id": policy_id,
+            "policy_name": row.get("policy_name") or str(policy_id),
+            "dong_code": dong_code,
+            "dong_name": row.get("dong_name") or str(dong_code),
+            "lon": float(row["lon"]),
+            "lat": float(row["lat"]),
+            "effective_from": row.get("effective_from"),
+            "effective_until": row.get("effective_until"),
+        }
+
+    return sorted(zones.values(), key=lambda item: (item["policy_id"], item["dong_code"]))
 
 
 def _frame_summaries(timeline: list[dict[str, Any]]) -> list[dict[str, Any]]:

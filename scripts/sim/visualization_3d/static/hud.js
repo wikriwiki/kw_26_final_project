@@ -12,9 +12,98 @@
     });
   }
 
+  function bindLayerToggle(buttonId, key, defaultOn) {
+    const state = Sim3D.state;
+    state.layerToggles = state.layerToggles || {};
+    if (state.layerToggles[key] == null) state.layerToggles[key] = defaultOn;
+
+    const button = byId(buttonId);
+    if (!button) return;
+    button.classList.toggle("active", !!state.layerToggles[key]);
+    button.addEventListener("click", function () {
+      state.layerToggles[key] = !state.layerToggles[key];
+      button.classList.toggle("active", state.layerToggles[key]);
+      if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
+    });
+  }
+
   function chartAvailable() {
     return typeof window.Chart === "function";
   }
+
+  function rgbCss(color) {
+    return "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
+  }
+
+  function renderLegendItems() {
+    const el = byId("legend-items");
+    if (!el) return;
+    const mode = Sim3D.state.colorMode || "dist";
+    const distNames = Sim3D.DIST_NAMES || {};
+    const distColors = Sim3D.DIST_COLORS || {};
+    const catColors = Sim3D.CAT_COLORS || {};
+    const catOrder = ["식사", "카페", "디저트", "쇼핑", "문화", "생활", "교통", "교육", "의료", "여가", "집", "직장"];
+
+    if (mode === "dist") {
+      el.innerHTML = '<div class="legacy-legend-grid">' +
+        Object.keys(distColors).map(function (code) {
+          return '<div class="legacy-item"><span class="legacy-dot" style="background:' +
+            rgbCss(distColors[code]) + '"></span>' + (distNames[code] || code) + "</div>";
+        }).join("") + "</div>";
+    } else if (mode === "cat") {
+      el.innerHTML = catOrder
+        .filter(function (key) { return catColors[key]; })
+        .map(function (key) {
+          return '<div class="legacy-item"><span class="legacy-dot" style="background:' +
+            rgbCss(catColors[key]) + '"></span>' + key + "</div>";
+        }).join("");
+    } else if (mode === "appointment") {
+      el.innerHTML =
+        '<div class="legacy-item"><span class="legacy-dot" style="background:rgb(157,78,221)"></span>약속 있는 agent</div>' +
+        '<div class="legacy-item"><span class="legacy-dot" style="background:#888"></span>약속 없음</div>';
+    }
+  }
+
+  Sim3D.initLegend = function initLegend() {
+    const state = Sim3D.state;
+    state.colorMode = state.colorMode || "dist";
+    state.heatMode = state.heatMode || "off";
+    state.distFilter = state.distFilter || "all";
+
+    const colorSelect = byId("legend-color-mode");
+    if (colorSelect) {
+      colorSelect.value = state.colorMode;
+      colorSelect.addEventListener("change", function (event) {
+        state.colorMode = event.target.value;
+        renderLegendItems();
+        if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
+      });
+    }
+
+    const heatSelect = byId("legend-heat-mode");
+    if (heatSelect) {
+      heatSelect.value = state.heatMode;
+      heatSelect.addEventListener("change", function (event) {
+        state.heatMode = event.target.value;
+        state.layerToggles = state.layerToggles || {};
+        state.layerToggles.heatmap = state.heatMode !== "off";
+        const heatmapButton = byId("toggle-heatmap-btn");
+        if (heatmapButton) heatmapButton.classList.toggle("active", state.layerToggles.heatmap);
+        if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
+      });
+    }
+
+    const distSelect = byId("legend-dist-filter");
+    if (distSelect) {
+      distSelect.value = state.distFilter;
+      distSelect.addEventListener("change", function (event) {
+        state.distFilter = event.target.value;
+        if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
+      });
+    }
+
+    renderLegendItems();
+  };
 
   function policyFrameIndex() {
     const timeline = Sim3D.state.timeline || [];
@@ -117,8 +206,13 @@
     if (frameLabel) frameLabel.textContent = label;
     const sceneClock = byId("scene-clock");
     if (sceneClock) sceneClock.textContent = label;
+    const activeValue = String(summary ? summary.active_agents : (frame && frame.agents ? frame.agents.length : 0));
     const active = byId("active-cnt");
-    if (active) active.textContent = String(summary ? summary.active_agents : (frame && frame.agents ? frame.agents.length : 0));
+    if (active) active.textContent = activeValue;
+    const infoFrameLabel = byId("info-frame-label");
+    if (infoFrameLabel) infoFrameLabel.textContent = label;
+    const infoActive = byId("info-active-cnt");
+    if (infoActive) infoActive.textContent = activeValue;
     const spend = byId("spend-total");
     if (spend) spend.textContent = Sim3D.formatWon ? Sim3D.formatWon(summary ? summary.spend_total : 0) : String(summary ? summary.spend_total : 0);
     const bursts = byId("burst-cnt");
@@ -199,6 +293,7 @@
     const state = Sim3D.state;
     ensureChapters();
     Sim3D.initCharts();
+    Sim3D.initLegend();
 
     const playButton = byId("play-btn");
     if (playButton) {
@@ -270,6 +365,10 @@
         }
       });
     }
+
+    bindLayerToggle("toggle-heatmap-btn", "heatmap", false);
+    bindLayerToggle("toggle-policy-btn", "policyZones", true);
+    bindLayerToggle("toggle-od-btn", "odArcs", false);
 
     document.querySelectorAll(".chapter").forEach(function (button) {
       button.addEventListener("click", function () {

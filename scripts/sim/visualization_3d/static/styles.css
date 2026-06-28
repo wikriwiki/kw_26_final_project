@@ -94,6 +94,175 @@ select:focus-visible {
   display: none;
 }
 
+/* Legacy HUD panels (info / legend / detail) ported from the original
+   output/sim/visualization/index.html dashboard (commit b8c974f) so the
+   agent-click detail card and the surrounding info/legend boxes look the
+   same as before, regardless of the underlying 3D map. */
+.legacy-panel {
+  position: fixed;
+  z-index: 6;
+  background: rgba(15, 15, 30, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 14px 18px;
+  color: #eee;
+  font-family: "Segoe UI", system-ui, sans-serif;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.legacy-panel h3 {
+  font-size: 14px;
+  color: #4cc9f0;
+  margin: 0 0 8px;
+}
+
+.legacy-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+  font-size: 12px;
+}
+
+.legacy-label {
+  color: #888;
+}
+
+.legacy-val {
+  color: #72efdd;
+  font-weight: 600;
+}
+
+.legacy-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 6px 0;
+}
+
+#info-panel {
+  top: 86px;
+  left: 16px;
+  width: 240px;
+}
+
+#legend-panel {
+  top: 86px;
+  right: 16px;
+  width: 200px;
+  max-height: 360px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+
+.legacy-field {
+  margin: 6px 0;
+}
+
+.legacy-field label {
+  display: block;
+  margin-bottom: 3px;
+  color: #aaa;
+  font-size: 11px;
+}
+
+.legacy-field select {
+  width: 100%;
+  border: 1px solid #4cc9f0;
+  border-radius: 5px;
+  padding: 4px 8px;
+  color: #eee;
+  background: #1a1a2e;
+  font-size: 11px;
+}
+
+.legacy-legend-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  margin-top: 8px;
+  font-size: 10px;
+}
+
+.legacy-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+}
+
+.legacy-dot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legacy-detail h3 {
+  margin: 0 0 6px;
+  color: #e76f51;
+  font-size: 13px;
+}
+
+.legacy-detail h4 {
+  margin: 8px 0 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid #4cc9f0;
+  color: #4cc9f0;
+  font-size: 11px;
+}
+
+.legacy-tag {
+  display: inline-block;
+  margin: 1px 2px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(76, 201, 240, 0.18);
+  color: #4cc9f0;
+  font-size: 10px;
+}
+
+.legacy-mem-item {
+  margin: 4px 0;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.legacy-mem-item .meta {
+  color: #888;
+  font-size: 10px;
+}
+
+.legacy-visited {
+  border-left: 3px solid #72efdd;
+}
+
+.legacy-known {
+  border-left: 3px solid #e76f51;
+}
+
+.legacy-state-block {
+  margin: 4px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: rgba(231, 111, 81, 0.08);
+  font-size: 11px;
+}
+
+.legacy-mem-toggle {
+  float: right;
+  text-decoration: underline;
+  color: #4cc9f0;
+  font-size: 10px;
+  cursor: pointer;
+}
+
 .hud-panel,
 #top-hud,
 #chapter-rail,
@@ -245,10 +414,10 @@ select:focus-visible {
 }
 
 #chapter-rail {
-  top: 86px;
+  top: 280px;
   left: 16px;
   width: min(212px, calc(100vw - 32px));
-  max-height: calc(100vh - 172px);
+  max-height: calc(100vh - 296px);
   overflow: auto;
   border-radius: 8px;
   padding: 10px;
@@ -313,6 +482,7 @@ select:focus-visible {
   padding: 12px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-rows: auto 108px 108px;
   gap: 10px;
 }
 
@@ -368,13 +538,15 @@ select:focus-visible {
   width: 100%;
   height: 108px;
   min-height: 108px;
+  max-height: 108px;
+  overflow: hidden;
 }
 
 #detail-card {
-  top: 86px;
+  top: 470px;
   right: 16px;
   width: min(390px, calc(100vw - 32px));
-  max-height: calc(100vh - 180px);
+  max-height: calc(100vh - 490px);
   border-radius: 8px;
   padding: 16px;
   overflow: auto;
@@ -610,13 +782,3 @@ select:focus-visible {
   }
 }
 
-/* Map-only view: hide all HUD chrome, keep just the 3D map + agent overlay. */
-#top-hud,
-#chapter-rail,
-#macro-panel,
-#detail-card,
-#news-banner,
-#transport,
-#scene-vignette {
-  display: none !important;
-}

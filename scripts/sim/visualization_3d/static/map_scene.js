@@ -42,11 +42,11 @@
             ["linear"],
             ["get", "render_height"],
             0,
-            "lightgray",
+            "#d8dce2",
             200,
-            "royalblue",
+            "#aeb6c2",
             400,
-            "lightblue"
+            "#9aa3ad"
           ],
           "fill-extrusion-height": [
             "interpolate",
@@ -67,6 +67,126 @@
       },
       labelLayerId
     );
+  }
+
+  // Best-effort Korean labels: OpenFreeMap (OpenMapTiles schema) carries
+  // name:ko on many features, but not all (rural roads/minor POIs often lack
+  // it) - coalesce falls back to the style's original text-field per layer.
+  function applyKoreanLabels(map) {
+    if (!map || typeof map.getStyle !== "function" || !map.getStyle()) return;
+    const layers = map.getStyle().layers || [];
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (layer.type !== "symbol" || !layer.layout || layer.layout["text-field"] == null) continue;
+      try {
+        const original = layer.layout["text-field"];
+        map.setLayoutProperty(layer.id, "text-field", ["coalesce", ["get", "name:ko"], original]);
+      } catch (error) {
+        console.warn("Korean label override skipped for layer", layer.id, error);
+      }
+    }
+  }
+
+  // Desaturate the basemap (roads/parks/water/buildings) so data layers
+  // (agent dots, heatmap, arcs) read as the visual focus - same idea as
+  // MapTiler's "Data Visualization" style, applied as paint overrides on
+  // top of the existing OpenFreeMap Bright style rather than swapping tile
+  // providers.
+  const MUTE_SOURCE_LAYERS = { water: 0.55, waterway: 0.5, park: 0.5, landcover: 0.45, landuse: 0.45 };
+  const ROAD_MUTE_AMOUNT = 0.3;
+
+  function clamp01(value) {
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function parseColor(value) {
+    if (typeof value !== "string") return null;
+    let match = value.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (match) {
+      let hex = match[1];
+      if (hex.length === 3) hex = hex.split("").map(function (c) { return c + c; }).join("");
+      const num = parseInt(hex, 16);
+      return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+    }
+    match = value.match(/^rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)/i);
+    if (match) return [Number(match[1]), Number(match[2]), Number(match[3])];
+    match = value.match(/^hsla?\(\s*([\d.]+)\s*,\s*([\d.]+)%\s*,\s*([\d.]+)%/i);
+    if (match) return hslToRgb(Number(match[1]) / 360, Number(match[2]) / 100, Number(match[3]) / 100);
+    return null;
+  }
+
+  function rgbToHsl(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    const d = max - min;
+    let h = 0, s = 0;
+    if (d !== 0) {
+      s = d / (1 - Math.abs(2 * l - 1));
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+    }
+    return [h, s, l];
+  }
+
+  function hslToRgb(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r, g, b;
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+
+  function desaturate(value, amount) {
+    const rgb = parseColor(value);
+    if (!rgb) return null;
+    const hsl = rgbToHsl(rgb[0], rgb[1], rgb[2]);
+    const muted = hslToRgb(hsl[0], hsl[1] * (1 - amount), clamp01(hsl[2] + (1 - hsl[2]) * 0.1));
+    const toHex = function (n) { return n.toString(16).padStart(2, "0"); };
+    return "#" + toHex(muted[0]) + toHex(muted[1]) + toHex(muted[2]);
+  }
+
+  function applyAnalysisPalette(map) {
+    if (!map || typeof map.getStyle !== "function" || !map.getStyle()) return;
+    const layers = map.getStyle().layers || [];
+
+    layers.forEach(function (layer) {
+      if (!layer.paint) return;
+      const sourceLayer = layer["source-layer"];
+      try {
+        if (Object.prototype.hasOwnProperty.call(MUTE_SOURCE_LAYERS, sourceLayer)) {
+          const amount = MUTE_SOURCE_LAYERS[sourceLayer];
+          ["fill-color", "line-color"].forEach(function (prop) {
+            const muted = desaturate(layer.paint[prop], amount);
+            if (muted) map.setPaintProperty(layer.id, prop, muted);
+          });
+        } else if (sourceLayer === "transportation" && layer.paint["line-color"]) {
+          const muted = desaturate(layer.paint["line-color"], ROAD_MUTE_AMOUNT);
+          if (muted) map.setPaintProperty(layer.id, "line-color", muted);
+        }
+      } catch (error) {
+        console.warn("Analysis palette override skipped for layer", layer.id, error);
+      }
+    });
+
+    layers.forEach(function (layer) {
+      if (layer.type !== "symbol" || !layer.layout || layer.layout["text-field"] == null) return;
+      try {
+        map.setPaintProperty(layer.id, "text-halo-color", "#0a0d12");
+        map.setPaintProperty(layer.id, "text-halo-width", 1.4);
+      } catch (error) {
+        console.warn("Label halo override skipped for layer", layer.id, error);
+      }
+    });
   }
 
   function notify(message) {
@@ -120,6 +240,8 @@
     });
 
     add3dBuildings(state.map);
+    applyKoreanLabels(state.map);
+    applyAnalysisPalette(state.map);
 
     state.overlay = new deck.MapboxOverlay({
       interleaved: true,
@@ -163,6 +285,8 @@
       state.map.setStyle(BRIGHT_STYLE_URL);
       state.map.once("styledata", function () {
         add3dBuildings(state.map);
+        applyKoreanLabels(state.map);
+        applyAnalysisPalette(state.map);
         Sim3D.refreshLayers();
       });
       return;

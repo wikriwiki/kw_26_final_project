@@ -70,6 +70,11 @@
     mode: "story",
     baseMode: "style",
     selectedAgentId: null,
+    layerToggles: { heatmap: false, policyZones: true, odArcs: false },
+    colorMode: "dist",
+    heatMode: "off",
+    distFilter: "all",
+    showAllMem: false,
     googleMapsApiKey: storedGoogleMapsApiKey(),
     map: null,
     overlay: null,
@@ -109,6 +114,18 @@
     if (!state.timeline.length) {
       throw new Error("timeline data is empty");
     }
+
+    const totals = isFunction("computeMemoryTotals")
+      ? Sim3D.computeMemoryTotals()
+      : { totMem: 0, totAppt: 0, totRumor: 0 };
+    const totalAgentsEl = document.getElementById("info-total-agents");
+    if (totalAgentsEl) totalAgentsEl.textContent = state.agents.length.toLocaleString();
+    const totalMemEl = document.getElementById("info-total-mem");
+    if (totalMemEl) totalMemEl.textContent = totals.totMem.toLocaleString();
+    const totalApptEl = document.getElementById("info-total-appt");
+    if (totalApptEl) totalApptEl.textContent = totals.totAppt.toLocaleString();
+    const totalRumorEl = document.getElementById("info-total-rumor");
+    if (totalRumorEl) totalRumorEl.textContent = totals.totRumor.toLocaleString();
 
     const keyInput = document.getElementById("google-key-input");
     if (keyInput) {

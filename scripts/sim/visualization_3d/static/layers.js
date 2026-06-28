@@ -192,11 +192,117 @@
     ];
   }
 
+  function currentDay() {
+    const state = Sim3D.state || {};
+    const timeline = Array.isArray(state.timeline) ? state.timeline : [];
+    const frame = timeline[state.frameIndex];
+    return frame ? String(frame.day || "") : "";
+  }
+
+  function makePolicyZoneLayers() {
+    const state = Sim3D.state || {};
+    const zones = (state.meta && state.meta.policy_zones) || [];
+    const day = currentDay();
+    const activeZones = zones.filter(function (zone) {
+      if (!day) return true;
+      if (zone.effective_from && day < zone.effective_from) return false;
+      if (zone.effective_until && day > zone.effective_until) return false;
+      return true;
+    });
+
+    return new deck.ScatterplotLayer({
+      id: "policy-zone-markers",
+      data: activeZones,
+      radiusUnits: "meters",
+      getPosition: function (item) {
+        return [item.lon, item.lat, 2];
+      },
+      getRadius: 220,
+      getFillColor: [255, 158, 68, 70],
+      stroked: true,
+      getLineColor: [255, 191, 90, 220],
+      lineWidthUnits: "pixels",
+      getLineWidth: 2,
+      pickable: true,
+      onClick: function (info) {
+        if (info.object && typeof Sim3D.showNews === "function") {
+          Sim3D.showNews(info.object.policy_name + ": " + info.object.dong_name);
+        }
+      }
+    });
+  }
+
+  function makeTripsLayer() {
+    const z = zoom();
+    const windowSize = z >= 12 ? 8 : 4;
+    const trails = typeof Sim3D.getAgentTrails === "function" ? Sim3D.getAgentTrails(windowSize) : [];
+    return new deck.TripsLayer({
+      id: "agent-move-trails",
+      data: trails,
+      getPath: function (item) {
+        return item.path;
+      },
+      getTimestamps: function (item) {
+        return item.timestamps;
+      },
+      trailLength: windowSize,
+      currentTime: windowSize,
+      opacity: 0.6,
+      widthMinPixels: 2,
+      getColor: [57, 215, 255],
+      rounded: true
+    });
+  }
+
+  function makeAgentArcLayer() {
+    const arcs = typeof Sim3D.getAgentMoveArcs === "function" ? Sim3D.getAgentMoveArcs() : [];
+    return new deck.ArcLayer({
+      id: "agent-move-arcs",
+      data: arcs,
+      getSourcePosition: function (item) {
+        return [item.from[0], item.from[1], 4];
+      },
+      getTargetPosition: function (item) {
+        return [item.to[0], item.to[1], 4];
+      },
+      getHeight: 0.3,
+      getWidth: 2,
+      getSourceColor: [57, 215, 255, 160],
+      getTargetColor: [169, 139, 255, 200],
+      pickable: true,
+      onClick: function (info) {
+        if (info.object && typeof Sim3D.selectAgent === "function") {
+          Sim3D.selectAgent(info.object.id);
+        }
+      }
+    });
+  }
+
+  function makeHeatmapLayer(agents) {
+    const state = Sim3D.state || {};
+    const heatMode = state.heatMode || "density";
+    return new deck.HeatmapLayer({
+      id: "agent-density-heatmap",
+      data: agents,
+      getPosition: function (item) {
+        return item.position;
+      },
+      getWeight: function (item) {
+        if (heatMode === "spending") {
+          return Math.max(0.05, Number((item.frame && item.frame.spent) || 0) / 30000);
+        }
+        return item.frame && Number(item.frame.spent || 0) > 0 ? 2 : 1;
+      },
+      radiusPixels: 40,
+      intensity: 1,
+      threshold: 0.04
+    });
+  }
+
   Sim3D.makeLayers = function makeLayers() {
-    // Map-only view: no agent / spend / interaction overlays, just the 3D map.
-    return [];
     if (!window.deck) return [];
     const z = zoom();
+    const toggles = (Sim3D.state && Sim3D.state.layerToggles) || {};
     const agents = typeof Sim3D.getInterpolatedAgents === "function" ? Sim3D.getInterpolatedAgents() : [];
     const bursts = typeof Sim3D.getCurrentBursts === "function" ? Sim3D.getCurrentBursts() : [];
     const meetups = typeof Sim3D.getCurrentMeetups === "function" ? Sim3D.getCurrentMeetups() : [];
@@ -209,8 +315,22 @@
 
     layers.push(makeCityDotLayer(agents, z));
 
-    if (z >= 12) {
+    if (toggles.trails !== false) {
+      layers.push(makeTripsLayer());
+    } else if (z >= 12) {
       layers.push(makeTripLayer(agents));
+    }
+
+    if (toggles.heatmap) {
+      layers.push(makeHeatmapLayer(agents));
+    }
+
+    if (toggles.odArcs && z >= 12) {
+      layers.push(makeAgentArcLayer());
+    }
+
+    if (toggles.policyZones !== false) {
+      layers.push(makePolicyZoneLayers());
     }
 
     if (z >= 14) {

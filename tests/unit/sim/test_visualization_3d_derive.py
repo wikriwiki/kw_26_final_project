@@ -118,9 +118,10 @@ def test_build_viz_meta_handles_empty_first_frame_and_derives_events():
         "spend_bursts",
         "meetups",
         "rumor_edges",
-        "building_features",
+        "policy_zones",
     }
     assert meta["agent_count"] == 2
+    assert meta["policy_zones"] == []
 
     assert meta["frame_summaries"][0]["active_agents"] == 0
     assert meta["frame_summaries"][1]["active_agents"] == 2
@@ -142,8 +143,26 @@ def test_build_viz_meta_handles_empty_first_frame_and_derives_events():
     assert meta["rumor_edges"][0]["target_id"] == "AGT_A"
     assert meta["rumor_edges"][0]["topic_type"] == "policy"
 
-    assert len(meta["building_features"]["features"]) == 1
-    assert meta["building_features"]["features"][0]["properties"]["height"] >= 18
+
+def test_build_viz_meta_groups_policy_dongs_into_zones():
+    policy_dongs = [
+        {
+            "policy_id": "P008",
+            "policy_name": "강남역-역삼역 보행친화거리 조성사업",
+            "dong_code": "1168064",
+            "dong_name": "역삼1동",
+            "lon": 127.03,
+            "lat": 37.5,
+            "effective_from": "2026-05-20",
+            "effective_until": "2026-05-24",
+        },
+        {"policy_id": "P008", "dong_code": None, "lon": 127.0, "lat": 37.5},
+    ]
+    meta = build_viz_meta(AGENTS, TIMELINE, MEMORIES, EVENTS, policy_dongs)
+
+    assert len(meta["policy_zones"]) == 1
+    assert meta["policy_zones"][0]["dong_name"] == "역삼1동"
+    assert meta["policy_zones"][0]["effective_until"] == "2026-05-24"
 
 
 def test_build_viz_meta_skips_meetups_when_target_day_is_outside_timeline():
