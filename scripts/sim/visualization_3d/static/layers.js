@@ -163,9 +163,10 @@
   }
 
   // Yellow -> orange -> red ramp so the spending heatmap stands out against
-  // the muted basemap (low density fades to transparent).
+  // the muted basemap. First stop keeps a faint alpha (not fully transparent)
+  // so isolated points still read as a soft glow once kernels stop overlapping.
   const HEATMAP_COLOR_RANGE = [
-    [255, 255, 178, 0],
+    [255, 255, 178, 40],
     [255, 237, 160, 150],
     [254, 178, 76, 200],
     [253, 141, 60, 225],
@@ -173,9 +174,19 @@
     [189, 0, 38, 255]
   ];
 
+  // HeatmapLayer's radiusPixels is a fixed screen-space radius, so at higher
+  // zoom the same world-space points drift further apart on screen and their
+  // kernels stop overlapping -- the SUM aggregation that made them look hot
+  // when zoomed out collapses to a single low weight and fades away. Growing
+  // the radius with zoom keeps a lone point's kernel visible.
+  function heatmapRadiusForZoom(z) {
+    return Math.min(110, Math.max(45, 45 + (z - 12) * 6));
+  }
+
   function makeHeatmapLayer(agents, visible) {
     const state = Sim3D.state || {};
     const heatMode = state.heatMode || "spending";
+    const z = zoom();
     return new deck.HeatmapLayer({
       id: "agent-density-heatmap",
       data: agents,
@@ -185,15 +196,15 @@
       },
       getWeight: function (item) {
         if (heatMode === "spending") {
-          return Math.max(0.05, Number((item.frame && item.frame.spent) || 0) / 12000);
+          return Math.max(0.18, Number((item.frame && item.frame.spent) || 0) / 12000);
         }
         return 1;
       },
       updateTriggers: { getWeight: heatMode },
       colorRange: HEATMAP_COLOR_RANGE,
-      radiusPixels: 45,
-      intensity: 2,
-      threshold: 0.02
+      radiusPixels: heatmapRadiusForZoom(z),
+      intensity: 1.6,
+      threshold: 0.01
     });
   }
 
