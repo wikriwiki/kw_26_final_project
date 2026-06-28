@@ -87,13 +87,49 @@
     }
   }
 
+  // Hide road shields / route-number labels (the white "올림픽대로 / 88" boxes).
+  // Detect by layout characteristics rather than hardcoded layer ids so it
+  // survives OpenFreeMap Bright style revisions: any symbol layer whose icon
+  // references a shield/road sprite, or whose text-field renders the road
+  // "ref" (route number), is hidden.
+  function referencesRef(expression) {
+    try {
+      return JSON.stringify(expression).toLowerCase().indexOf('"ref"') !== -1;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function looksLikeShield(value) {
+    if (value == null) return false;
+    const text = (typeof value === "string" ? value : JSON.stringify(value)).toLowerCase();
+    return text.indexOf("shield") !== -1 || text.indexOf("road_") !== -1 || text.indexOf("motorway") !== -1;
+  }
+
+  function hideRoadShields(map) {
+    if (!map || typeof map.getStyle !== "function" || !map.getStyle()) return;
+    const layers = map.getStyle().layers || [];
+    for (let i = 0; i < layers.length; i++) {
+      const layer = layers[i];
+      if (layer.type !== "symbol" || !layer.layout) continue;
+      const isShield = looksLikeShield(layer.layout["icon-image"]) ||
+        (layer.layout["text-field"] != null && referencesRef(layer.layout["text-field"]));
+      if (!isShield) continue;
+      try {
+        map.setLayoutProperty(layer.id, "visibility", "none");
+      } catch (error) {
+        console.warn("Shield hide skipped for layer", layer.id, error);
+      }
+    }
+  }
+
   // Desaturate the basemap (roads/parks/water/buildings) so data layers
   // (agent dots, heatmap, arcs) read as the visual focus - same idea as
   // MapTiler's "Data Visualization" style, applied as paint overrides on
   // top of the existing OpenFreeMap Bright style rather than swapping tile
   // providers.
-  const MUTE_SOURCE_LAYERS = { water: 0.55, waterway: 0.5, park: 0.5, landcover: 0.45, landuse: 0.45 };
-  const ROAD_MUTE_AMOUNT = 0.3;
+  const MUTE_SOURCE_LAYERS = { water: 0.7, waterway: 0.65, park: 0.7, landcover: 0.65, landuse: 0.65 };
+  const ROAD_MUTE_AMOUNT = 0.55;
 
   function clamp01(value) {
     return Math.max(0, Math.min(1, value));
@@ -232,6 +268,7 @@
 
     add3dBuildings(state.map);
     applyKoreanLabels(state.map);
+    hideRoadShields(state.map);
     applyAnalysisPalette(state.map);
 
     state.overlay = new deck.MapboxOverlay({

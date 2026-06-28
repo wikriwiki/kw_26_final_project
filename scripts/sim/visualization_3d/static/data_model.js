@@ -224,27 +224,9 @@
     ];
   }
 
-  function currentEffects(name) {
-    const state = getState();
-    const items = state.meta && Array.isArray(state.meta[name]) ? state.meta[name] : [];
-    const index = safeFrameIndex(state);
-    return items.filter(function (item) {
-      const frameIndex = Number(item && item.frame_index);
-      return Number.isFinite(frameIndex) && Math.abs(frameIndex - index) <= 1;
-    });
-  }
-
-  function macroLabel(frame, index) {
-    const day = frame && frame.day != null ? String(frame.day) : "";
-    const dayPart = day ? day.slice(5) : "Frame " + index;
-    const hour = frame && frame.hour != null ? frame.hour : 0;
-    return dayPart + " " + hour + "h";
-  }
-
   Sim3D.initDataModel = function initDataModel() {
     const state = getState();
     state.frameMaps = timelineFrames(state).map(frameMap);
-    state.macroSeries = Sim3D.buildMacroSeries();
   };
 
   Sim3D.hasAppointment = function hasAppointment(agentId) {
@@ -414,53 +396,6 @@
     cachedArcs = arcs;
     lastArcFrameIndex = index;
     return cachedArcs;
-  };
-
-  Sim3D.getCurrentBursts = function getCurrentBursts() {
-    return currentEffects("spend_bursts");
-  };
-
-  Sim3D.getCurrentMeetups = function getCurrentMeetups() {
-    return currentEffects("meetups");
-  };
-
-  Sim3D.getCurrentRumors = function getCurrentRumors() {
-    return currentEffects("rumor_edges");
-  };
-
-  Sim3D.buildMacroSeries = function buildMacroSeries() {
-    const state = getState();
-    const timeline = timelineFrames(state);
-    const targetCats = ["식사", "카페", "디저트"];
-    const catTotals = [0, 0, 0];
-    const labels = [];
-    const catData = [[], [], []];
-
-    timeline.forEach(function (frame, index) {
-      labels.push(macroLabel(frame, index));
-
-      (frame && Array.isArray(frame.agents) ? frame.agents : []).forEach(function (agentFrame) {
-        if (!agentFrame) return;
-        const amount = Math.max(0, finiteNumber(agentFrame.spent, 0));
-        if (!amount) return;
-
-        const category = agentFrame.l1 || agentFrame.cat || "기타";
-        const catIndex = targetCats.indexOf(category);
-        if (catIndex >= 0) {
-          catTotals[catIndex] += amount;
-        }
-      });
-
-      targetCats.forEach(function (_category, index) {
-        catData[index].push(catTotals[index]);
-      });
-    });
-
-    return {
-      labels: labels,
-      catData: catData,
-      targetCats: targetCats
-    };
   };
 
   Sim3D.formatWon = formatWon;

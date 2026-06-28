@@ -20,10 +20,6 @@
     });
   }
 
-  function chartAvailable() {
-    return typeof window.Chart === "function";
-  }
-
   function rgbCss(color) {
     return "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
   }
@@ -60,7 +56,7 @@
   Sim3D.initLegend = function initLegend() {
     const state = Sim3D.state;
     state.colorMode = state.colorMode || "dist";
-    state.heatMode = state.heatMode || "off";
+    state.heatMode = state.heatMode || "spending";
     state.distFilter = state.distFilter || "all";
 
     const colorSelect = byId("legend-color-mode");
@@ -147,42 +143,6 @@
     });
   }
 
-  function createLineChart(canvas, labels, datasets) {
-    if (!canvas || !chartAvailable()) return null;
-    return new Chart(canvas, {
-      type: "line",
-      data: { labels: labels, datasets: datasets },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        plugins: {
-          legend: {
-            labels: { color: "#edf7ff", boxWidth: 9, font: { size: 10 } }
-          },
-          tooltip: { mode: "index", intersect: false }
-        },
-        scales: {
-          x: {
-            ticks: { color: "#9fb2c5", maxTicksLimit: 5, font: { size: 10 } },
-            grid: { color: "rgba(255,255,255,0.05)" }
-          },
-          y: {
-            ticks: {
-              color: "#9fb2c5",
-              font: { size: 10 },
-              callback: function (value) {
-                return Math.floor(Number(value) / 10000) + "만";
-              }
-            },
-            grid: { color: "rgba(255,255,255,0.05)" }
-          }
-        },
-        interaction: { mode: "index", intersect: false }
-      }
-    });
-  }
-
   Sim3D.setFrame = function setFrame(frameIndex, frameT) {
     const state = Sim3D.state;
     const maxFrame = Math.max(0, (state.timeline || []).length - 1);
@@ -200,19 +160,12 @@
     const sceneClock = byId("scene-clock");
     if (sceneClock) sceneClock.textContent = label;
     const activeValue = String(summary ? summary.active_agents : (frame && frame.agents ? frame.agents.length : 0));
-    const active = byId("active-cnt");
-    if (active) active.textContent = activeValue;
     const infoFrameLabel = byId("info-frame-label");
     if (infoFrameLabel) infoFrameLabel.textContent = label;
     const infoActive = byId("info-active-cnt");
     if (infoActive) infoActive.textContent = activeValue;
-    const spend = byId("spend-total");
-    if (spend) spend.textContent = Sim3D.formatWon ? Sim3D.formatWon(summary ? summary.spend_total : 0) : String(summary ? summary.spend_total : 0);
-    const bursts = byId("burst-cnt");
-    if (bursts) bursts.textContent = String(typeof Sim3D.getCurrentBursts === "function" ? Sim3D.getCurrentBursts().length : 0);
 
     setChapterActive(state.frameIndex);
-    Sim3D.updateCharts();
     Sim3D.checkStoryNews(frame);
     if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
     if (state.selectedAgentId && typeof Sim3D.renderSelectedAgent === "function") {
@@ -248,35 +201,9 @@
     }
   };
 
-  Sim3D.initCharts = function initCharts() {
-    const state = Sim3D.state;
-    const series = state.macroSeries || { labels: [], targetCats: [], catData: [], distData: [] };
-    state.charts = state.charts || {};
-    if (state.charts.cat) return;
-    state.charts.cat = createLineChart(byId("chart-cat"), series.labels || [], (series.targetCats || []).map(function (label, index) {
-      return {
-        label: label,
-        data: series.catData[index] || [],
-        borderColor: ["#e76f51", "#f4a261", "#f4d35e"][index] || "#39d7ff",
-        pointRadius: 0,
-        tension: 0.22
-      };
-    }));
-  };
-
-  Sim3D.updateCharts = function updateCharts() {
-    const charts = Sim3D.state.charts || {};
-    Object.keys(charts).forEach(function (key) {
-      if (charts[key] && typeof charts[key].update === "function") {
-        charts[key].update("none");
-      }
-    });
-  };
-
   Sim3D.initHud = function initHud() {
     const state = Sim3D.state;
     ensureChapters();
-    Sim3D.initCharts();
     Sim3D.initLegend();
 
     const playButton = byId("play-btn");
@@ -303,8 +230,7 @@
       });
     }
 
-    bindLayerToggle("toggle-heatmap-btn", "heatmap", false);
-    bindLayerToggle("toggle-policy-btn", "policyZones", true);
+    bindLayerToggle("toggle-heatmap-btn", "heatmap", true);
     bindLayerToggle("toggle-od-btn", "odArcs", false);
 
     const chapterToggleButton = byId("chapter-toggle-btn");
