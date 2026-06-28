@@ -178,15 +178,6 @@
       }
     });
 
-    layers.forEach(function (layer) {
-      if (layer.type !== "symbol" || !layer.layout || layer.layout["text-field"] == null) return;
-      try {
-        map.setPaintProperty(layer.id, "text-halo-color", "#0a0d12");
-        map.setPaintProperty(layer.id, "text-halo-width", 1.4);
-      } catch (error) {
-        console.warn("Label halo override skipped for layer", layer.id, error);
-      }
-    });
   }
 
   function notify(message) {
@@ -274,44 +265,6 @@
       finale: { longitude: 126.995, latitude: 37.558, zoom: 11.4, pitch: 50, bearing: 12 }
     };
     return cameras[name] || cameras.opening;
-  };
-
-  Sim3D.switchBaseMode = function switchBaseMode(mode) {
-    const state = Sim3D.state || {};
-    if (!state.map || typeof state.map.setStyle !== "function") return;
-
-    state.baseMode = mode;
-    if (mode === "style") {
-      state.map.setStyle(BRIGHT_STYLE_URL);
-      state.map.once("styledata", function () {
-        add3dBuildings(state.map);
-        applyKoreanLabels(state.map);
-        applyAnalysisPalette(state.map);
-        Sim3D.refreshLayers();
-      });
-      return;
-    }
-
-    if (!state.googleMapsApiKey) {
-      state.baseMode = "style";
-      notify("Photo 3D에는 Google Maps Tile API 키가 필요합니다. 3D City 모드를 유지합니다.");
-      return;
-    }
-
-    state.map.setStyle({
-      version: 8,
-      sources: {},
-      layers: [
-        {
-          id: "background",
-          type: "background",
-          paint: { "background-color": "#05070d" }
-        }
-      ]
-    });
-    state.map.once("styledata", function () {
-      Sim3D.refreshLayers();
-    });
   };
 
   Sim3D.refreshLayers = function refreshLayers() {

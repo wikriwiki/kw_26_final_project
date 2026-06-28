@@ -5,13 +5,6 @@
     return document.getElementById(id);
   }
 
-  function setActiveButton(activeId, ids) {
-    ids.forEach(function (id) {
-      const element = byId(id);
-      if (element) element.classList.toggle("active", id === activeId);
-    });
-  }
-
   function bindLayerToggle(buttonId, key, defaultOn) {
     const state = Sim3D.state;
     state.layerToggles = state.layerToggles || {};
@@ -259,21 +252,12 @@
     const state = Sim3D.state;
     const series = state.macroSeries || { labels: [], targetCats: [], catData: [], distData: [] };
     state.charts = state.charts || {};
-    if (state.charts.cat || state.charts.dist) return;
+    if (state.charts.cat) return;
     state.charts.cat = createLineChart(byId("chart-cat"), series.labels || [], (series.targetCats || []).map(function (label, index) {
       return {
         label: label,
         data: series.catData[index] || [],
         borderColor: ["#e76f51", "#f4a261", "#f4d35e"][index] || "#39d7ff",
-        pointRadius: 0,
-        tension: 0.22
-      };
-    }));
-    state.charts.dist = createLineChart(byId("chart-dist"), series.labels || [], ["종로구", "중구"].map(function (label, index) {
-      return {
-        label: label,
-        data: series.distData[index] || [],
-        borderColor: ["#39d7ff", "#a98bff"][index] || "#39d7ff",
         pointRadius: 0,
         tension: 0.22
       };
@@ -319,56 +303,19 @@
       });
     }
 
-    const story = byId("story-mode-btn");
-    if (story) {
-      story.addEventListener("click", function () {
-        state.mode = "story";
-        setActiveButton("story-mode-btn", ["story-mode-btn", "explore-mode-btn"]);
-        if (typeof Sim3D.setCamera === "function" && typeof Sim3D.cameraForChapter === "function") {
-          Sim3D.setCamera(Sim3D.cameraForChapter("opening"), { duration: 1000 });
-        }
-      });
-    }
-
-    const explore = byId("explore-mode-btn");
-    if (explore) {
-      explore.addEventListener("click", function () {
-        state.mode = "explore";
-        setActiveButton("explore-mode-btn", ["story-mode-btn", "explore-mode-btn"]);
-      });
-    }
-
-    const styleButton = byId("base-style-btn");
-    if (styleButton) {
-      styleButton.addEventListener("click", function () {
-        if (typeof Sim3D.switchBaseMode === "function") Sim3D.switchBaseMode("style");
-        setActiveButton("base-style-btn", ["base-style-btn", "base-google-btn"]);
-      });
-    }
-
-    const googleButton = byId("base-google-btn");
-    if (googleButton) {
-      googleButton.addEventListener("click", function () {
-        if (typeof Sim3D.switchBaseMode === "function") Sim3D.switchBaseMode("google");
-        setActiveButton(Sim3D.state.baseMode === "google" ? "base-google-btn" : "base-style-btn", ["base-style-btn", "base-google-btn"]);
-      });
-    }
-
-    const keyInput = byId("google-key-input");
-    if (keyInput) {
-      keyInput.addEventListener("change", function (event) {
-        state.googleMapsApiKey = event.target.value.trim();
-        try {
-          window.localStorage.setItem("sim3d.googleMapsApiKey", state.googleMapsApiKey);
-        } catch (error) {
-          console.warn("Could not persist Google Maps key", error);
-        }
-      });
-    }
-
     bindLayerToggle("toggle-heatmap-btn", "heatmap", false);
     bindLayerToggle("toggle-policy-btn", "policyZones", true);
     bindLayerToggle("toggle-od-btn", "odArcs", false);
+
+    const chapterToggleButton = byId("chapter-toggle-btn");
+    const chapterRail = byId("chapter-rail");
+    if (chapterToggleButton && chapterRail) {
+      chapterToggleButton.addEventListener("click", function () {
+        const expanded = !chapterRail.hidden;
+        chapterRail.hidden = expanded;
+        chapterToggleButton.textContent = expanded ? "챕터 ▾" : "챕터 ▴";
+      });
+    }
 
     document.querySelectorAll(".chapter").forEach(function (button) {
       button.addEventListener("click", function () {

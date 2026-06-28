@@ -1,14 +1,5 @@
 (function () {
   const Sim3D = (window.Sim3D = window.Sim3D || {});
-  const GOOGLE_KEY_STORAGE = "sim3d.googleMapsApiKey";
-
-  function storedGoogleMapsApiKey() {
-    try {
-      return window.localStorage.getItem(GOOGLE_KEY_STORAGE) || "";
-    } catch (error) {
-      return "";
-    }
-  }
 
   function escapeHtml(value) {
     return String(value == null ? "" : value)
@@ -67,15 +58,12 @@
     frameT: 0,
     playing: true,
     speed: 1,
-    mode: "story",
-    baseMode: "style",
     selectedAgentId: null,
     layerToggles: { heatmap: false, policyZones: true, odArcs: false },
     colorMode: "dist",
     heatMode: "off",
     distFilter: "all",
     showAllMem: false,
-    googleMapsApiKey: storedGoogleMapsApiKey(),
     map: null,
     overlay: null,
     charts: {},
@@ -126,11 +114,6 @@
     if (totalApptEl) totalApptEl.textContent = totals.totAppt.toLocaleString();
     const totalRumorEl = document.getElementById("info-total-rumor");
     if (totalRumorEl) totalRumorEl.textContent = totals.totRumor.toLocaleString();
-
-    const keyInput = document.getElementById("google-key-input");
-    if (keyInput) {
-      keyInput.value = state.googleMapsApiKey;
-    }
 
     const frameSlider = document.getElementById("frame-slider");
     if (frameSlider) {

@@ -432,13 +432,9 @@
     const state = getState();
     const timeline = timelineFrames(state);
     const targetCats = ["식사", "카페", "디저트"];
-    const targetDists = ["11110", "11140"];
     const catTotals = [0, 0, 0];
-    const distTotals = [0, 0];
     const labels = [];
     const catData = [[], [], []];
-    const distData = [[], []];
-    const lookup = agentLookup(state);
 
     timeline.forEach(function (frame, index) {
       labels.push(macroLabel(frame, index));
@@ -453,29 +449,17 @@
         if (catIndex >= 0) {
           catTotals[catIndex] += amount;
         }
-
-        const agent = getAgentFromLookup(lookup, agentFrame.id);
-        const distCode = agent && agent.dist_code != null ? String(agent.dist_code) : "";
-        const distIndex = targetDists.indexOf(distCode);
-        if (distIndex >= 0) {
-          distTotals[distIndex] += amount;
-        }
       });
 
       targetCats.forEach(function (_category, index) {
         catData[index].push(catTotals[index]);
-      });
-      targetDists.forEach(function (_distCode, index) {
-        distData[index].push(distTotals[index]);
       });
     });
 
     return {
       labels: labels,
       catData: catData,
-      distData: distData,
-      targetCats: targetCats,
-      targetDists: targetDists
+      targetCats: targetCats
     };
   };
 

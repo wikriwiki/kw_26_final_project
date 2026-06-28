@@ -8,18 +8,8 @@
 </head>
 <body>
   <div id="map"></div>
-  <div id="scene-vignette"></div>
 
   <header id="top-hud">
-    <div>
-      <button id="story-mode-btn" type="button">Story</button>
-      <button id="explore-mode-btn" type="button">Explore</button>
-    </div>
-    <div>
-      <button id="base-style-btn" type="button">Style</button>
-      <button id="base-google-btn" type="button">Google</button>
-      <input id="google-key-input" type="password" autocomplete="off" placeholder="Google key">
-    </div>
     <div>
       <button id="toggle-heatmap-btn" type="button">Heatmap</button>
       <button id="toggle-policy-btn" type="button" class="active">Policy</button>
@@ -92,14 +82,14 @@
     <div id="legend-items"></div>
   </aside>
 
-  <aside id="chapter-rail"></aside>
+  <button id="chapter-toggle-btn" type="button">챕터 ▾</button>
+  <aside id="chapter-rail" hidden></aside>
 
   <section id="macro-panel">
     <output id="active-cnt">0</output>
     <output id="spend-total">0</output>
     <output id="burst-cnt">0</output>
     <canvas id="chart-cat"></canvas>
-    <canvas id="chart-dist"></canvas>
   </section>
 
   <aside id="detail-card" class="legacy-detail">

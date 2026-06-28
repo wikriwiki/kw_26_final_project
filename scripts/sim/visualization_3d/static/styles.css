@@ -1,6 +1,6 @@
 :root {
   --bg: #eaeef3;
-  --panel: rgba(6, 10, 18, 0.74);
+  --panel: rgba(6, 10, 18, 0.55);
   --panel-strong: rgba(6, 10, 18, 0.92);
   --line: rgba(180, 216, 255, 0.16);
   --line-bright: rgba(88, 214, 255, 0.42);
@@ -12,7 +12,7 @@
   --amber: #ffbf5a;
   --rose: #ff5d7a;
   --violet: #a98bff;
-  --shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+  --shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
   --font: "Plus Jakarta Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -73,22 +73,6 @@ select:focus-visible {
     #05070d;
 }
 
-#scene-vignette {
-  position: fixed;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-  background:
-    linear-gradient(
-      180deg,
-      rgba(5, 7, 13, 0.58),
-      rgba(5, 7, 13, 0) 22%,
-      rgba(5, 7, 13, 0) 68%,
-      rgba(5, 7, 13, 0.68)
-    ),
-    radial-gradient(circle at 50% 52%, rgba(0, 0, 0, 0) 44%, rgba(0, 0, 0, 0.38));
-}
-
 .maplibregl-ctrl-bottom-left,
 .maplibregl-ctrl-bottom-right {
   display: none;
@@ -101,13 +85,13 @@ select:focus-visible {
 .legacy-panel {
   position: fixed;
   z-index: 6;
-  background: rgba(15, 15, 30, 0.92);
+  background: rgba(15, 15, 30, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   padding: 14px 18px;
   color: #eee;
   font-family: "Segoe UI", system-ui, sans-serif;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.25);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -286,7 +270,7 @@ select:focus-visible {
   min-height: 52px;
   border-radius: 8px;
   display: grid;
-  grid-template-columns: minmax(150px, 0.8fr) auto minmax(210px, auto) minmax(170px, 260px);
+  grid-template-columns: minmax(150px, 0.8fr) auto minmax(170px, 260px);
   align-items: center;
   gap: 12px;
   padding: 8px 10px 8px 14px;
@@ -336,14 +320,12 @@ select:focus-visible {
   gap: 2px;
   min-width: 0;
   padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: rgba(0, 0, 0, 0.28);
 }
 
-#top-hud > div:nth-of-type(2) {
-  grid-template-columns: auto auto minmax(116px, 178px);
-  align-items: center;
+.segmented + .segmented,
+#top-hud > div + div {
+  border-left: 1px solid var(--line);
+  padding-left: 12px;
 }
 
 .segmented button,
@@ -368,11 +350,11 @@ select:focus-visible {
 
 .segmented button.active,
 #top-hud > div button.active {
-  color: #021018;
-  background: var(--cyan);
+  color: var(--cyan);
+  background: transparent;
+  border-bottom: 2px solid var(--cyan);
 }
 
-#google-key-input,
 #agent-search,
 #speed-select {
   min-width: 0;
@@ -384,16 +366,8 @@ select:focus-visible {
   outline: none;
 }
 
-#google-key-input,
 #agent-search {
   padding: 0 10px;
-}
-
-#google-key-input {
-  width: 100%;
-}
-
-#agent-search {
   width: 100%;
 }
 
@@ -402,28 +376,50 @@ select:focus-visible {
   padding: 0 8px;
 }
 
-#google-key-input::placeholder,
 #agent-search::placeholder {
   color: var(--dim);
 }
 
-#google-key-input:focus,
 #agent-search:focus,
 #speed-select:focus {
   border-color: var(--line-bright);
 }
 
-#chapter-rail {
+#chapter-toggle-btn {
+  position: fixed;
+  z-index: 5;
   top: 280px;
   left: 16px;
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(15, 15, 30, 0.4);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+#chapter-toggle-btn:hover {
+  color: var(--text);
+}
+
+#chapter-rail {
+  top: 316px;
+  left: 16px;
   width: min(212px, calc(100vw - 32px));
-  max-height: calc(100vh - 296px);
+  max-height: calc(100vh - 332px);
   overflow: auto;
   border-radius: 8px;
   padding: 10px;
   display: grid;
   align-content: start;
   gap: 6px;
+}
+
+#chapter-rail[hidden] {
+  display: none;
 }
 
 .chapter {
@@ -482,7 +478,7 @@ select:focus-visible {
   padding: 12px;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  grid-template-rows: auto 108px 108px;
+  grid-template-rows: auto 108px;
   gap: 10px;
 }
 
@@ -718,8 +714,7 @@ select:focus-visible {
     font-size: 13px;
   }
 
-  #top-hud > div,
-  #top-hud > div:nth-of-type(2) {
+  #top-hud > div {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -727,7 +722,6 @@ select:focus-visible {
     min-width: 0;
   }
 
-  #google-key-input,
   #agent-search {
     display: none;
   }

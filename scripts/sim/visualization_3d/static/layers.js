@@ -51,29 +51,6 @@
     };
   }
 
-  function googleTilesLayer() {
-    const state = Sim3D.state || {};
-    if (state.baseMode !== "google" || !state.googleMapsApiKey) return null;
-    return new deck.Tile3DLayer({
-      id: "google-photorealistic-tiles",
-      data: "https://tile.googleapis.com/v1/3dtiles/root.json",
-      loadOptions: {
-        fetch: {
-          headers: { "X-GOOG-API-KEY": state.googleMapsApiKey }
-        }
-      },
-      onTileError: function (_tile, _url, message) {
-        console.warn("Google 3D tile load failed", message);
-        if (typeof Sim3D.showNews === "function") {
-          Sim3D.showNews("Photo 3D 타일 로드 실패로 3D City 모드로 돌아갑니다.");
-        }
-        if (typeof Sim3D.switchBaseMode === "function") {
-          Sim3D.switchBaseMode("style");
-        }
-      }
-    });
-  }
-
   function safeColor(color, fallback) {
     return Array.isArray(color) ? color : fallback;
   }
@@ -125,24 +102,6 @@
 
   function makeSpendLayers(bursts) {
     return [
-      new deck.ColumnLayer({
-        id: "spend-columns",
-        data: bursts,
-        diskResolution: 48,
-        radius: 24,
-        extruded: true,
-        elevationScale: 0.018,
-        getPosition: function (item) {
-          return [item.lon, item.lat];
-        },
-        getElevation: function (item) {
-          return Math.max(120, Number(item.amount || 0));
-        },
-        getFillColor: function (item) {
-          return Number(item.sat || 0) >= 0.75 ? [63, 242, 184, 180] : [255, 191, 90, 160];
-        },
-        pickable: true
-      }),
       new deck.ScatterplotLayer({
         id: "spend-rings",
         data: bursts,
@@ -163,6 +122,8 @@
   }
 
   function makeInteractionLayers(meetups, rumors) {
+    const pulsePeriod = 900;
+    const pulsePhase = (performance.now() % pulsePeriod) / pulsePeriod;
     return [
       new deck.ArcLayer({
         id: "meetup-arcs",
@@ -173,10 +134,25 @@
         getTargetPosition: function (item) {
           return [item.lon + 0.002, item.lat, 50];
         },
-        getSourceColor: [169, 139, 255, 210],
-        getTargetColor: [57, 215, 255, 210],
+        getSourceColor: [255, 93, 122, 210],
+        getTargetColor: [255, 191, 90, 210],
         getWidth: 3,
         pickable: true
+      }),
+      new deck.ScatterplotLayer({
+        id: "meetup-pulses",
+        data: meetups,
+        radiusUnits: "meters",
+        getPosition: function (item) {
+          return [item.lon, item.lat, 4];
+        },
+        getRadius: 18 + pulsePhase * 70,
+        getFillColor: [0, 0, 0, 0],
+        stroked: true,
+        getLineColor: [255, 93, 122, Math.round((1 - pulsePhase) * 220)],
+        lineWidthUnits: "pixels",
+        getLineWidth: 1.5,
+        updateTriggers: { getRadius: pulsePhase, getLineColor: pulsePhase }
       }),
       new deck.PathLayer({
         id: "rumor-pulses",
@@ -210,26 +186,47 @@
       return true;
     });
 
-    return new deck.ScatterplotLayer({
-      id: "policy-zone-markers",
-      data: activeZones,
-      radiusUnits: "meters",
-      getPosition: function (item) {
-        return [item.lon, item.lat, 2];
-      },
-      getRadius: 220,
-      getFillColor: [255, 158, 68, 70],
-      stroked: true,
-      getLineColor: [255, 191, 90, 220],
-      lineWidthUnits: "pixels",
-      getLineWidth: 2,
-      pickable: true,
-      onClick: function (info) {
-        if (info.object && typeof Sim3D.showNews === "function") {
-          Sim3D.showNews(info.object.policy_name + ": " + info.object.dong_name);
+    const glowPeriod = 2200;
+    const glowPhase = (performance.now() % glowPeriod) / glowPeriod;
+    const glowAlpha = Math.round((1 - glowPhase) * 200);
+
+    return [
+      new deck.ScatterplotLayer({
+        id: "policy-zone-markers",
+        data: activeZones,
+        radiusUnits: "meters",
+        getPosition: function (item) {
+          return [item.lon, item.lat, 2];
+        },
+        getRadius: 220,
+        getFillColor: [255, 158, 68, 70],
+        stroked: true,
+        getLineColor: [255, 191, 90, 220],
+        lineWidthUnits: "pixels",
+        getLineWidth: 2,
+        pickable: true,
+        onClick: function (info) {
+          if (info.object && typeof Sim3D.showNews === "function") {
+            Sim3D.showNews(info.object.policy_name + ": " + info.object.dong_name);
+          }
         }
-      }
-    });
+      }),
+      new deck.ScatterplotLayer({
+        id: "policy-zone-glow",
+        data: activeZones,
+        radiusUnits: "meters",
+        getPosition: function (item) {
+          return [item.lon, item.lat, 2];
+        },
+        getRadius: 220 + glowPhase * 140,
+        getFillColor: [0, 0, 0, 0],
+        stroked: true,
+        getLineColor: [255, 191, 90, glowAlpha],
+        lineWidthUnits: "pixels",
+        getLineWidth: 1.2,
+        updateTriggers: { getRadius: glowPhase, getLineColor: glowPhase }
+      })
+    ];
   }
 
   function makeTripsLayer() {
@@ -278,12 +275,22 @@
     });
   }
 
-  function makeHeatmapLayer(agents) {
+  const HEATMAP_COLOR_RANGE = [
+    [12, 30, 45, 0],
+    [22, 86, 110, 110],
+    [57, 215, 255, 160],
+    [255, 191, 90, 200],
+    [255, 93, 122, 230],
+    [255, 93, 122, 255]
+  ];
+
+  function makeHeatmapLayer(agents, visible) {
     const state = Sim3D.state || {};
     const heatMode = state.heatMode || "density";
     return new deck.HeatmapLayer({
       id: "agent-density-heatmap",
       data: agents,
+      visible: !!visible,
       getPosition: function (item) {
         return item.position;
       },
@@ -291,10 +298,12 @@
         if (heatMode === "spending") {
           return Math.max(0.05, Number((item.frame && item.frame.spent) || 0) / 30000);
         }
-        return item.frame && Number(item.frame.spent || 0) > 0 ? 2 : 1;
+        return 1;
       },
-      radiusPixels: 40,
-      intensity: 1,
+      updateTriggers: { getWeight: heatMode },
+      colorRange: HEATMAP_COLOR_RANGE,
+      radiusPixels: 28,
+      intensity: 1.4,
       threshold: 0.04
     });
   }
@@ -310,8 +319,6 @@
       ? Sim3D.getCurrentRumors().map(rumorPath).filter(Boolean)
       : [];
     const layers = [];
-    const google = googleTilesLayer();
-    if (google) layers.push(google);
 
     layers.push(makeCityDotLayer(agents, z));
 
@@ -321,16 +328,14 @@
       layers.push(makeTripLayer(agents));
     }
 
-    if (toggles.heatmap) {
-      layers.push(makeHeatmapLayer(agents));
-    }
+    layers.push(makeHeatmapLayer(agents, toggles.heatmap));
 
     if (toggles.odArcs && z >= 12) {
       layers.push(makeAgentArcLayer());
     }
 
     if (toggles.policyZones !== false) {
-      layers.push(makePolicyZoneLayers());
+      layers.push.apply(layers, makePolicyZoneLayers());
     }
 
     if (z >= 14) {
