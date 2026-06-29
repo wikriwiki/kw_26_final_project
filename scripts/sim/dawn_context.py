@@ -173,7 +173,7 @@ MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p:POI)-[:IN_CATEGORY]->(c:Category)
 RETURN c.parent AS L1, c.name AS sub,
        count(p) AS n,
        sum(CASE WHEN kp.visit_count > 0 THEN 1 ELSE 0 END) AS n_visited
-ORDER BY n DESC LIMIT 30
+ORDER BY n_visited DESC, n DESC LIMIT 15
 """
 
 
@@ -355,7 +355,8 @@ def _format_state(s: dict | None) -> str:
 
 def _format_memory(rows: list[dict]) -> str:
     if not rows:
-        return "(최근 30일 기억 없음 — Day 0 직후 또는 신규 agent)"
+        return ("(어제·최근 visit 데이터 없음 — '어제 거기서 맛있었다'·'어제 만족도 X' "
+                "같은 회상·만족도 인용 절대 금지. 신규 의사결정만 가능)")
     lines = []
     for r in rows:
         days = r.get("days_ago", 0)
@@ -432,7 +433,9 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
     grant_remaining: {"P009": 599718, ...} 정책별 무료 지원금 잔액. State.grant_remaining.
     """
     if not rows:
-        return "(거주·직장 동에 적용 정책 없음)"
+        return ("(오늘 활성 정책 없음 — 정책·바우처·쿠폰 인용 금지. "
+                "reasoning이나 pick_reason에 'P0xx 정책지원금', '바우처', '쿠폰' 등 "
+                "정책 관련 표현을 등장시키지 말 것.)")
     import json as _json
     used = policy_used or {}
     rem_dict = grant_remaining or {}
@@ -569,7 +572,7 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         rng = random.Random(hash((persona.get("id"), today.isoformat())))
         for h in mobility.suggest_hubs(home_code, exclude, day_type,
-                                       persona.get("mobility"), k=3, rng=rng,
+                                       persona.get("mobility"), k=6, rng=rng,
                                        persona=persona):
             zones.append({"code": h["code"], "name": h.get("name", ""),
                           "gu": h.get("gu", ""), "type": "hub",
@@ -583,8 +586,8 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
 def build_dawn_context(
     aid: str,
     today: date,
-    memory_top_n: int = 7,
-    social_top_n: int = 8,
+    memory_top_n: int = 5,
+    social_top_n: int = 5,
 ) -> DawnContext:
     """한 agent의 Dawn 컨텍스트를 7종 Cypher로 수집."""
     yesterday = today - __import__("datetime").timedelta(days=1)

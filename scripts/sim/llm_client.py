@@ -36,6 +36,21 @@ class ModelSpec:
 
 
 MODELS: dict[str, ModelSpec] = {
+    "midm": ModelSpec(
+        key="midm",
+        hf_id="K-intelligence/Midm-2.0-Base-Instruct",
+        family="midm",
+        description="KT Midm 2.0 Base Instruct — 한국어 특화 instruct 모델. "
+                    "vLLM 0.11 호환 (Llama/Mistral 호환 아키텍처 가정). "
+                    "served_model_name=midm-2.0-base-instruct.",
+    ),
+    "midm_awq": ModelSpec(
+        key="midm_awq",
+        hf_id="jinkyeongk/Midm-2.0-Base-Instruct-AWQ",
+        family="midm",
+        description="Midm 2.0 Base Instruct AWQ 4-bit (community quant). "
+                    "served_model_name=midm-2.0-base-instruct (BF16과 동일 이름으로 호환).",
+    ),
     "qwen32b": ModelSpec(
         key="qwen32b",
         hf_id="Qwen/Qwen3-32B-AWQ",
@@ -92,9 +107,23 @@ MODELS: dict[str, ModelSpec] = {
     ),
     "exaone": ModelSpec(
         key="exaone",
+        hf_id="LGAI-EXAONE/EXAONE-4.0-32B-AWQ",
+        family="exaone",
+        description="EXAONE 4.0 32B AWQ (4-bit). RTX 5090 32GB single-GPU fit. "
+                    "text-only. served_model_name=exaone-4.0-32b-awq. "
+                    "WSL Ubuntu venv (uv) + vllm 0.11.0 + transformers 4.55 + flashinfer 비활성.",
+    ),
+    "exaone_4_5": ModelSpec(
+        key="exaone_4_5",
+        hf_id="LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+        family="exaone",
+        description="(미사용) EXAONE 4.5 33B AWQ — quantization schema 호환 이슈로 vllm 0.11 미지원.",
+    ),
+    "exaone_fp8": ModelSpec(
+        key="exaone_fp8",
         hf_id="LGAI-EXAONE/EXAONE-4.5-33B-FP8",
         family="exaone",
-        description="국내 대회용 EXAONE 33B FP8.",
+        description="(레거시) EXAONE 33B FP8 — RTX 5090 단일 GPU에 빡빡함.",
     ),
 }
 
