@@ -1,0 +1,2225 @@
+{
+  "L10203": {
+    "cat": "기타",
+    "sub": "부동산",
+    "_l3_name": "부동산 중개/대리업",
+    "_count": 24475,
+    "_status": "industry_l2",
+    "_industry_l1": "부동산",
+    "_industry_l2": "부동산 서비스"
+  },
+  "I21006": {
+    "cat": "식사",
+    "sub": "치킨",
+    "_l3_name": "치킨",
+    "_count": 5206,
+    "_status": "name_kw",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "N10401": {
+    "cat": "기타",
+    "sub": "고용서비스",
+    "_l3_name": "고용 알선업",
+    "_count": 2072,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "고용 알선"
+  },
+  "I21201": {
+    "cat": "카페",
+    "sub": "카페",
+    "_l3_name": "카페",
+    "_count": 21619,
+    "_status": "name_kw",
+    "_industry_l1": "음식",
+    "_industry_l2": "비알코올 "
+  },
+  "R10407": {
+    "cat": "여가",
+    "sub": "노래방",
+    "_l3_name": "노래방",
+    "_count": 4898,
+    "_status": "name_kw",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "G21701": {
+    "cat": "쇼핑",
+    "sub": "시계·귀금속",
+    "_l3_name": "시계/귀금속 소매업",
+    "_count": 2404,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "시계·귀금속 소매"
+  },
+  "G20905": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "기타 의류 소매업",
+    "_count": 11039,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "I21104": {
+    "cat": "주점",
+    "sub": "일반주점",
+    "_l3_name": "요리 주점",
+    "_count": 10193,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "주점"
+  },
+  "G21101": {
+    "cat": "쇼핑",
+    "sub": "가구",
+    "_l3_name": "가구 소매업",
+    "_count": 1346,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "가구 소매"
+  },
+  "G20902": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "여성 의류 소매업",
+    "_count": 6524,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "N10802": {
+    "cat": "기타",
+    "sub": "사업서비스",
+    "_l3_name": "전시/컨벤션/행사 대행 서비스업",
+    "_count": 3516,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "기타 사업 서비스"
+  },
+  "G21501": {
+    "cat": "건강",
+    "sub": "약국",
+    "_l3_name": "약국",
+    "_count": 5139,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "의약·화장품 소매"
+  },
+  "M10703": {
+    "cat": "기타",
+    "sub": "컨설팅",
+    "_l3_name": "경영 컨설팅업",
+    "_count": 20534,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "본사·경영 컨설팅"
+  },
+  "S20302": {
+    "cat": "기타",
+    "sub": "차량정비",
+    "_l3_name": "자동차 세차장",
+    "_count": 1394,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "자동차 수리·세차"
+  },
+  "G21302": {
+    "cat": "쇼핑",
+    "sub": "문구",
+    "_l3_name": "문구/회화용품 소매업",
+    "_count": 1741,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "오락용품 소매"
+  },
+  "M10301": {
+    "cat": "기타",
+    "sub": "법무",
+    "_l3_name": "변호사",
+    "_count": 4489,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "법무관련 "
+  },
+  "G20903": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "유아용 의류 소매업",
+    "_count": 738,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "G21003": {
+    "cat": "쇼핑",
+    "sub": "건자재",
+    "_l3_name": "건설/건축자재 소매업",
+    "_count": 138,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "철물·건설자재 소매"
+  },
+  "G20802": {
+    "cat": "쇼핑",
+    "sub": "통신",
+    "_l3_name": "핸드폰 소매업",
+    "_count": 3409,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "가전·통신 소매"
+  },
+  "R10307": {
+    "cat": "건강",
+    "sub": "헬스장",
+    "_l3_name": "헬스장",
+    "_count": 4478,
+    "_status": "name_kw",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "G20907": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "액세서리/잡화 소매업",
+    "_count": 1410,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "I20107": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "돼지고기 구이/찜",
+    "_count": 7617,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "S20701": {
+    "cat": "미용",
+    "sub": "미용실",
+    "_l3_name": "미용실",
+    "_count": 20417,
+    "_status": "name_kw",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "이용·미용"
+  },
+  "M10402": {
+    "cat": "기타",
+    "sub": "회계·세무",
+    "_l3_name": "세무사",
+    "_count": 5893,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "회계·세무"
+  },
+  "Q10210": {
+    "cat": "건강",
+    "sub": "치과",
+    "_l3_name": "치과의원",
+    "_count": 4319,
+    "_status": "name_kw",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "S20201": {
+    "cat": "쇼핑",
+    "sub": "통신",
+    "_l3_name": "핸드폰/통신장비 수리업",
+    "_count": 312,
+    "_status": "name_kw",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "통신장비 수리"
+  },
+  "N10599": {
+    "cat": "여가",
+    "sub": "여행사",
+    "_l3_name": "기타 여행 보조/예약 서비스업",
+    "_count": 532,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "여행사·보조"
+  },
+  "G20701": {
+    "cat": "편의점",
+    "sub": "담배",
+    "_l3_name": "담배/전자담배 소매업",
+    "_count": 718,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "담배 소매"
+  },
+  "G20801": {
+    "cat": "쇼핑",
+    "sub": "가전·통신",
+    "_l3_name": "컴퓨터/소프트웨어 소매업",
+    "_count": 1446,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "가전·통신 소매"
+  },
+  "G21802": {
+    "cat": "쇼핑",
+    "sub": "장식품",
+    "_l3_name": "기념품점",
+    "_count": 970,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "장식품 소매"
+  },
+  "G21401": {
+    "cat": "기타",
+    "sub": "주유소",
+    "_l3_name": "주유소",
+    "_count": 608,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "연료 소매"
+  },
+  "S20703": {
+    "cat": "미용",
+    "sub": "네일",
+    "_l3_name": "네일숍",
+    "_count": 4332,
+    "_status": "name_kw",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "이용·미용"
+  },
+  "I20101": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "백반/한정식",
+    "_count": 28705,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "I10103": {
+    "cat": "기타",
+    "sub": "숙박",
+    "_l3_name": "펜션",
+    "_count": 3423,
+    "_status": "industry_l2",
+    "_industry_l1": "숙박",
+    "_industry_l2": "일반 숙박"
+  },
+  "I20111": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "횟집",
+    "_count": 1918,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "P10501": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "입시·교과학원",
+    "_count": 17123,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "일반 교육"
+  },
+  "N11102": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "컴퓨터/사무기기 대여업",
+    "_count": 462,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "산업용품 대여"
+  },
+  "Q10204": {
+    "cat": "미용",
+    "sub": "피부관리",
+    "_l3_name": "피부/비뇨기과 의원",
+    "_count": 1708,
+    "_status": "name_kw",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "N11001": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "스포츠/레크리에이션 용품 대여업",
+    "_count": 159,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "가정용품 대여"
+  },
+  "S20901": {
+    "cat": "기타",
+    "sub": "세탁",
+    "_l3_name": "세탁소",
+    "_count": 3759,
+    "_status": "name_kw",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "세탁"
+  },
+  "M10901": {
+    "cat": "기타",
+    "sub": "기술서비스",
+    "_l3_name": "건축 설계 및 관련 서비스업",
+    "_count": 6546,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "기술 서비스"
+  },
+  "G20405": {
+    "cat": "편의점",
+    "sub": "편의점",
+    "_l3_name": "편의점",
+    "_count": 9475,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "종합 소매"
+  },
+  "G20301": {
+    "cat": "기타",
+    "sub": "이륜차",
+    "_l3_name": "모터사이클 및 부품 소매업",
+    "_count": 413,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "모터사이클 소매"
+  },
+  "G20910": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "신발 소매업",
+    "_count": 1750,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "I20201": {
+    "cat": "식사",
+    "sub": "중식",
+    "_l3_name": "중국집",
+    "_count": 4539,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "중식"
+  },
+  "I20301": {
+    "cat": "식사",
+    "sub": "일식",
+    "_l3_name": "일식 회/초밥",
+    "_count": 5840,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "일식"
+  },
+  "Q10201": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "내과/소아과 의원",
+    "_count": 2757,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "G20506": {
+    "cat": "마트",
+    "sub": "청과",
+    "_l3_name": "채소/과일 소매업",
+    "_count": 2493,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "M11504": {
+    "cat": "기타",
+    "sub": "전문서비스",
+    "_l3_name": "사업/무형 재산권 중개업",
+    "_count": 1106,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "기타 전문 과학"
+  },
+  "P10609": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "음악학원",
+    "_count": 3907,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "I10102": {
+    "cat": "기타",
+    "sub": "숙박",
+    "_l3_name": "여관/모텔",
+    "_count": 2248,
+    "_status": "industry_l2",
+    "_industry_l1": "숙박",
+    "_industry_l2": "일반 숙박"
+  },
+  "G20501": {
+    "cat": "마트",
+    "sub": "식료품",
+    "_l3_name": "곡물/곡분 소매업",
+    "_count": 296,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "P10601": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "태권도/무술학원",
+    "_count": 2227,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "P10603": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "요가/필라테스 학원",
+    "_count": 4955,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "M11203": {
+    "cat": "기타",
+    "sub": "디자인",
+    "_l3_name": "시각 디자인업",
+    "_count": 5418,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "전문 디자인"
+  },
+  "Q10102": {
+    "cat": "건강",
+    "sub": "병원",
+    "_l3_name": "일반병원",
+    "_count": 236,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "병원"
+  },
+  "M11502": {
+    "cat": "기타",
+    "sub": "전문서비스",
+    "_l3_name": "번역/통역 서비스업",
+    "_count": 1406,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "기타 전문 과학"
+  },
+  "Q10104": {
+    "cat": "건강",
+    "sub": "병원",
+    "_l3_name": "한방병원",
+    "_count": 85,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "병원"
+  },
+  "P10611": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "미술학원",
+    "_count": 2512,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "G22201": {
+    "cat": "쇼핑",
+    "sub": "중고상품",
+    "_l3_name": "중고 상품 소매업",
+    "_count": 1396,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "중고 상품 소매"
+  },
+  "I10299": {
+    "cat": "기타",
+    "sub": "기타숙박",
+    "_l3_name": "그 외 기타 숙박업",
+    "_count": 115,
+    "_status": "industry_l2",
+    "_industry_l1": "숙박",
+    "_industry_l2": "기타 숙박"
+  },
+  "G20505": {
+    "cat": "마트",
+    "sub": "수산",
+    "_l3_name": "수산물 소매업",
+    "_count": 1241,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "M11201": {
+    "cat": "기타",
+    "sub": "디자인",
+    "_l3_name": "인테리어 디자인업",
+    "_count": 5434,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "전문 디자인"
+  },
+  "P10701": {
+    "cat": "교육",
+    "sub": "교육지원",
+    "_l3_name": "교육컨설팅업",
+    "_count": 1784,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "교육 지원"
+  },
+  "G20503": {
+    "cat": "마트",
+    "sub": "정육",
+    "_l3_name": "정육점",
+    "_count": 2851,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "M11301": {
+    "cat": "기타",
+    "sub": "사진",
+    "_l3_name": "사진촬영업",
+    "_count": 6394,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "사진 촬영"
+  },
+  "S20802": {
+    "cat": "미용",
+    "sub": "마사지",
+    "_l3_name": "마사지/안마",
+    "_count": 1060,
+    "_status": "name_kw",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "욕탕·신체관리"
+  },
+  "G21303": {
+    "cat": "쇼핑",
+    "sub": "오락용품",
+    "_l3_name": "음반/비디오물 소매업",
+    "_count": 128,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "오락용품 소매"
+  },
+  "P10617": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "전문자격/고시학원",
+    "_count": 181,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "S20301": {
+    "cat": "기타",
+    "sub": "차량정비",
+    "_l3_name": "자동차 정비소",
+    "_count": 3576,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "자동차 수리·세차"
+  },
+  "I21099": {
+    "cat": "식사",
+    "sub": "기타식사",
+    "_l3_name": "그 외 기타 간이 음식점",
+    "_count": 1243,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "N10501": {
+    "cat": "여가",
+    "sub": "여행사",
+    "_l3_name": "여행사",
+    "_count": 4860,
+    "_status": "name_kw",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "여행사·보조"
+  },
+  "N10201": {
+    "cat": "기타",
+    "sub": "청소",
+    "_l3_name": "건축물 일반 청소업",
+    "_count": 3631,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "청소·방제"
+  },
+  "P10625": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "기타 기술/직업 훈련학원",
+    "_count": 2890,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "G20803": {
+    "cat": "쇼핑",
+    "sub": "가전·통신",
+    "_l3_name": "가전제품 소매업",
+    "_count": 1212,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "가전·통신 소매"
+  },
+  "N10101": {
+    "cat": "기타",
+    "sub": "시설관리",
+    "_l3_name": "사업시설 유지·관리 서비스업",
+    "_count": 1428,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "시설관리"
+  },
+  "G20404": {
+    "cat": "마트",
+    "sub": "슈퍼마켓",
+    "_l3_name": "슈퍼마켓",
+    "_count": 7862,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "종합 소매"
+  },
+  "I20102": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "국/탕/찌개류",
+    "_count": 4688,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "I20112": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "해산물 구이/찜",
+    "_count": 1719,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "P10607": {
+    "cat": "교육",
+    "sub": "기타교육",
+    "_l3_name": "청소년 수련시설",
+    "_count": 82,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "P10619": {
+    "cat": "교육",
+    "sub": "기타교육",
+    "_l3_name": "사회교육시설",
+    "_count": 235,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "G21801": {
+    "cat": "쇼핑",
+    "sub": "장식품",
+    "_l3_name": "예술품 소매업",
+    "_count": 1782,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "장식품 소매"
+  },
+  "G21201": {
+    "cat": "쇼핑",
+    "sub": "생활용품",
+    "_l3_name": "전기용품/조명장치 소매업",
+    "_count": 965,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "기타 생활용품 소매"
+  },
+  "M11401": {
+    "cat": "기타",
+    "sub": "인쇄",
+    "_l3_name": "명함/간판/광고물 제작",
+    "_count": 3706,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "인쇄·제품제작"
+  },
+  "G21601": {
+    "cat": "쇼핑",
+    "sub": "안경",
+    "_l3_name": "사무기기 소매업",
+    "_count": 354,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "안경·정밀기기 소매"
+  },
+  "M10503": {
+    "cat": "기타",
+    "sub": "광고",
+    "_l3_name": "광고 매체 판매업",
+    "_count": 173,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "광고"
+  },
+  "R10410": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "복권 발행/판매업",
+    "_count": 1038,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "P10621": {
+    "cat": "교육",
+    "sub": "기타교육",
+    "_l3_name": "직원 훈련기관",
+    "_count": 827,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "M10999": {
+    "cat": "기타",
+    "sub": "기술서비스",
+    "_l3_name": "기타 엔지니어링 서비스업",
+    "_count": 2046,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "기술 서비스"
+  },
+  "G22199": {
+    "cat": "쇼핑",
+    "sub": "기타상품",
+    "_l3_name": "그 외 기타 상품 전문 소매업",
+    "_count": 3484,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "기타 상품 소매"
+  },
+  "G20911": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "가방 소매업",
+    "_count": 1171,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "I21103": {
+    "cat": "주점",
+    "sub": "호프",
+    "_l3_name": "생맥주 전문",
+    "_count": 2643,
+    "_status": "name_kw",
+    "_industry_l1": "음식",
+    "_industry_l2": "주점"
+  },
+  "G21202": {
+    "cat": "쇼핑",
+    "sub": "생활용품",
+    "_l3_name": "주방/가정용품 소매업",
+    "_count": 1991,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "기타 생활용품 소매"
+  },
+  "I21001": {
+    "cat": "디저트",
+    "sub": "베이커리",
+    "_l3_name": "빵/도넛",
+    "_count": 5810,
+    "_status": "name_kw",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "G20602": {
+    "cat": "마트",
+    "sub": "음료소매",
+    "_l3_name": "주류 소매업",
+    "_count": 393,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "음료 소매"
+  },
+  "S20699": {
+    "cat": "기타",
+    "sub": "수리",
+    "_l3_name": "그 외 기타 개인/가정용품 수리업",
+    "_count": 1689,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "기타 가정용품 수리"
+  },
+  "I21002": {
+    "cat": "식사",
+    "sub": "기타식사",
+    "_l3_name": "떡/한과",
+    "_count": 1085,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "G20901": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "남성 의류 소매업",
+    "_count": 1695,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "G20508": {
+    "cat": "건강",
+    "sub": "건강보조식품",
+    "_l3_name": "건강보조식품 소매업",
+    "_count": 2725,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "G21603": {
+    "cat": "쇼핑",
+    "sub": "안경",
+    "_l3_name": "사진기/기타 광학기기 소매업",
+    "_count": 243,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "안경·정밀기기 소매"
+  },
+  "M11101": {
+    "cat": "기타",
+    "sub": "수의",
+    "_l3_name": "동물병원",
+    "_count": 898,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "수의"
+  },
+  "I20108": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "소고기 구이/찜",
+    "_count": 918,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "I20104": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "전/부침개",
+    "_count": 193,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "G21403": {
+    "cat": "기타",
+    "sub": "주유소",
+    "_l3_name": "가정용 연료 소매업",
+    "_count": 280,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "연료 소매"
+  },
+  "S20702": {
+    "cat": "미용",
+    "sub": "피부관리",
+    "_l3_name": "피부 관리실",
+    "_count": 6248,
+    "_status": "name_kw",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "이용·미용"
+  },
+  "G21502": {
+    "cat": "쇼핑",
+    "sub": "화장품",
+    "_l3_name": "의료기기 소매업",
+    "_count": 1677,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "의약·화장품 소매"
+  },
+  "G21001": {
+    "cat": "쇼핑",
+    "sub": "건자재",
+    "_l3_name": "철물/공구 소매업",
+    "_count": 1832,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "철물·건설자재 소매"
+  },
+  "S20601": {
+    "cat": "기타",
+    "sub": "수리",
+    "_l3_name": "의류/이불 수선업",
+    "_count": 1443,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "기타 가정용품 수리"
+  },
+  "M10303": {
+    "cat": "기타",
+    "sub": "법무",
+    "_l3_name": "법무사",
+    "_count": 2071,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "법무관련 "
+  },
+  "S20401": {
+    "cat": "기타",
+    "sub": "차량정비",
+    "_l3_name": "모터사이클 수리업",
+    "_count": 504,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "모터사이클 수리"
+  },
+  "G21301": {
+    "cat": "쇼핑",
+    "sub": "오락용품",
+    "_l3_name": "서점",
+    "_count": 1696,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "오락용품 소매"
+  },
+  "I21101": {
+    "cat": "주점",
+    "sub": "일반주점",
+    "_l3_name": "일반 유흥 주점",
+    "_count": 2269,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "주점"
+  },
+  "S20501": {
+    "cat": "기타",
+    "sub": "수리",
+    "_l3_name": "가전제품 수리업",
+    "_count": 1853,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "가전제품 수리"
+  },
+  "M10599": {
+    "cat": "기타",
+    "sub": "광고",
+    "_l3_name": "기타 광고 관련 서비스업",
+    "_count": 525,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "광고"
+  },
+  "I20113": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "복 요리 전문",
+    "_count": 84,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "I20202": {
+    "cat": "식사",
+    "sub": "중식",
+    "_l3_name": "마라탕/훠궈",
+    "_count": 769,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "중식"
+  },
+  "G21304": {
+    "cat": "쇼핑",
+    "sub": "오락용품",
+    "_l3_name": "운동용품 소매업",
+    "_count": 1904,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "오락용품 소매"
+  },
+  "I20501": {
+    "cat": "식사",
+    "sub": "아시안",
+    "_l3_name": "베트남식 전문",
+    "_count": 1448,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "동남아시아"
+  },
+  "G20499": {
+    "cat": "마트",
+    "sub": "종합소매",
+    "_l3_name": "그 외 기타 종합 소매업",
+    "_count": 808,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "종합 소매"
+  },
+  "I20401": {
+    "cat": "식사",
+    "sub": "양식",
+    "_l3_name": "경양식",
+    "_count": 5941,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "서양식"
+  },
+  "G20906": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "침구류/커튼 소매업",
+    "_count": 1147,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "M10501": {
+    "cat": "기타",
+    "sub": "광고",
+    "_l3_name": "광고 대행업",
+    "_count": 12844,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "광고"
+  },
+  "G21503": {
+    "cat": "쇼핑",
+    "sub": "화장품",
+    "_l3_name": "화장품 소매업",
+    "_count": 5469,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "의약·화장품 소매"
+  },
+  "P10613": {
+    "cat": "교육",
+    "sub": "기타교육",
+    "_l3_name": "기타 예술/스포츠 교육기관",
+    "_count": 1200,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "I21007": {
+    "cat": "식사",
+    "sub": "분식",
+    "_l3_name": "김밥/만두/분식",
+    "_count": 7618,
+    "_status": "name_kw",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "I10201": {
+    "cat": "기타",
+    "sub": "기타숙박",
+    "_l3_name": "기숙사/고시원",
+    "_count": 2509,
+    "_status": "industry_l2",
+    "_industry_l1": "숙박",
+    "_industry_l2": "기타 숙박"
+  },
+  "N11099": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "기타 개인/가정용품 대여업",
+    "_count": 775,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "가정용품 대여"
+  },
+  "P10799": {
+    "cat": "교육",
+    "sub": "교육지원",
+    "_l3_name": "기타 교육지원 서비스업",
+    "_count": 2688,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "교육 지원"
+  },
+  "S20902": {
+    "cat": "기타",
+    "sub": "세탁",
+    "_l3_name": "셀프 빨래방",
+    "_count": 849,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "세탁"
+  },
+  "R10202": {
+    "cat": "카페",
+    "sub": "카페",
+    "_l3_name": "독서실/스터디 카페",
+    "_count": 2497,
+    "_status": "name_kw",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "도서관·사적지"
+  },
+  "R10312": {
+    "cat": "여가",
+    "sub": "스포츠",
+    "_l3_name": "테니스장",
+    "_count": 628,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "G21602": {
+    "cat": "쇼핑",
+    "sub": "안경",
+    "_l3_name": "안경렌즈 소매업",
+    "_count": 2055,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "안경·정밀기기 소매"
+  },
+  "I20106": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "냉면/밀면",
+    "_count": 597,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "G20509": {
+    "cat": "마트",
+    "sub": "식료품",
+    "_l3_name": "반찬/식료품 소매업",
+    "_count": 2050,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "I20303": {
+    "cat": "식사",
+    "sub": "일식",
+    "_l3_name": "일식 면 요리",
+    "_count": 583,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "일식"
+  },
+  "I20701": {
+    "cat": "식사",
+    "sub": "구내식당·뷔페",
+    "_l3_name": "구내식당",
+    "_count": 908,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "구내식당·뷔페"
+  },
+  "I20302": {
+    "cat": "식사",
+    "sub": "일식",
+    "_l3_name": "일식 카레/돈가스/덮밥",
+    "_count": 536,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "일식"
+  },
+  "G21901": {
+    "cat": "쇼핑",
+    "sub": "식물·꽃",
+    "_l3_name": "꽃집",
+    "_count": 4132,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "식물 소매"
+  },
+  "M10504": {
+    "cat": "기타",
+    "sub": "광고",
+    "_l3_name": "광고물 설계/제작업",
+    "_count": 2541,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "광고"
+  },
+  "Q10208": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "성형외과 의원",
+    "_count": 805,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "P10629": {
+    "cat": "교육",
+    "sub": "기타교육",
+    "_l3_name": "그 외 기타 교육기관",
+    "_count": 1944,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "G21203": {
+    "cat": "쇼핑",
+    "sub": "생활용품",
+    "_l3_name": "악기 소매업",
+    "_count": 397,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "기타 생활용품 소매"
+  },
+  "S20101": {
+    "cat": "기타",
+    "sub": "수리",
+    "_l3_name": "컴퓨터/노트북/프린터 수리업",
+    "_count": 1572,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "컴퓨터 수리"
+  },
+  "N10402": {
+    "cat": "기타",
+    "sub": "고용서비스",
+    "_l3_name": "임시/일용 인력 공급업",
+    "_count": 1069,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "고용 알선"
+  },
+  "I21003": {
+    "cat": "식사",
+    "sub": "피자",
+    "_l3_name": "피자",
+    "_count": 3241,
+    "_status": "name_kw",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "I20110": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "닭/오리고기 구이/찜",
+    "_count": 1211,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "R10310": {
+    "cat": "여가",
+    "sub": "당구",
+    "_l3_name": "당구장",
+    "_count": 1871,
+    "_status": "name_kw",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "M10302": {
+    "cat": "기타",
+    "sub": "법무",
+    "_l3_name": "변리사",
+    "_count": 801,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "법무관련 "
+  },
+  "G22001": {
+    "cat": "쇼핑",
+    "sub": "반려동물",
+    "_l3_name": "애완동물/애완용품 소매업",
+    "_count": 1654,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "애완동물·용품 소매"
+  },
+  "I20105": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "국수/칼국수",
+    "_count": 2842,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "M10601": {
+    "cat": "기타",
+    "sub": "조사",
+    "_l3_name": "시장 조사 및 여론 조사업",
+    "_count": 691,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "시장 조사"
+  },
+  "G21002": {
+    "cat": "쇼핑",
+    "sub": "건자재",
+    "_l3_name": "벽지/장판/마루 소매업",
+    "_count": 858,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "철물·건설자재 소매"
+  },
+  "R10406": {
+    "cat": "여가",
+    "sub": "PC방",
+    "_l3_name": "PC방",
+    "_count": 1041,
+    "_status": "name_kw",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "M10903": {
+    "cat": "기타",
+    "sub": "기술서비스",
+    "_l3_name": "건물 및 토목 엔지니어링 서비스업",
+    "_count": 1546,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "기술 서비스"
+  },
+  "I21008": {
+    "cat": "디저트",
+    "sub": "아이스크림",
+    "_l3_name": "아이스크림/빙수",
+    "_count": 535,
+    "_status": "name_kw",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "N10805": {
+    "cat": "기타",
+    "sub": "사업서비스",
+    "_l3_name": "포장/충전업",
+    "_count": 415,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "기타 사업 서비스"
+  },
+  "N10703": {
+    "cat": "기타",
+    "sub": "사무서비스",
+    "_l3_name": "복사업",
+    "_count": 598,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "사무 지원"
+  },
+  "M10306": {
+    "cat": "기타",
+    "sub": "법무",
+    "_l3_name": "행정사",
+    "_count": 1164,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "법무관련 "
+  },
+  "M11204": {
+    "cat": "기타",
+    "sub": "디자인",
+    "_l3_name": "패션/섬유/기타 전문 디자인업",
+    "_count": 1350,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "전문 디자인"
+  },
+  "N11199": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "기타 산업용 기계/장비 대여업",
+    "_count": 650,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "산업용품 대여"
+  },
+  "R10311": {
+    "cat": "여가",
+    "sub": "스포츠",
+    "_l3_name": "골프 연습장",
+    "_count": 1478,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "I21004": {
+    "cat": "식사",
+    "sub": "기타식사",
+    "_l3_name": "버거",
+    "_count": 1045,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "N10203": {
+    "cat": "기타",
+    "sub": "청소",
+    "_l3_name": "소독; 구충 및 방제 서비스업",
+    "_count": 602,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "청소·방제"
+  },
+  "P10615": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "외국어학원",
+    "_count": 1262,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "M10902": {
+    "cat": "기타",
+    "sub": "기술서비스",
+    "_l3_name": "도시 계획 및 조경 설계 서비스업",
+    "_count": 507,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "기술 서비스"
+  },
+  "N11101": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "건설기계/장비 대여업",
+    "_count": 271,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "산업용품 대여"
+  },
+  "Q10202": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "외과 의원",
+    "_count": 1247,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "I21005": {
+    "cat": "식사",
+    "sub": "기타식사",
+    "_l3_name": "토스트/샌드위치/샐러드",
+    "_count": 775,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 간이"
+  },
+  "I20599": {
+    "cat": "식사",
+    "sub": "아시안",
+    "_l3_name": "기타 동남아식 전문",
+    "_count": 127,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "동남아시아"
+  },
+  "I20109": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "곱창 전골/구이",
+    "_count": 1290,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "G20909": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "실/섬유제품 소매업",
+    "_count": 634,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "G20202": {
+    "cat": "기타",
+    "sub": "자동차부품",
+    "_l3_name": "자동차 부품 소매업",
+    "_count": 837,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "자동차 부품 소매"
+  },
+  "M10904": {
+    "cat": "기타",
+    "sub": "기술서비스",
+    "_l3_name": "환경 관련 엔지니어링 서비스업",
+    "_count": 510,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "기술 서비스"
+  },
+  "N10202": {
+    "cat": "기타",
+    "sub": "청소",
+    "_l3_name": "산업설비; 운송장비 및 공공장소 청소업",
+    "_count": 450,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "청소·방제"
+  },
+  "R10313": {
+    "cat": "여가",
+    "sub": "스포츠",
+    "_l3_name": "탁구장",
+    "_count": 266,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "S21105": {
+    "cat": "기타",
+    "sub": "기타개인",
+    "_l3_name": "결혼 상담 서비스업",
+    "_count": 595,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "기타 개인"
+  },
+  "S21001": {
+    "cat": "기타",
+    "sub": "장례",
+    "_l3_name": "장례식장",
+    "_count": 424,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "장례식장 "
+  },
+  "G21099": {
+    "cat": "쇼핑",
+    "sub": "건자재",
+    "_l3_name": "기타 건설/건축자재 소매업",
+    "_count": 198,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "철물·건설자재 소매"
+  },
+  "I20499": {
+    "cat": "식사",
+    "sub": "양식",
+    "_l3_name": "기타 서양식 음식점",
+    "_count": 340,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "서양식"
+  },
+  "R10405": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "기타 오락장",
+    "_count": 892,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "N10901": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "자동차 대여업",
+    "_count": 585,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "운송장비 대여"
+  },
+  "M10307": {
+    "cat": "기타",
+    "sub": "법무",
+    "_l3_name": "공인노무사",
+    "_count": 644,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "법무관련 "
+  },
+  "G21306": {
+    "cat": "쇼핑",
+    "sub": "오락용품",
+    "_l3_name": "장난감 소매업",
+    "_count": 708,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "오락용품 소매"
+  },
+  "I20103": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "족발/보쌈",
+    "_count": 1163,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "I20402": {
+    "cat": "식사",
+    "sub": "양식",
+    "_l3_name": "파스타/스테이크",
+    "_count": 490,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "서양식"
+  },
+  "P10623": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "운전학원",
+    "_count": 75,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "S20801": {
+    "cat": "미용",
+    "sub": "욕탕·신체관리",
+    "_l3_name": "목욕탕/사우나",
+    "_count": 527,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "욕탕·신체관리"
+  },
+  "N10403": {
+    "cat": "기타",
+    "sub": "고용서비스",
+    "_l3_name": "상용 인력 공급 및 인사관리 서비스업",
+    "_count": 502,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "고용 알선"
+  },
+  "N11004": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "의류 대여업",
+    "_count": 442,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "가정용품 대여"
+  },
+  "Q10211": {
+    "cat": "건강",
+    "sub": "한의원",
+    "_l3_name": "한의원",
+    "_count": 3462,
+    "_status": "name_kw",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "M11202": {
+    "cat": "기타",
+    "sub": "디자인",
+    "_l3_name": "제품 디자인업",
+    "_count": 1592,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "전문 디자인"
+  },
+  "Q10209": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "기타 의원",
+    "_count": 898,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "S20603": {
+    "cat": "기타",
+    "sub": "수리",
+    "_l3_name": "시계/귀금속/악기 수리업",
+    "_count": 221,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "기타 가정용품 수리"
+  },
+  "R10499": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "기타 오락관련 서비스업",
+    "_count": 514,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "Q10402": {
+    "cat": "건강",
+    "sub": "기타보건",
+    "_l3_name": "유사 의료업",
+    "_count": 613,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "기타 보건"
+  },
+  "S20602": {
+    "cat": "기타",
+    "sub": "수리",
+    "_l3_name": "가죽/가방/신발 수선업",
+    "_count": 310,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "기타 가정용품 수리"
+  },
+  "G20504": {
+    "cat": "마트",
+    "sub": "식료품",
+    "_l3_name": "건어물/젓갈 소매업",
+    "_count": 613,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "G20507": {
+    "cat": "디저트",
+    "sub": "아이스크림",
+    "_l3_name": "아이스크림 할인점",
+    "_count": 30,
+    "_status": "name_kw",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "M10499": {
+    "cat": "기타",
+    "sub": "회계·세무",
+    "_l3_name": "기타 회계 관련 서비스업",
+    "_count": 30,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "회계·세무"
+  },
+  "M10502": {
+    "cat": "기타",
+    "sub": "광고",
+    "_l3_name": "옥외/전시 광고 대행업",
+    "_count": 400,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "광고"
+  },
+  "P10605": {
+    "cat": "교육",
+    "sub": "기타교육",
+    "_l3_name": "레크리에이션 교육기관",
+    "_count": 902,
+    "_status": "industry_l2",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "N10799": {
+    "cat": "기타",
+    "sub": "사무서비스",
+    "_l3_name": "기타 사무 지원 서비스업",
+    "_count": 384,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "사무 지원"
+  },
+  "S21002": {
+    "cat": "기타",
+    "sub": "장례",
+    "_l3_name": "화장터/묘지/납골당",
+    "_count": 54,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "장례식장 "
+  },
+  "G20604": {
+    "cat": "마트",
+    "sub": "음료소매",
+    "_l3_name": "우유 소매업",
+    "_count": 106,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "음료 소매"
+  },
+  "S20803": {
+    "cat": "미용",
+    "sub": "욕탕·신체관리",
+    "_l3_name": "체형/비만 관리",
+    "_count": 714,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "욕탕·신체관리"
+  },
+  "G20904": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "한복 소매업",
+    "_count": 231,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "I10101": {
+    "cat": "기타",
+    "sub": "숙박",
+    "_l3_name": "호텔/리조트",
+    "_count": 361,
+    "_status": "industry_l2",
+    "_industry_l1": "숙박",
+    "_industry_l2": "일반 숙박"
+  },
+  "I20199": {
+    "cat": "식사",
+    "sub": "한식",
+    "_l3_name": "기타 한식 음식점",
+    "_count": 280,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "한식"
+  },
+  "M10401": {
+    "cat": "기타",
+    "sub": "회계·세무",
+    "_l3_name": "공인회계사",
+    "_count": 986,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "회계·세무"
+  },
+  "P10627": {
+    "cat": "교육",
+    "sub": "학원",
+    "_l3_name": "컴퓨터 학원",
+    "_count": 286,
+    "_status": "name_kw",
+    "_industry_l1": "교육",
+    "_industry_l2": "기타 교육"
+  },
+  "R10409": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "수상/해양 레저업",
+    "_count": 30,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "M10399": {
+    "cat": "기타",
+    "sub": "법무",
+    "_l3_name": "기타 법무관련 서비스업",
+    "_count": 61,
+    "_status": "industry_l2",
+    "_industry_l1": "과학·기술",
+    "_industry_l2": "법무관련 "
+  },
+  "R10316": {
+    "cat": "여가",
+    "sub": "스포츠",
+    "_l3_name": "스쿼시/라켓볼장",
+    "_count": 38,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "G21402": {
+    "cat": "기타",
+    "sub": "주유소",
+    "_l3_name": "가스 충전소",
+    "_count": 84,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "연료 소매"
+  },
+  "Q10206": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "이비인후과 의원",
+    "_count": 665,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "G21305": {
+    "cat": "쇼핑",
+    "sub": "오락용품",
+    "_l3_name": "자전거 소매업",
+    "_count": 457,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "오락용품 소매"
+  },
+  "I21102": {
+    "cat": "주점",
+    "sub": "일반주점",
+    "_l3_name": "무도 유흥 주점",
+    "_count": 96,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "주점"
+  },
+  "N10301": {
+    "cat": "기타",
+    "sub": "조경",
+    "_l3_name": "조경 유지·관리 서비스업",
+    "_count": 120,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "조경·유지"
+  },
+  "N10999": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "기타 운송장비 대여업",
+    "_count": 157,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "운송장비 대여"
+  },
+  "G20603": {
+    "cat": "마트",
+    "sub": "음료소매",
+    "_l3_name": "생수/음료 소매업",
+    "_count": 207,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "음료 소매"
+  },
+  "I20601": {
+    "cat": "식사",
+    "sub": "기타외국",
+    "_l3_name": "분류 안된 외국식 음식점",
+    "_count": 35,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "기타 외국"
+  },
+  "R10314": {
+    "cat": "여가",
+    "sub": "스포츠",
+    "_l3_name": "기타 스포츠시설 운영업",
+    "_count": 281,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "R10414": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "바둑/장기/체스 경기 운영업",
+    "_count": 126,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "S21101": {
+    "cat": "기타",
+    "sub": "기타개인",
+    "_l3_name": "예식장업",
+    "_count": 186,
+    "_status": "industry_l2",
+    "_industry_l1": "수리·개인",
+    "_industry_l2": "기타 개인"
+  },
+  "R10306": {
+    "cat": "여가",
+    "sub": "스포츠",
+    "_l3_name": "종합 스포츠시설",
+    "_count": 123,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "I20399": {
+    "cat": "식사",
+    "sub": "일식",
+    "_l3_name": "기타 일식 음식점",
+    "_count": 126,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "일식"
+  },
+  "N11003": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "만화방",
+    "_count": 102,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "가정용품 대여"
+  },
+  "Q10103": {
+    "cat": "건강",
+    "sub": "치과",
+    "_l3_name": "치과병원",
+    "_count": 227,
+    "_status": "name_kw",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "병원"
+  },
+  "Q10101": {
+    "cat": "건강",
+    "sub": "병원",
+    "_l3_name": "종합병원",
+    "_count": 111,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "병원"
+  },
+  "Q10205": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "안과 의원",
+    "_count": 439,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "G20201": {
+    "cat": "기타",
+    "sub": "자동차부품",
+    "_l3_name": "타이어 소매업",
+    "_count": 91,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "자동차 부품 소매"
+  },
+  "G20502": {
+    "cat": "마트",
+    "sub": "식료품",
+    "_l3_name": "가축 사료 소매업",
+    "_count": 526,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "식료품 소매"
+  },
+  "I20403": {
+    "cat": "식사",
+    "sub": "양식",
+    "_l3_name": "패밀리레스토랑",
+    "_count": 91,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "서양식"
+  },
+  "R10309": {
+    "cat": "여가",
+    "sub": "볼링",
+    "_l3_name": "볼링장",
+    "_count": 114,
+    "_status": "name_kw",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "I20702": {
+    "cat": "식사",
+    "sub": "구내식당·뷔페",
+    "_l3_name": "뷔페",
+    "_count": 182,
+    "_status": "industry_l2",
+    "_industry_l1": "음식",
+    "_industry_l2": "구내식당·뷔페"
+  },
+  "Q10203": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "신경/정신과 의원",
+    "_count": 684,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "R10308": {
+    "cat": "여가",
+    "sub": "스포츠",
+    "_l3_name": "수영장",
+    "_count": 85,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "스포츠 서비스"
+  },
+  "Q10207": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "산부인과 의원",
+    "_count": 482,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "G20908": {
+    "cat": "쇼핑",
+    "sub": "의류",
+    "_l3_name": "가발 소매업",
+    "_count": 556,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "섬유·의복·신발 소매"
+  },
+  "Q10212": {
+    "cat": "건강",
+    "sub": "의원",
+    "_l3_name": "방사선 진단/병리 검사 의원",
+    "_count": 111,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "의원"
+  },
+  "R10404": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "전자 게임장",
+    "_count": 292,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "G20601": {
+    "cat": "마트",
+    "sub": "음료소매",
+    "_l3_name": "얼음 소매업",
+    "_count": 23,
+    "_status": "industry_l2",
+    "_industry_l1": "소매",
+    "_industry_l2": "음료 소매"
+  },
+  "Q10105": {
+    "cat": "건강",
+    "sub": "병원",
+    "_l3_name": "요양병원",
+    "_count": 150,
+    "_status": "industry_l2",
+    "_industry_l1": "보건의료",
+    "_industry_l2": "병원"
+  },
+  "R10402": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "비디오방",
+    "_count": 25,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "R10408": {
+    "cat": "여가",
+    "sub": "유원지·오락",
+    "_l3_name": "낚시터 운영업",
+    "_count": 24,
+    "_status": "industry_l2",
+    "_industry_l1": "예술·스포츠",
+    "_industry_l2": "유원지·오락"
+  },
+  "N11002": {
+    "cat": "기타",
+    "sub": "대여",
+    "_l3_name": "음반/비디오물 대여업",
+    "_count": 30,
+    "_status": "industry_l2",
+    "_industry_l1": "시설관리·임대",
+    "_industry_l2": "가정용품 대여"
+  },
+  "I10104": {
+    "cat": "기타",
+    "sub": "숙박",
+    "_l3_name": "캠핑/글램핑",
+    "_count": 15,
+    "_status": "industry_l2",
+    "_industry_l1": "숙박",
+    "_industry_l2": "일반 숙박"
+  }
+}

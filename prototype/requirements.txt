@@ -1,7 +1,0 @@
-pandas
-numpy
-networkx
-pyproj
-folium
-requests
-python-louvain
