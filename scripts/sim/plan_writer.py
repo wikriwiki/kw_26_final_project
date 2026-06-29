@@ -33,7 +33,11 @@ MATCH (a:Agent {id: $aid})
 MERGE (p:Plan {id: $plan_id})
 SET p.agent_id = $aid, p.day = date($day), p.day_type = $day_type,
     p.generated_at = datetime(),
-    p.llm_tokens_in = $tokens_in, p.llm_tokens_out = $tokens_out
+    p.llm_tokens_in = $tokens_in, p.llm_tokens_out = $tokens_out,
+    // 리뷰 노출 기록 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
+    p.review_lookup_count = $review_lookup_count,     // 오늘 조회한 POI 수
+    p.review_changed_count = $review_changed_count,   // 리뷰로 선택이 바뀐 pick 수
+    p.reviews_seen = $reviews_seen                    // 본 리뷰 전체 JSON {poi_id:{rating,reviews,...}}
 MERGE (a)-[:HAS_PLAN {day: date($day)}]->(p)
 // 재시뮬 시 기존 INCLUDES 삭제 (idempotent)
 WITH p
@@ -62,7 +66,14 @@ CREATE (p)-[:INCLUDES {
   reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
   trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/mood/none
   pick_reason: ev.pick_reason,       // Stage 2: 왜 후보풀 중 이 POI
-  pick_factor: ev.pick_factor        // Stage 2: known/distance/satisfaction/rumor/novelty/random
+  pick_factor: ev.pick_factor,       // Stage 2: known/distance/satisfaction/rumor/novelty/random
+  // ───── 리뷰 노출·사고변화 흔적 (추가 LLM 호출 0) ─────
+  review_seen: ev.review_seen,           // 이 POI 카카오 리뷰를 봤나
+  seen_rating: ev.seen_rating,           // 본 평균 별점
+  seen_rating_count: ev.seen_rating_count,
+  review_snippet: ev.review_snippet,     // 본 리뷰 한 줄
+  pre_review_poi: ev.pre_review_poi,     // 리뷰 전(1차) 선택 — 바뀐 경우만
+  review_changed: ev.review_changed      // 리뷰가 최종 선택을 바꿨나
 }]->(poi)
 """
 
@@ -70,6 +81,7 @@ CREATE (p)-[:INCLUDES {
 def write_plan(
     aid: str, today: date, events: list[dict], day_type: str,
     tokens_in: int = 0, tokens_out: int = 0,
+    reviews_seen: dict | None = None, review_lookup_count: int = 0,
 ):
     import json as _json
     plan_id = f"{aid}_{today.isoformat()}"
@@ -79,10 +91,15 @@ def write_plan(
     for ev in valid_events:
         ps = ev.get("policy_spend") or {}
         ev["spent_from_policy_json"] = _json.dumps(ps, ensure_ascii=False) if ps else "{}"
+    # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
+    reviews_seen_json = _json.dumps(reviews_seen, ensure_ascii=False) if reviews_seen else "{}"
+    review_changed_count = sum(1 for ev in valid_events if ev.get("review_changed"))
     with driver_session() as s:
         s.run(WRITE_PLAN_CYPHER,
               aid=aid, plan_id=plan_id, day=today.isoformat(), day_type=day_type,
-              tokens_in=tokens_in, tokens_out=tokens_out)
+              tokens_in=tokens_in, tokens_out=tokens_out,
+              reviews_seen=reviews_seen_json, review_lookup_count=review_lookup_count,
+              review_changed_count=review_changed_count)
         if valid_events:
             s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events)
     return plan_id, len(valid_events)

@@ -230,7 +230,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             active_policies=ctx.policy,
             grant_remaining=grant_avail_today,
         )
-        events = merge_to_final_events(s1, s2, ctx.persona)
+        events = merge_to_final_events(
+            s1, s2, ctx.persona,
+            review_lookup_used=m2.get("review_lookup_used"),
+            pre_review_picks=m2.get("pre_review_picks"),
+        )
 
         # LLM policy_spend 환각 검증 — 거래 단위(sum>actual) + 정책 단위(잔여액 초과) 보정
         policy_spend_corrected = validate_policy_spend(events, policy_remaining=grant_avail_today)
@@ -261,7 +265,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
         tokens_out = m1["tokens_out"] + (m2.get("tokens_out") or 0)
-        _, n_inc = write_plan(aid, today, events, day_type, tokens_in, tokens_out)
+        _, n_inc = write_plan(
+            aid, today, events, day_type, tokens_in, tokens_out,
+            reviews_seen=m2.get("review_lookup_used"),
+            review_lookup_count=m2.get("review_lookup_count", 0),
+        )
 
         # Night Phase — Day 1 새벽엔 어제(Day 0) Plan 없으므로 finalize는 Day 2 이상에서만
         n_mem = 0

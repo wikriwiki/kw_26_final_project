@@ -510,6 +510,7 @@ def call_stage2(
 
     last_err = None
     review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
+    pre_review_picks: dict[int, str] = {}     # 리뷰 보기 전(1차) 선택 {order: poi_id} — 사고변화 추적
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.1 * attempt
         # review_lookup 결과가 있으면 prompt에 추가 컨텍스트 첨부
@@ -545,6 +546,8 @@ def call_stage2(
                     fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
                     if fetched:
                         review_lookup_used = fetched
+                        # 리뷰 보기 전(1차) 선택 보존 — 추가 LLM 호출 없이 '사고 변화' 추적용
+                        pre_review_picks = {p.order: p.poi_id for p in parsed.picks}
                         # 같은 attempt에서 재호출이 아니라 다음 attempt에 첨부해서 한 번 더 시도
                         # (max_retry 안 쓰고 별도 1회 — temp 0.7 그대로)
                         if verbose:
@@ -606,6 +609,9 @@ def call_stage2(
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
                 "review_lookup_count": len(review_lookup_used),
+                # 리뷰 흔적 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
+                "review_lookup_used": review_lookup_used,   # {poi_id: {rating, rating_count, reviews, category}}
+                "pre_review_picks": pre_review_picks,       # {order: 리뷰 전 선택 poi_id}
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
@@ -647,7 +653,9 @@ def _fill_missing_picks(
 # =========================================================
 # Stage 1 + Stage 2 병합 → 최종 events
 # =========================================================
-def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: dict) -> list[dict]:
+def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: dict,
+                          review_lookup_used: dict | None = None,
+                          pre_review_picks: dict | None = None) -> list[dict]:
     """Stage 1 + Stage 2 picks → 최종 events with poi_id.
 
     카테고리 기준 우선 (anchor는 출발지 표시일 뿐):
@@ -656,6 +664,8 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
       - cat ∈ 외출 카테고리 (식사·카페·편의점 등) → Stage 2 pick (commerce POI)
         - Stage 2 pick 누락 시 fallback으로 anchor POI 사용
     """
+    review_lookup_used = review_lookup_used or {}   # {poi_id: {rating, rating_count, reviews, ...}}
+    pre_review_picks = pre_review_picks or {}        # {order: 리뷰 전 선택 poi_id}
     pick_by_order = {p.order: p for p in stage2.picks}
     out = []
     for i, ev in enumerate(stage1.events):
@@ -684,6 +694,12 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
                 elif ev.anchor == "workplace":
                     poi_id = persona.get("work_poi_id")
 
+        # 리뷰 노출·사고변화 흔적 (추가 호출 0 — 기존 2-pass 캡처 데이터만 사용)
+        _seen = review_lookup_used.get(poi_id) if poi_id else None
+        _pre_poi = pre_review_picks.get(i)
+        _review_changed = bool(_pre_poi and poi_id and _pre_poi != poi_id)
+        _seen_rv = (_seen.get("reviews") if _seen else None) or []
+        _snippet = (_seen_rv[0].get("contents") if _seen_rv else None)
         out.append({
             "order": i,
             "time": ev.time,
@@ -703,6 +719,13 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
             "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...
             "pick_reason": pick_obj.pick_reason if pick_obj else None,   # Stage 2: 왜 이 POI
             "pick_factor": pick_obj.pick_factor if pick_obj else None,   # Stage 2: known/distance/...
+            # ───── 리뷰 노출·사고변화 흔적 (추가 LLM 호출 0) ─────
+            "review_seen": _seen is not None,                        # 이 POI 카카오 리뷰를 봤나
+            "seen_rating": (_seen or {}).get("rating"),              # 본 평균 별점
+            "seen_rating_count": (_seen or {}).get("rating_count"),
+            "review_snippet": _snippet,                              # 본 리뷰 한 줄
+            "pre_review_poi": _pre_poi if _review_changed else None, # 리뷰 전(1차) 선택 — 바뀐 경우만
+            "review_changed": _review_changed,                       # 리뷰가 최종 선택을 바꿨나
         })
     return out
 
