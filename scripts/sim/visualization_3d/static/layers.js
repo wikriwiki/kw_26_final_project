@@ -169,15 +169,15 @@
   // with the ramp: sub-threshold cells are fully transparent, the violet/blue
   // low end is faint, and only the hot core is fully opaque red.
   const HEATMAP_COLOR_RANGE = [
-    [50, 20, 80, 0],
-    [92, 55, 160, 70],
-    [60, 80, 200, 110],
-    [40, 150, 215, 150],
-    [40, 200, 188, 182],
-    [120, 218, 118, 206],
-    [228, 222, 85, 226],
-    [246, 145, 45, 242],
-    [218, 28, 28, 255]
+    [55, 30, 110, 0],
+    [70, 85, 200, 80],
+    [45, 150, 220, 130],
+    [40, 200, 188, 170],
+    [95, 216, 128, 196],
+    [165, 224, 92, 212],
+    [236, 226, 80, 226],
+    [247, 150, 45, 242],
+    [216, 28, 28, 255]
   ];
 
   // HeatmapLayer's radiusPixels is a fixed screen-space radius, so at higher
@@ -199,7 +199,7 @@
   // don't smear the whole neighbourhood red. Anchored at z=12.5 (~4.25), which
   // reads cleanest as a paper-style blue->red cloud.
   function heatColorMaxForZoom(z) {
-    return Math.max(2.8, Math.min(6, 4.2 + (z - 12.5) * 0.7));
+    return Math.max(2.4, Math.min(5.2, 3.6 + (z - 12.5) * 0.6));
   }
 
   function makeHeatmapLayer(agents, visible) {
@@ -226,10 +226,15 @@
       // re-normalisation to the on-screen max, which made the heatmap fade out
       // on zoom-in) but float the ceiling with zoom so the same cluster keeps a
       // consistent hot/cool reading across zoom levels.
-      colorDomain: [0.3, heatColorMaxForZoom(z)],
+      // Raise the floor (0.75) so the single-point / pass-through cells that
+      // dominate the map -- the ones that used to flood it violet -- fall below
+      // the ramp and stay nearly transparent, leaving violet only as a thin
+      // rim around real clusters. The remaining 0.75..max range then spreads
+      // across the cyan/green/yellow mids instead of jumping violet -> red.
+      colorDomain: [0.75, heatColorMaxForZoom(z)],
       radiusPixels: heatmapRadiusForZoom(z),
       intensity: 1.05,
-      threshold: 0.055
+      threshold: 0.04
     });
   }
 

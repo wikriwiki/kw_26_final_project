@@ -276,6 +276,21 @@
       layers: []
     });
     state.map.addControl(state.overlay);
+
+    // radiusPixels and colorDomain depend on the live zoom, so the heatmap must
+    // be rebuilt as the camera moves. Bind it to "move" (fires through the whole
+    // zoom/pan gesture) but coalesce to one rebuild per animation frame so a
+    // burst of move events can't queue dozens of makeLayers() calls -- this is
+    // what keeps zoom feeling in sync instead of lagging a beat behind.
+    let moveRefreshScheduled = false;
+    state.map.on("move", function () {
+      if (moveRefreshScheduled) return;
+      moveRefreshScheduled = true;
+      window.requestAnimationFrame(function () {
+        moveRefreshScheduled = false;
+        Sim3D.refreshLayers();
+      });
+    });
   };
 
   Sim3D.setCamera = function setCamera(view, options) {

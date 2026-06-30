@@ -164,9 +164,11 @@
         }
 
         refreshOrSetFrame(frameIndex, lastFrameIndex === 0 ? 0 : frameT);
-      } else if (isFunction("refreshLayers")) {
-        Sim3D.refreshLayers();
       }
+      // When paused we do NOT rebuild layers every frame: regenerating the
+      // 5k-point heatmap + trail layers on every rAF was the main cost behind
+      // sluggish zoom/pan. Map "move" events (bound in initMapScene) refresh
+      // the layers while the camera is changing; otherwise nothing changed.
 
       state.animationHandle = requestFrame(tick);
     }
