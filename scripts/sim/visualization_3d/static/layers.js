@@ -138,30 +138,6 @@
     });
   }
 
-  function makeAgentArcLayer() {
-    const arcs = typeof Sim3D.getAgentMoveArcs === "function" ? Sim3D.getAgentMoveArcs() : [];
-    return new deck.ArcLayer({
-      id: "agent-move-arcs",
-      data: arcs,
-      getSourcePosition: function (item) {
-        return [item.from[0], item.from[1], 4];
-      },
-      getTargetPosition: function (item) {
-        return [item.to[0], item.to[1], 4];
-      },
-      getHeight: 0.3,
-      getWidth: 2,
-      getSourceColor: [57, 215, 255, 160],
-      getTargetColor: [169, 139, 255, 200],
-      pickable: true,
-      onClick: function (info) {
-        if (info.object && typeof Sim3D.selectAgent === "function") {
-          Sim3D.selectAgent(info.object.id);
-        }
-      }
-    });
-  }
-
   // Classic dense-to-sparse heatmap ramp (like the reference web heatmap):
   // a continuous violet -> blue -> teal -> green -> yellow -> orange -> red
   // gradient with many intermediate stops so density reads as a SMOOTH band of
@@ -191,13 +167,13 @@
     return Math.min(175, Math.max(58, 58 + (z - 11) * 11));
   }
 
-  // The screen-space radius shrinks to its 55px floor when zoomed OUT, so
-  // kernels barely overlap and the SUM peak is low; zoomed IN the radius grows
-  // to 170px and overlapping kernels push the peak much higher. The colour
-  // ceiling has to follow that: a low ceiling when zoomed out so sparse
-  // clusters still reach red, a higher ceiling when zoomed in so dense cores
-  // don't smear the whole neighbourhood red. Anchored at z=12.5 (~4.25), which
-  // reads cleanest as a paper-style blue->red cloud.
+  // The screen-space radius shrinks to its floor when zoomed OUT, so kernels
+  // barely overlap and the SUM peak is low; zoomed IN the radius grows and
+  // overlapping kernels push the peak much higher. The colour ceiling has to
+  // follow that: a low ceiling when zoomed out so sparse clusters still reach
+  // red, a higher ceiling when zoomed in so dense cores don't smear the whole
+  // neighbourhood red. Anchored at z=12.5 (3.6), which reads cleanest as a
+  // paper-style blue->red cloud.
   function heatColorMaxForZoom(z) {
     return Math.max(2.4, Math.min(5.2, 3.6 + (z - 12.5) * 0.6));
   }
@@ -255,14 +231,14 @@
 
     layers.push(makeHeatmapLayer(agents, toggles.heatmap));
 
-    if (toggles.odArcs && z >= 12) {
-      layers.push(makeAgentArcLayer());
-    }
-
     if (toggles.policyZones !== false) {
       layers.push.apply(layers, makePolicyZoneLayers());
     }
 
     return layers;
   };
+
+  // Exposed so the map-click hotspot handler can size its aggregation circle to
+  // the same kernel radius the heatmap renders at the current zoom.
+  Sim3D.heatmapRadiusForZoom = heatmapRadiusForZoom;
 })();

@@ -12,7 +12,7 @@
   <header id="top-hud">
     <div>
       <button id="toggle-heatmap-btn" type="button" class="active">Heatmap</button>
-      <button id="toggle-od-btn" type="button">Moves</button>
+      <button id="toggle-gu-boundary-btn" type="button">구 경계</button>
     </div>
     <input id="agent-search" type="search" autocomplete="off" placeholder="Agent">
   </header>
@@ -87,6 +87,11 @@
   <aside id="detail-card" class="legacy-detail">
     <button id="detail-close" type="button" aria-label="Close detail">x</button>
     <div id="detail-content"></div>
+  </aside>
+
+  <aside id="hotspot-card" class="legacy-detail" hidden>
+    <button id="hotspot-close" type="button" aria-label="Close hotspot">x</button>
+    <div id="hotspot-content"></div>
   </aside>
 
   <div id="news-banner"></div>

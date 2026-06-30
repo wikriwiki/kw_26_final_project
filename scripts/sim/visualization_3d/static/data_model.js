@@ -417,41 +417,61 @@
     return cachedTrails;
   };
 
-  let lastArcFrameIndex = -1;
-  let cachedArcs = [];
+  // Aggregate the agents currently within `radiusMeters` of a clicked map point
+  // and break them down by activity category. This is what powers the "why is
+  // this spot red?" hotspot panel: rather than exposing the heatmap's internal
+  // render thresholds (meaningless to a viewer), it re-counts the real agents +
+  // spending right under the cursor, so two different hotspots inside the same
+  // district report genuinely different compositions.
+  //
+  // The heatmap weights every agent (residents at home contribute a 0.22 floor,
+  // out-and-about agents contribute their spending), so a blob can be red from
+  // either residential density OR commercial spending. We therefore split the
+  // tally: totalPresent = everyone in range, activeCount = those NOT anchored at
+  // home, and the category breakdown covers only active agents -- letting the
+  // panel say whether the heat is "사람들이 모여 소비 중" or just "주거 밀집".
+  Sim3D.computeLocalStats = function computeLocalStats(lon, lat, radiusMeters) {
+    const agents = typeof Sim3D.getInterpolatedAgents === "function" ? Sim3D.getInterpolatedAgents() : [];
+    const radius = finiteNumber(radiusMeters, 250);
+    const cosLat = Math.cos((finiteNumber(lat, 37.55) * Math.PI) / 180);
+    const byCat = new Map();
+    let totalPresent = 0;
+    let activeCount = 0;
+    let totalSpent = 0;
 
-  Sim3D.getAgentMoveArcs = function getAgentMoveArcs() {
-    const state = getState();
-    const timeline = timelineFrames(state);
-    if (!timeline.length) return [];
+    agents.forEach(function (item) {
+      const pos = item && item.position;
+      if (!pos) return;
+      const dx = (finiteNumber(pos[0], lon) - lon) * 111320 * cosLat;
+      const dy = (finiteNumber(pos[1], lat) - lat) * 110540;
+      if (Math.hypot(dx, dy) > radius) return;
 
-    const index = safeFrameIndex(state);
-    if (index === lastArcFrameIndex) return cachedArcs;
+      totalPresent += 1;
+      const frame = item.frame;
+      const atHome = !frame || frame.anchor === "residence";
+      if (atHome) return;
 
-    const frameMaps = ensureFrameMaps(state);
-    const prevMap = frameMaps[Math.max(0, index - 1)];
-    const currentMap = frameMaps[index];
-    const arcs = [];
+      activeCount += 1;
+      const spent = finiteNumber(frame.spent, 0);
+      totalSpent += spent;
+      const category = frame.l1 || frame.cat || "기타";
+      const entry = byCat.get(category) || { cat: category, count: 0, spent: 0 };
+      entry.count += 1;
+      entry.spent += spent;
+      byCat.set(category, entry);
+    });
 
-    if (currentMap instanceof Map && prevMap instanceof Map && prevMap !== currentMap) {
-      currentMap.forEach(function (agentFrame, id) {
-        const prevFrame = getFrameFromMap(prevMap, id);
-        if (!prevFrame || agentFrame.lon == null || agentFrame.lat == null) return;
-        if (prevFrame.lon == null || prevFrame.lat == null) return;
-        const dLon = Number(agentFrame.lon) - Number(prevFrame.lon);
-        const dLat = Number(agentFrame.lat) - Number(prevFrame.lat);
-        if (Math.abs(dLon) < 0.0003 && Math.abs(dLat) < 0.0003) return;
-        arcs.push({
-          id: id,
-          from: [Number(prevFrame.lon), Number(prevFrame.lat)],
-          to: [Number(agentFrame.lon), Number(agentFrame.lat)]
-        });
-      });
-    }
+    const categories = Array.from(byCat.values()).sort(function (a, b) {
+      return b.spent - a.spent || b.count - a.count;
+    });
 
-    cachedArcs = arcs;
-    lastArcFrameIndex = index;
-    return cachedArcs;
+    return {
+      totalPresent: totalPresent,
+      activeCount: activeCount,
+      totalSpent: totalSpent,
+      categories: categories,
+      radiusMeters: radius
+    };
   };
 
   Sim3D.formatWon = formatWon;

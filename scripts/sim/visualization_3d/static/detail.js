@@ -357,9 +357,76 @@
     card.hidden = false;
   };
 
+  function formatWon(value) {
+    if (typeof Sim3D.formatWon === "function") return Sim3D.formatWon(value);
+    return Math.round(Math.max(0, Number(value) || 0)).toLocaleString("ko-KR") + "원";
+  }
+
+  // Renders the "why is this spot red?" panel from a Sim3D.computeLocalStats()
+  // result: the real agent count, total spending, and category breakdown within
+  // the clicked radius -- the actual composition behind the heat colour, not the
+  // renderer's internal thresholds.
+  Sim3D.showLocalStats = function showLocalStats(stats, radiusMeters) {
+    const content = byId("hotspot-content");
+    const card = byId("hotspot-card");
+    if (!content || !card || !stats) return;
+
+    // Mutually exclusive with the per-agent detail card.
+    const detailCard = byId("detail-card");
+    if (detailCard) detailCard.hidden = true;
+    Sim3D.state.selectedAgentId = null;
+
+    const radius = Math.round(Number(radiusMeters) || stats.radiusMeters || 0);
+    const present = Number(stats.totalPresent) || 0;
+    let html =
+      '<h3>🔥 이 지점 분석 <span style="color:#888; font-weight:400;">(반경 ' + radius + "m)</span></h3>";
+
+    if (!present) {
+      html += '<div style="font-size:11px; color:#888;">이 지점 반경 내에 현재 agent가 없습니다.</div>';
+      content.innerHTML = html;
+      card.hidden = false;
+      return;
+    }
+
+    html +=
+      '<div style="background:rgba(231,111,81,0.12); padding:8px 10px; border-radius:6px; margin:6px 0 8px; font-size:12px;">' +
+      "총 agent <b>" + present + "명</b> 중 활동(외출) <b>" + stats.activeCount + "명</b><br/>" +
+      "합산 소비 <b>" + formatWon(stats.totalSpent) + "</b>" +
+      "</div>";
+
+    if (!stats.activeCount) {
+      // Heat here is driven by residential density, not commercial activity.
+      html +=
+        '<div style="font-size:11px; color:#cbd5e0; line-height:1.6;">이 색은 <b>소비가 아니라 주거 밀집</b>에서 나옵니다 — ' +
+        "반경 내 agent 대부분이 현재 집에 머물러 있습니다.</div>";
+      content.innerHTML = html;
+      card.hidden = false;
+      return;
+    }
+
+    html += '<h4>활동 카테고리 (소비 기준 Top)</h4>';
+    const top = (stats.categories || []).slice(0, 5);
+    html += top
+      .map(function (entry) {
+        return (
+          '<div class="legacy-mem-item" style="border-left:3px solid ' + (COLORS_L1[entry.cat] || "#888") + ';">' +
+          '<div><span style="color:#fff;">' + esc(entry.cat) + "</span></div>" +
+          '<div class="meta">' + entry.count + "건 · " + formatWon(entry.spent) + "</div>" +
+          "</div>"
+        );
+      })
+      .join("");
+
+    content.innerHTML = html;
+    card.hidden = false;
+  };
+
   Sim3D.selectAgent = function selectAgent(agentId) {
     const agent = agentById(agentId);
     if (!agent) return;
+    // Mutually exclusive with the hotspot panel.
+    const hotspotCard = byId("hotspot-card");
+    if (hotspotCard) hotspotCard.hidden = true;
     Sim3D.state.selectedAgentId = agentId;
     Sim3D.renderSelectedAgent();
     Sim3D.followAgent(agentId);
@@ -389,6 +456,14 @@
       close.addEventListener("click", function () {
         Sim3D.state.selectedAgentId = null;
         const card = byId("detail-card");
+        if (card) card.hidden = true;
+      });
+    }
+
+    const hotspotClose = byId("hotspot-close");
+    if (hotspotClose) {
+      hotspotClose.addEventListener("click", function () {
+        const card = byId("hotspot-card");
         if (card) card.hidden = true;
       });
     }

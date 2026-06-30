@@ -251,6 +251,7 @@ select:focus-visible {
 #top-hud,
 #chapter-rail,
 #detail-card,
+#hotspot-card,
 #transport {
   position: fixed;
   z-index: 5;
@@ -469,7 +470,8 @@ select:focus-visible {
   font-weight: 760;
 }
 
-#detail-card {
+#detail-card,
+#hotspot-card {
   top: 470px;
   right: 16px;
   width: min(390px, calc(100vw - 32px));
@@ -479,7 +481,8 @@ select:focus-visible {
   overflow: auto;
 }
 
-#detail-close {
+#detail-close,
+#hotspot-close {
   position: absolute;
   top: 8px;
   right: 8px;
@@ -494,7 +497,8 @@ select:focus-visible {
   line-height: 1;
 }
 
-#detail-close:hover {
+#detail-close:hover,
+#hotspot-close:hover {
   color: var(--text);
   background: rgba(255, 255, 255, 0.1);
 }
@@ -641,7 +645,8 @@ select:focus-visible {
     display: none;
   }
 
-  #detail-card {
+  #detail-card,
+  #hotspot-card {
     top: auto;
     right: 10px;
     bottom: 82px;

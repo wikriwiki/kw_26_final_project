@@ -20,6 +20,31 @@
     });
   }
 
+  // The 구 경계 line is a native MapLibre style layer (not a deck.gl layer), so
+  // it toggles via setLayoutProperty instead of refreshLayers(). Tracked in
+  // state.layerToggles.guBoundary purely so the button's active class survives.
+  function bindGuBoundaryToggle(buttonId) {
+    const state = Sim3D.state;
+    state.layerToggles = state.layerToggles || {};
+    if (state.layerToggles.guBoundary == null) state.layerToggles.guBoundary = false;
+
+    const button = byId(buttonId);
+    if (!button) return;
+    button.classList.toggle("active", !!state.layerToggles.guBoundary);
+    button.addEventListener("click", function () {
+      state.layerToggles.guBoundary = !state.layerToggles.guBoundary;
+      button.classList.toggle("active", state.layerToggles.guBoundary);
+      const map = state.map;
+      if (map && typeof map.getLayer === "function" && map.getLayer("gu-boundary-emphasis")) {
+        map.setLayoutProperty(
+          "gu-boundary-emphasis",
+          "visibility",
+          state.layerToggles.guBoundary ? "visible" : "none"
+        );
+      }
+    });
+  }
+
   function rgbCss(color) {
     return "rgb(" + color[0] + "," + color[1] + "," + color[2] + ")";
   }
@@ -231,7 +256,7 @@
     }
 
     bindLayerToggle("toggle-heatmap-btn", "heatmap", true);
-    bindLayerToggle("toggle-od-btn", "odArcs", false);
+    bindGuBoundaryToggle("toggle-gu-boundary-btn");
 
     const chapterToggleButton = byId("chapter-toggle-btn");
     const chapterRail = byId("chapter-rail");

@@ -216,6 +216,35 @@
 
   }
 
+  // Emphasise Seoul's 자치구 (gu) borders. The basemap already carries every
+  // administrative boundary in its "boundary" vector source-layer keyed by
+  // admin_level (verified at runtime: 2=country, 4=시/도, 6=자치구, 8=동). We add
+  // a dedicated dark line layer filtered to admin_level 6 so districts read as
+  // crisp black/grey outlines -- no fill, no per-district colour -- and start it
+  // hidden so the "구 경계" toggle controls it via setLayoutProperty.
+  function applyDistrictBoundaryLayer(map) {
+    if (!map || typeof map.getStyle !== "function" || !map.getStyle()) return;
+    if (map.getLayer("gu-boundary-emphasis")) return;
+    if (!map.getSource("openmaptiles")) return;
+    try {
+      map.addLayer({
+        id: "gu-boundary-emphasis",
+        type: "line",
+        source: "openmaptiles",
+        "source-layer": "boundary",
+        filter: ["==", ["get", "admin_level"], 6],
+        layout: { visibility: "none", "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "#2b2f36",
+          "line-opacity": 0.8,
+          "line-width": ["interpolate", ["linear"], ["zoom"], 9, 0.8, 12, 1.8, 15, 3]
+        }
+      });
+    } catch (error) {
+      console.warn("District boundary layer skipped", error);
+    }
+  }
+
   function notify(message) {
     if (typeof Sim3D.showNews === "function") {
       Sim3D.showNews(message);
@@ -270,6 +299,7 @@
     applyKoreanLabels(state.map);
     hideRoadShields(state.map);
     applyAnalysisPalette(state.map);
+    applyDistrictBoundaryLayer(state.map);
 
     state.overlay = new deck.MapboxOverlay({
       interleaved: true,
@@ -290,6 +320,35 @@
         moveRefreshScheduled = false;
         Sim3D.refreshLayers();
       });
+    });
+
+    // "Why is this spot red?" — clicking empty map (not an agent dot / policy
+    // marker) aggregates the live agents within the heatmap kernel's real-world
+    // radius at the click point and shows their category breakdown. Lets a
+    // viewer interrogate any individual hotspot, even several inside one gu.
+    state.map.on("click", function (event) {
+      if (!state.overlay || typeof state.overlay.pickObject !== "function") return;
+      // Defer to deck.gl's own onClick handlers only on a near-direct dot hit
+      // (small radius) so that clicking the gaps between dots inside a dense red
+      // cluster still opens the area panel instead of grabbing a stray agent.
+      const picked = state.overlay.pickObject({ x: event.point.x, y: event.point.y, radius: 2 });
+      if (picked && picked.object) return;
+      if (!(state.layerToggles && state.layerToggles.heatmap)) return;
+      if (typeof Sim3D.computeLocalStats !== "function" || typeof Sim3D.showLocalStats !== "function") return;
+
+      const lng = event.lngLat.lng;
+      const lat = event.lngLat.lat;
+      const z = typeof state.map.getZoom === "function" ? state.map.getZoom() : 12;
+      // Convert the heatmap's screen-space kernel radius (px) to metres at this
+      // latitude/zoom (Web Mercator m/px) so the aggregation circle matches the
+      // blob the user actually sees.
+      const radiusPx = typeof Sim3D.heatmapRadiusForZoom === "function" ? Sim3D.heatmapRadiusForZoom(z) : 80;
+      const metresPerPixel = (156543.03392 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, z);
+      // The kernel radius in metres balloons when zoomed out (~3.5km at z11), too
+      // coarse to call "this spot". Clamp to a neighbourhood scale so the panel
+      // stays an interpretable local explanation at every zoom.
+      const radiusMeters = Math.max(150, Math.min(600, radiusPx * metresPerPixel));
+      Sim3D.showLocalStats(Sim3D.computeLocalStats(lng, lat, radiusMeters), radiusMeters);
     });
   };
 
