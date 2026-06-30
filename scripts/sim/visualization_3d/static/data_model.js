@@ -77,6 +77,62 @@
     "11740": [251, 191, 36]
   };
 
+  // The base palettes above are Tailwind 300/400-level tints: pretty, but very
+  // light + medium saturation, so on the muted basemap the agent dots read as
+  // washed-out pastels. vivify() deepens every swatch IN PLACE -- it keeps the
+  // hue (so legend identity and dot colour stay matched) and only boosts
+  // saturation and pulls high-lightness tints down toward a richer mid-tone.
+  function clampUnit(value) {
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function rgbToHslLocal(r, g, b) {
+    r /= 255; g /= 255; b /= 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const l = (max + min) / 2;
+    const d = max - min;
+    let h = 0, s = 0;
+    if (d !== 0) {
+      s = d / (1 - Math.abs(2 * l - 1));
+      if (max === r) h = ((g - b) / d) % 6;
+      else if (max === g) h = (b - r) / d + 2;
+      else h = (r - g) / d + 4;
+      h *= 60;
+      if (h < 0) h += 360;
+    }
+    return [h, s, l];
+  }
+
+  function hslToRgbLocal(h, s, l) {
+    const c = (1 - Math.abs(2 * l - 1)) * s;
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+    const m = l - c / 2;
+    let r, g, b;
+    if (h < 60) { r = c; g = x; b = 0; }
+    else if (h < 120) { r = x; g = c; b = 0; }
+    else if (h < 180) { r = 0; g = c; b = x; }
+    else if (h < 240) { r = 0; g = x; b = c; }
+    else if (h < 300) { r = x; g = 0; b = c; }
+    else { r = c; g = 0; b = x; }
+    return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+  }
+
+  function vivify(rgb) {
+    const hsl = rgbToHslLocal(rgb[0], rgb[1], rgb[2]);
+    const s = clampUnit(hsl[1] * 1.3 + 0.18);
+    const l = clampUnit(Math.min(hsl[2], 0.56));
+    return hslToRgbLocal(hsl[0], s, l);
+  }
+
+  function vivifyPalette(palette) {
+    Object.keys(palette).forEach(function (key) {
+      palette[key] = vivify(palette[key]);
+    });
+  }
+
+  vivifyPalette(CAT_COLORS);
+  vivifyPalette(DIST_COLORS);
+
   function frameMap(frame) {
     const map = new Map();
     const agents = frame && Array.isArray(frame.agents) ? frame.agents : [];
@@ -265,12 +321,12 @@
     if (!agentFrame) {
       if (mode === "dist") {
         const base = DIST_COLORS[distCode] || [136, 136, 136];
-        return [base[0], base[1], base[2], 70];
+        return [base[0], base[1], base[2], 120];
       }
-      return [98, 115, 134, 70];
+      return [98, 115, 134, 120];
     }
 
-    const alpha = finiteNumber(agentFrame.spent, 0) > 0 ? 245 : 185;
+    const alpha = finiteNumber(agentFrame.spent, 0) > 0 ? 255 : 215;
     if (mode === "dist") {
       const base = DIST_COLORS[distCode] || CAT_COLORS["기타"];
       return [base[0], base[1], base[2], alpha];

@@ -162,25 +162,44 @@
     });
   }
 
-  // Yellow -> orange -> red ramp so the spending heatmap stands out against
-  // the muted basemap. First stop keeps a faint alpha (not fully transparent)
-  // so isolated points still read as a soft glow once kernels stop overlapping.
+  // Classic dense-to-sparse heatmap ramp (like the reference web heatmap):
+  // a continuous violet -> blue -> teal -> green -> yellow -> orange -> red
+  // gradient with many intermediate stops so density reads as a SMOOTH band of
+  // colour, never jumping straight from a pale tint to a red core. Alpha climbs
+  // with the ramp: sub-threshold cells are fully transparent, the violet/blue
+  // low end is faint, and only the hot core is fully opaque red.
   const HEATMAP_COLOR_RANGE = [
-    [255, 255, 178, 40],
-    [255, 237, 160, 150],
-    [254, 178, 76, 200],
-    [253, 141, 60, 225],
-    [240, 59, 32, 245],
-    [189, 0, 38, 255]
+    [50, 20, 80, 0],
+    [92, 55, 160, 70],
+    [60, 80, 200, 110],
+    [40, 150, 215, 150],
+    [40, 200, 188, 182],
+    [120, 218, 118, 206],
+    [228, 222, 85, 226],
+    [246, 145, 45, 242],
+    [218, 28, 28, 255]
   ];
 
   // HeatmapLayer's radiusPixels is a fixed screen-space radius, so at higher
   // zoom the same world-space points drift further apart on screen and their
   // kernels stop overlapping -- the SUM aggregation that made them look hot
   // when zoomed out collapses to a single low weight and fades away. Growing
-  // the radius with zoom keeps a lone point's kernel visible.
+  // the radius aggressively with zoom keeps lone points' kernels overlapping,
+  // and a wider radius also spreads the colour ramp into a broader, smoother
+  // gradient band instead of a tight red dot.
   function heatmapRadiusForZoom(z) {
-    return Math.min(110, Math.max(45, 45 + (z - 12) * 6));
+    return Math.min(175, Math.max(58, 58 + (z - 11) * 11));
+  }
+
+  // The screen-space radius shrinks to its 55px floor when zoomed OUT, so
+  // kernels barely overlap and the SUM peak is low; zoomed IN the radius grows
+  // to 170px and overlapping kernels push the peak much higher. The colour
+  // ceiling has to follow that: a low ceiling when zoomed out so sparse
+  // clusters still reach red, a higher ceiling when zoomed in so dense cores
+  // don't smear the whole neighbourhood red. Anchored at z=12.5 (~4.25), which
+  // reads cleanest as a paper-style blue->red cloud.
+  function heatColorMaxForZoom(z) {
+    return Math.max(2.8, Math.min(6, 4.2 + (z - 12.5) * 0.7));
   }
 
   function makeHeatmapLayer(agents, visible) {
@@ -196,15 +215,21 @@
       },
       getWeight: function (item) {
         if (heatMode === "spending") {
-          return Math.max(0.18, Number((item.frame && item.frame.spent) || 0) / 12000);
+          return Math.max(0.22, Number((item.frame && item.frame.spent) || 0) / 9000);
         }
         return 1;
       },
       updateTriggers: { getWeight: heatMode },
+      aggregation: "SUM",
       colorRange: HEATMAP_COLOR_RANGE,
+      // Pin the colour scale (instead of HeatmapLayer's default per-frame
+      // re-normalisation to the on-screen max, which made the heatmap fade out
+      // on zoom-in) but float the ceiling with zoom so the same cluster keeps a
+      // consistent hot/cool reading across zoom levels.
+      colorDomain: [0.3, heatColorMaxForZoom(z)],
       radiusPixels: heatmapRadiusForZoom(z),
-      intensity: 1.6,
-      threshold: 0.01
+      intensity: 1.05,
+      threshold: 0.055
     });
   }
 
