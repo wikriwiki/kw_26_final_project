@@ -300,15 +300,10 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 값이 높을수록 만족, 낮을수록 불만족입니다.
 
 **카카오 별점·리뷰 확인 (선택적, 본인 판단)**
-- 각 후보 POI에 대해 카카오에 등록된 별점·리뷰를 추가로 조회할 수 있습니다.
-- 매 선택마다 조회할 필요 없습니다. 신중한 판단이 필요할 때만 — 예시:
-  · 가족모임·데이트처럼 실패 비용이 큰 외출인데 후보 중 단골이 없고 페르소나가 사전조사형일 때
-  · 거리·avg_sat이 비슷한 후보가 여럿이라 결정이 어려울 때
-  · 페르소나가 외향·정보탐색형이고 새 장소를 도전하려 할 때
-- 그저 거리·avg_sat·단골여부만으로 충분히 결정 가능하면 조회하지 마세요. 일상 식사·편의점 같은 루틴 거래는 보통 불필요.
-- 조회 요청: `review_lookup_requests` 필드에 확인할 POI id 목록을 적어 반환하세요. 비어 있거나 누락이면 곧장 picks가 최종으로 채택됩니다.
-- 조회된 별점·리뷰는 추가 컨텍스트로 한 번 더 제공되며, 그 후 최종 picks를 결정합니다.
-- 정보 자체에 휘둘리지 마세요 — 페르소나가 별점에 무관심한 성향이면 리뷰가 안 좋아도 갈 수 있고, 페르소나가 신중하면 별점 4.0대를 피해 4.7+만 갈 수도 있습니다.
+- 후보 POI들의 카카오 별점·리뷰는 등록된 게 있으면 언제든 조회 가능합니다.
+- 본인 페르소나·성격·오늘 상황에 따라 자연스럽게 결정하세요 — 평소 SNS·맛집 리뷰 잘 챙겨 보는 성격이면 그렇게 보고, 무덤덤한 성격이면 안 봐도 되고. 친구 만나러 가는 거면 한번 검색해볼 수도 있고, 혼밥 루틴이면 안 볼 수도. 기밀문서 아닙니다 — 보고 싶으면 그냥 보는 것.
+- `review_lookup_requests` 필드에 궁금한 POI id들을 넣어 응답하면 별점·리뷰가 추가 컨텍스트로 제공되고, 그걸 본 후 최종 picks 결정합니다. 비어 두면 첫 picks 그대로 채택.
+- 정보 받아도 판단은 본인 페르소나대로 — 별점 무관심형이면 평점 낮아도 갈 수 있고, 까다로운 성격이면 4.7+만 갈 수도, 리뷰 내용 보고 마음 바꿀 수도.
 
 ## 출력 형식 (JSON만, 다른 텍스트 금지)
 {"picks": [
@@ -334,7 +329,14 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 "review_lookup_requests": ["C_aaa", "C_bbb"]  // 별점·리뷰 확인이 필요한 POI id (선택). 없으면 [] 또는 누락.
 }
 
-pick_factor enum: known | distance | satisfaction | rumor | appointment | random
+pick_factor enum 정의 (가장 결정적이었던 단일 요인 1개):
+- `known`         : 단골/방문 경험 있는 곳 (KNOWS_POI 매칭) — visit_count > 0 이고 그 기억이 결정 좌우
+- `distance`      : 거리 가까움이 결정적 — 어제 만족도·리뷰 데이터 없고 그냥 가깝다
+- `satisfaction`  : 본인 어제 만족도(avg_sat) 높음이 결정적 — 본인 경험치 기반
+- `review`        : 외부 카카오 별점·리뷰가 결정적 — review_lookup_requests 발동 후 결정 바꾼/굳힌 경우 (★ satisfaction과 명확 구분)
+- `rumor`         : 어제 들은 소문·추천(KNOWS Conversation rumor)이 결정적
+- `appointment`   : 약속(pinned_poi or 다른 agent와 만남 약속)이 결정적
+- `random`        : 위 어느 단서도 결정적이지 않고 페르소나 성향으로 다양화 시도
 /no_think"""
 
 
@@ -424,6 +426,9 @@ def call_stage2(
     today: date,
     max_retry: int = 2,
     verbose: bool = False,
+    # consumption-mobility 머지 후 호환성 — 정책 정보는 persona["policy_budget_summary"]를 통해 build_stage2_prompt에 전달됨
+    active_policies: list[dict] | None = None,  # noqa: ARG001
+    grant_remaining: dict[str, int] | None = None,  # noqa: ARG001
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
 
@@ -486,13 +491,13 @@ def call_stage2(
                                 "properties": {
                                     "order": {"type": "integer", "enum": expected_orders},
                                     "poi_id": {"type": "string", "enum": all_pids},
-                                    "actual_spent": {"type": ["number", "null"]},
-                                    "actual_satisfaction": {"type": ["number", "null"]},
+                                    "actual_spent": {"type": "number", "minimum": 0},
+                                    "actual_satisfaction": {"type": "number", "minimum": 0, "maximum": 1},
                                     "policy_spend": {"type": ["object", "null"]},
                                     "pick_reason": {"type": ["string", "null"]},
                                     "pick_factor": {"type": ["string", "null"]},
                                 },
-                                "required": ["order", "poi_id"],
+                                "required": ["order", "poi_id", "actual_satisfaction", "actual_spent"],
                                 "additionalProperties": False,
                             },
                         }
@@ -579,7 +584,7 @@ def call_stage2(
                     if cands_for_this_order:
                         top = cands_for_this_order[:5]
                         chosen = rng.choice(top)["poi_id"]
-                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen, actual_spent=None, actual_satisfaction=None))
+                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen, actual_spent=None, actual_satisfaction=0.5))
                         hallucinations += 1
                     else:
                         # 해당 order에 candidates 자체 없음 — drop
@@ -646,7 +651,7 @@ def _fill_missing_picks(
             continue
         top = cs[:5]
         chosen = rng.choice(top)["poi_id"]
-        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=None))
+        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=0.5))
     return Stage2Output(picks=new_picks)
 
 

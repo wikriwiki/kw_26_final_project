@@ -373,6 +373,13 @@ def main():
     with driver_session() as s:
         print("[agents] fetching ...")
         agents = fetch_agents(s)
+        # 시뮬 돌린(=Plan 있는) agent만 필터 — 외출/메모리 없는 agent 제외
+        simulated_aids = set()
+        for r in s.run('MATCH (a:Agent)-[:HAS_PLAN]->(:Plan) RETURN DISTINCT a.id AS aid'):
+            simulated_aids.add(r['aid'])
+        before = len(agents)
+        agents = [a for a in agents if a['id'] in simulated_aids]
+        print(f"  시뮬 돌린 agent 필터: {before} → {len(agents)}")
         if args.sample and args.sample < len(agents):
             import random
             random.seed(42)

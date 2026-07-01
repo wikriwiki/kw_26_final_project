@@ -196,21 +196,35 @@ class Stage1Output(BaseModel):
     @field_validator("events")
     @classmethod
     def _check_events(cls, evs):
-        if len(evs) < 3:
-            raise ValueError(f"too few events ({len(evs)})")
-        if len(evs) > 20:   # 외출 적극 권장 SYSTEM과 일치하도록 상한 완화 (14→20)
-            raise ValueError(f"too many events ({len(evs)})")
-        # 첫·마지막은 residence
+        # 이벤트 개수 제한 제거 (사용자 결정) — 최소 1개만 보장
+        if len(evs) < 1:
+            raise ValueError("no events")
+        # 첫 이벤트가 residence 아니면 자동 보정 — 06:30 기상 event 앞에 prepend
         if evs[0].anchor != "residence":
-            raise ValueError("first event must anchor=residence")
+            evs.insert(0, Stage1Event(
+                time="06:30", anchor="residence", category="집",
+                intent="기상", reasoning="자동 보정: 첫 이벤트 누락",
+                trigger=None, pinned_poi=None,
+            ))
+        # 마지막 이벤트가 residence 아니면 자동 보정 — 23:30 취침 event append
         if evs[-1].anchor != "residence":
-            raise ValueError("last event must anchor=residence")
-        # 시간 단조 증가
+            # 마지막 이벤트 시간 이후로 — 23:30 보장 (불가능하면 23:59)
+            last_min = int(evs[-1].time[:2]) * 60 + int(evs[-1].time[3:])
+            tgt = "23:30" if last_min < 23*60 + 30 else "23:59"
+            evs.append(Stage1Event(
+                time=tgt, anchor="residence", category="집",
+                intent="취침", reasoning="자동 보정: 마지막 이벤트 누락",
+                trigger=None, pinned_poi=None,
+            ))
+        # 시간 단조 증가 — 위반 시 자동 보정 (이전 + 20분으로 강제)
         prev = -1
-        for e in evs:
+        for i, e in enumerate(evs):
             cur = int(e.time[:2]) * 60 + int(e.time[3:])
             if cur <= prev:
-                raise ValueError(f"non-monotonic time at {e.time}")
+                # 자동 보정: 이전 시간 + 20분으로 밀기
+                new_min = min(prev + 20, 23*60 + 59)
+                evs[i] = e.model_copy(update={"time": f"{new_min//60:02d}:{new_min%60:02d}"})
+                cur = new_min
             prev = cur
         return evs
 
@@ -251,6 +265,13 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 - anchor='residence'일 때 category='집' (수면·휴식·재택·집안일만)
 - anchor='workplace'일 때 category='직장' (회의·근무·직장 내 체류만)
 - 외출 이벤트(식사·카페·편의점·미용·쇼핑 등 commerce 카테고리): **반드시 zone anchor** 사용
+
+[카테고리 구분 — 자주 헷갈리는 케이스 명시]
+- **주점** = 술집·바·호프·이자카야 같은 "술 마시러 가는 가게"만. 일상 식사 곁들임 음주는 식사로 분류.
+- **편의점** = 편의점 술/생필품/간단 식품 모두 편의점 (주점 X).
+- **마트** = 대형마트·중형슈퍼에서 장보기. 술 구매도 마트.
+- **식사** = 식당·한식·양식·중식·일식·분식 등 끼니. 음주 동반이라도 끼니가 주목적이면 식사.
+- 즉 **'술'은 행위, '주점'은 가게 카테고리** — 편의점·마트에서 술 사오는 건 주점이 아님.
 
 [anchor 규칙 — 매우 중요]
 - "residence": 집 안에서만 일어나는 활동. category는 '집'만.
@@ -372,6 +393,15 @@ def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
 ## 사전 인지 POI 요약 (카테고리별)
 {blocks['knows_poi']}
 
+====================================================================
+[마지막 점검 — 자주 실수하는 부분, 반드시 따를 것]
+1. events[0].anchor = 'residence' (집에서 시작, 보통 06~07시 기상)
+2. events[-1].anchor = 'residence' (집에서 마무리, 23~24시 취침)
+3. time은 단조 증가, 24시간제 HH:MM
+4. 활성 정책 블록이 "(없음)" 이면 reasoning에 P0xx·바우처·쿠폰 인용 금지
+5. 어제 visit 데이터 블록이 "(없음)" 이면 "어제 만족도 X" 같은 회상 금지
+====================================================================
+
 → 위 정보로 오늘 하루 이벤트 시퀀스를 JSON으로 생성하세요. **JSON만 출력**. /no_think"""
 
 
@@ -435,10 +465,17 @@ def call_stage1(
     last_raw = None
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.2 * attempt
+        # retry 시 피드백 첨부 — LLM에게 직전 실수 알림
+        user_block_now = user_block
+        if attempt > 0 and last_err:
+            user_block_now = user_block + (
+                f"\n\n[직전 시도 검증 실패] {str(last_err)[:300]}\n"
+                f"위 규칙을 어겼습니다. 이번엔 반드시 따를 것.\n"
+            )
         try:
             resp = _llm_call(
-                None, SYSTEM_PROMPT, user_block,
-                temperature=temp, max_tokens=2200,  # reasoning 필드 추가로 출력량 ↑
+                None, SYSTEM_PROMPT, user_block_now,
+                temperature=temp, max_tokens=2200,
             )
             raw = resp.choices[0].message.content
             last_raw = raw

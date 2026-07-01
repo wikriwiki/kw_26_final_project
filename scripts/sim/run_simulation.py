@@ -179,10 +179,21 @@ def _merge_policy_lifecycle(raw_lifecycle, policies: list[dict] | None) -> dict[
 
 
 def process_one(aid: str, today: date, day_idx: int) -> dict:
-    """1 agent 1일. 결과 메타 dict 반환 (실패 시 status='error')."""
+    """1 agent 1일. 결과 메타 dict 반환 (실패 시 status='error').
+
+    단계별 timing 측정:
+      t_dawn:   build_dawn_context (Cypher 7개 read)
+      t_s1:     Stage1 LLM call
+      t_s2:     Stage2 LLM call(들) 합산 — review_lookup 재호출 포함
+      t_write:  Plan/State Neo4j write
+      t_total:  전체 (start → return)
+    """
     t0 = time.time()
+    timing: dict[str, float] = {}
     try:
+        _t = time.time()
         ctx = build_dawn_context(aid, today)
+        timing["t_dawn"] = round(time.time() - _t, 3)
         if not ctx.persona:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
 
@@ -224,12 +235,18 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             ctx.policy, prev_used_for_budget, grants_applied_today, grant_avail_today
         )
 
+        _t = time.time()
         s1, m1 = call_stage1(aid, today, ctx=ctx)
+        timing["t_s1"] = round(time.time() - _t, 3)
+
+        _t = time.time()
         s2, _cands, m2 = call_stage2(
             aid, s1, ctx.persona, today,
             active_policies=ctx.policy,
             grant_remaining=grant_avail_today,
         )
+        timing["t_s2"] = round(time.time() - _t, 3)
+
         events = merge_to_final_events(
             s1, s2, ctx.persona,
             review_lookup_used=m2.get("review_lookup_used"),
@@ -265,16 +282,20 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
         tokens_out = m1["tokens_out"] + (m2.get("tokens_out") or 0)
+        _t = time.time()
         _, n_inc = write_plan(
             aid, today, events, day_type, tokens_in, tokens_out,
             reviews_seen=m2.get("review_lookup_used"),
             review_lookup_count=m2.get("review_lookup_count", 0),
         )
+        timing["t_write_plan"] = round(time.time() - _t, 3)
 
         # Night Phase — Day 1 새벽엔 어제(Day 0) Plan 없으므로 finalize는 Day 2 이상에서만
         n_mem = 0
         if day_idx >= 1:
+            _t = time.time()
             n_mem = night_finalize_yesterday(aid, today)
+            timing["t_night_finalize"] = round(time.time() - _t, 3)
         # 정책 인지 상태 — 어제 lifecycle에 오늘 Dawn 정책 ID를 true로 병합
         merged_policy_lifecycle = _merge_policy_lifecycle(
             (ctx.state or {}).get("policy_lc"),
@@ -306,6 +327,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         return {
             "aid": aid, "status": "ok",
             "elapsed": round(time.time() - t0, 2),
+            # 단계별 timing (병목 분석용)
+            **{f"timing_{k}": v for k, v in timing.items()},
             "n_events": len(events), "n_includes": n_inc,
             "n_visited_memories": n_mem,
             "avg_sat": round(avg_sat, 3) if avg_sat is not None else None,
@@ -322,6 +345,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "s1_attempts": m1["attempt"] + 1,
             "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
             # Stage 2 fallback 카운트 (사후 분석용)
+            "review_lookup_count": m2.get("review_lookup_count", 0),
             "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),
             "fb_cand_sub_match": m2.get("cand_sub_match", 0),
             "fb_cand_l1_dong": m2.get("cand_fallback_l1_dong", 0),
@@ -357,6 +381,27 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     if done_path.exists():
         done_aids = set(json.loads(done_path.read_text(encoding="utf-8")))
         print(f"[resume] {len(done_aids)} agents already done for {day_str}, skipping")
+
+        # ★ resume 시 jsonl dedup — status=ok 줄을 aid당 1개만 남김 (이전 error 줄과 중복 제거)
+        if metrics_path.exists() and done_aids:
+            seen_ok: dict[str, str] = {}
+            other_lines: list[str] = []
+            with metrics_path.open(encoding="utf-8") as fp_r:
+                for line in fp_r:
+                    try:
+                        j = json.loads(line)
+                        if j.get("status") == "ok":
+                            seen_ok[j["aid"]] = line   # 마지막 ok가 이김
+                        else:
+                            other_lines.append(line)
+                    except json.JSONDecodeError:
+                        continue
+            # ok 줄만 dedup해서 다시 씀 (error 줄은 폐기 — 어차피 retry로 채움)
+            with metrics_path.open("w", encoding="utf-8") as fp_w:
+                for aid in done_aids:
+                    if aid in seen_ok:
+                        fp_w.write(seen_ok[aid])
+            print(f"[resume] jsonl dedup: kept {len(seen_ok)} ok rows, dropped {len(other_lines)} error rows")
 
     remaining = [a for a in agents if a not in done_aids]
     print(f"[Day {day_idx} {day_str}] processing {len(remaining)} agents with {workers} workers")
