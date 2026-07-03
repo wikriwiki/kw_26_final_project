@@ -34,6 +34,7 @@ from dawn_context import (  # noqa: E402
 )
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
+from poi_price import poi_price, price_icon  # noqa: E402
 
 
 try:
@@ -68,16 +69,21 @@ _SPEND_FALLBACK_BY_L1 = {
 }
 
 
-def _ensure_positive_spend(pick: "Stage2Pick", category: str | None, daily_wd: float | int | None) -> None:
+def _ensure_positive_spend(
+    pick: "Stage2Pick", category: str | None, daily_wd: float | int | None,
+    price_factor: float = 1.0,
+) -> None:
     """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 카테고리 fallback 부여.
 
     track_policy_usage가 spend<=0 이면 cap 추적을 skip하므로,
     여기서 최소값을 강제해 정책 효과 측정 신뢰도 확보.
+    fallback도 선택된 POI 가격대(price_factor)를 반영 — POI 무관 균일 단가 방지.
     """
     cur = pick.actual_spent or 0
     if cur > 0:
         return
     base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
+    base = int(base * (price_factor or 1.0))
     if daily_wd and daily_wd > 0:
         # daily_wd가 매우 작은 경우 비율 보정 (예: 절약형 페르소나)
         base = min(base, int(daily_wd * 0.4))
@@ -205,6 +211,11 @@ def fetch_candidates_for_events(
                 if not cands:
                     s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
 
+            # POI 가격대 부착 (결정론, O(1)) — Stage2 프롬프트 표기·소비 반영용.
+            # district fallback 후보는 자기 동 미상 → anchor 동 prior로 근사.
+            for c in cands or []:
+                c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
+
             # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
             cands = _score_and_sort_by_desire(cands or [], today)
 
@@ -268,6 +279,12 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 에이전트의 라이프스타일·성향·직업·생활 패턴을 고려해 자연스럽게 어울리는 장소를 선택합니다.
 - 과거 만족도(avg_sat)가 높은 곳을 선호하되, 페르소나가 탐색형이면 새 곳도 도전합니다.
 - avg_sat이 없는 신규 장소는 거리(km)가 가까운 곳을 우선합니다.
+
+**가격대와 예산 (핵심)**
+- 각 후보에는 가격대가 표시됩니다: ₩(저가) / ₩₩(중간) / ₩₩₩(고가).
+- 헤더의 잔액·평소 소비규모·소비성향에 맞는 가격대의 장소를 고르세요.
+  잔액이 빠듯하거나 절약형이면 ₩ 위주로, 여유가 있거나 특별한 상황(기념일·약속·지원금)이면 ₩₩₩도 선택합니다.
+- actual_spent 단가는 선택한 POI의 가격대와 정합되게: 같은 카테고리에서 ₩₩₩는 ₩의 대략 1.5~2배.
 
 **단순 반복 억제**
 - 최근 3일 이내 방문한 POI(⚠️ 표시)는 특별한 사유 없이 재선택하지 마세요.
@@ -341,10 +358,11 @@ def _format_event_with_candidates(
         sat_s = f"avg_sat={sat:.2f}" if sat is not None else "신규"
         km_s = f"{km:.2f}km" if km is not None else ""
         visit_s = f"({visit_count}회)" if visit_count > 0 else ""
+        price_s = price_icon(c.get("price_band"))
 
         lines.append(
             f"  {known_mark}{recent_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | "
-            f"{km_s} | {sat_s} {visit_s}"
+            f"{km_s} | {price_s} | {sat_s} {visit_s}"
         )
     return "\n".join(lines)
 
@@ -354,6 +372,7 @@ def build_stage2_prompt(
     cands_by_order: dict[int, list[dict]],
     persona: dict | None = None,
     recent_poi_ids: set[str] | None = None,
+    state: dict | None = None,
 ) -> str:
     # 페르소나 헤더
     header_parts = []
@@ -363,6 +382,10 @@ def build_stage2_prompt(
         tendency = persona.get("tendency") or ""
         lifestyle = (persona.get("lifestyle") or "").strip()
         budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        # 가용 자산 — 가격대(₩~₩₩₩) 선택의 예산 근거
+        balance = (state or {}).get("balance")
+        if balance is not None:
+            budget_info += f" / 현재 잔액: {int(balance):,}원"
         header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency}")
         # 정책 예산 (있으면)
         policy_budget = persona.get("policy_budget_summary") or ""
@@ -407,10 +430,12 @@ def call_stage2(
     today: date,
     max_retry: int = 2,
     verbose: bool = False,
+    state: dict | None = None,
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
 
     today: 오늘 날짜. desire 계산의 days_since_visit 산출에 사용.
+    state: State 노드 dict (balance 등) — 가격대 선택의 예산 근거로 프롬프트에 노출.
     """
     fb_stats: dict[str, int] = {}
     cands_by_order = fetch_candidates_for_events(
@@ -418,9 +443,15 @@ def call_stage2(
     )
     need_llm = any(cs for cs in cands_by_order.values())
 
+    # POI → (price_band, price_factor) 맵 — merge/소비모델에서 금액 반영용
+    price_by_poi: dict[str, tuple[int, float]] = {
+        c["poi_id"]: (c.get("price_band"), c.get("price_factor", 1.0))
+        for cs in cands_by_order.values() for c in cs
+    }
+
     if not need_llm:
         # 외부 POI 결정 필요 없음 (전부 residence/workplace/pinned)
-        return Stage2Output(picks=[]), cands_by_order, {"skipped": True, **fb_stats}
+        return Stage2Output(picks=[]), cands_by_order, {"skipped": True, "price_by_poi": price_by_poi, **fb_stats}
 
     # 최근 3일 방문 POI (억제용)
     recent_poi_ids: set[str] = set()
@@ -442,6 +473,7 @@ def call_stage2(
         stage1.events, cands_by_order,
         persona=persona,
         recent_poi_ids=recent_poi_ids,
+        state=state,
     )
 
     # 환각 차단용 JSON schema — poi_id는 전체 후보풀 union enum 강제.
@@ -546,7 +578,8 @@ def call_stage2(
             for pick in parsed.picks:
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
-                    _ensure_positive_spend(pick, cat, daily_wd)
+                    pf = (price_by_poi.get(pick.poi_id) or (None, 1.0))[1]
+                    _ensure_positive_spend(pick, cat, daily_wd, price_factor=pf)
 
             meta = {
                 "attempt": attempt,
@@ -557,6 +590,7 @@ def call_stage2(
                 "hallucinations_dropped": hallucinations_dropped,
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
+                "price_by_poi": price_by_poi,
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
@@ -568,7 +602,7 @@ def call_stage2(
     # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
     fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
     if fallback.picks:
-        return fallback, cands_by_order, {"fallback_only": True, "last_err": str(last_err)[:200]}
+        return fallback, cands_by_order, {"fallback_only": True, "price_by_poi": price_by_poi, "last_err": str(last_err)[:200]}
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
 
 
@@ -598,8 +632,14 @@ def _fill_missing_picks(
 # =========================================================
 # Stage 1 + Stage 2 병합 → 최종 events
 # =========================================================
-def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: dict) -> list[dict]:
+def merge_to_final_events(
+    stage1: Stage1Output, stage2: Stage2Output, persona: dict,
+    price_by_poi: dict[str, tuple] | None = None,
+) -> list[dict]:
     """Stage 1 + Stage 2 picks → 최종 events with poi_id.
+
+    price_by_poi: call_stage2 meta의 {poi_id: (price_band, price_factor)} —
+    이벤트에 가격대를 부착해 소비모델(apply_consumption_model)이 금액에 반영.
 
     카테고리 기준 우선 (anchor는 출발지 표시일 뿐):
       - pinned_poi 있으면 그대로
@@ -635,6 +675,9 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
                 elif ev.anchor == "workplace":
                     poi_id = persona.get("work_poi_id")
 
+        # POI 가격대 (commerce pick만 — anchor/내부 이벤트는 band None·factor 1.0)
+        _pb = (price_by_poi or {}).get(poi_id) if (poi_id and ev.category not in INTERNAL_CATS) else None
+
         out.append({
             "order": i,
             "time": ev.time,
@@ -647,6 +690,8 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
             "with_agents": ev.with_agents or [],
             "actual_satisfaction": pick_obj.actual_satisfaction if pick_obj else None,
             "actual_spent": pick_obj.actual_spent if pick_obj else 0,
+            "price_band": _pb[0] if _pb else None,
+            "price_factor": float(_pb[1]) if _pb else 1.0,
             # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
             "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
             # ───── 사고과정 흔적 (인터뷰용) ─────

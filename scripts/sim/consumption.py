@@ -137,6 +137,23 @@ def distribute_budget(total: int, weights: list[float]) -> list[int]:
     return out
 
 
+# POI 가격 반영 — 장바구니 가격지수의 하루 총지출 반영 한도.
+# 평균적으로 basket≈1.0(poi_price 캘리브레이션)이라 집계 총량은 보존되고,
+# 개별 일자의 고가/저가 선택만 총액에 반영된다.
+BASKET_CLAMP = (0.80, 1.25)
+
+
+def basket_price_index(weights: list[float], factors: list[float]) -> float:
+    """선택된 거래들의 가중평균 가격배율 (전부 1.0이면 1.0 — 기존 동작 보존)."""
+    ws = sum(weights)
+    if ws > 0:
+        idx = sum(w * f for w, f in zip(weights, factors)) / ws
+    else:
+        idx = (sum(factors) / len(factors)) if factors else 1.0
+    lo, hi = BASKET_CLAMP
+    return max(lo, min(hi, idx))
+
+
 def apply_consumption_model(
     events: list[dict],
     *,
@@ -153,6 +170,12 @@ def apply_consumption_model(
     `propensity × 가용자산(지원금 포함)`으로 다시 잡아 이벤트에 배분한다.
     지원금 사용분(grant_part)은 지출 비례로 각 거래의 `policy_spend`에 기입.
 
+    POI 가격 반영 (판매자 가격 채널 전제):
+      이벤트의 `price_factor`(선택한 POI 가격대)로 장바구니 가격지수를 만들어
+      ① 오늘 총지출 = 기본 총액 × basket_idx (클램프, 가용자산 98% 상한)
+      ② 거래 배분 가중치 = Stage2 상대액 × price_factor
+      → 비싼 곳을 고르면 그날 지출↑(잔액↓), 전부 기본가면 기존과 동일.
+
     events 를 in-place 수정(actual_spent, policy_spend). 반환: 메타 dict.
     """
     grant_avail = {k: int(v) for k, v in (grant_avail or {}).items() if int(v) > 0}
@@ -164,13 +187,22 @@ def apply_consumption_model(
 
     # 상대 가중치 = Stage2가 정한 금액(없으면 균등)
     weights = [max(0.0, float(e.get("actual_spent") or 0)) for e in commerce]
+    # 선택 POI 가격배율 (merge_to_final_events가 부착, 없으면 1.0 — 하위호환)
+    factors = [max(0.5, min(2.0, float(e.get("price_factor") or 1.0))) for e in commerce]
+    basket_idx = basket_price_index(weights, factors)
 
     p = clamp_propensity(llm_propensity, income_tier, balance=balance, daily_wd=daily, tendency=tendency)
     budget = spend_today(p, daily, grant_total)
 
-    spends = distribute_budget(budget["total"], weights)
+    # 가격지수 반영 총액 (가용자산 98% 상한 — 지출>자산 방지)
+    total_adj = int(round(budget["total"] * basket_idx))
+    total_adj = min(total_adj, int(0.98 * budget["available"]))
+    grant_part_adj = min(budget["grant_part"], total_adj)
+
+    weights_priced = [w * f for w, f in zip(weights, factors)]
+    spends = distribute_budget(total_adj, weights_priced)
     # 지원금 사용분을 지출 비례로 거래에 배분
-    grant_per_event = distribute_budget(budget["grant_part"], [float(x) for x in spends])
+    grant_per_event = distribute_budget(grant_part_adj, [float(x) for x in spends])
 
     for e, sp, gp in zip(commerce, spends, grant_per_event):
         e["actual_spent"] = int(sp)
@@ -188,9 +220,10 @@ def apply_consumption_model(
     return {
         "applied": True,
         "propensity": budget["propensity"],
-        "today_total": budget["total"],
-        "grant_part": budget["grant_part"],
+        "today_total": total_adj,
+        "grant_part": grant_part_adj,
         "available": budget["available"],
+        "price_basket_idx": round(basket_idx, 4),
         "n_commerce": len(commerce),
     }
 
@@ -240,4 +273,25 @@ if __name__ == "__main__":
     print(f"  지원금 사용분 합={gpt:,} (today_total={meta['today_total']:,}, grant_part={meta['grant_part']:,})")
     assert tot == meta["today_total"], "지출 합 = today_total 불일치"
     assert gpt == meta["grant_part"], "정책사용 합 = grant_part 불일치"
+    assert meta["price_basket_idx"] == 1.0, "price_factor 미지정이면 basket=1.0 (기존 동작 보존)"
     print("  ✔ 합 일치 검증 통과")
+
+    print("\n=== ⑤ POI 가격 반영: 같은 조건에서 고가/저가 장바구니 → 총지출 반응 ===")
+    def _mk(pf):
+        return [
+            {"category": "식사", "poi_id": "C_1", "actual_spent": 9000, "price_factor": pf, "policy_spend": {}},
+            {"category": "카페", "poi_id": "C_2", "actual_spent": 5000, "price_factor": pf, "policy_spend": {}},
+        ]
+    results = {}
+    for label, pf in [("저가(₩ 0.75)", 0.75), ("기본(1.0)", 1.0), ("고가(₩₩₩ 1.35)", 1.35)]:
+        evs2 = _mk(pf)
+        m = apply_consumption_model(
+            evs2, daily=30000, income_tier="중", tendency="", balance=500000,
+            grant_avail=None, llm_propensity=None,
+        )
+        results[pf] = m["today_total"]
+        print(f"  {label}: today_total={m['today_total']:,} (basket={m['price_basket_idx']})")
+    assert results[0.75] < results[1.0] < results[1.35], "가격대가 총지출에 단조 반영되어야 함"
+    # 클램프 확인: basket ≤ 1.25
+    assert results[1.35] <= int(round(results[1.0] * 1.25)) + 2
+    print("  ✔ 가격 반응·클램프 검증 통과")

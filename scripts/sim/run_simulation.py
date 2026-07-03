@@ -230,8 +230,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
 
         s1, m1 = call_stage1(aid, today, ctx=ctx)
-        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today)
-        events = merge_to_final_events(s1, s2, ctx.persona)
+        # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출
+        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today, state=ctx.state)
+        events = merge_to_final_events(s1, s2, ctx.persona, price_by_poi=m2.get("price_by_poi"))
 
         # ── 소비성향(propensity) 모델 — Problem B (EconAgent 방식) ──
         # Stage2 actual_spent를 상대 가중치로만 쓰고, 오늘 총지출을 p×가용자산(지원금 포함)으로

@@ -62,7 +62,9 @@ CREATE (p)-[:INCLUDES {
   reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
   trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/mood/none
   pick_reason: ev.pick_reason,       // Stage 2: 왜 후보풀 중 이 POI
-  pick_factor: ev.pick_factor        // Stage 2: known/distance/satisfaction/rumor/novelty/random
+  pick_factor: ev.pick_factor,       // Stage 2: known/distance/satisfaction/rumor/novelty/random
+  price_band: ev.price_band,         // POI 가격대 1(₩)/2(₩₩)/3(₩₩₩) — poi_price.py
+  price_factor: ev.price_factor      // 적용 가격배율 (검증·판매자 가격 채널 분석용)
 }]->(poi)
 """
 
