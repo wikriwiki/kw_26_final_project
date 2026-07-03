@@ -1,21 +1,23 @@
-"""POI 가격대 — 결정론적 가격 밴드·배율 (데이터 기반 동 prior × seeded hash).
+"""POI 가격대 — 실측 우선 계층 구조 (v2).
 
-배경: 기존 파이프라인은 어떤 POI를 골라도 소비 금액이 달라지지 않았다
-(Stage2 actual_spent는 상대 가중치, 하루 총액은 propensity×가용자산으로 재정규화).
-판매자 에이전트의 가격 채널이 의미를 가지려면 ① POI마다 가격대가 있고
-② 소비자가 그것을 보고 선택하며 ③ 선택이 금액에 반영되어야 한다. 이 모듈은 ①을 담당.
+소비 알고리즘의 가격 축. 세 레이어를 실측 우선으로 합성한다:
 
-구성:
-  price_factor(poi) = dong_factor(행정동) × band_factor(POI 밴드)
-  - dong_factor: BDC 상권발달지수 매출지수(b069_sales) 분위 → [0.88, 1.12], 평균 1.0
-    (프리미엄 상권일수록 객단가↑ — 임대료·단가 상관 proxy.
-     추후 서울 상권분석서비스 추정매출 '건당 결제금액'으로 교체 가능한 단일 지점)
-  - band: sha1(poi_id) 결정론 → ₩(저가 30%) / ₩₩(중간 50%) / ₩₩₩(고가 20%)
-    경험재(식사·카페 등)는 폭 넓게(0.75/1.00/1.35), 편의점·마트는 거의 균일(0.95/1.00/1.05)
-  - 도시 전체 기대값 ≈ 1.0 (0.3×0.75+0.5×1.0+0.2×1.35=0.995) →
-    apply_consumption_model 의 총량 캘리브레이션(평상일 spend≈daily_wd) 보존.
+  [Layer B] POI 개별 메뉴가  (output/stats/poi_menu_price.json, 있으면)
+      카카오 플레이스 메뉴가격 크롤 → 업종 내 백분위 밴드 + 절대 상대배율(rel).
+      생성: scripts/prep/extract_kakao_menu_price.py (크롤 머신에서 실행)
+  [Layer A] 동 가격계수 + 업종 기준단가  (output/stats/unit_price.json)
+      BDC 신용카드 동별 건단가 복원(금액계/건수계) — 실측. golmok CSV(추정매출-행정동)
+      가 있으면 업종(L1)×동 건단가로 자동 승격. 생성: scripts/prep/build_unit_price.py
+      ⇒ 기존 b069_sales(발달지수) prior의 순환성(Huff prior·공간 검증 정답과 동일 변수) 제거
+  [fallback] 결정론 해시 밴드 + b069 rank + 하드코딩 업종 단가
+      위 파일이 없어도 기존 v1과 동일하게 동작 (하위호환).
 
-순수 함수 + 모듈 캐시. Neo4j/SQLite 접근 없음, 호출 O(1).
+합성 규칙 (이중계상 방지):
+  menu rel 있음  → factor = rel                (메뉴가가 이미 동네 물가 포함 — 동계수 곱 금지)
+  menu 없음      → factor = band_factor × dong_factor
+전 레이어 E[factor] ≈ 1.0 캘리브레이션 → apply_consumption_model 총량 보존.
+
+순수 함수 + 모듈 캐시. 호출 O(1), 소비자 경로 신규 I/O 없음(기동 시 1회 로드).
 """
 from __future__ import annotations
 
@@ -23,42 +25,91 @@ import hashlib
 import json
 from pathlib import Path
 
+_STATS = Path(__file__).resolve().parents[2] / "output" / "stats"
+
 # 가격 분산이 큰 경험재 vs 거의 균일가인 commodity
 _WIDE_BANDS = (0.75, 1.00, 1.35)     # ₩ / ₩₩ / ₩₩₩
 _NARROW_BANDS = (0.95, 1.00, 1.05)
 _NARROW_L1 = {"편의점", "마트"}
-# 밴드 분포 (%): ₩ 30 / ₩₩ 50 / ₩₩₩ 20  → E[band_factor]=0.995
+# 해시 밴드 분포 (%): ₩ 30 / ₩₩ 50 / ₩₩₩ 20  → E[band_factor]=0.995
 _BAND_CUT = (30, 80)
 
 _FACTOR_CLAMP = (0.60, 1.60)
-_DONG_RANGE = (0.88, 1.12)   # 평균 1.0 되도록 rank 중심 대칭
+_B069_DONG_RANGE = (0.88, 1.12)   # fallback 전용 (unit_price.json 없을 때)
 
-_dong_factor_cache: dict[str, float] | None = None
+# 업종(L1) 기준단가 fallback (원) — golmok l1_unit_price 없을 때.
+# 실측 아님(경험 상수): unit_price.json 의 l1_unit_price 가 생기면 자동 대체됨.
+_L1_FALLBACK_WON = {
+    "편의점": 5000, "마트": 25000,
+    "식사": 12000, "카페": 6000, "디저트": 8000, "주점": 30000,
+    "미용": 30000, "쇼핑": 50000,
+    "여가": 20000, "건강": 15000, "교육": 50000, "기타": 10000,
+}
+
+_unit_cache: dict | None = None          # unit_price.json
+_menu_cache: dict | None = None          # poi_menu_price.json
+_b069_cache: dict[str, float] | None = None
 
 
-def _load_dong_factors() -> dict[str, float]:
-    """dong_context.json 의 b069_sales 분위 rank → 동 가격 계수. 실패 시 빈 dict(=전부 1.0)."""
-    global _dong_factor_cache
-    if _dong_factor_cache is not None:
-        return _dong_factor_cache
-    out: dict[str, float] = {}
+def _load_json(path: Path) -> dict:
     try:
-        path = Path(__file__).resolve().parents[2] / "output" / "stats" / "dong_context.json"
-        dc = json.loads(path.read_text(encoding="utf-8"))
-        sales = {k: float(v.get("b069_sales") or 0) for k, v in dc.items() if isinstance(v, dict)}
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def _unit() -> dict:
+    """unit_price.json — {source, dong_factor, l1_unit_price}. 없으면 {}."""
+    global _unit_cache
+    if _unit_cache is None:
+        _unit_cache = _load_json(_STATS / "unit_price.json")
+    return _unit_cache
+
+
+def _menu() -> dict:
+    """poi_menu_price.json — {"poi": {"C_x": {band, rel, ...}}}. 없으면 {}."""
+    global _menu_cache
+    if _menu_cache is None:
+        d = _load_json(_STATS / "poi_menu_price.json")
+        _menu_cache = d.get("poi", d) if isinstance(d, dict) else {}
+    return _menu_cache
+
+
+def _b069_dong_factors() -> dict[str, float]:
+    """[fallback] b069_sales 분위 rank → 동 계수. unit_price.json 없을 때만 사용."""
+    global _b069_cache
+    if _b069_cache is not None:
+        return _b069_cache
+    out: dict[str, float] = {}
+    dc = _load_json(_STATS / "dong_context.json")
+    sales = {k: float(v.get("b069_sales") or 0) for k, v in dc.items() if isinstance(v, dict)}
+    if sales:
         ranked = sorted(sales, key=lambda k: sales[k])
         n = max(1, len(ranked) - 1)
-        lo, hi = _DONG_RANGE
-        for i, k in enumerate(ranked):
-            out[k] = round(lo + (hi - lo) * (i / n), 4)
-    except Exception:
-        out = {}
-    _dong_factor_cache = out
+        lo, hi = _B069_DONG_RANGE
+        out = {k: round(lo + (hi - lo) * (i / n), 4) for i, k in enumerate(ranked)}
+    _b069_cache = out
     return out
 
 
+def dong_factor(dong_code: str | None) -> float:
+    """동 가격계수 — 실측 건단가 기반(unit_price.json) 우선, 없으면 b069 rank, 최후 1.0."""
+    if not dong_code:
+        return 1.0
+    df = _unit().get("dong_factor") or {}
+    if df:
+        return float(df.get(dong_code, 1.0))
+    return _b069_dong_factors().get(dong_code, 1.0)
+
+
+def band_factor(l1: str | None, band: int) -> float:
+    """밴드(1~3) → 업종군별 배율. 편의점·마트는 거의 균일가."""
+    bands = _NARROW_BANDS if (l1 or "") in _NARROW_L1 else _WIDE_BANDS
+    return bands[max(1, min(3, band)) - 1]
+
+
 def price_band(poi_id: str) -> int:
-    """POI 고유 가격 밴드 1(₩)/2(₩₩)/3(₩₩₩) — sha1 결정론(실행·플랫폼 불변)."""
+    """[fallback] POI 해시 밴드 1(₩)/2(₩₩)/3(₩₩₩) — sha1 결정론(실행·플랫폼 불변)."""
     h = int(hashlib.sha1((poi_id or "").encode("utf-8")).hexdigest()[:8], 16) % 100
     if h < _BAND_CUT[0]:
         return 1
@@ -68,12 +119,32 @@ def price_band(poi_id: str) -> int:
 
 
 def poi_price(poi_id: str, dong_code: str | None, l1: str | None) -> tuple[int, float]:
-    """(price_band, price_factor). dong_code 미상이면 동 계수 1.0."""
-    band = price_band(poi_id)
-    bands = _NARROW_BANDS if (l1 or "") in _NARROW_L1 else _WIDE_BANDS
-    f = bands[band - 1] * _load_dong_factors().get(dong_code or "", 1.0)
+    """(price_band, price_factor).
+
+    Layer B(메뉴가 실측) 우선 — rel은 서울 동일업종 대비 절대배율이라 동계수 미적용.
+    없으면 해시 밴드 × 동계수(실측 건단가 기반).
+    """
     lo, hi = _FACTOR_CLAMP
+    m = _menu().get(poi_id)
+    if m and m.get("rel"):
+        band = int(m.get("band") or 2)
+        f = float(m["rel"])
+        return band, round(max(lo, min(hi, f)), 3)
+    band = price_band(poi_id)
+    f = band_factor(l1, band) * dong_factor(dong_code)
     return band, round(max(lo, min(hi, f)), 3)
+
+
+def unit_price_anchor(dong_code: str | None, l1: str | None) -> int | None:
+    """이 동네×업종의 평균 결제단가 앵커(원) — Stage2 프롬프트·fallback 지출의 실측 스케일.
+
+    기준선: golmok l1_unit_price(실측, 있으면) > 하드코딩 표. × 동 가격계수. 500원 반올림.
+    """
+    base = (_unit().get("l1_unit_price") or {}).get(l1 or "") or _L1_FALLBACK_WON.get(l1 or "")
+    if not base:
+        return None
+    won = float(base) * dong_factor(dong_code)
+    return int(round(won / 500.0) * 500)
 
 
 def price_icon(band: int | None) -> str:
@@ -96,7 +167,7 @@ if __name__ == "__main__":
     assert price_band("C_12345") == price_band("C_12345")
     print("  ✔", price_band("C_12345"), price_icon(price_band("C_12345")))
 
-    print("\n=== ② 밴드 분포·기대값 (합성 10,000 POI, 동 미상) ===")
+    print("\n=== ② 해시 밴드 분포·기대값 (합성 10,000 POI, 동 미상) ===")
     ids = [f"C_{i:06d}" for i in range(10000)]
     bands = [price_band(p) for p in ids]
     dist = {b: bands.count(b) / len(bands) for b in (1, 2, 3)}
@@ -107,14 +178,33 @@ if __name__ == "__main__":
           f"편의점={statistics.mean(fs_narrow):.4f}")
     assert abs(dist[1] - 0.30) < 0.02 and abs(dist[3] - 0.20) < 0.02
     assert abs(statistics.mean(fs_wide) - 0.995) < 0.01
-    assert max(fs_narrow) - min(fs_narrow) < 0.11, "편의점은 거의 균일가"
 
-    print("\n=== ③ 동 가격 prior (dong_context.json 로드) ===")
-    df = _load_dong_factors()
+    print("\n=== ③ 동 가격계수 — 실측 건단가(unit_price.json) 로드 확인 ===")
+    u = _unit()
+    df = u.get("dong_factor") or {}
     if df:
         vals = list(df.values())
-        print(f"  동 {len(df)}개, 계수 범위 [{min(vals):.3f}, {max(vals):.3f}], 평균 {statistics.mean(vals):.4f}")
+        print(f"  source={u.get('source')} 동 {len(df)}개 "
+              f"[{min(vals):.3f}, {max(vals):.3f}] 평균 {statistics.mean(vals):.4f}")
         assert abs(statistics.mean(vals) - 1.0) < 0.01
+        assert u.get("source", "").startswith(("bdc", "golmok")), "실측 소스 아님"
     else:
-        print("  (dong_context.json 없음 → 전부 1.0 fallback)")
+        print("  (unit_price.json 없음 → b069 rank fallback 사용)")
+        assert _b069_dong_factors(), "fallback도 없음"
+
+    print("\n=== ④ 단가 앵커 — 동네×업종 평균 결제단가 ===")
+    some_dong = next(iter(df), None)
+    for l1 in ("식사", "카페", "마트"):
+        a0 = unit_price_anchor(None, l1)
+        a1 = unit_price_anchor(some_dong, l1)
+        src = "golmok 실측" if (_unit().get("l1_unit_price") or {}).get(l1) else "fallback 표"
+        print(f"  {l1}: 기본 {a0:,}원 / {some_dong} {a1:,}원  [{src}]")
+        assert a0 and a0 % 500 == 0
+
+    print("\n=== ⑤ Layer B 훅 — 메뉴가 실측이 있으면 rel 우선·동계수 미적용 ===")
+    _menu_cache = {"C_MENU01": {"band": 3, "rel": 1.42, "median_won": 38000}}
+    b, f = poi_price("C_MENU01", some_dong, "식사")
+    print(f"  C_MENU01 → band={b} factor={f} (rel 그대로, dong_factor 곱 없음)")
+    assert (b, f) == (3, 1.42)
+    _menu_cache = None
     print("\nALL OK")

@@ -34,7 +34,7 @@ from dawn_context import (  # noqa: E402
 )
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
-from poi_price import poi_price, price_icon  # noqa: E402
+from poi_price import poi_price, price_icon, unit_price_anchor, band_factor  # noqa: E402
 
 
 try:
@@ -72,18 +72,25 @@ _SPEND_FALLBACK_BY_L1 = {
 def _ensure_positive_spend(
     pick: "Stage2Pick", category: str | None, daily_wd: float | int | None,
     price_factor: float = 1.0,
+    base_won: int | None = None,
+    band: int | None = None,
 ) -> None:
-    """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 카테고리 fallback 부여.
+    """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 fallback 부여.
 
     track_policy_usage가 spend<=0 이면 cap 추적을 skip하므로,
     여기서 최소값을 강제해 정책 효과 측정 신뢰도 확보.
-    fallback도 선택된 POI 가격대(price_factor)를 반영 — POI 무관 균일 단가 방지.
+
+    base_won: 실측 단가 앵커(unit_price_anchor — 동계수 이미 포함). 있으면
+      밴드 배율만 곱한다(동계수 이중계상 방지). 없으면 구 방식(표×price_factor).
     """
     cur = pick.actual_spent or 0
     if cur > 0:
         return
-    base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
-    base = int(base * (price_factor or 1.0))
+    if base_won:
+        base = int(base_won * band_factor(category, band or 2))
+    else:
+        base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
+        base = int(base * (price_factor or 1.0))
     if daily_wd and daily_wd > 0:
         # daily_wd가 매우 작은 경우 비율 보정 (예: 절약형 페르소나)
         base = min(base, int(daily_wd * 0.4))
@@ -213,8 +220,11 @@ def fetch_candidates_for_events(
 
             # POI 가격대 부착 (결정론, O(1)) — Stage2 프롬프트 표기·소비 반영용.
             # district fallback 후보는 자기 동 미상 → anchor 동 prior로 근사.
+            # unit_anchor: 이 동네×업종 평균 결제단가(실측 기반) — 프롬프트 스케일 앵커.
+            anchor_won = unit_price_anchor(dong_code, l1)
             for c in cands or []:
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
+                c["unit_anchor"] = anchor_won
 
             # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
             cands = _score_and_sort_by_desire(cands or [], today)
@@ -282,6 +292,8 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 
 **가격대와 예산 (핵심)**
 - 각 후보에는 가격대가 표시됩니다: ₩(저가) / ₩₩(중간) / ₩₩₩(고가).
+- 이벤트 제목의 '동네 평균단가'는 그 동네·업종의 실제 카드 결제단가 기준 참고값입니다.
+  actual_spent는 이 스케일에서 시작해 가격대·상황에 맞게 조정하세요 (₩는 그보다 낮게, ₩₩₩는 높게).
 - 헤더의 잔액·평소 소비규모·소비성향에 맞는 가격대의 장소를 고르세요.
   잔액이 빠듯하거나 절약형이면 ₩ 위주로, 여유가 있거나 특별한 상황(기념일·약속·지원금)이면 ₩₩₩도 선택합니다.
 - actual_spent 단가는 선택한 POI의 가격대와 정합되게: 같은 카테고리에서 ₩₩₩는 ₩의 대략 1.5~2배.
@@ -343,9 +355,12 @@ def _format_event_with_candidates(
 ) -> str:
     if not cands:
         return ""
+    # 동네×업종 평균 결제단가(실측 카드 데이터 기반) — actual_spent 스케일 앵커
+    anchor = cands[0].get("unit_anchor")
+    anchor_s = f" | 동네 평균단가 ~{anchor:,}원" if anchor else ""
     lines = [
         f"### 이벤트 {i} | {ev.time} | {ev.anchor} | "
-        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}"
+        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}{anchor_s}"
     ]
     recent = recent_poi_ids or set()
     for c in cands:
@@ -572,14 +587,22 @@ def call_stage2(
             parsed = _fill_missing_picks(parsed, stage1.events, cands_by_order, aid=aid)
             missing_filled = len(parsed.picks) - picks_before_fill
 
-            # 후처리: actual_spent 0/None인 commerce 이벤트에 카테고리 fallback (cap 추적 무력화 방지)
+            # 후처리: actual_spent 0/None인 commerce 이벤트에 fallback (cap 추적 무력화 방지)
+            # 실측 단가 앵커(동네×업종) × 밴드 배율 우선, 없으면 구 표 방식.
             daily_wd = persona.get("daily_wd") or 0
             cat_by_order = {i: ev.category for i, ev in enumerate(stage1.events)}
+            anchor_by_order = {
+                i: (cs[0].get("unit_anchor") if cs else None)
+                for i, cs in cands_by_order.items()
+            }
             for pick in parsed.picks:
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
-                    pf = (price_by_poi.get(pick.poi_id) or (None, 1.0))[1]
-                    _ensure_positive_spend(pick, cat, daily_wd, price_factor=pf)
+                    pb, pf = price_by_poi.get(pick.poi_id) or (None, 1.0)
+                    _ensure_positive_spend(
+                        pick, cat, daily_wd, price_factor=pf,
+                        base_won=anchor_by_order.get(pick.order), band=pb,
+                    )
 
             meta = {
                 "attempt": attempt,
