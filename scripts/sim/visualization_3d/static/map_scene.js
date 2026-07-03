@@ -245,6 +245,88 @@
     }
   }
 
+  // Label each 자치구 with its Korean name at the centroid of its residents'
+  // homes (agents carry dist_code + home_lon/lat, distributed 25개구 균등, so the
+  // mean home position is a stable, data-driven proxy for the district centre --
+  // no external boundary geometry needed). Rendered as a native symbol layer,
+  // started hidden, and toggled together with the "구 경계" line.
+  function districtLabelGeoJSON() {
+    const names = Sim3D.DIST_NAMES || {};
+    const agents = (Sim3D.state && Array.isArray(Sim3D.state.agents)) ? Sim3D.state.agents : [];
+    const acc = {};
+    agents.forEach(function (agent) {
+      if (!agent || agent.dist_code == null) return;
+      const code = String(agent.dist_code);
+      if (!names[code]) return;
+      const lon = Number(agent.home_lon);
+      const lat = Number(agent.home_lat);
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+      const bucket = acc[code] || (acc[code] = { lon: 0, lat: 0, n: 0 });
+      bucket.lon += lon;
+      bucket.lat += lat;
+      bucket.n += 1;
+    });
+    return {
+      type: "FeatureCollection",
+      features: Object.keys(acc).map(function (code) {
+        const b = acc[code];
+        return {
+          type: "Feature",
+          properties: { name: names[code] },
+          geometry: { type: "Point", coordinates: [b.lon / b.n, b.lat / b.n] }
+        };
+      })
+    };
+  }
+
+  // Reuse an existing symbol layer's font stack so the CJK glyphs are guaranteed
+  // to be in the loaded glyph set (hardcoding a font that isn't served would
+  // silently drop the Korean text).
+  function firstTextFont(map) {
+    const layers = map.getStyle().layers || [];
+    for (let i = 0; i < layers.length; i++) {
+      const font = layers[i].layout && layers[i].layout["text-font"];
+      if (Array.isArray(font) && font.length) return font;
+    }
+    return ["Noto Sans Regular"];
+  }
+
+  function applyDistrictLabels(map) {
+    if (!map || typeof map.getStyle !== "function" || !map.getStyle()) return;
+    if (map.getLayer("gu-label-text")) return;
+    const data = districtLabelGeoJSON();
+    if (!data.features.length) return;
+    try {
+      if (!map.getSource("gu-labels")) {
+        map.addSource("gu-labels", { type: "geojson", data: data });
+      }
+      map.addLayer({
+        id: "gu-label-text",
+        type: "symbol",
+        source: "gu-labels",
+        layout: {
+          visibility: "none",
+          "text-field": ["get", "name"],
+          "text-font": firstTextFont(map),
+          // A touch smaller than the 서울특별시 city label, growing gently with zoom.
+          "text-size": ["interpolate", ["linear"], ["zoom"], 9, 12, 12, 15, 15, 17],
+          "text-allow-overlap": false,
+          "text-padding": 6
+        },
+        paint: {
+          // Between grey and black, with a soft light halo so it stays legible
+          // over the muted basemap.
+          "text-color": "#3a3a3a",
+          "text-halo-color": "rgba(255,255,255,0.85)",
+          "text-halo-width": 1.4,
+          "text-halo-blur": 0.4
+        }
+      });
+    } catch (error) {
+      console.warn("District label layer skipped", error);
+    }
+  }
+
   function notify(message) {
     if (typeof Sim3D.showNews === "function") {
       Sim3D.showNews(message);
@@ -300,6 +382,7 @@
     hideRoadShields(state.map);
     applyAnalysisPalette(state.map);
     applyDistrictBoundaryLayer(state.map);
+    applyDistrictLabels(state.map);
 
     state.overlay = new deck.MapboxOverlay({
       interleaved: true,

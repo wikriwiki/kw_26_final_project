@@ -379,7 +379,7 @@
     const radius = Math.round(Number(radiusMeters) || stats.radiusMeters || 0);
     const present = Number(stats.totalPresent) || 0;
     let html =
-      '<h3>🔥 이 지점 분석 <span style="color:#888; font-weight:400;">(반경 ' + radius + "m)</span></h3>";
+      '<h3>🔥 이 지점 분석 <span style="color:#fff; font-weight:400;">(반경 ' + radius + "m)</span></h3>";
 
     if (!present) {
       html += '<div style="font-size:11px; color:#888;">이 지점 반경 내에 현재 agent가 없습니다.</div>';
@@ -411,7 +411,7 @@
         return (
           '<div class="legacy-mem-item" style="border-left:3px solid ' + (COLORS_L1[entry.cat] || "#888") + ';">' +
           '<div><span style="color:#fff;">' + esc(entry.cat) + "</span></div>" +
-          '<div class="meta">' + entry.count + "건 · " + formatWon(entry.spent) + "</div>" +
+          '<div class="meta" style="color:#fff;">' + entry.count + "건 · " + formatWon(entry.spent) + "</div>" +
           "</div>"
         );
       })

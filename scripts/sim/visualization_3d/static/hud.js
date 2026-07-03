@@ -35,12 +35,14 @@
       state.layerToggles.guBoundary = !state.layerToggles.guBoundary;
       button.classList.toggle("active", state.layerToggles.guBoundary);
       const map = state.map;
-      if (map && typeof map.getLayer === "function" && map.getLayer("gu-boundary-emphasis")) {
-        map.setLayoutProperty(
-          "gu-boundary-emphasis",
-          "visibility",
-          state.layerToggles.guBoundary ? "visible" : "none"
-        );
+      const visibility = state.layerToggles.guBoundary ? "visible" : "none";
+      if (map && typeof map.getLayer === "function") {
+        // The 구 경계 line and the 자치구 name labels toggle together.
+        ["gu-boundary-emphasis", "gu-label-text"].forEach(function (layerId) {
+          if (map.getLayer(layerId)) {
+            map.setLayoutProperty(layerId, "visibility", visibility);
+          }
+        });
       }
     });
   }
