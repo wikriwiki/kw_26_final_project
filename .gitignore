@@ -98,3 +98,11 @@ output/sim/visualization/sim_standalone.html
 output/sim/visualization/sim_standalone.zip
 output/neo4j_backup_*/
 
+
+# 대용량 시각화 백업 파일
+output/sim/visualization/example.html
+output/sim/visualization/sim_standalone_leaflet_backup.html
+output/sim/visualization/scratch.js
+
+# Claude superpowers 내부 파일
+.superpowers/
