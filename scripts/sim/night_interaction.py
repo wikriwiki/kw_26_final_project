@@ -37,7 +37,8 @@ W_EXPOSURE = 0.4
 W_RELATION = 0.3
 W_URGENCY = 0.3
 
-THRESHOLD = 0.3
+THRESHOLD = 0.36
+AMBIENT_THRESHOLD = 0.38
 MAX_PAIRS_PER_AGENT = 2
 
 # 시간 감쇠 상수: ln(2)/7 ≈ 0.099 → 7일 미대화 시 친밀도 반감
@@ -367,17 +368,21 @@ def select_interaction_pairs(
         print(f"  [scores] 계산 중 ...")
     t1 = time.time()
     scored = []
+    ambient_threshold = max(threshold, AMBIENT_THRESHOLD)
     for (a, b) in cands:
         exp = calc_exposure(a, b, data)
         rel = calc_relationship(a, b, data, current_day=day)
         urg = calc_urgency(a, b, data)
         total = w_e * exp + w_r * rel + w_u * urg
-        if total >= threshold:
+        min_score = ambient_threshold if rel == 0 and urg == 0 else threshold
+        if total >= min_score:
             scored.append({
                 "aid_a": a, "aid_b": b, "score": round(total, 4),
                 "exposure": round(exp, 4),
                 "relationship": round(rel, 4),
                 "urgency": round(urg, 4),
+                "threshold_used": round(min_score, 4),
+                "ambient_threshold_applied": rel == 0 and urg == 0,
             })
     if verbose:
         print(f"  scoring: {time.time()-t1:.1f}s, above threshold: {len(scored):,}")

@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import json
+import os
+import random
 import sys
 from dataclasses import dataclass, field
 from datetime import date
@@ -19,6 +21,7 @@ try:
 except Exception:
     pass
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))            # mobility 등 동일 디렉토리
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 from _common import driver_session
 
@@ -38,11 +41,18 @@ RETURN
   a.personal_job_raw AS job,
   a.pr_spending_tendency AS tendency,
   a.personality_lifestyle_raw AS lifestyle,
+  // NVIDIA Nemotron 봉합 페르소나 필드 (load_fusion_to_neo4j.py 로 적재됨, 미적재 시 NULL)
+  a.nvidia_summary AS nv_summary,
+  a.nvidia_hobbies AS nv_hobbies,
+  a.nvidia_cultural_background AS nv_cultural,
+  a.nvidia_education_level AS nv_education,
+  a.nvidia_marital_status AS nv_marital,
+  a.nvidia_family_type AS nv_family,
+  a.nvidia_career_goals AS nv_career,
+  a.nvidia_skills AS nv_skills,
   a.s_daily_wd AS daily_wd,
   a.s_daily_we AS daily_we,
   a.spending_we_wd_ratio AS we_wd_ratio,
-  a.spending_top_wd_json AS top_wd_json,
-  a.spending_top_we_json AS top_we_json,
   a.behavior_delivery_days AS delivery_days,
   a.behavior_home_h_wd AS home_h_wd,
   a.behavior_home_h_we AS home_h_we,
@@ -61,7 +71,9 @@ MATCH (a:Agent {id: $aid})-[:HAS_STATE {day: $yesterday}]->(s:State)
 RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.fatigue AS fatigue, s.yesterday_satisfaction AS yest_sat,
        s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc,
-       s.policy_used AS policy_used
+       s.policy_used AS policy_used,
+       s.grant_received AS grant_received,
+       s.grant_remaining AS grant_remaining
 """
 
 
@@ -135,6 +147,9 @@ RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.description AS description,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
        pol.effective_from AS from_, pol.effective_until AS until_,
+       toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
+       pol.income_grants AS income_grants,
+       pol.excluded_income AS excluded_income,
        regions, region_codes, target_l1s
 """
 
@@ -158,7 +173,7 @@ MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p:POI)-[:IN_CATEGORY]->(c:Category)
 RETURN c.parent AS L1, c.name AS sub,
        count(p) AS n,
        sum(CASE WHEN kp.visit_count > 0 THEN 1 ELSE 0 END) AS n_visited
-ORDER BY n DESC LIMIT 30
+ORDER BY n_visited DESC, n DESC LIMIT 15
 """
 
 
@@ -171,7 +186,7 @@ MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category {name: $sub_category})
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 OPTIONAL MATCH (a)-[:LIVES_AT|WORKS_AT]->(anchor:POI)
-WITH p, kp, anchor,
+WITH p, c, kp, anchor,
      CASE WHEN anchor IS NOT NULL AND p.lon IS NOT NULL THEN
        point.distance(point({longitude: p.lon, latitude: p.lat}),
                       point({longitude: anchor.lon, latitude: anchor.lat})) / 1000.0
@@ -180,40 +195,39 @@ RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
-       kp.source AS source,
+       kp.last_visit AS last_visit,
        km
-ORDER BY known DESC, km ASC LIMIT $limit
+ORDER BY km ASC LIMIT $limit
 """
 
 # Fallback: sub_category 매칭 실패 시 L1 단위로 같은 dong에서 fetch
+# Stage1 cat이 미매핑 세부업종이라도 Category.name으로도 매칭 시도 (parent OR name)
 STAGE2_FALLBACK_L1_DONG_CYPHER = """
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
-WHERE c.parent = $l1
+WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
-       kp.source AS source,
+       kp.last_visit AS last_visit,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
 
 # Fallback: dong에 아예 commerce POI 부족 시 자치구 단위 L1 fetch
+# Category.name도 매칭 (미매핑 세부업종 대응)
 STAGE2_FALLBACK_L1_DISTRICT_CYPHER = """
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(d:District {code: $district_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
-WHERE c.parent = $l1
+WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
-       coalesce(kp.affinity, 0.0) AS affinity,
-       kp.source AS source,
+       kp.last_visit AS last_visit,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
@@ -231,6 +245,8 @@ class DawnContext:
     policy: list[dict] = field(default_factory=list)
     social: list[dict] = field(default_factory=list)
     knows_poi_summary: list[dict] = field(default_factory=list)
+    # 오늘 갈 수 있는 zone 후보 (생활권 + Huff 광역상권) — Problem A
+    zone_candidates: list[dict] = field(default_factory=list)
 
     def to_prompt_blocks(self) -> dict[str, str]:
         """각 컨텍스트를 LLM 프롬프트에 넣을 텍스트 블록으로 변환."""
@@ -248,9 +264,15 @@ class DawnContext:
             "state": _format_state(self.state),
             "memory": _format_memory(self.memory),
             "appointment": _format_appointment(self.appointment),
-            "policy": _format_policy(self.policy, policy_used=policy_used),
+            "policy": _format_policy(
+                self.policy,
+                policy_used=policy_used,
+                agent_income=(self.persona or {}).get("income"),
+                grant_remaining=self.get_grant_remaining(),
+            ),
             "social": _format_social(self.social),
             "knows_poi": _format_knows_poi(self.knows_poi_summary),
+            "zones": _format_zones(self.zone_candidates),
         }
 
     def get_policy_used(self) -> dict:
@@ -264,40 +286,58 @@ class DawnContext:
         except Exception:
             return {}
 
+    def get_grant_remaining(self) -> dict:
+        """State에서 정책별 grant 잔액 dict 반환 (grant type 정책용)."""
+        import json as _json
+        raw = (self.state or {}).get("grant_remaining")
+        if not raw:
+            return {}
+        try:
+            return _json.loads(raw)
+        except Exception:
+            return {}
 
-def _safe_top_cats(raw_json: str | None, k: int = 3) -> str:
-    if not raw_json:
+
+def _strip_lifestyle_first_line(lifestyle: str) -> str:
+    """5줄 페르소나에서 첫 줄(성격/계획성 요약)을 제거.
+
+    LLM에는 토큰 절감 + 행동 다양성 유도 위해 ②~⑤만 노출.
+    형식이 다양해 ② 마커 우선, 없으면 줄 단위 첫 줄 제거.
+    """
+    if not lifestyle:
         return ""
-    try:
-        d = json.loads(raw_json)
-    except Exception:
-        return ""
-    top = sorted(d.items(), key=lambda x: -x[1])[:k]
-    return ", ".join(f"{k_}({int(v*100)}%)" for k_, v in top)
+    s = lifestyle.strip()
+    for marker in ("②", "②", "**②"):
+        if marker in s:
+            return s[s.find(marker):].strip()
+    lines = [ln for ln in s.split("\n") if ln.strip()]
+    if len(lines) <= 1:
+        return s
+    return "\n".join(lines[1:]).strip()
 
 
 def _format_persona(p: dict) -> str:
     if not p:
         return "(페르소나 없음)"
-    top_wd = _safe_top_cats(p.get("top_wd_json"))
-    top_we = _safe_top_cats(p.get("top_we_json"))
     job = (p.get("job") or "").strip()
-    lifestyle = (p.get("lifestyle") or "").strip()[:140]
+    lifestyle = _strip_lifestyle_first_line(p.get("lifestyle") or "")[:280]
     lines = [
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
-        f"소비: 평일 {p.get('daily_wd',0):,}원, 주말 {p.get('daily_we',0):,}원 (주말/평일 {p.get('we_wd_ratio',1):.2f}배) / 성향: {p.get('tendency','')}",
-        f"평일 Top 카테고리: {top_wd or '(없음)'}",
-        f"주말 Top 카테고리: {top_we or '(없음)'}",
-        f"행태: 배달 {p.get('delivery_days',0)}일/월, 평일 재택 {p.get('home_h_wd',0):.1f}h, 주말 재택 {p.get('home_h_we',0):.1f}h, 이동성 분위 {p.get('mobility',0)}",
+        f"소비: 평일 {(p.get('daily_wd') or 0):,}원, 주말 {(p.get('daily_we') or 0):,}원 (주말/평일 {(p.get('we_wd_ratio') or 1):.2f}배) / 성향: {p.get('tendency','')}",
+        f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]
     if p.get("work_dong"):
-        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {p.get('commute_min',0)}분")
+        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {(p.get('commute_min') or 0)}분")
     else:
         lines.append("직장: 없음")
     if lifestyle:
         lines.append(f"라이프스타일: {lifestyle}")
+    # NVIDIA 봉합 결과는 personality_lifestyle_raw 한 줄(200자)에 응축되어 있음 (가이드 §7).
+    # 그 외 풍부 필드(summary/hobbies/cultural/career/skills/education/marital/family)는
+    # Neo4j 에 보존되어 인터뷰·시각화·사후 분석에서 활용되지만, Stage 1 reasoning 프롬프트
+    # 에는 토큰 절감을 위해 노출하지 않는다.
     return "\n".join(lines)
 
 
@@ -315,7 +355,8 @@ def _format_state(s: dict | None) -> str:
 
 def _format_memory(rows: list[dict]) -> str:
     if not rows:
-        return "(최근 30일 기억 없음 — Day 0 직후 또는 신규 agent)"
+        return ("(어제·최근 visit 데이터 없음 — '어제 거기서 맛있었다'·'어제 만족도 X' "
+                "같은 회상·만족도 인용 절대 금지. 신규 의사결정만 가능)")
     lines = []
     for r in rows:
         days = r.get("days_ago", 0)
@@ -382,41 +423,66 @@ _POLICY_TYPE_LABEL = {
 }
 
 
-def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None) -> str:
-    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액 노출.
+def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
+                   agent_income: str | None = None,
+                   grant_remaining: dict[str, int] | None = None) -> str:
+    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액, grant는 본인 수령액·잔액 노출.
 
-    policy_used: {"P007": 87000, ...} 정책별 누적 사용액. State에서 가져옴.
+    policy_used: {"P007": 87000, ...} 정책별 누적 사용액 (subsidy용). State.policy_used.
+    agent_income: 페르소나 소득 분위 ('상','중상','중','중하','하') — grant 본인 액수 lookup.
+    grant_remaining: {"P009": 599718, ...} 정책별 무료 지원금 잔액. State.grant_remaining.
     """
     if not rows:
-        return "(거주·직장 동에 적용 정책 없음)"
+        return ("(오늘 활성 정책 없음 — 정책·바우처·쿠폰 인용 금지. "
+                "reasoning이나 pick_reason에 'P0xx 정책지원금', '바우처', '쿠폰' 등 "
+                "정책 관련 표현을 등장시키지 말 것.)")
+    import json as _json
     used = policy_used or {}
+    rem_dict = grant_remaining or {}
     lines = []
     for r in rows:
         type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
         regions = ", ".join([x for x in (r.get("regions") or []) if x]) or "?"
         target_l1s = r.get("target_l1s") or []
-        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(업종 비특정)"
+        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(모든 업종 사용 가능)"
 
         head = f"{r['id']} [{type_label}] {r['name']}"
         meta_parts = [f"적용지역: {regions}", f"대상업종: {targets}",
                       f"기간: {r['from_']}~{r['until_']}"]
 
-        # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
         rate = r.get("rate")
         cap = r.get("cap")
         ptype = r.get("type")
+
         if ptype == "subsidy" and cap:
+            # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
             cap_used = int(used.get(r["id"], 0))
             remaining = max(0, cap - cap_used)
             rate_s = f"{int(rate*100)}% 환급" if rate else "100% 차감"
             meta_parts.insert(0, f"{rate_s} (한도 {cap:,}원)")
-            # 잔액 명시 (LLM이 보고 의사결정)
             meta_parts.append(
                 f"💳 누적 사용 {cap_used:,}원 / 한도 {cap:,}원 — **남은 잔액 {remaining:,}원**"
                 + (" ⚠️ 잔액 소진" if remaining == 0 else "")
             )
+        elif ptype == "grant":
+            # grant(정부 무료 지원금): 본인 분위 수령액 + 잔액 명시
+            try:
+                grants = _json.loads(r.get("income_grants") or "{}")
+            except Exception:
+                grants = {}
+            my_amount = int(grants.get(agent_income or "", 0))
+            remaining = int(rem_dict.get(r["id"], my_amount))
+            used_amt = max(0, my_amount - remaining)
+
+            if my_amount > 0:
+                meta_parts.insert(0, f"💰 정부 무료 지원금 (추가 소비 자금) — 귀하 소득분위 '{agent_income}' 수령액 {my_amount:,}원, 별도 지갑(가계 부담 0)")
+                meta_parts.append(
+                    f"💳 사용 {used_amt:,}원 / 잔액 {remaining:,}원"
+                    + (" (소진)" if remaining == 0 else " — 평소 평균 소비액과 무관하게 자유. 안 써도/조금/많이/큰 거 시도 모두 OK")
+                )
+            elif agent_income:
+                meta_parts.insert(0, f"❌ 귀하 소득분위 '{agent_income}' — 본 지원금 제외 대상 (수령 불가)")
         elif rate:
-            # cap 없는 subsidy 등
             meta_parts.insert(0, f"{int(rate*100)}% 환급")
 
         desc = r.get("description") or ""
@@ -443,6 +509,27 @@ def _format_social(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+_ZONE_TAG = {"home": "생활권·거주", "work": "생활권·직장", "hub": "광역상권"}
+
+
+def _format_zones(zones: list[dict]) -> str:
+    """오늘 갈 수 있는 zone 후보 — Stage1이 외출 anchor(zone:<코드>)에 쓸 코드 목록."""
+    if not zones:
+        return "(zone 후보 없음 — 거주/직장 동 코드 사용)"
+    lines = []
+    for z in zones:
+        tag = _ZONE_TAG.get(z.get("type"), "상권")
+        sig = z.get("signature")
+        if z.get("type") == "hub" and sig and sig != "general":
+            tag = f"{tag}·{sig}"
+        dist = z.get("distance_km")
+        dist_s = f", {dist:.1f}km" if isinstance(dist, (int, float)) else ""
+        extra = " ← 주말 나들이·여가 등에 적합" if z.get("type") == "hub" else ""
+        lines.append(f"- [{tag}] {z['code']} {z.get('name','')}{dist_s}{extra}")
+    lines.append("평일엔 주로 생활권, 주말·여가/쇼핑이면 광역상권도 자연스럽게 선택(거리·기분 고려).")
+    return "\n".join(lines)
+
+
 def _format_knows_poi(rows: list[dict]) -> str:
     if not rows:
         return "(인지 POI 없음)"
@@ -461,11 +548,46 @@ def _format_knows_poi(rows: list[dict]) -> str:
 # =========================================================
 # 메인 엔트리
 # =========================================================
+def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
+    """오늘 갈 수 있는 zone 후보 = 생활권(거주·직장) + Huff 광역상권(MOBILITY_WIDE).
+
+    좌표/카탈로그 없거나 legacy 모드면 생활권만 → 기존 동작으로 자연 degrade.
+    런타임 Neo4j 거리쿼리 없이 dong_centroids.json + haversine 으로 계산.
+    """
+    home_code = persona.get("home_dong_code")
+    work_code = persona.get("work_dong_code")
+    zones: list[dict] = []
+    if home_code:
+        zones.append({"code": home_code, "name": persona.get("home_dong") or "",
+                      "type": "home", "distance_km": 0.0})
+    if work_code:
+        zones.append({"code": work_code, "name": persona.get("work_dong") or "",
+                      "type": "work", "distance_km": None})
+
+    if os.environ.get("MOBILITY_WIDE", "wide") == "legacy" or not home_code:
+        return zones
+    try:
+        import mobility
+        exclude = {c for c in (home_code, work_code) if c}
+        day_type = "weekend" if today.weekday() >= 5 else "weekday"
+        rng = random.Random(hash((persona.get("id"), today.isoformat())))
+        for h in mobility.suggest_hubs(home_code, exclude, day_type,
+                                       persona.get("mobility"), k=6, rng=rng,
+                                       persona=persona):
+            zones.append({"code": h["code"], "name": h.get("name", ""),
+                          "gu": h.get("gu", ""), "type": "hub",
+                          "signature": h.get("signature"),
+                          "distance_km": h.get("distance_km")})
+    except Exception:
+        pass   # 광역 prior 실패해도 생활권만으로 진행
+    return zones
+
+
 def build_dawn_context(
     aid: str,
     today: date,
-    memory_top_n: int = 7,
-    social_top_n: int = 8,
+    memory_top_n: int = 5,
+    social_top_n: int = 5,
 ) -> DawnContext:
     """한 agent의 Dawn 컨텍스트를 7종 Cypher로 수집."""
     yesterday = today - __import__("datetime").timedelta(days=1)
@@ -486,7 +608,17 @@ def build_dawn_context(
         persona=persona, state=state, memory=memory,
         appointment=appointment, policy=policy, social=social,
         knows_poi_summary=knows_poi,
+        zone_candidates=_build_zone_candidates(persona, today),
     )
+
+
+def _run_candidates(cypher: str, session=None, **params) -> list[dict]:
+    """후보 Cypher 실행. session 주어지면 재사용(권장 — agent-day당 1세션),
+    없으면 단발 세션 오픈(하위호환). 세션 재사용으로 커넥션/세션 생성 오버헤드 제거."""
+    if session is not None:
+        return [dict(r) for r in session.run(cypher, **params)]
+    with driver_session() as s:
+        return [dict(r) for r in s.run(cypher, **params)]
 
 
 def build_stage2_candidates(
@@ -494,35 +626,33 @@ def build_stage2_candidates(
     dong_code: str,
     sub_category: str,
     limit: int = 30,
+    session=None,
 ) -> list[dict]:
     """Stage 2 candidate POI Top-K."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_CANDIDATE_CYPHER,
-            aid=aid, dong_code=dong_code, sub_category=sub_category, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_CANDIDATE_CYPHER, session=session,
+        aid=aid, dong_code=dong_code, sub_category=sub_category, limit=limit,
+    )
 
 
 def build_stage2_candidates_l1_dong(
-    aid: str, dong_code: str, l1: str, limit: int = 30,
+    aid: str, dong_code: str, l1: str, limit: int = 30, session=None,
 ) -> list[dict]:
     """Fallback: 같은 dong에서 L1 카테고리 단위로 commerce POI fetch."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_FALLBACK_L1_DONG_CYPHER,
-            aid=aid, dong_code=dong_code, l1=l1, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_FALLBACK_L1_DONG_CYPHER, session=session,
+        aid=aid, dong_code=dong_code, l1=l1, limit=limit,
+    )
 
 
 def build_stage2_candidates_l1_district(
-    aid: str, district_code: str, l1: str, limit: int = 30,
+    aid: str, district_code: str, l1: str, limit: int = 30, session=None,
 ) -> list[dict]:
     """Fallback: 자치구 안에서 L1 카테고리 단위로 commerce POI fetch."""
-    with driver_session() as s:
-        return [dict(r) for r in s.run(
-            STAGE2_FALLBACK_L1_DISTRICT_CYPHER,
-            aid=aid, district_code=district_code, l1=l1, limit=limit
-        )]
+    return _run_candidates(
+        STAGE2_FALLBACK_L1_DISTRICT_CYPHER, session=session,
+        aid=aid, district_code=district_code, l1=l1, limit=limit,
+    )
 
 
 # =========================================================

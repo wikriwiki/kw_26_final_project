@@ -34,6 +34,8 @@ from dawn_context import (  # noqa: E402
 )
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
+from poi_review_lookup import lookup_reviews_batch, format_review_block  # noqa: E402
+
 
 try:
     from pydantic import BaseModel, Field
@@ -44,10 +46,46 @@ except ImportError:
 class Stage2Pick(BaseModel):
     order: int
     poi_id: str
+    actual_spent: float | None = None        # LLM이 설정 (원, 양수, 총 소비액)
+    actual_satisfaction: float | None = None # LLM이 설정 (0~1)
+    # actual_spent 중 정책 지원금에서 사용한 금액 — {"P009": 5000} 형태.
+    # 평소 잔액으로 쓴 부분 = actual_spent - sum(policy_spend.values())
+    policy_spend: dict[str, float] | None = None
+    pick_reason: str | None = None
+    pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | random
 
 
 class Stage2Output(BaseModel):
     picks: list[Stage2Pick]
+    # LLM이 신중한 결정을 위해 별점·리뷰 추가 확인을 원하는 POI id 목록.
+    # 비어 있거나 누락이면 첫 picks 그대로 채택. 채워져 있으면 별점·리뷰 첨부해서 한 번 재호출.
+    review_lookup_requests: list[str] | None = None
+
+
+# commerce 이벤트에 actual_spent가 0/None이면 카테고리·소득별 fallback 값 부여.
+# 가급적 LLM이 직접 정하게 하되, 환각·누락 시 cap 추적 무력화 방지용 안전망.
+_SPEND_FALLBACK_BY_L1 = {
+    "편의점": 5000, "마트": 25000,
+    "식사": 12000, "카페": 6000, "디저트": 8000, "주점": 30000,
+    "미용": 30000, "쇼핑": 50000,
+    "여가": 20000, "건강": 15000, "교육": 50000, "기타": 10000,
+}
+
+
+def _ensure_positive_spend(pick: "Stage2Pick", category: str | None, daily_wd: float | int | None) -> None:
+    """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 카테고리 fallback 부여.
+
+    track_policy_usage가 spend<=0 이면 cap 추적을 skip하므로,
+    여기서 최소값을 강제해 정책 효과 측정 신뢰도 확보.
+    """
+    cur = pick.actual_spent or 0
+    if cur > 0:
+        return
+    base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
+    if daily_wd and daily_wd > 0:
+        # daily_wd가 매우 작은 경우 비율 보정 (예: 절약형 페르소나)
+        base = min(base, int(daily_wd * 0.4))
+    pick.actual_spent = max(1000, base)
 
 
 # =========================================================
@@ -80,26 +118,49 @@ def resolve_dong(event_anchor: str, persona: dict, stats: dict | None = None) ->
 INTERNAL_CATS = {"집", "직장"}  # residence/workplace anchor에서 사용. POI 미고정
 
 
+def _score_and_sort_by_desire(cands: list[dict], today: date) -> list[dict]:
+    """avg_satisfaction 내림차순 → km 오름차순 정렬."""
+    for c in cands:
+        sat = c.get("avg_satisfaction")
+        c["desire"] = float(sat) if sat is not None else 0.0
+    # 1순위: avg_satisfaction 내림차순, 2순위: km 오름차순 (None은 뒤)
+    cands.sort(key=lambda c: (-c["desire"], c.get("km") or 9999))
+    return cands
+
+
 def fetch_candidates_for_events(
-    aid: str, events: list, persona: dict, k_per_event: int = 15,
+    aid: str, events: list, persona: dict, today: date,
+    k_per_event: int = 12,
     stats: dict | None = None,
 ) -> dict[int, list[dict]]:
     """이벤트별 candidate POI dict. key=order, value=list of candidate dicts.
 
-    stats: fallback 카운트 dict (mutate). 아래 키가 누적됨:
+    정렬 (단순화 — 2026-05-30):
+      avg_satisfaction 내림차순 → km 오름차순.
+      복잡한 desire 4요인 곱셈(affinity·recency·saturation·novelty)은 폐기.
+      반복 억제는 Stage 2 프롬프트의 '최근 3일 방문 POI' 헤더로 LLM이 자율 처리.
+
+    같은 날 반복 차단:
+      같은 (dong, sub_category) 이벤트가 N개면 후보를 N×k_per_event 크기로 한 번에
+      fetch + 정렬 후 round-robin 분할. 같은 POI가 두 이벤트 풀에 동시 등장 못 함.
+
+    stats: fallback 카운트 dict (mutate). 누적 키:
       - resolve_dong_placeholder_fallback
-      - cand_sub_match (정상 1차 sub_category 매칭)
-      - cand_fallback_l1_dong (2차: 같은 dong, L1)
-      - cand_fallback_l1_district (3차: 자치구, L1)
-      - cand_all_empty (모든 fallback 실패)
+      - cand_sub_match / cand_fallback_l1_dong / cand_fallback_l1_district / cand_all_empty
+      - pool_split_groups : 분할이 일어난 그룹 수
+      - pool_split_events : 분할 적용된 이벤트 수
     """
+    from collections import defaultdict
+    from _common import driver_session
+
     out: dict[int, list[dict]] = {}
     s = stats if stats is not None else {}
+
+    # 1) 각 이벤트 → 그룹 키 (dong_code, sub_cat) 결정. 스킵은 즉시 빈 풀.
+    group_key_for: dict[int, tuple[str, str]] = {}
+    l1_for: dict[int, str] = {}
     for i, ev in enumerate(events):
-        if ev.category in INTERNAL_CATS:
-            out[i] = []
-            continue
-        if ev.pinned_poi:
+        if ev.category in INTERNAL_CATS or ev.pinned_poi:
             out[i] = []
             continue
         sub_cat = ev.sub_category or _guess_sub_from_l1(ev.category)
@@ -110,28 +171,73 @@ def fetch_candidates_for_events(
         if not dong_code:
             out[i] = []
             continue
+        group_key_for[i] = (dong_code, sub_cat)
+        l1_for[i] = ev.category
 
-        # 1차: sub_category 정확 매칭
-        cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=k_per_event)
-        if cands:
-            s["cand_sub_match"] = s.get("cand_sub_match", 0) + 1
-        else:
-            # 2차: 같은 dong, L1 카테고리
-            if ev.category and ev.category not in INTERNAL_CATS:
-                cands = build_stage2_candidates_l1_dong(aid, dong_code, ev.category, limit=k_per_event)
-                if cands:
-                    s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + 1
-            # 3차: 자치구 + L1
-            if not cands and ev.category:
-                district_code = dong_code[:5] if dong_code and len(dong_code) >= 5 else None
-                if district_code:
-                    cands = build_stage2_candidates_l1_district(aid, district_code, ev.category, limit=k_per_event)
+    # 2) 같은 (dong, sub_cat) 그룹화. dict 삽입 순서 = 이벤트 시간 순.
+    groups: dict[tuple[str, str], list[int]] = defaultdict(list)
+    for i, key in group_key_for.items():
+        groups[key].append(i)
+
+    if not groups:
+        return out
+
+    # 3) 그룹별 fetch + round-robin 분할 (fallback 체인 그룹 단위 1회)
+    #     [perf] agent-day의 모든 후보 조회를 단일 세션으로 — 그룹마다 세션 생성 제거.
+    with driver_session() as sess:
+        for (dong_code, sub_cat), event_idxs in groups.items():
+            n = len(event_idxs)
+            pool_size = k_per_event if n == 1 else n * k_per_event
+            l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
+
+            cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size, session=sess)
+            if cands:
+                s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
+            else:
+                if l1 and l1 not in INTERNAL_CATS:
+                    cands = build_stage2_candidates_l1_dong(aid, dong_code, l1, limit=pool_size, session=sess)
                     if cands:
-                        s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + 1
-            if not cands:
-                s["cand_all_empty"] = s.get("cand_all_empty", 0) + 1
-        out[i] = cands
+                        s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + n
+                if not cands and l1:
+                    district_code = dong_code[:5] if len(dong_code) >= 5 else None
+                    if district_code:
+                        cands = build_stage2_candidates_l1_district(
+                            aid, district_code, l1, limit=pool_size, session=sess,
+                        )
+                        if cands:
+                            s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
+                if not cands:
+                    s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
+
+            # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
+            cands = _score_and_sort_by_desire(cands or [], today)
+
+            if n == 1:
+                out[event_idxs[0]] = cands[:k_per_event]
+            else:
+                buckets = _split_pool_round_robin(cands, n, k_per_event)
+                for bucket, ev_i in zip(buckets, event_idxs):
+                    out[ev_i] = bucket
+                if cands:
+                    s["pool_split_groups"] = s.get("pool_split_groups", 0) + 1
+                    s["pool_split_events"] = s.get("pool_split_events", 0) + n
+
     return out
+
+
+def _split_pool_round_robin(
+    cands: list[dict], n: int, k_per_event: int,
+) -> list[list[dict]]:
+    """정렬된 풀(avg_satisfaction DESC, km ASC)을 N개 이벤트 풀로 round-robin 분할.
+
+    같은 POI 가 여러 버킷에 들어가지 않음 — 한 cand 는 idx % n 한 곳만 들어감.
+    상위 → 하위 순서대로 라운드로빈이라 각 버킷이 만족도 분포를 골고루 받는다.
+    가장 이른 시간 이벤트(idx 0)가 만족도 1순위를 받음.
+    """
+    buckets: list[list[dict]] = [[] for _ in range(n)]
+    for idx, c in enumerate(cands):
+        buckets[idx % n].append(c)
+    return [b[:k_per_event] for b in buckets]
 
 
 # L1 → 대표 sub 매핑 (sub_category 누락 시 fallback)
@@ -149,57 +255,163 @@ def _guess_sub_from_l1(l1: str) -> str | None:
 # =========================================================
 # 프롬프트 빌더
 # =========================================================
-SYSTEM_S2 = """당신은 Stage 1에서 결정된 의도 시퀀스를 받아, 각 외출 이벤트의 구체 POI를 결정하는 Daily Planner의 두 번째 단계입니다.
-규칙:
-- **각 이벤트는 자기 자신의 candidates 풀에서만 선택**. 다른 이벤트의 후보를 가져오지 마세요.
-- order는 **0부터 시작하는 정수** (이벤트 0, 이벤트 1, …). 사용자 블록의 "### 이벤트 N" 의 N 그대로 사용.
-- 후보 POI 중에서만 선택. 다른 ID 지어내지 마세요.
-- 같은 카테고리에서 단골(known=true, visit_count>0, affinity 높음)을 살짝 선호하되, 가끔 새 곳도 시도 (탐색·다양성).
-- 만족도(avg_satisfaction) ≤ 0.3 인 POI는 회피.
-- 거리(km) 가까운 것 우선이지만, 단골 선호와 균형.
-- residence/workplace/집/직장 이벤트는 결과에 포함하지 않음 (시스템이 자동으로 home/work POI 사용).
-- pinned_poi가 있는 이벤트도 결과에 포함하지 않음.
+SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구체적인 방문 장소(POI)를 결정하고,
+소비 금액과 만족도를 설정하는 Daily Planner Stage 2입니다.
 
-출력 형식 (JSON만, order는 0-base):
+## 핵심 규칙
+
+**POI 선택**
+- 각 이벤트는 반드시 자기 자신의 candidates 풀에서만 선택합니다.
+- 후보 ID를 절대 지어내지 마세요. 목록에 있는 poi_id만 사용합니다.
+- order는 0-base 정수이고, 각 외출 이벤트(residence/workplace/pinned 제외) 모두에 정확히 1개의 pick을 만듭니다.
+- 픽 누락 금지: events에 표시된 모든 외출 order 각각에 대해 반드시 1개의 pick을 생성합니다.
+- 같은 order에 대해 중복 pick 금지.
+- residence/workplace/집/직장 이벤트, pinned_poi 이벤트는 picks에 포함하지 않습니다.
+
+**페르소나 기반 선택 (핵심)**
+- 에이전트의 라이프스타일·성향·직업·생활 패턴을 고려해 자연스럽게 어울리는 장소를 선택합니다.
+- 과거 만족도(avg_sat)가 높은 곳을 선호하되, 페르소나가 탐색형이면 새 곳도 도전합니다.
+- avg_sat이 없는 신규 장소는 거리(km)가 가까운 곳을 우선합니다.
+
+**단순 반복 억제**
+- 최근 3일 이내 방문한 POI(⚠️ 표시)는 특별한 사유 없이 재선택하지 마세요.
+- 같은 날 여러 이벤트가 있을 때 동일 POI를 두 번 선택하지 마세요.
+
+**소비액 설정 (actual_spent + policy_spend)**
+- `actual_spent`: 이 거래의 총 소비액 (원, 양수). 평소 잔액 + 정책 지원금 합계.
+- `policy_spend`: 그 중 정책 지원금에서 쓴 금액 분리. `{"P009": 5000}` 형태.
+  · 정책 지원금을 안 쓴 거래는 null 또는 `{}`.
+  · 한 거래에서 여러 정책 동시 사용 가능 (드물지만): `{"P009": 3000, "P008": 2000}`.
+  · sum(policy_spend.values()) ≤ actual_spent 이어야 함.
+  · sum(policy_spend.values()) ≤ 해당 정책의 잔여 가용액 이어야 함 (정책 예산 헤더 참조).
+
+소비 결정 방식 (거래 간 '상대적 크기'에 집중):
+- actual_spent는 그 거래의 **상대적 크기**를 반영합니다 (예: 마트 > 외식 > 카페 > 편의점,
+  가게 종류·상황에 따라). 하루 총 지출 규모는 에이전트의 그날 소비성향으로 **별도 결정**되니,
+  여기서는 거래들 사이의 비율과 단가 감각에만 집중하세요. (헤더의 '평소 1일 소비규모'는 스케일 참고용.)
+- 단가는 POI 카테고리 통념이 아니라 페르소나·상황·가게 종류로 자유 결정.
+- 정책 지원금(policy_spend)은 절약형이면 적게·남기고, 소비형이면 적극 사용하는 식으로 성향 반영.
+- 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
+
+**만족도 설정 (actual_satisfaction)**
+- 0.0 ~ 1.0 범위의 실수입니다.
+- 과거 방문 기록(avg_sat)이 있으면 그 근처에서 페르소나 성향을 반영해 조정합니다.
+- 처음 가는 곳은 페르소나·카테고리·거리 등을 고려해 자유롭게 설정합니다.
+- 값이 높을수록 만족, 낮을수록 불만족입니다.
+
+**카카오 별점·리뷰 확인 (선택적, 본인 판단)**
+- 후보 POI들의 카카오 별점·리뷰는 등록된 게 있으면 언제든 조회 가능합니다.
+- 본인 페르소나·성격·오늘 상황에 따라 자연스럽게 결정하세요 — 평소 SNS·맛집 리뷰 잘 챙겨 보는 성격이면 그렇게 보고, 무덤덤한 성격이면 안 봐도 되고. 친구 만나러 가는 거면 한번 검색해볼 수도 있고, 혼밥 루틴이면 안 볼 수도. 기밀문서 아닙니다 — 보고 싶으면 그냥 보는 것.
+- `review_lookup_requests` 필드에 궁금한 POI id들을 넣어 응답하면 별점·리뷰가 추가 컨텍스트로 제공되고, 그걸 본 후 최종 picks 결정합니다. 비어 두면 첫 picks 그대로 채택.
+- 정보 받아도 판단은 본인 페르소나대로 — 별점 무관심형이면 평점 낮아도 갈 수 있고, 까다로운 성격이면 4.7+만 갈 수도, 리뷰 내용 보고 마음 바꿀 수도.
+
+## 출력 형식 (JSON만, 다른 텍스트 금지)
 {"picks": [
-  {"order": 0, "poi_id": "C_xxxxxx"},
-  {"order": 2, "poi_id": "C_yyyyyy"},
-  ...
-]}
-"""
+  {
+    "order": 0,
+    "poi_id": "C_xxxxxx",
+    "actual_spent": 12000,
+    "policy_spend": null,
+    "actual_satisfaction": 0.71,
+    "pick_reason": "단골 한식집. 어제 sat 0.72로 만족도 높음. 직장 0.05km. 평소 한식 즐겨 찾는 성향.",
+    "pick_factor": "satisfaction"
+  },
+  {
+    "order": 2,
+    "poi_id": "C_yyyyyy",
+    "actual_spent": 25000,
+    "policy_spend": {"P009": 15000},
+    "actual_satisfaction": 0.68,
+    "pick_reason": "P009 지원금으로 평소 못 가본 카페 시도. 페르소나 소비형이라 grant 적극 활용.",
+    "pick_factor": "satisfaction"
+  }
+],
+"review_lookup_requests": ["C_aaa", "C_bbb"]  // 별점·리뷰 확인이 필요한 POI id (선택). 없으면 [] 또는 누락.
+}
+
+pick_factor enum 정의 (가장 결정적이었던 단일 요인 1개):
+- `known`         : 단골/방문 경험 있는 곳 (KNOWS_POI 매칭) — visit_count > 0 이고 그 기억이 결정 좌우
+- `distance`      : 거리 가까움이 결정적 — 어제 만족도·리뷰 데이터 없고 그냥 가깝다
+- `satisfaction`  : 본인 어제 만족도(avg_sat) 높음이 결정적 — 본인 경험치 기반
+- `review`        : 외부 카카오 별점·리뷰가 결정적 — review_lookup_requests 발동 후 결정 바꾼/굳힌 경우 (★ satisfaction과 명확 구분)
+- `rumor`         : 어제 들은 소문·추천(KNOWS Conversation rumor)이 결정적
+- `appointment`   : 약속(pinned_poi or 다른 agent와 만남 약속)이 결정적
+- `random`        : 위 어느 단서도 결정적이지 않고 페르소나 성향으로 다양화 시도
+/no_think"""
 
 
-def _format_event_with_candidates(i: int, ev, cands: list[dict]) -> str:
+def _format_event_with_candidates(
+    i: int, ev, cands: list[dict], recent_poi_ids: set[str] | None = None
+) -> str:
     if not cands:
         return ""
-    lines = [f"### 이벤트 {i} | {ev.time} | {ev.anchor} | {ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}"]
+    lines = [
+        f"### 이벤트 {i} | {ev.time} | {ev.anchor} | "
+        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}"
+    ]
+    recent = recent_poi_ids or set()
     for c in cands:
         known_mark = "★" if c["known"] else " "
-        vc = c.get("visit_count") or 0
+        recent_mark = "⚠️" if c["poi_id"] in recent else ""
         sat = c.get("avg_satisfaction")
-        sat_s = f"sat={sat:.2f}" if sat is not None else ""
-        aff = c.get("affinity") or 0
         km = c.get("km")
+        visit_count = c.get("visit_count") or 0
+
+        sat_s = f"avg_sat={sat:.2f}" if sat is not None else "신규"
         km_s = f"{km:.2f}km" if km is not None else ""
-        lines.append(f"  {known_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | {km_s} | 방문{vc}회 {sat_s} aff={aff:.2f}")
+        visit_s = f"({visit_count}회)" if visit_count > 0 else ""
+
+        lines.append(
+            f"  {known_mark}{recent_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | "
+            f"{km_s} | {sat_s} {visit_s}"
+        )
     return "\n".join(lines)
 
 
-def build_stage2_prompt(events: list, cands_by_order: dict[int, list[dict]]) -> str:
+def build_stage2_prompt(
+    events: list,
+    cands_by_order: dict[int, list[dict]],
+    persona: dict | None = None,
+    recent_poi_ids: set[str] | None = None,
+) -> str:
+    # 페르소나 헤더
+    header_parts = []
+    if persona:
+        daily_wd = persona.get("daily_wd") or 0
+        daily_we = persona.get("daily_we") or 0
+        tendency = persona.get("tendency") or ""
+        lifestyle = (persona.get("lifestyle") or "").strip()
+        budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency}")
+        # 정책 예산 (있으면)
+        policy_budget = persona.get("policy_budget_summary") or ""
+        if policy_budget:
+            header_parts.append(f"정책 쿠폰 잔액: {policy_budget}")
+
+    if recent_poi_ids:
+        header_parts.append(
+            f"## 최근 3일 방문 POI (⚠️ 표시 — 단순 반복 자제)\n"
+            + ", ".join(list(recent_poi_ids)[:20])
+        )
+
     blocks = []
     for i, ev in enumerate(events):
         cs = cands_by_order.get(i) or []
         if not cs:
             continue
-        blocks.append(_format_event_with_candidates(i, ev, cs))
+        blocks.append(_format_event_with_candidates(i, ev, cs, recent_poi_ids))
+
     if not blocks:
         return "(외부 POI 결정 필요한 이벤트 없음)"
+
+    header = "\n\n".join(header_parts) + "\n\n" if header_parts else ""
     body = "\n\n".join(blocks)
-    return f"""다음 이벤트별 candidates 중에서 각 이벤트의 poi_id를 결정하세요.
-
-{body}
-
-각 이벤트의 order(0-base index)와 선택한 poi_id를 JSON으로 출력하세요. /no_think"""
+    return (
+        f"{header}"
+        f"다음 이벤트별 candidates 중에서 POI를 선택하고 소비액·만족도를 설정하세요.\n\n"
+        f"{body}\n\n"
+        f"각 이벤트의 order·poi_id·actual_spent·actual_satisfaction·pick_reason·pick_factor를 JSON으로 출력하세요. /no_think"
+    )
 
 
 # =========================================================
@@ -211,27 +423,116 @@ def call_stage2(
     aid: str,
     stage1: Stage1Output,
     persona: dict,
+    today: date,
     max_retry: int = 2,
     verbose: bool = False,
+    # consumption-mobility 머지 후 호환성 — 정책 정보는 persona["policy_budget_summary"]를 통해 build_stage2_prompt에 전달됨
+    active_policies: list[dict] | None = None,  # noqa: ARG001
+    grant_remaining: dict[str, int] | None = None,  # noqa: ARG001
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
-    """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환."""
+    """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
+
+    today: 오늘 날짜. desire 계산의 days_since_visit 산출에 사용.
+    """
     fb_stats: dict[str, int] = {}
-    cands_by_order = fetch_candidates_for_events(aid, stage1.events, persona, stats=fb_stats)
+    cands_by_order = fetch_candidates_for_events(
+        aid, stage1.events, persona, today, stats=fb_stats,
+    )
     need_llm = any(cs for cs in cands_by_order.values())
 
     if not need_llm:
         # 외부 POI 결정 필요 없음 (전부 residence/workplace/pinned)
         return Stage2Output(picks=[]), cands_by_order, {"skipped": True, **fb_stats}
 
-    user_block = build_stage2_prompt(stage1.events, cands_by_order)
+    # 최근 3일 방문 POI (억제용)
+    recent_poi_ids: set[str] = set()
+    try:
+        from _common import driver_session
+        from datetime import timedelta
+        three_days_ago = (today - timedelta(days=3)).isoformat()
+        with driver_session() as s:
+            rows = s.run(
+                "MATCH (a:Agent {id:$aid})-[:REMEMBERS]->(m:Memory {type:'visited'})-[:ABOUT_POI]->(p:POI) "
+                "WHERE m.day >= date($since) RETURN p.id AS pid",
+                aid=aid, since=three_days_ago
+            )
+            recent_poi_ids = {r["pid"] for r in rows}
+    except Exception:
+        pass
+
+    user_block = build_stage2_prompt(
+        stage1.events, cands_by_order,
+        persona=persona,
+        recent_poi_ids=recent_poi_ids,
+    )
+
+    # 환각 차단용 JSON schema — poi_id는 전체 후보풀 union enum 강제.
+    # order-별 enum은 아니지만 후보풀 외 POI는 0건 보장. order_mismatch는 fallback에서 처리.
+    all_pids = sorted({c["poi_id"] for cs in cands_by_order.values() for c in cs})
+    expected_orders = [
+        i for i, ev in enumerate(stage1.events)
+        if ev.category not in INTERNAL_CATS and not ev.pinned_poi and cands_by_order.get(i)
+    ]
+    s2_schema = None
+    if all_pids and expected_orders:
+        s2_schema = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "stage2_picks", "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "picks": {
+                            "type": "array",
+                            "minItems": len(expected_orders),
+                            "maxItems": len(expected_orders),
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "order": {"type": "integer", "enum": expected_orders},
+                                    "poi_id": {"type": "string", "enum": all_pids},
+                                    "actual_spent": {"type": "number", "minimum": 0},
+                                    "actual_satisfaction": {"type": "number", "minimum": 0, "maximum": 1},
+                                    "policy_spend": {"type": ["object", "null"]},
+                                    "pick_reason": {"type": ["string", "null"]},
+                                    "pick_factor": {"type": ["string", "null"]},
+                                },
+                                "required": ["order", "poi_id", "actual_satisfaction", "actual_spent"],
+                                "additionalProperties": False,
+                            },
+                        }
+                    },
+                    "required": ["picks"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+        # review_lookup_requests 선택적 출력 허용 — POI id 목록 (전체 cand pool union)
+        s2_schema["json_schema"]["schema"]["properties"]["review_lookup_requests"] = {
+            "type": ["array", "null"],
+            "items": {"type": "string", "enum": all_pids},
+        }
 
     last_err = None
+    review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
+    pre_review_picks: dict[int, str] = {}     # 리뷰 보기 전(1차) 선택 {order: poi_id} — 사고변화 추적
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.1 * attempt
+        # review_lookup 결과가 있으면 prompt에 추가 컨텍스트 첨부
+        prompt_now = user_block
+        if review_lookup_used:
+            review_block_lines = ["", "## 추가로 조회된 카카오 별점·리뷰 (요청한 POI만)"]
+            for pid, info in review_lookup_used.items():
+                review_block_lines.append(format_review_block(pid, info))
+            prompt_now = user_block + "\n" + "\n".join(review_block_lines) + (
+                "\n\n위 정보를 참고해 최종 picks를 결정하세요. "
+                "이번 응답에서는 review_lookup_requests를 비워 두세요(이미 조회 완료).\n"
+            )
         try:
             resp = _llm_call(
-                None, SYSTEM_S2, user_block,
-                temperature=temp, max_tokens=600,
+                None, SYSTEM_S2, prompt_now,
+                temperature=temp, max_tokens=1400,  # review_lookup_requests 필드 + 추가 컨텍스트
+                response_format=s2_schema,
             )
             raw = resp.choices[0].message.content
             if verbose:
@@ -240,6 +541,23 @@ def call_stage2(
             json_str = _extract_json(raw)
             data = json.loads(json_str)
             parsed = Stage2Output.model_validate(data)
+
+            # === review_lookup_requests 처리 (한 번만, 첫 호출에서만) ===
+            if not review_lookup_used and parsed.review_lookup_requests:
+                # 후보 풀 안에 있는 poi_id만 채택 (환각 방지)
+                valid_lookup_ids = [pid for pid in parsed.review_lookup_requests
+                                    if pid in set(all_pids)]
+                if valid_lookup_ids:
+                    fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    if fetched:
+                        review_lookup_used = fetched
+                        # 리뷰 보기 전(1차) 선택 보존 — 추가 LLM 호출 없이 '사고 변화' 추적용
+                        pre_review_picks = {p.order: p.poi_id for p in parsed.picks}
+                        # 같은 attempt에서 재호출이 아니라 다음 attempt에 첨부해서 한 번 더 시도
+                        # (max_retry 안 쓰고 별도 1회 — temp 0.7 그대로)
+                        if verbose:
+                            print(f"[review_lookup] fetched {len(fetched)} POIs, retrying with context")
+                        continue  # 다음 iteration에서 prompt_now에 첨부됨
 
             # 후보 풀 안에 있는지 검증 — 반드시 해당 order의 candidates 안에서만 valid.
             # (이전 버그: valid_pois = 전체 cands flat → 다른 order의 POI도 통과되어 카테고리 매칭이 깨짐)
@@ -266,7 +584,7 @@ def call_stage2(
                     if cands_for_this_order:
                         top = cands_for_this_order[:5]
                         chosen = rng.choice(top)["poi_id"]
-                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen))
+                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen, actual_spent=None, actual_satisfaction=0.5))
                         hallucinations += 1
                     else:
                         # 해당 order에 candidates 자체 없음 — drop
@@ -278,6 +596,14 @@ def call_stage2(
             parsed = _fill_missing_picks(parsed, stage1.events, cands_by_order, aid=aid)
             missing_filled = len(parsed.picks) - picks_before_fill
 
+            # 후처리: actual_spent 0/None인 commerce 이벤트에 카테고리 fallback (cap 추적 무력화 방지)
+            daily_wd = persona.get("daily_wd") or 0
+            cat_by_order = {i: ev.category for i, ev in enumerate(stage1.events)}
+            for pick in parsed.picks:
+                cat = cat_by_order.get(pick.order)
+                if cat and cat not in INTERNAL_CATS:
+                    _ensure_positive_spend(pick, cat, daily_wd)
+
             meta = {
                 "attempt": attempt,
                 "temp": temp,
@@ -287,6 +613,10 @@ def call_stage2(
                 "hallucinations_dropped": hallucinations_dropped,
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
+                "review_lookup_count": len(review_lookup_used),
+                # 리뷰 흔적 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
+                "review_lookup_used": review_lookup_used,   # {poi_id: {rating, rating_count, reviews, category}}
+                "pre_review_picks": pre_review_picks,       # {order: 리뷰 전 선택 poi_id}
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
@@ -321,14 +651,16 @@ def _fill_missing_picks(
             continue
         top = cs[:5]
         chosen = rng.choice(top)["poi_id"]
-        new_picks.append(Stage2Pick(order=i, poi_id=chosen))
+        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=0.5))
     return Stage2Output(picks=new_picks)
 
 
 # =========================================================
 # Stage 1 + Stage 2 병합 → 최종 events
 # =========================================================
-def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: dict) -> list[dict]:
+def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: dict,
+                          review_lookup_used: dict | None = None,
+                          pre_review_picks: dict | None = None) -> list[dict]:
     """Stage 1 + Stage 2 picks → 최종 events with poi_id.
 
     카테고리 기준 우선 (anchor는 출발지 표시일 뿐):
@@ -337,10 +669,13 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
       - cat ∈ 외출 카테고리 (식사·카페·편의점 등) → Stage 2 pick (commerce POI)
         - Stage 2 pick 누락 시 fallback으로 anchor POI 사용
     """
-    pick_by_order = {p.order: p.poi_id for p in stage2.picks}
+    review_lookup_used = review_lookup_used or {}   # {poi_id: {rating, rating_count, reviews, ...}}
+    pre_review_picks = pre_review_picks or {}        # {order: 리뷰 전 선택 poi_id}
+    pick_by_order = {p.order: p for p in stage2.picks}
     out = []
     for i, ev in enumerate(stage1.events):
         poi_id = None
+        pick_obj = pick_by_order.get(i)
         if ev.pinned_poi:
             poi_id = ev.pinned_poi
         elif ev.category in INTERNAL_CATS:
@@ -356,7 +691,7 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
                     poi_id = persona.get("work_poi_id")
         else:
             # 외출 카테고리 — Stage 2 pick (anchor의 동에서 commerce POI 결정)
-            poi_id = pick_by_order.get(i)
+            poi_id = pick_obj.poi_id if pick_obj else None
             if not poi_id:
                 # Stage 2 pick 누락 시 anchor POI fallback
                 if ev.anchor == "residence":
@@ -364,6 +699,12 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
                 elif ev.anchor == "workplace":
                     poi_id = persona.get("work_poi_id")
 
+        # 리뷰 노출·사고변화 흔적 (추가 호출 0 — 기존 2-pass 캡처 데이터만 사용)
+        _seen = review_lookup_used.get(poi_id) if poi_id else None
+        _pre_poi = pre_review_picks.get(i)
+        _review_changed = bool(_pre_poi and poi_id and _pre_poi != poi_id)
+        _seen_rv = (_seen.get("reviews") if _seen else None) or []
+        _snippet = (_seen_rv[0].get("contents") if _seen_rv else None)
         out.append({
             "order": i,
             "time": ev.time,
@@ -374,7 +715,22 @@ def merge_to_final_events(stage1: Stage1Output, stage2: Stage2Output, persona: d
             "intent": ev.intent,
             "poi_id": poi_id,
             "with_agents": ev.with_agents or [],
-            "actual_satisfaction": None,
+            "actual_satisfaction": pick_obj.actual_satisfaction if pick_obj else None,
+            "actual_spent": pick_obj.actual_spent if pick_obj else 0,
+            # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
+            "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
+            # ───── 사고과정 흔적 (인터뷰용) ─────
+            "reasoning": ev.reasoning,                 # Stage 1: 왜 이 의도·카테고리·anchor
+            "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...
+            "pick_reason": pick_obj.pick_reason if pick_obj else None,   # Stage 2: 왜 이 POI
+            "pick_factor": pick_obj.pick_factor if pick_obj else None,   # Stage 2: known/distance/...
+            # ───── 리뷰 노출·사고변화 흔적 (추가 LLM 호출 0) ─────
+            "review_seen": _seen is not None,                        # 이 POI 카카오 리뷰를 봤나
+            "seen_rating": (_seen or {}).get("rating"),              # 본 평균 별점
+            "seen_rating_count": (_seen or {}).get("rating_count"),
+            "review_snippet": _snippet,                              # 본 리뷰 한 줄
+            "pre_review_poi": _pre_poi if _review_changed else None, # 리뷰 전(1차) 선택 — 바뀐 경우만
+            "review_changed": _review_changed,                       # 리뷰가 최종 선택을 바꿨나
         })
     return out
 
@@ -397,7 +753,7 @@ if __name__ == "__main__":
     print(s1.model_dump_json(indent=2))
     print(f"\nmeta: {m1}")
 
-    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, verbose=args.verbose)
+    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, today, verbose=args.verbose)
     print("\n=== Stage 2 ===")
     print(s2.model_dump_json(indent=2))
     print(f"\nmeta: {m2}")

@@ -50,6 +50,8 @@ class PolicyType(str, Enum):
     TAX_RELIEF = "tax_relief"
     LOAN = "loan"
     VOUCHER = "voucher"
+    GRANT = "grant"            # 현금 일시 지급 (소득별 차등 등)
+    FACILITY = "facility"      # 시설 정책 (보행친화거리 등)
     OTHER = "other"
     UNKNOWN = "unknown"
 

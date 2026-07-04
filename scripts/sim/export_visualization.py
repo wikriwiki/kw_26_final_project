@@ -91,7 +91,10 @@ def fetch_agents(s):
               home.name AS home_poi_name, home.lon AS home_lon, home.lat AS home_lat,
               work.id AS work_poi_id, work.name AS work_poi_name,
               work.lon AS work_lon, work.lat AS work_lat,
-              wr.commute_min AS commute
+              wr.commute_min AS commute,
+              (EXISTS {(a)-[:PARTICIPATES_IN]->(:Conversation {intent:'약속'})}
+               OR EXISTS {(a)-[:HAS_PLAN]->(:Plan)-[i2:INCLUDES]->()
+                          WHERE i2.trigger IN ['약속','appointment']}) AS has_appointment
             ORDER BY suffix
             LIMIT $limit
         """, dc=dist_code, limit=limit)
@@ -119,14 +122,17 @@ def fetch_timeline(s, agent_ids: list[str]):
         MATCH (a:Agent)-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->(poi:POI)
         WHERE a.id IN $aids AND toString(p.day) IN $days
         OPTIONAL MATCH (poi)-[:IN_CATEGORY]->(c:Category)
+        OPTIONAL MATCH (poi)-[:IN_DONG]->(pd:Dong)
         RETURN a.id AS aid, p.day AS day, i.order AS ord,
                toString(i.time) AS time, i.anchor AS anchor,
                i.category AS cat, i.sub_category AS sub_cat,
                i.intent AS intent, i.actual_satisfaction AS sat,
                i.actual_spent AS spent,
+               i.reasoning AS reasoning, i.trigger AS trigger,
+               i.pick_reason AS pick_reason, i.pick_factor AS pick_factor,
                poi.id AS poi_id, poi.name AS poi_name,
                poi.lon AS lon, poi.lat AS lat, poi.type AS poi_type,
-               c.parent AS l1
+               c.parent AS l1, pd.name AS dong
     """, aids=agent_ids, days=DAYS)
 
     # agent별 시간순 이벤트 list
@@ -139,9 +145,12 @@ def fetch_timeline(s, agent_ids: list[str]):
             "anchor": r["anchor"], "cat": r["cat"], "sub": r["sub_cat"],
             "intent": r["intent"], "sat": r["sat"],
             "spent": r["spent"] or 0,
+            # 사고과정 흔적 (인터뷰·상세 뷰용)
+            "reasoning": r["reasoning"], "trigger": r["trigger"],
+            "pick_reason": r["pick_reason"], "pick_factor": r["pick_factor"],
             "poi_id": r["poi_id"], "poi_name": r["poi_name"] or "",
             "lon": r["lon"], "lat": r["lat"],
-            "poi_type": r["poi_type"], "l1": r["l1"],
+            "poi_type": r["poi_type"], "l1": r["l1"], "dong": r["dong"],
         })
     # 시간순 정렬
     for aid in by_agent:
@@ -176,6 +185,7 @@ def fetch_timeline(s, agent_ids: list[str]):
                         "lon": current["lon"], "lat": current["lat"],
                         "cat": current.get("cat") or "집",
                         "l1": current.get("l1"),
+                        "dong": current.get("dong"),
                         "intent": current["intent"],
                         "sat": current["sat"],
                         "spent": current.get("spent") or 0,
@@ -268,6 +278,8 @@ def fetch_memories(s, agent_ids: list[str]):
 
     # 약속 (Conversation intent='약속') — 양쪽 agent 모두에게 표시되도록 PARTICIPATES_IN으로 fetch
     appointments = defaultdict(list)
+    sim_start = date.fromisoformat(DAYS[0])
+    sim_end = date.fromisoformat(DAYS[-1])
     for r in s.run("""
         MATCH (a:Agent)-[part:PARTICIPATES_IN]->(c:Conversation {intent:'약속'})
         WHERE a.id IN $aids
@@ -287,10 +299,23 @@ def fetch_memories(s, agent_ids: list[str]):
                c.summary AS summary
         ORDER BY c.day ASC
     """, aids=agent_ids):
+        target_day = None
+        within_window = False
+        if r["day"] and r["offset_days"] is not None:
+            try:
+                target_dt = date.fromisoformat(r["day"]) + timedelta(days=int(r["offset_days"]))
+                target_day = target_dt.isoformat()
+                within_window = sim_start <= target_dt <= sim_end
+            except Exception:
+                target_day = None
+                within_window = False
+
         appointments[r["aid"]].append({
             "conv_id": r["conv_id"],
             "day": r["day"],
             "offset_days": r["offset_days"],
+            "target_day": target_day,
+            "within_window": within_window,
             "target_time": r["target_time"],
             "hint": r["hint"],
             "meeting_poi_id": r["meeting_poi_id"],
@@ -299,7 +324,25 @@ def fetch_memories(s, agent_ids: list[str]):
             "role": r["role"],
             "summary": r["summary"],
         })
-    print(f"  appointments: {sum(len(v) for v in appointments.values()):,}")
+    participant_views = sum(len(v) for v in appointments.values())
+    unique_conv_ids = {
+        appt["conv_id"]
+        for rows in appointments.values()
+        for appt in rows
+        if appt.get("conv_id")
+    }
+    realized_conv_ids = {
+        appt["conv_id"]
+        for rows in appointments.values()
+        for appt in rows
+        if appt.get("conv_id") and appt.get("within_window")
+    }
+    print(
+        "  appointments: "
+        f"participant views {participant_views:,}, "
+        f"unique conversations {len(unique_conv_ids):,}, "
+        f"realized in window {len(realized_conv_ids):,}"
+    )
 
     return {
         aid: {
@@ -318,6 +361,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default=DEFAULT_START)
     ap.add_argument("--days", type=int, default=DEFAULT_DAYS)
+    ap.add_argument("--sample", type=int, default=0,
+                    help="agent sample 수 (0=전체). 작을수록 HTML 용량 ↓ (500 권장)")
     args = ap.parse_args()
 
     global DAYS
@@ -328,6 +373,18 @@ def main():
     with driver_session() as s:
         print("[agents] fetching ...")
         agents = fetch_agents(s)
+        # 시뮬 돌린(=Plan 있는) agent만 필터 — 외출/메모리 없는 agent 제외
+        simulated_aids = set()
+        for r in s.run('MATCH (a:Agent)-[:HAS_PLAN]->(:Plan) RETURN DISTINCT a.id AS aid'):
+            simulated_aids.add(r['aid'])
+        before = len(agents)
+        agents = [a for a in agents if a['id'] in simulated_aids]
+        print(f"  시뮬 돌린 agent 필터: {before} → {len(agents)}")
+        if args.sample and args.sample < len(agents):
+            import random
+            random.seed(42)
+            agents = random.sample(agents, args.sample)
+            print(f"  ★ sample {args.sample}/{len(agents)} 적용 (seed=42)")
         agent_ids = [a["id"] for a in agents]
         print(f"  total agents: {len(agents)}")
 

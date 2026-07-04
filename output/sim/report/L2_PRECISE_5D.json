@@ -1,0 +1,168 @@
+{
+  "config": {
+    "start": "2026-05-18",
+    "days": 5,
+    "policy_from": "2026-05-20",
+    "baseline_days": [
+      "2026-05-19"
+    ],
+    "policy_days": [
+      "2026-05-20",
+      "2026-05-21",
+      "2026-05-22"
+    ]
+  },
+  "denoms": {
+    "pure_L2": 63,
+    "mixed_L2_L1work": 42,
+    "both_walk": 65,
+    "L2_gangnam_other": 20
+  },
+  "n_control": 13748,
+  "by_day": [
+    {
+      "day": "2026-05-18",
+      "denoms": {
+        "pure_L2": 63,
+        "mixed_L2_L1work": 42,
+        "both_walk": 65,
+        "L2_gangnam_other": 20
+      },
+      "n_control": 13748,
+      "spends": {
+        "pure_L2": 84000,
+        "mixed_L2_L1work": 78000,
+        "both_walk": 228000,
+        "L2_gangnam_other": 42000
+      },
+      "s_control": 23840000,
+      "per_case": {
+        "pure_L2": 1333.3333333333333,
+        "mixed_L2_L1work": 1857.142857142857,
+        "both_walk": 3507.6923076923076,
+        "L2_gangnam_other": 2100.0
+      },
+      "per_control": 1734.0704102414898
+    },
+    {
+      "day": "2026-05-19",
+      "denoms": {
+        "pure_L2": 63,
+        "mixed_L2_L1work": 42,
+        "both_walk": 65,
+        "L2_gangnam_other": 20
+      },
+      "n_control": 13748,
+      "spends": {
+        "pure_L2": 78000,
+        "mixed_L2_L1work": 78000,
+        "both_walk": 222000,
+        "L2_gangnam_other": 48000
+      },
+      "s_control": 24546000,
+      "per_case": {
+        "pure_L2": 1238.095238095238,
+        "mixed_L2_L1work": 1857.142857142857,
+        "both_walk": 3415.3846153846152,
+        "L2_gangnam_other": 2400.0
+      },
+      "per_control": 1785.4233343031713
+    },
+    {
+      "day": "2026-05-20",
+      "denoms": {
+        "pure_L2": 63,
+        "mixed_L2_L1work": 42,
+        "both_walk": 65,
+        "L2_gangnam_other": 20
+      },
+      "n_control": 13748,
+      "spends": {
+        "pure_L2": 168000,
+        "mixed_L2_L1work": 132000,
+        "both_walk": 288000,
+        "L2_gangnam_other": 72000
+      },
+      "s_control": 24952000,
+      "per_case": {
+        "pure_L2": 2666.6666666666665,
+        "mixed_L2_L1work": 3142.8571428571427,
+        "both_walk": 4430.7692307692305,
+        "L2_gangnam_other": 3600.0
+      },
+      "per_control": 1814.9549025312772
+    },
+    {
+      "day": "2026-05-21",
+      "denoms": {
+        "pure_L2": 63,
+        "mixed_L2_L1work": 42,
+        "both_walk": 65,
+        "L2_gangnam_other": 20
+      },
+      "n_control": 13748,
+      "spends": {
+        "pure_L2": 156000,
+        "mixed_L2_L1work": 108000,
+        "both_walk": 312000,
+        "L2_gangnam_other": 66000
+      },
+      "s_control": 19798000,
+      "per_case": {
+        "pure_L2": 2476.190476190476,
+        "mixed_L2_L1work": 2571.4285714285716,
+        "both_walk": 4800.0,
+        "L2_gangnam_other": 3300.0
+      },
+      "per_control": 1440.064009310445
+    },
+    {
+      "day": "2026-05-22",
+      "denoms": {
+        "pure_L2": 63,
+        "mixed_L2_L1work": 42,
+        "both_walk": 65,
+        "L2_gangnam_other": 20
+      },
+      "n_control": 13748,
+      "spends": {
+        "pure_L2": 138000,
+        "mixed_L2_L1work": 120000,
+        "both_walk": 300000,
+        "L2_gangnam_other": 66000
+      },
+      "s_control": 20234000,
+      "per_case": {
+        "pure_L2": 2190.4761904761904,
+        "mixed_L2_L1work": 2857.1428571428573,
+        "both_walk": 4615.384615384615,
+        "L2_gangnam_other": 3300.0
+      },
+      "per_control": 1471.7777131219086
+    }
+  ],
+  "baseline_avg": {
+    "days": [
+      "2026-05-19"
+    ],
+    "n_days": 1,
+    "pure_L2": 1238.095238095238,
+    "mixed_L2_L1work": 1857.142857142857,
+    "both_walk": 3415.3846153846152,
+    "L2_gangnam_other": 2400.0,
+    "control": 1785.4233343031713
+  },
+  "policy_avg": {
+    "days": [
+      "2026-05-20",
+      "2026-05-21",
+      "2026-05-22"
+    ],
+    "n_days": 3,
+    "pure_L2": 2444.4444444444443,
+    "mixed_L2_L1work": 2857.1428571428573,
+    "both_walk": 4615.384615384615,
+    "L2_gangnam_other": 3400.0,
+    "control": 1575.598874987877
+  }
+}

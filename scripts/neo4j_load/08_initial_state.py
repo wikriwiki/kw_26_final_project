@@ -24,7 +24,7 @@ from _common import driver_session, bulk_run
 
 # 시뮬 시작일 = Day 0의 다음날(t=1)부터 시뮬 시작.
 # 시드는 t=0 = SIM_START - 1 일자로 생성.
-DAY_ZERO = "2026-04-30"   # POC 시뮬 시작 전날 (다음 날부터 Dawn 진행)
+DAY_ZERO = "2026-05-24"   # 9일 baseline 시작(2026-05-25)의 전날
 
 # spending_level (1~10) → 초기 잔액·에너지 매핑
 def initial_balance(level: int | None) -> int:
