@@ -278,19 +278,18 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 같은 날 여러 이벤트가 있을 때 동일 POI를 두 번 선택하지 마세요.
 
 **소비액 설정 (actual_spent + policy_spend)**
-- `actual_spent`: 이 거래의 총 소비액 (원, 양수). 평소 잔액 + 정책 지원금 합계.
-- `policy_spend`: 그 중 정책 지원금에서 쓴 금액 분리. `{"P009": 5000}` 형태.
-  · 정책 지원금을 안 쓴 거래는 null 또는 `{}`.
-  · 한 거래에서 여러 정책 동시 사용 가능 (드물지만): `{"P009": 3000, "P008": 2000}`.
-  · sum(policy_spend.values()) ≤ actual_spent 이어야 함.
-  · sum(policy_spend.values()) ≤ 해당 정책의 잔여 가용액 이어야 함 (정책 예산 헤더 참조).
 
-소비 결정 방식 (거래 간 '상대적 크기'에 집중):
-- actual_spent는 그 거래의 **상대적 크기**를 반영합니다 (예: 마트 > 외식 > 카페 > 편의점,
-  가게 종류·상황에 따라). 하루 총 지출 규모는 에이전트의 그날 소비성향으로 **별도 결정**되니,
-  여기서는 거래들 사이의 비율과 단가 감각에만 집중하세요. (헤더의 '평소 1일 소비규모'는 스케일 참고용.)
-- 단가는 POI 카테고리 통념이 아니라 페르소나·상황·가게 종류로 자유 결정.
-- 정책 지원금(policy_spend)은 절약형이면 적게·남기고, 소비형이면 적극 사용하는 식으로 성향 반영.
+`actual_spent` = 이 거래의 총 소비액 (양수). 얼마나 소비할지는 페르소나 성향대로.
+`policy_spend` = 그 거래를 **어느 지갑으로 결제했는지** — 정부 지원금(grant)에서 낸 금액. `{"P009": 5000}` 형태.
+제약: sum(policy_spend) ≤ actual_spent, 그리고 ≤ 지원금 잔액.
+
+[지원금(grant)에 대한 올바른 인식 — 반드시 이렇게 이해하고 결정]
+- 이 지원금은 **나라가 대가 없이 준 돈**이다. 갚을 필요도, 조건도 없다. 안 쓴다고 이득도 없고(기간 끝나면 사라짐), 쓴다고 내가 손해 볼 것도 전혀 없다.
+- **핵심: 이 돈으로 결제하면 그만큼 내 통장(잔액)의 돈은 그대로 굳는다(=아껴진다).** 같은 소비를 하더라도 내 돈으로 내면 잔액이 줄지만, 지원금으로 내면 내 돈은 안 줄고 그대로 남는다.
+- 따라서 오늘 어차피 하는 소비가 정책 대상이면, 내 돈 대신 지원금으로 결제하는 게 나에게 무조건 이득이다. **절약형·알뜰형일수록 오히려 내 돈을 아끼려고 지원금부터 쓴다** (공짜 돈 놔두고 생돈 쓰는 사람은 없다).
+- 소비 규모는 성향대로. 다만 **그렇게 하는 소비의 결제 수단으로 지원금을 먼저 쓴다** (잔액 한도 내). 그 금액을 반드시 `policy_spend`에 기입한다.
+- 만약 그 거래가 "돈 때문에 미뤄왔던 것의 해소"(오랜만의 외식, 미룬 병원·안경, 낡은 것 교체 등)라면 actual_spent가 평소 단가보다 다소 큰 것이 자연스럽다 — 눌러온 만큼. 일상적 반복 거래면 평소 단가대로.
+- 정책 대상 아닌 거래(업종 제한 등)거나 소비 자체를 안 하면 policy_spend는 null/`{}`.
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
 
 **만족도 설정 (actual_satisfaction)**
@@ -381,12 +380,13 @@ def build_stage2_prompt(
         daily_we = persona.get("daily_we") or 0
         tendency = persona.get("tendency") or ""
         lifestyle = (persona.get("lifestyle") or "").strip()
-        budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
-        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency}")
-        # 정책 예산 (있으면)
+        income = persona.get("income") or ""
+        budget_info = f"일일 예산: 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}")
+        # 활성 정책 (grant 위주, LLM이 policy_spend 책정 시 참조)
         policy_budget = persona.get("policy_budget_summary") or ""
         if policy_budget:
-            header_parts.append(f"정책 쿠폰 잔액: {policy_budget}")
+            header_parts.append(f"## 활성 정책 (policy_spend 책정 시 참조)\n{policy_budget}")
 
     if recent_poi_ids:
         header_parts.append(

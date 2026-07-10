@@ -125,7 +125,11 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
             if today_amt > 0:
                 parts.append(f"오늘 +{today_amt:,}원")
             parts.append(f"누적 잔여 {rem:,}원")
-            lines.append(f"{pid}({name}) [grant]: {' / '.join(parts)} — 거래에서 policy_spend로 사용 가능")
+            lines.append(
+                f"{pid} {name} [정부 지원금] — {' / '.join(parts)}. 본인 부담 0. "
+                f"하는 소비는 지원금으로 결제(policy_spend 기입, 개인 자산 보존). "
+                f"또 돈 때문에 미뤄온 소비가 있었다면 부담 없어진 지금 해소 가능(지급액 클수록 여지 큼). 강요 아닌 기회."
+            )
             continue
         # subsidy/voucher — 잔여 cap
         cap = pol.get("cap") or 0

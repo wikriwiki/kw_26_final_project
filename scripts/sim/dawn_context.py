@@ -86,8 +86,8 @@ MATCH (a:Agent {id: $aid})-[:REMEMBERS]->(m:Memory)
 WHERE m.day >= $today - duration({days: 30})
 OPTIONAL MATCH (m)-[:ABOUT_POI]->(p:POI)-[:IN_CATEGORY]->(c:Category)
 WITH m, p, c,
-     duration.inDays($today, m.day).days AS days_ago,
-     m.importance * exp(-toFloat(duration.inDays($today, m.day).days) / 14.0) AS score
+     duration.inDays(m.day, $today).days AS days_ago,
+     m.importance * exp(-toFloat(duration.inDays(m.day, $today).days) / 14.0) AS score
 RETURN m.type AS type, m.day AS day, m.importance AS importance,
        coalesce(m.satisfaction, 0.0) AS satisfaction,
        coalesce(m.summary, '') AS summary,
@@ -173,7 +173,7 @@ MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p:POI)-[:IN_CATEGORY]->(c:Category)
 RETURN c.parent AS L1, c.name AS sub,
        count(p) AS n,
        sum(CASE WHEN kp.visit_count > 0 THEN 1 ELSE 0 END) AS n_visited
-ORDER BY n_visited DESC, n DESC LIMIT 15
+ORDER BY n_visited DESC, n DESC LIMIT 20
 """
 
 
@@ -478,7 +478,7 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
                 meta_parts.insert(0, f"💰 정부 무료 지원금 (추가 소비 자금) — 귀하 소득분위 '{agent_income}' 수령액 {my_amount:,}원, 별도 지갑(가계 부담 0)")
                 meta_parts.append(
                     f"💳 사용 {used_amt:,}원 / 잔액 {remaining:,}원"
-                    + (" (소진)" if remaining == 0 else " — 평소 평균 소비액과 무관하게 자유. 안 써도/조금/많이/큰 거 시도 모두 OK")
+                    + (" (소진)" if remaining == 0 else " — 본인 부담 0. 하는 소비는 지원금으로 결제(개인 자산 보존). 또 돈 때문에 미뤄온 소비가 있었다면 부담 없어진 지금 해소할 기회(지급액 클수록 여지 큼).")
                 )
             elif agent_income:
                 meta_parts.insert(0, f"❌ 귀하 소득분위 '{agent_income}' — 본 지원금 제외 대상 (수령 불가)")
@@ -572,7 +572,7 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         rng = random.Random(hash((persona.get("id"), today.isoformat())))
         for h in mobility.suggest_hubs(home_code, exclude, day_type,
-                                       persona.get("mobility"), k=6, rng=rng,
+                                       persona.get("mobility"), k=8, rng=rng,
                                        persona=persona):
             zones.append({"code": h["code"], "name": h.get("name", ""),
                           "gu": h.get("gu", ""), "type": "hub",
@@ -586,8 +586,8 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
 def build_dawn_context(
     aid: str,
     today: date,
-    memory_top_n: int = 5,
-    social_top_n: int = 5,
+    memory_top_n: int = 8,
+    social_top_n: int = 8,
 ) -> DawnContext:
     """한 agent의 Dawn 컨텍스트를 7종 Cypher로 수집."""
     yesterday = today - __import__("datetime").timedelta(days=1)

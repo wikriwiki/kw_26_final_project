@@ -283,6 +283,10 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 - 절대 금지: anchor='residence' + category='편의점/식사/카페/한식/...' 같은 조합. 외출 카테고리면 무조건 zone.
 
 [정책·약속 반영]
+- grant(정부 지원금): 정책 블록의 "수령액 N원 / 잔액 M원" 확인. 나라가 대가 없이 준 돈이라 본인 부담 없고 기간 끝나면 사라진다. 두 가지로 반영:
+  (1) [지불수단] 오늘 하는 소비가 정책 대상이면 자기 잔액보다 지원금으로 결제 — 개인 자산이 보존된다.
+  (2) [미뤄둔 소비 해소] 돈 때문에 미루거나 포기해온 것이 있었는지 스스로 돌아보라 — 미뤄둔 병원·치과·안경, 낡아서 못 바꾼 생활용품·옷·신발, 가보고 싶던 식당, 오랜만의 가족 외식, 배우고 싶던 것 등. 절약·검소가 형편 때문이었다면, 부담이 사라진 지금 그중 하나쯤 오늘 하루에 넣는 것이 자연스러울 수 있다. **지급액이 평소 생활비 대비 클수록(예: 소득 '하' 60만원은 여러 날치 생활비) 그동안 눌러온 소비를 풀 여지가 크고, 소액이면(중상 10만원) 일상에 거의 변화가 없는 게 자연스럽다.**
+  강요가 아니라 기회다 — 미뤄온 게 없거나 내키지 않으면 평소대로 지내면 된다. 지급액을 기간 내 여러 번 나눠 쓰는 게 자연스럽다.
 - subsidy(쿠폰·환급): "남은 잔액 N원" 확인 — 잔액 있으면 대상 카테고리 우선, 0원이면 일반으로(무한사용 금지).
   regulation: 해당 카테고리·시간 회피 / facility: 시설 방문 권장 / campaign: description 자율 해석.
 - 정책은 페르소나로 다르게 해석된다(경향, 공식 아님): 소비분위 낮을수록 작은 혜택도 크게 와닿고 높을수록 둔감.
@@ -335,6 +339,7 @@ trigger enum (reasoning을 먼저 쓰고 가장 가까운 하나 선택):
 최상위에 오늘의 **소비성향 `daily_propensity` (0~1)** 를 출력한다 = "오늘 가진 돈(잔액+지원금) 중
 얼마나 쓸지". 금액이 아니라 *비율*이다. 어제 컨디션·잔액·지원금·페르소나 소득/성향으로 판단:
 - 소득이 낮거나 지원금을 막 받았으면 → 높게(쓸 곳이 많고 여윳돈이 귀함).
+- 특히 지원금이 평소 생활비 대비 크고, 돈 때문에 미뤄온 소비가 떠올랐다면 → 평소보다 높게(눌러온 수요 해소). 떠오르는 게 없거나 소액이면 평소대로.
 - 여유롭거나 저축 성향이면 → 낮게(남겨둠). 단가는 Stage2가 정하므로 여기선 성향만.
 
 [출력 형식]
@@ -368,6 +373,9 @@ def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     return f"""## 페르소나
 {blocks['persona']}
 
+## 거주·직장 동에 적용 정책
+{blocks['policy']}
+
 ## 오늘 갈 수 있는 zone 후보 (외출 anchor=zone:<코드> 에는 아래 코드만 사용)
 {blocks['zones']}
 
@@ -383,9 +391,6 @@ def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
 
 ## 오늘 예정 약속
 {blocks['appointment']}
-
-## 거주·직장 동에 적용 정책
-{blocks['policy']}
 
 ## 지인 풀
 {blocks['social']}
@@ -484,7 +489,18 @@ def call_stage1(
                 print(f"--- attempt {attempt} (temp={temp}, finish={finish}) ---")
                 print(raw[:500])
             json_str = _extract_json(raw)
-            data = json.loads(json_str)
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Midm AWQ 특유 실수: `sub_category: "한식"` 처럼 key 앞 큰따옴표 누락 자동 보정
+                import re as _re
+                fixed = _re.sub(
+                    r'(?<=[,\{\s\n])([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)',
+                    r'"\1"\2', json_str
+                )
+                # 이미 큰따옴표로 감싸진 key는 이중 보정 방지
+                fixed = _re.sub(r'""([a-zA-Z_][a-zA-Z0-9_]*)""', r'"\1"', fixed)
+                data = json.loads(fixed)
             parsed = Stage1Output.model_validate(data)
 
             # category 정규화 — 세부업종('한식') → L1('식사')
