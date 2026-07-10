@@ -146,6 +146,7 @@ WITH pol, regions, region_codes, collect(DISTINCT cat.parent) AS target_l1s
 RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.description AS description,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
+       pol.poi_restricted AS poi_restricted,
        pol.effective_from AS from_, pol.effective_until AS until_,
        toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
        pol.income_grants AS income_grants,
@@ -196,6 +197,7 @@ RETURN p.id AS poi_id, p.name AS name,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
+       p.coupon_eligible AS coupon_eligible,
        km
 ORDER BY km ASC LIMIT $limit
 """
@@ -212,6 +214,7 @@ RETURN p.id AS poi_id, p.name AS name,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
+       p.coupon_eligible AS coupon_eligible,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
@@ -228,6 +231,7 @@ RETURN p.id AS poi_id, p.name AS name,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
+       p.coupon_eligible AS coupon_eligible,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """

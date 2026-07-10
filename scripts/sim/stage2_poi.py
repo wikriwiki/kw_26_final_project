@@ -35,6 +35,7 @@ from dawn_context import (  # noqa: E402
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 from poi_price import poi_price, price_icon, unit_price_anchor, band_factor  # noqa: E402
+from coupon_eligibility import is_coupon_eligible  # noqa: E402
 
 
 try:
@@ -127,11 +128,18 @@ def resolve_dong(event_anchor: str, persona: dict, stats: dict | None = None) ->
 INTERNAL_CATS = {"집", "직장"}  # residence/workplace anchor에서 사용. POI 미고정
 
 
-def _score_and_sort_by_desire(cands: list[dict], today: date) -> list[dict]:
-    """avg_satisfaction 내림차순 → km 오름차순 정렬."""
+# 쿠폰(사용처 제한 지원금) 활성 시 사용 가능 매장의 정렬 보너스 — "매력도 재산출".
+# 실제 소비쿠폰 기간에 사용가능 매장으로 수요가 이동하는 것을 후보 노출 순위로 반영.
+COUPON_SORT_BONUS = 0.05
+
+
+def _score_and_sort_by_desire(cands: list[dict], today: date, coupon_boost: bool = False) -> list[dict]:
+    """avg_satisfaction 내림차순 → km 오름차순 정렬. coupon_boost 시 쿠폰가능 매장 가점."""
     for c in cands:
         sat = c.get("avg_satisfaction")
         c["desire"] = float(sat) if sat is not None else 0.0
+        if coupon_boost and c.get("coupon_eligible"):
+            c["desire"] += COUPON_SORT_BONUS
     # 1순위: avg_satisfaction 내림차순, 2순위: km 오름차순 (None은 뒤)
     cands.sort(key=lambda c: (-c["desire"], c.get("km") or 9999))
     return cands
@@ -222,12 +230,21 @@ def fetch_candidates_for_events(
             # district fallback 후보는 자기 동 미상 → anchor 동 prior로 근사.
             # unit_anchor: 이 동네×업종 평균 결제단가(실측 기반) — 프롬프트 스케일 앵커.
             anchor_won = unit_price_anchor(dong_code, l1)
+            # 사용처 제한 지원금(쿠폰) 잔액 보유 여부 — run_simulation이 persona에 세팅
+            coupon_boost = bool(persona.get("coupon_poi_restricted"))
             for c in cands or []:
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
+                # 쿠폰 사용처 판정 — DB 백필값(p.coupon_eligible) 우선, 없으면 룰 fallback
+                el = c.get("coupon_eligible")
+                if el is None:
+                    el = is_coupon_eligible(c.get("name"), sub_cat, l1)[0]
+                c["coupon_eligible"] = bool(el)
+                # 프롬프트 마커: 쿠폰 활성 시에만 표기 (평시 토큰 0)
+                c["coupon_tag"] = "[쿠폰]" if (coupon_boost and c["coupon_eligible"]) else ""
 
-            # desire 점수 계산 + 정렬 (분할·할당 전에 1회)
-            cands = _score_and_sort_by_desire(cands or [], today)
+            # desire 점수 계산 + 정렬 (분할·할당 전에 1회) — 쿠폰가능 매장 가점(매력도 재산출)
+            cands = _score_and_sort_by_desire(cands or [], today, coupon_boost=coupon_boost)
 
             if n == 1:
                 out[event_idxs[0]] = cands[:k_per_event]
@@ -309,6 +326,9 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
   · 한 거래에서 여러 정책 동시 사용 가능 (드물지만): `{"P009": 3000, "P008": 2000}`.
   · sum(policy_spend.values()) ≤ actual_spent 이어야 함.
   · sum(policy_spend.values()) ≤ 해당 정책의 잔여 가용액 이어야 함 (정책 예산 헤더 참조).
+  · **사용처 제한 쿠폰**: 후보에 [쿠폰] 표시가 있는 매장에서만 policy_spend 사용 가능.
+    표시 없는 매장(대형마트·백화점 등)에서는 policy_spend를 넣지 마세요 (자기 잔액만 사용).
+    쿠폰 잔액이 남아 있으면 [쿠폰] 매장을 우선 고려하는 것이 자연스럽습니다 (기한 내 소진 유인).
 
 소비 결정 방식 (거래 간 '상대적 크기'에 집중):
 - actual_spent는 그 거래의 **상대적 크기**를 반영합니다 (예: 마트 > 외식 > 카페 > 편의점,
@@ -374,10 +394,11 @@ def _format_event_with_candidates(
         km_s = f"{km:.2f}km" if km is not None else ""
         visit_s = f"({visit_count}회)" if visit_count > 0 else ""
         price_s = price_icon(c.get("price_band"))
+        coupon_s = c.get("coupon_tag") or ""
 
         lines.append(
             f"  {known_mark}{recent_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | "
-            f"{km_s} | {price_s} | {sat_s} {visit_s}"
+            f"{km_s} | {price_s} | {sat_s} {visit_s}{coupon_s}"
         )
     return "\n".join(lines)
 
@@ -463,10 +484,15 @@ def call_stage2(
         c["poi_id"]: (c.get("price_band"), c.get("price_factor", 1.0))
         for cs in cands_by_order.values() for c in cs
     }
+    # POI → 쿠폰 사용처 여부 — merge/정책사용 하드검증용
+    coupon_by_poi: dict[str, bool] = {
+        c["poi_id"]: bool(c.get("coupon_eligible"))
+        for cs in cands_by_order.values() for c in cs
+    }
 
     if not need_llm:
         # 외부 POI 결정 필요 없음 (전부 residence/workplace/pinned)
-        return Stage2Output(picks=[]), cands_by_order, {"skipped": True, "price_by_poi": price_by_poi, **fb_stats}
+        return Stage2Output(picks=[]), cands_by_order, {"skipped": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, **fb_stats}
 
     # 최근 3일 방문 POI (억제용)
     recent_poi_ids: set[str] = set()
@@ -614,6 +640,7 @@ def call_stage2(
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
                 "price_by_poi": price_by_poi,
+                "coupon_by_poi": coupon_by_poi,
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
@@ -625,7 +652,7 @@ def call_stage2(
     # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
     fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
     if fallback.picks:
-        return fallback, cands_by_order, {"fallback_only": True, "price_by_poi": price_by_poi, "last_err": str(last_err)[:200]}
+        return fallback, cands_by_order, {"fallback_only": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, "last_err": str(last_err)[:200]}
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
 
 
@@ -658,11 +685,13 @@ def _fill_missing_picks(
 def merge_to_final_events(
     stage1: Stage1Output, stage2: Stage2Output, persona: dict,
     price_by_poi: dict[str, tuple] | None = None,
+    coupon_by_poi: dict[str, bool] | None = None,
 ) -> list[dict]:
     """Stage 1 + Stage 2 picks → 최종 events with poi_id.
 
     price_by_poi: call_stage2 meta의 {poi_id: (price_band, price_factor)} —
     이벤트에 가격대를 부착해 소비모델(apply_consumption_model)이 금액에 반영.
+    coupon_by_poi: {poi_id: 쿠폰 사용처 여부} — 정책사용 하드검증·INCLUDES 기록용.
 
     카테고리 기준 우선 (anchor는 출발지 표시일 뿐):
       - pinned_poi 있으면 그대로
@@ -715,6 +744,8 @@ def merge_to_final_events(
             "actual_spent": pick_obj.actual_spent if pick_obj else 0,
             "price_band": _pb[0] if _pb else None,
             "price_factor": float(_pb[1]) if _pb else 1.0,
+            # 쿠폰 사용처 여부 (후보풀 밖 POI(anchor 등)는 None = 판정 불가)
+            "coupon_eligible": (coupon_by_poi or {}).get(poi_id) if poi_id else None,
             # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
             "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
             # ───── 사고과정 흔적 (인터뷰용) ─────

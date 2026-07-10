@@ -229,10 +229,24 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             ctx.policy, prev_used_for_budget, grants_applied_today, grant_avail_today
         )
 
+        # 사용처 제한 정책(민생회복 소비쿠폰류, poi_restricted=true) 감지
+        # → 쿠폰 잔액이 있으면 Stage2에 [쿠폰] 마커·정렬 가점 활성 + 정책사용 하드검증
+        restricted_pids = {
+            p["id"] for p in (ctx.policy or [])
+            if p.get("poi_restricted") and grant_avail_today.get(p["id"], 0) > 0
+        }
+        ctx.persona["coupon_poi_restricted"] = bool(restricted_pids)
+        if restricted_pids and ctx.persona.get("policy_budget_summary"):
+            ctx.persona["policy_budget_summary"] += " (사용처 제한: [쿠폰] 표시 매장에서만 사용 가능)"
+
         s1, m1 = call_stage1(aid, today, ctx=ctx)
         # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today, state=ctx.state)
-        events = merge_to_final_events(s1, s2, ctx.persona, price_by_poi=m2.get("price_by_poi"))
+        events = merge_to_final_events(
+            s1, s2, ctx.persona,
+            price_by_poi=m2.get("price_by_poi"),
+            coupon_by_poi=m2.get("coupon_by_poi"),
+        )
 
         # ── 소비성향(propensity) 모델 — Problem B (EconAgent 방식) ──
         # Stage2 actual_spent를 상대 가중치로만 쓰고, 오늘 총지출을 p×가용자산(지원금 포함)으로
@@ -251,8 +265,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 llm_propensity=getattr(s1, "daily_propensity", None),
             )
 
-        # LLM policy_spend 환각 검증 — 거래 단위(sum>actual) + 정책 단위(잔여액 초과) 보정
-        policy_spend_corrected = validate_policy_spend(events, policy_remaining=grant_avail_today)
+        # LLM policy_spend 환각 검증 — 사용처 제한 + 거래 단위(sum>actual) + 정책 단위(잔여액 초과)
+        policy_spend_corrected = validate_policy_spend(
+            events, policy_remaining=grant_avail_today, restricted_pids=restricted_pids,
+        )
 
         # 오늘 거래별 policy_spend 집계 → 정책별 오늘 사용액
         today_policy_spend = aggregate_policy_spend(events)

@@ -64,7 +64,8 @@ CREATE (p)-[:INCLUDES {
   pick_reason: ev.pick_reason,       // Stage 2: 왜 후보풀 중 이 POI
   pick_factor: ev.pick_factor,       // Stage 2: known/distance/satisfaction/rumor/novelty/random
   price_band: ev.price_band,         // POI 가격대 1(₩)/2(₩₩)/3(₩₩₩) — poi_price.py
-  price_factor: ev.price_factor      // 적용 가격배율 (검증·판매자 가격 채널 분석용)
+  price_factor: ev.price_factor,     // 적용 가격배율 (검증·판매자 가격 채널 분석용)
+  coupon_eligible: ev.coupon_eligible // 쿠폰 사용처 여부 (백테스트 T2 업종/사용처 분석용)
 }]->(poi)
 """
 
@@ -209,8 +210,11 @@ def aggregate_policy_spend(events: list[dict]) -> dict[str, int]:
 def validate_policy_spend(
     events: list[dict],
     policy_remaining: dict[str, int] | None = None,
+    restricted_pids: set[str] | None = None,
 ) -> int:
-    """LLM 환각 보정 — 두 가지 제약 강제:
+    """LLM 환각 보정 — 세 가지 제약 강제:
+      (0) 사용처 제한: restricted_pids 정책은 coupon_eligible=True 매장에서만 사용 가능
+          (민생회복 소비쿠폰류 — LLM이 규칙을 어기면 해당 정책분 제거 = 자기부담 전환)
       (1) 거래 단위: sum(policy_spend.values()) ≤ actual_spent
       (2) 정책 단위: 누적 policy_spend[pid] ≤ policy_remaining[pid]
 
@@ -219,6 +223,7 @@ def validate_policy_spend(
     반환: 보정된 거래 수.
     """
     corrected = 0
+    restricted = restricted_pids or set()
     # 정책별 잔여 가용액 (시간순 차감)
     pol_rem = dict(policy_remaining or {})
     for e in events:
@@ -232,6 +237,13 @@ def validate_policy_spend(
             e["policy_spend"] = {}
             continue
         changed = False
+        # (0) 사용처 제한 정책 — 쿠폰 불가 매장(False)이거나 판정 불가(None) POI면 제거.
+        #     None(후보풀 밖 anchor 등)도 보수적으로 차단 — 쿠폰 사용은 검증된 매장에서만.
+        if restricted and e.get("coupon_eligible") is not True:
+            before = set(ps.keys())
+            ps = {k: v for k, v in ps.items() if k not in restricted}
+            if set(ps.keys()) != before:
+                changed = True
         # (2) 정책 단위 잔여액 cap
         if policy_remaining is not None:
             for pid in list(ps.keys()):
