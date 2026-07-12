@@ -268,7 +268,8 @@ class DawnContext:
             "state": _format_state(self.state),
             "memory": _format_memory(self.memory),
             "appointment": _format_appointment(self.appointment),
-            "policy": _format_policy(self.policy, policy_used=policy_used),
+            "policy": _format_policy(self.policy, policy_used=policy_used,
+                                     persona=self.persona, state=self.state),
             "social": _format_social(self.social),
             "knows_poi": _format_knows_poi(self.knows_poi_summary),
             "zones": _format_zones(self.zone_candidates),
@@ -333,8 +334,17 @@ def _format_state(s: dict | None) -> str:
     if not s:
         return "(어제 State 없음 — Day 0 시드 누락 가능)"
     lc = s.get("policy_lc") or "{}"
+    # 지원금 입금 전/후 비교 — 오늘 무엇이 달라졌는지 명시적으로 인지시킴
+    bal = s.get("balance", 0) or 0
+    gtoday = s.get("grants_today_total") or 0
+    if gtoday > 0:
+        before = s.get("balance_before_grant", bal - gtoday)
+        bal_line = (f"잔액: {bal:,}원 ⬆ 변화 있음 — 어제까지 {before:,}원이었는데 "
+                    f"오늘 새벽 정책 지원금 +{gtoday:,}원이 입금됨 (정책 블록 참조)")
+    else:
+        bal_line = f"잔액: {bal:,}원"
     return (
-        f"잔액: {s.get('balance',0):,}원 / 이번달 누적지출: {s.get('month_spent',0):,}원\n"
+        f"{bal_line} / 이번달 누적지출: {s.get('month_spent',0):,}원\n"
         f"에너지: {s.get('energy',0):.2f}, mood: {s.get('mood',0):.2f}, fatigue: {s.get('fatigue',0):.2f}\n"
         f"어제 평균 만족도: {s.get('yest_sat',0):.2f}\n"
         f"정책 라이프사이클: {lc}"
@@ -405,19 +415,45 @@ def _format_appointment(rows: list[dict]) -> str:
 
 
 _POLICY_TYPE_LABEL = {
-    "subsidy": "환급/쿠폰", "regulation": "규제", "facility": "시설",
+    "subsidy": "환급/쿠폰", "grant": "지원금", "regulation": "규제", "facility": "시설",
     "campaign": "홍보", "tax": "세제", "transit": "교통", "environment": "환경",
 }
 
 
-def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None) -> str:
-    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액 노출.
+def _grant_amount_for(income: str, pol: dict) -> int:
+    """grant 정책에서 이 소득이 받을 금액 (plan_writer 로직 재사용, lazy import)."""
+    try:
+        from plan_writer import _grant_for_single_policy
+        return _grant_for_single_policy(income, pol)
+    except Exception:
+        return 0
+
+
+def _json_dict(raw) -> dict:
+    import json as _json
+    if isinstance(raw, dict):
+        return raw
+    try:
+        return _json.loads(raw or "{}")
+    except Exception:
+        return {}
+
+
+def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
+                   persona: dict | None = None, state: dict | None = None) -> str:
+    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액, grant는
+    '나의 해당 여부·수령/잔여·사용조건·나에게 의미'까지 상세 카드로 노출.
 
     policy_used: {"P007": 87000, ...} 정책별 누적 사용액. State에서 가져옴.
+    persona/state: grant 카드의 개인화(소득 기준 지급액, 수령·잔여, 평소 소비 대비 의미).
     """
     if not rows:
         return "(거주·직장 동에 적용 정책 없음)"
     used = policy_used or {}
+    p = persona or {}
+    st = state or {}
+    grant_received = _json_dict(st.get("grant_received"))
+    grant_remaining = _json_dict(st.get("grant_remaining"))
     lines = []
     for r in rows:
         type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
@@ -433,7 +469,28 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None) 
         rate = r.get("rate")
         cap = r.get("cap")
         ptype = r.get("type")
-        if ptype == "subsidy" and cap:
+        # grant(지원금) 정책: 나의 해당 여부 → 수령/잔여 → 사용조건 → 의미
+        if ptype == "grant":
+            pid = r["id"]
+            income = (p.get("income") or "").strip()
+            my_amt = _grant_amount_for(income, r)
+            if my_amt > 0:
+                meta_parts.append(f"👤 나의 해당: **지급 대상** — 소득 '{income}' 기준 {my_amt:,}원")
+            else:
+                meta_parts.append(f"👤 나의 해당: 지급 대상 아님 (소득 '{income}')")
+            rec = int(grant_received.get(pid, 0) or 0)
+            rem = int(grant_remaining.get(pid, 0) or 0)
+            if rec > 0 or rem > 0:
+                meta_parts.append(f"💰 누적 수령 {rec:,}원 / **남은 지원금 {rem:,}원**"
+                                  + (" ⚠️ 소진" if rec > 0 and rem == 0 else ""))
+            if r.get("poi_restricted"):
+                meta_parts.append("🏪 사용 조건: [쿠폰] 표시 매장 전용 (대형마트·백화점·온라인 등 불가), "
+                                  "기한 내 미사용분 환수 — 남기면 손해")
+            daily = p.get("daily_wd") or 0
+            if rem > 0 and daily > 0:
+                meta_parts.append(f"➡ 나에게 의미: 남은 지원금은 평소 하루 소비({daily:,}원)의 "
+                                  f"약 {rem / daily:.1f}일치 여윳돈 — 평소보다 소비 여력이 늘어난 상태")
+        elif ptype == "subsidy" and cap:
             cap_used = int(used.get(r["id"], 0))
             remaining = max(0, cap - cap_used)
             rate_s = f"{int(rate*100)}% 환급" if rate else "100% 차감"
