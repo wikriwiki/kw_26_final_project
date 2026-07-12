@@ -343,6 +343,15 @@ def _format_state(s: dict | None) -> str:
                     f"오늘 새벽 정책 지원금 +{gtoday:,}원이 입금됨 (정책 블록 참조)")
     else:
         bal_line = f"잔액: {bal:,}원"
+        # 지급 당일이 아니어도, 지원금 잔여가 있으면 '며칠 전 받은 여윳돈'으로
+        # 계속 인지시키되 경과일과 함께 (감쇠는 정책 블록의 의미 문구가 담당)
+        rem_all = sum(int(v or 0) for v in _json_dict(s.get("grant_remaining")).values())
+        days_map = s.get("grant_days_since") or {}
+        if rem_all > 0 and days_map:
+            d_min = min(days_map.values())
+            if d_min > 0:
+                bal_line += (f" — 이 중 {rem_all:,}원은 {d_min}일 전 받은 "
+                             f"정책 지원금의 잔여분 (정책 블록 참조)")
     return (
         f"{bal_line} / 이번달 누적지출: {s.get('month_spent',0):,}원\n"
         f"에너지: {s.get('energy',0):.2f}, mood: {s.get('mood',0):.2f}, fatigue: {s.get('fatigue',0):.2f}\n"
@@ -488,8 +497,20 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
                                   "기한 내 미사용분 환수 — 남기면 손해")
             daily = p.get("daily_wd") or 0
             if rem > 0 and daily > 0:
-                meta_parts.append(f"➡ 나에게 의미: 남은 지원금은 평소 하루 소비({daily:,}원)의 "
-                                  f"약 {rem / daily:.1f}일치 여윳돈 — 평소보다 소비 여력이 늘어난 상태")
+                # windfall 감쇠 — 받은 직후엔 '공돈' 감각이 생생, 시간이 갈수록 일상 잔액처럼.
+                # (mental accounting: 횡재소득의 지출 성향은 수령 직후에 가장 높고 점차 감쇠)
+                d_since = (st.get("grant_days_since") or {}).get(pid)
+                base_txt = (f"남은 지원금은 평소 하루 소비({daily:,}원)의 "
+                            f"약 {rem / daily:.1f}일치 여윳돈")
+                if d_since is None or d_since <= 0:
+                    sal = "오늘 새로 생긴 공돈 — 평소보다 씀씀이가 커질 만한 날"
+                elif d_since <= 2:
+                    sal = f"받은 지 {d_since}일째 — 아직 여윳돈이라는 감각이 생생함"
+                elif d_since <= 6:
+                    sal = f"받은 지 {d_since}일째 — 여윳돈 감각이 조금씩 옅어지는 중"
+                else:
+                    sal = f"받은 지 {d_since}일째 — 이제 특별한 돈이라기보다 잔액의 일부처럼 익숙함"
+                meta_parts.append(f"➡ 나에게 의미: {base_txt} ({sal})")
         elif ptype == "subsidy" and cap:
             cap_used = int(used.get(r["id"], 0))
             remaining = max(0, cap - cap_used)

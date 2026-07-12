@@ -244,6 +244,21 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         if restricted_pids and ctx.persona.get("policy_budget_summary"):
             ctx.persona["policy_budget_summary"] += " (사용처 제한: [쿠폰] 표시 매장에서만 사용 가능)"
 
+        # 지원금 수령 경과일 — windfall 감쇠 렌더용 (지급 당일만이 아니라
+        # 이후에도 '며칠 전 받은 여윳돈'으로 계속, 그러나 점점 희미하게 인지)
+        if ctx.state is not None:
+            _gdays: dict[str, int] = {}
+            for _p in (ctx.policy or []):
+                if _p.get("type") == "grant" and _p.get("from_"):
+                    try:
+                        _d = (today - date.fromisoformat(str(_p["from_"])[:10])).days
+                        if _d >= 0:
+                            _gdays[_p["id"]] = _d
+                    except (ValueError, TypeError):
+                        pass
+            if _gdays:
+                ctx.state["grant_days_since"] = _gdays
+
         s1, m1 = call_stage1(aid, today, ctx=ctx)
         # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출
         s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today, state=ctx.state)
@@ -260,14 +275,34 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         if os.environ.get("CONSUMPTION_MODEL", "propensity") != "legacy":
             from consumption import apply_consumption_model
             _is_weekend = today.weekday() >= 5
+            # 제한 grant(사용처 제한 poi_restricted / 업종 스코프 target_l1s)는
+            # '제한 예산 봉투'로 분리 — 필터 통과 거래에만 흐름 (업종 DiD 전제).
+            # 무제한 grant만 가용자산에 합산 (기존 P009 동작 그대로).
+            # 정책 유형 일반화: 어떤 grant든 속성(poi_restricted·target_l1s)이
+            # 곧 봉투 필터가 된다 — 쿠폰 특화 하드코딩 없음.
+            _pol_by_id = {p["id"]: p for p in (ctx.policy or [])}
+            _envelopes = []
+            _grant_unrestricted: dict[str, int] = {}
+            for pid, amt in grant_avail_today.items():
+                pol = _pol_by_id.get(pid) or {}
+                scoped = bool(pol.get("poi_restricted")) or bool(pol.get("target_l1s"))
+                if scoped and int(amt) > 0:
+                    _envelopes.append({
+                        "pid": pid, "amount": int(amt),
+                        "require_poi_eligible": bool(pol.get("poi_restricted")),
+                        "categories": (pol.get("target_l1s") or None),
+                    })
+                else:
+                    _grant_unrestricted[pid] = int(amt)
             cm_meta = apply_consumption_model(
                 events,
                 daily=ctx.persona.get("daily_we") if _is_weekend else ctx.persona.get("daily_wd"),
                 income_tier=income,
                 tendency=ctx.persona.get("tendency"),
                 balance=(ctx.state or {}).get("balance"),
-                grant_avail=grant_avail_today,
+                grant_avail=_grant_unrestricted,
                 llm_propensity=getattr(s1, "daily_propensity", None),
+                restricted_envelopes=_envelopes,
             )
 
         # LLM policy_spend 환각 검증 — 사용처 제한 + 거래 단위(sum>actual) + 정책 단위(잔여액 초과)

@@ -154,6 +154,28 @@ def basket_price_index(weights: list[float], factors: list[float]) -> float:
     return max(lo, min(hi, idx))
 
 
+def _envelope_match(env: dict, e: dict) -> bool:
+    """제한 예산 봉투가 이 거래에 사용 가능한가 — 정책 속성 기반 필터 합성.
+
+    지원 필터 (전부 선택적, AND 결합 — 새 정책 유형은 필터 조합으로 표현):
+      require_poi_eligible: True → 이벤트 POI가 쿠폰 사용처(coupon_eligible=True)여야 함
+      categories: [L1...]   → 이벤트 카테고리가 목록에 포함
+      dong_codes: {8자리..} → 이벤트 anchor 동이 집합에 포함 (지역화폐형)
+    """
+    if env.get("require_poi_eligible") and e.get("coupon_eligible") is not True:
+        return False
+    cats = env.get("categories")
+    if cats and (e.get("category") not in cats):
+        return False
+    dongs = env.get("dong_codes")
+    if dongs:
+        anchor = e.get("anchor") or ""
+        code = anchor.split(":", 1)[1].strip() if anchor.startswith("zone:") else ""
+        if code not in dongs:
+            return False
+    return True
+
+
 def apply_consumption_model(
     events: list[dict],
     *,
@@ -163,6 +185,7 @@ def apply_consumption_model(
     balance: float | int | None,
     grant_avail: dict[str, int] | None = None,
     llm_propensity: float | None = None,
+    restricted_envelopes: list[dict] | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 사후 재정규화.
 
@@ -176,10 +199,23 @@ def apply_consumption_model(
       ② 거래 배분 가중치 = Stage2 상대액 × price_factor
       → 비싼 곳을 고르면 그날 지출↑(잔액↓), 전부 기본가면 기존과 동일.
 
+    제한 예산 봉투 (restricted_envelopes) — 사용처 제한 지원금의 차등 반응:
+      Thaler 심적회계(mental accounting): 용도가 표시된 돈은 그 용도로만 흐른다.
+      grant_avail(무제한 지원금)은 기존처럼 가용자산에 합산되어 전 거래에 스미지만,
+      봉투 지원금은 **필터를 통과한 거래에만** 얹힌다:
+        env = {"pid": "P010", "amount": 120000,
+               "require_poi_eligible": True, "categories": None, "dong_codes": None}
+        · 봉투 사용액 = propensity × amount (성향 준용, 잔여 한도 내)
+        · 필터 통과 거래가 없는 날은 0 (자동 이월 — 다음날 잔여로 재시도)
+        · 해당 거래 actual_spent += 배분액, policy_spend[pid] = 배분액 (회계=흐름, 정확)
+      ⇒ 사용가능 POI만 매출 상승, 불가 POI는 자기부담 소비만 — 업종 DiD의 전제.
+      일반화: 어떤 정책이든 (사용처/업종/지역) 필터 조합의 봉투로 표현 — 쿠폰 특화 아님.
+
     events 를 in-place 수정(actual_spent, policy_spend). 반환: 메타 dict.
     """
     grant_avail = {k: int(v) for k, v in (grant_avail or {}).items() if int(v) > 0}
     grant_total = sum(grant_avail.values())
+    envelopes = [e for e in (restricted_envelopes or []) if int(e.get("amount") or 0) > 0]
 
     commerce = [e for e in events if (e.get("category") not in INTERNAL_CATS) and e.get("poi_id")]
     if not commerce:
@@ -217,13 +253,43 @@ def apply_consumption_model(
         else:
             e["policy_spend"] = {}
 
+    # ── 제한 예산 봉투: 필터 통과 거래에만 배분 (actual_spent 가산 + 정확 회계) ──
+    env_spent: dict[str, int] = {}
+    for env in envelopes:
+        pid = str(env.get("pid") or "")
+        # LLM이 이 정책으로 적어둔 policy_spend는 폐기 — 결정론 배분이 회계를 대체
+        for e in commerce:
+            ps = e.get("policy_spend") or {}
+            if pid in ps:
+                ps.pop(pid)
+                e["policy_spend"] = ps
+        idxs = [i for i, e in enumerate(commerce) if _envelope_match(env, e)]
+        if not idxs:
+            env_spent[pid] = 0          # 오늘 사용처 없음 — 자동 이월
+            continue
+        amount = int(env["amount"])
+        use = min(int(round(p * amount)), amount)   # 소비성향 준용
+        if use <= 0:
+            env_spent[pid] = 0
+            continue
+        shares = distribute_budget(use, [weights_priced[i] for i in idxs])
+        for i, sh in zip(idxs, shares):
+            if sh <= 0:
+                continue
+            commerce[i]["actual_spent"] = int(commerce[i].get("actual_spent") or 0) + int(sh)
+            ps = commerce[i].get("policy_spend") or {}
+            ps[pid] = int(ps.get(pid, 0)) + int(sh)
+            commerce[i]["policy_spend"] = ps
+        env_spent[pid] = use
+
     return {
         "applied": True,
         "propensity": budget["propensity"],
-        "today_total": total_adj,
-        "grant_part": grant_part_adj,
-        "available": budget["available"],
+        "today_total": total_adj + sum(env_spent.values()),
+        "grant_part": grant_part_adj + sum(env_spent.values()),
+        "available": budget["available"] + sum(int(e.get("amount") or 0) for e in envelopes),
         "price_basket_idx": round(basket_idx, 4),
+        "envelope_spent": env_spent,
         "n_commerce": len(commerce),
     }
 
@@ -295,3 +361,38 @@ if __name__ == "__main__":
     # 클램프 확인: basket ≤ 1.25
     assert results[1.35] <= int(round(results[1.0] * 1.25)) + 2
     print("  ✔ 가격 반응·클램프 검증 통과")
+
+    print("\n=== ⑥ 제한 예산 봉투: 쿠폰 자금이 사용가능 POI에만 흐름 (업종 DiD 전제) ===")
+    import copy
+    def _mk6():
+        return [
+            {"category": "식사", "poi_id": "C_E", "actual_spent": 10000, "price_factor": 1.0,
+             "coupon_eligible": True, "policy_spend": {"P010": 99999}},   # LLM 환각 → 폐기·재배분
+            {"category": "쇼핑", "poi_id": "C_D", "actual_spent": 30000, "price_factor": 1.0,
+             "coupon_eligible": False, "policy_spend": {}},               # 백화점류 (불가)
+        ]
+    kw6 = dict(daily=30000, income_tier="중", tendency="", balance=500000,
+               grant_avail=None, llm_propensity=None)
+    base6 = _mk6(); apply_consumption_model(base6, **kw6)                       # 봉투 없는 기준런
+    env6 = _mk6()
+    m6 = apply_consumption_model(env6, **kw6, restricted_envelopes=[
+        {"pid": "P010", "amount": 100000, "require_poi_eligible": True}])
+    used = m6["envelope_spent"]["P010"]
+    print(f"  봉투 사용액={used:,} (p={m6['propensity']}×100,000)")
+    print(f"  사용가능(식사): {base6[0]['actual_spent']:,} → {env6[0]['actual_spent']:,} (+{env6[0]['actual_spent']-base6[0]['actual_spent']:,})")
+    print(f"  사용불가(쇼핑): {base6[1]['actual_spent']:,} → {env6[1]['actual_spent']:,} (변화 0이어야)")
+    assert used > 0 and env6[0]["policy_spend"] == {"P010": used}, "봉투 회계 = 흐름"
+    assert env6[1]["actual_spent"] == base6[1]["actual_spent"], "불가 POI는 지원금 uplift 없음 — DiD 대비"
+    assert env6[1]["policy_spend"] == {}, "LLM 환각 폐기 + 불가 매장 배분 0"
+    assert env6[0]["actual_spent"] == base6[0]["actual_spent"] + used, "가능 POI에 전액 가산"
+    # 사용처 없는 날 → 0 사용 (이월)
+    only_inel = [_mk6()[1]]
+    m7 = apply_consumption_model(only_inel, **kw6, restricted_envelopes=[
+        {"pid": "P010", "amount": 100000, "require_poi_eligible": True}])
+    assert m7["envelope_spent"]["P010"] == 0, "사용처 없는 날 자동 이월"
+    # 카테고리 스코프 봉투 (온누리형 일반화)
+    env8 = _mk6()
+    m8 = apply_consumption_model(env8, **kw6, restricted_envelopes=[
+        {"pid": "P0XX", "amount": 50000, "categories": ["쇼핑"]}])
+    assert env8[1]["policy_spend"].get("P0XX", 0) > 0 and "P0XX" not in env8[0].get("policy_spend", {})
+    print("  ✔ 봉투 검증 통과 (차등 반응·회계 정확·이월·카테고리 스코프 일반화)")
