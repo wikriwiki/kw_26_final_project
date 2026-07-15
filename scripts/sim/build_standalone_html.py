@@ -1,164 +1,238 @@
-"""인터랙티브 시각화를 단일 HTML 파일로 빌드 — 팀원 공유용 (offline-friendly).
-
-- JSON 4개 임베디드
-- Leaflet.css + Leaflet.js 임베디드 (CDN 차단 환경 대비)
-- 타일 서버: OSM 기본 + CARTO dark 폴백
-"""
+"""Build the 3D simulation visualization as a single offline-friendly HTML file."""
 from __future__ import annotations
 
 import json
+import os
+import re
 import sys
 import urllib.request
 from pathlib import Path
+
+try:
+    from scripts.sim.visualization_3d.assets import (
+        CHART_JS_URL,
+        DECK_JS_URL,
+        GOOGLE_FONTS_URL,
+        MAPLIBRE_CSS_URL,
+        MAPLIBRE_JS_URL,
+        script_tag,
+        style_tag,
+    )
+    from scripts.sim.visualization_3d.derive import build_viz_meta
+except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
+    from visualization_3d.assets import (  # type: ignore[no-redef]
+        CHART_JS_URL,
+        DECK_JS_URL,
+        GOOGLE_FONTS_URL,
+        MAPLIBRE_CSS_URL,
+        MAPLIBRE_JS_URL,
+        script_tag,
+        style_tag,
+    )
+    from visualization_3d.derive import build_viz_meta  # type: ignore[no-redef]
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
 except Exception:
     pass
 
-import os
-VIZ_DIR = Path(os.environ.get(
-    "VIZ_OUT_DIR",
-    str(Path(__file__).resolve().parents[2] / "output" / "sim" / "visualization")
-))
-LEAFLET_CSS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-LEAFLET_JS_URL = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-LEAFLET_HEAT_JS_URL = "https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"
+VIZ_DIR = Path(
+    os.environ.get(
+        "VIZ_OUT_DIR",
+        str(Path(__file__).resolve().parents[2] / "output" / "sim" / "visualization"),
+    )
+)
+
+VIZ3D_DIR = Path(__file__).resolve().parent / "visualization_3d"
+TEMPLATE_PATH = VIZ3D_DIR / "template.html"
+STATIC_DIR = VIZ3D_DIR / "static"
+TEMPLATE_MARKERS = (
+    "<!-- __SIM_STYLES__ -->",
+    "<!-- __SIM_DATA__ -->",
+    "<!-- __SIM_SCRIPTS__ -->",
+)
+TEMPLATE_KEYS = {
+    "<!-- __SIM_STYLES__ -->": "styles",
+    "<!-- __SIM_DATA__ -->": "data",
+    "<!-- __SIM_SCRIPTS__ -->": "scripts",
+}
+JSON_INPUTS = {
+    "__AGENTS__": "agents.json",
+    "__TIMELINE__": "timeline.json",
+    "__MEMORIES__": "memories.json",
+    "__EVENTS__": "events.json",
+}
+STATIC_JS_FILES = (
+    "data_model.js",
+    "map_scene.js",
+    "layers.js",
+    "detail.js",
+    "hud.js",
+    "app.js",
+)
+
+
+def fetch_policy_dongs_safe() -> list[dict]:
+    """정책-동 적용 범위 조회. Neo4j 접속이 안 되면(오프라인 재빌드 등) 빈 리스트로
+    폴백 — 정책 마커는 빠지지만 나머지 시각화 빌드는 계속 진행된다."""
+    try:
+        return fetch_policy_dongs()
+    except Exception as exc:  # pragma: no cover - best-effort network/db call
+        print(f"  WARNING: policy dong fetch failed ({exc}), skipping policy zones")
+        return []
+
+
+def fetch_policy_dongs() -> list[dict]:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "neo4j_load"))
+    from _common import driver_session  # noqa: PLC0415
+
+    with driver_session() as s:
+        rows = s.run(
+            """
+            MATCH (p:Policy)-[:applied_to]->(d:Dong)
+            WHERE d.lon IS NOT NULL AND d.lat IS NOT NULL
+            RETURN p.id AS policy_id, p.name AS policy_name,
+                   p.effective_from AS effective_from, p.effective_until AS effective_until,
+                   d.code AS dong_code, d.name AS dong_name, d.lon AS lon, d.lat AS lat
+            """
+        )
+        return [dict(r) for r in rows]
 
 
 def fetch_url(url: str) -> str:
     print(f"  downloading {url} ...")
-    with urllib.request.urlopen(url) as r:
-        return r.read().decode("utf-8")
+    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read().decode("utf-8")
 
 
-def main():
-    index_html = (VIZ_DIR / "index.html").read_text(encoding="utf-8")
+def render_template(template: str, replacements: dict[str, str]) -> str:
+    for marker in TEMPLATE_MARKERS:
+        if marker not in template:
+            raise RuntimeError(f"missing template marker: {marker}")
 
-    leaflet_css = fetch_url(LEAFLET_CSS_URL)
-    leaflet_js = fetch_url(LEAFLET_JS_URL)
-    leaflet_heat_js = fetch_url(LEAFLET_HEAT_JS_URL)
+    rendered = template
+    for marker in TEMPLATE_MARKERS:
+        rendered = rendered.replace(marker, _template_replacement(marker, replacements))
+    return rendered
 
-    payload = {}
-    for key, fname in [("agents", "agents.json"),
-                       ("timeline", "timeline.json"),
-                       ("memories", "memories.json"),
-                       ("events", "events.json")]:
-        p = VIZ_DIR / fname
-        size_kb = p.stat().st_size / 1024
-        print(f"  loading {fname} ({size_kb:.0f} KB)")
-        payload[key] = json.loads(p.read_text(encoding="utf-8"))
 
-    embedded_script = (
-        '<script id="__SIM_DATA__">\n'
-        f'window.__AGENTS__ = {json.dumps(payload["agents"], ensure_ascii=False)};\n'
-        f'window.__TIMELINE__ = {json.dumps(payload["timeline"], ensure_ascii=False)};\n'
-        f'window.__MEMORIES__ = {json.dumps(payload["memories"], ensure_ascii=False)};\n'
-        f'window.__EVENTS__ = {json.dumps(payload["events"], ensure_ascii=False)};\n'
-        '</script>\n'
+def build_3d_standalone(viz_dir: Path | None = None) -> Path:
+    viz_dir = Path(viz_dir) if viz_dir is not None else _resolve_viz_dir()
+    payload = _load_json_payload(viz_dir)
+    viz_meta = build_viz_meta(
+        payload["__AGENTS__"],
+        payload["__TIMELINE__"],
+        payload["__MEMORIES__"],
+        payload["__EVENTS__"],
+        fetch_policy_dongs_safe(),
     )
 
-    # loadData를 임베디드 데이터로 교체
-    new_load = """function computeAppointmentStats(memories) {
-  let visitedCount = 0, rumorCount = 0;
-  const allConvIds = new Set();
-  const realizedConvIds = new Set();
-  for (const aid in memories) {
-    const mem = memories[aid] || {};
-    visitedCount += (mem.visited || []).length;
-    rumorCount += (mem.memories || []).filter(m => m.type === 'rumor').length;
-    for (const appt of (mem.appointments || [])) {
-      const convId = appt.conv_id || [appt.day, appt.with_agent, appt.target_time, appt.hint].join('|');
-      allConvIds.add(convId);
-      if (appt.within_window) realizedConvIds.add(convId);
-    }
-  }
-  return {
-    visitedCount,
-    rumorCount,
-    appointmentCount: allConvIds.size,
-    realizedAppointmentCount: realizedConvIds.size,
-  };
-}
-
-async function loadData() {
-  try {
-    AGENTS = window.__AGENTS__; TIMELINE = window.__TIMELINE__;
-    MEMORIES = window.__MEMORIES__; EVENTS = window.__EVENTS__;
-    if (!AGENTS || !TIMELINE) throw new Error('embedded data missing');
-    AGENTS.forEach(ag => agentById[ag.id] = ag);
-    document.getElementById('total-agents').textContent = AGENTS.length.toLocaleString();
-    const stats = computeAppointmentStats(MEMORIES);
-    document.getElementById('total-mem').textContent = stats.visitedCount.toLocaleString();
-    const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = stats.appointmentCount.toLocaleString();
-    const el1b = document.getElementById('total-appt-realized'); if (el1b) el1b.textContent = stats.realizedAppointmentCount.toLocaleString();
-    const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = stats.rumorCount.toLocaleString();
-    initMap();
-    buildMarkers();
-    document.getElementById('frame-slider').max = Math.max(0, TIMELINE.length - 1);
-    setFrame(0);
-    initEvents();
-  } catch (e) {
-    document.body.innerHTML = '<div style="color:#fff;background:#0a0a14;padding:40px;font-family:monospace;">' +
-      '<h2 style="color:#e76f51">ERROR</h2><pre>' + e.message + '\\n\\n' + e.stack + '</pre></div>';
-  }
-}"""
-
-    # loadData() 본체만 교체 — 다음 함수(function initMap()) 시작 직전까지만 잘라낸다.
-    # 그래야 initMap·buildMarkers·setFrame·showDetail·play·initEvents 모두 보존됨.
-    start = index_html.find("async function loadData()")
-    end = index_html.find("function initMap()", start)
-    if start < 0 or end < 0:
-        raise RuntimeError("Cannot locate loadData/initMap boundary")
-    standalone = (
-        index_html[:start] + new_load + "\n\n" + index_html[end:]
-    )
-    # loadData().catch(...) 호출은 단순 호출로 교체 (마지막 줄)
-    catch_start = standalone.find("loadData().catch")
-    if catch_start >= 0:
-        catch_end = standalone.find("});", catch_start) + 3
-        standalone = standalone[:catch_start] + "loadData();" + standalone[catch_end:]
-
-    # CDN <link>/<script> → 임베디드 + OSM 폴백 타일
-    head_close = standalone.find("</head>")
-    embed_block = (
-        f"<style>\n{leaflet_css}\n</style>\n"
-        f"<script>\n{leaflet_js}\n</script>\n"
-        f"<script>\n{leaflet_heat_js}\n</script>\n"
-        f"{embedded_script}"
-    )
-    standalone = (
-        standalone.replace(
-            '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>', "")
-        .replace('<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>', "")
-        .replace('<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>', "")
-    )
-    head_close = standalone.find("</head>")
-    standalone = standalone[:head_close] + embed_block + standalone[head_close:]
-
-    # 타일 서버를 OSM으로 변경 + 폴백 fallback (CARTO 차단 시 OSM 표준)
-    standalone = standalone.replace(
-        "L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {\n    attribution: '© OSM · CARTO', maxZoom: 19,\n  }).addTo(map);",
-        """// 1차 시도: CARTO dark / 2차 폴백: OSM 표준
-  const tileCarto = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    { attribution: '© OSM · CARTO', maxZoom: 19, subdomains: 'abcd' });
-  const tileOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    { attribution: '© OpenStreetMap', maxZoom: 19 });
-  let cartoLoadFail = 0;
-  tileCarto.on('tileerror', () => {
-    cartoLoadFail++;
-    if (cartoLoadFail >= 3) {
-      console.warn('CARTO 차단 추정 → OSM 폴백');
-      map.removeLayer(tileCarto); tileOSM.addTo(map);
-    }
-  });
-  tileCarto.addTo(map);"""
+    template = TEMPLATE_PATH.read_text(encoding="utf-8")
+    html = render_template(
+        template,
+        {
+            "styles": _load_styles(),
+            "data": _build_data_script(payload, viz_meta),
+            "scripts": _load_runtime_assets(),
+        },
     )
 
-    out_path = VIZ_DIR / "sim_standalone.html"
-    out_path.write_text(standalone, encoding="utf-8")
-    print(f"\n  → {out_path}: {out_path.stat().st_size / 1024 / 1024:.1f} MB")
-    print(f"  Leaflet 임베디드 ✓ · OSM 폴백 타일 ✓ · 에러 표시 ✓")
+    out_path = viz_dir / "sim_standalone.html"
+    out_path.write_text(html, encoding="utf-8")
+    print(f"\n  -> {out_path}: {out_path.stat().st_size / 1024 / 1024:.1f} MB")
+    return out_path
+
+
+def main() -> None:
+    build_3d_standalone()
+
+
+def _resolve_viz_dir() -> Path:
+    return Path(
+        os.environ.get(
+            "VIZ_OUT_DIR",
+            str(Path(__file__).resolve().parents[2] / "output" / "sim" / "visualization"),
+        )
+    )
+
+
+def _template_replacement(marker: str, replacements: dict[str, str]) -> str:
+    logical_key = TEMPLATE_KEYS[marker]
+    if logical_key in replacements:
+        return replacements[logical_key]
+    if marker in replacements:
+        return replacements[marker]
+    raise RuntimeError(f"missing template replacement: {marker}")
+
+
+def _load_json_payload(viz_dir: Path) -> dict[str, object]:
+    payload: dict[str, object] = {}
+    for key, filename in JSON_INPUTS.items():
+        path = viz_dir / filename
+        size_kb = path.stat().st_size / 1024
+        print(f"  loading {filename} ({size_kb:.0f} KB)")
+        payload[key] = json.loads(path.read_text(encoding="utf-8"))
+    return payload
+
+
+def _load_styles() -> str:
+    styles = [
+        style_tag(fetch_url(MAPLIBRE_CSS_URL)),
+        style_tag(_fetch_optional_google_fonts()),
+        style_tag(_read_static("styles.css")),
+    ]
+    return "\n".join(styles)
+
+
+def _fetch_optional_google_fonts() -> str:
+    try:
+        return _neutralize_google_font_urls(fetch_url(GOOGLE_FONTS_URL))
+    except Exception as exc:
+        print(f"  WARNING: Google Fonts download failed ({exc}), falling back to system fonts")
+        return ""
+
+
+def _neutralize_google_font_urls(css: str) -> str:
+    return re.sub(
+        r"url\((['\"]?)https://fonts\.gstatic\.com/[^)'\"\s]+(['\"]?)\)",
+        "url(about:blank)",
+        css,
+    )
+
+
+def _load_runtime_assets() -> str:
+    scripts = [
+        script_tag(fetch_url(MAPLIBRE_JS_URL)),
+        script_tag(fetch_url(DECK_JS_URL)),
+        script_tag(fetch_url(CHART_JS_URL)),
+    ]
+    scripts.extend(script_tag(_read_static(filename)) for filename in STATIC_JS_FILES)
+    return "\n".join(scripts)
+
+
+def _build_data_script(payload: dict[str, object], viz_meta: dict[str, object]) -> str:
+    lines = ['<script id="__SIM_DATA__">']
+    for key in JSON_INPUTS:
+        lines.append(f"window.{key} = {_safe_json(payload[key])};")
+    lines.append(f"window.__VIZ_META__ = {_safe_json(viz_meta)};")
+    lines.append("</script>")
+    return "\n".join(lines)
+
+
+def _read_static(filename: str) -> str:
+    return (STATIC_DIR / filename).read_text(encoding="utf-8")
+
+
+def _safe_json(value: object) -> str:
+    return (
+        json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("\u2028", "\\u2028")
+        .replace("\u2029", "\\u2029")
+    )
 
 
 if __name__ == "__main__":
