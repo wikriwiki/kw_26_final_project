@@ -196,21 +196,35 @@ class Stage1Output(BaseModel):
     @field_validator("events")
     @classmethod
     def _check_events(cls, evs):
-        if len(evs) < 3:
-            raise ValueError(f"too few events ({len(evs)})")
-        if len(evs) > 20:   # 외출 적극 권장 SYSTEM과 일치하도록 상한 완화 (14→20)
-            raise ValueError(f"too many events ({len(evs)})")
-        # 첫·마지막은 residence
+        # 이벤트 개수 제한 제거 (사용자 결정) — 최소 1개만 보장
+        if len(evs) < 1:
+            raise ValueError("no events")
+        # 첫 이벤트가 residence 아니면 자동 보정 — 06:30 기상 event 앞에 prepend
         if evs[0].anchor != "residence":
-            raise ValueError("first event must anchor=residence")
+            evs.insert(0, Stage1Event(
+                time="06:30", anchor="residence", category="집",
+                intent="기상", reasoning="자동 보정: 첫 이벤트 누락",
+                trigger=None, pinned_poi=None,
+            ))
+        # 마지막 이벤트가 residence 아니면 자동 보정 — 23:30 취침 event append
         if evs[-1].anchor != "residence":
-            raise ValueError("last event must anchor=residence")
-        # 시간 단조 증가
+            # 마지막 이벤트 시간 이후로 — 23:30 보장 (불가능하면 23:59)
+            last_min = int(evs[-1].time[:2]) * 60 + int(evs[-1].time[3:])
+            tgt = "23:30" if last_min < 23*60 + 30 else "23:59"
+            evs.append(Stage1Event(
+                time=tgt, anchor="residence", category="집",
+                intent="취침", reasoning="자동 보정: 마지막 이벤트 누락",
+                trigger=None, pinned_poi=None,
+            ))
+        # 시간 단조 증가 — 위반 시 자동 보정 (이전 + 20분으로 강제)
         prev = -1
-        for e in evs:
+        for i, e in enumerate(evs):
             cur = int(e.time[:2]) * 60 + int(e.time[3:])
             if cur <= prev:
-                raise ValueError(f"non-monotonic time at {e.time}")
+                # 자동 보정: 이전 시간 + 20분으로 밀기
+                new_min = min(prev + 20, 23*60 + 59)
+                evs[i] = e.model_copy(update={"time": f"{new_min//60:02d}:{new_min%60:02d}"})
+                cur = new_min
             prev = cur
         return evs
 
@@ -252,6 +266,13 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 - anchor='workplace'일 때 category='직장' (회의·근무·직장 내 체류만)
 - 외출 이벤트(식사·카페·편의점·미용·쇼핑 등 commerce 카테고리): **반드시 zone anchor** 사용
 
+[카테고리 구분 — 자주 헷갈리는 케이스 명시]
+- **주점** = 술집·바·호프·이자카야 같은 "술 마시러 가는 가게"만. 일상 식사 곁들임 음주는 식사로 분류.
+- **편의점** = 편의점 술/생필품/간단 식품 모두 편의점 (주점 X).
+- **마트** = 대형마트·중형슈퍼에서 장보기. 술 구매도 마트.
+- **식사** = 식당·한식·양식·중식·일식·분식 등 끼니. 음주 동반이라도 끼니가 주목적이면 식사.
+- 즉 **'술'은 행위, '주점'은 가게 카테고리** — 편의점·마트에서 술 사오는 건 주점이 아님.
+
 [anchor 규칙 — 매우 중요]
 - "residence": 집 안에서만 일어나는 활동. category는 '집'만.
 - "workplace": 직장 빌딩 내부에서만 일어나는 활동. category는 '직장'만.
@@ -262,12 +283,11 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 - 절대 금지: anchor='residence' + category='편의점/식사/카페/한식/...' 같은 조합. 외출 카테고리면 무조건 zone.
 
 [정책·약속 반영]
-- grant(지원금·소비쿠폰): 정책 블록의 '나의 해당(지급액)·남은 지원금·사용 조건'과 State의
-  잔액 변화(오늘 +N원 입금)를 확인하라. 실제 사람은 이런 공돈(windfall)을 평소 소득보다
-  쉽게 지출한다 — 남은 지원금이 있으면 그 사실이 오늘 외출·소비 계획과 daily_propensity에
-  자연스럽게 반영되어야 한다. 특히 "남기면 환수" 조건은 기한 내 소진 유인이 된다.
-  사용처 제한([쿠폰] 매장 전용)이 있으면 그런 매장이 있는 동네·업종으로 동선이 기울 수 있다.
-  단, 반응의 크기는 성향의 범위 안에서: 절약형은 지원금도 아껴 쓰고 필요한 곳에만 쓴다.
+- grant(정부 지원금·소비쿠폰): 정책 블록의 "나의 해당(지급액) / 잔액 M원 / 사용조건"과 State의 잔액 변화(오늘 +N원 입금)를 확인하라. 나라가 대가 없이 준 돈이라 본인 부담 없고 기간 끝나면 사라진다. 세 가지로 반영:
+  (1) [지불수단] 오늘 하는 소비가 정책 대상이면 자기 잔액보다 지원금으로 결제 — 개인 자산이 보존된다. 사용처 제한([쿠폰] 매장 전용)이 있으면 그런 매장이 있는 동네·업종으로 동선이 기울 수 있다.
+  (2) [미뤄둔 소비 해소] 돈 때문에 미루거나 포기해온 것이 있었는지 스스로 돌아보라 — 미뤄둔 병원·치과·안경, 낡아서 못 바꾼 생활용품·옷·신발, 가보고 싶던 식당, 오랜만의 가족 외식, 배우고 싶던 것 등. 절약·검소가 형편 때문이었다면, 부담이 사라진 지금 그중 하나쯤 오늘 하루에 넣는 것이 자연스러울 수 있다. **지급액이 평소 생활비 대비 클수록(예: 소득 '하' 60만원은 여러 날치 생활비) 그동안 눌러온 소비를 풀 여지가 크고, 소액이면(중상 10만원) 일상에 거의 변화가 없는 게 자연스럽다.**
+  (3) [시간 흐름] 정책 블록의 '받은 지 며칠째' 서술을 보라 — 공돈 감각은 받은 직후 가장 크고 날이 갈수록 잔액의 일부처럼 익숙해져 소비 유인이 옅어진다(windfall 감쇠).
+  강요가 아니라 기회다 — 미뤄온 게 없거나 내키지 않으면 평소대로 지내면 된다. 지급액을 기간 내 여러 번 나눠 쓰는 게 자연스럽다. 절약형은 지원금도 아껴 필요한 곳에만 쓴다.
 - subsidy(쿠폰·환급): "남은 잔액 N원" 확인 — 잔액 있으면 대상 카테고리 우선, 0원이면 일반으로(무한사용 금지).
   regulation: 해당 카테고리·시간 회피 / facility: 시설 방문 권장 / campaign: description 자율 해석.
 - 정책은 페르소나로 다르게 해석된다(경향, 공식 아님): 소비분위 낮을수록 작은 혜택도 크게 와닿고 높을수록 둔감.
@@ -320,6 +340,7 @@ trigger enum (reasoning을 먼저 쓰고 가장 가까운 하나 선택):
 최상위에 오늘의 **소비성향 `daily_propensity` (0~1)** 를 출력한다 = "오늘 가진 돈(잔액+지원금) 중
 얼마나 쓸지". 금액이 아니라 *비율*이다. 어제 컨디션·잔액·지원금·페르소나 소득/성향으로 판단:
 - 소득이 낮거나 지원금을 막 받았으면 → 높게(쓸 곳이 많고 여윳돈이 귀함).
+- 특히 지원금이 평소 생활비 대비 크고, 돈 때문에 미뤄온 소비가 떠올랐다면 → 평소보다 높게(눌러온 수요 해소). 떠오르는 게 없거나 소액이면 평소대로.
 - 여유롭거나 저축 성향이면 → 낮게(남겨둠). 단가는 Stage2가 정하므로 여기선 성향만.
 
 [출력 형식]
@@ -353,6 +374,9 @@ def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     return f"""## 페르소나
 {blocks['persona']}
 
+## 거주·직장 동에 적용 정책
+{blocks['policy']}
+
 ## 오늘 갈 수 있는 zone 후보 (외출 anchor=zone:<코드> 에는 아래 코드만 사용)
 {blocks['zones']}
 
@@ -369,14 +393,20 @@ def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
 ## 오늘 예정 약속
 {blocks['appointment']}
 
-## 거주·직장 동에 적용 정책
-{blocks['policy']}
-
 ## 지인 풀
 {blocks['social']}
 
 ## 사전 인지 POI 요약 (카테고리별)
 {blocks['knows_poi']}
+
+====================================================================
+[마지막 점검 — 자주 실수하는 부분, 반드시 따를 것]
+1. events[0].anchor = 'residence' (집에서 시작, 보통 06~07시 기상)
+2. events[-1].anchor = 'residence' (집에서 마무리, 23~24시 취침)
+3. time은 단조 증가, 24시간제 HH:MM
+4. 활성 정책 블록이 "(없음)" 이면 reasoning에 P0xx·바우처·쿠폰 인용 금지
+5. 어제 visit 데이터 블록이 "(없음)" 이면 "어제 만족도 X" 같은 회상 금지
+====================================================================
 
 → 위 정보로 오늘 하루 이벤트 시퀀스를 JSON으로 생성하세요. **JSON만 출력**. /no_think"""
 
@@ -441,10 +471,17 @@ def call_stage1(
     last_raw = None
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.2 * attempt
+        # retry 시 피드백 첨부 — LLM에게 직전 실수 알림
+        user_block_now = user_block
+        if attempt > 0 and last_err:
+            user_block_now = user_block + (
+                f"\n\n[직전 시도 검증 실패] {str(last_err)[:300]}\n"
+                f"위 규칙을 어겼습니다. 이번엔 반드시 따를 것.\n"
+            )
         try:
             resp = _llm_call(
-                None, SYSTEM_PROMPT, user_block,
-                temperature=temp, max_tokens=2200,  # reasoning 필드 추가로 출력량 ↑
+                None, SYSTEM_PROMPT, user_block_now,
+                temperature=temp, max_tokens=2200,
             )
             raw = resp.choices[0].message.content
             last_raw = raw
@@ -453,7 +490,18 @@ def call_stage1(
                 print(f"--- attempt {attempt} (temp={temp}, finish={finish}) ---")
                 print(raw[:500])
             json_str = _extract_json(raw)
-            data = json.loads(json_str)
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError:
+                # Midm AWQ 특유 실수: `sub_category: "한식"` 처럼 key 앞 큰따옴표 누락 자동 보정
+                import re as _re
+                fixed = _re.sub(
+                    r'(?<=[,\{\s\n])([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)',
+                    r'"\1"\2', json_str
+                )
+                # 이미 큰따옴표로 감싸진 key는 이중 보정 방지
+                fixed = _re.sub(r'""([a-zA-Z_][a-zA-Z0-9_]*)""', r'"\1"', fixed)
+                data = json.loads(fixed)
             parsed = Stage1Output.model_validate(data)
 
             # category 정규화 — 세부업종('한식') → L1('식사')

@@ -25,7 +25,6 @@ import argparse
 import base64
 import html as _html
 import json
-import os
 import sys
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
@@ -437,7 +436,7 @@ def section4_3_satisfaction(start: date, days: int, out_dir: Path) -> tuple[dict
 # 섹션 5 — 1대1 인터뷰 자동 (positive / negative / neutral)
 # ═══════════════════════════════════════════════════════════════
 INTERVIEW_QUESTIONS = [
-    "이번 주 받으신 소득별 현금 지원금(P009 정책)에 대해 어떻게 느끼셨나요? 직접 사용하셨다면 왜 그 가게에서 쓰셨고, 안 쓰셨다면 왜 안 쓰셨는지 알려주세요.",
+    "정책(강남구 카페·디저트 바우처)에 대해 어떻게 느끼셨나요? 직접 사용하셨다면 왜 사용했고, 안 쓰셨다면 왜 안 쓰셨는지 알려주세요.",
     "가장 자주 가신 가게는 어디고, 왜 그곳을 자주 갔나요?",
     "친구·동료가 추천한 곳에 가신 적 있나요? 있다면 누가 추천했고, 갔더니 어땠나요?",
     "약속을 잡으신 적이 있다면 그 약속이 왜 잡혔는지 설명해주세요.",
@@ -451,10 +450,9 @@ def section5_interviews(start: date, days: int, out_dir: Path) -> dict:
     day_strs = [(start + timedelta(days=i)).isoformat() for i in range(days)]
     last_day = day_strs[-1]
     out = {}
-    # P009 지원금 받고 사용한 대표 1명만 인터뷰
-    for label in ["grant"]:
-        print(f"[interview] {label} (지원금 수혜 1명) ...", file=sys.stderr)
-        aid = find_label_sample("positive", last_day)  # positive = grant 받고 사용+만족
+    for label in ["positive", "negative", "neutral"]:
+        print(f"[interview] {label} ...", file=sys.stderr)
+        aid = find_label_sample(label, last_day)
         if not aid:
             out[label] = {"error": "샘플 없음"}
             continue
@@ -487,7 +485,8 @@ def section5_interviews(start: date, days: int, out_dir: Path) -> dict:
 def build_markdown(start: date, days: int, policy_from: str | None,
                    s1: dict, s2: tuple, s3: tuple, s4_1: tuple,
                    s4_2: tuple, s4_3: tuple, s5: dict,
-                   chart_dir_rel: str) -> str:
+                   chart_dir_rel: str, baseline: bool = False,
+                   s6: dict | None = None) -> str:
     lines: list[str] = []
     lines.append(f"# 서울 상권정책 시뮬레이션 — 최종 보고서")
     lines.append("")
@@ -507,39 +506,92 @@ def build_markdown(start: date, days: int, policy_from: str | None,
         lines.append(f"| {k} | {v:,} |" if isinstance(v, int) else f"| {k} | {v} |")
     lines.append("")
 
-    # 2) P009 정책 효과 — Income 군집별 차등 지급 비교 (메인)
-    #    section2b 결과(s2)를 메인 섹션으로 사용. 강남/spillover 섹션은 P008 잔재라 제거.
-    s2b = s2  # main()에서 section2b_income_did_p009 결과를 s2로 전달
-    if isinstance(s2b, dict) and "per_bucket" in s2b:
-        pb = s2b["per_bucket"]
-        fig = s2b["fig"]
-        n_grant = s2b["grant_aids_count"]
-        lines.append("## 2. 정책 효과 — 소득 군집별 차등 지급 비교 (P009)")
+    # 2) 매출 추이 OR baseline 일별 안정성
+    if baseline:
+        s2_data, s2_figs = s2
+        lines.append("## 2. 일별 안정성·분포 (4일 baseline)")
         lines.append("")
-        lines.append(f"- **정책 적용군(treatment)**: 지원금 받은 에이전트 **{n_grant:,}명** (소득 '상' 제외)")
-        lines.append(f"- **baseline**: Day 1·2 (정책 미주입) — 같은 소득 군집의 평균 일소비")
-        lines.append(f"- **treatment**: Day 3 (정책 주입일) — 지원금 받은 에이전트 평균 일소비")
-        lines.append(f"- 소득 군집별 분리 비교라 군집 간 인구 분포 차이의 영향 없음")
+        lines.append(f"![일별 안정성]({chart_dir_rel}/{s2_figs['daily']})")
         lines.append("")
-        lines.append(f"![소득 군집별 정책 효과]({chart_dir_rel}/{fig})")
+        lines.append("### Day별 commerce 거래 통계")
         lines.append("")
-        lines.append("### 소득 군집별 정책 효과")
+        lines.append("| Day | 거래 수 | 총 소비 | 1건당 평균 | 평균 만족도 |")
+        lines.append("|---|---:|---:|---:|---:|")
+        for d in s2_data['daily']:
+            lines.append(f"| {d['day']} | {d['n_commerce']:,} | {d['total_spent']:,}원 | {int(d['avg_spent']):,}원 | {d['avg_sat']:.3f} |")
         lines.append("")
-        lines.append("| 소득 군집 | 차등 지급액 | baseline 일소비 | treatment 일소비 | 소비 변화율 | 평균 지원금 사용 | 사용률 |")
-        lines.append("|---|---:|---:|---:|---:|---:|---:|")
-        for b in ["중상", "중", "중하", "하"]:
-            d = pb[b]
-            lines.append(
-                f"| **{b}** | {d['grant_amount']:,}원 | {d['baseline_avg']:,}원 | "
-                f"{d['treatment_avg']:,}원 | **{d['change_pct']:+}%** | "
-                f"{d['policy_spend_avg']:,}원 | {d['usage_rate_pct']}% |"
-            )
+        st = s2_data['stability']
+        lines.append("### 안정성 지표")
         lines.append("")
-        lines.append("**해석**")
-        lines.append("- **소비 변화율** = (treatment − baseline) / baseline × 100. 양수면 정책으로 소비 증가.")
-        lines.append("- **사용률** = 평균 지원금 사용액 / 차등 지급액. 받은 사람이 실제로 얼마나 활용했는지.")
-        lines.append("- P009는 저소득일수록 더 많이 지급하는 **역진형 차등 지급** (하 600k > 중하 450k > 중 250k > 중상 100k).")
-        lines.append("- 소득 '상'은 정책 비대상 → 분석에서 제외 (자연 비교군으로 별도 활용 가능).")
+        lines.append(f"- **1건당 평균 소비 변동**: {st['spent_avg_min']:,}원 ~ {st['spent_avg_max']:,}원 (±{st['spent_variation_pct']}%)")
+        lines.append(f"- **평균 만족도 범위**: {st['sat_min']:.3f} ~ {st['sat_max']:.3f} (±{st['sat_range']:.3f})")
+        lines.append(f"- 4일 동안 일별 변동이 작을수록 모델의 stochastic 안정성이 높음")
+        lines.append("")
+    else:
+        s2_data, s2_figs = s2
+        sm = s2_data["summary"]
+        lines.append("## 2. 정책 시행 전 vs 후 매출 추이")
+        lines.append("")
+        if isinstance(s2_figs, dict):
+            lines.append(f"![1인당 매출]({chart_dir_rel}/{s2_figs['per_capita']})")
+            lines.append("")
+            lines.append(f"![변화율]({chart_dir_rel}/{s2_figs['change_rate']})")
+            lines.append("")
+            lines.append(f"![DID]({chart_dir_rel}/{s2_figs['did']})")
+            lines.append("")
+        else:
+            lines.append(f"![매출추이]({chart_dir_rel}/{s2_figs})")
+            lines.append("")
+        if sm:
+            lines.append("### 평균 일간 매출 비교")
+            lines.append("")
+            lines.append("| 자치구 | 시행 전 | 시행 후 | 변화율 |")
+            lines.append("|---|---:|---:|---:|")
+            lines.append(f"| 강남 (정책 대상) | {sm['before_gn_daily']:,}원 | {sm['after_gn_daily']:,}원 | "
+                         f"**{sm['gangnam_change_pct']:+}%** |")
+            lines.append(f"| 비강남 (대조군) | {sm['before_ng_daily']:,}원 | {sm['after_ng_daily']:,}원 | "
+                         f"{sm['non_gangnam_change_pct']:+}% |")
+            lines.append("")
+            lines.append(f"**DID (정책 순효과)**: 강남 변화율 − 비강남 변화율 = "
+                         f"**{sm['DID_pct_points']:+}%p**")
+            lines.append("")
+
+    # 3) 자치구·소득·연령별 분포 OR spillover
+    if baseline:
+        s3_data, s3_fig = s3
+        lines.append("## 3. 자치구·소득·연령별 commerce 분포 (4일 누적)")
+        lines.append("")
+        lines.append(f"![분포]({chart_dir_rel}/{s3_fig})")
+        lines.append("")
+        lines.append("### 자치구별 commerce 매출 TOP 10")
+        lines.append("")
+        lines.append("| 순위 | 자치구 | 4일 누적 매출 | 표본 agent 수 |")
+        lines.append("|---|---|---:|---:|")
+        for i, r in enumerate(s3_data['by_gu'][:10], 1):
+            lines.append(f"| {i} | {r['gu']} | {r['total']:,}원 | {r['n_agent']:,} |")
+        lines.append("")
+        lines.append("### 소득군별 1인당 일평균 소비")
+        lines.append("")
+        lines.append("| 소득군 | 1인당 일평균 |")
+        lines.append("|---|---:|")
+        for r in s3_data['by_income']:
+            lines.append(f"| {r['inc']} | {r['per_capita_daily']:,}원 |")
+        lines.append("")
+        lines.append("### 연령대별 1인당 일평균 소비")
+        lines.append("")
+        lines.append("| 연령대 | 1인당 일평균 |")
+        lines.append("|---|---:|")
+        for r in s3_data['by_age']:
+            lines.append(f"| {r['age']} | {r['per_capita_daily']:,}원 |")
+        lines.append("")
+    else:
+        s3_data, s3_fig = s3
+        lines.append("## 3. 간접 영향 (Spillover) — 강남 vs 인접 자치구")
+        lines.append("")
+        lines.append(f"![spillover]({chart_dir_rel}/{s3_fig})")
+        lines.append("")
+        lines.append("강남구 정책이 인접한 서초·송파에 어떤 파급을 줬는지, 멀리 떨어진 강북과 비교. "
+                     "인접 자치구의 강남 대비 매출 격차가 좁혀지면 spillover로 해석.")
         lines.append("")
 
     # 4-1) trigger
@@ -587,18 +639,20 @@ def build_markdown(start: date, days: int, policy_from: str | None,
         lines.append(f"| {labels_kr.get(r['trigger'], r['trigger'])} | {r['avg_sat']} | {r['n']:,} |")
     lines.append("")
 
-    # 5) 인터뷰 — 지원금 수혜 1명
-    lines.append("## 5. 1대1 인터뷰 — 정책 지원금 수혜 에이전트")
+    # 5) 인터뷰
+    lines.append("## 5. 1대1 인터뷰 — 페르소나별 대표 (positive / negative / neutral)")
     lines.append("")
-    label_kr = {"grant": "P009 지원금 수혜·활용"}
-    for label in ["grant"]:
+    label_kr = {"positive": "정책 적극 활용 + 만족도 ↑",
+                "negative": "정책 무관심 + 만족도 ↓",
+                "neutral":  "정책 무관심 + 만족도 보통"}
+    for label in ["positive", "negative", "neutral"]:
         d = s5.get(label, {})
         if "error" in d:
-            lines.append("### 샘플 없음")
+            lines.append(f"### 5-{label} — 샘플 없음")
             lines.append("")
             continue
         p = d["persona"]
-        lines.append(f"### [{label_kr[label]}] — `{d['agent_id']}`")
+        lines.append(f"### [{label}] {label_kr[label]} — `{d['agent_id']}`")
         lines.append("")
         lines.append(f"- **페르소나**: {p.get('age')} {p.get('gender')} · {p.get('job')} · "
                      f"{p.get('home_dong')} 거주 · 소득 {p.get('income')}")
@@ -612,11 +666,175 @@ def build_markdown(start: date, days: int, policy_from: str | None,
         lines.append("---")
         lines.append("")
 
+    # 6) 타당성 검증 (baseline 모드만)
+    if s6:
+        lines.append("## 6. 시뮬레이션 타당성 검증 (Validation)")
+        lines.append("")
+        lines.append("**held-out 데이터** — 시뮬·페르소나 생성에 사용하지 않은 외부 실측 데이터로 검증.")
+        lines.append("")
+        lines.append("- **외부 실측**: 서울시 상권분석서비스 추정매출 2025년 1분기 (행정동 단위)")
+        lines.append("- **지표 기준**: arXiv 2507.08871 (2025) — 생성형 시뮬 OD 검증 코사인 0.97, JSD 0.006")
+        lines.append("")
+        lines.append(f"![검증 6종]({chart_dir_rel}/{s6['fig']})")
+        lines.append("")
+        lines.append("### 검증 결과 요약")
+        lines.append("")
+        lines.append("| # | 검증 | 코사인 | JSD | MAPE | 판정 |")
+        lines.append("|---|---|---:|---:|---:|---:|")
+        v1 = s6["V1"]
+        lines.append(f"| V1 | {v1['name']} | {v1['cosine']:.3f} | {v1['jsd']:.4f} | {v1['mape']:.1f}% | {'✅' if v1['cosine']>=0.85 else '△'} |")
+        v2 = s6["V2"]
+        peak_match = "✓" if v2['peak_real'] == v2['peak_sim'] else f"실측 {v2['peak_real']} ↔ 시뮬 {v2['peak_sim']}"
+        lines.append(f"| V2 | {v2['name']} | {v2['cosine']:.3f} | {v2['jsd']:.4f} | 피크 {peak_match} | {'✅' if v2['cosine']>=0.85 else '△'} |")
+        v3 = s6["V3"]
+        lines.append(f"| V3 | {v3['name']} | {v3['cosine']:.3f} | {v3['jsd']:.4f} | Spearman {v3['spearman']:.2f} | {'✅' if v3['cosine']>=0.85 else '△'} |")
+        v4a = s6["V4_age"]; v4g = s6["V4_gender"]
+        lines.append(f"| V4 | {v4a['name']} | {v4a['cosine_avg']:.3f} | — | — | {'✅' if v4a['cosine_avg']>=0.85 else '△'} |")
+        lines.append(f"| V4b | {v4g['name']} | 남 {v4g['cosine_male']:.3f} · 여 {v4g['cosine_female']:.3f} | — | — | {'✅' if v4g['cosine_male']>=0.85 and v4g['cosine_female']>=0.85 else '△'} |")
+        v5 = s6["V5"]
+        lines.append(f"| V5 | {v5['name']} | — | — | {v5['mape']:.1f}% | {'✅' if v5['mape']<=15 else '△'} |")
+        v6 = s6["V6"]
+        verdict6 = '✅' if v6['rho']>=0.7 else ('△' if v6['rho']>=0.4 else '❌')
+        lines.append(f"| V6 | {v6['name']} | — | — | ρ={v6['rho']:.3f} | {verdict6} |")
+        lines.append("")
+        # 상세
+        lines.append("### V1 공간 분포 (자치구 25개) — 상세")
+        lines.append("")
+        real_top = ", ".join(f"{g} ({p*100:.1f}%)" for g, p in v1['real_top3'])
+        sim_top = ", ".join(f"{g} ({p*100:.1f}%)" for g, p in v1['sim_top3'])
+        lines.append(f"- 실측 TOP 3: {real_top}")
+        lines.append(f"- 시뮬 TOP 3: {sim_top}")
+        lines.append("")
+        rg = v1.get('real_gini', 0); sg = v1.get('sim_gini', 0)
+        gini_diff = abs(rg - sg)
+        gini_judge = '✅ 거의 일치' if gini_diff < 0.05 else ('○ 근접' if gini_diff < 0.10 else '△ 차이 있음')
+        lines.append(f"**공간 집중도 (Gini)** — 매출이 소수 자치구에 얼마나 몰리는지 (0=균등, 1=완전집중)")
+        lines.append("")
+        lines.append(f"- 실측 Gini: **{rg:.3f}** / 시뮬 Gini: **{sg:.3f}** (차이 {gini_diff:.3f}) {gini_judge}")
+        lines.append("")
+        lines.append("**한계 — 거주지 중심 소비**")
+        lines.append("")
+        lines.append("- 시뮬 강남 commerce 매출의 **약 84%가 강남 거주 agent**가 만듦 (직접 측정값).")
+        lines.append("- LLM이 외출 결정 시 거주 dong 근처 POI를 강하게 선호 → commuting·destination 외출이 약함.")
+        lines.append("- 결과적으로 시뮬 자치구별 매출 분포가 인구 분포에 근접 (강남은 인구 비율의 ~1.4배, 실측은 ~2.5배).")
+        lines.append("- 강남·송파 등 **destination 자치구의 매출 dominance가 재현 부족** — V1 코사인 0.87은 \"인구 비례\" 신호 수준까지만 잡음.")
+        lines.append("- 추가 요인(표본에 관광객·외국인 부재, 고가 단가 소비 모델링 부족)도 함께 작용한 것으로 추정.")
+        lines.append("")
+        lines.append("### V2 시간대 활동 분포 — 상세")
+        lines.append("")
+        lines.append("| 시간대 | 실측 | 시뮬 |")
+        lines.append("|---|---:|---:|")
+        for lbl, r, sv in zip(v2['labels'], v2['real'], v2['sim']):
+            lines.append(f"| {lbl} | {r*100:.1f}% | {sv*100:.1f}% |")
+        lines.append("")
+        lines.append("**한계 — bimodal 편향 + 야간 결손**")
+        lines.append("")
+        lines.append("- 시뮬 피크 위치 **저녁(17~21시) 33.2%** vs 실측 피크 **점심(11~14시) 26.1%** — 모델이 저녁 외출 과잉 예측.")
+        lines.append("- 시뮬 분포가 **bimodal** (점심 33% + 저녁 33%, 사이 오후 17%), 실측은 11~21시 평탄(25%씩).")
+        lines.append("- **오후 14~17시 결손 -8.3%p** — 실측은 카페·쇼핑·미용·운동이 꾸준한데 시뮬은 dip.")
+        lines.append("- **새벽·심야(00~06, 21~24) 매출 거의 0** (실측 합 10.5%) — LLM이 야간 commerce(편의점·심야식당) 외출 거의 안 만듦.")
+        lines.append("- cos 0.96은 \"새벽 적고 점심·저녁 많다\"는 큰 패턴까지만 잡음. 세부 분포 모양 차이 큼.")
+        lines.append("")
+        lines.append("### V3 업종 분포 — 상세")
+        lines.append("")
+        lines.append("| 대분류 | 실측 | 시뮬 |")
+        lines.append("|---|---:|---:|")
+        for lbl, r, sv in zip(v3['labels'], v3['real'], v3['sim']):
+            lines.append(f"| {lbl} | {r*100:.1f}% | {sv*100:.1f}% |")
+        lines.append("")
+        lines.append("**한계 — 식음료 편향 + 쇼핑·교육 결손**")
+        lines.append("")
+        lines.append("- **식음료 +21.7%p 과잉** (실측 27.4% → 시뮬 49.1%) — LLM이 외출 행동을 \"식당·카페 가기\"로 과대 예측.")
+        lines.append("- **의류/잡화 -15.9%p 결손** (실측 17.7% → 시뮬 1.8%) — LLM이 쇼핑 외출 거의 안 만듦.")
+        lines.append("- **교육·학원 -3.8%p 결손** — 학원·교습소 외출 부족 (특히 학생·청소년 페르소나).")
+        lines.append("- 매핑 보강(시뮬 sub_category 활용)으로 가짜 mismatch는 해소됐지만 **본질적 행동 편향**이 잔존.")
+        lines.append("- cos 0.87은 매핑 보강 후 통과, 그러나 식음료·의류·교육 cell-level 차이가 큼.")
+        lines.append("")
+        # V3 차이 그래프 + 연령 ratio
+        if s6.get('fig_v3_age_ratio'):
+            lines.append(f"![V3 차이 + 연령간 ratio]({chart_dir_rel}/{s6['fig_v3_age_ratio']})")
+            lines.append("")
+        # 연령간 ratio 표
+        ar = s6.get('V_age_ratio')
+        if ar:
+            lines.append("### 연령 간 ratio — 20대 / 60대이상 점유 비교 (V3 보강 검증)")
+            lines.append("")
+            lines.append("각 대분류에서 20대 점유율과 60대이상 점유율의 ratio. **1.0 = 같음, >1 = 20대가 더 많이 쓰는 업종, <1 = 60대가 더 많이 쓰는 업종**.")
+            lines.append("")
+            lines.append("| 대분류 | 실측 ratio | 시뮬 ratio | 방향 일치 |")
+            lines.append("|---|---:|---:|:---:|")
+            for d, rr, sr, agree in ar['pairs']:
+                rr_s = f"{rr:.2f}" if rr is not None else "—"
+                sr_s = f"{sr:.2f}" if sr is not None else "—"
+                ag_s = "✓" if agree is True else ("✗" if agree is False else "—")
+                lines.append(f"| {d} | {rr_s} | {sr_s} | {ag_s} |")
+            lines.append("")
+            lines.append(f"- 부분 코사인 (None 제외): **{ar['cosine']:.3f}**")
+            lines.append(f"- **방향 일치 (>1 or <1 부호 동일)**: {ar['direction_agree']}/{ar['direction_total']} 대분류")
+            lines.append("- 방향이 다른 대분류 = 모델이 그 업종에서 연령 선호 패턴을 잘못 학습했다는 신호.")
+            lines.append("")
+        # V4 한계
+        lines.append("### V4 인구통계×업종 cross — 한계")
+        lines.append("")
+        lines.append("- 청년층(10·20대) cos ≥ 0.88로 강함 — 모델이 청년 행동 잘 재현.")
+        lines.append("- **중장년(40대 cos 0.70)** 행동 패턴 재현 약함 — V3의 의류·쇼핑 결손이 중장년 비중 큰 업종에 집중된 영향.")
+        lines.append("- 평균 cos 0.83은 연령 cell 내부 분포 일치만 보고, **연령 간 ratio**(예: 20대/60대 카페 점유 차이)는 측정 안 함 — 더 강한 신호 검증 누락.")
+        lines.append("- 성별 cos 남 0.85, 여 0.83 — 통과 경계.")
+        lines.append("")
+        lines.append("### V5 주중/주말 — 상세")
+        lines.append("")
+        lines.append("**의미**: 4일 baseline 총 commerce 매출 중 주중(월~금) vs 주말(토·일) 비율.")
+        lines.append("")
+        lines.append("| 구분 | 실측 | 시뮬 |")
+        lines.append("|---|---:|---:|")
+        lines.append(f"| **주중 매출 비율** | {v5['real_weekday_pct']:.1f}% | {v5['sim_weekday_pct']:.1f}% |")
+        lines.append(f"| **주말 매출 비율** | {v5['real_weekend_pct']:.1f}% | {v5['sim_weekend_pct']:.1f}% |")
+        lines.append(f"| 평일 1일/주말 1일 매출 ratio | {v5['real_daily_ratio']:.2f}× | {v5['sim_daily_ratio']:.2f}× |")
+        lines.append("")
+        lines.append(f"- baseline 구성: **평일 {v5['sim_weekday_days']}일 + 주말 {v5['sim_weekend_days']}일**")
+        if v5['sim_weekend_days'] == 0:
+            lines.append("- ⚠️ **검증 한계**: baseline 4일이 모두 평일이라 주말 매출 0 — 주말 비교 자체가 불가능. 시뮬 9일 풀(평일 5일 + 주말 2일) 데이터 나오면 재측정해야 의미 있음.")
+        else:
+            lines.append(f"- 주말 {v5['sim_weekend_days']}일만 포함이라 ratio 표본 신뢰도 보수적 해석 필요")
+        lines.append("")
+        lines.append("### V6 페르소나 소비분위 적합도 (Persona Fidelity)")
+        lines.append("")
+        lines.append("**의미**: 페르소나의 BDC 소비분위(1~10)와 시뮬에서 실제 발생한 commerce 소비액의 상관성.")
+        lines.append("경제학의 \"소득 탄력성\"이 아니라(그건 종단 측정 필요) **cross-sectional 적합도**.")
+        lines.append("")
+        lines.append(f"- 피어슨 상관 ρ = **{v6['rho']:.3f}** ({v6['note']})")
+        lines.append("")
+        if v6.get('lvl_avg'):
+            lines.append("**분위별 1인당 일평균 commerce 소비**")
+            lines.append("")
+            lines.append("| 분위 | 페르소나 daily_wd budget | 시뮬 실소비 | budget 활용률 |")
+            lines.append("|---:|---:|---:|---:|")
+            for lvl in sorted(v6['lvl_avg'].keys()):
+                bd = v6.get('budget_avg', {}).get(lvl, 0)
+                sim_v = v6['lvl_avg'][lvl]
+                fid = v6.get('fidelity_pct', {}).get(lvl, 0)
+                lines.append(f"| {lvl} | {int(bd):,}원 | {int(sim_v):,}원 | {fid:.1f}% |")
+            lines.append("")
+            lines.append(f"**분위 1 ↔ 분위 10 ratio 비교**:")
+            lines.append("")
+            lines.append(f"- 페르소나 budget(daily_wd) ratio: **{v6.get('budget_q1_q10_ratio',0):.2f}×**")
+            lines.append(f"- 시뮬 실소비 ratio: **{v6.get('sim_q1_q10_ratio',0):.2f}×**")
+            lines.append("")
+        lines.append("**한계 — 부자 페르소나 budget 미활용 (소비분위 압축)**")
+        lines.append("")
+        lines.append(f"- ρ={v6['rho']:.3f}는 \"분위 높을수록 소비 많다\"는 약-중간 신호. 강하지 않음.")
+        lines.append("- **저분위 페르소나는 budget을 거의 다 활용**, **고분위 페르소나는 budget의 40%만 활용** → 분위별 격차가 페르소나(1:5)에서 시뮬(1:2.5)로 **절반 압축**.")
+        lines.append("- LLM이 부자 페르소나에 보수적으로 소비를 잡음 → 정책 차등 효과 분석 시 **절대 수치보다 패턴 방향성에 무게** 권장.")
+        if v6['rho'] < 0.4:
+            lines.append("- ⚠️ ρ < 0.4 — 소득 차등 신호 약함. 정책 보고서에 한계 명시 필수.")
+        lines.append("")
+
     lines.append("## 부록")
     lines.append("")
-    lines.append("- 본 보고서는 `scripts/sim/generate_final_report.py`로 자동 생성됨.")
+    lines.append("- 본 보고서는 `scripts/sim/generate_baseline_report.py`로 자동 생성됨.")
     lines.append("- 시뮬 원본 데이터는 Neo4j에 보존 (Plan/State/Memory/Conversation 노드).")
-    lines.append("- 인터랙티브 시각화: `output/sim/visualization/sim_standalone.html`")
+    lines.append("- 검증 모듈: `scripts/sim/validation_sections.py`")
+    lines.append("- held-out 비교 데이터: `data/seoul_commerce/서울시 상권분석서비스(추정매출-행정동)_2025년.csv`")
     lines.append("")
     return "\n".join(lines)
 
@@ -1457,20 +1675,13 @@ def _figure(path: Path | None, caption: str) -> str:
 def build_html(start: date, days: int, policy_from: str | None,
                s1: dict, s2: tuple, s3: tuple, s4_1: tuple,
                s4_2: tuple, s4_3: tuple, s5: dict, chart_dir: Path,
-               s6: dict | None = None) -> str:
-    if isinstance(s2, tuple) and len(s2) == 2:
-        s2_data, s2_figs = s2
-    else:
-        s2_data = s2 if isinstance(s2, dict) else {}
-        s2_figs = {}
-    sm = s2_data.get("summary", {}) if isinstance(s2_data, dict) else {}
-    if isinstance(s3, tuple) and len(s3) == 2:
-        _, s3_fig = s3
-    else:
-        s3_fig = s3 if isinstance(s3, str) else ""
+               baseline: bool = False, s6: dict | None = None) -> str:
+    s2_data, s2_figs = s2
+    s3_data, s3_fig = s3
     s41_data, s41_fig = s4_1
     s42_data, s42_fig = s4_2
     s43_data, s43_fig = s4_3
+    sm = s2_data.get("summary", {})
 
     # Cover KPI 4종
     n_agent = s1.get("Agent 수", "—")
@@ -1512,7 +1723,7 @@ def build_html(start: date, days: int, policy_from: str | None,
         for k, v in s1.items()
     )
 
-    # Section 2 — 매출 표
+    # Section 2 — 매출 표 (정책 모드용)
     sales_rows = ""
     if sm:
         sales_rows = (
@@ -1533,6 +1744,218 @@ def build_html(start: date, days: int, policy_from: str | None,
         )
     else:
         did_callout = ""
+
+    # baseline 모드용 section2/3 HTML 변수
+    if baseline:
+        # section 2 — 일별 안정성·분포
+        daily_rows_html = "".join(
+            f"<tr><td>{_h(d['day'])}</td>"
+            f"<td class='num'>{d['n_commerce']:,}</td>"
+            f"<td class='num'>{d['total_spent']:,}원</td>"
+            f"<td class='num'>{int(d['avg_spent']):,}원</td>"
+            f"<td class='num'>{d['avg_sat']:.3f}</td></tr>"
+            for d in s2_data['daily']
+        )
+        st = s2_data['stability']
+        sales_section_html = (
+            f'<section id="s-sales" class="reveal">'
+            f'<h2>2. 일별 안정성·분포 (4일 baseline)</h2>'
+            f'<p>정책 미주입 baseline 시뮬의 day-by-day consistency. '
+            f'commerce 거래 수·총소비·1건당 평균·평균 만족도가 일별로 얼마나 안정적인지 보여줍니다.</p>'
+            f'{_figure(chart_dir / s2_figs["daily"], "Day별 commerce 거래·소비·만족도")}'
+            f'<h3>Day별 commerce 거래 통계</h3>'
+            f'<table><thead><tr><th>Day</th><th class="num">거래 수</th><th class="num">총 소비</th>'
+            f'<th class="num">1건당 평균</th><th class="num">평균 만족도</th></tr></thead>'
+            f'<tbody>{daily_rows_html}</tbody></table>'
+            f'<div class="callout">'
+            f'<strong>안정성</strong>: 1건당 평균 소비 {st["spent_avg_min"]:,}~{st["spent_avg_max"]:,}원 '
+            f'(±{st["spent_variation_pct"]}%), 평균 만족도 {st["sat_min"]:.3f}~{st["sat_max"]:.3f} '
+            f'(±{st["sat_range"]:.3f})'
+            f'</div>'
+            f'</section>'
+        )
+        # section 3 — 자치구·소득·연령별
+        gu_rows_html = "".join(
+            f"<tr><td>{i}</td><td>{_h(r['gu'])}</td>"
+            f"<td class='num'>{r['total']:,}원</td><td class='num'>{r['n_agent']:,}</td></tr>"
+            for i, r in enumerate(s3_data['by_gu'][:10], 1)
+        )
+        inc_rows_html = "".join(
+            f"<tr><td>{_h(r['inc'])}</td><td class='num'>{r['per_capita_daily']:,}원</td></tr>"
+            for r in s3_data['by_income']
+        )
+        age_rows_html = "".join(
+            f"<tr><td>{_h(r['age'])}</td><td class='num'>{r['per_capita_daily']:,}원</td></tr>"
+            for r in s3_data['by_age']
+        )
+        spillover_section_html = (
+            f'<section id="s-spillover" class="reveal">'
+            f'<h2>3. 자치구·소득·연령별 분포</h2>'
+            f'<p>4일 baseline 누적 commerce 매출을 자치구·소득군·연령대로 분해. '
+            f'정책 미주입 상태에서 모델이 인구·소득·자치구 분포를 얼마나 자연스럽게 따라가는지.</p>'
+            f'{_figure(chart_dir / s3_fig, "자치구·소득·연령별 분포")}'
+            f'<h3>자치구별 4일 누적 매출 TOP 10</h3>'
+            f'<table><thead><tr><th>순위</th><th>자치구</th>'
+            f'<th class="num">총 매출</th><th class="num">표본 agent</th></tr></thead>'
+            f'<tbody>{gu_rows_html}</tbody></table>'
+            f'<h3>소득군별 1인당 일평균</h3>'
+            f'<table><thead><tr><th>소득군</th><th class="num">원/일/명</th></tr></thead>'
+            f'<tbody>{inc_rows_html}</tbody></table>'
+            f'<h3>연령대별 1인당 일평균</h3>'
+            f'<table><thead><tr><th>연령대</th><th class="num">원/일/명</th></tr></thead>'
+            f'<tbody>{age_rows_html}</tbody></table>'
+            f'</section>'
+        )
+    else:
+        sales_section_html = ""  # 정책 모드는 기존 f-string 내장 HTML 사용
+        spillover_section_html = ""
+
+    # Section 6 — 타당성 검증 HTML (baseline 모드만)
+    validation_section_html = ""
+    if s6:
+        v1 = s6["V1"]; v2 = s6["V2"]; v3 = s6["V3"]
+        v4a = s6["V4_age"]; v4g = s6["V4_gender"]
+        v5 = s6["V5"]; v6 = s6["V6"]
+        peak_match = "✓ 일치" if v2['peak_real'] == v2['peak_sim'] else f"{v2['peak_real']}↔{v2['peak_sim']}"
+        verdict = lambda ok: "✅" if ok else "△"
+        v6_v = "✅" if v6['rho']>=0.7 else ("△" if v6['rho']>=0.4 else "❌")
+
+        time_rows = "".join(
+            f"<tr><td>{lbl}</td><td class='num'>{r*100:.1f}%</td><td class='num'>{sv*100:.1f}%</td></tr>"
+            for lbl, r, sv in zip(v2['labels'], v2['real'], v2['sim'])
+        )
+        db_rows = "".join(
+            f"<tr><td>{lbl}</td><td class='num'>{r*100:.1f}%</td><td class='num'>{sv*100:.1f}%</td></tr>"
+            for lbl, r, sv in zip(v3['labels'], v3['real'], v3['sim'])
+        )
+        v6_warn = '<div class="callout"><strong>⚠️ 모델 한계 인정</strong>: ρ < 0.4 — 소득 차등 신호 약함. 정책 보고서에 한계 명시 필수.</div>' if v6['rho'] < 0.4 else ''
+        # V6 분위별 budget / 실소비 / 활용률 표
+        if v6.get('lvl_avg'):
+            v6_rows = ""
+            for lvl in sorted(v6['lvl_avg'].keys()):
+                bd = v6.get('budget_avg', {}).get(lvl, 0)
+                sim_v = v6['lvl_avg'][lvl]
+                fid = v6.get('fidelity_pct', {}).get(lvl, 0)
+                v6_rows += f"<tr><td>{lvl}</td><td class='num'>{int(bd):,}원</td><td class='num'>{int(sim_v):,}원</td><td class='num'>{fid:.1f}%</td></tr>"
+            _v6_table_html_value = (
+                "<table><thead><tr><th>분위</th><th class='num'>페르소나 daily_wd budget</th>"
+                "<th class='num'>시뮬 실소비</th><th class='num'>budget 활용률</th></tr></thead>"
+                f"<tbody>{v6_rows}</tbody></table>"
+            )
+        else:
+            _v6_table_html_value = ""
+
+        def _v6_table_html(_v6_unused):
+            return _v6_table_html_value
+
+        # V3 차이 + 연령 ratio HTML helper
+        def _v3_age_ratio_html(s6_ref, chart_dir_ref):
+            ar = s6_ref.get('V_age_ratio') if s6_ref else None
+            fig_b = s6_ref.get('fig_v3_age_ratio') if s6_ref else None
+            if not ar or not fig_b:
+                return ""
+            rows = ""
+            for d, rr, sr, agree in ar['pairs']:
+                rr_s = f"{rr:.2f}" if rr is not None else "—"
+                sr_s = f"{sr:.2f}" if sr is not None else "—"
+                ag_s = "✓" if agree is True else ("✗" if agree is False else "—")
+                rows += f"<tr><td>{_h(d)}</td><td class='num'>{rr_s}</td><td class='num'>{sr_s}</td><td class='num'>{ag_s}</td></tr>"
+            return (
+                f"<figure style=\"padding:12px;margin:20px -20px;\"><img src=\"{_img_data_uri(chart_dir_ref / fig_b)}\" alt=\"V3 차이 + 연령 ratio\" style=\"width:100%;display:block;\"/><figcaption>V3 업종별 차이 (왼쪽) + 연령 간 ratio 20대/60대이상 (오른쪽)</figcaption></figure>"
+                f"<h3>연령 간 ratio — 20대 / 60대이상 점유 비교 (V3 보강 검증)</h3>"
+                f"<p>각 대분류에서 20대 점유율과 60대이상 점유율의 ratio. <strong>1.0 = 같음, &gt;1 = 20대 우세, &lt;1 = 60대 우세</strong>.</p>"
+                f"<table><thead><tr><th>대분류</th><th class='num'>실측 ratio</th><th class='num'>시뮬 ratio</th><th class='num'>방향 일치</th></tr></thead><tbody>{rows}</tbody></table>"
+                f"<p>부분 코사인 (None 제외): <strong>{ar['cosine']:.3f}</strong><br/>"
+                f"<strong>방향 일치 (&gt;1 or &lt;1 부호 동일)</strong>: {ar['direction_agree']}/{ar['direction_total']} 대분류 — "
+                f"방향 다른 대분류 = 모델이 연령 선호 패턴 잘못 학습 신호.</p>"
+            )
+        validation_section_html = f'''
+    <section id="s-validation" class="reveal">
+      <h2>6. 시뮬레이션 타당성 검증 (Validation)</h2>
+      <p><strong>held-out 데이터</strong> — 시뮬·페르소나 생성에 사용하지 않은 외부 실측 데이터로 비교 검증.</p>
+      <ul>
+        <li>외부 실측: 서울시 상권분석서비스 추정매출 2025년 1분기 (행정동 단위)</li>
+        <li>지표 기준: arXiv 2507.08871 (2025) — 생성형 시뮬 OD 검증 코사인 0.97, JSD 0.006</li>
+      </ul>
+      <figure style="padding:12px;margin:20px -20px;"><img src="{_img_data_uri(chart_dir / s6['fig'])}" alt="검증 6종" style="width:100%;display:block;"/><figcaption style="margin-top:10px;">검증 6종 — 자치구 / 시간대 / 업종 / 연령×업종 / 주중주말 / 페르소나 분위 적합도</figcaption></figure>
+      <h3>검증 결과 요약</h3>
+      <table>
+        <thead><tr><th>#</th><th>검증</th><th class="num">코사인</th><th class="num">JSD</th><th class="num">MAPE/기타</th><th class="num">판정</th></tr></thead>
+        <tbody>
+          <tr><td>V1</td><td>{_h(v1['name'])}</td><td class='num'>{v1['cosine']:.3f}</td><td class='num'>{v1['jsd']:.4f}</td><td class='num'>{v1['mape']:.1f}%</td><td class='num'>{verdict(v1['cosine']>=0.85)}</td></tr>
+          <tr><td>V2</td><td>{_h(v2['name'])}</td><td class='num'>{v2['cosine']:.3f}</td><td class='num'>{v2['jsd']:.4f}</td><td class='num'>피크 {_h(peak_match)}</td><td class='num'>{verdict(v2['cosine']>=0.85)}</td></tr>
+          <tr><td>V3</td><td>{_h(v3['name'])}</td><td class='num'>{v3['cosine']:.3f}</td><td class='num'>{v3['jsd']:.4f}</td><td class='num'>Spearman {v3['spearman']:.2f}</td><td class='num'>{verdict(v3['cosine']>=0.85)}</td></tr>
+          <tr><td>V4a</td><td>{_h(v4a['name'])}</td><td class='num'>{v4a['cosine_avg']:.3f}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>{verdict(v4a['cosine_avg']>=0.85)}</td></tr>
+          <tr><td>V4b</td><td>{_h(v4g['name'])}</td><td class='num'>남 {v4g['cosine_male']:.3f} · 여 {v4g['cosine_female']:.3f}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>{verdict(v4g['cosine_male']>=0.85 and v4g['cosine_female']>=0.85)}</td></tr>
+          <tr><td>V5</td><td>{_h(v5['name'])}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>{v5['mape']:.1f}%</td><td class='num'>{verdict(v5['mape']<=15)}</td></tr>
+          <tr><td>V6</td><td>{_h(v6['name'])}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>ρ={v6['rho']:.3f}</td><td class='num'>{v6_v}</td></tr>
+        </tbody>
+      </table>
+      <h3>V1 공간 분포 — 상세</h3>
+      <p>실측 TOP 3: {_h(", ".join(f"{g} ({p*100:.1f}%)" for g, p in v1['real_top3']))}<br/>
+         시뮬 TOP 3: {_h(", ".join(f"{g} ({p*100:.1f}%)" for g, p in v1['sim_top3']))}</p>
+      <p><strong>공간 집중도 (Gini)</strong> — 매출이 소수 자치구에 얼마나 몰리는지 (0=균등, 1=완전집중)<br/>
+         실측 Gini: <strong>{v1.get('real_gini',0):.3f}</strong> / 시뮬 Gini: <strong>{v1.get('sim_gini',0):.3f}</strong>
+         (차이 {abs(v1.get('real_gini',0)-v1.get('sim_gini',0)):.3f})</p>
+      <div class="callout"><strong>한계 — 거주지 중심 소비</strong><br/>
+      시뮬 강남 commerce 매출의 약 <strong>84%가 강남 거주 agent</strong>가 만듦 (직접 측정).
+      LLM이 외출 결정 시 거주 dong 근처 POI를 강하게 선호 → commuting·destination 외출이 약함.
+      결과적으로 시뮬 자치구별 매출 분포가 인구 분포에 근접 (강남은 인구 비율의 ~1.4배, 실측은 ~2.5배).
+      <strong>destination 자치구의 매출 dominance가 재현 부족</strong> — V1 코사인 0.87은 "인구 비례" 신호 수준까지만 잡음.
+      추가 요인(관광객·외국인 부재, 고가 단가 소비 부족)도 함께 작용한 것으로 추정.</div>
+      <h3>V2 시간대 6구간 분포</h3>
+      <table>
+        <thead><tr><th>시간대</th><th class="num">실측</th><th class="num">시뮬</th></tr></thead>
+        <tbody>{time_rows}</tbody>
+      </table>
+      <div class="callout"><strong>한계 — bimodal 편향 + 야간 결손</strong><br/>
+      시뮬 피크 위치 <strong>저녁(17~21시) 33.2%</strong> vs 실측 피크 <strong>점심(11~14시) 26.1%</strong> — 모델이 저녁 외출 과잉.
+      시뮬 분포는 bimodal(점심·저녁 쌍봉, 오후 dip), 실측은 11~21시 평탄(25%씩).
+      <strong>오후 14~17시 결손 -8.3%p</strong>, <strong>새벽·심야(00~06, 21~24) 매출 거의 0</strong>(실측 합 10.5%) — LLM이 야간 commerce(편의점·심야식당) 외출 거의 안 만듦.
+      cos 0.96은 큰 패턴까지만 잡고 세부 분포 차이는 큼.</div>
+      <h3>V3 업종 분포 (대분류 10개)</h3>
+      <table>
+        <thead><tr><th>대분류</th><th class="num">실측</th><th class="num">시뮬</th></tr></thead>
+        <tbody>{db_rows}</tbody>
+      </table>
+      <div class="callout"><strong>한계 — 식음료 편향 + 쇼핑·교육 결손</strong><br/>
+      <strong>식음료 +21.7%p 과잉</strong>(실측 27.4%→시뮬 49.1%) — LLM이 외출을 "식당·카페 가기"로 과대 예측.
+      <strong>의류/잡화 -15.9%p 결손</strong>(실측 17.7%→시뮬 1.8%) — 쇼핑 외출 거의 안 만듦.
+      <strong>교육·학원 -3.8%p 결손</strong> — 학원·교습소 외출 부족.
+      매핑 보강으로 가짜 mismatch는 해소됐지만 <strong>본질적 행동 편향</strong>이 잔존.</div>
+      {_v3_age_ratio_html(s6, chart_dir)}
+      <h3>V4 인구통계×업종 cross — 한계</h3>
+      <div class="callout">
+      청년층(10·20대) cos ≥ 0.88로 강함 — 모델이 청년 행동 잘 재현.<br/>
+      <strong>중장년(40대 cos 0.70)</strong> 행동 패턴 재현 약함 — V3의 의류·쇼핑 결손이 중장년 비중 큰 업종에 집중된 영향.<br/>
+      평균 cos 0.83은 연령 cell 내부 분포 일치만 보고, <strong>연령 간 ratio</strong>(예: 20대/60대 카페 점유 차이)는 측정 안 함 — 더 강한 신호 검증 누락.</div>
+      <h3>V5 주중/주말 — 상세</h3>
+      <p><strong>의미</strong>: 4일 baseline 총 commerce 매출 중 주중(월~금) vs 주말(토·일) 비율.</p>
+      <table>
+        <thead><tr><th>구분</th><th class="num">실측</th><th class="num">시뮬</th></tr></thead>
+        <tbody>
+          <tr><td><strong>주중 매출 비율</strong></td><td class='num'>{v5['real_weekday_pct']:.1f}%</td><td class='num'>{v5['sim_weekday_pct']:.1f}%</td></tr>
+          <tr><td><strong>주말 매출 비율</strong></td><td class='num'>{v5['real_weekend_pct']:.1f}%</td><td class='num'>{v5['sim_weekend_pct']:.1f}%</td></tr>
+          <tr><td>평일 1일/주말 1일 매출 ratio</td><td class='num'>{v5['real_daily_ratio']:.2f}×</td><td class='num'>{v5['sim_daily_ratio']:.2f}×</td></tr>
+        </tbody>
+      </table>
+      <p>baseline 구성: <strong>평일 {v5['sim_weekday_days']}일 + 주말 {v5['sim_weekend_days']}일</strong></p>
+      {'<div class="callout"><strong>⚠️ 검증 한계</strong>: baseline 4일이 모두 평일이라 주말 매출 0 — 주말 비교 자체가 불가능. 시뮬 9일 풀(평일 5일 + 주말 2일) 데이터 나오면 재측정해야 의미 있음.</div>' if v5['sim_weekend_days'] == 0 else f'<p style="color:var(--text-muted)"><em>주말 {v5["sim_weekend_days"]}일만 포함이라 ratio 표본 신뢰도 보수적 해석 필요</em></p>'}
+      <h3>V6 페르소나 소비분위 적합도 (Persona Fidelity)</h3>
+      <p><strong>의미</strong>: 페르소나의 BDC 소비분위(1~10)와 시뮬에서 실제 발생한 commerce 소비액의 상관성.
+      경제학의 "소득 탄력성"이 아니라(그건 종단 측정 필요) <strong>cross-sectional 적합도</strong>.</p>
+      <p>피어슨 상관 <strong style="color:var(--accent);font-size:18px">ρ = {v6['rho']:.3f}</strong><br/>
+         <em style="color:var(--text-muted)">{_h(v6['note'])}</em></p>
+      {_v6_table_html(v6)}
+      <p><strong>분위 1 ↔ 분위 10 ratio</strong>: 페르소나 budget {v6.get('budget_q1_q10_ratio',0):.2f}× / 시뮬 실소비 {v6.get('sim_q1_q10_ratio',0):.2f}×</p>
+      <div class="callout"><strong>한계 — 부자 페르소나 budget 미활용 (소비분위 압축)</strong><br/>
+      ρ={v6['rho']:.3f}는 "분위 높을수록 소비 많다"는 약-중간 신호. 강하지 않음.<br/>
+      <strong>저분위 페르소나는 budget을 거의 다 활용</strong>, <strong>고분위 페르소나는 budget의 40%만 활용</strong>
+      → 분위별 격차가 페르소나(1:5)에서 시뮬(1:2.5)로 <strong>절반 압축</strong>.<br/>
+      LLM이 부자 페르소나에 보수적으로 소비를 잡음 → 정책 차등 효과 분석 시 <strong>절대 수치보다 패턴 방향성에 무게</strong> 권장.</div>
+      {v6_warn}
+    </section>
+'''
 
     # Section 4-1 — trigger 표
     trigger_rows = ""
@@ -1565,14 +1988,6 @@ def build_html(start: date, days: int, policy_from: str | None,
                 f'<div class="interview-card {label}">'
                 f'<span class="label-tag">{_h(label)}</span>'
                 f'<p style="color:var(--text-muted)">샘플 없음 — {_h(d.get("error",""))}</p>'
-                f'</div>'
-            )
-            continue
-        if "persona" not in d:
-            interview_html += (
-                f'<div class="interview-card {label}">'
-                f'<span class="label-tag">{_h(label)}</span>'
-                f'<p style="color:var(--text-muted)">샘플 없음 — persona 데이터 누락</p>'
                 f'</div>'
             )
             continue
@@ -1638,121 +2053,6 @@ def build_html(start: date, days: int, policy_from: str | None,
           </div>
         </div>
         """
-
-    # Section 6 — 타당성 검증 HTML
-    validation_section_html = ""
-    if s6:
-        v1 = s6["V1"]; v2 = s6["V2"]; v3 = s6["V3"]
-        v4a = s6["V4_age"]; v4g = s6["V4_gender"]
-        v5 = s6["V5"]; v6 = s6["V6"]
-        peak_match = "✓ 일치" if v2['peak_real'] == v2['peak_sim'] else f"{v2['peak_real']}↔{v2['peak_sim']}"
-        verdict = lambda ok: "✅" if ok else "△"
-        v6_v = "✅" if v6['rho']>=0.7 else ("△" if v6['rho']>=0.4 else "❌")
-        time_rows = "".join(
-            f"<tr><td>{lbl}</td><td class='num'>{r*100:.1f}%</td><td class='num'>{sv*100:.1f}%</td></tr>"
-            for lbl, r, sv in zip(v2['labels'], v2['real'], v2['sim'])
-        )
-        db_rows = "".join(
-            f"<tr><td>{lbl}</td><td class='num'>{r*100:.1f}%</td><td class='num'>{sv*100:.1f}%</td></tr>"
-            for lbl, r, sv in zip(v3['labels'], v3['real'], v3['sim'])
-        )
-        v6_warn = '<div class="callout"><strong>⚠️ 모델 한계 인정</strong>: ρ < 0.4 — 소득 차등 신호 약함. 정책 보고서에 한계 명시 필수.</div>' if v6['rho'] < 0.4 else ''
-        if v6.get('lvl_avg'):
-            v6_rows = ""
-            for lvl in sorted(v6['lvl_avg'].keys()):
-                bd = v6.get('budget_avg', {}).get(lvl, 0)
-                sim_v = v6['lvl_avg'][lvl]
-                fid = v6.get('fidelity_pct', {}).get(lvl, 0)
-                v6_rows += f"<tr><td>{lvl}</td><td class='num'>{int(bd):,}원</td><td class='num'>{int(sim_v):,}원</td><td class='num'>{fid:.1f}%</td></tr>"
-            v6_table_html_value = (
-                "<table><thead><tr><th>분위</th><th class='num'>페르소나 daily_wd budget</th>"
-                "<th class='num'>시뮬 실소비</th><th class='num'>budget 활용률</th></tr></thead>"
-                f"<tbody>{v6_rows}</tbody></table>"
-            )
-        else:
-            v6_table_html_value = ""
-        ar = s6.get('V_age_ratio')
-        fig_b = s6.get('fig_v3_age_ratio')
-        if ar and fig_b:
-            ar_rows = ""
-            for d, rr, sr, agree in ar['pairs']:
-                rr_s = f"{rr:.2f}" if rr is not None else "—"
-                sr_s = f"{sr:.2f}" if sr is not None else "—"
-                ag_s = "✓" if agree is True else ("✗" if agree is False else "—")
-                ar_rows += f"<tr><td>{_h(d)}</td><td class='num'>{rr_s}</td><td class='num'>{sr_s}</td><td class='num'>{ag_s}</td></tr>"
-            v3_age_ratio_html = (
-                f"<figure style=\"padding:12px;margin:20px -20px;\"><img src=\"{_img_data_uri(chart_dir / fig_b)}\" alt=\"V3 차이 + 연령 ratio\" style=\"width:100%;display:block;\"/><figcaption>V3 업종별 차이 (왼쪽) + 연령 간 ratio 20대/60대이상 (오른쪽)</figcaption></figure>"
-                f"<h3>연령 간 ratio — 20대 / 60대이상 점유 비교 (V3 보강 검증)</h3>"
-                f"<p>각 대분류에서 20대 점유율과 60대이상 점유율의 ratio. <strong>1.0 = 같음, &gt;1 = 20대 우세, &lt;1 = 60대 우세</strong>.</p>"
-                f"<table><thead><tr><th>대분류</th><th class='num'>실측 ratio</th><th class='num'>시뮬 ratio</th><th class='num'>방향 일치</th></tr></thead><tbody>{ar_rows}</tbody></table>"
-                f"<p>부분 코사인 (None 제외): <strong>{ar['cosine']:.3f}</strong><br/>"
-                f"<strong>방향 일치 (&gt;1 or &lt;1 부호 동일)</strong>: {ar['direction_agree']}/{ar['direction_total']} 대분류 — "
-                f"방향 다른 대분류 = 모델이 연령 선호 패턴 잘못 학습 신호.</p>"
-            )
-        else:
-            v3_age_ratio_html = ""
-        v5_note = '<div class="callout"><strong>⚠️ 검증 한계</strong>: baseline 4일이 모두 평일이라 주말 매출 0 — 주말 비교 자체가 불가능. 시뮬 9일 풀(평일 5일 + 주말 2일) 데이터 나오면 재측정해야 의미 있음.</div>' if v5['sim_weekend_days'] == 0 else f'<p style="color:var(--text-muted)"><em>주말 {v5["sim_weekend_days"]}일 포함이라 ratio 표본 신뢰도 보수적 해석 필요</em></p>'
-        validation_section_html = f'''
-    <section id="s-validation" class="reveal">
-      <h2>6. 시뮬레이션 타당성 검증 (Validation)</h2>
-      <p><strong>held-out 데이터</strong> — 시뮬·페르소나 생성에 사용하지 않은 외부 실측 데이터로 비교 검증.</p>
-      <ul>
-        <li>외부 실측: 서울시 상권분석서비스 추정매출 2025년 1분기 (행정동 단위)</li>
-        <li>지표 기준: arXiv 2507.08871 (2025) — 생성형 시뮬 OD 검증 코사인 0.97, JSD 0.006</li>
-      </ul>
-      <figure style="padding:12px;margin:20px -20px;"><img src="{_img_data_uri(chart_dir / s6['fig'])}" alt="검증 6종" style="width:100%;display:block;"/><figcaption style="margin-top:10px;">검증 6종 — 자치구 / 시간대 / 업종 / 연령×업종 / 주중주말 / 페르소나 분위 적합도</figcaption></figure>
-      <h3>검증 결과 요약</h3>
-      <table>
-        <thead><tr><th>#</th><th>검증</th><th class="num">코사인</th><th class="num">JSD</th><th class="num">MAPE/기타</th><th class="num">판정</th></tr></thead>
-        <tbody>
-          <tr><td>V1</td><td>{_h(v1['name'])}</td><td class='num'>{v1['cosine']:.3f}</td><td class='num'>{v1['jsd']:.4f}</td><td class='num'>{v1['mape']:.1f}%</td><td class='num'>{verdict(v1['cosine']>=0.85)}</td></tr>
-          <tr><td>V2</td><td>{_h(v2['name'])}</td><td class='num'>{v2['cosine']:.3f}</td><td class='num'>{v2['jsd']:.4f}</td><td class='num'>피크 {_h(peak_match)}</td><td class='num'>{verdict(v2['cosine']>=0.85)}</td></tr>
-          <tr><td>V3</td><td>{_h(v3['name'])}</td><td class='num'>{v3['cosine']:.3f}</td><td class='num'>{v3['jsd']:.4f}</td><td class='num'>Spearman {v3['spearman']:.2f}</td><td class='num'>{verdict(v3['cosine']>=0.85)}</td></tr>
-          <tr><td>V4a</td><td>{_h(v4a['name'])}</td><td class='num'>{v4a['cosine_avg']:.3f}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>{verdict(v4a['cosine_avg']>=0.85)}</td></tr>
-          <tr><td>V4b</td><td>{_h(v4g['name'])}</td><td class='num'>남 {v4g['cosine_male']:.3f} · 여 {v4g['cosine_female']:.3f}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>{verdict(v4g['cosine_male']>=0.85 and v4g['cosine_female']>=0.85)}</td></tr>
-          <tr><td>V5</td><td>{_h(v5['name'])}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>{v5['mape']:.1f}%</td><td class='num'>{verdict(v5['mape']<=15)}</td></tr>
-          <tr><td>V6</td><td>{_h(v6['name'])}</td><td class='num'>—</td><td class='num'>—</td><td class='num'>ρ={v6['rho']:.3f}</td><td class='num'>{v6_v}</td></tr>
-        </tbody>
-      </table>
-      <h3>V1 공간 분포 — 상세</h3>
-      <p>실측 TOP 3: {_h(", ".join(f"{g} ({p*100:.1f}%)" for g, p in v1['real_top3']))}<br/>
-         시뮬 TOP 3: {_h(", ".join(f"{g} ({p*100:.1f}%)" for g, p in v1['sim_top3']))}</p>
-      <p><strong>공간 집중도 (Gini)</strong> — 매출이 소수 자치구에 얼마나 몰리는지 (0=균등, 1=완전집중)<br/>
-         실측 Gini: <strong>{v1.get('real_gini',0):.3f}</strong> / 시뮬 Gini: <strong>{v1.get('sim_gini',0):.3f}</strong>
-         (차이 {abs(v1.get('real_gini',0)-v1.get('sim_gini',0)):.3f})</p>
-      <h3>V2 시간대 6구간 분포</h3>
-      <table>
-        <thead><tr><th>시간대</th><th class="num">실측</th><th class="num">시뮬</th></tr></thead>
-        <tbody>{time_rows}</tbody>
-      </table>
-      <h3>V3 업종 분포 (대분류 10개)</h3>
-      <table>
-        <thead><tr><th>대분류</th><th class="num">실측</th><th class="num">시뮬</th></tr></thead>
-        <tbody>{db_rows}</tbody>
-      </table>
-      {v3_age_ratio_html}
-      <h3>V5 주중/주말 — 상세</h3>
-      <p><strong>의미</strong>: 13일 시뮬 총 commerce 매출 중 주중(월~금) vs 주말(토·일) 비율.</p>
-      <table>
-        <thead><tr><th>구분</th><th class="num">실측</th><th class="num">시뮬</th></tr></thead>
-        <tbody>
-          <tr><td><strong>주중 매출 비율</strong></td><td class='num'>{v5['real_weekday_pct']:.1f}%</td><td class='num'>{v5['sim_weekday_pct']:.1f}%</td></tr>
-          <tr><td><strong>주말 매출 비율</strong></td><td class='num'>{v5['real_weekend_pct']:.1f}%</td><td class='num'>{v5['sim_weekend_pct']:.1f}%</td></tr>
-          <tr><td>평일 1일/주말 1일 매출 ratio</td><td class='num'>{v5['real_daily_ratio']:.2f}×</td><td class='num'>{v5['sim_daily_ratio']:.2f}×</td></tr>
-        </tbody>
-      </table>
-      <p>시뮬 구성: <strong>평일 {v5['sim_weekday_days']}일 + 주말 {v5['sim_weekend_days']}일</strong></p>
-      {v5_note}
-      <h3>V6 페르소나 소비분위 적합도 (Persona Fidelity)</h3>
-      <p><strong>의미</strong>: 페르소나의 BDC 소비분위(1~10)와 시뮬에서 실제 발생한 commerce 소비액의 상관성.
-      경제학의 "소득 탄력성"이 아니라(그건 종단 측정 필요) <strong>cross-sectional 적합도</strong>.</p>
-      <p>피어슨 상관 <strong style="color:var(--accent);font-size:18px">ρ = {v6['rho']:.3f}</strong><br/>
-         <em style="color:var(--text-muted)">{_h(v6['note'])}</em></p>
-      {v6_table_html_value}
-      <p><strong>분위 1 ↔ 분위 10 ratio</strong>: 페르소나 budget {v6.get('budget_q1_q10_ratio',0):.2f}× / 시뮬 실소비 {v6.get('sim_q1_q10_ratio',0):.2f}×</p>
-      {v6_warn}
-    </section>
-'''
 
     js_code = """
     document.addEventListener('DOMContentLoaded', function() {
@@ -2051,16 +2351,16 @@ def build_html(start: date, days: int, policy_from: str | None,
       </table>
     </section>
 
-    <section id="s-sales" class="reveal">
+    {sales_section_html if baseline else f'''<section id="s-sales" class="reveal">
       <h2>2. 정책 시행 전 vs 후 매출 추이</h2>
       <p>강남구 카페·디저트 바우처(30% 환급, 인당 5만원 한도)가
         시행된 <code>{_h(policy_from or '—')}</code> 시점을 기준으로
         정책 대상 카테고리(식사·카페·디저트)의 일별 매출을 비교합니다.
         세 관점 — (A) 인구 비례 1인당 매출, (B) baseline 대비 변화율, (C) DID — 으로 분석합니다.</p>
-      {_figure(chart_dir / s2_figs['per_capita'], '(A) 1인당 일별 매출 — 인구 비례 환산 후 강남 vs 비강남 절대 비교') if isinstance(s2_figs, dict) and s2_figs.get('per_capita') else ''}
-      {_figure(chart_dir / s2_figs['change_rate'], '(B) baseline 대비 매출 변화율 — 같은 0% 출발점에서 패턴 비교') if isinstance(s2_figs, dict) and s2_figs.get('change_rate') else ''}
-      {_figure(chart_dir / s2_figs['did'], '(C) DID — 강남 변화율 − 비강남 변화율 (정책 순효과)') if isinstance(s2_figs, dict) and s2_figs.get('did') else ''}
-      {_figure(chart_dir / 'fig2b_income_did_p009.png', '소득 군집별 DID — 6/1 정책 시행 전후 비교') if (chart_dir / 'fig2b_income_did_p009.png').exists() else ''}
+      {_figure(chart_dir / s2_figs['per_capita'] if isinstance(s2_figs, dict) else chart_dir / s2_figs,
+               '(A) 1인당 일별 매출 — 인구 비례 환산 후 강남 vs 비강남 절대 비교')}
+      {_figure(chart_dir / s2_figs['change_rate'], '(B) baseline 대비 매출 변화율 — 같은 0% 출발점에서 패턴 비교') if isinstance(s2_figs, dict) else ''}
+      {_figure(chart_dir / s2_figs['did'], '(C) DID — 강남 변화율 − 비강남 변화율 (정책 순효과)') if isinstance(s2_figs, dict) else ''}
       {'<h3>평균 일간 매출 비교</h3><table><thead><tr><th>자치구</th><th class="num">시행 전</th><th class="num">시행 후</th><th class="num">변화율</th></tr></thead><tbody>' + sales_rows + '</tbody></table>' + did_callout if sm else ''}
     </section>
 
@@ -2068,8 +2368,8 @@ def build_html(start: date, days: int, policy_from: str | None,
       <h2>3. 간접 영향 (Spillover)</h2>
       <p>강남 정책이 직접 적용되지 않은 인접 자치구(서초·송파)와 멀리 떨어진 강북에 미친 영향을 비교합니다.
         인접 자치구의 매출 변화가 강북보다 두드러지면 spillover로 해석할 수 있습니다.</p>
-      {_figure(chart_dir / s3_fig, '자치구별 매출 추이 — 강남 정책의 간접 영향 추적') if s3_fig else ''}
-    </section>
+      {_figure(chart_dir / s3_fig, '자치구별 매출 추이 — 강남 정책의 간접 영향 추적')}
+    </section>'''}
 
     <section id="s-behavior" class="reveal">
       <h2>4. 소비자 행동 분석</h2>
@@ -2108,7 +2408,9 @@ def build_html(start: date, days: int, policy_from: str | None,
         실제 의사결정을 추적합니다.</p>
       {interview_html}
     </section>
-{validation_section_html}
+
+    {validation_section_html}
+
     <section id="s-appendix" class="reveal">
       <h2>부록</h2>
       <ul>
@@ -2134,200 +2436,6 @@ def build_html(start: date, days: int, policy_from: str | None,
 # ═══════════════════════════════════════════════════════════════
 # main
 # ═══════════════════════════════════════════════════════════════
-# ═══════════════════════════════════════════════════════════════
-# P009 income bucket별 DID 분석 (정책 적용 그룹 vs baseline)
-# ═══════════════════════════════════════════════════════════════
-def section2b_income_did_p009(start: date, days: int, policy_from: str, out_dir: Path) -> dict:
-    """P009 적용 효과: income bucket(중상/중/중하/하)별 baseline(Day 1·2) vs treatment(Day 3) DID.
-
-    grant 받은 agent만 treatment 그룹 (jsonl grant_applied_today > 0).
-    grant=0 agent (정책 적용 실패 + income='상' 자연 비대상) 모두 제외 → 정책 효과만 측정.
-    """
-    import json
-    cutoff = date.fromisoformat(policy_from)
-    treatment_day = cutoff.isoformat()
-
-    # 정책 적용 그룹 aid set — jsonl 메트릭에서 fetch
-    grant_aids: set[str] = set()
-    metrics_path = Path(os.path.expanduser("~/sim_output/metrics")) / f"day_{treatment_day}.jsonl"
-    if not metrics_path.exists():
-        # SIM_OUTPUT_DIR 환경변수
-        sim_dir = os.environ.get("SIM_OUTPUT_DIR")
-        if sim_dir:
-            metrics_path = Path(sim_dir) / "metrics" / f"day_{treatment_day}.jsonl"
-    if metrics_path.exists():
-        with open(metrics_path, encoding='utf-8') as f:
-            for line in f:
-                try:
-                    r = json.loads(line)
-                    if r.get('status') == 'ok' and (r.get('grant_applied_today', 0) or 0) > 0:
-                        grant_aids.add(r['aid'])
-                except Exception:
-                    pass
-    print(f"  [P009 분석] 정책 적용 그룹: {len(grant_aids)}명", file=sys.stderr)
-
-    income_buckets = ["중상", "중", "중하", "하"]
-    grant_amounts = {"중상": 100000, "중": 250000, "중하": 450000, "하": 600000}
-    baseline_days = [(start + timedelta(days=i)).isoformat() for i in range(days)
-                     if (start + timedelta(days=i)) < cutoff]
-
-    per_bucket: dict[str, dict] = {}
-    with driver_session() as s:
-        for bucket in income_buckets:
-            # baseline: 해당 income bucket agent들의 Day 1·2 평균 일소비 (commerce)
-            baseline_avg = 0.0
-            baseline_agents = 0
-            if baseline_days:
-                row = s.run("""
-                    MATCH (a:Agent {p_income_level: $lv})
-                    MATCH (a)-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->(:POI {type:'commerce'})
-                    WHERE toString(p.day) IN $days
-                    WITH a, p.day AS day, sum(coalesce(i.actual_spent, 0)) AS daily_spend
-                    WITH avg(daily_spend) AS avg_per_day, count(DISTINCT a) AS n
-                    RETURN avg_per_day AS avg, n
-                """, lv=bucket, days=baseline_days).single()
-                baseline_avg = float(row['avg'] or 0)
-                baseline_agents = int(row['n'] or 0)
-
-            # treatment: 정책 적용 agent + 같은 bucket의 Day 3 평균 일소비
-            treatment_avg = 0.0
-            treatment_agents = 0
-            if grant_aids:
-                row = s.run("""
-                    MATCH (a:Agent {p_income_level: $lv})
-                    WHERE a.id IN $aids
-                    MATCH (a)-[:HAS_PLAN {day: date($day)}]->(p:Plan)-[i:INCLUDES]->(:POI {type:'commerce'})
-                    WITH a, sum(coalesce(i.actual_spent, 0)) AS daily_spend
-                    RETURN avg(daily_spend) AS avg, count(DISTINCT a) AS n
-                """, lv=bucket, aids=list(grant_aids), day=treatment_day).single()
-                treatment_avg = float(row['avg'] or 0)
-                treatment_agents = int(row['n'] or 0)
-
-            # 정책 사용액 평균 (treatment 그룹) — apoc 의존 없이 Python 후처리
-            policy_spend_avg = 0.0
-            if treatment_agents > 0:
-                rows = s.run("""
-                    MATCH (a:Agent {p_income_level: $lv})
-                    WHERE a.id IN $aids
-                    MATCH (a)-[:HAS_PLAN {day: date($day)}]->(p:Plan)-[i:INCLUDES]->(:POI)
-                    WHERE i.spent_from_policy IS NOT NULL
-                      AND i.spent_from_policy <> '{}'
-                      AND i.spent_from_policy <> 'null'
-                    RETURN a.id AS aid, i.spent_from_policy AS sp
-                """, lv=bucket, aids=list(grant_aids), day=treatment_day).data()
-                agent_spend: dict[str, int] = {}
-                for r in rows:
-                    try:
-                        sp_dict = json.loads(r['sp']) if r['sp'] else {}
-                        aid = r['aid']
-                        agent_spend[aid] = agent_spend.get(aid, 0) + int(sp_dict.get('P009', 0))
-                    except Exception:
-                        pass
-                if agent_spend:
-                    # 정책 사용 agent만 집계 vs 전체 treatment agent 분모? 후자가 의미 있음
-                    policy_spend_avg = sum(agent_spend.values()) / max(treatment_agents, 1)
-
-            change_pct = ((treatment_avg - baseline_avg) / max(baseline_avg, 1)) * 100
-            grant = grant_amounts[bucket]
-            usage_rate = (policy_spend_avg / grant * 100) if grant > 0 else 0
-
-            per_bucket[bucket] = {
-                "baseline_avg": round(baseline_avg),
-                "treatment_avg": round(treatment_avg),
-                "change_pct": round(change_pct, 2),
-                "grant_amount": grant,
-                "policy_spend_avg": round(policy_spend_avg),
-                "usage_rate_pct": round(usage_rate, 2),
-                "baseline_n": baseline_agents,
-                "treatment_n": treatment_agents,
-            }
-
-    # 차트 — bucket별 baseline vs treatment 막대
-    plt = _setup_mpl()
-    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
-    buckets = income_buckets
-    baseline_vals = [per_bucket[b]['baseline_avg'] for b in buckets]
-    treatment_vals = [per_bucket[b]['treatment_avg'] for b in buckets]
-    grant_vals = [per_bucket[b]['grant_amount'] for b in buckets]
-    spend_vals = [per_bucket[b]['policy_spend_avg'] for b in buckets]
-
-    # (A) baseline vs treatment per income
-    ax = axes[0]
-    x = range(len(buckets))
-    w = 0.35
-    ax.bar([xi - w/2 for xi in x], baseline_vals, w, label='baseline (Day 1·2 평균)', color='#4cc9f0')
-    ax.bar([xi + w/2 for xi in x], treatment_vals, w, label='treatment (Day 3 정책 적용)', color='#e76f51')
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(buckets)
-    ax.set_xlabel('Income bucket'); ax.set_ylabel('1인 1일 평균 소비 (원)')
-    ax.set_title('(A) 정책 적용 그룹의 baseline vs treatment per income bucket')
-    ax.legend()
-    ax.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda v, _: f'{int(v):,}'))
-
-    # (B) grant 지급액 vs 사용액
-    ax = axes[1]
-    ax.bar([xi - w/2 for xi in x], grant_vals, w, label='Grant 지급액', color='#a3d977')
-    ax.bar([xi + w/2 for xi in x], spend_vals, w, label='Grant 평균 사용액', color='#fb8500')
-    ax.set_xticks(list(x))
-    ax.set_xticklabels(buckets)
-    ax.set_xlabel('Income bucket'); ax.set_ylabel('금액 (원)')
-    ax.set_title('(B) Grant 차등 지급액 vs 평균 사용액')
-    ax.legend()
-    ax.yaxis.set_major_formatter(plt.matplotlib.ticker.FuncFormatter(lambda v, _: f'{int(v):,}'))
-
-    plt.tight_layout()
-    fig_path = out_dir / "fig2b_income_did_p009.png"
-    plt.savefig(fig_path, dpi=140, bbox_inches='tight')
-    plt.close()
-
-    return {
-        "per_bucket": per_bucket,
-        "grant_aids_count": len(grant_aids),
-        "fig": fig_path.name,
-    }
-
-
-def _insert_p009_section(md: str, s2b: dict, chart_dir_rel: str) -> str:
-    """section 2 직후에 P009 income bucket 분석 섹션 삽입."""
-    pb = s2b["per_bucket"]
-    fig = s2b["fig"]
-    n_grant = s2b["grant_aids_count"]
-
-    lines = []
-    lines.append("## 2-B. P009 정책 효과 — Income Bucket별 분리 분석")
-    lines.append("")
-    lines.append(f"- 정책 적용 그룹(treatment): grant 받은 agent **{n_grant:,}명**")
-    lines.append(f"- baseline: Day 1·2 (정책 미주입) per income bucket 평균 일소비")
-    lines.append(f"- treatment: Day 3 (정책 주입일) 같은 income bucket의 정책 적용 agent 평균 일소비")
-    lines.append("")
-    lines.append(f"![P009 income bucket DID]({chart_dir_rel}/{fig})")
-    lines.append("")
-    lines.append("### Income bucket별 정책 효과")
-    lines.append("")
-    lines.append("| Income | Grant | baseline 평균 | treatment 평균 | 변화율 | 평균 grant 사용 | 사용률 |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|")
-    for b in ["중상", "중", "중하", "하"]:
-        d = pb[b]
-        lines.append(
-            f"| **{b}** | {d['grant_amount']:,}원 | {d['baseline_avg']:,}원 | "
-            f"{d['treatment_avg']:,}원 | **{d['change_pct']:+}%** | "
-            f"{d['policy_spend_avg']:,}원 | {d['usage_rate_pct']}% |"
-        )
-    lines.append("")
-    lines.append("**해석**:")
-    lines.append("- 변화율 = (treatment - baseline) / baseline × 100. 양수면 정책으로 소비 증가.")
-    lines.append("- 사용률 = 평균 grant 사용 / 지급액. 받은 사람들이 얼마나 활용했는지.")
-    lines.append("- income bucket별 분리 비교라 income 분포 mismatch 영향 없음.")
-    lines.append("")
-
-    # section 3 앞에 삽입
-    marker = "## 3. 간접 영향"
-    if marker in md:
-        return md.replace(marker, "\n".join(lines) + "\n" + marker)
-    # marker 없으면 끝에 추가
-    return md + "\n\n" + "\n".join(lines)
-
-
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default="2026-05-01")
@@ -2335,7 +2443,8 @@ def main():
     ap.add_argument("--policy-from", default=None, help="정책 effective_from (ISO date)")
     ap.add_argument("--out", default="docs/FINAL_REPORT.md")
     ap.add_argument("--skip-interview", action="store_true", help="인터뷰 생략 (LLM 호출 X)")
-    ap.add_argument("--skip-validation", action="store_true", help="V1~V6 타당성 검증 생략")
+    ap.add_argument("--baseline", action="store_true",
+                    help="무정책 baseline 모드 — section2/3을 일별 안정성·분포 분석으로 교체")
     args = ap.parse_args()
 
     start = date.fromisoformat(args.start)
@@ -2347,12 +2456,21 @@ def main():
     print(f"[1/7] 조건 요약 ...", file=sys.stderr)
     s1 = section1_conditions(start, args.days, args.policy_from)
 
-    if args.policy_from:
-        print(f"[2/7] P009 소득 군집별 정책 효과 ...", file=sys.stderr)
-        s2 = section2b_income_did_p009(start, args.days, args.policy_from, chart_dir)
+    if args.baseline:
+        from baseline_sections import section2_baseline_daily, section3_baseline_distribution
+        print(f"[2/7] baseline 일별 안정성·분포 ...", file=sys.stderr)
+        s2 = section2_baseline_daily(start, args.days, chart_dir)
+        print(f"[3/7] baseline 자치구·소득·연령별 분포 ...", file=sys.stderr)
+        s3 = section3_baseline_distribution(start, args.days, chart_dir)
+    elif args.policy_from:
+        print(f"[2/7] 정책 전/후 매출 추이 ...", file=sys.stderr)
+        s2 = section2_before_after(start, args.days, args.policy_from, chart_dir)
+        print(f"[3/7] spillover ...", file=sys.stderr)
+        s3 = section3_spillover(start, args.days, chart_dir)
     else:
-        s2 = None
-    s3 = None
+        s2 = ({"summary": {}, "daily": []}, "fig2_skipped.png")
+        print(f"[3/7] spillover ...", file=sys.stderr)
+        s3 = section3_spillover(start, args.days, chart_dir)
 
     print(f"[4-1/7] trigger 분포 ...", file=sys.stderr)
     s4_1 = section4_1_triggers(start, args.days, chart_dir)
@@ -2363,36 +2481,73 @@ def main():
     print(f"[4-3/7] 만족도 ...", file=sys.stderr)
     s4_3 = section4_3_satisfaction(start, args.days, chart_dir)
 
-    if args.skip_interview:
-        s5 = {"grant": {"error": "skipped"}}
+    # 검증 V1~V6 (baseline 모드만, 서울 상권분석 + BDC 비교)
+    if args.baseline:
+        from validation_sections import run_validation
+        print(f"[6.5/8] 타당성 검증 V1~V6 ...", file=sys.stderr)
+        s6 = run_validation(start, args.days, chart_dir)
     else:
-        print(f"[5/7] 인터뷰 (지원금 수혜 1명 × 6 질문) ...", file=sys.stderr)
-        s5 = section5_interviews(start, args.days, chart_dir)
+        s6 = None
 
-    s6 = None
-    if not args.skip_validation:
-        try:
-            from validation_sections import run_validation
-            print(f"[6/8] 시뮬레이션 타당성 검증 V1~V6 ...", file=sys.stderr)
-            s6 = run_validation(start, args.days, chart_dir)
-        except Exception as _e:
-            print(f"  [warn] validation 실패 (skip): {_e}", file=sys.stderr)
-            s6 = None
+    if args.skip_interview:
+        s5 = {l: {"error": "skipped"} for l in ["positive", "negative", "neutral"]}
+    else:
+        print(f"[5/7] 인터뷰 (3 라벨 × 6 질문 = 18 LLM 호출) ...", file=sys.stderr)
+        if args.baseline:
+            # baseline 모드 — 만족도 상위/하위/중간 기반 라벨링
+            from baseline_sections import find_satisfaction_sample
+            from interview_agent import fetch_agent_full, ask
+            day_strs = [(start + timedelta(days=i)).isoformat() for i in range(args.days)]
+            s5 = {}
+            INTERVIEW_QUESTIONS_BASELINE = [
+                f"이번 4일({day_strs[0]}~{day_strs[-1]}) 동안 외출 결정에서 가장 영향을 준 요소는 무엇이었나요?",
+                "방문한 가게 중 가장 만족스러웠던 곳과 이유는?",
+                "평일과 주말 소비 패턴이 어떻게 달랐나요?",
+                "다시 가고 싶지 않은 가게가 있었나요? 이유는?",
+                "가까운 동네 가게 vs 멀리 떨어진 곳, 어디를 더 선호하나요?",
+                "한 달 예산 안에서 외식·여가에 얼마를 쓰는 것이 적당하다고 느끼나요?",
+            ]
+            for label in ["positive", "negative", "neutral"]:
+                print(f"  [interview] {label} (만족도 기반) ...", file=sys.stderr)
+                aid = find_satisfaction_sample(label, day_strs)
+                if not aid:
+                    s5[label] = {"error": "샘플 없음"}
+                    continue
+                data = fetch_agent_full(aid, day_strs)
+                qa = []
+                for q in INTERVIEW_QUESTIONS_BASELINE:
+                    try:
+                        a = ask(data, q)
+                    except Exception as e:
+                        a = f"(인터뷰 실패: {e})"
+                    qa.append({"q": q, "a": a})
+                s5[label] = {
+                    "agent_id": aid,
+                    "persona": {
+                        "age": data["persona"].get("p_age_group"),
+                        "gender": data["persona"].get("p_gender"),
+                        "job": data["persona"].get("personal_job_raw"),
+                        "lifestyle": data["persona"].get("personality_lifestyle_raw"),
+                        "income": data["persona"].get("p_income_level"),
+                        "home_dong": data["persona"].get("home_dong_name"),
+                    },
+                    "qa": qa,
+                }
+        else:
+            s5 = section5_interviews(start, args.days, chart_dir)
 
-    print(f"[7/8] markdown 빌드 ...", file=sys.stderr)
+    print(f"[6/8] markdown 빌드 ...", file=sys.stderr)
     md = build_markdown(start, args.days, args.policy_from,
-                        s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir_rel)
+                        s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir_rel,
+                        baseline=args.baseline, s6=s6)
     out_md.write_text(md, encoding="utf-8")
 
-    print(f"[7/8] HTML 빌드 ...", file=sys.stderr)
-    try:
-        html_doc = build_html(start, args.days, args.policy_from,
-                              s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir, s6)
-        out_html = out_md.with_suffix(".html")
-        out_html.write_text(html_doc, encoding="utf-8")
-    except Exception as _e:
-        print(f"  [warn] HTML 실패 (markdown 정상): {_e}", file=sys.stderr)
-        out_html = out_md.with_suffix(".html")
+    print(f"[7/8] HTML 빌드 (차트 PNG → base64 임베드, 단일 파일) ...", file=sys.stderr)
+    html_doc = build_html(start, args.days, args.policy_from,
+                          s1, s2, s3, s4_1, s4_2, s4_3, s5, chart_dir,
+                          baseline=args.baseline, s6=s6)
+    out_html = out_md.with_suffix(".html")
+    out_html.write_text(html_doc, encoding="utf-8")
 
     print(f"\n[8/8] DONE", file=sys.stderr)
     print(f"  → markdown: {out_md}", file=sys.stderr)

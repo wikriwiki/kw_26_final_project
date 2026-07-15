@@ -86,8 +86,8 @@ MATCH (a:Agent {id: $aid})-[:REMEMBERS]->(m:Memory)
 WHERE m.day >= $today - duration({days: 30})
 OPTIONAL MATCH (m)-[:ABOUT_POI]->(p:POI)-[:IN_CATEGORY]->(c:Category)
 WITH m, p, c,
-     duration.inDays($today, m.day).days AS days_ago,
-     m.importance * exp(-toFloat(duration.inDays($today, m.day).days) / 14.0) AS score
+     duration.inDays(m.day, $today).days AS days_ago,
+     m.importance * exp(-toFloat(duration.inDays(m.day, $today).days) / 14.0) AS score
 RETURN m.type AS type, m.day AS day, m.importance AS importance,
        coalesce(m.satisfaction, 0.0) AS satisfaction,
        coalesce(m.summary, '') AS summary,
@@ -174,7 +174,7 @@ MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p:POI)-[:IN_CATEGORY]->(c:Category)
 RETURN c.parent AS L1, c.name AS sub,
        count(p) AS n,
        sum(CASE WHEN kp.visit_count > 0 THEN 1 ELSE 0 END) AS n_visited
-ORDER BY n DESC LIMIT 30
+ORDER BY n_visited DESC, n DESC LIMIT 20
 """
 
 
@@ -286,6 +286,17 @@ class DawnContext:
         except Exception:
             return {}
 
+    def get_grant_remaining(self) -> dict:
+        """State에서 정책별 grant 잔액 dict 반환 (grant type 정책용)."""
+        import json as _json
+        raw = (self.state or {}).get("grant_remaining")
+        if not raw:
+            return {}
+        try:
+            return _json.loads(raw)
+        except Exception:
+            return {}
+
 
 def _strip_lifestyle_first_line(lifestyle: str) -> str:
     """5줄 페르소나에서 첫 줄(성격/계획성 요약)을 제거.
@@ -313,12 +324,12 @@ def _format_persona(p: dict) -> str:
     lines = [
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
-        f"소비: 평일 {p.get('daily_wd',0):,}원, 주말 {p.get('daily_we',0):,}원 (주말/평일 {p.get('we_wd_ratio',1):.2f}배) / 성향: {p.get('tendency','')}",
-        f"행태: 배달 {p.get('delivery_days',0)}일/월, 평일 재택 {p.get('home_h_wd',0):.1f}h, 주말 재택 {p.get('home_h_we',0):.1f}h, 이동성 분위 {p.get('mobility',0)}",
+        f"소비: 평일 {(p.get('daily_wd') or 0):,}원, 주말 {(p.get('daily_we') or 0):,}원 (주말/평일 {(p.get('we_wd_ratio') or 1):.2f}배) / 성향: {p.get('tendency','')}",
+        f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]
     if p.get("work_dong"):
-        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {p.get('commute_min',0)}분")
+        lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {(p.get('commute_min') or 0)}분")
     else:
         lines.append("직장: 없음")
     if lifestyle:
@@ -334,24 +345,18 @@ def _format_state(s: dict | None) -> str:
     if not s:
         return "(어제 State 없음 — Day 0 시드 누락 가능)"
     lc = s.get("policy_lc") or "{}"
-    # 지원금 입금 전/후 비교 — 오늘 무엇이 달라졌는지 명시적으로 인지시킴
+    # grant는 balance와 분리된 독립 지갑(grant_remaining) — 정책이 순수 자산을 오염시키지 않음.
+    # windfall 감쇠 상세는 정책 카드(_format_policy)가 담당, 여기선 '별도 보유' 사실만 명시.
     bal = s.get("balance", 0) or 0
-    gtoday = s.get("grants_today_total") or 0
-    if gtoday > 0:
-        before = s.get("balance_before_grant", bal - gtoday)
-        bal_line = (f"잔액: {bal:,}원 ⬆ 변화 있음 — 어제까지 {before:,}원이었는데 "
-                    f"오늘 새벽 정책 지원금 +{gtoday:,}원이 입금됨 (정책 블록 참조)")
-    else:
-        bal_line = f"잔액: {bal:,}원"
-        # 지급 당일이 아니어도, 지원금 잔여가 있으면 '며칠 전 받은 여윳돈'으로
-        # 계속 인지시키되 경과일과 함께 (감쇠는 정책 블록의 의미 문구가 담당)
-        rem_all = sum(int(v or 0) for v in _json_dict(s.get("grant_remaining")).values())
+    bal_line = f"잔액(내 돈): {bal:,}원"
+    rem_all = sum(int(v or 0) for v in _json_dict(s.get("grant_remaining")).values())
+    if rem_all > 0:
         days_map = s.get("grant_days_since") or {}
-        if rem_all > 0 and days_map:
-            d_min = min(days_map.values())
-            if d_min > 0:
-                bal_line += (f" — 이 중 {rem_all:,}원은 {d_min}일 전 받은 "
-                             f"정책 지원금의 잔여분 (정책 블록 참조)")
+        d_min = min(days_map.values()) if days_map else None
+        if d_min is None or d_min <= 0:
+            bal_line += f" · 정책 지원금 {rem_all:,}원 별도 보유 (오늘 지급된 공돈 — 대가 없이 받은 돈, 정책 블록 참조)"
+        else:
+            bal_line += f" · 정책 지원금 잔여 {rem_all:,}원 ({d_min}일 전 지급분, 정책 블록 참조)"
     return (
         f"{bal_line} / 이번달 누적지출: {s.get('month_spent',0):,}원\n"
         f"에너지: {s.get('energy',0):.2f}, mood: {s.get('mood',0):.2f}, fatigue: {s.get('fatigue',0):.2f}\n"
@@ -362,7 +367,8 @@ def _format_state(s: dict | None) -> str:
 
 def _format_memory(rows: list[dict]) -> str:
     if not rows:
-        return "(최근 30일 기억 없음 — Day 0 직후 또는 신규 agent)"
+        return ("(어제·최근 visit 데이터 없음 — '어제 거기서 맛있었다'·'어제 만족도 X' "
+                "같은 회상·만족도 인용 절대 금지. 신규 의사결정만 가능)")
     lines = []
     for r in rows:
         days = r.get("days_ago", 0)
@@ -457,7 +463,10 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
     persona/state: grant 카드의 개인화(소득 기준 지급액, 수령·잔여, 평소 소비 대비 의미).
     """
     if not rows:
-        return "(거주·직장 동에 적용 정책 없음)"
+        return ("(오늘 활성 정책 없음 — 정책·바우처·쿠폰 인용 금지. "
+                "reasoning이나 pick_reason에 'P0xx 정책지원금', '바우처', '쿠폰' 등 "
+                "정책 관련 표현을 등장시키지 말 것.)")
+    import json as _json
     used = policy_used or {}
     p = persona or {}
     st = state or {}
@@ -468,13 +477,12 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
         type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
         regions = ", ".join([x for x in (r.get("regions") or []) if x]) or "?"
         target_l1s = r.get("target_l1s") or []
-        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(업종 비특정)"
+        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(모든 업종 사용 가능)"
 
         head = f"{r['id']} [{type_label}] {r['name']}"
         meta_parts = [f"적용지역: {regions}", f"대상업종: {targets}",
                       f"기간: {r['from_']}~{r['until_']}"]
 
-        # subsidy(쿠폰·환급) 정책: 환급률 + 잔액 표시
         rate = r.get("rate")
         cap = r.get("cap")
         ptype = r.get("type")
@@ -516,13 +524,29 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
             remaining = max(0, cap - cap_used)
             rate_s = f"{int(rate*100)}% 환급" if rate else "100% 차감"
             meta_parts.insert(0, f"{rate_s} (한도 {cap:,}원)")
-            # 잔액 명시 (LLM이 보고 의사결정)
             meta_parts.append(
                 f"💳 누적 사용 {cap_used:,}원 / 한도 {cap:,}원 — **남은 잔액 {remaining:,}원**"
                 + (" ⚠️ 잔액 소진" if remaining == 0 else "")
             )
+        elif ptype == "grant":
+            # grant(정부 무료 지원금): 본인 분위 수령액 + 잔액 명시
+            try:
+                grants = _json.loads(r.get("income_grants") or "{}")
+            except Exception:
+                grants = {}
+            my_amount = int(grants.get(agent_income or "", 0))
+            remaining = int(rem_dict.get(r["id"], my_amount))
+            used_amt = max(0, my_amount - remaining)
+
+            if my_amount > 0:
+                meta_parts.insert(0, f"💰 정부 무료 지원금 (추가 소비 자금) — 귀하 소득분위 '{agent_income}' 수령액 {my_amount:,}원, 별도 지갑(가계 부담 0)")
+                meta_parts.append(
+                    f"💳 사용 {used_amt:,}원 / 잔액 {remaining:,}원"
+                    + (" (소진)" if remaining == 0 else " — 본인 부담 0. 하는 소비는 지원금으로 결제(개인 자산 보존). 또 돈 때문에 미뤄온 소비가 있었다면 부담 없어진 지금 해소할 기회(지급액 클수록 여지 큼).")
+                )
+            elif agent_income:
+                meta_parts.insert(0, f"❌ 귀하 소득분위 '{agent_income}' — 본 지원금 제외 대상 (수령 불가)")
         elif rate:
-            # cap 없는 subsidy 등
             meta_parts.insert(0, f"{int(rate*100)}% 환급")
 
         desc = r.get("description") or ""
@@ -612,7 +636,7 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         rng = random.Random(hash((persona.get("id"), today.isoformat())))
         for h in mobility.suggest_hubs(home_code, exclude, day_type,
-                                       persona.get("mobility"), k=3, rng=rng,
+                                       persona.get("mobility"), k=8, rng=rng,
                                        persona=persona):
             zones.append({"code": h["code"], "name": h.get("name", ""),
                           "gu": h.get("gu", ""), "type": "hub",
@@ -626,7 +650,7 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
 def build_dawn_context(
     aid: str,
     today: date,
-    memory_top_n: int = 7,
+    memory_top_n: int = 8,
     social_top_n: int = 8,
 ) -> DawnContext:
     """한 agent의 Dawn 컨텍스트를 7종 Cypher로 수집."""

@@ -21,22 +21,39 @@ from neo4j.warnings import Neo4jWarning
 warnings.filterwarnings("ignore", category=Neo4jWarning)
 
 
+_env_cache: dict | None = None
+_env_lock = threading.Lock()
+
 def load_env(dotenv_path: Path | None = None) -> dict:
-    """Load NEO4J_* env vars from .env file."""
+    """Load NEO4J_* env vars from .env file. 한 번 성공하면 캐시 — Google Drive
+    같이 일시 unmount되는 경로에서 매 호출 재읽기로 실패하는 것 방지."""
+    global _env_cache
+    if _env_cache is not None:
+        return _env_cache
+
     if dotenv_path is None:
         dotenv_path = Path(__file__).resolve().parents[2] / "data" / "neo4j_load" / ".env"
     cfg = {}
-    if dotenv_path.exists():
-        for line in dotenv_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#") or "=" not in line:
-                continue
-            k, v = line.split("=", 1)
-            cfg[k.strip()] = v.strip().strip('"').strip("'")
-    # env vars override
+    # .env read는 best-effort (G: 일시 unmount 등 안전망)
+    try:
+        if dotenv_path.exists():
+            for line in dotenv_path.read_text(encoding="utf-8").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                cfg[k.strip()] = v.strip().strip('"').strip("'")
+    except Exception:
+        pass  # 환경변수로 fallback
+    # env vars override (가장 우선)
     for k, v in os.environ.items():
         if k.startswith("NEO4J_") or k.startswith("VWORLD_"):
             cfg[k] = v
+    # 첫 성공 시 캐시 (NEO4J_PASSWORD 확보됐을 때만)
+    if cfg.get("NEO4J_PASSWORD"):
+        with _env_lock:
+            if _env_cache is None:
+                _env_cache = cfg
     return cfg
 
 

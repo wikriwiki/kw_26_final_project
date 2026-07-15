@@ -1,0 +1,24 @@
+# ── 버전관리·캐시 ──
+.git
+.gitattributes
+.gitignore
+.github/
+.claude/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# ── 런타임에 불필요 ──
+tests/
+conftest.py
+docs/
+*.md
+
+# ── 대용량 산출물(시뮬 입력 아님) ──
+agents.zip
+output/sim/
+sim_output/
+
+# (유지: scripts/, data/, output/stats/, output/personas/, requirements.txt)

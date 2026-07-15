@@ -36,6 +36,7 @@ from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 from poi_price import poi_price, price_icon, unit_price_anchor, band_factor  # noqa: E402
 from coupon_eligibility import is_coupon_eligible  # noqa: E402
+from poi_review_lookup import lookup_reviews_batch, format_review_block  # noqa: E402
 
 
 try:
@@ -58,6 +59,9 @@ class Stage2Pick(BaseModel):
 
 class Stage2Output(BaseModel):
     picks: list[Stage2Pick]
+    # LLM이 신중한 결정을 위해 별점·리뷰 추가 확인을 원하는 POI id 목록.
+    # 비어 있거나 누락이면 첫 picks 그대로 채택. 채워져 있으면 별점·리뷰 첨부해서 한 번 재호출.
+    review_lookup_requests: list[str] | None = None
 
 
 # commerce 이벤트에 actual_spent가 0/None이면 카테고리·소득별 fallback 값 부여.
@@ -320,22 +324,19 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 같은 날 여러 이벤트가 있을 때 동일 POI를 두 번 선택하지 마세요.
 
 **소비액 설정 (actual_spent + policy_spend)**
-- `actual_spent`: 이 거래의 총 소비액 (원, 양수). 평소 잔액 + 정책 지원금 합계.
-- `policy_spend`: 그 중 정책 지원금에서 쓴 금액 분리. `{"P009": 5000}` 형태.
-  · 정책 지원금을 안 쓴 거래는 null 또는 `{}`.
-  · 한 거래에서 여러 정책 동시 사용 가능 (드물지만): `{"P009": 3000, "P008": 2000}`.
-  · sum(policy_spend.values()) ≤ actual_spent 이어야 함.
-  · sum(policy_spend.values()) ≤ 해당 정책의 잔여 가용액 이어야 함 (정책 예산 헤더 참조).
-  · **사용처 제한 쿠폰**: 후보에 [쿠폰] 표시가 있는 매장에서만 policy_spend 사용 가능.
-    표시 없는 매장(대형마트·백화점 등)에서는 policy_spend를 넣지 마세요 (자기 잔액만 사용).
-    쿠폰 잔액이 남아 있으면 [쿠폰] 매장을 우선 고려하는 것이 자연스럽습니다 (기한 내 소진 유인).
 
-소비 결정 방식 (거래 간 '상대적 크기'에 집중):
-- actual_spent는 그 거래의 **상대적 크기**를 반영합니다 (예: 마트 > 외식 > 카페 > 편의점,
-  가게 종류·상황에 따라). 하루 총 지출 규모는 에이전트의 그날 소비성향으로 **별도 결정**되니,
-  여기서는 거래들 사이의 비율과 단가 감각에만 집중하세요. (헤더의 '평소 1일 소비규모'는 스케일 참고용.)
-- 단가는 POI 카테고리 통념이 아니라 페르소나·상황·가게 종류로 자유 결정.
-- 정책 지원금(policy_spend)은 절약형이면 적게·남기고, 소비형이면 적극 사용하는 식으로 성향 반영.
+`actual_spent` = 이 거래의 총 소비액 (양수). 얼마나 소비할지는 페르소나 성향대로.
+`policy_spend` = 그 거래를 **어느 지갑으로 결제했는지** — 정부 지원금(grant)에서 낸 금액. `{"P009": 5000}` 형태.
+제약: sum(policy_spend) ≤ actual_spent, 그리고 ≤ 지원금 잔액.
+
+[지원금(grant)에 대한 올바른 인식 — 반드시 이렇게 이해하고 결정]
+- 이 지원금은 **나라가 대가 없이 준 돈**이다. 갚을 필요도, 조건도 없다. 안 쓴다고 이득도 없고(기간 끝나면 사라짐), 쓴다고 내가 손해 볼 것도 전혀 없다.
+- **핵심: 이 돈으로 결제하면 그만큼 내 통장(잔액)의 돈은 그대로 굳는다(=아껴진다).** 같은 소비를 하더라도 내 돈으로 내면 잔액이 줄지만, 지원금으로 내면 내 돈은 안 줄고 그대로 남는다.
+- 따라서 오늘 어차피 하는 소비가 정책 대상이면, 내 돈 대신 지원금으로 결제하는 게 나에게 무조건 이득이다. **절약형·알뜰형일수록 오히려 내 돈을 아끼려고 지원금부터 쓴다** (공짜 돈 놔두고 생돈 쓰는 사람은 없다).
+- 소비 규모는 성향대로. 다만 **그렇게 하는 소비의 결제 수단으로 지원금을 먼저 쓴다** (잔액 한도 내). 그 금액을 반드시 `policy_spend`에 기입한다.
+- 만약 그 거래가 "돈 때문에 미뤄왔던 것의 해소"(오랜만의 외식, 미룬 병원·안경, 낡은 것 교체 등)라면 actual_spent가 평소 단가보다 다소 큰 것이 자연스럽다 — 눌러온 만큼. 일상적 반복 거래면 평소 단가대로.
+- 정책 대상 아닌 거래(업종 제한 등)거나 소비 자체를 안 하면 policy_spend는 null/`{}`.
+- **사용처 제한 쿠폰([쿠폰] 표시)**: 후보에 [쿠폰] 표시가 있는 매장에서만 지원금 결제(policy_spend) 가능. 표시 없는 매장(대형마트·백화점 등)은 자기 잔액으로만 결제한다. 쿠폰 잔액이 남아 있으면 [쿠폰] 매장을 우선 고려하는 것이 자연스럽다(기한 내 소진 유인).
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
 
 **만족도 설정 (actual_satisfaction)**
@@ -343,6 +344,12 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 과거 방문 기록(avg_sat)이 있으면 그 근처에서 페르소나 성향을 반영해 조정합니다.
 - 처음 가는 곳은 페르소나·카테고리·거리 등을 고려해 자유롭게 설정합니다.
 - 값이 높을수록 만족, 낮을수록 불만족입니다.
+
+**카카오 별점·리뷰 확인 (선택적, 본인 판단)**
+- 후보 POI들의 카카오 별점·리뷰는 등록된 게 있으면 언제든 조회 가능합니다.
+- 본인 페르소나·성격·오늘 상황에 따라 자연스럽게 결정하세요 — 평소 SNS·맛집 리뷰 잘 챙겨 보는 성격이면 그렇게 보고, 무덤덤한 성격이면 안 봐도 되고. 친구 만나러 가는 거면 한번 검색해볼 수도 있고, 혼밥 루틴이면 안 볼 수도. 기밀문서 아닙니다 — 보고 싶으면 그냥 보는 것.
+- `review_lookup_requests` 필드에 궁금한 POI id들을 넣어 응답하면 별점·리뷰가 추가 컨텍스트로 제공되고, 그걸 본 후 최종 picks 결정합니다. 비어 두면 첫 picks 그대로 채택.
+- 정보 받아도 판단은 본인 페르소나대로 — 별점 무관심형이면 평점 낮아도 갈 수 있고, 까다로운 성격이면 4.7+만 갈 수도, 리뷰 내용 보고 마음 바꿀 수도.
 
 ## 출력 형식 (JSON만, 다른 텍스트 금지)
 {"picks": [
@@ -364,9 +371,18 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
     "pick_reason": "P009 지원금으로 평소 못 가본 카페 시도. 페르소나 소비형이라 grant 적극 활용.",
     "pick_factor": "satisfaction"
   }
-]}
+],
+"review_lookup_requests": ["C_aaa", "C_bbb"]  // 별점·리뷰 확인이 필요한 POI id (선택). 없으면 [] 또는 누락.
+}
 
-pick_factor enum: known | distance | satisfaction | rumor | appointment | random
+pick_factor enum 정의 (가장 결정적이었던 단일 요인 1개):
+- `known`         : 단골/방문 경험 있는 곳 (KNOWS_POI 매칭) — visit_count > 0 이고 그 기억이 결정 좌우
+- `distance`      : 거리 가까움이 결정적 — 어제 만족도·리뷰 데이터 없고 그냥 가깝다
+- `satisfaction`  : 본인 어제 만족도(avg_sat) 높음이 결정적 — 본인 경험치 기반
+- `review`        : 외부 카카오 별점·리뷰가 결정적 — review_lookup_requests 발동 후 결정 바꾼/굳힌 경우 (★ satisfaction과 명확 구분)
+- `rumor`         : 어제 들은 소문·추천(KNOWS Conversation rumor)이 결정적
+- `appointment`   : 약속(pinned_poi or 다른 agent와 만남 약속)이 결정적
+- `random`        : 위 어느 단서도 결정적이지 않고 페르소나 성향으로 다양화 시도
 /no_think"""
 
 
@@ -417,16 +433,17 @@ def build_stage2_prompt(
         daily_we = persona.get("daily_we") or 0
         tendency = persona.get("tendency") or ""
         lifestyle = (persona.get("lifestyle") or "").strip()
+        income = persona.get("income") or ""
         budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
         # 가용 자산 — 가격대(₩~₩₩₩) 선택의 예산 근거
         balance = (state or {}).get("balance")
         if balance is not None:
             budget_info += f" / 현재 잔액: {int(balance):,}원"
-        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency}")
-        # 정책 예산 (있으면)
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}")
+        # 활성 정책 (grant 위주, LLM이 policy_spend 책정 시 참조)
         policy_budget = persona.get("policy_budget_summary") or ""
         if policy_budget:
-            header_parts.append(f"정책 쿠폰 잔액: {policy_budget}")
+            header_parts.append(f"## 활성 정책 (policy_spend 책정 시 참조)\n{policy_budget}")
 
     if recent_poi_ids:
         header_parts.append(
@@ -467,6 +484,9 @@ def call_stage2(
     max_retry: int = 2,
     verbose: bool = False,
     state: dict | None = None,
+    # 정책 정보는 persona["policy_budget_summary"]로 build_stage2_prompt에 전달됨 — 아래 두 인자는 호출부 호환용(미사용)
+    active_policies: list[dict] | None = None,  # noqa: ARG001
+    grant_remaining: dict[str, int] | None = None,  # noqa: ARG001
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
 
@@ -542,13 +562,13 @@ def call_stage2(
                                 "properties": {
                                     "order": {"type": "integer", "enum": expected_orders},
                                     "poi_id": {"type": "string", "enum": all_pids},
-                                    "actual_spent": {"type": ["number", "null"]},
-                                    "actual_satisfaction": {"type": ["number", "null"]},
+                                    "actual_spent": {"type": "number", "minimum": 0},
+                                    "actual_satisfaction": {"type": "number", "minimum": 0, "maximum": 1},
                                     "policy_spend": {"type": ["object", "null"]},
                                     "pick_reason": {"type": ["string", "null"]},
                                     "pick_factor": {"type": ["string", "null"]},
                                 },
-                                "required": ["order", "poi_id"],
+                                "required": ["order", "poi_id", "actual_satisfaction", "actual_spent"],
                                 "additionalProperties": False,
                             },
                         }
@@ -558,14 +578,31 @@ def call_stage2(
                 },
             },
         }
+        # review_lookup_requests 선택적 출력 허용 — POI id 목록 (전체 cand pool union)
+        s2_schema["json_schema"]["schema"]["properties"]["review_lookup_requests"] = {
+            "type": ["array", "null"],
+            "items": {"type": "string", "enum": all_pids},
+        }
 
     last_err = None
+    review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
+    pre_review_picks: dict[int, str] = {}     # 리뷰 보기 전(1차) 선택 {order: poi_id} — 사고변화 추적
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.1 * attempt
+        # review_lookup 결과가 있으면 prompt에 추가 컨텍스트 첨부
+        prompt_now = user_block
+        if review_lookup_used:
+            review_block_lines = ["", "## 추가로 조회된 카카오 별점·리뷰 (요청한 POI만)"]
+            for pid, info in review_lookup_used.items():
+                review_block_lines.append(format_review_block(pid, info))
+            prompt_now = user_block + "\n" + "\n".join(review_block_lines) + (
+                "\n\n위 정보를 참고해 최종 picks를 결정하세요. "
+                "이번 응답에서는 review_lookup_requests를 비워 두세요(이미 조회 완료).\n"
+            )
         try:
             resp = _llm_call(
-                None, SYSTEM_S2, user_block,
-                temperature=temp, max_tokens=1200,  # pick_reason 필드 추가로 출력량 ↑
+                None, SYSTEM_S2, prompt_now,
+                temperature=temp, max_tokens=1400,  # review_lookup_requests 필드 + 추가 컨텍스트
                 response_format=s2_schema,
             )
             raw = resp.choices[0].message.content
@@ -575,6 +612,23 @@ def call_stage2(
             json_str = _extract_json(raw)
             data = json.loads(json_str)
             parsed = Stage2Output.model_validate(data)
+
+            # === review_lookup_requests 처리 (한 번만, 첫 호출에서만) ===
+            if not review_lookup_used and parsed.review_lookup_requests:
+                # 후보 풀 안에 있는 poi_id만 채택 (환각 방지)
+                valid_lookup_ids = [pid for pid in parsed.review_lookup_requests
+                                    if pid in set(all_pids)]
+                if valid_lookup_ids:
+                    fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    if fetched:
+                        review_lookup_used = fetched
+                        # 리뷰 보기 전(1차) 선택 보존 — 추가 LLM 호출 없이 '사고 변화' 추적용
+                        pre_review_picks = {p.order: p.poi_id for p in parsed.picks}
+                        # 같은 attempt에서 재호출이 아니라 다음 attempt에 첨부해서 한 번 더 시도
+                        # (max_retry 안 쓰고 별도 1회 — temp 0.7 그대로)
+                        if verbose:
+                            print(f"[review_lookup] fetched {len(fetched)} POIs, retrying with context")
+                        continue  # 다음 iteration에서 prompt_now에 첨부됨
 
             # 후보 풀 안에 있는지 검증 — 반드시 해당 order의 candidates 안에서만 valid.
             # (이전 버그: valid_pois = 전체 cands flat → 다른 order의 POI도 통과되어 카테고리 매칭이 깨짐)
@@ -601,7 +655,7 @@ def call_stage2(
                     if cands_for_this_order:
                         top = cands_for_this_order[:5]
                         chosen = rng.choice(top)["poi_id"]
-                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen, actual_spent=None, actual_satisfaction=None))
+                        corrected_picks.append(Stage2Pick(order=pick.order, poi_id=chosen, actual_spent=None, actual_satisfaction=0.5))
                         hallucinations += 1
                     else:
                         # 해당 order에 candidates 자체 없음 — drop
@@ -641,6 +695,10 @@ def call_stage2(
                 "missing_picks_filled": missing_filled,
                 "price_by_poi": price_by_poi,
                 "coupon_by_poi": coupon_by_poi,
+                "review_lookup_count": len(review_lookup_used),
+                # 리뷰 흔적 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
+                "review_lookup_used": review_lookup_used,   # {poi_id: {rating, rating_count, reviews, category}}
+                "pre_review_picks": pre_review_picks,       # {order: 리뷰 전 선택 poi_id}
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
@@ -675,7 +733,7 @@ def _fill_missing_picks(
             continue
         top = cs[:5]
         chosen = rng.choice(top)["poi_id"]
-        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=None))
+        new_picks.append(Stage2Pick(order=i, poi_id=chosen, actual_spent=None, actual_satisfaction=0.5))
     return Stage2Output(picks=new_picks)
 
 
@@ -686,6 +744,8 @@ def merge_to_final_events(
     stage1: Stage1Output, stage2: Stage2Output, persona: dict,
     price_by_poi: dict[str, tuple] | None = None,
     coupon_by_poi: dict[str, bool] | None = None,
+    review_lookup_used: dict | None = None,
+    pre_review_picks: dict | None = None,
 ) -> list[dict]:
     """Stage 1 + Stage 2 picks → 최종 events with poi_id.
 
@@ -699,6 +759,8 @@ def merge_to_final_events(
       - cat ∈ 외출 카테고리 (식사·카페·편의점 등) → Stage 2 pick (commerce POI)
         - Stage 2 pick 누락 시 fallback으로 anchor POI 사용
     """
+    review_lookup_used = review_lookup_used or {}   # {poi_id: {rating, rating_count, reviews, ...}}
+    pre_review_picks = pre_review_picks or {}        # {order: 리뷰 전 선택 poi_id}
     pick_by_order = {p.order: p for p in stage2.picks}
     out = []
     for i, ev in enumerate(stage1.events):
@@ -730,6 +792,12 @@ def merge_to_final_events(
         # POI 가격대 (commerce pick만 — anchor/내부 이벤트는 band None·factor 1.0)
         _pb = (price_by_poi or {}).get(poi_id) if (poi_id and ev.category not in INTERNAL_CATS) else None
 
+        # 리뷰 노출·사고변화 흔적 (추가 호출 0 — 기존 2-pass 캡처 데이터만 사용)
+        _seen = review_lookup_used.get(poi_id) if poi_id else None
+        _pre_poi = pre_review_picks.get(i)
+        _review_changed = bool(_pre_poi and poi_id and _pre_poi != poi_id)
+        _seen_rv = (_seen.get("reviews") if _seen else None) or []
+        _snippet = (_seen_rv[0].get("contents") if _seen_rv else None)
         out.append({
             "order": i,
             "time": ev.time,
@@ -753,6 +821,13 @@ def merge_to_final_events(
             "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...
             "pick_reason": pick_obj.pick_reason if pick_obj else None,   # Stage 2: 왜 이 POI
             "pick_factor": pick_obj.pick_factor if pick_obj else None,   # Stage 2: known/distance/...
+            # ───── 리뷰 노출·사고변화 흔적 (추가 LLM 호출 0) ─────
+            "review_seen": _seen is not None,                        # 이 POI 카카오 리뷰를 봤나
+            "seen_rating": (_seen or {}).get("rating"),              # 본 평균 별점
+            "seen_rating_count": (_seen or {}).get("rating_count"),
+            "review_snippet": _snippet,                              # 본 리뷰 한 줄
+            "pre_review_poi": _pre_poi if _review_changed else None, # 리뷰 전(1차) 선택 — 바뀐 경우만
+            "review_changed": _review_changed,                       # 리뷰가 최종 선택을 바꿨나
         })
     return out
 

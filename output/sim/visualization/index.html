@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<title>서울 상권정책 시뮬 — 풀런 5일 (Qwen3-14B + 강남역–역삼역 보행친화거리 P008) · 25개 자치구 표본</title>
+<title>서울 상권정책 시뮬 — 14일 (Qwen3.6-35B-A3B-AWQ + P009 소득차등 grant) · 25개 자치구 표본</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -65,14 +65,15 @@
 <div id="map"></div>
 
 <div class="panel" id="info">
-  <h3>🏙️ Seoul Sim — 풀런 5일 (Qwen3-14B)</h3>
+  <h3>🏙️ Seoul Sim — 14일 (Qwen3.6-35B)</h3>
   <div class="row"><span class="label">현재 프레임</span><span class="val" id="frame-label">-</span></div>
   <div class="row"><span class="label">활동 agent</span><span class="val" id="active-cnt">-</span></div>
   <div class="row"><span class="label">표본 자치구</span><span class="val">25개구 균등</span></div>
   <div class="divider"></div>
   <div class="row"><span class="label">총 agent</span><span class="val" id="total-agents">-</span></div>
   <div class="row"><span class="label">총 visited memory</span><span class="val" id="total-mem">-</span></div>
-  <div class="row"><span class="label">총 약속</span><span class="val" id="total-appt">-</span></div>
+  <div class="row"><span class="label">약속으로 분류된 상호작용</span><span class="val" id="total-appt">-</span></div>
+  <div class="row"><span class="label">기간 내 실제 성사된 약속</span><span class="val" id="total-appt-realized">-</span></div>
   <div class="row"><span class="label">총 들은 소문</span><span class="val" id="total-rumor">-</span></div>
 </div>
 
@@ -83,7 +84,6 @@
     <select id="color-mode">
       <option value="dist">자치구별</option>
       <option value="cat">카테고리별</option>
-      <option value="policy">정책 구간 vs 외</option>
       <option value="appointment">약속 있는 agent</option>
     </select>
   </div>
@@ -203,6 +203,29 @@ let AGENTS = [], TIMELINE = [], MEMORIES = {}, EVENTS = {};
 let agentById = {}, markers = {};
 let map, selected = null, currentFrame = 0, isPlaying = false, playerHandle = null;
 let heatLayer = null;
+let currentPositions = {}, targetPositions = {}, interpProgress = 1.0, animId = null;
+
+function computeAppointmentStats(memories) {
+  let visitedCount = 0, rumorCount = 0;
+  const allConvIds = new Set();
+  const realizedConvIds = new Set();
+  for (const aid in memories) {
+    const mem = memories[aid] || {};
+    visitedCount += (mem.visited || []).length;
+    rumorCount += (mem.memories || []).filter(m => m.type === 'rumor').length;
+    for (const appt of (mem.appointments || [])) {
+      const convId = appt.conv_id || [appt.day, appt.with_agent, appt.target_time, appt.hint].join('|');
+      allConvIds.add(convId);
+      if (appt.within_window) realizedConvIds.add(convId);
+    }
+  }
+  return {
+    visitedCount,
+    rumorCount,
+    appointmentCount: allConvIds.size,
+    realizedAppointmentCount: realizedConvIds.size,
+  };
+}
 
 async function loadData() {
   const [a, t, m, e] = await Promise.all([
@@ -214,15 +237,11 @@ async function loadData() {
   AGENTS = a; TIMELINE = t; MEMORIES = m; EVENTS = e;
   AGENTS.forEach(ag => agentById[ag.id] = ag);
   document.getElementById('total-agents').textContent = AGENTS.length.toLocaleString();
-  let totMem = 0, totAppt = 0, totRumor = 0;
-  for (const aid in MEMORIES) {
-    totMem += (MEMORIES[aid].visited || []).length;
-    totAppt += (MEMORIES[aid].appointments || []).length;
-    totRumor += (MEMORIES[aid].memories || []).filter(m => m.type === 'rumor').length;
-  }
-  document.getElementById('total-mem').textContent = totMem.toLocaleString();
-  const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = totAppt.toLocaleString();
-  const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = totRumor.toLocaleString();
+  const stats = computeAppointmentStats(MEMORIES);
+  document.getElementById('total-mem').textContent = stats.visitedCount.toLocaleString();
+  const el1 = document.getElementById('total-appt'); if (el1) el1.textContent = stats.appointmentCount.toLocaleString();
+  const el1b = document.getElementById('total-appt-realized'); if (el1b) el1b.textContent = stats.realizedAppointmentCount.toLocaleString();
+  const el2 = document.getElementById('total-rumor'); if (el2) el2.textContent = stats.rumorCount.toLocaleString();
   initMap();
   buildMarkers();
   // 슬라이더 max를 timeline 길이에 맞춰 동적 설정 (3일=72, 5일=120 등)
@@ -268,7 +287,7 @@ function toggleHeatmap() {
   if (heatLayer) { map.removeLayer(heatLayer); heatLayer = null; }
   if (mode !== 'off') {
     heatLayer = L.heatLayer([], {
-      radius: 22, blur: 18, maxZoom: 17,
+      radius: 25, blur: 15, maxZoom: 17,
       gradient: {0.2:'#0000ff', 0.4:'#00ffff', 0.6:'#00ff00', 0.8:'#ffff00', 1.0:'#ff0000'},
     }).addTo(map);
     updateHeatmap();
@@ -285,10 +304,10 @@ function updateHeatmap() {
     // 밀집도 — 외출 agent 동일 intensity
     pts = f.agents.map(a => [a.lat, a.lon, 0.6]);
   } else {
-    // 소비금액 — intensity = spent/25000 (max 50,000원 ≈ 1.0, 평균 ~0.4)
+    // 소비금액 — intensity = spent/30000 (프로토타입 수준)
     pts = f.agents
       .filter(a => (a.spent || 0) > 0)
-      .map(a => [a.lat, a.lon, Math.min(1.0, (a.spent || 0) / 25000)]);
+      .map(a => [a.lat, a.lon, Math.min(1.0, (a.spent || 0) / 30000)]);
   }
   heatLayer.setLatLngs(pts);
 }
@@ -320,11 +339,6 @@ function updateLegend() {
       <div class="item"><span class="dot" style="background:#9d4edd"></span>약속 있는 agent (약속 잡음/약속 외출)</div>
       <div class="item"><span class="dot" style="background:#888"></span>약속 없음</div>
     `;
-  } else {
-    el.innerHTML = `
-      <div class="item"><span class="dot" style="background:#e76f51"></span>정책 구간 POI 방문 (역삼1·2·도곡1동)</div>
-      <div class="item"><span class="dot" style="background:#888"></span>그 외</div>
-    `;
   }
 }
 
@@ -350,35 +364,65 @@ function setFrame(idx) {
       m.setStyle({ fillOpacity: 0.0, opacity: 0.0 }); return;
     }
     const pos = positions[ag.id];
+    let color, targetLat, targetLon;
     if (!pos) {
-      // 활동 없음 = 집에 있음 — 활성 agent와 동일 투명도/크기
-      m.setLatLng([ag.home_lat, ag.home_lon]);
-      // 색상은 자치구 기본 (활성 색상 모드와 일관)
-      const homeColor = (mode === 'appointment')
+      // 활동 없음 = 집에 있음
+      targetLat = ag.home_lat; targetLon = ag.home_lon;
+      color = (mode === 'appointment')
         ? (ag.has_appointment ? '#9d4edd' : '#888')
         : (COLORS_DIST[ag.dist_code] || '#888');
-      m.setStyle({ color: homeColor, fillColor: homeColor,
-                   fillOpacity: 0.85, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
-      return;
+    } else {
+      active++;
+      targetLat = pos.lat; targetLon = pos.lon;
+      if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
+      else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
+      else color = ag.has_appointment ? '#9d4edd' : '#888';
     }
-    active++;
-    m.setLatLng([pos.lat, pos.lon]);
-    // 색상
-    let color;
-    if (mode === 'dist') color = COLORS_DIST[ag.dist_code] || '#888';
-    else if (mode === 'cat') color = COLORS_L1[pos.l1 || pos.cat] || '#888';
-    else if (mode === 'appointment') color = ag.has_appointment ? '#9d4edd' : '#888';
-    else color = POLICY_DONGS.has(pos.dong) ? '#e76f51' : '#888';
     m.setStyle({ color, fillColor: color, fillOpacity: 0.85, opacity: 0, weight: 14, radius: AGENT_DOT_RADIUS });
+    // 스무스 이동 — target 설정만, marker는 animationLoop에서 보간
+    targetPositions[ag.id] = { lat: targetLat, lon: targetLon };
+    if (!currentPositions[ag.id]) {
+      currentPositions[ag.id] = { lat: targetLat, lon: targetLon };
+      m.setLatLng([targetLat, targetLon]);
+    }
   });
 
+  interpProgress = 0.0;
   document.getElementById('active-cnt').textContent = active.toLocaleString();
-
-  // 히트맵 갱신
   if (heatLayer) updateHeatmap();
-
-  // 디테일 패널 열려있으면 현재 활동·스케줄도 갱신
   if (selected) showDetail(selected);
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function animationLoop() {
+  if (!isPlaying && interpProgress >= 1.0) { animId = null; return; }
+  const speed = parseInt(document.getElementById('speed').value);
+  const step = 16 / Math.max(speed, 50);  // 보간 step (16ms/frame 비율)
+  if (interpProgress < 1.0) {
+    interpProgress = Math.min(interpProgress + step, 1.0);
+    const t = 1 - Math.pow(1 - interpProgress, 4);  // easeOutQuart
+    for (const aid in targetPositions) {
+      const cur = currentPositions[aid];
+      const tgt = targetPositions[aid];
+      const m = markers[aid];
+      if (!cur || !tgt || !m) continue;
+      m.setLatLng([lerp(cur.lat, tgt.lat, t), lerp(cur.lon, tgt.lon, t)]);
+    }
+    if (heatLayer && interpProgress > 0.9) updateHeatmap();
+  } else if (isPlaying) {
+    for (const aid in targetPositions) {
+      if (currentPositions[aid]) {
+        currentPositions[aid].lat = targetPositions[aid].lat;
+        currentPositions[aid].lon = targetPositions[aid].lon;
+      }
+    }
+    let next = currentFrame + 1;
+    if (next >= TIMELINE.length) next = 0;
+    setFrame(next);
+    if (selected) showDetail(selected);
+  }
+  animId = requestAnimationFrame(animationLoop);
 }
 
 function showDetail(aid) {
@@ -539,6 +583,7 @@ function showDetail(aid) {
   const appts = (mem.appointments || []);
   // target_day = day + offset_days (실제 만남 예정일)
   function _targetDay(a) {
+    if (a.target_day) return a.target_day;
     if (!a.day || a.offset_days == null) return a.day;
     const d = new Date(a.day + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + a.offset_days);
@@ -554,10 +599,16 @@ function showDetail(aid) {
         const tm = a.target_time ? ` ${a.target_time}` : '';
         const where = a.meeting_poi_name || a.hint || '미정';
         const role = a.role === 'initiator' ? '내가 제안' : '상대가 제안';
+        const realized = !!a.within_window;
+        const statusLabel = realized ? '기간 내 성사' : '기간 밖 예정';
+        const statusStyle = realized
+          ? 'background:rgba(114,239,221,0.18); color:#72efdd;'
+          : 'background:rgba(231,111,81,0.18); color:#e76f51;';
         return `
           <div class="mem-item" style="border-left:3px solid #4cc9f0;">
             <div>
               <span style="background:rgba(76,201,240,0.2); color:#4cc9f0; font-size:10px; padding:1px 6px; border-radius:3px;">🤝 ${role}</span>
+              <span style="${statusStyle} font-size:10px; padding:1px 6px; border-radius:3px; margin-left:4px;">${statusLabel}</span>
               <span style="color:#fff; margin-left:4px;">${a.with_agent || '?'}</span>
             </div>
             <div class="meta" style="color:#fff;">📅 만남일: <b>${tgt}${tm}</b> @ ${where}</div>
@@ -651,19 +702,9 @@ document.addEventListener('click', (e) => {
 });
 
 function play() {
-  if (isPlaying) {
-    clearInterval(playerHandle); isPlaying = false;
-    document.getElementById('play-btn').textContent = '▶'; return;
-  }
-  isPlaying = true;
-  document.getElementById('play-btn').textContent = '⏸';
-  const speed = parseInt(document.getElementById('speed').value);
-  playerHandle = setInterval(() => {
-    let next = currentFrame + 1;
-    if (next >= TIMELINE.length) next = 0;
-    setFrame(next);
-    if (selected) showDetail(selected);
-  }, speed);
+  isPlaying = !isPlaying;
+  document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
+  if (isPlaying && !animId) animationLoop();
 }
 
 function initEvents() {

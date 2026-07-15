@@ -55,7 +55,7 @@ def load_csv_pois(csv_path: Path, poi_type: str) -> list[dict]:
                     "type": poi_type,
                     "dong_code": r["dong_code"],
                 })
-            except (ValueError, KeyError):
+            except (ValueError, KeyError, TypeError):
                 continue
     return rows
 

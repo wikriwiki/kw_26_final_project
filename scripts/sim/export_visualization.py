@@ -361,6 +361,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", default=DEFAULT_START)
     ap.add_argument("--days", type=int, default=DEFAULT_DAYS)
+    ap.add_argument("--sample", type=int, default=0,
+                    help="agent sample 수 (0=전체). 작을수록 HTML 용량 ↓ (500 권장)")
     args = ap.parse_args()
 
     global DAYS
@@ -371,6 +373,18 @@ def main():
     with driver_session() as s:
         print("[agents] fetching ...")
         agents = fetch_agents(s)
+        # 시뮬 돌린(=Plan 있는) agent만 필터 — 외출/메모리 없는 agent 제외
+        simulated_aids = set()
+        for r in s.run('MATCH (a:Agent)-[:HAS_PLAN]->(:Plan) RETURN DISTINCT a.id AS aid'):
+            simulated_aids.add(r['aid'])
+        before = len(agents)
+        agents = [a for a in agents if a['id'] in simulated_aids]
+        print(f"  시뮬 돌린 agent 필터: {before} → {len(agents)}")
+        if args.sample and args.sample < len(agents):
+            import random
+            random.seed(42)
+            agents = random.sample(agents, args.sample)
+            print(f"  ★ sample {args.sample}/{len(agents)} 적용 (seed=42)")
         agent_ids = [a["id"] for a in agents]
         print(f"  total agents: {len(agents)}")
 

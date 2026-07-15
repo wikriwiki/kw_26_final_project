@@ -33,7 +33,11 @@ MATCH (a:Agent {id: $aid})
 MERGE (p:Plan {id: $plan_id})
 SET p.agent_id = $aid, p.day = date($day), p.day_type = $day_type,
     p.generated_at = datetime(),
-    p.llm_tokens_in = $tokens_in, p.llm_tokens_out = $tokens_out
+    p.llm_tokens_in = $tokens_in, p.llm_tokens_out = $tokens_out,
+    // 리뷰 노출 기록 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
+    p.review_lookup_count = $review_lookup_count,     // 오늘 조회한 POI 수
+    p.review_changed_count = $review_changed_count,   // 리뷰로 선택이 바뀐 pick 수
+    p.reviews_seen = $reviews_seen                    // 본 리뷰 전체 JSON {poi_id:{rating,reviews,...}}
 MERGE (a)-[:HAS_PLAN {day: date($day)}]->(p)
 // 재시뮬 시 기존 INCLUDES 삭제 (idempotent)
 WITH p
@@ -65,7 +69,14 @@ CREATE (p)-[:INCLUDES {
   pick_factor: ev.pick_factor,       // Stage 2: known/distance/satisfaction/rumor/novelty/random
   price_band: ev.price_band,         // POI 가격대 1(₩)/2(₩₩)/3(₩₩₩) — poi_price.py
   price_factor: ev.price_factor,     // 적용 가격배율 (검증·판매자 가격 채널 분석용)
-  coupon_eligible: ev.coupon_eligible // 쿠폰 사용처 여부 (백테스트 T2 업종/사용처 분석용)
+  coupon_eligible: ev.coupon_eligible, // 쿠폰 사용처 여부 (백테스트 T2 업종/사용처 분석용)
+  // ───── 리뷰 노출·사고변화 흔적 (추가 LLM 호출 0) ─────
+  review_seen: ev.review_seen,           // 이 POI 카카오 리뷰를 봤나
+  seen_rating: ev.seen_rating,           // 본 평균 별점
+  seen_rating_count: ev.seen_rating_count,
+  review_snippet: ev.review_snippet,     // 본 리뷰 한 줄
+  pre_review_poi: ev.pre_review_poi,     // 리뷰 전(1차) 선택 — 바뀐 경우만
+  review_changed: ev.review_changed      // 리뷰가 최종 선택을 바꿨나
 }]->(poi)
 """
 
@@ -73,6 +84,7 @@ CREATE (p)-[:INCLUDES {
 def write_plan(
     aid: str, today: date, events: list[dict], day_type: str,
     tokens_in: int = 0, tokens_out: int = 0,
+    reviews_seen: dict | None = None, review_lookup_count: int = 0,
 ):
     import json as _json
     plan_id = f"{aid}_{today.isoformat()}"
@@ -82,10 +94,15 @@ def write_plan(
     for ev in valid_events:
         ps = ev.get("policy_spend") or {}
         ev["spent_from_policy_json"] = _json.dumps(ps, ensure_ascii=False) if ps else "{}"
+    # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
+    reviews_seen_json = _json.dumps(reviews_seen, ensure_ascii=False) if reviews_seen else "{}"
+    review_changed_count = sum(1 for ev in valid_events if ev.get("review_changed"))
     with driver_session() as s:
         s.run(WRITE_PLAN_CYPHER,
               aid=aid, plan_id=plan_id, day=today.isoformat(), day_type=day_type,
-              tokens_in=tokens_in, tokens_out=tokens_out)
+              tokens_in=tokens_in, tokens_out=tokens_out,
+              reviews_seen=reviews_seen_json, review_lookup_count=review_lookup_count,
+              review_changed_count=review_changed_count)
         if valid_events:
             s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events)
     return plan_id, len(valid_events)
@@ -224,10 +241,24 @@ def validate_policy_spend(
     """
     corrected = 0
     restricted = restricted_pids or set()
+    auto_filled = 0
     # 정책별 잔여 가용액 (시간순 차감)
     pol_rem = dict(policy_remaining or {})
     for e in events:
         ps = e.get("policy_spend") or {}
+        # ★ Reasoning-JSON 자동 일치 — pick_reason에 정책 언급했으나 policy_spend 누락 시 자동 채움
+        if (not ps or not isinstance(ps, dict)) and policy_remaining is not None:
+            reason = e.get("pick_reason") or ""
+            actual = e.get("actual_spent") or 0
+            if actual > 0 and any(kw in reason for kw in ("P009", "지원금", "보조금")):
+                for pid, avail in pol_rem.items():
+                    if avail > 0:
+                        amt = min(int(actual), int(avail))
+                        e["policy_spend"] = {pid: amt}
+                        pol_rem[pid] -= amt
+                        auto_filled += 1
+                        ps = e["policy_spend"]
+                        break
         if not isinstance(ps, dict) or not ps:
             continue
         # 정수 정규화 + 양수만
@@ -293,6 +324,14 @@ def track_policy_usage(
         spend = e.get("actual_spent") or 0
         if spend <= 0:
             continue
+        # event.policy_spend (Stage2 LLM 산출) 우선 — grant 적용 분 누적
+        ps = e.get("policy_spend") or {}
+        if isinstance(ps, dict):
+            for pid, amt in ps.items():
+                if isinstance(amt, (int, float)) and amt > 0:
+                    used[str(pid)] = used.get(str(pid), 0) + int(amt)
+
+        # subsidy 정책 cap-rate 처리 (legacy)
         for pol in policies:
             cap = pol.get("cap") or 0
             rate = pol.get("rate") or 0.0
@@ -404,12 +443,12 @@ WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat,
 MERGE (s:State {id: $aid + '_' + $today})
 SET s.agent_id = $aid,
     s.day = date($today),
-    s.balance = prev_balance - today_spent,
+    s.balance = prev_balance - (today_spent - $today_policy_spent),
     s.energy = 0.8,
     s.yesterday_satisfaction = today_avg_sat,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
-    s.month_spent = prev_month_spent + today_spent,
+    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent),
     s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json,   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
     s.grant_received = $grant_received_json,  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
@@ -426,6 +465,7 @@ def night_create_state(
     policy_lifecycle: dict[str, bool] | str | None = None,
     grant_received: dict[str, int] | str | None = None,
     grant_remaining: dict[str, int] | str | None = None,
+    today_policy_spent: int = 0,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -458,7 +498,8 @@ def night_create_state(
                   policy_used_json=used_json,
                   policy_lifecycle_json=lifecycle_json,
                   grant_received_json=grant_json,
-                  grant_remaining_json=grant_rem_json).single()
+                  grant_remaining_json=grant_rem_json,
+                  today_policy_spent=int(today_policy_spent or 0)).single()
         return dict(r) if r else {}
 
 

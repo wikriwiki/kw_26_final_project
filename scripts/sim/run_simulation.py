@@ -125,7 +125,11 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
             if today_amt > 0:
                 parts.append(f"오늘 +{today_amt:,}원")
             parts.append(f"누적 잔여 {rem:,}원")
-            lines.append(f"{pid}({name}) [grant]: {' / '.join(parts)} — 거래에서 policy_spend로 사용 가능")
+            lines.append(
+                f"{pid} {name} [정부 지원금] — {' / '.join(parts)}. 본인 부담 0. "
+                f"하는 소비는 지원금으로 결제(policy_spend 기입, 개인 자산 보존). "
+                f"또 돈 때문에 미뤄온 소비가 있었다면 부담 없어진 지금 해소 가능(지급액 클수록 여지 큼). 강요 아닌 기회."
+            )
             continue
         # subsidy/voucher — 잔여 cap
         cap = pol.get("cap") or 0
@@ -179,14 +183,27 @@ def _merge_policy_lifecycle(raw_lifecycle, policies: list[dict] | None) -> dict[
 
 
 def process_one(aid: str, today: date, day_idx: int) -> dict:
-    """1 agent 1일. 결과 메타 dict 반환 (실패 시 status='error')."""
+    """1 agent 1일. 결과 메타 dict 반환 (실패 시 status='error').
+
+    단계별 timing 측정:
+      t_dawn:   build_dawn_context (Cypher 7개 read)
+      t_s1:     Stage1 LLM call
+      t_s2:     Stage2 LLM call(들) 합산 — review_lookup 재호출 포함
+      t_write:  Plan/State Neo4j write
+      t_total:  전체 (start → return)
+    """
     t0 = time.time()
+    timing: dict[str, float] = {}
     try:
+        _t = time.time()
         ctx = build_dawn_context(aid, today)
+        timing["t_dawn"] = round(time.time() - _t, 3)
         if not ctx.persona:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
 
-        # grant 정책 — effective_from 당일 새벽에 전날 State 잔액에 지원금 추가
+        # grant 정책 — effective_from 당일 지원금 수령.
+        # ★ 정책지원금 = balance·daily_wd와 분리된 독립 지갑. grant_remaining에만 적립하고
+        #   balance에는 더하지 않는다 (개인 돈과 정책 돈 완전 분리, 미사용분 누수 방지).
         # 멱등성: 어제 State.grant_received에 이미 기록된 정책은 skip (resume 시 중복 적용 방지)
         prev_grant_received = _read_state_json(ctx.state, "grant_received")
         income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
@@ -201,23 +218,13 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             eff = pol.get("effective_from", "")
             if str(today) != eff:
                 continue
-            # 이 정책에서 받을 금액
+            # 이 정책에서 받을 금액 — grant_remaining 독립 지갑에 적립 (balance 불변)
             amt = _grant_for_single_policy(income, pol)
             if amt > 0:
-                apply_grant_to_prev_state(aid, today, amt)
                 grants_applied_today[pid] = amt
 
-        # grant 적용 후 잔액 반영 — [perf] 전체 Dawn(7 Cypher) 재빌드 대신 balance만 in-place 패치.
-        # apply_grant_to_prev_state는 어제 State.balance에만 +grant 하므로 ctx.state.balance 갱신과 등가.
-        # 전/후 비교용 필드도 세팅 — Stage1 프롬프트가 "어제까지 X원 → 오늘 +N원"으로
-        # 변화를 명시적으로 인지하게 함 (windfall 인지 → 소비성향 반영).
-        if grants_applied_today:
-            if ctx.state:
-                _bal_before = ctx.state.get("balance") or 0
-                ctx.state["balance_before_grant"] = _bal_before
-                ctx.state["grants_today_total"] = sum(grants_applied_today.values())
-                ctx.state["balance"] = _bal_before + sum(grants_applied_today.values())
-
+        # grant는 balance에 더하지 않는다 — grant_remaining 독립 지갑으로만 관리(회계 분리).
+        # windfall 인지는 정책 카드(_format_policy)의 grant_days_since 감쇠가 담당.
         # Stage2 LLM에 노출할 정책 예산 요약 (정책 쿠폰 잔액·오늘 받은 지원금 명시)
         prev_used_for_budget = ctx.get_policy_used()
         # 누적 grant_received 갱신 (이번에 적용된 것 합산)
@@ -259,13 +266,26 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             if _gdays:
                 ctx.state["grant_days_since"] = _gdays
 
+        _t = time.time()
         s1, m1 = call_stage1(aid, today, ctx=ctx)
-        # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출
-        s2, _cands, m2 = call_stage2(aid, s1, ctx.persona, today, state=ctx.state)
+        timing["t_s1"] = round(time.time() - _t, 3)
+
+        # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출.
+        # active_policies/grant_remaining은 호출부 호환 인자(정책 정보는 persona로 전달됨).
+        _t = time.time()
+        s2, _cands, m2 = call_stage2(
+            aid, s1, ctx.persona, today, state=ctx.state,
+            active_policies=ctx.policy,
+            grant_remaining=grant_avail_today,
+        )
+        timing["t_s2"] = round(time.time() - _t, 3)
+
         events = merge_to_final_events(
             s1, s2, ctx.persona,
             price_by_poi=m2.get("price_by_poi"),
             coupon_by_poi=m2.get("coupon_by_poi"),
+            review_lookup_used=m2.get("review_lookup_used"),
+            pre_review_picks=m2.get("pre_review_picks"),
         )
 
         # ── 소비성향(propensity) 모델 — Problem B (EconAgent 방식) ──
@@ -336,12 +356,20 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
         tokens_out = m1["tokens_out"] + (m2.get("tokens_out") or 0)
-        _, n_inc = write_plan(aid, today, events, day_type, tokens_in, tokens_out)
+        _t = time.time()
+        _, n_inc = write_plan(
+            aid, today, events, day_type, tokens_in, tokens_out,
+            reviews_seen=m2.get("review_lookup_used"),
+            review_lookup_count=m2.get("review_lookup_count", 0),
+        )
+        timing["t_write_plan"] = round(time.time() - _t, 3)
 
         # Night Phase — Day 1 새벽엔 어제(Day 0) Plan 없으므로 finalize는 Day 2 이상에서만
         n_mem = 0
         if day_idx >= 1:
+            _t = time.time()
             n_mem = night_finalize_yesterday(aid, today)
+            timing["t_night_finalize"] = round(time.time() - _t, 3)
         # 정책 인지 상태 — 어제 lifecycle에 오늘 Dawn 정책 ID를 true로 병합
         merged_policy_lifecycle = _merge_policy_lifecycle(
             (ctx.state or {}).get("policy_lc"),
@@ -353,6 +381,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             policy_lifecycle=merged_policy_lifecycle,
             grant_received=merged_grant_received,
             grant_remaining=merged_grant_remaining,
+            today_policy_spent=sum(today_policy_spend.values()),
         )
 
         # 만족도 평균
@@ -372,6 +401,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         return {
             "aid": aid, "status": "ok",
             "elapsed": round(time.time() - t0, 2),
+            # 단계별 timing (병목 분석용)
+            **{f"timing_{k}": v for k, v in timing.items()},
             "n_events": len(events), "n_includes": n_inc,
             "n_visited_memories": n_mem,
             "avg_sat": round(avg_sat, 3) if avg_sat is not None else None,
@@ -385,14 +416,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "policy_spend_today": sum(today_policy_spend.values()),
             "grant_remaining_total": sum(merged_grant_remaining.values()),
             "policy_spend_corrected": policy_spend_corrected,
-            # 소비성향 모델 메타 (Problem B)
-            "cm_applied": cm_meta.get("applied", False),
-            "cm_propensity": cm_meta.get("propensity"),
-            "cm_today_total": cm_meta.get("today_total"),
-            "cm_grant_part": cm_meta.get("grant_part"),
             "s1_attempts": m1["attempt"] + 1,
             "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
             # Stage 2 fallback 카운트 (사후 분석용)
+            "review_lookup_count": m2.get("review_lookup_count", 0),
             "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),
             "fb_cand_sub_match": m2.get("cand_sub_match", 0),
             "fb_cand_l1_dong": m2.get("cand_fallback_l1_dong", 0),
@@ -428,6 +455,27 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     if done_path.exists():
         done_aids = set(json.loads(done_path.read_text(encoding="utf-8")))
         print(f"[resume] {len(done_aids)} agents already done for {day_str}, skipping")
+
+        # ★ resume 시 jsonl dedup — status=ok 줄을 aid당 1개만 남김 (이전 error 줄과 중복 제거)
+        if metrics_path.exists() and done_aids:
+            seen_ok: dict[str, str] = {}
+            other_lines: list[str] = []
+            with metrics_path.open(encoding="utf-8") as fp_r:
+                for line in fp_r:
+                    try:
+                        j = json.loads(line)
+                        if j.get("status") == "ok":
+                            seen_ok[j["aid"]] = line   # 마지막 ok가 이김
+                        else:
+                            other_lines.append(line)
+                    except json.JSONDecodeError:
+                        continue
+            # ok 줄만 dedup해서 다시 씀 (error 줄은 폐기 — 어차피 retry로 채움)
+            with metrics_path.open("w", encoding="utf-8") as fp_w:
+                for aid in done_aids:
+                    if aid in seen_ok:
+                        fp_w.write(seen_ok[aid])
+            print(f"[resume] jsonl dedup: kept {len(seen_ok)} ok rows, dropped {len(other_lines)} error rows")
 
     remaining = [a for a in agents if a not in done_aids]
     print(f"[Day {day_idx} {day_str}] processing {len(remaining)} agents with {workers} workers")
