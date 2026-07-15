@@ -117,7 +117,9 @@ MODELS: dict[str, ModelSpec] = {
         key="exaone_4_5",
         hf_id="LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
         family="exaone",
-        description="(미사용) EXAONE 4.5 33B AWQ — quantization schema 호환 이슈로 vllm 0.11 미지원.",
+        description="EXAONE 4.5 33B AWQ — EXP-001(GPU LIVE, A100×2 TP2) 채택 모델. "
+                    "서빙: scripts/serve/serve_exaone45_awq_a100x2.sh (vllm 최신 필요 — "
+                    "0.11에서 quantization schema 미지원 이력, 실패 시 동일 모델 FP8 폴백).",
     ),
     "exaone_fp8": ModelSpec(
         key="exaone_fp8",
