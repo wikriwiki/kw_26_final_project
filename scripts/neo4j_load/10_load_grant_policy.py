@@ -35,6 +35,7 @@ SET p.name = $name,
     p.cap_per_agent = $cap_per_agent,
     p.income_grants = $income_grants_json,
     p.excluded_income = $excluded_income,
+    p.grant_key = $grant_key,
     p.poi_restricted = $poi_restricted,
     p.notes = $notes
 WITH p
@@ -62,6 +63,8 @@ def main() -> None:
         "cap_per_agent": pol.get("cap_per_agent"),
         "income_grants_json": json.dumps(pol.get("income_grants") or {}, ensure_ascii=False),
         "excluded_income": pol.get("excluded_income") or [],
+        # income_grants 조회 키: "spend_decile"(소비 10분위) | None/"income"(소득 5분위, 기본)
+        "grant_key": pol.get("grant_key") or "income",
         "poi_restricted": bool(pol.get("poi_restricted", False)),
         "notes": pol.get("notes", ""),
         "target_districts": pol.get("target_districts") or [],

@@ -23,10 +23,13 @@ LOG=$BASE/exp001
 mkdir -p "$LOG" "$BASE/dumps" "$HF_HOME"
 
 # EXP-001 실험 파라미터 (docs/EXPERIMENT_LOG.md 장표와 일치시킬 것)
-SIM_START=2026-05-20          # 14일: 사전 7일(05-20~26) + P010 시행(05-27~) 7일
+# 실제 정책일 기준: 민생회복 소비쿠폰 1차 신청·지급 개시 = 2025-07-21(월)
+# 14일 = 시행 전 7일(07-14 월~07-20 일) + 시행 후 7일(07-21 월~07-27 일) — 월~일 2주 정렬
+SIM_START=2025-07-14
 SIM_DAYS=14
-DAY_ZERO=2026-05-19           # = SIM_START - 1
+DAY_ZERO=2025-07-13           # = SIM_START - 1
 WORKERS=${WORKERS:-32}
+AGENTS=${AGENTS:-7500}        # EXP-001 표본 (미지정 시 LIVES_AT 전체 ~14.7k 실행되므로 명시 필수)
 LLM_PORT=8000
 
 env_common() {
@@ -122,10 +125,10 @@ PY
 }
 
 s9_run() {  # 14일 본 런 (일별 타이밍 자동 로그) — nohup
-  echo "══ s9: 14일 시뮬 (start=$SIM_START days=$SIM_DAYS workers=$WORKERS) ══"
+  echo "══ s9: 14일 시뮬 (start=$SIM_START days=$SIM_DAYS agents=$AGENTS workers=$WORKERS) ══"
   env_common; cd $REPO
   nohup python scripts/sim/run_simulation.py \
-      --start $SIM_START --days $SIM_DAYS --workers $WORKERS \
+      --start $SIM_START --days $SIM_DAYS --limit $AGENTS --workers $WORKERS \
       > $LOG/run.log 2>&1 &
   echo "  진행: tail -f $LOG/run.log"
   echo "  일별 타이밍(장표 기입용): grep 'done in' $LOG/run.log"

@@ -84,16 +84,48 @@ METRICS_DIR.mkdir(parents=True, exist_ok=True)
 # Agent 풀 (시뮬 대상)
 # =========================================================
 def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[str]:
-    q = "MATCH (a:Agent) WHERE (a)-[:LIVES_AT]->() "
+    """시뮬 대상 agent.
+
+    limit 지정 시 **소비 10분위 비례 층화표본**을 뽑는다. 단순 `ORDER BY a.id LIMIT n`은
+    id 앞자리가 행정동 코드라 지역(종로·중구…)과 그에 딸린 소득 분포가 통째로 잘려나가
+    모집단 분포를 재현하지 못한다. 분위별로 (limit × 분위비중)명씩 뽑아 전체 분포를 보존.
+    seed 고정 → 같은 limit이면 항상 같은 표본(재현성).
+    """
+    where_gu = ""
     if gu_only:
-        q += "AND (a)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(:District {code:$gu}) "
-    q += "RETURN a.id AS id ORDER BY a.id"
-    if limit:
-        q += f" LIMIT {limit}"
+        where_gu = "AND (a)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(:District {code:$gu}) "
+    params = {"gu": gu_only} if gu_only else {}
+
     with driver_session() as s:
-        if gu_only:
-            return [r["id"] for r in s.run(q, gu=gu_only)]
-        return [r["id"] for r in s.run(q)]
+        if not limit:
+            q = f"MATCH (a:Agent) WHERE (a)-[:LIVES_AT]->() {where_gu}RETURN a.id AS id ORDER BY a.id"
+            return [r["id"] for r in s.run(q, **params)]
+
+        # 분위별 모집단 (분위 미상은 '0' 버킷으로 묶어 함께 비례 배분)
+        rows = list(s.run(
+            f"MATCH (a:Agent) WHERE (a)-[:LIVES_AT]->() {where_gu}"
+            "RETURN coalesce(a.spending_level_wd, 0) AS d, collect(a.id) AS ids", **params))
+
+    import random as _rnd
+    pop = {int(r["d"]): sorted(r["ids"]) for r in rows}
+    total = sum(len(v) for v in pop.values())
+    if total <= limit:
+        return sorted(x for v in pop.values() for x in v)
+
+    # 비례 배분 (내림) 후, 잔여分은 소수부 큰 분위부터 +1 → 합계 정확히 limit
+    quota, frac = {}, {}
+    for d, ids in pop.items():
+        exact = len(ids) * limit / total
+        quota[d] = int(exact)
+        frac[d] = exact - quota[d]
+    for d in sorted(frac, key=lambda k: frac[k], reverse=True)[:limit - sum(quota.values())]:
+        quota[d] += 1
+
+    out: list[str] = []
+    for d, ids in pop.items():
+        k = min(quota[d], len(ids))
+        out.extend(_rnd.Random(f"agents-{d}-{limit}").sample(ids, k) if k else [])
+    return sorted(out)
 
 
 # =========================================================
@@ -207,6 +239,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         # 멱등성: 어제 State.grant_received에 이미 기록된 정책은 skip (resume 시 중복 적용 방지)
         prev_grant_received = _read_state_json(ctx.state, "grant_received")
         income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
+        spend_decile = ctx.persona.get("spend_decile")   # 소비 10분위 — grant_key='spend_decile' 정책용
         grants_applied_today: dict[str, int] = {}
         for pol in (ctx.policy or []):
             if pol.get("type") != "grant":
@@ -219,7 +252,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             if str(today) != eff:
                 continue
             # 이 정책에서 받을 금액 — grant_remaining 독립 지갑에 적립 (balance 불변)
-            amt = _grant_for_single_policy(income, pol)
+            amt = _grant_for_single_policy(income, pol, spend_decile=spend_decile)
             if amt > 0:
                 grants_applied_today[pid] = amt
 

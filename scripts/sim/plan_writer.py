@@ -178,15 +178,32 @@ def _parse_excluded_income(raw) -> set[str]:
     return set()
 
 
-def _grant_for_single_policy(income: str, pol: dict) -> int:
-    """단일 grant 정책에서 해당 소득이 받을 금액. excluded_income이면 0."""
+def grant_lookup_key(pol: dict, income: str, spend_decile=None) -> str:
+    """정책의 income_grants를 조회할 키.
+
+    policy.grant_key == 'spend_decile' 이면 소비 10분위(1~10)로, 아니면 소득 5분위로 조회.
+    (P010 민생회복 소비쿠폰처럼 계층별 차등을 10분위로 표현하는 정책용)
+    """
+    if (pol.get("grant_key") or "income") == "spend_decile":
+        try:
+            return str(int(spend_decile))
+        except (TypeError, ValueError):
+            return ""
+    return income or ""
+
+
+def _grant_for_single_policy(income: str, pol: dict, spend_decile=None) -> int:
+    """단일 grant 정책에서 이 agent가 받을 금액. excluded_income이면 0.
+
+    spend_decile: Agent.spending_level_wd (소비 10분위). policy.grant_key='spend_decile'일 때 사용.
+    """
     if pol.get("type") != "grant":
         return 0
     excluded = _parse_excluded_income(pol.get("excluded_income"))
     if income in excluded:
         return 0
     grants = _parse_income_grants(pol.get("income_grants"))
-    return grants.get(income, 0)
+    return grants.get(grant_lookup_key(pol, income, spend_decile), 0)
 
 
 def get_grant_amount(income: str, policies: list[dict]) -> int:

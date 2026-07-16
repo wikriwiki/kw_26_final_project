@@ -37,6 +37,7 @@ RETURN
   a.p_age_group AS age_group,
   a.p_gender AS gender,
   a.p_income_level AS income,
+  a.spending_level_wd AS spend_decile,
   a.p_life_stage AS life_stage,
   a.personal_job_raw AS job,
   a.pr_spending_tendency AS tendency,
@@ -151,6 +152,7 @@ RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
        pol.income_grants AS income_grants,
        pol.excluded_income AS excluded_income,
+       pol.grant_key AS grant_key,
        regions, region_codes, target_l1s
 """
 
@@ -435,11 +437,14 @@ _POLICY_TYPE_LABEL = {
 }
 
 
-def _grant_amount_for(income: str, pol: dict) -> int:
-    """grant 정책에서 이 소득이 받을 금액 (plan_writer 로직 재사용, lazy import)."""
+def _grant_amount_for(income: str, pol: dict, spend_decile=None) -> int:
+    """grant 정책에서 이 agent가 받을 금액 (plan_writer 로직 재사용, lazy import).
+
+    spend_decile: 소비 10분위. policy.grant_key='spend_decile'인 정책(예: P010)에서 사용.
+    """
     try:
         from plan_writer import _grant_for_single_policy
-        return _grant_for_single_policy(income, pol)
+        return _grant_for_single_policy(income, pol, spend_decile=spend_decile)
     except Exception:
         return 0
 
@@ -490,11 +495,17 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
         if ptype == "grant":
             pid = r["id"]
             income = (p.get("income") or "").strip()
-            my_amt = _grant_amount_for(income, r)
-            if my_amt > 0:
-                meta_parts.append(f"👤 나의 해당: **지급 대상** — 소득 '{income}' 기준 {my_amt:,}원")
+            decile = p.get("spend_decile")
+            my_amt = _grant_amount_for(income, r, spend_decile=decile)
+            # 지급 기준 라벨 — 10분위 기반 정책(P010 등)이면 소비분위로, 아니면 소득분위로
+            if (r.get("grant_key") or "income") == "spend_decile" and decile is not None:
+                basis = f"소비 {int(decile)}분위"
             else:
-                meta_parts.append(f"👤 나의 해당: 지급 대상 아님 (소득 '{income}')")
+                basis = f"소득 '{income}'"
+            if my_amt > 0:
+                meta_parts.append(f"👤 나의 해당: **지급 대상** — {basis} 기준 {my_amt:,}원")
+            else:
+                meta_parts.append(f"👤 나의 해당: 지급 대상 아님 ({basis})")
             rec = int(grant_received.get(pid, 0) or 0)
             rem = int(grant_remaining.get(pid, 0) or 0)
             if rec > 0 or rem > 0:
