@@ -211,8 +211,14 @@ def get_client() -> OpenAI:
 # 모델군별 extra_body
 # ═══════════════════════════════════════════
 def _extra_body_for(family: str) -> dict[str, Any]:
-    """Qwen3 family는 <think> 토큰 낭비를 막기 위해 thinking 강제 끔."""
-    if family == "qwen":
+    """추론(thinking) 토큰 낭비·JSON 파싱 파손을 막기 위해 강제로 끔.
+
+    Qwen3·EXAONE 4.x 모두 chat_template의 enable_thinking 플래그를 지원한다.
+    EXAONE-4.5는 기본이 thinking ON이라 끄지 않으면 매 호출이 수백~수천 추론
+    토큰을 내고 Stage 응답의 JSON이 추론 서문에 묻혀 파싱 실패한다.
+    (SGLang 실측: enable_thinking=False → 완성 토큰 300+ → 16, 순수 JSON.)
+    """
+    if family in ("qwen", "exaone"):
         return {"chat_template_kwargs": {"enable_thinking": False}}
     return {}
 
