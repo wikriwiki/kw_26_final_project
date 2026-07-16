@@ -31,6 +31,7 @@ DAY_ZERO=2025-07-13           # = SIM_START - 1
 WORKERS=${WORKERS:-32}
 AGENTS=${AGENTS:-7500}        # EXP-001 표본 (미지정 시 LIVES_AT 전체 ~14.7k 실행되므로 명시 필수)
 LLM_PORT=8000
+AWQ_MODEL=LGAI-EXAONE/EXAONE-4.5-33B-AWQ
 
 env_common() {
   export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j NEO4J_PASSWORD=$NEO4J_PW NEO4J_DATABASE=neo4j
@@ -56,7 +57,12 @@ s1_deps() {  # 파이썬 환경 + vLLM(최신 — AWQ schema 지원) + 런타임
 s2_model() {  # 모델 프리페치 (스토리지 캐시 — 워크로드 재생성에도 보존)
   echo "══ s2: EXAONE-4.5-33B-AWQ 다운로드 (HF_HOME=$HF_HOME) ══"
   source $VENV/bin/activate
-  huggingface-cli download LGAI-EXAONE/EXAONE-4.5-33B-AWQ --quiet | tail -1
+  huggingface-cli download $AWQ_MODEL --quiet | tail -1
+  # AWQ 스키마 거부 대비 FP8 폴백 모델도 미리 받아둠 (s7이 자동 폴백 → 다운로드 대기 방지)
+  if [ "${PREFETCH_FP8:-1}" = "1" ]; then
+    echo "  + FP8 폴백 프리페치 (건너뛰려면 PREFETCH_FP8=0)"
+    huggingface-cli download LGAI-EXAONE/EXAONE-4.5-33B-FP8 --quiet | tail -1 || echo "  (FP8 프리페치 실패 — 폴백 시 재시도됨)"
+  fi
 }
 
 s3_neo4j() {  # Neo4j 5.26 신규 설치 + 덤프 로드 + 기동
@@ -97,18 +103,25 @@ s6_policy() {  # 정책(P010) 적재 + 쿠폰 사용처 백필(실측 가맹점 
   python scripts/neo4j_load/09_coupon_eligibility.py --merchants data/coupon | tee $LOG/coupon_backfill.txt
 }
 
-s7_llm() {  # LLM 서버 (A100×2 TP2) — nohup 상주
+s7_llm() {  # LLM 서버 (A100×2 TP2) — nohup 상주. 양자화 커널 폴백 자동화
   echo "══ s7: EXAONE 서빙 (TP=2) ══"
   source $VENV/bin/activate; export HF_HOME=$BASE/hf_cache
-  pkill -f vllm.entrypoints || true; sleep 3
-  nohup bash $REPO/scripts/serve/serve_exaone45_awq_a100x2.sh > $LOG/llm.log 2>&1 &
-  echo "  로그: $LOG/llm.log — 모델 로드 대기(최대 20분)..."
-  for i in $(seq 1 120); do
-    curl -sf http://localhost:$LLM_PORT/v1/models >/dev/null 2>&1 && { echo "LLM READY"; curl -s http://localhost:$LLM_PORT/v1/models | head -c 300; echo; return; }
-    sleep 10
+  # awq_marlin(A100 최적, 실측 5배) → awq(기본 커널) → fp8(동일 모델 FP8) 순으로 시도
+  for attempt in "awq_marlin|$AWQ_MODEL" "awq|$AWQ_MODEL" "fp8|LGAI-EXAONE/EXAONE-4.5-33B-FP8"; do
+    q="${attempt%%|*}"; m="${attempt##*|}"
+    echo "  ▶ 시도: quant=$q model=$m"
+    pkill -f vllm.entrypoints || true; sleep 5
+    MODEL="$m" QUANT="$q" nohup bash $REPO/scripts/serve/serve_exaone45_awq_a100x2.sh > $LOG/llm.log 2>&1 &
+    for i in $(seq 1 120); do            # 최대 20분 (33B 최초 로드)
+      curl -sf http://localhost:$LLM_PORT/v1/models >/dev/null 2>&1 && {
+        echo "  ✅ LLM READY (quant=$q)"; echo "$q|$m" > $LOG/llm_quant.txt
+        curl -s http://localhost:$LLM_PORT/v1/models | head -c 200; echo; return; }
+      kill -0 %1 2>/dev/null || break     # 프로세스가 죽었으면 즉시 다음 폴백
+      sleep 10
+    done
+    echo "  ✗ 실패(quant=$q) — 마지막 로그:"; tail -5 $LOG/llm.log
   done
-  echo "❌ LLM 기동 실패 — tail $LOG/llm.log:"; tail -20 $LOG/llm.log
-  echo "   AWQ schema 이슈면 FP8 폴백: MODEL=LGAI-EXAONE/EXAONE-4.5-33B-FP8 QUANT=fp8 bash s7 재실행"
+  echo "❌ 3가지 모두 실패 — 전체 로그: tail -40 $LOG/llm.log"; tail -40 $LOG/llm.log
   exit 1
 }
 

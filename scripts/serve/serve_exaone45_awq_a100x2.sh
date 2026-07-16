@@ -11,7 +11,10 @@
 set -euo pipefail
 
 MODEL="${MODEL:-LGAI-EXAONE/EXAONE-4.5-33B-AWQ}"
-QUANT="${QUANT:-awq}"            # awq | awq_marlin | fp8 (A100=sm80: marlin 가속 가능)
+# awq_marlin 기본: A100(sm80)은 Marlin W4A16 커널 지원. 실측(EXP 이전 런, RTX5090/AWQ 11B)에서
+# 기본 awq 커널 6 agents/min → awq_marlin 30 agents/min (5배). 스키마 거부 시 아래 폴백 순서:
+#   QUANT=awq → (그래도 실패) MODEL=...EXAONE-4.5-33B-FP8 QUANT=fp8
+QUANT="${QUANT:-awq_marlin}"     # awq_marlin | awq | fp8
 PORT="${PORT:-8000}"             # llm_client 자동감지: SGLang 30000 / vLLM 8000
 TP="${TP:-2}"                    # A100 × 2 전부 사용
 GPU_UTIL="${GPU_UTIL:-0.92}"
