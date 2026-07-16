@@ -107,6 +107,10 @@ def _get_or_create_driver(cfg: dict) -> Driver:
             cfg["uri"], auth=(cfg["user"], cfg["password"]),
             max_connection_pool_size=pool_size,
             connection_acquisition_timeout=60.0,
+            # 서버 알림 억제: avg()에 null 섞일 때의 '01G11'(null value eliminated) 등
+            # 무해한 경고가 로그를 수백만 줄로 오염시켜 모니터링을 막는다. 서버가
+            # 알림 자체를 계산하지 않아 미세한 성능 이점도 있음.
+            notifications_min_severity="OFF",
         )
         _driver_cache[uri] = drv
 
