@@ -66,10 +66,14 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
 
     ig = pol.get("income_grants") or {}
     exc = set(pol.get("excluded_income") or [])
+    grant_key = pol.get("grant_key") or "income"
+    # income_grants 조회 키에 따라 유효 tier 집합이 달라진다:
+    #   spend_decile → 소비 10분위 "1".."10" / 그 외(income) → 소득 5분위(하~상)
+    valid_tiers = {str(i) for i in range(1, 11)} if grant_key == "spend_decile" else VALID_TIERS
     if ptype == "grant":
-        bad_tiers = (set(ig) | exc) - VALID_TIERS
-        out.append((_PASS, f"소득 tier 유효 ({sorted(ig)})") if not bad_tiers
-                   else (_FAIL, f"미지의 소득 tier: {bad_tiers}"))
+        bad_tiers = (set(ig) | exc) - valid_tiers
+        out.append((_PASS, f"{grant_key} tier 유효 ({sorted(ig, key=lambda x: (len(x), x))})") if not bad_tiers
+                   else (_FAIL, f"미지의 {grant_key} tier: {bad_tiers}"))
         overlap = set(ig) & exc
         out.append((_PASS, "지급/제외 tier 무모순") if not overlap
                    else (_FAIL, f"tier가 지급과 제외에 동시 존재: {overlap}"))
@@ -90,8 +94,12 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
         out.append((_PASS, f"업종 스코프 {tl} 어휘 유효 → 봉투 카테고리 필터로 자동 반영") if not bad
                    else (_FAIL, f"카테고리 어휘에 없음: {bad}"))
     if exc or (ig and len(set(ig.values())) > 1):
-        out.append((_WARN, f"{pid}: 소득 기준 차등/제외 사용 — 현재 p_income_level은 소비분위 유도(근사). "
-                           "정밀 백테스트는 INCOME_ASSIGNMENT_PLAN v2(p_income_pct) 이후 권장"))
+        if grant_key == "spend_decile":
+            out.append((_PASS, f"{pid}: 차등 지급을 소비 10분위(spending_level_wd, BDC 실측)로 결정 — "
+                               "시뮬 보유 최소 계층 단위로 직접 배선"))
+        else:
+            out.append((_WARN, f"{pid}: 소득 기준 차등/제외 사용 — 현재 p_income_level은 소비분위 유도(근사). "
+                               "정밀 백테스트는 INCOME_ASSIGNMENT_PLAN v2(p_income_pct) 이후 권장"))
 
     # ── C. 프롬프트 미리보기 (대상/제외 페르소나) ──
     try:
@@ -128,6 +136,46 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
     return out
 
 
+def check_db_wiring(path: Path) -> list[tuple[str, str]]:
+    """적재 후 DB 배선 실측 — 파일 검사가 구조적으로 못 잡는 치명 결함을 게이트.
+
+    핵심: POLICY_CYPHER 는 (Policy)-[:applied_to]->(District/Dong) 엣지를 통해
+    에이전트에 정책을 노출한다. 광역 토큰("서울특별시")이 District 이름과 안 맞아
+    applied_to 가 0건이면 정책은 존재하지만 **어떤 에이전트도 보지 못한다**.
+    NEO4J_URI 가 있을 때만(=적재 이후) 실행.
+    """
+    import os
+    out: list[tuple[str, str]] = []
+    uri = os.environ.get("NEO4J_URI")
+    if not uri:
+        out.append((_WARN, "NEO4J_URI 미설정 → DB 배선 점검 생략 (정책 적재 후 재실행 권장)"))
+        return out
+    pid = json.loads(path.read_text(encoding="utf-8")).get("id", "?")
+    try:
+        from neo4j import GraphDatabase
+        drv = GraphDatabase.driver(uri, auth=(os.environ.get("NEO4J_USER", "neo4j"),
+                                              os.environ.get("NEO4J_PASSWORD", "")))
+        with drv.session(database=os.environ.get("NEO4J_DATABASE", "neo4j")) as s:
+            if s.run("MATCH (p:Policy {id:$id}) RETURN count(p) AS c", id=pid).single()["c"] == 0:
+                out.append((_FAIL, f"{pid} 노드가 DB에 없음 — 로더 미실행"))
+                return out
+            n_app = s.run("MATCH (:Policy {id:$id})-[r:applied_to]->() RETURN count(r) AS c",
+                          id=pid).single()["c"]
+            out.append((_PASS, f"applied_to {n_app}개 연결 (정책 노출 배선 존재)") if n_app
+                       else (_FAIL, f"{pid} applied_to 0건 — 정책이 있어도 노출 0. "
+                                    "target_districts 가 District 이름과 불일치(광역 토큰 확장 실패)"))
+            n_exposed = s.run(
+                "MATCH (a:Agent)-[:LIVES_AT|WORKS_AT]->(:POI)-[:IN_DONG]->(:Dong)"
+                "<-[:HAS_DONG]-(:District)<-[:applied_to]-(:Policy {id:$id}) "
+                "RETURN count(DISTINCT a) AS c", id=pid).single()["c"]
+            out.append((_PASS, f"POLICY_CYPHER 경로 실측 → 노출 대상 {n_exposed:,}명") if n_exposed
+                       else (_FAIL, f"{pid} 노출 에이전트 0명 — 지역 매칭 경로 단절"))
+        drv.close()
+    except Exception as e:
+        out.append((_WARN, f"DB 배선 점검 실패(건너뜀): {e}"))
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="+", type=Path)
@@ -136,6 +184,7 @@ def main() -> None:
     for p in args.paths:
         print(f"\n{'='*64}\n정책 사전점검: {p}\n{'='*64}")
         results = check_policy(p)
+        results += check_db_wiring(p)
         for grade, msg in results:
             print(f"  {grade} {msg}")
         n_fail += sum(1 for g, _ in results if g == _FAIL)
