@@ -32,6 +32,49 @@
 
 ---
 
+## 0.5 재현 체크리스트 (다른 팀원이 같은 클라우드에서 돌리려면)
+
+**git clone 만으로는 부족하다.** 아래 3가지가 추가로 필요하다.
+
+| 필요물 | git에 있나 | 조달 방법 |
+|---|---|---|
+| 시뮬 코드·정책(P010.json)·쿠폰 CSV(`data/coupon/`) | ✅ | `git clone` |
+| 운영 스크립트(verify/snapshot/launch) | ✅ (이 커밋부터 `scripts/exp/`) | `git clone` |
+| SGLang 서빙 스택 | ✅ (이 커밋부터, 아래) | `scripts/deploy/install_sglang_exaone45.sh` |
+| **베이스 Neo4j 덤프**(Agent·POI·KNOWS 그래프) | ❌ **불가**(용량·개인정보) | NAS `/home/ubuntu/data/dumps/` 에서 회수하거나 별도 공유 |
+
+> **베이스 그래프는 git에 넣을 수 없다.** 에이전트는 BDC 실측 데이터 + 페르소나 생성으로
+> 만든 것이라 원본(BDC)이 없으면 `scripts/neo4j_load/` 파이프라인으로도 재생성 불가.
+> 실무 경로 = **덤프 파일 1개를 별도로 받아 `/data/dumps/neo4j.dump` 로 업로드.**
+> EXP-001 산출 덤프: NAS `/home/ubuntu/data/dumps/neo4j_baseline_pre_p010_20250720.dump`
+> (정책 직전 순수 baseline) 또는 `neo4j_base_day0.dump`(Day0 시작 상태).
+
+**서빙은 vLLM이 아니라 SGLang이다.** 이 EXAONE-4.5 AWQ(compressed-tensors int4)는 vLLM이
+로드하지 못한 이력이 있어(§3 s7의 vLLM 폴백 체인은 실패함), EXP-001은 EXAONE-4.5 지원
+SGLang 포크로 서빙했다. 실전에서 돈 경로:
+
+```bash
+bash scripts/deploy/install_sglang_exaone45.sh          # /data/venv_sgl 구성 (~10분)
+export HF_HOME=/data/hf_cache
+nohup bash scripts/serve/serve_exaone45_sglang_a100x2.sh > /data/exp001/llm.log 2>&1 &
+# 헬스: curl -sf localhost:8000/v1/models
+```
+
+**본런·검증·baseline 덤프** (setup_gpulive_exp001.sh 의 s7 vLLM 대신 위 SGLang 사용):
+
+```bash
+# 본런 (결과는 NAS로 직접 기록 → 컨테이너 소실에도 resume 안전)
+WORKERS=64 nohup bash scripts/exp/launch_exp001.sh > /home/ubuntu/data/exp001/logs/run.log 2>&1 &
+
+# 3시간마다 상세 검증(속도·품질·추출완전성·소비·이동·정책·사회·무결성 8차원)
+python scripts/exp/verify_exp001.py
+
+# 정책 시행 직전 순수 baseline 덤프 (시뮬 중단→오염노드+산출물 제거→덤프→resume)
+bash scripts/exp/snapshot_baseline.sh
+```
+
+---
+
 ## 1. 콘솔 작업 (웹 UI — 사람이 해야 함)
 
 접속: `https://iam.tta-gpu.gov-nhncloud.com/login`
@@ -100,7 +143,7 @@ bash scripts/deploy/setup_gpulive_exp001.sh all
 | s4 | `... s4_reset` | ~2분 | 이전 런 산출물 제거 → clean Day0 |
 | s5 | `... s5_seed` | ~2분 | Day0 State 시드 (2025-07-13) |
 | s6 | `... s6_policy` | ~5분 | **P010 적재 + 쿠폰 사용처 백필**(실측 가맹점 14만건 조인) |
-| s7 | `... s7_llm` | ~10분 | vLLM TP=2 기동 (**awq_marlin → awq → fp8 자동 폴백**) |
+| s7 | `... s7_llm` | ~10분 | vLLM TP=2 기동 (**awq_marlin → awq → fp8 자동 폴백**) — ⚠️ 이 모델은 vLLM 로드 실패 이력. **실전은 §0.5 SGLang 사용** |
 | s8 | `... s8_preflight` | ~1분 | 정책 사전점검 + LLM 스모크 |
 | s9 | `... s9_run` | **본런** | 14일 시뮬 (nohup) |
 
