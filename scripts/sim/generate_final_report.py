@@ -642,7 +642,8 @@ def _interview_sample_label(ctx: dict) -> str:
     return "positive"   # find_label_sample의 현재 구현이 positive 기반
 
 
-def section5_interviews(start: date, days: int, out_dir: Path, ctx: dict) -> dict:
+def section5_interviews(start: date, days: int, out_dir: Path, ctx: dict,
+                         mode: str | None = None) -> dict:
     from interview_agent import fetch_agent_full, ask, find_label_sample
     day_strs = [(start + timedelta(days=i)).isoformat() for i in range(days)]
     last_day = day_strs[-1]
@@ -666,7 +667,7 @@ def section5_interviews(start: date, days: int, out_dir: Path, ctx: dict) -> dic
     qa = []
     for q in questions:
         try:
-            a = ask(data, q)
+            a = ask(data, q, mode=mode)
         except Exception as e:
             a = f"(인터뷰 실패: {e})"
         qa.append({"q": q, "a": a})

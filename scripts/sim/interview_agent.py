@@ -286,10 +286,10 @@ def build_user_block(data: dict, question: str) -> str:
 # ═══════════════════════════════════════════════════════════════
 # LLM 호출
 # ═══════════════════════════════════════════════════════════════
-def ask(data: dict, question: str, temperature: float = 0.7) -> str:
+def ask(data: dict, question: str, temperature: float = 0.7, mode: str | None = None) -> str:
     user = build_user_block(data, question)
     resp = _llm_call(
-        None, INTERVIEW_SYSTEM, user,
+        mode, INTERVIEW_SYSTEM, user,
         temperature=temperature, max_tokens=400,
     )
     return resp.choices[0].message.content.strip()

@@ -41,6 +41,9 @@ output/sim/visualization/sim_standalone.html
 # Claude state (Drive 동기화 전용, git 추적 X)
 _claude_state/
 
+# Neo4j dump — GitHub 100MB 단일파일 제한 초과, 드라이브로 공유
+docs/*.dump
+
 # Logs
 logs/
 *.log
