@@ -59,7 +59,7 @@
     playing: true,
     speed: 1,
     selectedAgentId: null,
-    layerToggles: { heatmap: true, policyZones: true, guBoundary: false },
+    layerToggles: { heatmap: true, trails: true, policyZones: true, guBoundary: false },
     colorMode: "dist",
     heatMode: "spending",
     distFilter: "all",

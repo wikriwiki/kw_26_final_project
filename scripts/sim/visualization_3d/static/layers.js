@@ -223,10 +223,11 @@
 
     layers.push(makeCityDotLayer(agents, z));
 
+    // 잔상(연하늘색 이동 궤적) 토글. 켜져 있을 때만 애니메이션 궤적을 그리고,
+    // 끄면 완전히 사라진다. (기존 고배율 fallback인 commute-light-trips는
+    // trails 키가 항상 undefined라 실제로는 렌더된 적이 없어 제거했다.)
     if (toggles.trails !== false) {
       layers.push(makeTripsLayer());
-    } else if (z >= 12) {
-      layers.push(makeTripLayer(agents));
     }
 
     layers.push(makeHeatmapLayer(agents, toggles.heatmap));
