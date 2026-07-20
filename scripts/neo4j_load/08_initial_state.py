@@ -15,6 +15,7 @@ balance·energy는 페르소나 spending_level에 따라 차등 (선택).
 """
 from __future__ import annotations
 
+import os
 import sys
 from datetime import date
 from pathlib import Path
@@ -24,7 +25,9 @@ from _common import driver_session, bulk_run
 
 # 시뮬 시작일 = Day 0의 다음날(t=1)부터 시뮬 시작.
 # 시드는 t=0 = SIM_START - 1 일자로 생성.
-DAY_ZERO = "2026-05-24"   # 9일 baseline 시작(2026-05-25)의 전날
+# 실험별 시작일 지정: DAY_ZERO=2026-05-19 python 08_initial_state.py (기본 2026-05-24)
+DAY_ZERO = os.environ.get("DAY_ZERO", "2026-05-24")
+date.fromisoformat(DAY_ZERO)  # 형식 검증 (잘못된 값 조기 실패)
 
 # spending_level (1~10) → 초기 잔액·에너지 매핑
 def initial_balance(level: int | None) -> int:

@@ -35,13 +35,18 @@ SET p.name = $name,
     p.cap_per_agent = $cap_per_agent,
     p.income_grants = $income_grants_json,
     p.excluded_income = $excluded_income,
+    p.grant_key = $grant_key,
     p.poi_restricted = $poi_restricted,
     p.notes = $notes
 WITH p
-UNWIND $target_districts AS dname
-OPTIONAL MATCH (d:District {name: dname})
-FOREACH (_ IN CASE WHEN d IS NOT NULL THEN [1] ELSE [] END |
-  MERGE (p)-[:applied_to]->(d))
+CALL (p) {
+  UNWIND $target_districts AS dname
+  // District 노드는 자치구(25개)뿐이라 "서울특별시"류 광역 토큰은 이름 매칭이 0건이 된다.
+  // 서울 전역 정책은 광역 토큰을 25개 자치구 전체로 확장해 applied_to 를 건다.
+  MATCH (d:District)
+  WHERE d.name = dname OR dname IN ['서울특별시', '서울', '서울시', '전체']
+  MERGE (p)-[:applied_to]->(d)
+}
 RETURN p.id AS id
 """
 
@@ -62,6 +67,8 @@ def main() -> None:
         "cap_per_agent": pol.get("cap_per_agent"),
         "income_grants_json": json.dumps(pol.get("income_grants") or {}, ensure_ascii=False),
         "excluded_income": pol.get("excluded_income") or [],
+        # income_grants 조회 키: "spend_decile"(소비 10분위) | None/"income"(소득 5분위, 기본)
+        "grant_key": pol.get("grant_key") or "income",
         "poi_restricted": bool(pol.get("poi_restricted", False)),
         "notes": pol.get("notes", ""),
         "target_districts": pol.get("target_districts") or [],
