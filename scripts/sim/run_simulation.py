@@ -36,7 +36,7 @@ import sys
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Lock
 
@@ -207,6 +207,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         # 멱등성: 어제 State.grant_received에 이미 기록된 정책은 skip (resume 시 중복 적용 방지)
         prev_grant_received = _read_state_json(ctx.state, "grant_received")
         income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
+        spending_decile = ctx.persona.get("spending_decile")   # 소비 10분위 (1~10, decile_grants 정책용)
         grants_applied_today: dict[str, int] = {}
         for pol in (ctx.policy or []):
             if pol.get("type") != "grant":
@@ -219,7 +220,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             if str(today) != eff:
                 continue
             # 이 정책에서 받을 금액 — grant_remaining 독립 지갑에 적립 (balance 불변)
-            amt = _grant_for_single_policy(income, pol)
+            amt = _grant_for_single_policy(income, pol, decile=spending_decile)
             if amt > 0:
                 grants_applied_today[pid] = amt
 
@@ -417,6 +418,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "grant_remaining_total": sum(merged_grant_remaining.values()),
             "policy_spend_corrected": policy_spend_corrected,
             "s1_attempts": m1["attempt"] + 1,
+            "s1_t_llm": m1.get("t_llm"),   # t_s1 중 순수 LLM 왕복(재시도 포함) — 나머지=파싱·검증·프롬프트빌드
+            # ── Stage2 병목 분해 (t_s2 = 후보조회 + 최근쿼리 + 프롬프트 + LLM + 리뷰조회 + 파싱/기타) ──
+            "s2_timing": m2.get("s2_timing"),
+            # ── Dawn(Neo4j 조회) 병목 분해 — 메모리 누적 시 t_memory 증가 감지 ──
+            "dawn_timing": getattr(ctx, "dawn_timing", None),
             "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
             # Stage 2 fallback 카운트 (사후 분석용)
             "review_lookup_count": m2.get("review_lookup_count", 0),
@@ -440,6 +446,77 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "error": str(e)[:200],
             "trace": traceback.format_exc(limit=3)[-500:],
         }
+
+
+# =========================================================
+# 매일 데이터 저장 — 마운트 스토리지 백업 (워크로드 비정상 종료 대비)
+# =========================================================
+def _daily_backup(day_str: str, day_summary: dict) -> None:
+    """매일 하루 끝에 그날 산출물을 별도 스토리지(BACKUP_DIR)에 저장.
+
+    GPU LIVE 워크로드는 메모리 과다 시 비정상 종료될 수 있고, 재생성 시 마운트
+    스토리지만 유지된다(메가존 안내). 그래서 매일:
+      1) 그날 State snapshot을 JSONL로 export (Neo4j data가 날아가도 산출물 복구 가능,
+         online read라 DB 정지 불필요)
+      2) metrics/checkpoints/summary 를 BACKUP_DIR로 복사 (resume 가능 상태 보존)
+      3) backup_manifest.jsonl 에 진척 기록
+    BACKUP_DIR 미지정이면 아무것도 안 함(무해). 실패해도 런은 계속(치명 아님).
+
+    ※ 근본 대비: SIM_OUTPUT_DIR·Neo4j data 디렉토리 자체를 마운트 스토리지에 두는 것.
+       이 함수는 그 위에 '그날 스냅샷'을 얹는 추가 안전장치.
+    """
+    bdir = os.environ.get("BACKUP_DIR")
+    if not bdir:
+        return
+    import shutil
+    bpath = Path(bdir)
+    try:
+        bpath.mkdir(parents=True, exist_ok=True)
+        # 1) 그날 State snapshot (정책 효과 분석 핵심 필드) — online read
+        state_f = bpath / f"state_{day_str}.jsonl"
+        n_state = 0
+        try:
+            with driver_session() as s, state_f.open("w", encoding="utf-8") as fp:
+                for r in s.run(
+                    "MATCH (st:State {day: date($d)}) "
+                    "RETURN st.agent_id AS aid, st.balance AS balance, "
+                    "st.month_spent AS month_spent, st.grant_received AS grant_received, "
+                    "st.grant_remaining AS grant_remaining, st.policy_used AS policy_used, "
+                    "st.mood AS mood, st.fatigue AS fatigue", d=day_str,
+                ):
+                    fp.write(json.dumps(dict(r), ensure_ascii=False) + "\n")
+                    n_state += 1
+        except Exception as e:
+            print(f"  [backup] State export 실패({day_str}): {e}")
+        # 2) 그날 산출물 파일 복사 (metrics/checkpoints — resume 재개용)
+        for sub in ("metrics", "checkpoints"):
+            src = OUT_DIR / sub
+            if not src.exists():
+                continue
+            dst = bpath / sub
+            dst.mkdir(parents=True, exist_ok=True)
+            for f in src.glob(f"*{day_str}*"):
+                try:
+                    shutil.copy2(f, dst / f.name)
+                except OSError:
+                    pass
+        # stage2_slow / summary 도 함께
+        for name in ("summary.json", "stage2_slow.jsonl"):
+            src = OUT_DIR / name
+            if src.exists():
+                try:
+                    shutil.copy2(src, bpath / name)
+                except OSError:
+                    pass
+        # 3) manifest — 어디까지 백업됐는지 (재개 판단용)
+        with (bpath / "backup_manifest.jsonl").open("a", encoding="utf-8") as fp:
+            fp.write(json.dumps({
+                "day": day_str, "backed_up_at": datetime.now().isoformat(timespec="seconds"),
+                "state_rows": n_state, **day_summary,
+            }, ensure_ascii=False) + "\n")
+        print(f"  [backup] {day_str} → {bdir} (State {n_state}행 + metrics/checkpoints 복사 완료)")
+    except Exception as e:
+        print(f"  [backup] {day_str} 백업 실패(치명 아님, 런 계속): {e}")
 
 
 # =========================================================
@@ -488,6 +565,17 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     t_start = time.time()
     last_progress = 0
 
+    # ── Stage2 병목 집계(러닝 합) + 느린 케이스 상세 로그 ──
+    slow_sec = float(os.environ.get("STAGE2_SLOW_SEC", "45"))   # t_s2 이 값 초과 → 상세 로그
+    slow_path = METRICS_DIR.parent / "stage2_slow.jsonl"
+    s2agg = {"n": 0, "t_cand": 0.0, "t_recent": 0.0, "t_prompt": 0.0,
+             "t_llm": 0.0, "t_review": 0.0, "t_parse": 0.0, "t_s2": 0.0,
+             "n_llm": 0, "n_slow": 0}
+    # Dawn(Neo4j 조회) 병목 집계 — 메모리 누적 영향(t_memory) 추적
+    dawnagg = {"n": 0, "t_dawn": 0.0, "t_memory": 0.0, "t_knows_poi": 0.0,
+               "t_social": 0.0, "t_persona": 0.0, "t_state": 0.0,
+               "n_mem_ret": 0, "n_mem_total": 0, "n_mem_total_cnt": 0}
+
     # write 실패 retry + 매 500 agent마다 checkpoint snapshot
     def _safe_write(fp, line):
         for retry in range(3):
@@ -515,6 +603,45 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                 if res["status"] == "ok":
                     ok_count += 1
                     done_aids.add(res["aid"])
+                    # Stage2 병목 집계 + 느린 케이스 상세 로그
+                    # Dawn 병목 집계
+                    dt = res.get("dawn_timing") or {}
+                    t_dawn = res.get("timing_t_dawn")
+                    if dt and t_dawn is not None:
+                        dawnagg["n"] += 1
+                        dawnagg["t_dawn"] += float(t_dawn)
+                        for k in ("t_memory", "t_knows_poi", "t_social", "t_persona", "t_state"):
+                            dawnagg[k] += float(dt.get(k) or 0.0)
+                        dawnagg["n_mem_ret"] += int(dt.get("n_memory_ret") or 0)
+                        if dt.get("n_memory_total") is not None:
+                            dawnagg["n_mem_total"] += int(dt["n_memory_total"])
+                            dawnagg["n_mem_total_cnt"] += 1
+                    st = res.get("s2_timing") or {}
+                    t_s2 = res.get("timing_t_s2")
+                    if st and t_s2 is not None:
+                        s2agg["n"] += 1
+                        for k in ("t_cand", "t_recent", "t_prompt", "t_llm", "t_review"):
+                            s2agg[k] += float(st.get(k) or 0.0)
+                        s2agg["n_llm"] += int(st.get("n_llm_calls") or 0)
+                        s2agg["t_s2"] += float(t_s2)
+                        # 파싱/기타 = t_s2 - 측정된 구간 합 (Neo4j 세션·검증·fallback 등)
+                        measured = sum(float(st.get(k) or 0.0)
+                                       for k in ("t_cand", "t_recent", "t_prompt", "t_llm", "t_review"))
+                        s2agg["t_parse"] += max(0.0, float(t_s2) - measured)
+                        if float(t_s2) >= slow_sec:
+                            s2agg["n_slow"] += 1
+                            try:
+                                with slow_path.open("a", encoding="utf-8") as fp_s:
+                                    fp_s.write(json.dumps({
+                                        "aid": res["aid"], "day": day_str, "t_s2": round(float(t_s2), 2),
+                                        "t_s1": res.get("timing_t_s1"),
+                                        "s2": st, "n_events": res.get("n_events"),
+                                        "s2_attempts": res.get("s2_attempts"),
+                                        "review_lookup_count": res.get("review_lookup_count"),
+                                        "tokens_in": res.get("tokens_in"), "tokens_out": res.get("tokens_out"),
+                                    }, ensure_ascii=False) + "\n")
+                            except OSError:
+                                pass
                 else:
                     err_count += 1
                     fail_list.append(res)
@@ -542,6 +669,35 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
 
     elapsed = time.time() - t_start
     print(f"[Day {day_idx} {day_str}] done in {elapsed:.0f}s — ok={ok_count}, err={err_count}")
+
+    # ── Stage2 병목 요약 (어느 단계가 t_s2를 지배하는지 한눈에) ──
+    if s2agg["n"] > 0:
+        n = s2agg["n"]
+        avg = {k: s2agg[k] / n for k in ("t_cand", "t_recent", "t_prompt", "t_llm", "t_review", "t_parse", "t_s2")}
+        share = {k: (100.0 * s2agg[k] / s2agg["t_s2"] if s2agg["t_s2"] > 0 else 0.0)
+                 for k in ("t_cand", "t_recent", "t_prompt", "t_llm", "t_review", "t_parse")}
+        print(f"  [Stage2 병목] 평균 t_s2={avg['t_s2']:.1f}s "
+              f"= 후보조회 {avg['t_cand']:.1f}s({share['t_cand']:.0f}%) "
+              f"+ 최근쿼리 {avg['t_recent']:.2f}s({share['t_recent']:.0f}%) "
+              f"+ 프롬프트 {avg['t_prompt']:.2f}s({share['t_prompt']:.0f}%) "
+              f"+ LLM {avg['t_llm']:.1f}s({share['t_llm']:.0f}%) "
+              f"+ 리뷰조회 {avg['t_review']:.1f}s({share['t_review']:.0f}%) "
+              f"+ 파싱/기타 {avg['t_parse']:.1f}s({share['t_parse']:.0f}%)")
+        print(f"  [Stage2 병목] 평균 LLM 호출수 {s2agg['n_llm']/n:.2f}회/agent, "
+              f"느린케이스(t_s2≥{slow_sec:.0f}s) {s2agg['n_slow']}건 → {slow_path.name}")
+
+    # ── Dawn(Neo4j 조회) 병목 요약 — 메모리 누적 영향 추적 ──
+    if dawnagg["n"] > 0:
+        n = dawnagg["n"]
+        da = {k: dawnagg[k] / n for k in ("t_dawn", "t_memory", "t_knows_poi", "t_social", "t_persona", "t_state")}
+        mem_share = 100.0 * dawnagg["t_memory"] / dawnagg["t_dawn"] if dawnagg["t_dawn"] > 0 else 0.0
+        memtot = (f", 메모리노드 평균 {dawnagg['n_mem_total']/dawnagg['n_mem_total_cnt']:.0f}개/agent"
+                  if dawnagg["n_mem_total_cnt"] > 0 else " (총 메모리수는 DAWN_MEM_COUNT=1 로 측정)")
+        print(f"  [Dawn 병목] 평균 t_dawn={da['t_dawn']:.2f}s "
+              f"= 메모리조회 {da['t_memory']:.3f}s({mem_share:.0f}%) "
+              f"+ knows_poi {da['t_knows_poi']:.3f}s + social {da['t_social']:.3f}s "
+              f"+ persona {da['t_persona']:.3f}s + state {da['t_state']:.3f}s "
+              f"| 반환메모리 {dawnagg['n_mem_ret']/n:.1f}개/agent{memtot}")
 
     # ═══════════════════════════════════════════
     # Night Phase 2 — 상호작용 대상 선정 + 의도 분류 LLM
@@ -607,6 +763,8 @@ def main():
         today = start + timedelta(days=i)
         s = run_day(agents, today, day_idx=i, workers=args.workers)
         summary.append(s)
+        # ★ 매일 하루 끝에 별도 스토리지 백업 (BACKUP_DIR 지정 시) — 워크로드 종료 대비
+        _daily_backup(today.isoformat(), s)
         print()
 
     print("=== 시뮬 종료 ===")

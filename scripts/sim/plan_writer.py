@@ -178,10 +178,23 @@ def _parse_excluded_income(raw) -> set[str]:
     return set()
 
 
-def _grant_for_single_policy(income: str, pol: dict) -> int:
-    """단일 grant 정책에서 해당 소득이 받을 금액. excluded_income이면 0."""
+def _grant_for_single_policy(income: str, pol: dict, decile=None) -> int:
+    """단일 grant 정책에서 이 에이전트가 받을 금액.
+
+    분위 우선: 정책에 decile_grants(소비 10분위 {"1"~"10": 금액})가 있으면
+    spending_level_wd 분위 기준으로 산정 (excluded_deciles 제외).
+    없으면 레거시 income_grants(5-tier) / excluded_income 사용.
+    """
     if pol.get("type") != "grant":
         return 0
+    dg = _parse_income_grants(pol.get("decile_grants"))
+    if dg:
+        d = str(decile).strip() if decile is not None else ""
+        if not d or d == "None":
+            return 0   # 분위 미상(NULL) 에이전트는 지급 판단 불가 → 0
+        if d in _parse_excluded_income(pol.get("excluded_deciles")):
+            return 0
+        return int(dg.get(d, 0))
     excluded = _parse_excluded_income(pol.get("excluded_income"))
     if income in excluded:
         return 0
@@ -189,17 +202,16 @@ def _grant_for_single_policy(income: str, pol: dict) -> int:
     return grants.get(income, 0)
 
 
-def get_grant_amount(income: str, policies: list[dict]) -> int:
+def get_grant_amount(income: str, policies: list[dict], decile=None) -> int:
     """오늘 적용 가능한 모든 grant 정책의 지급액 합계. 해당 없으면 0.
 
     여러 grant 정책이 동시에 활성이면 누적 합산.
-    각 정책의 income_grants(소득별 지급액 dict)·excluded_income(제외 소득 list)을
-    동적으로 읽어서 처리. P009 같은 차등 지급 정책 외에도 income_grants가 있는 어떤
-    grant 정책이든 자동 처리.
+    decile_grants(소비 10분위) 정책은 decile 기준, 레거시 income_grants(5-tier)
+    정책은 income 기준으로 자동 처리 (_grant_for_single_policy 참조).
     """
     total = 0
     for pol in policies:
-        total += _grant_for_single_policy(income, pol)
+        total += _grant_for_single_policy(income, pol, decile=decile)
     return total
 
 

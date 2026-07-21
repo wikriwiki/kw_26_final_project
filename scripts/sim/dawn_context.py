@@ -37,6 +37,7 @@ RETURN
   a.p_age_group AS age_group,
   a.p_gender AS gender,
   a.p_income_level AS income,
+  a.spending_level_wd AS spending_decile,
   a.p_life_stage AS life_stage,
   a.personal_job_raw AS job,
   a.pr_spending_tendency AS tendency,
@@ -151,6 +152,8 @@ RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
        pol.income_grants AS income_grants,
        pol.excluded_income AS excluded_income,
+       pol.decile_grants AS decile_grants,
+       pol.excluded_deciles AS excluded_deciles,
        regions, region_codes, target_l1s
 """
 
@@ -435,11 +438,14 @@ _POLICY_TYPE_LABEL = {
 }
 
 
-def _grant_amount_for(income: str, pol: dict) -> int:
-    """grant 정책에서 이 소득이 받을 금액 (plan_writer 로직 재사용, lazy import)."""
+def _grant_amount_for(income: str, pol: dict, decile=None) -> int:
+    """grant 정책에서 이 에이전트가 받을 금액 (plan_writer 로직 재사용, lazy import).
+
+    decile: 소비 10분위 (spending_level_wd) — decile_grants 정책이면 이 기준.
+    """
     try:
         from plan_writer import _grant_for_single_policy
-        return _grant_for_single_policy(income, pol)
+        return _grant_for_single_policy(income, pol, decile=decile)
     except Exception:
         return 0
 
@@ -490,11 +496,15 @@ def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
         if ptype == "grant":
             pid = r["id"]
             income = (p.get("income") or "").strip()
-            my_amt = _grant_amount_for(income, r)
+            decile = p.get("spending_decile")
+            my_amt = _grant_amount_for(income, r, decile=decile)
+            # 분위 정책이면 '소비 N분위', 레거시면 '소득 tier' 로 근거 표기
+            basis = (f"소비 {decile}분위" if r.get("decile_grants") and decile is not None
+                     else f"소득 '{income}'")
             if my_amt > 0:
-                meta_parts.append(f"👤 나의 해당: **지급 대상** — 소득 '{income}' 기준 {my_amt:,}원")
+                meta_parts.append(f"👤 나의 해당: **지급 대상** — {basis} 기준 {my_amt:,}원")
             else:
-                meta_parts.append(f"👤 나의 해당: 지급 대상 아님 (소득 '{income}')")
+                meta_parts.append(f"👤 나의 해당: 지급 대상 아님 ({basis})")
             rec = int(grant_received.get(pid, 0) or 0)
             rem = int(grant_remaining.get(pid, 0) or 0)
             if rec > 0 or rem > 0:
@@ -653,27 +663,48 @@ def build_dawn_context(
     memory_top_n: int = 8,
     social_top_n: int = 8,
 ) -> DawnContext:
-    """한 agent의 Dawn 컨텍스트를 7종 Cypher로 수집."""
+    """한 agent의 Dawn 컨텍스트를 7종 Cypher로 수집.
+
+    dawn_timing(각 Cypher 소요·메모리 수)을 반환 ctx에 부착 — 에이전트 메모리 누적에
+    따른 조회 병목(특히 t_memory: 30일 윈도우 Memory 스캔·정렬)을 진단하기 위함.
+    """
+    import time as _t
     yesterday = today - __import__("datetime").timedelta(days=1)
+    tm: dict = {}
     with driver_session() as s:
-        persona = s.run(PERSONA_CYPHER, aid=aid).single()
+        _c = _t.time(); persona = s.run(PERSONA_CYPHER, aid=aid).single(); tm["t_persona"] = round(_t.time()-_c, 4)
         persona = dict(persona) if persona else {}
 
-        state = s.run(STATE_CYPHER, aid=aid, yesterday=yesterday).single()
+        _c = _t.time(); state = s.run(STATE_CYPHER, aid=aid, yesterday=yesterday).single(); tm["t_state"] = round(_t.time()-_c, 4)
         state = dict(state) if state else {}
 
+        _c = _t.time()
         memory = [dict(r) for r in s.run(MEMORY_CYPHER, aid=aid, today=today, top_n=memory_top_n)]
-        appointment = [dict(r) for r in s.run(APPOINTMENT_CYPHER, aid=aid, today=today)]
-        policy = [dict(r) for r in s.run(POLICY_CYPHER, aid=aid, today=today)]
-        social = [dict(r) for r in s.run(SOCIAL_CYPHER, aid=aid, top_n=social_top_n)]
-        knows_poi = [dict(r) for r in s.run(KNOWS_POI_SUMMARY_CYPHER, aid=aid)]
+        tm["t_memory"] = round(_t.time()-_c, 4)
 
-    return DawnContext(
+        _c = _t.time(); appointment = [dict(r) for r in s.run(APPOINTMENT_CYPHER, aid=aid, today=today)]; tm["t_appt"] = round(_t.time()-_c, 4)
+        _c = _t.time(); policy = [dict(r) for r in s.run(POLICY_CYPHER, aid=aid, today=today)]; tm["t_policy"] = round(_t.time()-_c, 4)
+        _c = _t.time(); social = [dict(r) for r in s.run(SOCIAL_CYPHER, aid=aid, top_n=social_top_n)]; tm["t_social"] = round(_t.time()-_c, 4)
+        _c = _t.time(); knows_poi = [dict(r) for r in s.run(KNOWS_POI_SUMMARY_CYPHER, aid=aid)]; tm["t_knows_poi"] = round(_t.time()-_c, 4)
+
+        # 메모리 누적량 — 병목 상관 분석용. 환경변수로 켤 때만 count 쿼리(런타임 오버헤드 회피).
+        if os.environ.get("DAWN_MEM_COUNT") == "1":
+            _c = _t.time()
+            n_mem = s.run("MATCH (a:Agent {id:$aid})-[:REMEMBERS]->(m:Memory) RETURN count(m) AS n", aid=aid).single()["n"]
+            tm["t_memcount"] = round(_t.time()-_c, 4)
+            tm["n_memory_total"] = int(n_mem)
+
+    _c = _t.time(); zones = _build_zone_candidates(persona, today); tm["t_zones"] = round(_t.time()-_c, 4)
+    tm["n_memory_ret"] = len(memory)   # 실제 반환된 메모리 수(top_n 상한)
+
+    ctx = DawnContext(
         persona=persona, state=state, memory=memory,
         appointment=appointment, policy=policy, social=social,
         knows_poi_summary=knows_poi,
-        zone_candidates=_build_zone_candidates(persona, today),
+        zone_candidates=zones,
     )
+    ctx.dawn_timing = tm
+    return ctx
 
 
 def _run_candidates(cypher: str, session=None, **params) -> list[dict]:

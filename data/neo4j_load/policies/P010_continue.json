@@ -1,0 +1,30 @@
+{
+  "id": "P010",
+  "name": "민생회복 소비쿠폰 1차 (대조군 이어달리기 · 정책충격)",
+  "type": "grant",
+  "description": "전 시민에게 1인 15만원의 소비쿠폰을 지급합니다. 쿠폰은 연매출 30억 이하 소상공인 매장([쿠폰] 표시 매장)에서만 사용할 수 있으며, 대형마트·백화점·기업형 슈퍼마켓 등에서는 사용할 수 없습니다. 사용기한 내 미사용분은 환수됩니다.",
+  "announce_date": "2025-07-27",
+  "effective_from": "2025-07-28",
+  "effective_until": "2025-12-31",
+  "target_districts": ["서울특별시"],
+  "benefit_rate": null,
+  "cap_per_agent": null,
+  "benefit_categories": [],
+  "decile_grants": {
+    "1": 150000,
+    "2": 150000,
+    "3": 150000,
+    "4": 150000,
+    "5": 150000,
+    "6": 150000,
+    "7": 150000,
+    "8": 150000,
+    "9": 150000,
+    "10": 150000
+  },
+  "excluded_deciles": [],
+  "income_grants": {},
+  "excluded_income": [],
+  "poi_restricted": true,
+  "notes": "이어달리기 실험용: 정책 OFF 대조군(2025-07-14~07-27, 14일)이 만든 Neo4j 상태(누적 State·Memory)에 이어서, 다음날 2025-07-28에 P010 정책충격을 주입하고 14일(07-28~08-10) 관측. 대조군과 same-seed 이어달리기라 정책 ON/OFF 반사실 비교(counterfactual) 가능. effective_from=대조군 종료 다음날, effective_until은 실제 다개월 사용기한 반영. 지급 기준=소비 10분위(decile_grants, Agent.spending_level_wd). 균등 15만(1차 쿠폰 전 국민 동일). windfall 감쇠는 grant_days_since 기반 별도 처리. 후반 14일간 메모리 누적(총 28일치)으로 인한 Dawn t_memory 병목을 DAWN_MEM_COUNT=1로 계측."
+}

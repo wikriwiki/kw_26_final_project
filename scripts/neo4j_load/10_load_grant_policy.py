@@ -35,6 +35,8 @@ SET p.name = $name,
     p.cap_per_agent = $cap_per_agent,
     p.income_grants = $income_grants_json,
     p.excluded_income = $excluded_income,
+    p.decile_grants = $decile_grants_json,
+    p.excluded_deciles = $excluded_deciles,
     p.poi_restricted = $poi_restricted,
     p.notes = $notes
 WITH p
@@ -62,14 +64,19 @@ def main() -> None:
         "cap_per_agent": pol.get("cap_per_agent"),
         "income_grants_json": json.dumps(pol.get("income_grants") or {}, ensure_ascii=False),
         "excluded_income": pol.get("excluded_income") or [],
+        # 소비 10분위(spending_level_wd 1~10) 기준 지급 — 있으면 income_grants보다 우선
+        "decile_grants_json": json.dumps(pol.get("decile_grants") or {}, ensure_ascii=False),
+        "excluded_deciles": [str(x) for x in (pol.get("excluded_deciles") or [])],
         "poi_restricted": bool(pol.get("poi_restricted", False)),
         "notes": pol.get("notes", ""),
         "target_districts": pol.get("target_districts") or [],
     }
     with driver_session() as s:
         r = s.run(MERGE, **params).single()
-        print(f"적재 완료: {r['id']}  (poi_restricted={params['poi_restricted']}, "
-              f"income_grants={params['income_grants_json']})")
+        basis = (f"decile_grants={params['decile_grants_json']}"
+                 if params["decile_grants_json"] != "{}"
+                 else f"income_grants={params['income_grants_json']}")
+        print(f"적재 완료: {r['id']}  (poi_restricted={params['poi_restricted']}, {basis})")
 
 
 if __name__ == "__main__":

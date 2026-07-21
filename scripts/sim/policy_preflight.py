@@ -32,7 +32,8 @@ except Exception:
     pass
 
 ROOT = Path(__file__).resolve().parents[2]
-VALID_TIERS = {"하", "중하", "중", "중상", "상"}
+VALID_TIERS = {"하", "중하", "중", "중상", "상"}          # 레거시 5-tier (P009)
+VALID_DECILES = {str(i) for i in range(1, 11)}            # 소비 10분위 (spending_level_wd)
 KNOWN_TYPES = {"grant", "subsidy", "regulation", "facility", "campaign", "tax", "transit", "environment"}
 
 _PASS, _WARN, _FAIL = "✅", "⚠️ ", "❌"
@@ -66,15 +67,30 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
 
     ig = pol.get("income_grants") or {}
     exc = set(pol.get("excluded_income") or [])
+    dg = pol.get("decile_grants") or {}
+    dexc = {str(x) for x in (pol.get("excluded_deciles") or [])}
     if ptype == "grant":
-        bad_tiers = (set(ig) | exc) - VALID_TIERS
-        out.append((_PASS, f"소득 tier 유효 ({sorted(ig)})") if not bad_tiers
-                   else (_FAIL, f"미지의 소득 tier: {bad_tiers}"))
-        overlap = set(ig) & exc
-        out.append((_PASS, "지급/제외 tier 무모순") if not overlap
-                   else (_FAIL, f"tier가 지급과 제외에 동시 존재: {overlap}"))
-        bad_amt = {k: v for k, v in ig.items() if not isinstance(v, int) or v <= 0}
-        out.append((_PASS, "지급액 양의 정수") if not bad_amt else (_FAIL, f"지급액 오류: {bad_amt}"))
+        if dg:
+            # 소비 10분위 기준 (spending_level_wd 1~10) — 신규 표준
+            bad_dec = ({str(k) for k in dg} | dexc) - VALID_DECILES
+            out.append((_PASS, f"소비 10분위 유효 ({sorted(dg, key=lambda x: int(x))})") if not bad_dec
+                       else (_FAIL, f"미지의 분위: {bad_dec} (유효: 1~10)"))
+            overlap_d = {str(k) for k in dg} & dexc
+            out.append((_PASS, "지급/제외 분위 무모순") if not overlap_d
+                       else (_FAIL, f"분위가 지급과 제외에 동시 존재: {overlap_d}"))
+            bad_amt = {k: v for k, v in dg.items() if not isinstance(v, int) or v <= 0}
+            out.append((_PASS, "지급액 양의 정수") if not bad_amt else (_FAIL, f"지급액 오류: {bad_amt}"))
+            if ig:
+                out.append((_WARN, "decile_grants와 income_grants 동시 존재 — decile이 우선 적용됨 (혼동 방지 위해 income_grants 비우기 권장)"))
+        else:
+            bad_tiers = (set(ig) | exc) - VALID_TIERS
+            out.append((_PASS, f"소득 tier 유효 ({sorted(ig)}) [레거시 5-tier — 신규 정책은 decile_grants 권장]") if not bad_tiers
+                       else (_FAIL, f"미지의 소득 tier: {bad_tiers}"))
+            overlap = set(ig) & exc
+            out.append((_PASS, "지급/제외 tier 무모순") if not overlap
+                       else (_FAIL, f"tier가 지급과 제외에 동시 존재: {overlap}"))
+            bad_amt = {k: v for k, v in ig.items() if not isinstance(v, int) or v <= 0}
+            out.append((_PASS, "지급액 양의 정수") if not bad_amt else (_FAIL, f"지급액 오류: {bad_amt}"))
 
     # ── B. 환경 요구사항 (정책 속성 → 자동 도출) ──
     if pol.get("poi_restricted"):
@@ -104,24 +120,46 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
             "regions": pol.get("target_districts") or [], "target_l1s": tl,
             "income_grants": json.dumps(ig, ensure_ascii=False),
             "excluded_income": list(exc),
+            "decile_grants": json.dumps(dg, ensure_ascii=False) if dg else None,
+            "excluded_deciles": sorted(dexc),
         }
-        target_tier = next(iter(ig), "중")
-        excl_tier = next(iter(exc), None)
-        print(f"\n--- {pid} 프롬프트 미리보기 (소득 '{target_tier}' 대상자, 지급 당일) ---")
-        print(_format_policy([row], persona={"income": target_tier, "daily_wd": 30000},
-                             state={"grant_received": json.dumps({pid: ig.get(target_tier, 0)}),
-                                    "grant_remaining": json.dumps({pid: ig.get(target_tier, 0)}),
-                                    "grant_days_since": {pid: 0}}))
-        if excl_tier:
-            print(f"--- {pid} 프롬프트 미리보기 (소득 '{excl_tier}' 제외자) ---")
-            print(_format_policy([row], persona={"income": excl_tier, "daily_wd": 90000},
-                                 state={"grant_received": "{}", "grant_remaining": "{}"}))
+        if dg:
+            # 분위 정책: 대상 분위 1명 + 제외 분위 1명 미리보기
+            target_dec = next(iter(sorted(dg, key=lambda x: int(x))), "5")
+            amt0 = int(dg.get(target_dec, 0))
+            print(f"\n--- {pid} 프롬프트 미리보기 (소비 {target_dec}분위 대상자, 지급 당일) ---")
+            print(_format_policy([row], persona={"income": "중", "spending_decile": int(target_dec), "daily_wd": 30000},
+                                 state={"grant_received": json.dumps({pid: amt0}),
+                                        "grant_remaining": json.dumps({pid: amt0}),
+                                        "grant_days_since": {pid: 0}}))
+            excl_dec = next(iter(sorted(dexc, key=lambda x: int(x))), None)
+            if excl_dec:
+                print(f"--- {pid} 프롬프트 미리보기 (소비 {excl_dec}분위 제외자) ---")
+                print(_format_policy([row], persona={"income": "중", "spending_decile": int(excl_dec), "daily_wd": 90000},
+                                     state={"grant_received": "{}", "grant_remaining": "{}"}))
+        else:
+            target_tier = next(iter(ig), "중")
+            excl_tier = next(iter(exc), None)
+            print(f"\n--- {pid} 프롬프트 미리보기 (소득 '{target_tier}' 대상자, 지급 당일) ---")
+            print(_format_policy([row], persona={"income": target_tier, "daily_wd": 30000},
+                                 state={"grant_received": json.dumps({pid: ig.get(target_tier, 0)}),
+                                        "grant_remaining": json.dumps({pid: ig.get(target_tier, 0)}),
+                                        "grant_days_since": {pid: 0}}))
+            if excl_tier:
+                print(f"--- {pid} 프롬프트 미리보기 (소득 '{excl_tier}' 제외자) ---")
+                print(_format_policy([row], persona={"income": excl_tier, "daily_wd": 90000},
+                                     state={"grant_received": "{}", "grant_remaining": "{}"}))
         out.append((_PASS, "프롬프트 카드 렌더 정상"))
     except Exception as e:
         out.append((_FAIL, f"프롬프트 렌더 실패: {e}"))
 
     # ── D. 지급 규모 ──
-    if ig:
+    if dg:
+        out.append((_PASS, "분위별 지급: " + ", ".join(
+                        f"{k}분위 {v:,}원" for k, v in sorted(dg.items(), key=lambda kv: int(kv[0])))
+                    + (f" / 제외 분위 {sorted(dexc, key=int)}" if dexc else "")
+                    + " — 대상자 수·총예산은 서버에서 MATCH (a:Agent) spending_level_wd 집계"))
+    elif ig:
         out.append((_PASS, "tier별 지급: " + ", ".join(f"{k} {v:,}원" for k, v in ig.items())
                     + (f" / 제외 {sorted(exc)}" if exc else "")
                     + " — 대상자 수·총예산은 서버에서 MATCH (a:Agent) 집계"))

@@ -211,8 +211,12 @@ def get_client() -> OpenAI:
 # 모델군별 extra_body
 # ═══════════════════════════════════════════
 def _extra_body_for(family: str) -> dict[str, Any]:
-    """Qwen3 family는 <think> 토큰 낭비를 막기 위해 thinking 강제 끔."""
-    if family == "qwen":
+    """Qwen3·EXAONE-4.5 family는 <think> 토큰 낭비를 막기 위해 thinking 강제 끔.
+
+    EXAONE 4.5는 하이브리드 추론 모델 — 기본이 thinking ON이라 JSON 출력이
+    오염됨. enable_thinking=False 로 끄면 즉답 모드 (EXP-001 실측 확인).
+    """
+    if family in ("qwen", "exaone"):
         return {"chat_template_kwargs": {"enable_thinking": False}}
     return {}
 

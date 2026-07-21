@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -469,6 +470,7 @@ def call_stage1(
 
     last_err = None
     last_raw = None
+    t_llm_total = 0.0   # 병목 분석: LLM 왕복만 누적 (파싱·검증 제외)
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.2 * attempt
         # retry 시 피드백 첨부 — LLM에게 직전 실수 알림
@@ -479,10 +481,12 @@ def call_stage1(
                 f"위 규칙을 어겼습니다. 이번엔 반드시 따를 것.\n"
             )
         try:
+            _t_llm = time.time()
             resp = _llm_call(
                 None, SYSTEM_PROMPT, user_block_now,
                 temperature=temp, max_tokens=2200,
             )
+            t_llm_total += time.time() - _t_llm
             raw = resp.choices[0].message.content
             last_raw = raw
             finish = resp.choices[0].finish_reason
@@ -531,6 +535,7 @@ def call_stage1(
                 "temp": temp,
                 "tokens_in": resp.usage.prompt_tokens,
                 "tokens_out": resp.usage.completion_tokens,
+                "t_llm": round(t_llm_total, 3),   # 재시도 포함 LLM 왕복 합
             }
             return parsed, meta
         except Exception as e:

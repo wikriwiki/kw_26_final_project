@@ -14,8 +14,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -494,9 +496,14 @@ def call_stage2(
     state: State 노드 dict (balance 등) — 가격대 선택의 예산 근거로 프롬프트에 노출.
     """
     fb_stats: dict[str, int] = {}
+    # ── 병목 분해 계측: 후보조회(Neo4j) / 최근방문쿼리 / 프롬프트빌드 / LLM / 리뷰조회(외부I/O) / 파싱검증 ──
+    _tm = {"t_cand": 0.0, "t_recent": 0.0, "t_prompt": 0.0, "t_llm": 0.0,
+           "t_review": 0.0, "t_parse": 0.0, "n_llm_calls": 0}
+    _t0 = time.time()
     cands_by_order = fetch_candidates_for_events(
         aid, stage1.events, persona, today, stats=fb_stats,
     )
+    _tm["t_cand"] = round(time.time() - _t0, 3)
     need_llm = any(cs for cs in cands_by_order.values())
 
     # POI → (price_band, price_factor) 맵 — merge/소비모델에서 금액 반영용
@@ -512,10 +519,11 @@ def call_stage2(
 
     if not need_llm:
         # 외부 POI 결정 필요 없음 (전부 residence/workplace/pinned)
-        return Stage2Output(picks=[]), cands_by_order, {"skipped": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, **fb_stats}
+        return Stage2Output(picks=[]), cands_by_order, {"skipped": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, "s2_timing": _tm, **fb_stats}
 
     # 최근 3일 방문 POI (억제용)
     recent_poi_ids: set[str] = set()
+    _t0 = time.time()
     try:
         from _common import driver_session
         from datetime import timedelta
@@ -529,13 +537,16 @@ def call_stage2(
             recent_poi_ids = {r["pid"] for r in rows}
     except Exception:
         pass
+    _tm["t_recent"] = round(time.time() - _t0, 3)
 
+    _t0 = time.time()
     user_block = build_stage2_prompt(
         stage1.events, cands_by_order,
         persona=persona,
         recent_poi_ids=recent_poi_ids,
         state=state,
     )
+    _tm["t_prompt"] = round(time.time() - _t0, 3)
 
     # 환각 차단용 JSON schema — poi_id는 전체 후보풀 union enum 강제.
     # order-별 enum은 아니지만 후보풀 외 POI는 0건 보장. order_mismatch는 fallback에서 처리.
@@ -600,11 +611,14 @@ def call_stage2(
                 "이번 응답에서는 review_lookup_requests를 비워 두세요(이미 조회 완료).\n"
             )
         try:
+            _t_llm = time.time()
             resp = _llm_call(
                 None, SYSTEM_S2, prompt_now,
                 temperature=temp, max_tokens=1400,  # review_lookup_requests 필드 + 추가 컨텍스트
                 response_format=s2_schema,
             )
+            _tm["t_llm"] += time.time() - _t_llm
+            _tm["n_llm_calls"] += 1
             raw = resp.choices[0].message.content
             if verbose:
                 print(f"--- attempt {attempt} (temp={temp}) ---")
@@ -619,7 +633,9 @@ def call_stage2(
                 valid_lookup_ids = [pid for pid in parsed.review_lookup_requests
                                     if pid in set(all_pids)]
                 if valid_lookup_ids:
+                    _t_rv = time.time()
                     fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    _tm["t_review"] += time.time() - _t_rv
                     if fetched:
                         review_lookup_used = fetched
                         # 리뷰 보기 전(1차) 선택 보존 — 추가 LLM 호출 없이 '사고 변화' 추적용
@@ -699,6 +715,7 @@ def call_stage2(
                 # 리뷰 흔적 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
                 "review_lookup_used": review_lookup_used,   # {poi_id: {rating, rating_count, reviews, category}}
                 "pre_review_picks": pre_review_picks,       # {order: 리뷰 전 선택 poi_id}
+                "s2_timing": {k: (round(v, 3) if isinstance(v, float) else v) for k, v in _tm.items()},
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
@@ -710,7 +727,7 @@ def call_stage2(
     # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
     fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
     if fallback.picks:
-        return fallback, cands_by_order, {"fallback_only": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, "last_err": str(last_err)[:200]}
+        return fallback, cands_by_order, {"fallback_only": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, "last_err": str(last_err)[:200], "s2_timing": {k: (round(v, 3) if isinstance(v, float) else v) for k, v in _tm.items()}}
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
 
 
