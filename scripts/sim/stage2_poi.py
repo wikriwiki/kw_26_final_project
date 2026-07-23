@@ -14,8 +14,10 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -26,6 +28,7 @@ except Exception:
     pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from dawn_context import (  # noqa: E402
     DawnContext, build_dawn_context,
     build_stage2_candidates,
@@ -153,6 +156,7 @@ def fetch_candidates_for_events(
     aid: str, events: list, persona: dict, today: date,
     k_per_event: int = 12,
     stats: dict | None = None,
+    timing: dict | None = None,
 ) -> dict[int, list[dict]]:
     """이벤트별 candidate POI dict. key=order, value=list of candidate dicts.
 
@@ -172,12 +176,26 @@ def fetch_candidates_for_events(
       - pool_split_events : 분할 적용된 이벤트 수
     """
     from collections import defaultdict
-    from _common import driver_session
+    from neo4j_load._common import driver_session
 
     out: dict[int, list[dict]] = {}
     s = stats if stats is not None else {}
+    tm = timing if timing is not None else {}
+    tm.update({
+        "t_group_resolve": 0.0,
+        "t_query_exact": 0.0,
+        "t_query_l1_dong": 0.0,
+        "t_query_l1_district": 0.0,
+        "t_enrich": 0.0,
+        "t_sort_split": 0.0,
+        "n_groups": 0,
+        "n_query_exact": 0,
+        "n_query_l1_dong": 0,
+        "n_query_l1_district": 0,
+    })
 
     # 1) 각 이벤트 → 그룹 키 (dong_code, sub_cat) 결정. 스킵은 즉시 빈 풀.
+    group_started = time.perf_counter()
     group_key_for: dict[int, tuple[str, str]] = {}
     l1_for: dict[int, str] = {}
     for i, ev in enumerate(events):
@@ -199,6 +217,8 @@ def fetch_candidates_for_events(
     groups: dict[tuple[str, str], list[int]] = defaultdict(list)
     for i, key in group_key_for.items():
         groups[key].append(i)
+    tm["t_group_resolve"] = time.perf_counter() - group_started
+    tm["n_groups"] = len(groups)
 
     if not groups:
         return out
@@ -211,20 +231,29 @@ def fetch_candidates_for_events(
             pool_size = k_per_event if n == 1 else n * k_per_event
             l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
 
+            started = time.perf_counter()
             cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size, session=sess)
+            tm["t_query_exact"] += time.perf_counter() - started
+            tm["n_query_exact"] += 1
             if cands:
                 s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
             else:
                 if l1 and l1 not in INTERNAL_CATS:
+                    started = time.perf_counter()
                     cands = build_stage2_candidates_l1_dong(aid, dong_code, l1, limit=pool_size, session=sess)
+                    tm["t_query_l1_dong"] += time.perf_counter() - started
+                    tm["n_query_l1_dong"] += 1
                     if cands:
                         s["cand_fallback_l1_dong"] = s.get("cand_fallback_l1_dong", 0) + n
                 if not cands and l1:
                     district_code = dong_code[:5] if len(dong_code) >= 5 else None
                     if district_code:
+                        started = time.perf_counter()
                         cands = build_stage2_candidates_l1_district(
                             aid, district_code, l1, limit=pool_size, session=sess,
                         )
+                        tm["t_query_l1_district"] += time.perf_counter() - started
+                        tm["n_query_l1_district"] += 1
                         if cands:
                             s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
                 if not cands:
@@ -233,9 +262,16 @@ def fetch_candidates_for_events(
             # POI 가격대 부착 (결정론, O(1)) — Stage2 프롬프트 표기·소비 반영용.
             # district fallback 후보는 자기 동 미상 → anchor 동 prior로 근사.
             # unit_anchor: 이 동네×업종 평균 결제단가(실측 기반) — 프롬프트 스케일 앵커.
+            started = time.perf_counter()
             anchor_won = unit_price_anchor(dong_code, l1)
             # 사용처 제한 지원금(쿠폰) 잔액 보유 여부 — run_simulation이 persona에 세팅
-            coupon_boost = bool(persona.get("coupon_poi_restricted"))
+            # 정책 사용 가능 여부는 후보 정보로만 제공한다. 후보 정렬 가점은 결과를
+            # 사전 유도하므로 기본 0이며, 별도 민감도 실험에서만 명시적으로 켠다.
+            coupon_active = bool(persona.get("coupon_poi_restricted"))
+            coupon_boost = (
+                coupon_active
+                and os.environ.get("POLICY_POI_SORT_BOOST", "0") == "1"
+            )
             for c in cands or []:
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
@@ -245,9 +281,11 @@ def fetch_candidates_for_events(
                     el = is_coupon_eligible(c.get("name"), sub_cat, l1)[0]
                 c["coupon_eligible"] = bool(el)
                 # 프롬프트 마커: 쿠폰 활성 시에만 표기 (평시 토큰 0)
-                c["coupon_tag"] = "[쿠폰]" if (coupon_boost and c["coupon_eligible"]) else ""
+                c["coupon_tag"] = "[쿠폰]" if (coupon_active and c["coupon_eligible"]) else ""
+            tm["t_enrich"] += time.perf_counter() - started
 
             # desire 점수 계산 + 정렬 (분할·할당 전에 1회) — 쿠폰가능 매장 가점(매력도 재산출)
+            started = time.perf_counter()
             cands = _score_and_sort_by_desire(cands or [], today, coupon_boost=coupon_boost)
 
             if n == 1:
@@ -259,6 +297,7 @@ def fetch_candidates_for_events(
                 if cands:
                     s["pool_split_groups"] = s.get("pool_split_groups", 0) + 1
                     s["pool_split_events"] = s.get("pool_split_events", 0) + n
+            tm["t_sort_split"] += time.perf_counter() - started
 
     return out
 
@@ -316,7 +355,7 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 이벤트 제목의 '동네 평균단가'는 그 동네·업종의 실제 카드 결제단가 기준 참고값입니다.
   actual_spent는 이 스케일에서 시작해 가격대·상황에 맞게 조정하세요 (₩는 그보다 낮게, ₩₩₩는 높게).
 - 헤더의 잔액·평소 소비규모·소비성향에 맞는 가격대의 장소를 고르세요.
-  잔액이 빠듯하거나 절약형이면 ₩ 위주로, 여유가 있거나 특별한 상황(기념일·약속·지원금)이면 ₩₩₩도 선택합니다.
+  잔액이 빠듯하거나 절약형이면 ₩ 위주로, 여유가 있거나 특별한 상황(기념일·약속 등)이면 ₩₩₩도 선택할 수 있습니다.
 - actual_spent 단가는 선택한 POI의 가격대와 정합되게: 같은 카테고리에서 ₩₩₩는 ₩의 대략 1.5~2배.
 
 **단순 반복 억제**
@@ -329,14 +368,12 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 `policy_spend` = 그 거래를 **어느 지갑으로 결제했는지** — 정부 지원금(grant)에서 낸 금액. `{"P009": 5000}` 형태.
 제약: sum(policy_spend) ≤ actual_spent, 그리고 ≤ 지원금 잔액.
 
-[지원금(grant)에 대한 올바른 인식 — 반드시 이렇게 이해하고 결정]
-- 이 지원금은 **나라가 대가 없이 준 돈**이다. 갚을 필요도, 조건도 없다. 안 쓴다고 이득도 없고(기간 끝나면 사라짐), 쓴다고 내가 손해 볼 것도 전혀 없다.
-- **핵심: 이 돈으로 결제하면 그만큼 내 통장(잔액)의 돈은 그대로 굳는다(=아껴진다).** 같은 소비를 하더라도 내 돈으로 내면 잔액이 줄지만, 지원금으로 내면 내 돈은 안 줄고 그대로 남는다.
-- 따라서 오늘 어차피 하는 소비가 정책 대상이면, 내 돈 대신 지원금으로 결제하는 게 나에게 무조건 이득이다. **절약형·알뜰형일수록 오히려 내 돈을 아끼려고 지원금부터 쓴다** (공짜 돈 놔두고 생돈 쓰는 사람은 없다).
-- 소비 규모는 성향대로. 다만 **그렇게 하는 소비의 결제 수단으로 지원금을 먼저 쓴다** (잔액 한도 내). 그 금액을 반드시 `policy_spend`에 기입한다.
-- 만약 그 거래가 "돈 때문에 미뤄왔던 것의 해소"(오랜만의 외식, 미룬 병원·안경, 낡은 것 교체 등)라면 actual_spent가 평소 단가보다 다소 큰 것이 자연스럽다 — 눌러온 만큼. 일상적 반복 거래면 평소 단가대로.
-- 정책 대상 아닌 거래(업종 제한 등)거나 소비 자체를 안 하면 policy_spend는 null/`{}`.
-- **사용처 제한 쿠폰([쿠폰] 표시)**: 후보에 [쿠폰] 표시가 있는 매장에서만 지원금 결제(policy_spend) 가능. 표시 없는 매장(대형마트·백화점 등)은 자기 잔액으로만 결제한다. 쿠폰 잔액이 남아 있으면 [쿠폰] 매장을 우선 고려하는 것이 자연스럽다(기한 내 소진 유인).
+[지원금(grant) 회계와 제약]
+- 지원금은 개인 잔액과 분리된 정책 지갑이다. 지원금으로 결제한 금액은 개인 잔액에서 차감되지 않고 정책 지갑에서 차감된다.
+- `policy_spend`는 실제로 정책 지갑에서 결제하기로 선택한 금액만 기록한다. 정책 지갑을 사용하지 않으면 null 또는 `{}`다.
+- `sum(policy_spend) ≤ actual_spent`이고, 정책별 잔액을 넘을 수 없다.
+- 사용처 제한 정책은 후보에 `[쿠폰]` 표시가 있는 매장에서만 사용할 수 있다. 표시가 없는 매장은 개인 잔액으로만 결제한다.
+- 정책 존재만으로 소비 필요, 소비액, POI 선택, 결제수단을 미리 정하지 않는다. 페르소나의 필요·습관·자산·일정과 후보 특성을 함께 고려해 자율적으로 판단한다.
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
 
 **만족도 설정 (actual_satisfaction)**
@@ -345,11 +382,10 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 - 처음 가는 곳은 페르소나·카테고리·거리 등을 고려해 자유롭게 설정합니다.
 - 값이 높을수록 만족, 낮을수록 불만족입니다.
 
-**카카오 별점·리뷰 확인 (선택적, 본인 판단)**
-- 후보 POI들의 카카오 별점·리뷰는 등록된 게 있으면 언제든 조회 가능합니다.
-- 본인 페르소나·성격·오늘 상황에 따라 자연스럽게 결정하세요 — 평소 SNS·맛집 리뷰 잘 챙겨 보는 성격이면 그렇게 보고, 무덤덤한 성격이면 안 봐도 되고. 친구 만나러 가는 거면 한번 검색해볼 수도 있고, 혼밥 루틴이면 안 볼 수도. 기밀문서 아닙니다 — 보고 싶으면 그냥 보는 것.
-- `review_lookup_requests` 필드에 궁금한 POI id들을 넣어 응답하면 별점·리뷰가 추가 컨텍스트로 제공되고, 그걸 본 후 최종 picks 결정합니다. 비어 두면 첫 picks 그대로 채택.
-- 정보 받아도 판단은 본인 페르소나대로 — 별점 무관심형이면 평점 낮아도 갈 수 있고, 까다로운 성격이면 4.7+만 갈 수도, 리뷰 내용 보고 마음 바꿀 수도.
+**카카오 별점·리뷰 조회 (선택)**
+- 후보 정보만으로 판단하기 어렵고 페르소나가 리뷰를 확인할 상황이면 `review_lookup_requests`에 후보 poi_id를 넣습니다.
+- 요청한 리뷰가 제공되면 같은 후보 안에서 최종 선택을 다시 판단합니다. 필요하지 않으면 비우거나 생략합니다.
+- 리뷰 확인 여부와 리뷰 반영 정도도 페르소나와 상황에 따라 자율적으로 결정합니다.
 
 ## 출력 형식 (JSON만, 다른 텍스트 금지)
 {"picks": [
@@ -368,7 +404,7 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
     "actual_spent": 25000,
     "policy_spend": {"P009": 15000},
     "actual_satisfaction": 0.68,
-    "pick_reason": "P009 지원금으로 평소 못 가본 카페 시도. 페르소나 소비형이라 grant 적극 활용.",
+    "pick_reason": "오늘 카페 휴식 의도와 가까운 후보가 맞았고, 사용 가능한 P009 정책지갑에서 15,000원을 결제하기로 선택.",
     "pick_factor": "satisfaction"
   }
 ],
@@ -493,13 +529,50 @@ def call_stage2(
     today: 오늘 날짜. desire 계산의 days_since_visit 산출에 사용.
     state: State 노드 dict (balance 등) — 가격대 선택의 예산 근거로 프롬프트에 노출.
     """
+    total_started = time.perf_counter()
+    timing: dict[str, object] = {
+        "t_candidates": 0.0,
+        "t_price_maps": 0.0,
+        "t_recent_memory": 0.0,
+        "t_prompt_build": 0.0,
+        "t_schema_build": 0.0,
+        "t_retry_prompt": 0.0,
+        "t_llm": 0.0,
+        "t_llm_initial": 0.0,
+        "t_llm_review": 0.0,
+        "t_llm_retry": 0.0,
+        "t_json_extract": 0.0,
+        "t_json_parse": 0.0,
+        "t_model_validate": 0.0,
+        "t_review_lookup": 0.0,
+        "t_candidate_validate": 0.0,
+        "t_postprocess": 0.0,
+        "n_llm_calls": 0,
+        "attempts": [],
+    }
+
+    def timing_snapshot() -> dict:
+        timing["t_total"] = time.perf_counter() - total_started
+        return {
+            k: round(v, 6) if isinstance(v, float) else v
+            for k, v in timing.items()
+        }
+
     fb_stats: dict[str, int] = {}
+    candidate_timing: dict[str, float | int] = {}
+    started = time.perf_counter()
     cands_by_order = fetch_candidates_for_events(
-        aid, stage1.events, persona, today, stats=fb_stats,
+        aid, stage1.events, persona, today, stats=fb_stats, timing=candidate_timing,
     )
+    timing["t_candidates"] = time.perf_counter() - started
+    timing["candidate_detail"] = {
+        k: round(v, 6) if isinstance(v, float) else v
+        for k, v in candidate_timing.items()
+    }
     need_llm = any(cs for cs in cands_by_order.values())
 
     # POI → (price_band, price_factor) 맵 — merge/소비모델에서 금액 반영용
+    started = time.perf_counter()
     price_by_poi: dict[str, tuple[int, float]] = {
         c["poi_id"]: (c.get("price_band"), c.get("price_factor", 1.0))
         for cs in cands_by_order.values() for c in cs
@@ -509,15 +582,23 @@ def call_stage2(
         c["poi_id"]: bool(c.get("coupon_eligible"))
         for cs in cands_by_order.values() for c in cs
     }
+    timing["t_price_maps"] = time.perf_counter() - started
 
     if not need_llm:
         # 외부 POI 결정 필요 없음 (전부 residence/workplace/pinned)
-        return Stage2Output(picks=[]), cands_by_order, {"skipped": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, **fb_stats}
+        return Stage2Output(picks=[]), cands_by_order, {
+            "skipped": True,
+            "price_by_poi": price_by_poi,
+            "coupon_by_poi": coupon_by_poi,
+            "s2_timing": timing_snapshot(),
+            **fb_stats,
+        }
 
     # 최근 3일 방문 POI (억제용)
     recent_poi_ids: set[str] = set()
+    started = time.perf_counter()
     try:
-        from _common import driver_session
+        from neo4j_load._common import driver_session
         from datetime import timedelta
         three_days_ago = (today - timedelta(days=3)).isoformat()
         with driver_session() as s:
@@ -529,16 +610,20 @@ def call_stage2(
             recent_poi_ids = {r["pid"] for r in rows}
     except Exception:
         pass
+    timing["t_recent_memory"] = time.perf_counter() - started
 
+    started = time.perf_counter()
     user_block = build_stage2_prompt(
         stage1.events, cands_by_order,
         persona=persona,
         recent_poi_ids=recent_poi_ids,
         state=state,
     )
+    timing["t_prompt_build"] = time.perf_counter() - started
 
     # 환각 차단용 JSON schema — poi_id는 전체 후보풀 union enum 강제.
     # order-별 enum은 아니지만 후보풀 외 POI는 0건 보장. order_mismatch는 fallback에서 처리.
+    started = time.perf_counter()
     all_pids = sorted({c["poi_id"] for cs in cands_by_order.values() for c in cs})
     expected_orders = [
         i for i, ev in enumerate(stage1.events)
@@ -583,13 +668,19 @@ def call_stage2(
             "type": ["array", "null"],
             "items": {"type": "string", "enum": all_pids},
         }
+    timing["t_schema_build"] = time.perf_counter() - started
 
     last_err = None
     review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
     pre_review_picks: dict[int, str] = {}     # 리뷰 보기 전(1차) 선택 {order: poi_id} — 사고변화 추적
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.1 * attempt
+        attempt_started = time.perf_counter()
+        attempt_timing: dict[str, float | int | str] = {"attempt": attempt}
+        call_kind = "review" if review_lookup_used else ("initial" if attempt == 0 else "retry")
+        attempt_timing["call_kind"] = call_kind
         # review_lookup 결과가 있으면 prompt에 추가 컨텍스트 첨부
+        started = time.perf_counter()
         prompt_now = user_block
         if review_lookup_used:
             review_block_lines = ["", "## 추가로 조회된 카카오 별점·리뷰 (요청한 POI만)"]
@@ -599,27 +690,65 @@ def call_stage2(
                 "\n\n위 정보를 참고해 최종 picks를 결정하세요. "
                 "이번 응답에서는 review_lookup_requests를 비워 두세요(이미 조회 완료).\n"
             )
+        elapsed = time.perf_counter() - started
+        timing["t_retry_prompt"] += elapsed
+        attempt_timing["t_retry_prompt"] = elapsed
+        error_stage = "llm"
         try:
+            started = time.perf_counter()
             resp = _llm_call(
                 None, SYSTEM_S2, prompt_now,
                 temperature=temp, max_tokens=1400,  # review_lookup_requests 필드 + 추가 컨텍스트
                 response_format=s2_schema,
             )
+            elapsed = time.perf_counter() - started
+            timing["t_llm"] += elapsed
+            timing[f"t_llm_{call_kind}"] += elapsed
+            timing["n_llm_calls"] += 1
+            attempt_timing["t_llm"] = elapsed
             raw = resp.choices[0].message.content
+            attempt_timing["tokens_in"] = int(getattr(resp.usage, "prompt_tokens", 0) or 0)
+            attempt_timing["tokens_out"] = int(getattr(resp.usage, "completion_tokens", 0) or 0)
             if verbose:
                 print(f"--- attempt {attempt} (temp={temp}) ---")
                 print(raw[:600])
+
+            error_stage = "json_extract"
+            started = time.perf_counter()
             json_str = _extract_json(raw)
+            elapsed = time.perf_counter() - started
+            timing["t_json_extract"] += elapsed
+            attempt_timing["t_json_extract"] = elapsed
+
+            error_stage = "json_parse"
+            started = time.perf_counter()
             data = json.loads(json_str)
+            elapsed = time.perf_counter() - started
+            timing["t_json_parse"] += elapsed
+            attempt_timing["t_json_parse"] = elapsed
+
+            error_stage = "model_validate"
+            started = time.perf_counter()
             parsed = Stage2Output.model_validate(data)
+            elapsed = time.perf_counter() - started
+            timing["t_model_validate"] += elapsed
+            attempt_timing["t_model_validate"] = elapsed
 
             # === review_lookup_requests 처리 (한 번만, 첫 호출에서만) ===
             if not review_lookup_used and parsed.review_lookup_requests:
                 # 후보 풀 안에 있는 poi_id만 채택 (환각 방지)
                 valid_lookup_ids = [pid for pid in parsed.review_lookup_requests
                                     if pid in set(all_pids)]
-                if valid_lookup_ids:
+                # 총 LLM 호출 상한(max_retry+1)은 유지한다. 마지막 허용 호출에서
+                # 리뷰를 요청하면 조회만 하고 최종판단을 못 하는 문제를 피하기 위해
+                # 남은 호출 예산이 있을 때만 리뷰를 가져온다.
+                if valid_lookup_ids and attempt < max_retry:
+                    error_stage = "review_lookup"
+                    started = time.perf_counter()
                     fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    elapsed = time.perf_counter() - started
+                    timing["t_review_lookup"] += elapsed
+                    attempt_timing["t_review_lookup"] = elapsed
                     if fetched:
                         review_lookup_used = fetched
                         # 리뷰 보기 전(1차) 선택 보존 — 추가 LLM 호출 없이 '사고 변화' 추적용
@@ -628,10 +757,22 @@ def call_stage2(
                         # (max_retry 안 쓰고 별도 1회 — temp 0.7 그대로)
                         if verbose:
                             print(f"[review_lookup] fetched {len(fetched)} POIs, retrying with context")
+                        attempt_timing["status"] = "review_retry"
+                        attempt_timing["t_total"] = time.perf_counter() - attempt_started
+                        timing["attempts"].append({
+                            k: round(v, 6) if isinstance(v, float) else v
+                            for k, v in attempt_timing.items()
+                        })
                         continue  # 다음 iteration에서 prompt_now에 첨부됨
+                elif valid_lookup_ids:
+                    fb_stats["review_skipped_no_call_budget"] = (
+                        fb_stats.get("review_skipped_no_call_budget", 0) + 1
+                    )
 
             # 후보 풀 안에 있는지 검증 — 반드시 해당 order의 candidates 안에서만 valid.
             # (이전 버그: valid_pois = 전체 cands flat → 다른 order의 POI도 통과되어 카테고리 매칭이 깨짐)
+            error_stage = "candidate_validate"
+            started = time.perf_counter()
             import random as _random
             corrected_picks = []
             hallucinations = 0          # 보정 (해당 order의 cands에 없지만 cands는 존재)
@@ -661,8 +802,13 @@ def call_stage2(
                         # 해당 order에 candidates 자체 없음 — drop
                         hallucinations_dropped += 1
             parsed = Stage2Output(picks=corrected_picks)
+            elapsed = time.perf_counter() - started
+            timing["t_candidate_validate"] += elapsed
+            attempt_timing["t_candidate_validate"] = elapsed
 
             # 후처리: LLM이 답 안 한 외출 이벤트에 candidates 자동 fill
+            error_stage = "postprocess"
+            started = time.perf_counter()
             picks_before_fill = len(parsed.picks)
             parsed = _fill_missing_picks(parsed, stage1.events, cands_by_order, aid=aid)
             missing_filled = len(parsed.picks) - picks_before_fill
@@ -683,6 +829,15 @@ def call_stage2(
                         pick, cat, daily_wd, price_factor=pf,
                         base_won=anchor_by_order.get(pick.order), band=pb,
                     )
+            elapsed = time.perf_counter() - started
+            timing["t_postprocess"] += elapsed
+            attempt_timing["t_postprocess"] = elapsed
+            attempt_timing["status"] = "ok"
+            attempt_timing["t_total"] = time.perf_counter() - attempt_started
+            timing["attempts"].append({
+                k: round(v, 6) if isinstance(v, float) else v
+                for k, v in attempt_timing.items()
+            })
 
             meta = {
                 "attempt": attempt,
@@ -699,18 +854,49 @@ def call_stage2(
                 # 리뷰 흔적 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
                 "review_lookup_used": review_lookup_used,   # {poi_id: {rating, rating_count, reviews, category}}
                 "pre_review_picks": pre_review_picks,       # {order: 리뷰 전 선택 poi_id}
+                "s2_timing": timing_snapshot(),
                 **fb_stats,
             }
             return parsed, cands_by_order, meta
         except Exception as e:
+            stage_key = {
+                "llm": "t_llm",
+                "json_extract": "t_json_extract",
+                "json_parse": "t_json_parse",
+                "model_validate": "t_model_validate",
+                "review_lookup": "t_review_lookup",
+                "candidate_validate": "t_candidate_validate",
+                "postprocess": "t_postprocess",
+            }.get(error_stage)
+            if stage_key and stage_key not in attempt_timing:
+                elapsed = time.perf_counter() - started
+                timing[stage_key] += elapsed
+                attempt_timing[stage_key] = elapsed
+                if error_stage == "llm":
+                    timing[f"t_llm_{call_kind}"] += elapsed
+                    timing["n_llm_calls"] += 1
             last_err = e
+            attempt_timing["status"] = "error"
+            attempt_timing["error_stage"] = error_stage
+            attempt_timing["error_type"] = type(e).__name__
+            attempt_timing["t_total"] = time.perf_counter() - attempt_started
+            timing["attempts"].append({
+                k: round(v, 6) if isinstance(v, float) else v
+                for k, v in attempt_timing.items()
+            })
             if verbose:
                 print(f"[attempt {attempt}] failed: {e}")
 
     # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
     fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
     if fallback.picks:
-        return fallback, cands_by_order, {"fallback_only": True, "price_by_poi": price_by_poi, "coupon_by_poi": coupon_by_poi, "last_err": str(last_err)[:200]}
+        return fallback, cands_by_order, {
+            "fallback_only": True,
+            "price_by_poi": price_by_poi,
+            "coupon_by_poi": coupon_by_poi,
+            "last_err": str(last_err)[:200],
+            "s2_timing": timing_snapshot(),
+        }
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
 
 

@@ -31,12 +31,15 @@ CLI:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
+import shutil
 import sys
 import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Lock
 
@@ -47,8 +50,8 @@ except Exception:
     pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
-from _common import driver_session  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import build_dawn_context  # noqa: E402
 from stage1_intent import call_stage1  # noqa: E402
 from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
@@ -59,11 +62,16 @@ from plan_writer import (  # noqa: E402
     _grant_for_single_policy,
     aggregate_policy_spend, validate_policy_spend,
 )
+from timing_metrics import (  # noqa: E402
+    load_jsonl,
+    slow_cases,
+    write_day_timing_report,
+    write_json_atomic,
+)
 
 
 # Google Drive 동기화 폴더(G:\)는 file write 충돌 위험 → 로컬 디스크 사용
 # 기본: ~/sim_output (Windows: C:\Users\<user>\sim_output, Linux: $HOME/sim_output)
-import os
 _LOCAL_BASE = Path(os.environ.get("SIM_OUTPUT_DIR",
                                   os.path.expanduser("~/sim_output")))
 OUT_DIR = _LOCAL_BASE
@@ -158,9 +166,10 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
                 parts.append(f"오늘 +{today_amt:,}원")
             parts.append(f"누적 잔여 {rem:,}원")
             lines.append(
-                f"{pid} {name} [정부 지원금] — {' / '.join(parts)}. 본인 부담 0. "
-                f"하는 소비는 지원금으로 결제(policy_spend 기입, 개인 자산 보존). "
-                f"또 돈 때문에 미뤄온 소비가 있었다면 부담 없어진 지금 해소 가능(지급액 클수록 여지 큼). 강요 아닌 기회."
+                f"{pid} {name} [정책 지갑] — {' / '.join(parts)}. "
+                "정책의 사용처·잔액 제약을 충족하는 거래에서 선택한 결제액만 "
+                "policy_spend로 기록한다. 사용 여부·시점·금액은 소비 필요, 평소 습관, "
+                "자산과 일정에 따라 자율적으로 판단한다."
             )
             continue
         # subsidy/voucher — 잔여 cap
@@ -270,12 +279,22 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         grant_avail_today: dict[str, int] = dict(prev_grant_remaining)
         for pid, amt in grants_applied_today.items():
             grant_avail_today[pid] = grant_avail_today.get(pid, 0) + int(amt)
+
+        # Stage1이 보는 개인 정책 상태를 '어제 State'가 아니라 오늘 지급까지 반영한
+        # 현재 상태로 맞춘다. DB에는 Night 단계에서 기록하므로 여기서는 컨텍스트만 갱신한다.
+        # 이 갱신이 없으면 지급 당일에도 Stage1 프롬프트가 "지급 전 / 잔액 0원"으로 보인다.
+        if ctx.state is None:
+            ctx.state = {}
+        ctx.state["grant_received"] = merged_grant_received
+        ctx.state["grant_remaining"] = grant_avail_today
+
         ctx.persona["policy_budget_summary"] = _build_policy_budget_summary(
             ctx.policy, prev_used_for_budget, grants_applied_today, grant_avail_today
         )
 
         # 사용처 제한 정책(민생회복 소비쿠폰류, poi_restricted=true) 감지
-        # → 쿠폰 잔액이 있으면 Stage2에 [쿠폰] 마커·정렬 가점 활성 + 정책사용 하드검증
+        # → 쿠폰 잔액이 있으면 Stage2에 [쿠폰] 사실 표시 + 정책사용 하드검증.
+        # 후보 정렬 가점은 POLICY_POI_SORT_BOOST=1인 별도 민감도 실험에서만 활성화한다.
         restricted_pids = {
             p["id"] for p in (ctx.policy or [])
             if p.get("poi_restricted") and grant_avail_today.get(p["id"], 0) > 0
@@ -322,20 +341,19 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
 
         # ── 소비성향(propensity) 모델 — Problem B (EconAgent 방식) ──
-        # Stage2 actual_spent를 상대 가중치로만 쓰고, 오늘 총지출을 p×가용자산(지원금 포함)으로
-        # 재정규화 → 소득탄력성·MPC 정상화. CONSUMPTION_MODEL=legacy 로 기존 동작 복귀.
+        # Stage2 절대 계획금액·POI 가격대를 보존하고, Stage1의 평소 대비 오늘 소비의향을
+        # 곱한다. 지원금 잔액은 총액에 더하지 않으며 선택한 결제액만 유동성을 완화한다.
+        # CONSUMPTION_MODEL=legacy 로 기존 동작 복귀.
         cm_meta = {"applied": False}
         if os.environ.get("CONSUMPTION_MODEL", "propensity") != "legacy":
             from consumption import apply_consumption_model
             _is_weekend = today.weekday() >= 5
-            # 제한 grant(사용처 제한 poi_restricted / 업종 스코프 target_l1s)는
-            # '제한 예산 봉투'로 분리 — 필터 통과 거래에만 흐름 (업종 DiD 전제).
-            # 무제한 grant만 가용자산에 합산 (기존 P009 동작 그대로).
-            # 정책 유형 일반화: 어떤 grant든 속성(poi_restricted·target_l1s)이
-            # 곧 봉투 필터가 된다 — 쿠폰 특화 하드코딩 없음.
+            # 제한 grant의 봉투는 사용처·업종 제약 메타데이터일 뿐이다.
+            # 잔액을 p와 곱해 소비액으로 만들지 않으며, Stage2의 policy_spend=0도 보존한다.
+            # 정책 유형 일반화: 어떤 grant든 속성(poi_restricted·target_l1s)이 제약이 된다.
             _pol_by_id = {p["id"]: p for p in (ctx.policy or [])}
             _envelopes = []
-            _grant_unrestricted: dict[str, int] = {}
+            _unrestricted_wallets: dict[str, int] = {}
             for pid, amt in grant_avail_today.items():
                 pol = _pol_by_id.get(pid) or {}
                 scoped = bool(pol.get("poi_restricted")) or bool(pol.get("target_l1s"))
@@ -346,14 +364,14 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                         "categories": (pol.get("target_l1s") or None),
                     })
                 else:
-                    _grant_unrestricted[pid] = int(amt)
+                    _unrestricted_wallets[pid] = int(amt)
             cm_meta = apply_consumption_model(
                 events,
                 daily=ctx.persona.get("daily_we") if _is_weekend else ctx.persona.get("daily_wd"),
                 income_tier=income,
                 tendency=ctx.persona.get("tendency"),
                 balance=(ctx.state or {}).get("balance"),
-                grant_avail=_grant_unrestricted,
+                grant_avail=_unrestricted_wallets,
                 llm_propensity=getattr(s1, "daily_propensity", None),
                 restricted_envelopes=_envelopes,
             )
@@ -449,8 +467,22 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "policy_spend_today": sum(today_policy_spend.values()),
             "grant_remaining_total": sum(merged_grant_remaining.values()),
             "policy_spend_corrected": policy_spend_corrected,
+            "cm_propensity": cm_meta.get("propensity"),
+            "cm_propensity_center": cm_meta.get("propensity_center"),
+            "cm_day_multiplier": cm_meta.get("day_multiplier"),
+            "cm_planned_total": cm_meta.get("planned_total"),
+            "cm_today_total": cm_meta.get("today_total"),
+            "cm_selected_policy_liquidity": cm_meta.get("selected_policy_liquidity", 0),
+            "cm_policy_requested_total": sum(
+                (cm_meta.get("policy_spend_requested") or {}).values()
+            ),
+            "cm_mechanical_policy_uplift": cm_meta.get("mechanical_policy_uplift", 0),
             "s1_attempts": m1["attempt"] + 1,
+            "s1_timing": m1.get("s1_timing"),
+            "prompt_timing": m1.get("prompt_timing"),
+            "dawn_timing": dict(ctx.dawn_timing),
             "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
+            "s2_timing": m2.get("s2_timing"),
             # Stage 2 fallback 카운트 (사후 분석용)
             "review_lookup_count": m2.get("review_lookup_count", 0),
             "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),
@@ -473,6 +505,128 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "error": str(e)[:200],
             "trace": traceback.format_exc(limit=3)[-500:],
         }
+
+
+# =========================================================
+# 일별 병목 리포트·백업
+# =========================================================
+def _write_timing_diagnostics(day_str: str, metrics_path: Path) -> dict:
+    timing_dir = OUT_DIR / "timing"
+    timing_path = timing_dir / f"day_{day_str}.json"
+    report = write_day_timing_report(metrics_path, timing_path)
+
+    rows = load_jsonl(metrics_path)
+    slow = slow_cases(
+        rows,
+        dawn_sec=float(os.environ.get("SLOW_DAWN_SEC", "2")),
+        stage1_sec=float(os.environ.get("SLOW_STAGE1_SEC", "60")),
+        stage2_sec=float(os.environ.get("SLOW_STAGE2_SEC", "60")),
+    )
+    write_json_atomic(timing_dir / f"slow_{day_str}.json", slow)
+
+    top = report.get("bottleneck_rank") or []
+    if top:
+        print("  [병목] 누적시간 상위:")
+        for item in top[:8]:
+            print(
+                f"    {item['path']}: total={item['total_sec']:.1f}s "
+                f"avg={item['avg_sec']:.3f}s p95={item['p95_sec']:.3f}s"
+            )
+    cache = report.get("cache") or {}
+    print(
+        f"  [캐시] persona={100 * cache.get('persona_hit_rate', 0):.1f}% "
+        f"policy={100 * cache.get('policy_hit_rate', 0):.1f}% | "
+        f"slow={len(slow)}명 → {timing_path.parent}"
+    )
+    return report
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as fp:
+        for chunk in iter(lambda: fp.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None:
+    """BACKUP_DIR 지정 시 그날 표본 State와 산출물을 원자적으로 백업한다.
+
+    에이전트별 추가 작업은 없고 하루 종료 후 Neo4j 쿼리 1회만 수행한다.
+    """
+    raw_dir = os.environ.get("BACKUP_DIR")
+    if not raw_dir:
+        return
+    backup_dir = Path(raw_dir)
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    copied: dict[str, dict] = {}
+
+    try:
+        state_path = backup_dir / f"state_{day_str}.jsonl"
+        tmp_state = state_path.with_name(state_path.name + f".tmp.{os.getpid()}")
+        n_state = 0
+        with driver_session() as session, tmp_state.open("w", encoding="utf-8") as fp:
+            rows = session.run(
+                """
+                UNWIND $aids AS aid
+                MATCH (a:Agent {id: aid})-[:HAS_STATE {day: date($day)}]->(st:State)
+                RETURN aid, st.balance AS balance, st.month_spent AS month_spent,
+                       st.grant_received AS grant_received,
+                       st.grant_remaining AS grant_remaining,
+                       st.policy_used AS policy_used,
+                       st.mood AS mood, st.fatigue AS fatigue
+                ORDER BY aid
+                """,
+                aids=agent_ids,
+                day=day_str,
+            )
+            for row in rows:
+                fp.write(json.dumps(dict(row), ensure_ascii=False) + "\n")
+                n_state += 1
+        tmp_state.replace(state_path)
+        copied[state_path.name] = {
+            "bytes": state_path.stat().st_size,
+            "sha256": _sha256(state_path),
+        }
+
+        candidates = [
+            METRICS_DIR / f"day_{day_str}.jsonl",
+            CHECK_DIR / f"done_{day_str}.json",
+            CHECK_DIR / f"failed_{day_str}.json",
+            OUT_DIR / "timing" / f"day_{day_str}.json",
+            OUT_DIR / "timing" / f"slow_{day_str}.json",
+            OUT_DIR / "summary.json",
+        ]
+        for src in candidates:
+            if not src.exists():
+                continue
+            relative = src.relative_to(OUT_DIR)
+            dst = backup_dir / relative
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            tmp_dst = dst.with_name(dst.name + f".tmp.{os.getpid()}")
+            shutil.copy2(src, tmp_dst)
+            tmp_dst.replace(dst)
+            copied[str(relative)] = {
+                "bytes": dst.stat().st_size,
+                "sha256": _sha256(dst),
+            }
+
+        manifest_path = backup_dir / "backup_manifest.json"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError):
+            manifest = {"days": {}}
+        manifest.setdefault("days", {})[day_str] = {
+            "backed_up_at": datetime.now().isoformat(timespec="seconds"),
+            "state_rows": n_state,
+            "expected_agents": len(agent_ids),
+            "day_summary": day_summary,
+            "files": copied,
+        }
+        write_json_atomic(manifest_path, manifest)
+        print(f"  [backup] {day_str}: State {n_state}/{len(agent_ids)}행, 파일 {len(copied)}개 → {backup_dir}")
+    except Exception as exc:
+        print(f"  [backup] {day_str} 실패: {exc}")
 
 
 # =========================================================
@@ -573,8 +727,21 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     except OSError as e:
         print(f"  [warn] final checkpoint write failed: {e}")
 
-    elapsed = time.time() - t_start
-    print(f"[Day {day_idx} {day_str}] done in {elapsed:.0f}s — ok={ok_count}, err={err_count}")
+    agent_elapsed = time.time() - t_start
+    print(
+        f"[Day {day_idx} {day_str}] agent phase done in {agent_elapsed:.0f}s "
+        f"— ok={ok_count}, err={err_count}"
+    )
+    timing_report = _write_timing_diagnostics(day_str, metrics_path)
+    day_result = {
+        "day": day_str,
+        "ok": int(timing_report.get("agents_ok") or 0),
+        "err": int(timing_report.get("agents_error") or 0),
+        "agent_elapsed_sec": agent_elapsed,
+        "night2_elapsed_sec": 0.0,
+        "elapsed_sec": agent_elapsed,
+        "timing_top": (timing_report.get("bottleneck_rank") or [])[:10],
+    }
 
     # ═══════════════════════════════════════════
     # Night Phase 2 — 상호작용 대상 선정 + 의도 분류 LLM
@@ -586,7 +753,7 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
         t_n2 = time.time()
         # 멱등성: 같은 day Conversation 이미 14,000건 이상 적재됐으면 Night2 전체 skip
         # (select_interaction_pairs까지 다시 도는 비용 회피)
-        from _common import driver_session as _n2_session
+        from neo4j_load._common import driver_session as _n2_session
         try:
             with _n2_session() as _s:
                 _n2_existing = _s.run(
@@ -597,23 +764,30 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
             _n2_existing = 0
         if _n2_existing >= 50:
             print(f"  [Night2] {day_str}: 이미 {_n2_existing} Conversation 적재됨 — 전체 skip")
-            return {"day": day_str, "ok": ok_count, "err": err_count, "elapsed_sec": elapsed}
-        pairs = select_interaction_pairs(today, verbose=False)
-        if pairs:
-            print(f"  [Night2] {len(pairs)} pairs, classifying intents ...")
-            n2_stats = run_intent_classification(today, pairs, workers=workers, verbose=False)
-            wstats = n2_stats.get("write", {})
-            by_intent = wstats.get("by_intent", {})
-            print(f"  [Night2] Conversation +{wstats.get('created',0)} "
-                  f"(약속={by_intent.get('약속',0)}, 이슈={by_intent.get('이슈',0)}, "
-                  f"추천={by_intent.get('추천',0)}, 기타={by_intent.get('기타',0)}) "
-                  f"in {time.time()-t_n2:.0f}s")
         else:
-            print(f"  [Night2] no candidate pairs for {day_str}")
+            pairs = select_interaction_pairs(today, verbose=False)
+            if pairs:
+                print(f"  [Night2] {len(pairs)} pairs, classifying intents ...")
+                n2_stats = run_intent_classification(today, pairs, workers=workers, verbose=False)
+                wstats = n2_stats.get("write", {})
+                by_intent = wstats.get("by_intent", {})
+                print(f"  [Night2] Conversation +{wstats.get('created',0)} "
+                      f"(약속={by_intent.get('약속',0)}, 이슈={by_intent.get('이슈',0)}, "
+                      f"추천={by_intent.get('추천',0)}, 기타={by_intent.get('기타',0)}) "
+                      f"in {time.time()-t_n2:.0f}s")
+            else:
+                print(f"  [Night2] no candidate pairs for {day_str}")
+        day_result["night2_elapsed_sec"] = time.time() - t_n2
     except Exception as e:
         print(f"  [Night2] failed: {e}")
 
-    return {"day": day_str, "ok": ok_count, "err": err_count, "elapsed_sec": elapsed}
+    day_result["elapsed_sec"] = time.time() - t_start
+    print(
+        f"[Day {day_idx} {day_str}] done in {day_result['elapsed_sec']:.0f}s "
+        f"(agent={day_result['agent_elapsed_sec']:.0f}s, "
+        f"Night2={day_result['night2_elapsed_sec']:.0f}s)"
+    )
+    return day_result
 
 
 # =========================================================
@@ -640,6 +814,12 @@ def main():
         today = start + timedelta(days=i)
         s = run_day(agents, today, day_idx=i, workers=args.workers)
         summary.append(s)
+        # 매일 최신 summary를 먼저 원자적으로 저장한 뒤 선택적 외부 백업.
+        write_json_atomic(
+            OUT_DIR / "summary.json",
+            {"summary": summary, "args": vars(args), "updated_at": datetime.now().isoformat()},
+        )
+        _daily_backup(today.isoformat(), s, agents)
         print()
 
     print("=== 시뮬 종료 ===")
@@ -650,9 +830,9 @@ def main():
     total_err = sum(s["err"] for s in summary)
     print(f"\n  TOTAL: {total_ok} ok / {total_err} err, {total_elapsed:.0f}s")
 
-    (OUT_DIR / "summary.json").write_text(
-        json.dumps({"summary": summary, "args": vars(args)}, ensure_ascii=False, indent=2),
-        encoding="utf-8"
+    write_json_atomic(
+        OUT_DIR / "summary.json",
+        {"summary": summary, "args": vars(args), "completed_at": datetime.now().isoformat()},
     )
 
 

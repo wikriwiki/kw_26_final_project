@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Literal
@@ -179,8 +180,8 @@ class Stage1Event(BaseModel):
 
 class Stage1Output(BaseModel):
     events: list[Stage1Event]
-    # 오늘 소비성향 p∈[0,1] — "가진 돈(지원금 포함) 중 얼마나 쓸지". consumption 모델이
-    # 소득별 prior 밴드 안으로 클램프해 사용(미출력 시 prior 중심값 사용).
+    # 오늘 소비성향 p∈[0,1] — 평상 소비예산 대비 오늘의 소비 의향.
+    # 정책지갑 인출률이 아니며, consumption 모델이 prior 밴드 안으로 클램프한다.
     daily_propensity: float | None = Field(default=None, description="오늘 소비성향 0~1")
 
     @field_validator("daily_propensity")
@@ -283,15 +284,11 @@ L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 
 - 절대 금지: anchor='residence' + category='편의점/식사/카페/한식/...' 같은 조합. 외출 카테고리면 무조건 zone.
 
 [정책·약속 반영]
-- grant(정부 지원금·소비쿠폰): 정책 블록의 "나의 해당(지급액) / 잔액 M원 / 사용조건"과 State의 잔액 변화(오늘 +N원 입금)를 확인하라. 나라가 대가 없이 준 돈이라 본인 부담 없고 기간 끝나면 사라진다. 세 가지로 반영:
-  (1) [지불수단] 오늘 하는 소비가 정책 대상이면 자기 잔액보다 지원금으로 결제 — 개인 자산이 보존된다. 사용처 제한([쿠폰] 매장 전용)이 있으면 그런 매장이 있는 동네·업종으로 동선이 기울 수 있다.
-  (2) [미뤄둔 소비 해소] 돈 때문에 미루거나 포기해온 것이 있었는지 스스로 돌아보라 — 미뤄둔 병원·치과·안경, 낡아서 못 바꾼 생활용품·옷·신발, 가보고 싶던 식당, 오랜만의 가족 외식, 배우고 싶던 것 등. 절약·검소가 형편 때문이었다면, 부담이 사라진 지금 그중 하나쯤 오늘 하루에 넣는 것이 자연스러울 수 있다. **지급액이 평소 생활비 대비 클수록(예: 소득 '하' 60만원은 여러 날치 생활비) 그동안 눌러온 소비를 풀 여지가 크고, 소액이면(중상 10만원) 일상에 거의 변화가 없는 게 자연스럽다.**
-  (3) [시간 흐름] 정책 블록의 '받은 지 며칠째' 서술을 보라 — 공돈 감각은 받은 직후 가장 크고 날이 갈수록 잔액의 일부처럼 익숙해져 소비 유인이 옅어진다(windfall 감쇠).
-  강요가 아니라 기회다 — 미뤄온 게 없거나 내키지 않으면 평소대로 지내면 된다. 지급액을 기간 내 여러 번 나눠 쓰는 게 자연스럽다. 절약형은 지원금도 아껴 필요한 곳에만 쓴다.
-- subsidy(쿠폰·환급): "남은 잔액 N원" 확인 — 잔액 있으면 대상 카테고리 우선, 0원이면 일반으로(무한사용 금지).
-  regulation: 해당 카테고리·시간 회피 / facility: 시설 방문 권장 / campaign: description 자율 해석.
-- 정책은 페르소나로 다르게 해석된다(경향, 공식 아님): 소비분위 낮을수록 작은 혜택도 크게 와닿고 높을수록 둔감.
-  라이프스타일이 결이 맞으면 끌리고, 내향·정보차단형은 인지 못 할 수도. 같은 정책도 날마다 다르게(어제 본 걸 잊거나, 안 쓰던 걸 떠올리거나).
+- 정책 블록의 공통 사실과 개인별 자격·정책지갑 잔액·사용 제약을 사실 그대로 읽는다.
+- 정책은 가능한 예산과 제약 중 하나다. 정책이 있다는 이유만으로 외출, 소비, 특정 업종·동네 선택을 반드시 추가하거나 제거하지 않는다.
+- grant의 실제 결제수단과 금액은 Stage2가 결정한다. Stage1에서는 정책이 오늘 의도에 실제로 관련된 경우에만 reasoning과 trigger에 반영한다.
+- subsidy·regulation·facility·campaign도 description을 페르소나·필요·일정과 함께 자율 해석하며, 정해진 행동 방향을 가정하지 않는다.
+- 개인별 정책 상태가 비대상이거나 잔액 0원이면 사용할 수 있는 혜택처럼 서술하지 않는다.
 - 어제 만족 낮은 곳은 회피하거나 망설임이 reasoning에 드러남. 약속(appointment)은 그 시간대 우선(anchor=zone, pinned_poi).
 
 [pinned_poi]
@@ -329,7 +326,7 @@ reasoning 작성 규칙:
  "reasoning":"평소 카페 잘 안 가는데 fatigue 0.7로 피곤. 어제 이웃이 '거기 차분하다'던 게 떠올라 가봄.","trigger":"mood"}
 # policy — 쿠폰 잔액 + 잔상
 {"time":"19:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"퇴근 후",
- "reasoning":"강남 카페 바우처 잔액 45,000원 남음. 어제 거기 분위기가 의외로 좋아 또 끌리고 30% 환급도 매력.","trigger":"policy"}
+ "reasoning":"퇴근 후 피로가 남아 잠깐 쉴 생각. 카페 바우처 잔액 45,000원이 있지만 오늘 꼭 써야 하는 것은 아니며, 어제 만족했던 조용한 카페가 일정과 맞아 후보로 생각함.","trigger":"policy"}
 (약속은 상대 agent_id·사유, 소문은 출처 agent·topic을 reasoning에 명시.)
 
 trigger enum (reasoning을 먼저 쓰고 가장 가까운 하나 선택):
@@ -337,11 +334,10 @@ trigger enum (reasoning을 먼저 쓰고 가장 가까운 하나 선택):
 - lifestyle(장기 성향·정형 루틴) · mood(오늘 컨디션) · none(집·직장 자동 anchor 등)
 
 [소비성향 daily_propensity — 최상위 필드]
-최상위에 오늘의 **소비성향 `daily_propensity` (0~1)** 를 출력한다 = "오늘 가진 돈(잔액+지원금) 중
-얼마나 쓸지". 금액이 아니라 *비율*이다. 어제 컨디션·잔액·지원금·페르소나 소득/성향으로 판단:
-- 소득이 낮거나 지원금을 막 받았으면 → 높게(쓸 곳이 많고 여윳돈이 귀함).
-- 특히 지원금이 평소 생활비 대비 크고, 돈 때문에 미뤄온 소비가 떠올랐다면 → 평소보다 높게(눌러온 수요 해소). 떠오르는 게 없거나 소액이면 평소대로.
-- 여유롭거나 저축 성향이면 → 낮게(남겨둠). 단가는 Stage2가 정하므로 여기선 성향만.
+최상위에 오늘의 **소비성향 `daily_propensity` (0~1)** 를 출력한다. 금액이 아니라 오늘 소비하려는
+성향의 비율이다. 어제 컨디션, 개인 잔액, 정책지갑, 일정, 평소 소비습관을 함께 고려한다.
+특정 소득분위나 정책 존재만으로 높거나 낮게 고정하지 말고 이 에이전트의 오늘 상황에서 판단한다.
+단가와 결제수단은 Stage2가 결정하므로 여기서는 소비 의향만 표현한다.
 
 [출력 형식]
 다음 JSON 스키마만 출력. 다른 텍스트 금지.
@@ -363,7 +359,7 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
    "reasoning":"어제 두부마을찬에서 sat 0.65로 음식이 좋았던 잔상이 남음. 평소 한식 자주 가는 편이지만 오늘 굳이 거기 가는 건 그 잔상 때문.",
    "trigger":"lifestyle"},
   {"time":"15:00","anchor":"zone:11680111","category":"카페","sub_category":"카페","intent":"오후 휴식",
-   "reasoning":"강남 카페 바우처 잔액 45,000원 남았고, 어제 거기 갔을 때 분위기가 의외로 차분해서 한참 앉아있었던 게 좋았음. 30% 환급도 매력적이라 자연스럽게 또 가게 됨.",
+   "reasoning":"오후 피로로 잠깐 쉴 장소를 찾음. 바우처 잔액 45,000원이 있고 어제 그 카페의 차분한 분위기에 만족했던 기억도 있어 후보로 고려함.",
    "trigger":"policy"},
   ...
 ]}"""
@@ -371,10 +367,13 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
 
 def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     blocks = ctx.to_prompt_blocks()
-    return f"""## 페르소나
+    return f"""## 현재 활성 정책 — 공통 사실
+{blocks['policy_facts']}
+
+## 페르소나
 {blocks['persona']}
 
-## 거주·직장 동에 적용 정책
+## 나에게 적용되는 정책 상태
 {blocks['policy']}
 
 ## 오늘 갈 수 있는 zone 후보 (외출 anchor=zone:<코드> 에는 아래 코드만 사용)
@@ -461,35 +460,84 @@ def call_stage1(
 
     log_failures=True: 검증 실패한 첫 시도 raw 응답을 jsonl에 append.
     """
+    total_started = time.perf_counter()
+    timing: dict[str, float | int | list] = {
+        "t_context_fetch": 0.0,
+        "t_prompt_build": 0.0,
+        "t_retry_prompt": 0.0,
+        "t_llm": 0.0,
+        "t_json_extract": 0.0,
+        "t_json_parse": 0.0,
+        "t_model_validate": 0.0,
+        "t_category_normalize": 0.0,
+        "t_rule_validate": 0.0,
+        "t_failure_log": 0.0,
+        "n_llm_calls": 0,
+        "attempts": [],
+    }
+
     if ctx is None:
+        started = time.perf_counter()
         ctx = build_dawn_context(aid, today)
+        timing["t_context_fetch"] = time.perf_counter() - started
 
     day_type = _day_type(today)
+    started = time.perf_counter()
     user_block = _format_dawn_blocks(ctx, today, day_type)
+    timing["t_prompt_build"] = time.perf_counter() - started
 
     last_err = None
     last_raw = None
+    total_tokens_in = 0
+    total_tokens_out = 0
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.2 * attempt
+        attempt_timing: dict[str, float | int | str] = {"attempt": attempt}
+        attempt_started = time.perf_counter()
         # retry 시 피드백 첨부 — LLM에게 직전 실수 알림
+        started = time.perf_counter()
         user_block_now = user_block
         if attempt > 0 and last_err:
             user_block_now = user_block + (
                 f"\n\n[직전 시도 검증 실패] {str(last_err)[:300]}\n"
                 f"위 규칙을 어겼습니다. 이번엔 반드시 따를 것.\n"
             )
+        elapsed = time.perf_counter() - started
+        timing["t_retry_prompt"] += elapsed
+        attempt_timing["t_retry_prompt"] = elapsed
+        error_stage = "llm"
         try:
+            started = time.perf_counter()
             resp = _llm_call(
                 None, SYSTEM_PROMPT, user_block_now,
                 temperature=temp, max_tokens=2200,
             )
+            elapsed = time.perf_counter() - started
+            timing["t_llm"] += elapsed
+            timing["n_llm_calls"] += 1
+            attempt_timing["t_llm"] = elapsed
             raw = resp.choices[0].message.content
             last_raw = raw
             finish = resp.choices[0].finish_reason
+            tokens_in = int(getattr(resp.usage, "prompt_tokens", 0) or 0)
+            tokens_out = int(getattr(resp.usage, "completion_tokens", 0) or 0)
+            total_tokens_in += tokens_in
+            total_tokens_out += tokens_out
+            attempt_timing["tokens_in"] = tokens_in
+            attempt_timing["tokens_out"] = tokens_out
             if verbose:
                 print(f"--- attempt {attempt} (temp={temp}, finish={finish}) ---")
                 print(raw[:500])
+
+            error_stage = "json_extract"
+            started = time.perf_counter()
             json_str = _extract_json(raw)
+            elapsed = time.perf_counter() - started
+            timing["t_json_extract"] += elapsed
+            attempt_timing["t_json_extract"] = elapsed
+
+            error_stage = "json_parse"
+            started = time.perf_counter()
             try:
                 data = json.loads(json_str)
             except json.JSONDecodeError:
@@ -502,17 +550,33 @@ def call_stage1(
                 # 이미 큰따옴표로 감싸진 key는 이중 보정 방지
                 fixed = _re.sub(r'""([a-zA-Z_][a-zA-Z0-9_]*)""', r'"\1"', fixed)
                 data = json.loads(fixed)
+            elapsed = time.perf_counter() - started
+            timing["t_json_parse"] += elapsed
+            attempt_timing["t_json_parse"] = elapsed
+
+            error_stage = "model_validate"
+            started = time.perf_counter()
             parsed = Stage1Output.model_validate(data)
+            elapsed = time.perf_counter() - started
+            timing["t_model_validate"] += elapsed
+            attempt_timing["t_model_validate"] = elapsed
 
             # category 정규화 — 세부업종('한식') → L1('식사')
+            error_stage = "category_normalize"
+            started = time.perf_counter()
             for ev in parsed.events:
                 norm_cat, norm_sub = normalize_category(ev.category, ev.sub_category)
                 if norm_cat != ev.category:
                     ev.category = norm_cat
                 if norm_sub != ev.sub_category:
                     ev.sub_category = norm_sub
+            elapsed = time.perf_counter() - started
+            timing["t_category_normalize"] += elapsed
+            attempt_timing["t_category_normalize"] = elapsed
 
             # Post-validation: 평일 보수성 검증 (외출 의무)
+            error_stage = "rule_validate"
+            started = time.perf_counter()
             has_work = bool(ctx.persona.get("work_poi_id"))
             n_events = len(parsed.events)
             n_zone = sum(1 for e in parsed.events if e.anchor.startswith("zone:"))
@@ -525,17 +589,62 @@ def call_stage1(
                 problems.append(f"zone_anchor_events={n_zone} < min {min_zone}")
             if problems:
                 raise ValueError(f"plan too conservative — {', '.join(problems)}")
+            elapsed = time.perf_counter() - started
+            timing["t_rule_validate"] += elapsed
+            attempt_timing["t_rule_validate"] = elapsed
+            attempt_timing["status"] = "ok"
+            attempt_timing["t_total"] = time.perf_counter() - attempt_started
+            timing["attempts"].append({
+                k: round(v, 6) if isinstance(v, float) else v
+                for k, v in attempt_timing.items()
+            })
+            timing["t_total"] = time.perf_counter() - total_started
 
             meta = {
                 "attempt": attempt,
                 "temp": temp,
                 "tokens_in": resp.usage.prompt_tokens,
                 "tokens_out": resp.usage.completion_tokens,
+                "tokens_in_total": total_tokens_in,
+                "tokens_out_total": total_tokens_out,
+                "s1_timing": {
+                    k: (
+                        round(v, 6)
+                        if isinstance(v, float)
+                        else v
+                    )
+                    for k, v in timing.items()
+                },
+                "prompt_timing": dict(ctx.prompt_timing),
             }
             return parsed, meta
         except Exception as e:
+            # 현재 단계가 예외로 끝나도 그 단계에서 소비한 시간을 누락하지 않는다.
+            stage_key = {
+                "llm": "t_llm",
+                "json_extract": "t_json_extract",
+                "json_parse": "t_json_parse",
+                "model_validate": "t_model_validate",
+                "category_normalize": "t_category_normalize",
+                "rule_validate": "t_rule_validate",
+            }.get(error_stage)
+            if stage_key and stage_key not in attempt_timing:
+                elapsed = time.perf_counter() - started
+                timing[stage_key] += elapsed
+                attempt_timing[stage_key] = elapsed
+                if error_stage == "llm":
+                    timing["n_llm_calls"] += 1
             last_err = e
+            attempt_timing["status"] = "error"
+            attempt_timing["error_stage"] = error_stage
+            attempt_timing["error_type"] = type(e).__name__
+            attempt_timing["t_total"] = time.perf_counter() - attempt_started
+            timing["attempts"].append({
+                k: round(v, 6) if isinstance(v, float) else v
+                for k, v in attempt_timing.items()
+            })
             if log_failures and last_raw is not None:
+                started_log = time.perf_counter()
                 try:
                     with _FAILURE_LOG.open("a", encoding="utf-8") as fp:
                         fp.write(json.dumps({
@@ -548,6 +657,7 @@ def call_stage1(
                         }, ensure_ascii=False) + "\n")
                 except Exception:
                     pass
+                timing["t_failure_log"] += time.perf_counter() - started_log
             if verbose:
                 print(f"[attempt {attempt}] failed: {e}")
 

@@ -10,8 +10,10 @@ import json
 import os
 import random
 import sys
+import threading
+import time
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 # Windows console에서 한글 + 유니코드 다이아크리틱(em-dash 등) 출력 가능하게
@@ -22,8 +24,8 @@ except Exception:
     pass
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))            # mobility 등 동일 디렉토리
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
-from _common import driver_session
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from neo4j_load._common import driver_session
 
 
 # =========================================================
@@ -84,19 +86,24 @@ RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
 # =========================================================
 MEMORY_CYPHER = """
 MATCH (a:Agent {id: $aid})-[:REMEMBERS]->(m:Memory)
-WHERE m.day >= $today - duration({days: 30})
-OPTIONAL MATCH (m)-[:ABOUT_POI]->(p:POI)-[:IN_CATEGORY]->(c:Category)
-WITH m, p, c,
-     duration.inDays(m.day, $today).days AS days_ago,
-     m.importance * exp(-toFloat(duration.inDays(m.day, $today).days) / 14.0) AS score
-RETURN m.type AS type, m.day AS day, m.importance AS importance,
+WHERE m.day >= $memory_since AND m.day < $today
+WITH m, duration.inDays(m.day, $today).days AS days_ago
+WITH m, days_ago,
+     coalesce(m.importance, 0.0) * exp(-toFloat(days_ago) / 14.0) AS score
+ORDER BY score DESC, m.day DESC, m.id
+LIMIT $top_n
+// Top-N을 먼저 확정한 뒤 POI/Category를 조인한다. 이전 쿼리는 최근 30일의
+// 모든 Memory에 OPTIONAL MATCH를 수행해 누적 일수가 길수록 불필요한 행 확장이 컸다.
+OPTIONAL MATCH (m)-[:ABOUT_POI]->(p:POI)
+OPTIONAL MATCH (p)-[:IN_CATEGORY]->(c:Category)
+RETURN m.id AS id, m.type AS type, m.day AS day, m.importance AS importance,
        coalesce(m.satisfaction, 0.0) AS satisfaction,
        coalesce(m.summary, '') AS summary,
        m.source AS source,
        m.topic_type AS topic_type,
        m.topic_value AS topic_value,
-       p.name AS poi_name, c.name AS category, days_ago
-ORDER BY score DESC LIMIT $top_n
+       p.name AS poi_name, c.name AS category, days_ago, score
+ORDER BY score DESC, m.day DESC, m.id
 """
 
 
@@ -152,6 +159,8 @@ RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
        pol.income_grants AS income_grants,
        pol.excluded_income AS excluded_income,
+       pol.decile_grants AS decile_grants,
+       pol.excluded_deciles AS excluded_deciles,
        pol.grant_key AS grant_key,
        regions, region_codes, target_l1s
 """
@@ -253,51 +262,56 @@ class DawnContext:
     knows_poi_summary: list[dict] = field(default_factory=list)
     # 오늘 갈 수 있는 zone 후보 (생활권 + Huff 광역상권) — Problem A
     zone_candidates: list[dict] = field(default_factory=list)
+    # 기존 DB 호출에 타이머만 덧댄 진단 정보. 별도 LLM/DB 호출을 만들지 않는다.
+    dawn_timing: dict = field(default_factory=dict)
+    prompt_timing: dict = field(default_factory=dict)
 
     def to_prompt_blocks(self) -> dict[str, str]:
         """각 컨텍스트를 LLM 프롬프트에 넣을 텍스트 블록으로 변환."""
-        # State의 policy_used JSON을 파싱해서 _format_policy에 전달
-        import json as _json
-        policy_used = {}
-        raw = (self.state or {}).get("policy_used")
-        if raw:
-            try:
-                policy_used = _json.loads(raw)
-            except Exception:
-                policy_used = {}
-        return {
-            "persona": _format_persona(self.persona),
-            "state": _format_state(self.state),
-            "memory": _format_memory(self.memory),
-            "appointment": _format_appointment(self.appointment),
-            "policy": _format_policy(self.policy, policy_used=policy_used,
-                                     persona=self.persona, state=self.state),
-            "social": _format_social(self.social),
-            "knows_poi": _format_knows_poi(self.knows_poi_summary),
-            "zones": _format_zones(self.zone_candidates),
+        tm: dict[str, float] = {}
+
+        def timed(name: str, fn):
+            started = time.perf_counter()
+            value = fn()
+            tm[name] = time.perf_counter() - started
+            return value
+
+        policy_used = timed(
+            "t_policy_state_parse",
+            lambda: _json_dict((self.state or {}).get("policy_used")),
+        )
+        blocks = {
+            # 정책의 공통 사실과 개인별 상태를 분리한다. Stage1에서 공통 사실을
+            # 사용자 메시지 앞쪽에 두면 SGLang prefix/radix cache가 재사용할 수 있다.
+            "policy_facts": timed("t_policy_facts", lambda: _format_policy_facts(self.policy)),
+            "policy": timed(
+                "t_policy_status",
+                lambda: _format_policy_status(
+                    self.policy,
+                    policy_used=policy_used,
+                    persona=self.persona,
+                    state=self.state,
+                ),
+            ),
+            "persona": timed("t_persona", lambda: _format_persona(self.persona)),
+            "state": timed("t_state", lambda: _format_state(self.state)),
+            "memory": timed("t_memory", lambda: _format_memory(self.memory)),
+            "appointment": timed("t_appointment", lambda: _format_appointment(self.appointment)),
+            "social": timed("t_social", lambda: _format_social(self.social)),
+            "knows_poi": timed("t_knows_poi", lambda: _format_knows_poi(self.knows_poi_summary)),
+            "zones": timed("t_zones", lambda: _format_zones(self.zone_candidates)),
         }
+        tm["t_total"] = sum(tm.values())
+        self.prompt_timing = {k: round(v, 6) for k, v in tm.items()}
+        return blocks
 
     def get_policy_used(self) -> dict:
         """State에서 정책별 누적 사용액 dict 반환 (없으면 {})."""
-        import json as _json
-        raw = (self.state or {}).get("policy_used")
-        if not raw:
-            return {}
-        try:
-            return _json.loads(raw)
-        except Exception:
-            return {}
+        return _json_dict((self.state or {}).get("policy_used"))
 
     def get_grant_remaining(self) -> dict:
         """State에서 정책별 grant 잔액 dict 반환 (grant type 정책용)."""
-        import json as _json
-        raw = (self.state or {}).get("grant_remaining")
-        if not raw:
-            return {}
-        try:
-            return _json.loads(raw)
-        except Exception:
-            return {}
+        return _json_dict((self.state or {}).get("grant_remaining"))
 
 
 def _strip_lifestyle_first_line(lifestyle: str) -> str:
@@ -356,9 +370,9 @@ def _format_state(s: dict | None) -> str:
         days_map = s.get("grant_days_since") or {}
         d_min = min(days_map.values()) if days_map else None
         if d_min is None or d_min <= 0:
-            bal_line += f" · 정책 지원금 {rem_all:,}원 별도 보유 (오늘 지급된 공돈 — 대가 없이 받은 돈, 정책 블록 참조)"
+            bal_line += f" · 정책지갑 잔액 {rem_all:,}원 (오늘 지급, 사용 조건은 정책 블록 참조)"
         else:
-            bal_line += f" · 정책 지원금 잔여 {rem_all:,}원 ({d_min}일 전 지급분, 정책 블록 참조)"
+            bal_line += f" · 정책지갑 잔액 {rem_all:,}원 ({d_min}일 전 지급, 정책 블록 참조)"
     return (
         f"{bal_line} / 이번달 누적지출: {s.get('month_spent',0):,}원\n"
         f"에너지: {s.get('energy',0):.2f}, mood: {s.get('mood',0):.2f}, fatigue: {s.get('fatigue',0):.2f}\n"
@@ -369,44 +383,42 @@ def _format_state(s: dict | None) -> str:
 
 def _format_memory(rows: list[dict]) -> str:
     if not rows:
-        return ("(어제·최근 visit 데이터 없음 — '어제 거기서 맛있었다'·'어제 만족도 X' "
-                "같은 회상·만족도 인용 절대 금지. 신규 의사결정만 가능)")
+        return "(최근 기억 없음 — 과거 방문·만족도·소문을 임의로 만들지 말 것)"
     lines = []
     for r in rows:
         days = r.get("days_ago", 0)
-        mtype = r["type"]
-        prefix = f"{r['day']} ({days}일 전) [{mtype}]"
+        mtype = r.get("type") or "기타"
+        prefix = f"- D-{days} [{mtype}]"
         cat = r.get("category") or ""
 
         if mtype == "visited":
-            loc = r.get("poi_name") or "?"
+            loc = r.get("poi_name") or "장소 미상"
             sat = r.get("satisfaction") or 0
             prefix += f" {loc}"
             if cat:
-                prefix += f" / {cat}"
-            prefix += f" 만족도 {sat:.2f}"
-            summary = (r.get("summary") or "").strip()
+                prefix += f"({cat})"
+            prefix += f" 만족 {sat:.2f}"
+            summary = " ".join((r.get("summary") or "").split())[:120]
             if summary:
-                prefix += f" — {summary}"
+                prefix += f" · {summary}"
         elif mtype == "rumor":
-            # 노션 §5 — source(전달자) + topic_type:topic_value 가 핵심
-            src = r.get("source") or "?"
-            tt = r.get("topic_type") or "?"
-            tv = r.get("topic_value") or ""
-            prefix += f" {src}한테 들음 ({tt}: {tv})"
+            src = r.get("source") or "출처 미상"
+            tt = r.get("topic_type") or "주제"
+            tv = " ".join(str(r.get("topic_value") or "").split())[:100]
+            prefix += f" {src}에게 들음 · {tt}={tv}"
             if r.get("poi_name"):
-                prefix += f" → {r['poi_name']}"
+                prefix += f" · {r['poi_name']}"
                 if cat:
-                    prefix += f" / {cat}"
+                    prefix += f"({cat})"
         else:  # policy / sns / 기타
             loc = r.get("poi_name") or ""
             if loc:
                 prefix += f" {loc}"
             if cat:
-                prefix += f" / {cat}"
-            summary = (r.get("summary") or "").strip()
+                prefix += f"({cat})"
+            summary = " ".join((r.get("summary") or "").split())[:120]
             if summary:
-                prefix += f" — {summary}"
+                prefix += f" · {summary}"
         lines.append(prefix)
     return "\n".join(lines)
 
@@ -459,116 +471,119 @@ def _json_dict(raw) -> dict:
         return {}
 
 
-def _format_policy(rows: list[dict], policy_used: dict[str, int] | None = None,
-                   persona: dict | None = None, state: dict | None = None) -> str:
-    """정책 컨텍스트 — 자연어 description 중심. subsidy는 잔액, grant는
-    '나의 해당 여부·수령/잔여·사용조건·나에게 의미'까지 상세 카드로 노출.
+def _compact_regions(raw_regions: list | None) -> str:
+    regions = sorted({str(x).strip() for x in (raw_regions or []) if str(x).strip()})
+    if len(regions) >= 20:
+        return f"서울 전역({len(regions)}개 자치구)"
+    if len(regions) > 5:
+        return ", ".join(regions[:5]) + f" 외 {len(regions) - 5}곳"
+    return ", ".join(regions) or "지역 미상"
 
-    policy_used: {"P007": 87000, ...} 정책별 누적 사용액. State에서 가져옴.
-    persona/state: grant 카드의 개인화(소득 기준 지급액, 수령·잔여, 평소 소비 대비 의미).
+
+def _format_policy_facts(rows: list[dict]) -> str:
+    """에이전트와 무관한 정책 사실.
+
+    Stage1 사용자 프롬프트의 맨 앞에 배치해 동일 정책을 보는 에이전트끼리
+    SGLang prefix/radix cache를 재사용한다. 행동 방향은 넣지 않는다.
     """
     if not rows:
-        return ("(오늘 활성 정책 없음 — 정책·바우처·쿠폰 인용 금지. "
-                "reasoning이나 pick_reason에 'P0xx 정책지원금', '바우처', '쿠폰' 등 "
-                "정책 관련 표현을 등장시키지 말 것.)")
-    import json as _json
+        return "(활성 정책 없음)"
+    lines: list[str] = []
+    for r in sorted(rows, key=lambda x: str(x.get("id") or "")):
+        ptype = r.get("type") or "기타"
+        label = _POLICY_TYPE_LABEL.get(ptype, ptype)
+        targets = [str(x) for x in (r.get("target_l1s") or []) if x]
+        scope = ", ".join(targets[:8]) if targets else "업종 제한 없음"
+        if len(targets) > 8:
+            scope += f" 외 {len(targets) - 8}개"
+        restrictions = " · [쿠폰] 표시 POI에서만 사용" if r.get("poi_restricted") else ""
+        desc = " ".join(str(r.get("description") or "").split())[:280]
+        lines.append(
+            f"- {r.get('id')} [{label}] {r.get('name')} | "
+            f"{r.get('from_')}~{r.get('until_')} | {_compact_regions(r.get('regions'))} | "
+            f"{scope}{restrictions}"
+        )
+        if desc:
+            lines.append(f"  배경: {desc}")
+    return "\n".join(lines)
+
+
+def _format_policy_status(
+    rows: list[dict],
+    policy_used: dict[str, int] | None = None,
+    persona: dict | None = None,
+    state: dict | None = None,
+) -> str:
+    """개인별 자격·잔액만 간결하게 표시한다.
+
+    정책이 소비를 늘리거나 줄인다고 지시하지 않는다. 정책은 선택 가능한 예산과
+    제약으로만 제시하고, 행동은 페르소나·필요·상황에서 내생적으로 결정하게 한다.
+    """
+    if not rows:
+        return "(해당 없음 — 정책·지원금·바우처·쿠폰을 임의로 언급하지 말 것)"
     used = policy_used or {}
     p = persona or {}
     st = state or {}
     grant_received = _json_dict(st.get("grant_received"))
     grant_remaining = _json_dict(st.get("grant_remaining"))
-    lines = []
-    for r in rows:
-        type_label = _POLICY_TYPE_LABEL.get(r.get("type") or "", r.get("type") or "기타")
-        regions = ", ".join([x for x in (r.get("regions") or []) if x]) or "?"
-        target_l1s = r.get("target_l1s") or []
-        targets = ", ".join([t for t in target_l1s if t]) if target_l1s else "(모든 업종 사용 가능)"
+    days_since = _json_dict(st.get("grant_days_since"))
+    lines: list[str] = []
 
-        head = f"{r['id']} [{type_label}] {r['name']}"
-        meta_parts = [f"적용지역: {regions}", f"대상업종: {targets}",
-                      f"기간: {r['from_']}~{r['until_']}"]
-
-        rate = r.get("rate")
-        cap = r.get("cap")
+    for r in sorted(rows, key=lambda x: str(x.get("id") or "")):
+        pid = str(r.get("id") or "")
         ptype = r.get("type")
-        # grant(지원금) 정책: 나의 해당 여부 → 수령/잔여 → 사용조건 → 의미
         if ptype == "grant":
-            pid = r["id"]
-            income = (p.get("income") or "").strip()
+            income = str(p.get("income") or "").strip()
             decile = p.get("spend_decile")
             my_amt = _grant_amount_for(income, r, spend_decile=decile)
-            # 지급 기준 라벨 — 10분위 기반 정책(P010 등)이면 소비분위로, 아니면 소득분위로
-            if (r.get("grant_key") or "income") == "spend_decile" and decile is not None:
-                basis = f"소비 {int(decile)}분위"
-            else:
-                basis = f"소득 '{income}'"
-            if my_amt > 0:
-                meta_parts.append(f"👤 나의 해당: **지급 대상** — {basis} 기준 {my_amt:,}원")
-            else:
-                meta_parts.append(f"👤 나의 해당: 지급 대상 아님 ({basis})")
+            uses_decile = bool(r.get("decile_grants")) or (
+                (r.get("grant_key") or "income") == "spend_decile"
+            )
+            basis = f"소비 {int(decile)}분위" if uses_decile and decile is not None else f"소득 {income or '미상'}"
             rec = int(grant_received.get(pid, 0) or 0)
             rem = int(grant_remaining.get(pid, 0) or 0)
-            if rec > 0 or rem > 0:
-                meta_parts.append(f"💰 누적 수령 {rec:,}원 / **남은 지원금 {rem:,}원**"
-                                  + (" ⚠️ 소진" if rec > 0 and rem == 0 else ""))
-            if r.get("poi_restricted"):
-                meta_parts.append("🏪 사용 조건: [쿠폰] 표시 매장 전용 (대형마트·백화점·온라인 등 불가), "
-                                  "기한 내 미사용분 환수 — 남기면 손해")
-            daily = p.get("daily_wd") or 0
+            d_since = days_since.get(pid)
+            age = "지급 전"
+            if rec > 0:
+                age = "지급일" if d_since in (None, 0, "0") else f"지급 후 {int(d_since)}일"
+            relative = ""
+            daily = float(p.get("daily_wd") or 0)
             if rem > 0 and daily > 0:
-                # windfall 감쇠 — 받은 직후엔 '공돈' 감각이 생생, 시간이 갈수록 일상 잔액처럼.
-                # (mental accounting: 횡재소득의 지출 성향은 수령 직후에 가장 높고 점차 감쇠)
-                d_since = (st.get("grant_days_since") or {}).get(pid)
-                base_txt = (f"남은 지원금은 평소 하루 소비({daily:,}원)의 "
-                            f"약 {rem / daily:.1f}일치 여윳돈")
-                if d_since is None or d_since <= 0:
-                    sal = "오늘 새로 생긴 공돈 — 평소보다 씀씀이가 커질 만한 날"
-                elif d_since <= 2:
-                    sal = f"받은 지 {d_since}일째 — 아직 여윳돈이라는 감각이 생생함"
-                elif d_since <= 6:
-                    sal = f"받은 지 {d_since}일째 — 여윳돈 감각이 조금씩 옅어지는 중"
-                else:
-                    sal = f"받은 지 {d_since}일째 — 이제 특별한 돈이라기보다 잔액의 일부처럼 익숙함"
-                meta_parts.append(f"➡ 나에게 의미: {base_txt} ({sal})")
-        elif ptype == "subsidy" and cap:
-            cap_used = int(used.get(r["id"], 0))
-            remaining = max(0, cap - cap_used)
-            rate_s = f"{int(rate*100)}% 환급" if rate else "100% 차감"
-            meta_parts.insert(0, f"{rate_s} (한도 {cap:,}원)")
-            meta_parts.append(
-                f"💳 누적 사용 {cap_used:,}원 / 한도 {cap:,}원 — **남은 잔액 {remaining:,}원**"
-                + (" ⚠️ 잔액 소진" if remaining == 0 else "")
+                relative = f" · 평소 평일소비의 {rem / daily:.1f}일치"
+            eligibility = "대상" if my_amt > 0 else "비대상"
+            lines.append(
+                f"- {pid}: {eligibility}({basis}) | 지급액 {my_amt:,}원 | "
+                f"누적수령 {rec:,}원 | 정책지갑 잔액 {rem:,}원 | {age}{relative}"
             )
-        elif ptype == "grant":
-            # grant(정부 무료 지원금): 본인 분위 수령액 + 잔액 명시
-            try:
-                grants = _json.loads(r.get("income_grants") or "{}")
-            except Exception:
-                grants = {}
-            my_amount = int(grants.get(agent_income or "", 0))
-            remaining = int(rem_dict.get(r["id"], my_amount))
-            used_amt = max(0, my_amount - remaining)
+        elif ptype == "subsidy":
+            cap = int(r.get("cap") or 0)
+            spent = int(used.get(pid, 0) or 0)
+            rem = max(0, cap - spent) if cap else 0
+            rate = r.get("rate")
+            rate_text = f"{float(rate) * 100:.0f}%" if rate is not None else "정책 정의값"
+            lines.append(f"- {pid}: 환급률 {rate_text} | 누적사용 {spent:,}원 | 잔여한도 {rem:,}원")
+        else:
+            lines.append(f"- {pid}: 현재 적용 중")
 
-            if my_amount > 0:
-                meta_parts.insert(0, f"💰 정부 무료 지원금 (추가 소비 자금) — 귀하 소득분위 '{agent_income}' 수령액 {my_amount:,}원, 별도 지갑(가계 부담 0)")
-                meta_parts.append(
-                    f"💳 사용 {used_amt:,}원 / 잔액 {remaining:,}원"
-                    + (" (소진)" if remaining == 0 else " — 본인 부담 0. 하는 소비는 지원금으로 결제(개인 자산 보존). 또 돈 때문에 미뤄온 소비가 있었다면 부담 없어진 지금 해소할 기회(지급액 클수록 여지 큼).")
-                )
-            elif agent_income:
-                meta_parts.insert(0, f"❌ 귀하 소득분위 '{agent_income}' — 본 지원금 제외 대상 (수령 불가)")
-        elif rate:
-            meta_parts.insert(0, f"{int(rate*100)}% 환급")
+    lines.append(
+        "- 판단 원칙: 정책은 가능한 예산·사용 제약일 뿐이다. 사용 여부·시점·금액·POI는 "
+        "본인의 필요, 평소 습관, 자산, 일정에 따라 자율적으로 결정한다."
+    )
+    return "\n".join(lines)
 
-        desc = r.get("description") or ""
-        body = f"  ↳ {desc}" if desc else ""
 
-        lines.append(head)
-        lines.append("  " + " | ".join(meta_parts))
-        if body:
-            lines.append(body)
-        lines.append("")  # 정책 간 공백
-    return "\n".join(lines).rstrip()
+def _format_policy(
+    rows: list[dict],
+    policy_used: dict[str, int] | None = None,
+    persona: dict | None = None,
+    state: dict | None = None,
+) -> str:
+    """기존 호출부 호환용: 공통 정책 사실과 개인 상태를 함께 반환."""
+    return (
+        _format_policy_facts(rows)
+        + "\n"
+        + _format_policy_status(rows, policy_used=policy_used, persona=persona, state=state)
+    )
 
 
 def _format_social(rows: list[dict]) -> str:
@@ -658,32 +673,136 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
     return zones
 
 
+_PERSONA_CACHE: dict[str, dict] = {}
+_PERSONA_CACHE_LOCK = threading.Lock()
+_POLICY_CACHE: dict[tuple[str, str, str], list[dict]] = {}
+_POLICY_CACHE_DAY: str | None = None
+_POLICY_CACHE_LOCK = threading.Lock()
+
+
+def _persona_from_cache(aid: str) -> dict | None:
+    if os.environ.get("DAWN_PERSONA_CACHE", "1") == "0":
+        return None
+    with _PERSONA_CACHE_LOCK:
+        cached = _PERSONA_CACHE.get(aid)
+        return dict(cached) if cached is not None else None
+
+
+def _cache_persona(aid: str, persona: dict) -> None:
+    if os.environ.get("DAWN_PERSONA_CACHE", "1") == "0" or not persona:
+        return
+    with _PERSONA_CACHE_LOCK:
+        _PERSONA_CACHE.setdefault(aid, dict(persona))
+
+
+def _policy_cache_key(today: date, persona: dict) -> tuple[str, str, str]:
+    return (
+        today.isoformat(),
+        str(persona.get("home_dong_code") or ""),
+        str(persona.get("work_dong_code") or ""),
+    )
+
+
+def _policy_from_cache(today: date, persona: dict) -> list[dict] | None:
+    if os.environ.get("DAWN_POLICY_CACHE", "1") == "0":
+        return None
+    global _POLICY_CACHE_DAY
+    key = _policy_cache_key(today, persona)
+    with _POLICY_CACHE_LOCK:
+        if _POLICY_CACHE_DAY != key[0]:
+            _POLICY_CACHE.clear()
+            _POLICY_CACHE_DAY = key[0]
+        cached = _POLICY_CACHE.get(key)
+        return [dict(x) for x in cached] if cached is not None else None
+
+
+def _cache_policy(today: date, persona: dict, rows: list[dict]) -> None:
+    if os.environ.get("DAWN_POLICY_CACHE", "1") == "0":
+        return
+    global _POLICY_CACHE_DAY
+    key = _policy_cache_key(today, persona)
+    with _POLICY_CACHE_LOCK:
+        if _POLICY_CACHE_DAY != key[0]:
+            _POLICY_CACHE.clear()
+            _POLICY_CACHE_DAY = key[0]
+        _POLICY_CACHE.setdefault(key, [dict(x) for x in rows])
+
+
 def build_dawn_context(
     aid: str,
     today: date,
     memory_top_n: int = 8,
     social_top_n: int = 8,
 ) -> DawnContext:
-    """한 agent의 Dawn 컨텍스트를 7종 Cypher로 수집."""
-    yesterday = today - __import__("datetime").timedelta(days=1)
-    with driver_session() as s:
-        persona = s.run(PERSONA_CYPHER, aid=aid).single()
-        persona = dict(persona) if persona else {}
+    """한 agent의 Dawn 컨텍스트와 기존 호출 구간별 소요시간을 반환."""
+    yesterday = today - timedelta(days=1)
+    memory_since = today - timedelta(days=30)
+    tm: dict[str, float | int | bool] = {}
+    total_started = time.perf_counter()
 
+    with driver_session() as s:
+        started = time.perf_counter()
+        persona = _persona_from_cache(aid)
+        tm["persona_cache_hit"] = persona is not None
+        if persona is None:
+            row = s.run(PERSONA_CYPHER, aid=aid).single()
+            persona = dict(row) if row else {}
+            _cache_persona(aid, persona)
+        tm["t_persona"] = time.perf_counter() - started
+
+        started = time.perf_counter()
         state = s.run(STATE_CYPHER, aid=aid, yesterday=yesterday).single()
         state = dict(state) if state else {}
+        tm["t_state"] = time.perf_counter() - started
 
-        memory = [dict(r) for r in s.run(MEMORY_CYPHER, aid=aid, today=today, top_n=memory_top_n)]
+        started = time.perf_counter()
+        memory = [
+            dict(r)
+            for r in s.run(
+                MEMORY_CYPHER,
+                aid=aid,
+                today=today,
+                memory_since=memory_since,
+                top_n=memory_top_n,
+            )
+        ]
+        tm["t_memory"] = time.perf_counter() - started
+        tm["n_memory_returned"] = len(memory)
+
+        started = time.perf_counter()
         appointment = [dict(r) for r in s.run(APPOINTMENT_CYPHER, aid=aid, today=today)]
-        policy = [dict(r) for r in s.run(POLICY_CYPHER, aid=aid, today=today)]
+        tm["t_appointment"] = time.perf_counter() - started
+
+        started = time.perf_counter()
+        policy = _policy_from_cache(today, persona)
+        tm["policy_cache_hit"] = policy is not None
+        if policy is None:
+            policy = [dict(r) for r in s.run(POLICY_CYPHER, aid=aid, today=today)]
+            _cache_policy(today, persona, policy)
+        tm["t_policy"] = time.perf_counter() - started
+
+        started = time.perf_counter()
         social = [dict(r) for r in s.run(SOCIAL_CYPHER, aid=aid, top_n=social_top_n)]
+        tm["t_social"] = time.perf_counter() - started
+
+        started = time.perf_counter()
         knows_poi = [dict(r) for r in s.run(KNOWS_POI_SUMMARY_CYPHER, aid=aid)]
+        tm["t_knows_poi"] = time.perf_counter() - started
+
+    started = time.perf_counter()
+    zones = _build_zone_candidates(persona, today)
+    tm["t_zones"] = time.perf_counter() - started
+    tm["t_total"] = time.perf_counter() - total_started
 
     return DawnContext(
         persona=persona, state=state, memory=memory,
         appointment=appointment, policy=policy, social=social,
         knows_poi_summary=knows_poi,
-        zone_candidates=_build_zone_candidates(persona, today),
+        zone_candidates=zones,
+        dawn_timing={
+            k: round(v, 6) if isinstance(v, float) else v
+            for k, v in tm.items()
+        },
     )
 
 

@@ -24,6 +24,11 @@ source "$VENV/bin/activate"
 export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j NEO4J_PASSWORD="${NEO4J_PW:-exp001pass}" NEO4J_DATABASE=neo4j
 export LLM_BASE_URL=http://localhost:8000/v1 LLM_MODE=exaone_4_5
 export SIM_OUTPUT_DIR="$NAS/sim_output" PYTHONUNBUFFERED=1 PYTHONIOENCODING=utf-8
+export BACKUP_DIR="${BACKUP_DIR:-$NAS/backup}"
+export DAWN_PERSONA_CACHE="${DAWN_PERSONA_CACHE:-1}"
+export DAWN_POLICY_CACHE="${DAWN_POLICY_CACHE:-1}"
+# 정책 POI 정렬 가점은 결과를 사전 유도하므로 기본 비활성. 사용 가능 표시는 유지.
+export POLICY_POI_SORT_BOOST="${POLICY_POI_SORT_BOOST:-0}"
 cd "$REPO"
 exec python scripts/sim/run_simulation.py \
   --start "$SIM_START" --days "$SIM_DAYS" --limit "$AGENTS" --workers "$WORKERS"

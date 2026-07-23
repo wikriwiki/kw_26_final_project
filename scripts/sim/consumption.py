@@ -1,16 +1,19 @@
-"""인간형 소비 — 소비성향(propensity) 모델 (Problem B, EconAgent 방식).
+"""인간형 소비 — 소비 필요와 정책 결제수단을 분리한 소비성향 모델.
 
-순수 함수 모듈. 소비를 고정 `daily_wd`가 아니라 **가용자산에 대한 소비성향 p∈[0,1]**로
-결정한다 (EconAgent, ACL 2024). 지원금이 가용자산에 들어가므로 같은 p라도 지출↑.
+순수 함수 모듈. 오늘의 총소비는 평소 일일소비와 Stage1의 소비성향 p∈[0,1],
+Stage2가 고른 POI 가격대로 정한다. 지원금은 총소비를 강제로 추가하는 재원이 아니라
+Stage2가 선택할 수 있는 별도 결제수단이며, 실제 사용액은 후단 validator가
+사용처·거래액·잔액 범위 안으로만 제한한다.
 
 핵심 설계:
-  available_today = daily_wd / ANCHOR_PROPENSITY + grant_remaining   # 가용자산(일 환산 + 지원금)
-  spend_today     = p × available_today
-  grant_part      = p × grant_remaining                              # 지원금 비례 인출
-  → p 가 소득 낮을수록 높음(유동성 제약, Jappelli & Pistaferri 2014) ⇒ MPC 역진 구조적 해소.
+  planned_total    = Stage2 거래계획 × POI 가격지수
+  day_multiplier   = 오늘 p / 동일 페르소나의 평상 p
+  spend_today      = planned_total × day_multiplier
+  policy_spend     = Stage2 선택값(강제 생성·재배분 금지)
 
-calibration 보존: 지원금 없는 평상일에 p = ANCHOR_PROPENSITY 이면 spend = daily_wd
-  (BDC 분위로 보정된 일일 소비) → 시간·공간·지니 검증치 유지.
+따라서 정책 ON/OFF에서 일정·소비성향·POI가 같으면 총소비도 같고 결제수단만 달라진다.
+정책의 추가 소비효과는 Stage1/2의 선택 변화, 유동성 제약 완화, 보존된 개인 잔액의
+후속 행동을 통해서만 내생적으로 나타난다.
 """
 from __future__ import annotations
 
@@ -86,9 +89,13 @@ def clamp_propensity(
 
 
 def available_today(daily_wd: float | int | None, grant_remaining: float | int = 0) -> float:
-    """오늘 가용자산 = 일일 가처분(daily_wd/p0) + 지원금 잔여."""
-    base = float(daily_wd or 0) / ANCHOR_PROPENSITY
-    return base + max(0.0, float(grant_remaining or 0))
+    """오늘의 평상 소비예산 기준.
+
+    `grant_remaining`은 하위 호출 호환을 위해 남겨 두지만 총소비 예산에는 더하지 않는다.
+    정책지갑 잔액을 여기에 더하면 매일 p×잔액이 강제로 인출되어 기하급수적으로 소진된다.
+    """
+    _ = grant_remaining
+    return float(daily_wd or 0) / ANCHOR_PROPENSITY
 
 
 def spend_today(
@@ -96,23 +103,20 @@ def spend_today(
     daily_wd: float | int | None,
     grant_remaining: float | int = 0,
 ) -> dict:
-    """오늘 총지출과 지원금/자기부담 분해.
+    """오늘의 정책 비의존 총소비 기준을 계산한다.
 
     반환: {total, grant_part, own_part, available, propensity}
-      total      = p × 가용자산
-      grant_part = p × 지원금잔여 (비례 인출) — 정책 사용액(MPC 분자)
-      own_part   = total − grant_part
+      total      = p × 평상 소비예산
+      grant_part = 0 (결제수단 선택은 Stage2에 위임)
+      own_part   = total (후단에서 실제 policy_spend만큼 개인부담이 대체됨)
     """
     p = max(0.0, min(1.0, float(propensity)))
-    gr = max(0.0, float(grant_remaining or 0))
-    avail = available_today(daily_wd, gr)
+    avail = available_today(daily_wd, grant_remaining)
     total = p * avail
-    grant_part = min(p * gr, gr, total)
-    own_part = max(0.0, total - grant_part)
     return {
         "total": int(round(total)),
-        "grant_part": int(round(grant_part)),
-        "own_part": int(round(own_part)),
+        "grant_part": 0,
+        "own_part": int(round(total)),
         "available": int(round(avail)),
         "propensity": round(p, 4),
     }
@@ -187,29 +191,34 @@ def apply_consumption_model(
     llm_propensity: float | None = None,
     restricted_envelopes: list[dict] | None = None,
 ) -> dict:
-    """Stage2 결과(events)에 소비성향 모델을 적용 — 사후 재정규화.
+    """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
-    Stage2 LLM의 `actual_spent`는 **상대 가중치**로만 사용하고, 오늘 총지출을
-    `propensity × 가용자산(지원금 포함)`으로 다시 잡아 이벤트에 배분한다.
-    지원금 사용분(grant_part)은 지출 비례로 각 거래의 `policy_spend`에 기입.
+    Stage2 LLM의 이벤트별 `actual_spent`를 실제 계획금액으로 존중한다. 선택 POI의
+    가격배율과 Stage1의 '평소 대비 오늘 소비의향'을 곱해 최종 총액을 만들기 때문에
+    정책이 이벤트·POI·계획금액·소비의향을 바꾸면 총소비도 증가하거나 감소할 수 있다.
+    Stage2가 출력한 `policy_spend`는 그대로 보존하며 이 함수가 새로 만들거나
+    거래 사이에 재배분하지 않는다.
 
     POI 가격 반영 (판매자 가격 채널 전제):
-      이벤트의 `price_factor`(선택한 POI 가격대)로 장바구니 가격지수를 만들어
-      ① 오늘 총지출 = 기본 총액 × basket_idx (클램프, 가용자산 98% 상한)
-      ② 거래 배분 가중치 = Stage2 상대액 × price_factor
-      → 비싼 곳을 고르면 그날 지출↑(잔액↓), 전부 기본가면 기존과 동일.
+      거래 계획금액 × price_factor를 이벤트별 계획액으로 사용한다.
+      → 비싼 곳을 고르거나 더 많은 소비를 계획하면 그날 지출이 실제로 증가한다.
 
-    제한 예산 봉투 (restricted_envelopes) — 사용처 제한 지원금의 차등 반응:
-      Thaler 심적회계(mental accounting): 용도가 표시된 돈은 그 용도로만 흐른다.
-      grant_avail(무제한 지원금)은 기존처럼 가용자산에 합산되어 전 거래에 스미지만,
-      봉투 지원금은 **필터를 통과한 거래에만** 얹힌다:
+    소비의향 반영:
+      day_multiplier = 오늘 p / 동일 페르소나의 평상 p 중심값.
+      지원금 잔액은 multiplier에 직접 들어가지 않는다. 다만 정책 정보를 본 Stage1이
+      오늘 p를 다르게 판단했다면 그 선택은 총액에 반영된다.
+
+    유동성:
+      총소비 상한은 개인 잔액 + Stage2가 실제로 선택한 유효 정책결제액이다.
+      정책지갑 전체 잔액이 아니라 선택한 결제액만 유동성을 완화하므로, 잔액 존재만으로
+      소비가 생성되지는 않는다.
+
+    제한 예산 봉투 (restricted_envelopes):
+      정책 속성으로 사용 가능 거래를 표현하는 제약 메타데이터다.
         env = {"pid": "P010", "amount": 120000,
                "require_poi_eligible": True, "categories": None, "dong_codes": None}
-        · 봉투 사용액 = propensity × amount (성향 준용, 잔여 한도 내)
-        · 필터 통과 거래가 없는 날은 0 (자동 이월 — 다음날 잔여로 재시도)
-        · 해당 거래 actual_spent += 배분액, policy_spend[pid] = 배분액 (회계=흐름, 정확)
-      ⇒ 사용가능 POI만 매출 상승, 불가 POI는 자기부담 소비만 — 업종 DiD의 전제.
-      일반화: 어떤 정책이든 (사용처/업종/지역) 필터 조합의 봉투로 표현 — 쿠폰 특화 아님.
+      이 함수는 봉투 잔액을 소비액에 더하지 않는다. 후단 `validate_policy_spend`가
+      Stage2 선택액에 대해 사용처·잔액·거래액 상한만 강제한다.
 
     events 를 in-place 수정(actual_spent, policy_spend). 반환: 메타 dict.
     """
@@ -221,75 +230,134 @@ def apply_consumption_model(
     if not commerce:
         return {"applied": False, "reason": "no_commerce"}
 
-    # 상대 가중치 = Stage2가 정한 금액(없으면 균등)
+    # Stage2가 정한 절대 계획금액.
     weights = [max(0.0, float(e.get("actual_spent") or 0)) for e in commerce]
     # 선택 POI 가격배율 (merge_to_final_events가 부착, 없으면 1.0 — 하위호환)
     factors = [max(0.5, min(2.0, float(e.get("price_factor") or 1.0))) for e in commerce]
     basket_idx = basket_price_index(weights, factors)
+    planned_weights = [w * f for w, f in zip(weights, factors)]
+    # Stage2 절대 계획금액을 보존하되, POI 가격대 효과는 기존 BASKET_CLAMP 범위에서 반영한다.
+    planned_total = int(round(sum(weights) * basket_idx))
 
-    p = clamp_propensity(llm_propensity, income_tier, balance=balance, daily_wd=daily, tendency=tendency)
-    budget = spend_today(p, daily, grant_total)
+    center = propensity_center(
+        income_tier,
+        balance=balance,
+        daily_wd=daily,
+        tendency=tendency,
+    )
+    p = clamp_propensity(
+        llm_propensity,
+        income_tier,
+        balance=balance,
+        daily_wd=daily,
+        tendency=tendency,
+    )
+    day_multiplier = p / center if center > 0 else 1.0
 
-    # 가격지수 반영 총액 (가용자산 98% 상한 — 지출>자산 방지)
-    total_adj = int(round(budget["total"] * basket_idx))
-    total_adj = min(total_adj, int(0.98 * budget["available"]))
-    grant_part_adj = min(budget["grant_part"], total_adj)
+    # Stage2가 선택한 결제액은 보존한다. 여기서는 진단용 요청액만 집계하고,
+    # 실제 허용액은 후단 validate_policy_spend가 결정한다.
+    requested_by_pid: dict[str, int] = {}
+    for e in commerce:
+        ps = e.get("policy_spend") or {}
+        if not isinstance(ps, dict):
+            continue
+        for pid, amount in ps.items():
+            try:
+                value = int(amount)
+            except (TypeError, ValueError):
+                continue
+            if value > 0:
+                requested_by_pid[str(pid)] = requested_by_pid.get(str(pid), 0) + value
 
-    weights_priced = [w * f for w, f in zip(weights, factors)]
-    spends = distribute_budget(total_adj, weights_priced)
-    # 지원금 사용분을 지출 비례로 거래에 배분
-    grant_per_event = distribute_budget(grant_part_adj, [float(x) for x in spends])
-
-    for e, sp, gp in zip(commerce, spends, grant_per_event):
-        e["actual_spent"] = int(sp)
-        if gp > 0 and grant_total > 0:
-            # 여러 grant 정책이면 잔여 비례로 분할
-            ps: dict[str, int] = {}
-            alloc = distribute_budget(gp, [float(grant_avail[k]) for k in grant_avail])
-            for pid, amt in zip(grant_avail.keys(), alloc):
-                if amt > 0:
-                    ps[pid] = amt
-            e["policy_spend"] = ps
-        else:
-            e["policy_spend"] = {}
-
-    # ── 제한 예산 봉투: 필터 통과 거래에만 배분 (actual_spent 가산 + 정확 회계) ──
-    env_spent: dict[str, int] = {}
+    envelope_requested: dict[str, int] = {}
+    envelope_eligible_events: dict[str, int] = {}
     for env in envelopes:
         pid = str(env.get("pid") or "")
-        # LLM이 이 정책으로 적어둔 policy_spend는 폐기 — 결정론 배분이 회계를 대체
-        for e in commerce:
-            ps = e.get("policy_spend") or {}
-            if pid in ps:
-                ps.pop(pid)
-                e["policy_spend"] = ps
         idxs = [i for i, e in enumerate(commerce) if _envelope_match(env, e)]
-        if not idxs:
-            env_spent[pid] = 0          # 오늘 사용처 없음 — 자동 이월
-            continue
-        amount = int(env["amount"])
-        use = min(int(round(p * amount)), amount)   # 소비성향 준용
-        if use <= 0:
-            env_spent[pid] = 0
-            continue
-        shares = distribute_budget(use, [weights_priced[i] for i in idxs])
-        for i, sh in zip(idxs, shares):
-            if sh <= 0:
-                continue
-            commerce[i]["actual_spent"] = int(commerce[i].get("actual_spent") or 0) + int(sh)
+        envelope_eligible_events[pid] = len(idxs)
+        requested = 0
+        for i in idxs:
             ps = commerce[i].get("policy_spend") or {}
-            ps[pid] = int(ps.get(pid, 0)) + int(sh)
-            commerce[i]["policy_spend"] = ps
-        env_spent[pid] = use
+            if not isinstance(ps, dict):
+                continue
+            try:
+                requested += max(0, int(ps.get(pid, 0) or 0))
+            except (TypeError, ValueError):
+                continue
+        envelope_requested[pid] = requested
+
+    # 실제 선택된 정책결제액만 유동성으로 인정한다. 거래별 계획액·정책별 잔액·
+    # 사용처 제약을 모두 만족하는 범위만 계산해, 과대 요청이 개인 잔액 부족을
+    # 가리는 일이 없도록 한다. 최종 정수 보정은 validate_policy_spend가 담당한다.
+    env_by_pid = {str(env.get("pid") or ""): env for env in envelopes}
+    wallet_remaining = dict(grant_avail)
+    for env in envelopes:
+        wallet_remaining[str(env.get("pid") or "")] = int(env.get("amount") or 0)
+    selected_by_pid: dict[str, int] = {}
+    selected_policy_liquidity = 0
+    for i, e in enumerate(commerce):
+        ps = e.get("policy_spend") or {}
+        if not isinstance(ps, dict):
+            continue
+        tx_room = max(0, int(round(planned_weights[i] * day_multiplier)))
+        for raw_pid, raw_amount in ps.items():
+            pid = str(raw_pid)
+            try:
+                requested = max(0, int(raw_amount))
+            except (TypeError, ValueError):
+                continue
+            if requested <= 0 or tx_room <= 0:
+                continue
+            if pid in env_by_pid:
+                if not _envelope_match(env_by_pid[pid], e):
+                    continue
+            elif pid not in grant_avail:
+                continue
+            allowed = min(requested, tx_room, max(0, wallet_remaining.get(pid, 0)))
+            if allowed <= 0:
+                continue
+            selected_policy_liquidity += allowed
+            selected_by_pid[pid] = selected_by_pid.get(pid, 0) + allowed
+            wallet_remaining[pid] -= allowed
+            tx_room -= allowed
+
+    desired_total = int(round(planned_total * day_multiplier))
+    affordability_cap: int | None
+    try:
+        affordability_cap = max(0, int(balance)) + selected_policy_liquidity
+    except (TypeError, ValueError):
+        affordability_cap = None
+    total_adj = (
+        min(desired_total, affordability_cap)
+        if affordability_cap is not None
+        else desired_total
+    )
+    spends = distribute_budget(total_adj, planned_weights)
+
+    for e, sp in zip(commerce, spends):
+        e["actual_spent"] = int(sp)
+
+    normal_budget = spend_today(p, daily)
 
     return {
         "applied": True,
-        "propensity": budget["propensity"],
-        "today_total": total_adj + sum(env_spent.values()),
-        "grant_part": grant_part_adj + sum(env_spent.values()),
-        "available": budget["available"] + sum(int(e.get("amount") or 0) for e in envelopes),
+        "propensity": p,
+        "propensity_center": round(center, 4),
+        "day_multiplier": round(day_multiplier, 4),
+        "planned_total": planned_total,
+        "today_total": total_adj,
+        "grant_part": sum(requested_by_pid.values()),
+        "normal_budget": normal_budget["total"],
+        "available": normal_budget["available"],
+        "affordability_cap": affordability_cap,
+        "selected_policy_liquidity": selected_policy_liquidity,
+        "selected_policy_liquidity_by_pid": selected_by_pid,
+        "policy_wallet_available": grant_total + sum(int(e.get("amount") or 0) for e in envelopes),
+        "policy_spend_requested": requested_by_pid,
+        "mechanical_policy_uplift": 0,
         "price_basket_idx": round(basket_idx, 4),
-        "envelope_spent": env_spent,
+        "envelope_requested": envelope_requested,
+        "envelope_eligible_events": envelope_eligible_events,
         "n_commerce": len(commerce),
     }
 
@@ -303,28 +371,28 @@ if __name__ == "__main__":
         r = spend_today(ANCHOR_PROPENSITY, wd, 0)
         print(f"  daily_wd={wd:,} → total={r['total']:,} (available={r['available']:,})")
 
-    print("\n=== ② MPC 역진 해소: 소득별 지원금 소비 (prior 중심 propensity 사용) ===")
-    # P009 지급액: 하 60만 / 중하 45만 / 중 25만 / 중상 10만
+    print("\n=== ② 지원금 잔액은 총소비·인출액을 기계적으로 늘리지 않음 ===")
     cases = [
         ("하",   30000, 600000),
         ("중하", 45000, 450000),
         ("중",   60000, 250000),
         ("중상", 90000, 100000),
     ]
-    print(f"  {'소득':<4} {'p_center':>8} {'grant':>9} {'grant_part':>11} {'MPC(1일)':>9}")
+    print(f"  {'소득':<4} {'p_center':>8} {'grant':>9} {'total':>11} {'forced':>9}")
     for inc, wd, grant in cases:
         p = clamp_propensity(None, inc, balance=500000, daily_wd=wd)  # None → 중심값
         r = spend_today(p, wd, grant)
-        mpc = r["grant_part"] / grant if grant else 0
-        print(f"  {inc:<4} {p:>8.3f} {grant:>9,} {r['grant_part']:>11,} {mpc:>8.1%}")
+        print(f"  {inc:<4} {p:>8.3f} {grant:>9,} {r['total']:>11,} {r['grant_part']:>9,}")
+        assert r["grant_part"] == 0
+        assert r["total"] == spend_today(p, wd, 0)["total"]
 
     print("\n=== ③ 분배: 오늘 총지출 47,000원을 4개 이벤트(가중치)로 ===")
     print("  ", distribute_budget(47000, [3, 1, 2, 1]), "합", sum(distribute_budget(47000, [3, 1, 2, 1])))
 
-    print("\n=== ④ apply_consumption_model: Stage2 events 재정규화 (저소득+지원금) ===")
+    print("\n=== ④ apply_consumption_model: Stage2 결제 선택 보존 ===")
     evs = [
         {"category": "집", "poi_id": "R_1", "actual_spent": 0, "policy_spend": {}},
-        {"category": "식사", "poi_id": "C_1", "actual_spent": 9000, "policy_spend": {}},
+        {"category": "식사", "poi_id": "C_1", "actual_spent": 9000, "policy_spend": {"P009": 5000}},
         {"category": "카페", "poi_id": "C_2", "actual_spent": 5000, "policy_spend": {}},
         {"category": "마트", "poi_id": "C_3", "actual_spent": 30000, "policy_spend": {}},
     ]
@@ -339,6 +407,8 @@ if __name__ == "__main__":
     print(f"  지원금 사용분 합={gpt:,} (today_total={meta['today_total']:,}, grant_part={meta['grant_part']:,})")
     assert tot == meta["today_total"], "지출 합 = today_total 불일치"
     assert gpt == meta["grant_part"], "정책사용 합 = grant_part 불일치"
+    assert evs[1]["policy_spend"] == {"P009": 5000}, "Stage2 결제 선택을 덮어쓰면 안 됨"
+    assert meta["mechanical_policy_uplift"] == 0
     assert meta["price_basket_idx"] == 1.0, "price_factor 미지정이면 basket=1.0 (기존 동작 보존)"
     print("  ✔ 합 일치 검증 통과")
 
@@ -362,37 +432,29 @@ if __name__ == "__main__":
     assert results[1.35] <= int(round(results[1.0] * 1.25)) + 2
     print("  ✔ 가격 반응·클램프 검증 통과")
 
-    print("\n=== ⑥ 제한 예산 봉투: 쿠폰 자금이 사용가능 POI에만 흐름 (업종 DiD 전제) ===")
-    import copy
+    print("\n=== ⑥ 제한 예산 봉투: 사용 가능성만 표현하고 소비를 강제하지 않음 ===")
     def _mk6():
         return [
             {"category": "식사", "poi_id": "C_E", "actual_spent": 10000, "price_factor": 1.0,
-             "coupon_eligible": True, "policy_spend": {"P010": 99999}},   # LLM 환각 → 폐기·재배분
+             "coupon_eligible": True, "policy_spend": {"P010": 8000}},
             {"category": "쇼핑", "poi_id": "C_D", "actual_spent": 30000, "price_factor": 1.0,
-             "coupon_eligible": False, "policy_spend": {}},               # 백화점류 (불가)
+             "coupon_eligible": False, "policy_spend": {}},
         ]
     kw6 = dict(daily=30000, income_tier="중", tendency="", balance=500000,
                grant_avail=None, llm_propensity=None)
-    base6 = _mk6(); apply_consumption_model(base6, **kw6)                       # 봉투 없는 기준런
+    base6 = _mk6(); apply_consumption_model(base6, **kw6)
     env6 = _mk6()
     m6 = apply_consumption_model(env6, **kw6, restricted_envelopes=[
         {"pid": "P010", "amount": 100000, "require_poi_eligible": True}])
-    used = m6["envelope_spent"]["P010"]
-    print(f"  봉투 사용액={used:,} (p={m6['propensity']}×100,000)")
-    print(f"  사용가능(식사): {base6[0]['actual_spent']:,} → {env6[0]['actual_spent']:,} (+{env6[0]['actual_spent']-base6[0]['actual_spent']:,})")
-    print(f"  사용불가(쇼핑): {base6[1]['actual_spent']:,} → {env6[1]['actual_spent']:,} (변화 0이어야)")
-    assert used > 0 and env6[0]["policy_spend"] == {"P010": used}, "봉투 회계 = 흐름"
-    assert env6[1]["actual_spent"] == base6[1]["actual_spent"], "불가 POI는 지원금 uplift 없음 — DiD 대비"
-    assert env6[1]["policy_spend"] == {}, "LLM 환각 폐기 + 불가 매장 배분 0"
-    assert env6[0]["actual_spent"] == base6[0]["actual_spent"] + used, "가능 POI에 전액 가산"
-    # 사용처 없는 날 → 0 사용 (이월)
-    only_inel = [_mk6()[1]]
-    m7 = apply_consumption_model(only_inel, **kw6, restricted_envelopes=[
+    assert sum(e["actual_spent"] for e in base6) == sum(e["actual_spent"] for e in env6)
+    assert env6[0]["policy_spend"] == {"P010": 8000}
+    assert m6["envelope_requested"]["P010"] == 8000
+    assert m6["envelope_eligible_events"]["P010"] == 1
+
+    zero_use = _mk6()
+    zero_use[0]["policy_spend"] = {}
+    m7 = apply_consumption_model(zero_use, **kw6, restricted_envelopes=[
         {"pid": "P010", "amount": 100000, "require_poi_eligible": True}])
-    assert m7["envelope_spent"]["P010"] == 0, "사용처 없는 날 자동 이월"
-    # 카테고리 스코프 봉투 (온누리형 일반화)
-    env8 = _mk6()
-    m8 = apply_consumption_model(env8, **kw6, restricted_envelopes=[
-        {"pid": "P0XX", "amount": 50000, "categories": ["쇼핑"]}])
-    assert env8[1]["policy_spend"].get("P0XX", 0) > 0 and "P0XX" not in env8[0].get("policy_spend", {})
-    print("  ✔ 봉투 검증 통과 (차등 반응·회계 정확·이월·카테고리 스코프 일반화)")
+    assert zero_use[0]["policy_spend"] == {}
+    assert m7["envelope_requested"]["P010"] == 0
+    print("  ✔ 봉투가 사용액·총소비를 강제하지 않음")

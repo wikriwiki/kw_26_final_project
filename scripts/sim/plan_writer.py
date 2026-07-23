@@ -21,8 +21,8 @@ try:
 except Exception:
     pass
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
-from _common import driver_session
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from neo4j_load._common import driver_session
 
 
 # =========================================================
@@ -193,12 +193,23 @@ def grant_lookup_key(pol: dict, income: str, spend_decile=None) -> str:
 
 
 def _grant_for_single_policy(income: str, pol: dict, spend_decile=None) -> int:
-    """단일 grant 정책에서 이 agent가 받을 금액. excluded_income이면 0.
+    """단일 grant 정책 지급액.
 
-    spend_decile: Agent.spending_level_wd (소비 10분위). policy.grant_key='spend_decile'일 때 사용.
+    신규 decile_grants가 있으면 소비 10분위를 사용하고, 없으면 레거시
+    income_grants/grant_key를 사용한다.
     """
     if pol.get("type") != "grant":
         return 0
+    decile_grants = _parse_income_grants(pol.get("decile_grants"))
+    if decile_grants:
+        try:
+            key = str(int(spend_decile))
+        except (TypeError, ValueError):
+            return 0
+        if key in _parse_excluded_income(pol.get("excluded_deciles")):
+            return 0
+        return int(decile_grants.get(key, 0))
+
     excluded = _parse_excluded_income(pol.get("excluded_income"))
     if income in excluded:
         return 0
@@ -206,7 +217,7 @@ def _grant_for_single_policy(income: str, pol: dict, spend_decile=None) -> int:
     return grants.get(grant_lookup_key(pol, income, spend_decile), 0)
 
 
-def get_grant_amount(income: str, policies: list[dict]) -> int:
+def get_grant_amount(income: str, policies: list[dict], spend_decile=None) -> int:
     """오늘 적용 가능한 모든 grant 정책의 지급액 합계. 해당 없으면 0.
 
     여러 grant 정책이 동시에 활성이면 누적 합산.
@@ -216,7 +227,7 @@ def get_grant_amount(income: str, policies: list[dict]) -> int:
     """
     total = 0
     for pol in policies:
-        total += _grant_for_single_policy(income, pol)
+        total += _grant_for_single_policy(income, pol, spend_decile=spend_decile)
     return total
 
 
@@ -258,24 +269,12 @@ def validate_policy_spend(
     """
     corrected = 0
     restricted = restricted_pids or set()
-    auto_filled = 0
     # 정책별 잔여 가용액 (시간순 차감)
     pol_rem = dict(policy_remaining or {})
     for e in events:
         ps = e.get("policy_spend") or {}
-        # ★ Reasoning-JSON 자동 일치 — pick_reason에 정책 언급했으나 policy_spend 누락 시 자동 채움
-        if (not ps or not isinstance(ps, dict)) and policy_remaining is not None:
-            reason = e.get("pick_reason") or ""
-            actual = e.get("actual_spent") or 0
-            if actual > 0 and any(kw in reason for kw in ("P009", "지원금", "보조금")):
-                for pid, avail in pol_rem.items():
-                    if avail > 0:
-                        amt = min(int(actual), int(avail))
-                        e["policy_spend"] = {pid: amt}
-                        pol_rem[pid] -= amt
-                        auto_filled += 1
-                        ps = e["policy_spend"]
-                        break
+        # 결제수단 미선택은 그대로 0원이다. reasoning에 정책 단어가 있다는 이유로
+        # policy_spend를 자동 생성하면 에이전트 판단을 덮어쓰고 강제 소진을 만든다.
         if not isinstance(ps, dict) or not ps:
             continue
         # 정수 정규화 + 양수만

@@ -15,6 +15,7 @@ set -euo pipefail
 BASE=/data
 REPO=$BASE/kw_26_final_project
 VENV=$BASE/venv
+VENV_SGL=$BASE/venv_sgl
 NEO4J_VER=5.26.0
 NEO4J_HOME=$BASE/neo4j-community-$NEO4J_VER
 NEO4J_PW=${NEO4J_PW:-exp001pass}
@@ -37,18 +38,21 @@ env_common() {
   export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j NEO4J_PASSWORD=$NEO4J_PW NEO4J_DATABASE=neo4j
   export LLM_BASE_URL=http://localhost:$LLM_PORT/v1 LLM_MODE=exaone_4_5
   export SIM_OUTPUT_DIR=$LOG/sim_output PYTHONUNBUFFERED=1
+  export BACKUP_DIR=$LOG/backup DAWN_PERSONA_CACHE=1 DAWN_POLICY_CACHE=1
+  export POLICY_POI_SORT_BOOST=0
   source $VENV/bin/activate
 }
 
-s1_deps() {  # 파이썬 환경 + vLLM(최신 — AWQ schema 지원) + 런타임
+s1_deps() {  # 시뮬 클라이언트 환경 + EXAONE-4.5 SGLang 서빙 환경
   echo "══ s1: deps ══"
   python3 -m venv $VENV || true
   source $VENV/bin/activate
   pip install -q -U pip
-  pip install -q -U vllm huggingface_hub \
+  pip install -q -U huggingface_hub \
       "neo4j>=5.20,<7" "openai>=1.54,<2" "pydantic>=2.7,<3" \
       "pyyaml>=6.0" "openpyxl>=3.1" "requests>=2.31"
-  python -c "import vllm; print('vllm', vllm.__version__)" | tee $LOG/versions.txt
+  VENV=$VENV_SGL bash $REPO/scripts/deploy/install_sglang_exaone45.sh
+  "$VENV_SGL/bin/python" -c "import sglang, transformers; print('sglang', sglang.__version__, 'transformers', transformers.__version__)" | tee $LOG/versions.txt
   nvidia-smi --query-gpu=name,memory.total --format=csv | tee -a $LOG/versions.txt
   sudo apt-get update -qq && sudo apt-get install -y -qq openjdk-17-jre-headless > /dev/null
   java -version 2>&1 | head -1 | tee -a $LOG/versions.txt
@@ -58,11 +62,6 @@ s2_model() {  # 모델 프리페치 (스토리지 캐시 — 워크로드 재생
   echo "══ s2: EXAONE-4.5-33B-AWQ 다운로드 (HF_HOME=$HF_HOME) ══"
   source $VENV/bin/activate
   huggingface-cli download $AWQ_MODEL --quiet | tail -1
-  # AWQ 스키마 거부 대비 FP8 폴백 모델도 미리 받아둠 (s7이 자동 폴백 → 다운로드 대기 방지)
-  if [ "${PREFETCH_FP8:-1}" = "1" ]; then
-    echo "  + FP8 폴백 프리페치 (건너뛰려면 PREFETCH_FP8=0)"
-    huggingface-cli download LGAI-EXAONE/EXAONE-4.5-33B-FP8 --quiet | tail -1 || echo "  (FP8 프리페치 실패 — 폴백 시 재시도됨)"
-  fi
 }
 
 s3_neo4j() {  # Neo4j 5.26 신규 설치 + 덤프 로드 + 기동
@@ -103,25 +102,23 @@ s6_policy() {  # 정책(P010) 적재 + 쿠폰 사용처 백필(실측 가맹점 
   python scripts/neo4j_load/09_coupon_eligibility.py --merchants data/coupon | tee $LOG/coupon_backfill.txt
 }
 
-s7_llm() {  # LLM 서버 (A100×2 TP2) — nohup 상주. 양자화 커널 폴백 자동화
-  echo "══ s7: EXAONE 서빙 (TP=2) ══"
-  source $VENV/bin/activate; export HF_HOME=$BASE/hf_cache
-  # awq_marlin(A100 최적, 실측 5배) → awq(기본 커널) → fp8(동일 모델 FP8) 순으로 시도
-  for attempt in "awq_marlin|$AWQ_MODEL" "awq|$AWQ_MODEL" "fp8|LGAI-EXAONE/EXAONE-4.5-33B-FP8"; do
-    q="${attempt%%|*}"; m="${attempt##*|}"
-    echo "  ▶ 시도: quant=$q model=$m"
-    pkill -f vllm.entrypoints || true; sleep 5
-    MODEL="$m" QUANT="$q" nohup bash $REPO/scripts/serve/serve_exaone45_awq_a100x2.sh > $LOG/llm.log 2>&1 &
-    for i in $(seq 1 120); do            # 최대 20분 (33B 최초 로드)
-      curl -sf http://localhost:$LLM_PORT/v1/models >/dev/null 2>&1 && {
-        echo "  ✅ LLM READY (quant=$q)"; echo "$q|$m" > $LOG/llm_quant.txt
-        curl -s http://localhost:$LLM_PORT/v1/models | head -c 200; echo; return; }
-      kill -0 %1 2>/dev/null || break     # 프로세스가 죽었으면 즉시 다음 폴백
-      sleep 10
-    done
-    echo "  ✗ 실패(quant=$q) — 마지막 로그:"; tail -5 $LOG/llm.log
+s7_llm() {  # EXAONE-4.5-33B-AWQ SGLang TP2 — 다른 모델 자동 폴백 금지
+  echo "══ s7: EXAONE-4.5-33B-AWQ SGLang 서빙 (TP=2) ══"
+  export HF_HOME=$BASE/hf_cache
+  pkill -f sglang.launch_server || true; sleep 5
+  VENV=$VENV_SGL MODEL=$AWQ_MODEL TP=2 PORT=$LLM_PORT \
+    nohup bash $REPO/scripts/serve/serve_exaone45_sglang_a100x2.sh > $LOG/llm.log 2>&1 &
+  llm_pid=$!
+  for i in $(seq 1 120); do
+    if curl -sf http://localhost:$LLM_PORT/v1/models > $LOG/models.json 2>/dev/null; then
+      grep -q "$AWQ_MODEL" $LOG/models.json || {
+        echo "❌ 요청 모델과 실제 served model 불일치"; cat $LOG/models.json; exit 1; }
+      echo "  ✅ SGLang READY: $AWQ_MODEL"; cat $LOG/models.json; return
+    fi
+    kill -0 "$llm_pid" 2>/dev/null || break
+    sleep 10
   done
-  echo "❌ 3가지 모두 실패 — 전체 로그: tail -40 $LOG/llm.log"; tail -40 $LOG/llm.log
+  echo "❌ SGLang EXAONE-4.5 기동 실패"; tail -40 $LOG/llm.log
   exit 1
 }
 
