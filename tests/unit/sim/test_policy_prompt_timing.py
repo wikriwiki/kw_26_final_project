@@ -36,13 +36,19 @@ def test_p010_uses_complete_ten_decile_map():
     policy = _p010()
     grants = policy["decile_grants"]
     assert set(grants) == {str(i) for i in range(1, 11)}
-    assert all(grants[str(i)] == 150_000 for i in range(1, 11))
+    assert grants == {
+        "1": 400_000,
+        "2": 300_000,
+        **{str(i): 150_000 for i in range(3, 11)},
+    }
+    assert policy["grant_key"] == "spend_decile"
     assert policy["income_grants"] == {}
 
 
 def test_decile_grant_has_priority_and_exclusion_is_honored():
     policy = _p010()
-    assert plan_writer._grant_for_single_policy("상", policy, spend_decile=1) == 150_000
+    assert plan_writer._grant_for_single_policy("상", policy, spend_decile=1) == 400_000
+    assert plan_writer._grant_for_single_policy("중", policy, spend_decile=2) == 300_000
     assert plan_writer._grant_for_single_policy("하", policy, spend_decile=10) == 150_000
 
     excluded = {**policy, "excluded_deciles": ["10"]}
@@ -78,6 +84,7 @@ def test_policy_prompt_keeps_consumption_autonomous_but_states_payment_priority(
     text = facts + "\n" + status
 
     assert "소비 7분위" in text
+    assert "지급액 150,000원" in text
     assert "정책지갑 잔액 120,000원" in text
     assert "소비 필요·시점·총액·POI" in text
     assert "정책지갑을 자기자금보다 먼저 결제" in text
@@ -90,6 +97,37 @@ def test_policy_prompt_keeps_consumption_autonomous_but_states_payment_priority(
         "쿠폰 매장을 우선",
     ):
         assert directed not in text
+
+
+def test_policy_prompt_shows_differential_amount_for_low_spending_decile():
+    policy = _p010()
+    row = {
+        "id": policy["id"],
+        "name": policy["name"],
+        "type": policy["type"],
+        "description": policy["description"],
+        "from_": policy["effective_from"],
+        "until_": policy["effective_until"],
+        "regions": ["서울특별시"],
+        "target_l1s": [],
+        "poi_restricted": True,
+        "decile_grants": policy["decile_grants"],
+        "excluded_deciles": [],
+        "grant_key": "spend_decile",
+    }
+    first = dawn_context._format_policy_status(
+        [row],
+        persona={"income": "하", "spend_decile": 1, "daily_wd": 30_000},
+        state={},
+    )
+    second = dawn_context._format_policy_status(
+        [row],
+        persona={"income": "하", "spend_decile": 2, "daily_wd": 30_000},
+        state={},
+    )
+
+    assert "소비 1분위" in first and "지급액 400,000원" in first
+    assert "소비 2분위" in second and "지급액 300,000원" in second
 
 
 def test_timing_report_separates_llm_review_and_cache_metrics():

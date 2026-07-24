@@ -2,14 +2,16 @@
 """EXP-001 종합 검증(상세판) — 속도·품질·추출완전성·소비행동·이동·정책·사회·무결성."""
 import json, glob, os, re, sys
 from datetime import date
+from pathlib import Path
 
 NAS = "/home/ubuntu/data/exp001"
 METRICS = f"{NAS}/sim_output/metrics"
 RUNLOG = f"{NAS}/logs/run.log"
 SIM_START = date(2025, 7, 14)
-POLICY_FROM = date(2025, 7, 21)
-GRANT = {1: 400000, 2: 300000, 3: 150000, 4: 150000, 5: 150000,
-         6: 150000, 7: 150000, 8: 150000, 9: 150000, 10: 150000}
+POLICY_PATH = Path(__file__).resolve().parents[2] / "data" / "neo4j_load" / "policies" / "P010.json"
+POLICY = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+POLICY_FROM = date.fromisoformat(POLICY["effective_from"])
+GRANT = {int(k): int(v) for k, v in POLICY["decile_grants"].items()}
 WD = ["월", "화", "수", "목", "금", "토", "일"]
 os.environ.setdefault("NEO4J_URI", "bolt://localhost:7687")
 os.environ.setdefault("NEO4J_USER", "neo4j")

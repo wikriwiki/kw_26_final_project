@@ -97,7 +97,8 @@
 
 ### 2-7. 정책 파일 (백테스트용 초안)
 - `data/neo4j_load/policies/P010.json` / `P011.json`: 민생회복 소비쿠폰 1·2차
-  (근사·한계는 notes에 명시 — 예: 기초수급 가산 미반영, 상위10% tier 근사)
+  (P010은 소비 1분위 40만·2분위 30만·3~10분위 15만 차등 지급,
+  복지자격을 소비분위로 대응한 근사·한계는 notes에 명시)
 - `scripts/neo4j_load/10_load_grant_policy.py`: 확장 필드(income_grants 등) 포함 로더
 
 ---
