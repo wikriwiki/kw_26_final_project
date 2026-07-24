@@ -2,14 +2,15 @@
 
 순수 함수 모듈. 오늘의 총소비는 평소 일일소비와 Stage1의 소비성향 p∈[0,1],
 Stage2가 고른 POI 가격대로 정한다. 지원금은 총소비를 강제로 추가하는 재원이 아니라
-Stage2가 선택할 수 있는 별도 결제수단이며, 실제 사용액은 후단 validator가
-사용처·거래액·잔액 범위 안으로만 제한한다.
+별도 결제수단이다. 소비가 이미 발생하기로 정해진 뒤 사용 가능한 거래에서는
+정책지갑을 자기자금보다 먼저 배정하고, 후단 validator가 사용처·거래액·잔액을
+한 번 더 검증한다.
 
 핵심 설계:
   planned_total    = Stage2 거래계획 × POI 가격지수
   day_multiplier   = 오늘 p / 동일 페르소나의 평상 p
   spend_today      = planned_total × day_multiplier
-  policy_spend     = Stage2 선택값(강제 생성·재배분 금지)
+  policy_spend     = 사용 가능한 실제 거래에 정책지갑 우선 배정
 
 따라서 정책 ON/OFF에서 일정·소비성향·POI가 같으면 총소비도 같고 결제수단만 달라진다.
 정책의 추가 소비효과는 Stage1/2의 선택 변화, 유동성 제약 완화, 보존된 개인 잔액의
@@ -107,7 +108,7 @@ def spend_today(
 
     반환: {total, grant_part, own_part, available, propensity}
       total      = p × 평상 소비예산
-      grant_part = 0 (결제수단 선택은 Stage2에 위임)
+      grant_part = 0 (실제 거래가 확정된 뒤 정책지갑 우선 정산)
       own_part   = total (후단에서 실제 policy_spend만큼 개인부담이 대체됨)
     """
     p = max(0.0, min(1.0, float(propensity)))
@@ -180,6 +181,237 @@ def _envelope_match(env: dict, e: dict) -> bool:
     return True
 
 
+def filter_active_grant_balances(
+    previous: dict[str, int] | None,
+    active_policies: list[dict] | None,
+) -> tuple[dict[str, int], dict[str, int]]:
+    """어제 정책지갑을 오늘도 유효한 grant와 만료·비활성 잔액으로 분리한다.
+
+    Dawn 정책 목록은 오늘이 effective_from~effective_until 범위이고 에이전트의 적용
+    지역에 해당하는 정책만 포함한다. 목록에서 사라진 잔액은 무제한 지갑으로 추정하지
+    않고 만료·비활성 잔액으로 제거한다.
+    """
+    active_ids = {
+        str(p.get("id") or "")
+        for p in (active_policies or [])
+        if p.get("type") == "grant" and p.get("id")
+    }
+    usable: dict[str, int] = {}
+    inactive: dict[str, int] = {}
+    for raw_pid, raw_amount in (previous or {}).items():
+        pid = str(raw_pid)
+        try:
+            amount = max(0, int(raw_amount or 0))
+        except (TypeError, ValueError):
+            continue
+        if amount <= 0:
+            continue
+        target = usable if pid in active_ids else inactive
+        target[pid] = amount
+    return usable, inactive
+
+
+def _wallet_sort_key(wallet: dict) -> tuple:
+    """제약이 좁은 지갑을 먼저 두는 결정적 순서."""
+    cats = wallet.get("categories")
+    dongs = wallet.get("dong_codes")
+    has_cats = bool(cats)
+    has_dongs = bool(dongs)
+    constrained = int(bool(wallet.get("require_poi_eligible"))) + int(has_cats) + int(has_dongs)
+    return (
+        -constrained,
+        len(cats) if has_cats else 10**9,
+        len(dongs) if has_dongs else 10**9,
+        str(wallet.get("pid") or ""),
+    )
+
+
+def _policy_wallet_specs(
+    grant_avail: dict[str, int],
+    envelopes: list[dict],
+) -> list[dict]:
+    """정책지갑 정산 순서를 만든다.
+
+    사용처가 좁은 제한 지갑을 먼저 쓰고, 어디서나 쓸 수 있는 지갑을 나중에 쓴다.
+    같은 유형 안에서는 입력 순서를 보존한다. 동일 정책 ID가 중복되면 제한 봉투 정의를
+    우선하며 이중 계상하지 않는다.
+    """
+    specs: list[dict] = []
+    seen: set[str] = set()
+    for env in envelopes:
+        pid = str(env.get("pid") or "")
+        amount = max(0, int(env.get("amount") or 0))
+        if not pid or amount <= 0 or pid in seen:
+            continue
+        specs.append({**env, "pid": pid, "amount": amount})
+        seen.add(pid)
+    for raw_pid, raw_amount in grant_avail.items():
+        pid = str(raw_pid)
+        amount = max(0, int(raw_amount or 0))
+        if not pid or amount <= 0 or pid in seen:
+            continue
+        specs.append({"pid": pid, "amount": amount})
+        seen.add(pid)
+    return sorted(specs, key=_wallet_sort_key)
+
+
+def _allocate_policy_capacity(
+    events: list[dict],
+    amounts: list[int],
+    wallet_specs: list[dict],
+) -> dict:
+    """거래–정책지갑 최대흐름으로 사용 가능한 결제액을 최대화한다.
+
+    단순 탐욕 배정은 범용 지갑을 앞 거래에 먼저 써서 뒤의 전용 지갑과 거래를 함께
+    놓칠 수 있다. 정수 최대흐름은 입력 순서와 무관하게 전체 정책결제액을 최대화한다.
+    이벤트·지갑 수가 매우 작아 LLM/DB 비용과 비교하면 계산비용은 무시할 수준이다.
+    """
+    tx_amounts = [max(0, int(v or 0)) for v in amounts]
+    n_wallets = len(wallet_specs)
+    n_events = len(events)
+    allocations: list[dict[str, int]] = [{} for _ in events]
+    eligible_flags = [
+        any(_envelope_match(wallet, event) for wallet in wallet_specs)
+        for event in events
+    ]
+
+    if not wallet_specs or not events:
+        return {
+            "total": 0,
+            "by_pid": {},
+            "allocations": allocations,
+            "eligible_spend_total": sum(
+                amount for amount, eligible in zip(tx_amounts, eligible_flags) if eligible
+            ),
+            "eligible_event_count": sum(
+                1 for amount, eligible in zip(tx_amounts, eligible_flags) if amount > 0 and eligible
+            ),
+        }
+
+    source = 0
+    wallet_base = 1
+    event_base = wallet_base + n_wallets
+    sink = event_base + n_events
+    graph: list[list[list[int]]] = [[] for _ in range(sink + 1)]
+
+    def add_edge(u: int, v: int, capacity: int) -> int:
+        forward_idx = len(graph[u])
+        reverse_idx = len(graph[v])
+        graph[u].append([v, max(0, int(capacity)), reverse_idx, max(0, int(capacity))])
+        graph[v].append([u, 0, forward_idx, 0])
+        return forward_idx
+
+    edge_refs: dict[tuple[int, int], tuple[int, int]] = {}
+    for wi, wallet in enumerate(wallet_specs):
+        wallet_node = wallet_base + wi
+        add_edge(source, wallet_node, int(wallet.get("amount") or 0))
+        for ei, (event, amount) in enumerate(zip(events, tx_amounts)):
+            if amount <= 0 or not _envelope_match(wallet, event):
+                continue
+            edge_idx = add_edge(wallet_node, event_base + ei, amount)
+            edge_refs[(wi, ei)] = (wallet_node, edge_idx)
+    for ei, amount in enumerate(tx_amounts):
+        add_edge(event_base + ei, sink, amount)
+
+    while True:
+        level = [-1] * len(graph)
+        level[source] = 0
+        queue = [source]
+        for u in queue:
+            for to, capacity, _rev, _original in graph[u]:
+                if capacity > 0 and level[to] < 0:
+                    level[to] = level[u] + 1
+                    queue.append(to)
+        if level[sink] < 0:
+            break
+
+        cursor = [0] * len(graph)
+
+        def send_flow(node: int, flow: int) -> int:
+            if node == sink:
+                return flow
+            while cursor[node] < len(graph[node]):
+                edge = graph[node][cursor[node]]
+                to, capacity, reverse_idx, _original = edge
+                if capacity > 0 and level[to] == level[node] + 1:
+                    sent = send_flow(to, min(flow, capacity))
+                    if sent > 0:
+                        edge[1] -= sent
+                        graph[to][reverse_idx][1] += sent
+                        return sent
+                cursor[node] += 1
+            return 0
+
+        while send_flow(source, 10**18) > 0:
+            pass
+
+    by_pid: dict[str, int] = {}
+    for (wi, ei), (node, edge_idx) in edge_refs.items():
+        edge = graph[node][edge_idx]
+        used = edge[3] - edge[1]
+        if used <= 0:
+            continue
+        pid = str(wallet_specs[wi]["pid"])
+        allocations[ei][pid] = used
+        by_pid[pid] = by_pid.get(pid, 0) + used
+
+    return {
+        "total": sum(by_pid.values()),
+        "by_pid": by_pid,
+        "allocations": allocations,
+        "eligible_spend_total": sum(
+            amount for amount, eligible in zip(tx_amounts, eligible_flags) if eligible
+        ),
+        "eligible_event_count": sum(
+            1 for amount, eligible in zip(tx_amounts, eligible_flags) if amount > 0 and eligible
+        ),
+    }
+
+
+def settle_policy_spend_priority(
+    events: list[dict],
+    *,
+    grant_avail: dict[str, int] | None = None,
+    restricted_envelopes: list[dict] | None = None,
+) -> dict:
+    """소비모델과 무관하게 실제 사용 가능 거래에 정책지갑을 우선 정산한다."""
+    grants = {
+        str(k): int(v)
+        for k, v in (grant_avail or {}).items()
+        if int(v or 0) > 0
+    }
+    envelopes = [
+        e for e in (restricted_envelopes or [])
+        if int(e.get("amount") or 0) > 0
+    ]
+    commerce = [
+        e for e in events
+        if (e.get("category") not in INTERNAL_CATS) and e.get("poi_id")
+    ]
+    requested_by_pid: dict[str, int] = {}
+    for event in commerce:
+        policy_spend = event.get("policy_spend") or {}
+        if not isinstance(policy_spend, dict):
+            continue
+        for raw_pid, raw_amount in policy_spend.items():
+            try:
+                amount = max(0, int(raw_amount or 0))
+            except (TypeError, ValueError):
+                continue
+            if amount > 0:
+                pid = str(raw_pid)
+                requested_by_pid[pid] = requested_by_pid.get(pid, 0) + amount
+
+    wallet_specs = _policy_wallet_specs(grants, envelopes)
+    amounts = [max(0, int(e.get("actual_spent") or 0)) for e in commerce]
+    allocation = _allocate_policy_capacity(commerce, amounts, wallet_specs)
+    for event, policy_spend in zip(commerce, allocation["allocations"]):
+        event["policy_spend"] = policy_spend
+    allocation["requested_by_pid"] = requested_by_pid
+    allocation["wallet_available"] = sum(int(w["amount"]) for w in wallet_specs)
+    return allocation
+
+
 def apply_consumption_model(
     events: list[dict],
     *,
@@ -196,8 +428,8 @@ def apply_consumption_model(
     Stage2 LLM의 이벤트별 `actual_spent`를 실제 계획금액으로 존중한다. 선택 POI의
     가격배율과 Stage1의 '평소 대비 오늘 소비의향'을 곱해 최종 총액을 만들기 때문에
     정책이 이벤트·POI·계획금액·소비의향을 바꾸면 총소비도 증가하거나 감소할 수 있다.
-    Stage2가 출력한 `policy_spend`는 그대로 보존하며 이 함수가 새로 만들거나
-    거래 사이에 재배분하지 않는다.
+    Stage2가 출력한 `policy_spend`는 원요청 진단값으로만 보존한다. 최종 소비액이
+    정해진 뒤 사용 가능한 거래에는 정책지갑을 자기자금보다 먼저 배정한다.
 
     POI 가격 반영 (판매자 가격 채널 전제):
       거래 계획금액 × price_factor를 이벤트별 계획액으로 사용한다.
@@ -209,16 +441,16 @@ def apply_consumption_model(
       오늘 p를 다르게 판단했다면 그 선택은 총액에 반영된다.
 
     유동성:
-      총소비 상한은 개인 잔액 + Stage2가 실제로 선택한 유효 정책결제액이다.
-      정책지갑 전체 잔액이 아니라 선택한 결제액만 유동성을 완화하므로, 잔액 존재만으로
+      총소비 상한은 개인 잔액 + 오늘 계획된 사용 가능 거래에 실제로 배정할 수 있는
+      정책결제액이다. 정책지갑 전체 잔액을 총소비에 더하지 않으므로 잔액 존재만으로
       소비가 생성되지는 않는다.
 
     제한 예산 봉투 (restricted_envelopes):
       정책 속성으로 사용 가능 거래를 표현하는 제약 메타데이터다.
         env = {"pid": "P010", "amount": 120000,
                "require_poi_eligible": True, "categories": None, "dong_codes": None}
-      이 함수는 봉투 잔액을 소비액에 더하지 않는다. 후단 `validate_policy_spend`가
-      Stage2 선택액에 대해 사용처·잔액·거래액 상한만 강제한다.
+      이 함수는 봉투 잔액을 소비액에 더하지 않는다. 소비계획이 정해진 뒤 일치하는
+      실제 거래액 한도에서만 지원금을 우선 결제한다.
 
     events 를 in-place 수정(actual_spent, policy_spend). 반환: 메타 dict.
     """
@@ -254,8 +486,8 @@ def apply_consumption_model(
     )
     day_multiplier = p / center if center > 0 else 1.0
 
-    # Stage2가 선택한 결제액은 보존한다. 여기서는 진단용 요청액만 집계하고,
-    # 실제 허용액은 후단 validate_policy_spend가 결정한다.
+    # Stage2가 제안한 결제액은 원인 분석용 요청액으로 먼저 집계한다.
+    # 최종 결제액은 아래에서 실제 거래·사용처·잔액 기준으로 다시 정산한다.
     requested_by_pid: dict[str, int] = {}
     for e in commerce:
         ps = e.get("policy_spend") or {}
@@ -286,58 +518,56 @@ def apply_consumption_model(
                 continue
         envelope_requested[pid] = requested
 
-    # 실제 선택된 정책결제액만 유동성으로 인정한다. 거래별 계획액·정책별 잔액·
-    # 사용처 제약을 모두 만족하는 범위만 계산해, 과대 요청이 개인 잔액 부족을
-    # 가리는 일이 없도록 한다. 최종 정수 보정은 validate_policy_spend가 담당한다.
-    env_by_pid = {str(env.get("pid") or ""): env for env in envelopes}
-    wallet_remaining = dict(grant_avail)
-    for env in envelopes:
-        wallet_remaining[str(env.get("pid") or "")] = int(env.get("amount") or 0)
-    selected_by_pid: dict[str, int] = {}
-    selected_policy_liquidity = 0
-    for i, e in enumerate(commerce):
-        ps = e.get("policy_spend") or {}
-        if not isinstance(ps, dict):
-            continue
-        tx_room = max(0, int(round(planned_weights[i] * day_multiplier)))
-        for raw_pid, raw_amount in ps.items():
-            pid = str(raw_pid)
-            try:
-                requested = max(0, int(raw_amount))
-            except (TypeError, ValueError):
-                continue
-            if requested <= 0 or tx_room <= 0:
-                continue
-            if pid in env_by_pid:
-                if not _envelope_match(env_by_pid[pid], e):
-                    continue
-            elif pid not in grant_avail:
-                continue
-            allowed = min(requested, tx_room, max(0, wallet_remaining.get(pid, 0)))
-            if allowed <= 0:
-                continue
-            selected_policy_liquidity += allowed
-            selected_by_pid[pid] = selected_by_pid.get(pid, 0) + allowed
-            wallet_remaining[pid] -= allowed
-            tx_room -= allowed
-
     desired_total = int(round(planned_total * day_multiplier))
+    wallet_specs = _policy_wallet_specs(grant_avail, envelopes)
+    desired_spends = distribute_budget(desired_total, planned_weights)
+    # 지원금 전액이 아니라 오늘의 계획된 사용 가능 거래액까지만 유동성으로 인정한다.
+    capacity = _allocate_policy_capacity(commerce, desired_spends, wallet_specs)
+    eligible_policy_liquidity = int(capacity["total"])
+    policy_parts = [sum(a.values()) for a in capacity["allocations"]]
+    own_needs = [
+        max(0, desired - policy)
+        for desired, policy in zip(desired_spends, policy_parts)
+    ]
     affordability_cap: int | None
     try:
-        affordability_cap = max(0, int(balance)) + selected_policy_liquidity
+        own_balance = max(0, int(balance))
+        affordability_cap = own_balance + eligible_policy_liquidity
     except (TypeError, ValueError):
+        own_balance = None
         affordability_cap = None
-    total_adj = (
-        min(desired_total, affordability_cap)
-        if affordability_cap is not None
-        else desired_total
-    )
-    spends = distribute_budget(total_adj, planned_weights)
+
+    if own_balance is None:
+        spends = desired_spends
+    else:
+        # 정책으로 결제 가능한 거래분을 먼저 보존하고 자기자금 필요분만 잔액에 맞춰
+        # 줄인다. 전체를 비례 축소하면 불가 거래가 남아 실제 결제 가능액을 넘을 수 있다.
+        own_budget = min(sum(own_needs), own_balance)
+        own_spends = distribute_budget(own_budget, [float(v) for v in own_needs])
+        spends = [
+            policy + own
+            for policy, own in zip(policy_parts, own_spends)
+        ]
+    total_adj = sum(spends)
 
     for e, sp in zip(commerce, spends):
         e["actual_spent"] = int(sp)
 
+    # 소비 필요·POI·총액이 모두 확정된 뒤 결제수단만 지원금 우선으로 정산한다.
+    allocation = settle_policy_spend_priority(
+        events,
+        grant_avail=grant_avail,
+        restricted_envelopes=envelopes,
+    )
+
     normal_budget = spend_today(p, daily)
+    allocated_total = int(allocation["total"])
+    payment_coverage = (
+        allocated_total / int(allocation["eligible_spend_total"])
+        if int(allocation["eligible_spend_total"]) > 0
+        else 0.0
+    )
+    own_only_cap = min(desired_total, own_balance) if own_balance is not None else desired_total
 
     return {
         "applied": True,
@@ -346,12 +576,18 @@ def apply_consumption_model(
         "day_multiplier": round(day_multiplier, 4),
         "planned_total": planned_total,
         "today_total": total_adj,
-        "grant_part": sum(requested_by_pid.values()),
+        "grant_part": allocated_total,
         "normal_budget": normal_budget["total"],
         "available": normal_budget["available"],
         "affordability_cap": affordability_cap,
-        "selected_policy_liquidity": selected_policy_liquidity,
-        "selected_policy_liquidity_by_pid": selected_by_pid,
+        "selected_policy_liquidity": eligible_policy_liquidity,
+        "selected_policy_liquidity_by_pid": capacity["by_pid"],
+        "policy_spend_allocated": allocation["by_pid"],
+        "policy_spend_allocated_total": allocated_total,
+        "policy_eligible_spend_total": allocation["eligible_spend_total"],
+        "policy_eligible_event_count": allocation["eligible_event_count"],
+        "policy_payment_coverage": round(payment_coverage, 4),
+        "policy_liquidity_relief": max(0, total_adj - own_only_cap),
         "policy_wallet_available": grant_total + sum(int(e.get("amount") or 0) for e in envelopes),
         "policy_spend_requested": requested_by_pid,
         "mechanical_policy_uplift": 0,
@@ -389,7 +625,7 @@ if __name__ == "__main__":
     print("\n=== ③ 분배: 오늘 총지출 47,000원을 4개 이벤트(가중치)로 ===")
     print("  ", distribute_budget(47000, [3, 1, 2, 1]), "합", sum(distribute_budget(47000, [3, 1, 2, 1])))
 
-    print("\n=== ④ apply_consumption_model: Stage2 결제 선택 보존 ===")
+    print("\n=== ④ apply_consumption_model: 사용 가능한 거래에 정책지갑 우선 결제 ===")
     evs = [
         {"category": "집", "poi_id": "R_1", "actual_spent": 0, "policy_spend": {}},
         {"category": "식사", "poi_id": "C_1", "actual_spent": 9000, "policy_spend": {"P009": 5000}},
@@ -407,7 +643,7 @@ if __name__ == "__main__":
     print(f"  지원금 사용분 합={gpt:,} (today_total={meta['today_total']:,}, grant_part={meta['grant_part']:,})")
     assert tot == meta["today_total"], "지출 합 = today_total 불일치"
     assert gpt == meta["grant_part"], "정책사용 합 = grant_part 불일치"
-    assert evs[1]["policy_spend"] == {"P009": 5000}, "Stage2 결제 선택을 덮어쓰면 안 됨"
+    assert gpt == tot, "무제한 정책지갑은 실제 거래액까지만 우선 결제해야 함"
     assert meta["mechanical_policy_uplift"] == 0
     assert meta["price_basket_idx"] == 1.0, "price_factor 미지정이면 basket=1.0 (기존 동작 보존)"
     print("  ✔ 합 일치 검증 통과")
@@ -432,7 +668,7 @@ if __name__ == "__main__":
     assert results[1.35] <= int(round(results[1.0] * 1.25)) + 2
     print("  ✔ 가격 반응·클램프 검증 통과")
 
-    print("\n=== ⑥ 제한 예산 봉투: 사용 가능성만 표현하고 소비를 강제하지 않음 ===")
+    print("\n=== ⑥ 제한 예산 봉투: 총소비는 보존하고 사용 가능 거래만 우선 결제 ===")
     def _mk6():
         return [
             {"category": "식사", "poi_id": "C_E", "actual_spent": 10000, "price_factor": 1.0,
@@ -447,7 +683,7 @@ if __name__ == "__main__":
     m6 = apply_consumption_model(env6, **kw6, restricted_envelopes=[
         {"pid": "P010", "amount": 100000, "require_poi_eligible": True}])
     assert sum(e["actual_spent"] for e in base6) == sum(e["actual_spent"] for e in env6)
-    assert env6[0]["policy_spend"] == {"P010": 8000}
+    assert env6[0]["policy_spend"] == {"P010": env6[0]["actual_spent"]}
     assert m6["envelope_requested"]["P010"] == 8000
     assert m6["envelope_eligible_events"]["P010"] == 1
 
@@ -455,6 +691,6 @@ if __name__ == "__main__":
     zero_use[0]["policy_spend"] = {}
     m7 = apply_consumption_model(zero_use, **kw6, restricted_envelopes=[
         {"pid": "P010", "amount": 100000, "require_poi_eligible": True}])
-    assert zero_use[0]["policy_spend"] == {}
+    assert zero_use[0]["policy_spend"] == {"P010": zero_use[0]["actual_spent"]}
     assert m7["envelope_requested"]["P010"] == 0
-    print("  ✔ 봉투가 사용액·총소비를 강제하지 않음")
+    print("  ✔ 봉투가 총소비를 강제하지 않고 결제수단만 우선 배정")

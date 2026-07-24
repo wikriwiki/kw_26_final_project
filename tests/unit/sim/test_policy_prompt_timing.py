@@ -49,7 +49,7 @@ def test_decile_grant_has_priority_and_exclusion_is_honored():
     assert plan_writer._grant_for_single_policy("하", excluded, spend_decile=10) == 0
 
 
-def test_policy_prompt_is_factual_and_personalized_without_behavior_direction():
+def test_policy_prompt_keeps_consumption_autonomous_but_states_payment_priority():
     policy = _p010()
     row = {
         "id": policy["id"],
@@ -79,10 +79,11 @@ def test_policy_prompt_is_factual_and_personalized_without_behavior_direction():
 
     assert "소비 7분위" in text
     assert "정책지갑 잔액 120,000원" in text
-    assert "사용 여부·시점·금액·POI" in text
+    assert "소비 필요·시점·총액·POI" in text
+    assert "정책지갑을 자기자금보다 먼저 결제" in text
+    assert "소비 자체를 새로 만들라는 뜻이 아니다" in text
     for directed in (
         "무조건 이득",
-        "지원금부터",
         "남기면 손해",
         "평소보다 씀씀이",
         "미뤄온 소비",
@@ -111,6 +112,12 @@ def test_timing_report_separates_llm_review_and_cache_metrics():
                 "t_llm_review": 1.5,
                 "n_llm_calls": 2,
             },
+            "cm_policy_requested_total": 0,
+            "cm_policy_allocated_total": 18_000,
+            "cm_policy_eligible_spend_total": 18_000,
+            "cm_policy_eligible_event_count": 1,
+            "cm_policy_liquidity_relief": 2_000,
+            "grant_expired_today": 3_000,
         },
         {
             "status": "ok",
@@ -130,6 +137,12 @@ def test_timing_report_separates_llm_review_and_cache_metrics():
                 "t_llm_review": 0.0,
                 "n_llm_calls": 1,
             },
+            "cm_policy_requested_total": 5_000,
+            "cm_policy_allocated_total": 7_000,
+            "cm_policy_eligible_spend_total": 10_000,
+            "cm_policy_eligible_event_count": 2,
+            "cm_policy_liquidity_relief": 0,
+            "grant_expired_today": 0,
         },
         {"status": "error"},
     ]
@@ -143,6 +156,17 @@ def test_timing_report_separates_llm_review_and_cache_metrics():
     assert report["timings"]["stage2.t_llm_review"]["total"] == 1.5
     assert report["timings"]["stage2.t_review_lookup"]["total"] == 0.4
     assert report["counters"]["stage2.n_llm_calls"]["avg"] == 1.5
+    assert report["policy_payment"] == {
+        "llm_requested_total": 5_000,
+        "system_allocated_total": 25_000,
+        "eligible_spend_total": 28_000,
+        "eligible_event_count": 3,
+        "payment_coverage": round(25_000 / 28_000, 6),
+        "agents_using_policy": 2,
+        "agent_usage_rate": 1.0,
+        "liquidity_relief_total": 2_000,
+        "expired_wallet_total": 3_000,
+    }
 
 
 def test_review_second_pass_remains_enabled_and_instrumented():
@@ -162,3 +186,14 @@ def test_grant_day_prompt_state_is_updated_before_stage1():
     stage1_call = source.index("s1, m1 = call_stage1(aid, today, ctx=ctx)")
     assert received_update < stage1_call
     assert remaining_update < stage1_call
+
+
+def test_legacy_path_uses_common_policy_wallet_settlement():
+    source = (SIM_DIR / "run_simulation.py").read_text(encoding="utf-8")
+    legacy_marker = source.index("# legacy는 총소비액을 건드리지 않되")
+    settlement_call = source.index(
+        "_settlement = settle_policy_spend_priority(",
+        legacy_marker,
+    )
+    validator_call = source.index("policy_spend_corrected = validate_policy_spend(")
+    assert legacy_marker < settlement_call < validator_call

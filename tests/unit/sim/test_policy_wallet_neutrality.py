@@ -15,6 +15,8 @@ from consumption import (  # noqa: E402
     ANCHOR_PROPENSITY,
     apply_consumption_model,
     available_today,
+    filter_active_grant_balances,
+    settle_policy_spend_priority,
     spend_today,
 )
 from plan_writer import aggregate_policy_spend, validate_policy_spend  # noqa: E402
@@ -78,7 +80,7 @@ def test_policy_balance_does_not_expand_daily_consumption_budget():
     assert with_grant["grant_part"] == 0
 
 
-def test_same_plan_policy_on_off_has_same_total_and_only_payment_differs():
+def test_same_plan_policy_on_off_has_same_total_and_policy_pays_eligible_spend_first():
     off_events = _events()
     on_events = _events({"P010": 10_000})
 
@@ -90,7 +92,10 @@ def test_same_plan_policy_on_off_has_same_total_and_only_payment_differs():
         e["actual_spent"] for e in on_events
     )
     assert aggregate_policy_spend(off_events) == {}
-    assert aggregate_policy_spend(on_events) == {"P010": 10_000}
+    assert aggregate_policy_spend(on_events) == {"P010": 25_000}
+    assert on_meta["policy_spend_requested"] == {"P010": 10_000}
+    assert on_meta["policy_spend_allocated_total"] == 25_000
+    assert on_meta["policy_payment_coverage"] == 1.0
     assert on_meta["mechanical_policy_uplift"] == 0
 
 
@@ -126,17 +131,105 @@ def test_selected_policy_payment_can_relax_liquidity_constraint():
     on_meta = _apply(on_events, with_policy=True, balance=10_000)
 
     assert off_meta["today_total"] == 10_000
-    assert on_meta["selected_policy_liquidity"] == 10_000
-    assert on_meta["today_total"] == 20_000
+    assert on_meta["selected_policy_liquidity"] == 25_000
+    assert on_meta["policy_liquidity_relief"] == 15_000
+    assert on_meta["today_total"] == 25_000
 
 
-def test_eligible_store_does_not_force_policy_payment():
+def test_eligible_store_uses_policy_wallet_before_own_money():
     events = _events()
     meta = _apply(events, with_policy=True)
 
-    assert all(e["policy_spend"] == {} for e in events)
+    assert aggregate_policy_spend(events) == {"P010": 25_000}
     assert meta["envelope_requested"]["P010"] == 0
     assert meta["envelope_eligible_events"]["P010"] == 2
+    assert meta["policy_eligible_spend_total"] == 25_000
+    assert meta["policy_eligible_event_count"] == 2
+
+
+def test_ineligible_store_never_uses_restricted_wallet():
+    events = _events(eligible=False)
+    events[1]["coupon_eligible"] = False
+    meta = _apply(events, with_policy=True)
+
+    assert aggregate_policy_spend(events) == {}
+    assert meta["policy_spend_allocated_total"] == 0
+    assert meta["policy_eligible_spend_total"] == 0
+
+
+def test_inactive_or_expired_grant_balance_is_not_available_for_settlement():
+    usable, inactive = filter_active_grant_balances(
+        {"P010": 120_000},
+        active_policies=[],
+    )
+    events = _events(eligible=False)
+    events[1]["coupon_eligible"] = False
+    settlement = settle_policy_spend_priority(events, grant_avail=usable)
+
+    assert usable == {}
+    assert inactive == {"P010": 120_000}
+    assert settlement["total"] == 0
+    assert aggregate_policy_spend(events) == {}
+
+
+def test_overlapping_wallets_maximize_payment_independent_of_input_order():
+    def run(envelopes: list[dict]) -> tuple[dict, list[dict]]:
+        events = [
+            {
+                "category": "식사",
+                "poi_id": "C_FOOD",
+                "actual_spent": 10_000,
+                "coupon_eligible": True,
+                "policy_spend": {},
+            },
+            {
+                "category": "카페",
+                "poi_id": "C_CAFE",
+                "actual_spent": 10_000,
+                "coupon_eligible": True,
+                "policy_spend": {},
+            },
+        ]
+        return settle_policy_spend_priority(
+            events,
+            restricted_envelopes=envelopes,
+        ), events
+
+    generic = {
+        "pid": "P_GENERIC",
+        "amount": 10_000,
+        "categories": ["식사", "카페"],
+    }
+    specific = {
+        "pid": "P_SPECIFIC",
+        "amount": 10_000,
+        "categories": ["식사"],
+    }
+    first, first_events = run([generic, specific])
+    second, second_events = run([specific, generic])
+
+    assert first["total"] == second["total"] == 20_000
+    assert first["by_pid"] == second["by_pid"] == {
+        "P_SPECIFIC": 10_000,
+        "P_GENERIC": 10_000,
+    }
+    assert first_events[0]["policy_spend"] == {"P_SPECIFIC": 10_000}
+    assert first_events[1]["policy_spend"] == {"P_GENERIC": 10_000}
+    assert first_events == second_events
+
+
+def test_mixed_eligibility_never_spends_more_own_money_than_balance():
+    events = _events()
+    events[1]["coupon_eligible"] = False
+    meta = _apply(events, with_policy=True, balance=0)
+
+    policy_paid = sum(aggregate_policy_spend(events).values())
+    total = sum(e["actual_spent"] for e in events)
+    assert events[0]["actual_spent"] == 18_000
+    assert events[1]["actual_spent"] == 0
+    assert policy_paid == 18_000
+    assert total - policy_paid == 0
+    assert meta["policy_liquidity_relief"] == 18_000
 
 
 def test_validator_never_autofills_payment_from_reason_text():
@@ -183,16 +276,32 @@ def test_validator_only_clamps_eligibility_transaction_and_wallet_limits():
     assert aggregate_policy_spend(events) == {"P010": 12_000}
 
 
-def test_zero_payment_choice_does_not_geometrically_exhaust_wallet_in_seven_days():
+def test_priority_payment_uses_only_actual_eligible_purchases_not_wallet_percentage():
     remaining = 150_000
+    remaining_history = []
     for _ in range(7):
         events = _events()
-        _apply(events, with_policy=True)
+        apply_consumption_model(
+            events,
+            daily=35_000,
+            income_tier="중",
+            tendency="표준형",
+            balance=800_000,
+            grant_avail=None,
+            llm_propensity=None,
+            restricted_envelopes=[{
+                "pid": "P010",
+                "amount": remaining,
+                "require_poi_eligible": True,
+            }] if remaining > 0 else None,
+        )
         validate_policy_spend(
             events,
             policy_remaining={"P010": remaining},
             restricted_pids={"P010"},
         )
         remaining -= aggregate_policy_spend(events).get("P010", 0)
+        remaining_history.append(remaining)
 
-    assert remaining == 150_000
+    # 매일 잔액의 일정 비율이 아니라, 실제 사용 가능 거래 25,000원까지만 결제한다.
+    assert remaining_history == [125_000, 100_000, 75_000, 50_000, 25_000, 0, 0]

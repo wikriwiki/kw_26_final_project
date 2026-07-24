@@ -109,6 +109,23 @@ def build_timing_report(rows: list[dict]) -> dict:
         1 for r in ok_rows if (r.get("dawn_timing") or {}).get("policy_cache_hit") is True
     )
     n = len(ok_rows)
+    policy_requested = sum(float(r.get("cm_policy_requested_total") or 0) for r in ok_rows)
+    policy_allocated = sum(float(r.get("cm_policy_allocated_total") or 0) for r in ok_rows)
+    policy_eligible_spend = sum(
+        float(r.get("cm_policy_eligible_spend_total") or 0) for r in ok_rows
+    )
+    policy_eligible_events = sum(
+        int(r.get("cm_policy_eligible_event_count") or 0) for r in ok_rows
+    )
+    policy_liquidity_relief = sum(
+        float(r.get("cm_policy_liquidity_relief") or 0) for r in ok_rows
+    )
+    policy_users = sum(
+        1 for r in ok_rows if float(r.get("cm_policy_allocated_total") or 0) > 0
+    )
+    expired_wallet_total = sum(
+        float(r.get("grant_expired_today") or 0) for r in ok_rows
+    )
 
     return {
         "agents_ok": n,
@@ -118,6 +135,21 @@ def build_timing_report(rows: list[dict]) -> dict:
         "cache": {
             "persona_hit_rate": round(persona_hits / n, 6) if n else 0.0,
             "policy_hit_rate": round(policy_hits / n, 6) if n else 0.0,
+        },
+        "policy_payment": {
+            "llm_requested_total": round(policy_requested),
+            "system_allocated_total": round(policy_allocated),
+            "eligible_spend_total": round(policy_eligible_spend),
+            "eligible_event_count": policy_eligible_events,
+            "payment_coverage": (
+                round(policy_allocated / policy_eligible_spend, 6)
+                if policy_eligible_spend > 0
+                else 0.0
+            ),
+            "agents_using_policy": policy_users,
+            "agent_usage_rate": round(policy_users / n, 6) if n else 0.0,
+            "liquidity_relief_total": round(policy_liquidity_relief),
+            "expired_wallet_total": round(expired_wallet_total),
         },
         "bottleneck_rank": ranked[:30],
     }

@@ -68,6 +68,11 @@ from timing_metrics import (  # noqa: E402
     write_day_timing_report,
     write_json_atomic,
 )
+from consumption import (  # noqa: E402
+    apply_consumption_model,
+    filter_active_grant_balances,
+    settle_policy_spend_priority,
+)
 
 
 # Google Drive 동기화 폴더(G:\)는 file write 충돌 위험 → 로컬 디스크 사용
@@ -145,7 +150,7 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
     """Stage2 LLM에 노출할 정책 예산 요약 텍스트.
 
     - subsidy/voucher: 잔여 cap = cap - used
-    - grant: 오늘 받은 지원금 + 누적 잔여액 명시 (LLM이 거래별 policy_spend 분리할 때 참조)
+    - grant: 오늘 받은 지원금 + 누적 잔여액 및 시스템의 지원금 우선 결제 원칙 명시
     """
     if not policies:
         return ""
@@ -167,9 +172,9 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
             parts.append(f"누적 잔여 {rem:,}원")
             lines.append(
                 f"{pid} {name} [정책 지갑] — {' / '.join(parts)}. "
-                "정책의 사용처·잔액 제약을 충족하는 거래에서 선택한 결제액만 "
-                "policy_spend로 기록한다. 사용 여부·시점·금액은 소비 필요, 평소 습관, "
-                "자산과 일정에 따라 자율적으로 판단한다."
+                "소비 필요·시점·총액·POI는 평소 습관, 자산과 일정에 따라 판단한다. "
+                "선택한 거래가 정책의 사용처·잔액 제약을 충족하면 결제는 정책지갑을 "
+                "자기자금보다 먼저 사용하며, 최종 policy_spend는 시스템이 정산한다."
             )
             continue
         # subsidy/voucher — 잔여 cap
@@ -273,8 +278,13 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         merged_grant_received = dict(prev_grant_received)
         for pid, amt in grants_applied_today.items():
             merged_grant_received[pid] = merged_grant_received.get(pid, 0) + amt
-        # 어제 grant_remaining 파싱 → 1번만, 아래에서 재사용
-        prev_grant_remaining = _read_state_json(ctx.state, "grant_remaining")
+        # 어제 grant_remaining 중 오늘도 활성인 정책만 가용 지갑으로 승계한다.
+        # Dawn 목록에서 사라진 만료·비활성 잔액은 무제한 지갑으로 추정하지 않고 소멸시킨다.
+        prev_grant_remaining_raw = _read_state_json(ctx.state, "grant_remaining")
+        prev_grant_remaining, inactive_grant_remaining = filter_active_grant_balances(
+            prev_grant_remaining_raw,
+            ctx.policy,
+        )
         # Stage2 LLM 노출용 잔여 가용액 (어제까지 잔여 + 오늘 받음)
         grant_avail_today: dict[str, int] = dict(prev_grant_remaining)
         for pid, amt in grants_applied_today.items():
@@ -342,29 +352,31 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
 
         # ── 소비성향(propensity) 모델 — Problem B (EconAgent 방식) ──
         # Stage2 절대 계획금액·POI 가격대를 보존하고, Stage1의 평소 대비 오늘 소비의향을
-        # 곱한다. 지원금 잔액은 총액에 더하지 않으며 선택한 결제액만 유동성을 완화한다.
-        # CONSUMPTION_MODEL=legacy 로 기존 동작 복귀.
+        # 곱한다. 지원금 잔액은 총액에 더하지 않으며, 계획된 사용 가능 거래액 범위의
+        # 정책결제만 유동성을 완화한다.
+        # 총소비 모델은 legacy로 복귀할 수 있지만 정책지갑 우선 정산은 공통 회계 규칙이다.
         cm_meta = {"applied": False}
+        # 정책 유형 일반화: 어떤 grant든 속성(poi_restricted·target_l1s)이 제약이 된다.
+        _pol_by_id = {p["id"]: p for p in (ctx.policy or [])}
+        _envelopes = []
+        _unrestricted_wallets: dict[str, int] = {}
+        for pid, amt in grant_avail_today.items():
+            pol = _pol_by_id[pid]  # 활성 grant만 필터링되어 반드시 정책 정의가 존재한다.
+            scoped = bool(pol.get("poi_restricted")) or bool(pol.get("target_l1s"))
+            if scoped and int(amt) > 0:
+                _envelopes.append({
+                    "pid": pid, "amount": int(amt),
+                    "require_poi_eligible": bool(pol.get("poi_restricted")),
+                    "categories": (pol.get("target_l1s") or None),
+                })
+            elif int(amt) > 0:
+                _unrestricted_wallets[pid] = int(amt)
+
         if os.environ.get("CONSUMPTION_MODEL", "propensity") != "legacy":
-            from consumption import apply_consumption_model
             _is_weekend = today.weekday() >= 5
-            # 제한 grant의 봉투는 사용처·업종 제약 메타데이터일 뿐이다.
-            # 잔액을 p와 곱해 소비액으로 만들지 않으며, Stage2의 policy_spend=0도 보존한다.
-            # 정책 유형 일반화: 어떤 grant든 속성(poi_restricted·target_l1s)이 제약이 된다.
-            _pol_by_id = {p["id"]: p for p in (ctx.policy or [])}
-            _envelopes = []
-            _unrestricted_wallets: dict[str, int] = {}
-            for pid, amt in grant_avail_today.items():
-                pol = _pol_by_id.get(pid) or {}
-                scoped = bool(pol.get("poi_restricted")) or bool(pol.get("target_l1s"))
-                if scoped and int(amt) > 0:
-                    _envelopes.append({
-                        "pid": pid, "amount": int(amt),
-                        "require_poi_eligible": bool(pol.get("poi_restricted")),
-                        "categories": (pol.get("target_l1s") or None),
-                    })
-                else:
-                    _unrestricted_wallets[pid] = int(amt)
+            # 제한 grant의 봉투는 사용처·업종 제약 메타데이터다.
+            # 잔액을 p와 곱해 소비액으로 만들지 않으며, 소비 총액 확정 후 사용 가능한
+            # 거래에서 결제수단만 정책지갑 우선으로 정산한다.
             cm_meta = apply_consumption_model(
                 events,
                 daily=ctx.persona.get("daily_we") if _is_weekend else ctx.persona.get("daily_wd"),
@@ -375,6 +387,30 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 llm_propensity=getattr(s1, "daily_propensity", None),
                 restricted_envelopes=_envelopes,
             )
+        else:
+            # legacy는 총소비액을 건드리지 않되 결제수단은 동일한 우선 정산을 적용한다.
+            _settlement = settle_policy_spend_priority(
+                events,
+                grant_avail=_unrestricted_wallets,
+                restricted_envelopes=_envelopes,
+            )
+            _eligible_spend = int(_settlement["eligible_spend_total"])
+            _allocated = int(_settlement["total"])
+            cm_meta.update({
+                "selected_policy_liquidity": _allocated,
+                "selected_policy_liquidity_by_pid": _settlement["by_pid"],
+                "policy_spend_allocated": _settlement["by_pid"],
+                "policy_spend_allocated_total": _allocated,
+                "policy_eligible_spend_total": _eligible_spend,
+                "policy_eligible_event_count": _settlement["eligible_event_count"],
+                "policy_payment_coverage": (
+                    round(_allocated / _eligible_spend, 4) if _eligible_spend > 0 else 0.0
+                ),
+                "policy_liquidity_relief": 0,
+                "policy_wallet_available": _settlement["wallet_available"],
+                "policy_spend_requested": _settlement["requested_by_pid"],
+                "mechanical_policy_uplift": 0,
+            })
 
         # LLM policy_spend 환각 검증 — 사용처 제한 + 거래 단위(sum>actual) + 정책 단위(잔여액 초과)
         policy_spend_corrected = validate_policy_spend(
@@ -464,6 +500,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "policy_hits": policy_hits,
             # 정책 사용 트래킹 (옵션 A)
             "grant_applied_today": sum(grants_applied_today.values()),
+            "grant_expired_today": sum(inactive_grant_remaining.values()),
             "policy_spend_today": sum(today_policy_spend.values()),
             "grant_remaining_total": sum(merged_grant_remaining.values()),
             "policy_spend_corrected": policy_spend_corrected,
@@ -476,6 +513,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "cm_policy_requested_total": sum(
                 (cm_meta.get("policy_spend_requested") or {}).values()
             ),
+            "cm_policy_allocated_total": cm_meta.get("policy_spend_allocated_total", 0),
+            "cm_policy_eligible_spend_total": cm_meta.get("policy_eligible_spend_total", 0),
+            "cm_policy_eligible_event_count": cm_meta.get("policy_eligible_event_count", 0),
+            "cm_policy_payment_coverage": cm_meta.get("policy_payment_coverage", 0),
+            "cm_policy_liquidity_relief": cm_meta.get("policy_liquidity_relief", 0),
             "cm_mechanical_policy_uplift": cm_meta.get("mechanical_policy_uplift", 0),
             "s1_attempts": m1["attempt"] + 1,
             "s1_timing": m1.get("s1_timing"),
