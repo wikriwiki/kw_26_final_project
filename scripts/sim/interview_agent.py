@@ -121,6 +121,7 @@ def fetch_agent_full(aid: str, days: list[str]) -> dict:
             WHERE toString(p.day) IN $days
             OPTIONAL MATCH (poi)-[:IN_CATEGORY]->(c:Category)
             OPTIONAL MATCH (poi)-[:IN_DONG]->(d:Dong)
+            OPTIONAL MATCH (d)<-[:HAS_DONG]-(dist:District)
             RETURN toString(p.day) AS day, i.order AS ord, toString(i.time) AS time,
                    i.anchor AS anchor, i.category AS cat, i.sub_category AS sub,
                    i.intent AS intent,
@@ -129,7 +130,7 @@ def fetch_agent_full(aid: str, days: list[str]) -> dict:
                    i.actual_satisfaction AS sat, i.actual_spent AS spent,
                    poi.id AS poi_id, poi.name AS poi_name,
                    c.parent AS l1, c.name AS sub_cat_name,
-                   d.name AS dong_name
+                   d.name AS dong_name, dist.name AS district_name
             ORDER BY day, ord
         """, aid=aid, days=days):
             out["plans"].append(dict(x))
@@ -186,7 +187,26 @@ def fetch_agent_full(aid: str, days: list[str]) -> dict:
 # ═══════════════════════════════════════════════════════════════
 # user_block 빌더
 # ═══════════════════════════════════════════════════════════════
-def build_user_block(data: dict, question: str) -> str:
+def _fmt_int(value, suffix: str = "") -> str:
+    if value is None:
+        return "-"
+    try:
+        return f"{int(value):,}{suffix}"
+    except (TypeError, ValueError):
+        return f"{value}{suffix}"
+
+
+def _fmt_float(value, digits: int = 2) -> str:
+    if value is None:
+        return "-"
+    try:
+        return f"{float(value):.{digits}f}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def build_user_block(data: dict, question: str,
+                     policy_ctx: dict | None = None) -> str:
     p = data["persona"]
     lines = ["## 페르소나 (당신 자신)"]
     lines.append(f"- ID: {p.get('id')}")
@@ -205,6 +225,23 @@ def build_user_block(data: dict, question: str) -> str:
     except Exception:
         pass
 
+    if policy_ctx:
+        lines.append("\n## 인터뷰 대상 정책")
+        lines.append(f"- ID: {policy_ctx.get('id')}")
+        lines.append(f"- 이름: {policy_ctx.get('name')}")
+        lines.append(f"- 유형: {policy_ctx.get('type')}")
+        if policy_ctx.get("effective_from"):
+            lines.append(f"- 시행일: {policy_ctx.get('effective_from')}")
+        if policy_ctx.get("target_districts"):
+            lines.append(f"- 대상 지역: {', '.join(policy_ctx.get('target_districts') or [])}")
+        target_cats = policy_ctx.get("target_cats") or policy_ctx.get("benefit_categories") or []
+        if target_cats:
+            lines.append(f"- 대상 업종: {', '.join(target_cats)}")
+        desc = (policy_ctx.get("description") or "")[:220]
+        if desc:
+            lines.append(f"- 설명: {desc}")
+        lines.append("- 답변할 때 정책과 직접 관련 없는 방문은 정책 효과로 말하지 마세요.")
+
     # State
     lines.append("\n## 일자별 컨디션·잔액")
     for st in data["state"]:
@@ -213,11 +250,16 @@ def build_user_block(data: dict, question: str) -> str:
             try:
                 pu = json.loads(st['policy_used']) if isinstance(st['policy_used'], str) else st['policy_used']
                 if pu:
-                    used_summary = " · 정책사용 " + ", ".join(f"{k}={v:,}원" for k, v in pu.items())
+                    used_summary = " · 정책사용 " + ", ".join(
+                        f"{k}={_fmt_int(v, '원')}" for k, v in pu.items()
+                    )
             except Exception:
                 pass
-        lines.append(f"- {st['day']}: 잔액 {st.get('balance',0):,}원 · mood {st.get('mood',0):.2f} · "
-                     f"fatigue {st.get('fatigue',0):.2f}{used_summary}")
+        lines.append(
+            f"- {st['day']}: 잔액 {_fmt_int(st.get('balance'), '원')} · "
+            f"mood {_fmt_float(st.get('mood'))} · "
+            f"fatigue {_fmt_float(st.get('fatigue'))}{used_summary}"
+        )
 
     # Plan + reasoning (인터뷰의 핵심 근거)
     # vLLM context 8192 한계 → 외출 이벤트만, 최근 40개로 cap, reasoning 100자 cut
@@ -234,8 +276,14 @@ def build_user_block(data: dict, question: str) -> str:
         sat_str = f" sat={ev['sat']:.2f}" if ev.get('sat') is not None else ""
         spent_str = f" · {ev['spent']:,}원" if (ev.get('spent') or 0) > 0 else ""
         time_str = (ev['time'] or "")[:5]
+        district = ev.get("district_name")
+        dong = ev.get("dong_name")
+        loc = ""
+        if district or dong:
+            loc = f" ({district or '?'} {dong or '?'})"
         lines.append(
-            f"- {time_str} {ev['cat']}/{ev.get('sub') or '-'} → {ev.get('poi_name') or ev['poi_id']}{sat_str}{spent_str}"
+            f"- {time_str} {ev['cat']}/{ev.get('sub') or '-'} → "
+            f"{ev.get('poi_name') or ev['poi_id']}{loc}{sat_str}{spent_str}"
         )
         r = (ev.get("reasoning") or "")[:120]
         if r:
@@ -273,7 +321,10 @@ def build_user_block(data: dict, question: str) -> str:
     if data["knows_poi"]:
         lines.append("\n## 내 단골 가게 Top 5")
         for k in data["knows_poi"][:5]:
-            lines.append(f"- {k['poi_name']} ({k.get('l1','?')}) 방문 {k['visit']}회 aff {k.get('affinity', 0):.2f}")
+            lines.append(
+                f"- {k['poi_name']} ({k.get('l1','?')}) "
+                f"방문 {_fmt_int(k.get('visit'))}회 aff {_fmt_float(k.get('affinity'))}"
+            )
 
     # 질문
     lines.append("\n---")
@@ -286,8 +337,9 @@ def build_user_block(data: dict, question: str) -> str:
 # ═══════════════════════════════════════════════════════════════
 # LLM 호출
 # ═══════════════════════════════════════════════════════════════
-def ask(data: dict, question: str, temperature: float = 0.7, mode: str | None = None) -> str:
-    user = build_user_block(data, question)
+def ask(data: dict, question: str, temperature: float = 0.7,
+        mode: str | None = None, policy_ctx: dict | None = None) -> str:
+    user = build_user_block(data, question, policy_ctx=policy_ctx)
     resp = _llm_call(
         mode, INTERVIEW_SYSTEM, user,
         temperature=temperature, max_tokens=400,
@@ -375,6 +427,116 @@ def find_label_sample(label: str, last_day: str) -> str | None:
         return None
     import random as _random
     return _random.choice([r["id"] for r in rows])
+
+
+def _find_behavior_sample(
+    label: str,
+    last_day: str,
+    *,
+    cats: list[str] | None = None,
+    districts: list[str] | None = None,
+) -> str | None:
+    """정책별 trace가 없을 때 실제 방문·만족도 기반으로 인터뷰 샘플을 고른다."""
+    if label not in ("positive", "negative", "neutral"):
+        return None
+
+    cats = cats or []
+    districts = districts or []
+    has_cats = bool(cats)
+    has_districts = bool(districts)
+    min_visits = 1 if (has_cats or has_districts) else 2
+
+    if label == "positive":
+        order_clause = (
+            "visits DESC, spent DESC, sat DESC"
+            if (has_cats or has_districts)
+            else "sat DESC, visits DESC, spent DESC"
+        )
+        sat_clause = "sat >= 0.55"
+    elif label == "negative":
+        order_clause = "sat ASC, visits DESC, spent DESC"
+        sat_clause = "sat <= 0.65"
+    else:
+        order_clause = "abs(sat - 0.6) ASC, visits DESC, spent DESC"
+        sat_clause = "sat >= 0.5 AND sat <= 0.7"
+
+    home_match = ""
+    where_terms = [
+        "plan.day <= date($last_day)",
+        "i.actual_satisfaction IS NOT NULL",
+        "NOT i.category IN ['집', '직장']",
+    ]
+    if has_cats:
+        where_terms.append("i.category IN $cats")
+    if has_districts:
+        home_match = """
+            MATCH (a)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)
+              <-[:HAS_DONG]-(home_dist:District)
+        """
+        where_terms.append("home_dist.name IN $districts")
+    where_clause = "\n              AND ".join(where_terms)
+
+    with driver_session() as s:
+        rows = s.run(f"""
+            MATCH (a:Agent)-[:HAS_PLAN]->(plan:Plan)
+              -[i:INCLUDES]->(poi:POI {{type:'commerce'}})
+            {home_match}
+            WHERE {where_clause}
+            WITH a,
+                 avg(i.actual_satisfaction) AS sat,
+                 count(i) AS visits,
+                 sum(coalesce(i.actual_spent, 0)) AS spent
+            WHERE visits >= $min_visits AND {sat_clause}
+            RETURN a.id AS id
+            ORDER BY {order_clause}
+            LIMIT 50
+        """, last_day=last_day, cats=cats, districts=districts,
+             min_visits=min_visits).data()
+
+    if not rows:
+        return None
+    return rows[0]["id"]
+
+
+def find_policy_sample_with_scope(
+    ctx: dict | None,
+    label: str,
+    last_day: str,
+) -> tuple[str | None, str]:
+    """정책 ctx에 맞는 인터뷰 대표 샘플을 고른다.
+
+    grant 정책은 기존 지원금 사용 trace 기반 선택을 우선한다. 그 외 정책은
+    대상 업종·자치구 방문자 중 실제 만족도와 방문 기록이 있는 에이전트를 고른다.
+    """
+    if ctx and ctx.get("type") == "grant":
+        aid = find_label_sample(label, last_day)
+        if aid:
+            return aid, "policy_target"
+
+    target_cats = []
+    target_districts = []
+    if ctx:
+        target_cats = list(ctx.get("target_cats") or ctx.get("benefit_categories") or [])
+        target_districts = [
+            d for d in (ctx.get("target_districts") or [])
+            if d and d != "서울특별시"
+        ]
+
+    aid = _find_behavior_sample(
+        label,
+        last_day,
+        cats=target_cats,
+        districts=target_districts,
+    )
+    if aid:
+        return aid, "policy_target"
+
+    return _find_behavior_sample(label, last_day), "general"
+
+
+def find_policy_sample(ctx: dict | None, label: str, last_day: str) -> str | None:
+    aid, _scope = find_policy_sample_with_scope(ctx, label, last_day)
+    return aid
 
 
 # ═══════════════════════════════════════════════════════════════

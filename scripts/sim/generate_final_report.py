@@ -632,6 +632,22 @@ def _make_interview_questions(ctx: dict) -> list[str]:
     return [_make_policy_question(ctx)] + type_questions + _QUESTIONS_COMMON
 
 
+def _make_general_interview_questions(ctx: dict) -> list[str]:
+    """정책 target 샘플이 없을 때 대표 시민에게 묻는 질문 목록."""
+    name = ctx["name"] or ctx["id"]
+    pid = ctx["id"]
+    return [
+        (
+            f"'{name}'({pid} 정책)을 본인 행동 기록 기준으로 직접 경험하거나 활용한 흔적이 있나요? "
+            "없다면 없다고 말하고, 실제 생활권·방문지와 정책 대상이 어떻게 달랐는지 설명해주세요."
+        ),
+        (
+            "정책 대상 지역이나 업종과 본인의 실제 외출·소비 패턴을 비교해 주세요. "
+            "아래 행동 흔적에 있는 장소명·지역·만족도만 근거로 답해주세요."
+        ),
+    ] + _QUESTIONS_COMMON
+
+
 def _interview_sample_label(ctx: dict) -> str:
     """정책 유형에 따라 인터뷰 대상 샘플 레이블을 결정한다.
 
@@ -639,35 +655,39 @@ def _interview_sample_label(ctx: dict) -> str:
     facility / transit → 해당 지역을 방문한 에이전트(positive)
     그 외 → positive(만족도 높은 에이전트)
     """
-    return "positive"   # find_label_sample의 현재 구현이 positive 기반
+    return "positive"
 
 
 def section5_interviews(start: date, days: int, out_dir: Path, ctx: dict,
                          mode: str | None = None) -> dict:
-    from interview_agent import fetch_agent_full, ask, find_label_sample
+    from interview_agent import fetch_agent_full, ask, find_policy_sample_with_scope
     day_strs = [(start + timedelta(days=i)).isoformat() for i in range(days)]
     last_day = day_strs[-1]
 
-    questions = _make_interview_questions(ctx)
     sample_label = _interview_sample_label(ctx)
     interview_label = ctx["type"] if ctx["type"] else "policy"
 
-    print(
-        f"[interview] {interview_label} 수혜 1명 × {len(questions)}문항 ...",
-        file=sys.stderr,
-    )
-
     out = {}
-    aid = find_label_sample(sample_label, last_day)
+    aid, sample_scope = find_policy_sample_with_scope(ctx, sample_label, last_day)
     if not aid:
         out[interview_label] = {"error": "샘플 없음"}
         return out
+    if sample_scope == "general":
+        interview_label = "대표 시민"
+        questions = _make_general_interview_questions(ctx)
+    else:
+        questions = _make_interview_questions(ctx)
+
+    print(
+        f"[interview] {interview_label} 1명 × {len(questions)}문항 ...",
+        file=sys.stderr,
+    )
 
     data = fetch_agent_full(aid, day_strs)
     qa = []
     for q in questions:
         try:
-            a = ask(data, q, mode=mode)
+            a = ask(data, q, mode=mode, policy_ctx=ctx)
         except Exception as e:
             a = f"(인터뷰 실패: {e})"
         qa.append({"q": q, "a": a})

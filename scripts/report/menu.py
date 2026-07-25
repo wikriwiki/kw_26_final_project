@@ -9,11 +9,13 @@
 
 CLI:
   python scripts/report/menu.py \\
-      --start 2026-05-25 --days 4 --policy-from 2026-05-27 \\
+      --start 2026-05-18 --days 5 \\
+      --policy-json data/neo4j_load/policies/P008.json \\
       --out docs/FINAL_REPORT.html
 
   # 메뉴 없이 적용 가능한 분석을 전부 실행:
-  python scripts/report/menu.py --start 2026-05-25 --days 4 --policy-from 2026-05-27 --all
+  python scripts/report/menu.py --start 2026-05-18 --days 5 \\
+      --policy-json data/neo4j_load/policies/P008.json --all
 """
 from __future__ import annotations
 
@@ -52,19 +54,23 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--start", required=True, help="YYYY-MM-DD")
     ap.add_argument("--days", type=int, required=True)
-    ap.add_argument("--policy-from", help="정책 시행일 YYYY-MM-DD (없으면 섹션2 스킵)")
+    ap.add_argument("--policy-from", help="정책 시행일 YYYY-MM-DD (없으면 정책 JSON의 effective_from 사용)")
+    ap.add_argument("--policy-json", help="정책 JSON 파일 경로 (없으면 대화형 선택)")
     ap.add_argument("--out", default="docs/FINAL_REPORT.html")
     ap.add_argument("--all", action="store_true", help="메뉴 없이 적용 가능한 분석을 모두 실행")
-    ap.add_argument("--model", default="exaone",
+    ap.add_argument("--model", default="k_exaone",
                      help="narrate()·인터뷰에 쓸 LLM_MODE (llm_client.MODELS 키). "
-                          "국내 트랙 기본값: exaone (EXAONE 4.0 32B AWQ)")
+                          "국내 트랙 기본값: k_exaone (Friendli Dedicated K-EXAONE API)")
     ap.add_argument("--skip-interview", action="store_true")
     args = ap.parse_args()
 
     start = date.fromisoformat(args.start)
 
-    policy_path = gfr.select_policy_json()
+    policy_path = Path(args.policy_json) if args.policy_json else gfr.select_policy_json()
     ctx = gfr.load_policy_ctx(policy_path)
+    policy_from = args.policy_from or ctx.get("effective_from")
+    if args.policy_from:
+        ctx = {**ctx, "effective_from": policy_from}
 
     specs = applicable_specs(ctx)
     if not specs:
@@ -74,12 +80,12 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmp:
         out_dir = Path(tmp)
-        s1 = gfr.section1_conditions(start, args.days, args.policy_from)
+        s1 = gfr.section1_conditions(start, args.days, policy_from)
 
         sections = []
         for spec in chosen:
             print(f"\n[실행] {spec.label} ...", file=sys.stderr)
-            result = spec.run(ctx, start, args.days, args.policy_from, out_dir)
+            result = spec.run(ctx, start, args.days, policy_from, out_dir)
             if result is None:
                 print("  → 스킵 (조건 불충족 — 예: policy-from 없음)", file=sys.stderr)
                 continue
@@ -88,6 +94,7 @@ def main():
             sections.append({
                 "title": result.label,
                 "narration": narration,
+                "data": result.data,
                 "table_rows": result.table_rows,
                 "chart_paths": result.chart_paths,
             })

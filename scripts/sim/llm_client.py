@@ -19,6 +19,7 @@ from __future__ import annotations
 import os
 import threading
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 from openai import OpenAI
@@ -33,6 +34,25 @@ class ModelSpec:
     hf_id: str
     family: str
     description: str
+    default_base_url: str | None = None
+    api_key_envs: tuple[str, ...] = ()
+    model_id_envs: tuple[str, ...] = ()
+
+
+FRIENDLI_DEDICATED_BASE_URL = "https://api.friendli.ai/dedicated/v1"
+K_EXAONE_DEFAULT_ENDPOINT_ID = "depmkuykpfon9lg"
+FRIENDLI_API_KEY_ENVS = (
+    "LG_EXAONE_KEY",
+    "K_EXAONE_API_KEY",
+    "EXAONE_API_KEY",
+    "FRIENDLI_API_KEY",
+    "FRIENDLI_TOKEN",
+)
+K_EXAONE_ENDPOINT_ENVS = (
+    "K_EXAONE_ENDPOINT_ID",
+    "EXAONE_ENDPOINT_ID",
+    "FRIENDLI_ENDPOINT_ID",
+)
 
 
 MODELS: dict[str, ModelSpec] = {
@@ -113,6 +133,16 @@ MODELS: dict[str, ModelSpec] = {
                     "text-only. served_model_name=exaone-4.0-32b-awq. "
                     "WSL Ubuntu venv (uv) + vllm 0.11.0 + transformers 4.55 + flashinfer 비활성.",
     ),
+    "k_exaone": ModelSpec(
+        key="k_exaone",
+        hf_id=K_EXAONE_DEFAULT_ENDPOINT_ID,
+        family="k_exaone",
+        description="K-EXAONE-236B-A23B Friendli Dedicated Endpoint. "
+                    "model에는 endpoint-id를 넣고, Authorization은 LG_EXAONE_KEY/flp_* 키를 사용.",
+        default_base_url=FRIENDLI_DEDICATED_BASE_URL,
+        api_key_envs=FRIENDLI_API_KEY_ENVS,
+        model_id_envs=K_EXAONE_ENDPOINT_ENVS,
+    ),
     "exaone_4_5": ModelSpec(
         key="exaone_4_5",
         hf_id="LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
@@ -127,9 +157,78 @@ MODELS: dict[str, ModelSpec] = {
     ),
 }
 
+MODE_ALIASES = {
+    "k-exaone": "k_exaone",
+    "exaone_api": "k_exaone",
+}
+
 DEFAULT_MODE = "qwen8b"
 DEFAULT_BASE_URL = "http://localhost:30000/v1"   # SGLang 기본 포트
 VLLM_FALLBACK_URL = "http://localhost:8000/v1"   # vLLM 기존 포트 (호환)
+
+_ENV_LOADED = False
+_ENV_LOCK = threading.Lock()
+
+
+def _load_dotenv_once() -> None:
+    """Load local .env files without overriding shell-provided variables."""
+    global _ENV_LOADED
+    if _ENV_LOADED:
+        return
+    with _ENV_LOCK:
+        if _ENV_LOADED:
+            return
+        for path in _dotenv_candidates():
+            _load_dotenv(path)
+        _ENV_LOADED = True
+
+
+def _dotenv_candidates() -> list[Path]:
+    root = Path(__file__).resolve().parents[2]
+    candidates: list[Path] = []
+    explicit = os.getenv("LLM_ENV_FILE") or os.getenv("DOTENV_PATH")
+    if explicit:
+        candidates.append(Path(explicit).expanduser())
+    candidates.extend([
+        Path.cwd() / ".env",
+        root / ".env",
+        root / "scripts" / "report" / ".env",
+    ])
+
+    deduped: list[Path] = []
+    seen: set[Path] = set()
+    for path in candidates:
+        resolved = path.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        deduped.append(resolved)
+    return deduped
+
+
+def _load_dotenv(path: Path) -> None:
+    if not path.exists():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].strip()
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+def _first_env(names: tuple[str, ...]) -> str | None:
+    _load_dotenv_once()
+    for name in names:
+        value = os.getenv(name)
+        if value:
+            return value
+    return None
 
 
 # ═══════════════════════════════════════════
@@ -137,7 +236,9 @@ VLLM_FALLBACK_URL = "http://localhost:8000/v1"   # vLLM 기존 포트 (호환)
 # ═══════════════════════════════════════════
 def resolve_mode(cli_arg: str | None = None) -> str:
     """우선순위: CLI > LLM_MODE env > DEFAULT_MODE."""
+    _load_dotenv_once()
     mode = cli_arg or os.getenv("LLM_MODE") or DEFAULT_MODE
+    mode = MODE_ALIASES.get(mode, mode)
     if mode not in MODELS:
         raise ValueError(
             f"Unknown LLM_MODE={mode!r}. Choose: {', '.join(MODELS)}"
@@ -157,24 +258,80 @@ def get_active_mode() -> str:
 # ═══════════════════════════════════════════
 # 클라이언트 (싱글톤, thread-safe)
 # ═══════════════════════════════════════════
-_CLIENT: OpenAI | None = None
+@dataclass(frozen=True)
+class ClientConfig:
+    base_url: str
+    api_key: str
+
+
+_CLIENTS: dict[tuple[str, str], OpenAI] = {}
 _CLIENT_LOCK = threading.Lock()
 
 
-def make_client(base_url: str | None = None) -> OpenAI:
-    """OpenAI 호환 클라이언트. SGLang(30000) 또는 vLLM(8000) 자동.
+def make_client(base_url: str | None = None, mode: str | None = None) -> OpenAI:
+    """OpenAI 호환 클라이언트. SGLang/vLLM 또는 Friendli Dedicated 자동.
 
     base_url 우선순위:
       1. 인자
-      2. env SGLANG_BASE_URL
-      3. env LLM_BASE_URL
-      4. SGLang 기본 (30000) — 안 떠 있으면 vLLM (8000)
+      2. k_exaone: K_EXAONE_BASE_URL / FRIENDLI_BASE_URL / Friendli 기본 URL
+      3. 로컬 모델: SGLANG_BASE_URL / LLM_BASE_URL
+      4. 로컬 모델 자동감지: SGLang 기본 (30000) — 안 떠 있으면 vLLM (8000)
     """
-    if base_url is None:
-        base_url = os.getenv("SGLANG_BASE_URL") or os.getenv("LLM_BASE_URL")
-    if base_url is None:
-        base_url = _autodetect_base_url()
-    return OpenAI(base_url=base_url, api_key="EMPTY")
+    cfg = _client_config(mode, base_url)
+    return OpenAI(base_url=cfg.base_url, api_key=cfg.api_key)
+
+
+def _client_config(mode: str | None = None, base_url: str | None = None) -> ClientConfig:
+    spec = get_spec(mode)
+    resolved_base_url = _base_url_for(spec, base_url)
+    return ClientConfig(
+        base_url=resolved_base_url,
+        api_key=_api_key_for(spec, resolved_base_url),
+    )
+
+
+def _base_url_for(spec: ModelSpec, base_url: str | None = None) -> str:
+    _load_dotenv_once()
+    if base_url:
+        return base_url
+    if spec.default_base_url:
+        return (
+            os.getenv("K_EXAONE_BASE_URL")
+            or os.getenv("FRIENDLI_BASE_URL")
+            or spec.default_base_url
+        )
+    return (
+        os.getenv("SGLANG_BASE_URL")
+        or os.getenv("LLM_BASE_URL")
+        or _autodetect_base_url()
+    )
+
+
+def _api_key_for(spec: ModelSpec, base_url: str) -> str:
+    if spec.api_key_envs:
+        key = _first_env(spec.api_key_envs)
+        if not key:
+            env_names = ", ".join(spec.api_key_envs)
+            raise RuntimeError(f"{spec.key} API key not found. Set one of: {env_names}")
+        return key
+    if "api.openai.com" in base_url:
+        key = _first_env(("OPENAI_API_KEY",))
+        if not key:
+            raise RuntimeError("OPENAI_API_KEY not found for api.openai.com base_url")
+        return key
+    if "friendli.ai" in base_url:
+        key = _first_env(FRIENDLI_API_KEY_ENVS)
+        if not key:
+            env_names = ", ".join(FRIENDLI_API_KEY_ENVS)
+            raise RuntimeError(f"Friendli API key not found. Set one of: {env_names}")
+        return key
+    return os.getenv("LLM_API_KEY") or "EMPTY"
+
+
+def _model_id_for(spec: ModelSpec) -> str:
+    if spec.model_id_envs:
+        return _first_env(spec.model_id_envs) or spec.hf_id
+    return spec.hf_id
 
 
 def _autodetect_base_url() -> str:
@@ -189,20 +346,22 @@ def _autodetect_base_url() -> str:
     return DEFAULT_BASE_URL
 
 
-def get_client() -> OpenAI:
+def get_client(mode: str | None = None, base_url: str | None = None) -> OpenAI:
     """싱글톤 클라이언트. double-checked locking 으로 thread-safe.
 
     workers=32+ 의 첫 호출에서 race condition 으로 다중 client 생성 방지.
     OpenAI SDK 내부 httpx 클라이언트가 connection pool 을 가지므로 단일
     인스턴스 재사용이 HTTP keep-alive 효과 극대화.
     """
-    global _CLIENT
-    if _CLIENT is not None:
-        return _CLIENT
+    resolved_mode = resolve_mode(mode)
+    cfg = _client_config(resolved_mode, base_url)
+    cache_key = (resolved_mode, cfg.base_url)
+    if cache_key in _CLIENTS:
+        return _CLIENTS[cache_key]
     with _CLIENT_LOCK:
-        if _CLIENT is None:
-            _CLIENT = make_client()
-    return _CLIENT
+        if cache_key not in _CLIENTS:
+            _CLIENTS[cache_key] = OpenAI(base_url=cfg.base_url, api_key=cfg.api_key)
+    return _CLIENTS[cache_key]
 
 
 # ═══════════════════════════════════════════
@@ -210,7 +369,7 @@ def get_client() -> OpenAI:
 # ═══════════════════════════════════════════
 def _extra_body_for(family: str) -> dict[str, Any]:
     """Qwen3 family는 <think> 토큰 낭비를 막기 위해 thinking 강제 끔."""
-    if family == "qwen":
+    if family in {"qwen", "k_exaone"}:
         return {"chat_template_kwargs": {"enable_thinking": False}}
     return {}
 
@@ -233,11 +392,12 @@ def call_chat(
     response_format: vLLM `response_format` 전달 — strict JSON schema 강제.
     예: {"type":"json_schema","json_schema":{"name":"...","strict":True,"schema":{...}}}
     """
-    spec = get_spec(mode)
-    cli = client or get_client()
+    resolved_mode = resolve_mode(mode)
+    spec = get_spec(resolved_mode)
+    cli = client or get_client(resolved_mode)
     extra = _extra_body_for(spec.family)
     kwargs: dict = dict(
-        model=spec.hf_id,
+        model=_model_id_for(spec),
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -277,18 +437,30 @@ async def generate_chat(
 def healthcheck() -> dict:
     """현재 활성 서버 + 모드 + 응답 가능 여부."""
     try:
-        cli = get_client()
-        url = str(cli.base_url)
-        models = list(cli.models.list().data)
-        served = [m.id for m in models]
         spec = get_spec(None)
-        return {
+        cli = get_client(spec.key)
+        url = str(cli.base_url)
+        model_id = _model_id_for(spec)
+        result = {
             "base_url": url,
             "active_mode": spec.key,
-            "active_model": spec.hf_id,
-            "served_models": served,
-            "served_match": spec.hf_id in served,
+            "active_model": model_id,
         }
+        if spec.default_base_url == FRIENDLI_DEDICATED_BASE_URL:
+            result["served_models"] = None
+            result["served_match"] = None
+            result["models_list_note"] = "Friendli Dedicated uses endpoint-id as model; /models is not used."
+            return result
+        try:
+            models = list(cli.models.list().data)
+            served = [m.id for m in models]
+            result["served_models"] = served
+            result["served_match"] = model_id in served
+        except Exception as e:  # noqa: BLE001
+            result["served_models"] = None
+            result["served_match"] = None
+            result["models_list_error"] = str(e)
+        return result
     except Exception as e:
         return {"error": str(e)}
 

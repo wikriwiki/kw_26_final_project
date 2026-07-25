@@ -77,8 +77,9 @@ def call_chat_structured(
         _extra_body_for,
     )
 
-    spec = get_spec(resolve_mode(mode))
-    client = get_client()
+    resolved_mode = resolve_mode(mode)
+    spec = get_spec(resolved_mode)
+    client = get_client(resolved_mode)
 
     use_strict = _supports_strict_structured(client)
 
