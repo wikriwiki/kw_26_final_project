@@ -1,0 +1,22 @@
+{
+  "id": "P012",
+  "name": "상생소비지원금",
+  "type": "cashback",
+  "description": "정부가 코로나19로 위축된 소비를 살리고 소상공인을 돕기 위해 카드 캐시백 사업을 시행합니다. 2분기(4~6월) 본인 카드 월평균 사용액보다 이번 달에 3% 넘게 더 쓰면, 그 초과분의 10%를 다음 달에 캐시백으로 돌려줍니다(1인 월 최대 10만원). 적립은 동네 가게·식당·카페·병원·학원·미용실 등 대부분 업종에서 인정되며, 대형마트·백화점·면세점·대형전자전문점·대형 온라인몰·유흥·사행·명품매장 등에서 쓴 금액은 실적으로 인정되지 않습니다. 캐시백은 이번 달에 미리 주는 돈이 아니라 다음 달 15일에 돌려받는 것이며, 3% 문턱을 넘기지 못하면 이번 달 캐시백 혜택은 사라집니다. 돌려받은 캐시백은 나중에 어디서든 쓸 수 있습니다.",
+  "announce_date": "2026-07-01",
+  "effective_from": "2026-07-20",
+  "effective_until": "2026-07-26",
+  "target_districts": ["서울특별시"],
+  "benefit_rate": 0.10,
+  "threshold_ratio": 1.03,
+  "cap_per_agent": 100000,
+  "benefit_categories": [],
+  "grant_key": "income",
+  "decile_grants": {},
+  "excluded_deciles": [],
+  "income_grants": {},
+  "excluded_income": [],
+  "poi_restricted": false,
+  "eligible_marker": "[적립]",
+  "notes": "실제 정책: 2021 상생소비지원금 (기재부·KDI 2022.9 효과분석). type=cashback 는 신규 타입 — grant(정책지갑)와 달리 지갑을 만들지 않는다. decile_grants/income_grants/poi_restricted 는 전부 비운다(지갑·[쿠폰] 하드검증 경로 미활성). benefit_rate=0.10(캐시백률), threshold_ratio=1.03(2분기 월평균×1.03=실적 문턱), cap_per_agent=100000(월 최대 캐시백)은 Dawn cashback 분기(dawn_context._format_policy_status)와 Stage2 예산요약의 프롬프트 텍스트 생성 입력이다. eligible_marker='[적립]'는 Stage2 후보에 적립 사실만 표시(정렬 가점 아님, POLICY_POI_SORT_BOOST=0 유지). 손실 프레이밍(못 넘기면 사라짐)은 description 공통 문구에 포함. effective_from/until 은 B(ON)런 관측창(후 1주) 예시값 — M5 본런에서 실제 실행일로 교체. 적립/제외 라벨은 11_sangsaeng_eligibility.py 백필(p.sangsaeng_eligible)이 담당, 시계·귀금속(명품 proxy)만 깨끗한 C1 제외 arm."
+}

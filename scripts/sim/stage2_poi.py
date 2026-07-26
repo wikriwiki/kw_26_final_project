@@ -39,6 +39,7 @@ from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 from poi_price import poi_price, price_icon, unit_price_anchor, band_factor  # noqa: E402
 from coupon_eligibility import is_coupon_eligible  # noqa: E402
+from sangsaeng_eligibility import is_sangsaeng_eligible  # noqa: E402
 from poi_review_lookup import lookup_reviews_batch, format_review_block  # noqa: E402
 
 
@@ -272,6 +273,8 @@ def fetch_candidates_for_events(
                 coupon_active
                 and os.environ.get("POLICY_POI_SORT_BOOST", "0") == "1"
             )
+            # 상생 캐시백 활성 시 적립업종에 [적립] 사실 표시 (정렬 가점 아님 — 표시만)
+            sangsaeng_active = bool(persona.get("sangsaeng_active"))
             for c in cands or []:
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
@@ -282,6 +285,13 @@ def fetch_candidates_for_events(
                 c["coupon_eligible"] = bool(el)
                 # 프롬프트 마커: 쿠폰 활성 시에만 표기 (평시 토큰 0)
                 c["coupon_tag"] = "[쿠폰]" if (coupon_active and c["coupon_eligible"]) else ""
+                # 상생 적립 판정 — DB 백필값(p.sangsaeng_eligible) 우선, 없으면 룰 fallback
+                sel = c.get("sangsaeng_eligible")
+                if sel is None:
+                    sel = is_sangsaeng_eligible(c.get("name"), sub_cat, l1)[0]
+                c["sangsaeng_eligible"] = bool(sel)
+                # 프롬프트 마커: 캐시백 활성 시 적립업종만 표기 (평시 토큰 0)
+                c["sangsaeng_tag"] = "[적립]" if (sangsaeng_active and c["sangsaeng_eligible"]) else ""
             tm["t_enrich"] += time.perf_counter() - started
 
             # desire 점수 계산 + 정렬 (분할·할당 전에 1회) — 쿠폰가능 매장 가점(매력도 재산출)
@@ -448,10 +458,11 @@ def _format_event_with_candidates(
         visit_s = f"({visit_count}회)" if visit_count > 0 else ""
         price_s = price_icon(c.get("price_band"))
         coupon_s = c.get("coupon_tag") or ""
+        sangsaeng_s = c.get("sangsaeng_tag") or ""
 
         lines.append(
             f"  {known_mark}{recent_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | "
-            f"{km_s} | {price_s} | {sat_s} {visit_s}{coupon_s}"
+            f"{km_s} | {price_s} | {sat_s} {visit_s}{coupon_s}{sangsaeng_s}"
         )
     return "\n".join(lines)
 

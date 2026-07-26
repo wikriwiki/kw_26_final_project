@@ -58,6 +58,7 @@ def main():
                 "mood": 0.5,         # 중립
                 "fatigue": 0.3,      # 낮은 피로
                 "month_spent": 0,
+                "sangsaeng_month_spent": 0,  # 상생 적립업종 한정 누적 (G2b)
                 "policy_lifecycle": "{}",   # JSON string
             })
         print(f"  agents: {len(rows)}")
@@ -75,6 +76,7 @@ def main():
               s.mood = x.mood,
               s.fatigue = x.fatigue,
               s.month_spent = x.month_spent,
+              s.sangsaeng_month_spent = x.sangsaeng_month_spent,
               s.policy_lifecycle = x.policy_lifecycle
             MERGE (a)-[:HAS_STATE {day: date(x.day)}]->(s)
         """, batch=rows, batch_size=2000)

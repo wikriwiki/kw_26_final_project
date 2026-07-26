@@ -244,6 +244,11 @@ def call_chat(
     spec = get_spec(mode)
     cli = client or get_client()
     extra = _extra_body_for(spec.family)
+    # (G6, 선택) 상생 백테스트 결정성 보강 — POLICY_BACKTEST_DETERMINISTIC=1 이면
+    # 모든 LLM 호출을 temperature=0 으로 강제해 A/B런 잔여 노이즈를 줄인다(§5.4·§9 G6).
+    # 부동소수점 비결합성까지는 못 없애므로 '완전 결정론'이 아니라 '노이즈 축소'.
+    if os.environ.get("POLICY_BACKTEST_DETERMINISTIC", "0") == "1":
+        temperature = 0.0
     kwargs: dict = dict(
         model=spec.hf_id,
         messages=[

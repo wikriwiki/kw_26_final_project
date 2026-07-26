@@ -177,6 +177,16 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
                 "자기자금보다 먼저 사용하며, 최종 policy_spend는 시스템이 정산한다."
             )
             continue
+        # cashback — 상생소비지원금. 정책지갑 없음(익월 환급). 소비 예산 미증가.
+        if ptype == "cashback":
+            rate = pol.get("rate") or 0.0
+            cap = pol.get("cap") or 0
+            lines.append(
+                f"{pid}({name}) [캐시백 {int(rate*100)}%]: 적립업종에서 2분기 월평균보다 더 쓴 "
+                f"만큼 다음 달 환급(월 최대 {cap:,}원). 캐시백은 이번 소비 예산이 아니다 — "
+                "소비는 평소 습관·자산·필요로 판단한다."
+            )
+            continue
         # subsidy/voucher — 잔여 cap
         cap = pol.get("cap") or 0
         rate = pol.get("rate") or 0.0
@@ -312,6 +322,12 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         ctx.persona["coupon_poi_restricted"] = bool(restricted_pids)
         if restricted_pids and ctx.persona.get("policy_budget_summary"):
             ctx.persona["policy_budget_summary"] += " (사용처 제한: [쿠폰] 표시 매장에서만 사용 가능)"
+
+        # 상생 캐시백(cashback) 활성 여부 — Stage2에 적립업종 [적립] 사실 표시용.
+        # 지갑·사용처 하드제한이 아니라 '적립 인정 업종' 표시일 뿐(POLICY_POI_SORT_BOOST=0 유지).
+        ctx.persona["sangsaeng_active"] = any(
+            p.get("type") == "cashback" for p in (ctx.policy or [])
+        )
 
         # 지원금 수령 경과일 — windfall 감쇠 렌더용 (지급 당일만이 아니라
         # 이후에도 '며칠 전 받은 여윳돈'으로 계속, 그러나 점점 희미하게 인지)

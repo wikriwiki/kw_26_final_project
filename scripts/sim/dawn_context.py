@@ -76,7 +76,9 @@ RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc,
        s.policy_used AS policy_used,
        s.grant_received AS grant_received,
-       s.grant_remaining AS grant_remaining
+       s.grant_remaining AS grant_remaining,
+       // 상생 캐시백 실적 문턱 계산용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 NULL.
+       s.sangsaeng_month_spent AS sangsaeng_month_spent
 """
 
 
@@ -154,6 +156,8 @@ WITH pol, regions, region_codes, collect(DISTINCT cat.parent) AS target_l1s
 RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.description AS description,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
+       pol.threshold_ratio AS threshold_ratio,
+       pol.eligible_marker AS eligible_marker,
        pol.poi_restricted AS poi_restricted,
        pol.effective_from AS from_, pol.effective_until AS until_,
        toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
@@ -209,6 +213,7 @@ RETURN p.id AS poi_id, p.name AS name,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible,
        km
 ORDER BY km ASC LIMIT $limit
 """
@@ -226,6 +231,7 @@ RETURN p.id AS poi_id, p.name AS name,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
@@ -243,6 +249,7 @@ RETURN p.id AS poi_id, p.name AS name,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible,
        NULL AS km
 ORDER BY known DESC LIMIT $limit
 """
@@ -444,9 +451,54 @@ def _format_appointment(rows: list[dict]) -> str:
 
 
 _POLICY_TYPE_LABEL = {
-    "subsidy": "환급/쿠폰", "grant": "지원금", "regulation": "규제", "facility": "시설",
+    "subsidy": "환급/쿠폰", "grant": "지원금", "cashback": "캐시백",
+    "regulation": "규제", "facility": "시설",
     "campaign": "홍보", "tax": "세제", "transit": "교통", "environment": "환경",
 }
+
+
+def _sangsaeng_monthly_anchor(persona: dict) -> int:
+    """2분기 월평균 카드소비 앵커 근사 = 평일/주말 일소비 가중 × 30일.
+
+    데이터 앵커(s_daily_wd/we)만 사용 — 결과를 만드는 값이 아니라 프롬프트에
+    개인별 문턱 숫자를 '알아듣게' 제시하기 위한 고지용 근사(§4.2·§4.5).
+    """
+    daily_wd = float(persona.get("daily_wd") or 0)
+    daily_we = float(persona.get("daily_we") or daily_wd)
+    if daily_wd <= 0 and daily_we <= 0:
+        return 0
+    if daily_wd <= 0:
+        daily_wd = daily_we
+    return int(round((daily_wd * 5 + daily_we * 2) / 7 * 30))
+
+
+def _format_cashback_status(pid: str, r: dict, p: dict, st: dict) -> str:
+    """상생 캐시백(P012류) 개인별 문턱·근접도 고지 (§4.5 ② 문턱 근접도 W).
+
+    - X = 2분기 월평균 앵커(_sangsaeng_monthly_anchor)
+    - Y = 적립업종 한정 이번달 누적(sangsaeng_month_spent, G2b) — 미적재 시 0
+    - Z = X × threshold_ratio(기본 1.03) = 3% 실적 문턱
+    - W = max(0, Z − Y) = 문턱까지 남은 거리 (매일 갱신, 목표 근접 효과)
+    행동 방향은 지시하지 않는다. 손실 프레임은 정책 description 공통 문구가 담당.
+    """
+    ratio = float(r.get("threshold_ratio") or 1.03)
+    rate = float(r.get("rate") if r.get("rate") is not None else 0.10)
+    cap = int(r.get("cap") or 100000)
+    anchor = _sangsaeng_monthly_anchor(p)
+    threshold = int(round(anchor * ratio))
+    spent_elig = int(st.get("sangsaeng_month_spent") or 0)
+    remaining = max(0, threshold - spent_elig)
+    if remaining > 0:
+        status = f"문턱까지 {remaining:,}원 남음 — 적립업종에서 이만큼 더 쓰면 캐시백 자격 시작"
+    else:
+        over = spent_elig - threshold
+        est = min(cap, int(over * rate))
+        status = f"문턱 초과 {over:,}원 — 현재 기준 예상 캐시백 약 {est:,}원"
+    return (
+        f"- {pid}: 적립업종 이번달 누적 {spent_elig:,}원 / 2분기 월평균 약 {anchor:,}원 / "
+        f"3% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
+        f"{status} | 못 넘기면 이번 달 혜택은 사라짐"
+    )
 
 
 def _grant_amount_for(income: str, pol: dict, spend_decile=None) -> int:
@@ -555,6 +607,9 @@ def _format_policy_status(
                 f"- {pid}: {eligibility}({basis}) | 지급액 {my_amt:,}원 | "
                 f"누적수령 {rec:,}원 | 정책지갑 잔액 {rem:,}원 | {age}{relative}"
             )
+        elif ptype == "cashback":
+            # 상생소비지원금 — 정책지갑 없음. 개인별 실적 문턱·근접도만 고지(§4.5 ②).
+            lines.append(_format_cashback_status(pid, r, p, st))
         elif ptype == "subsidy":
             cap = int(r.get("cap") or 0)
             spent = int(used.get(pid, 0) or 0)
@@ -565,11 +620,22 @@ def _format_policy_status(
         else:
             lines.append(f"- {pid}: 현재 적용 중")
 
-    lines.append(
-        "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
-        "판단한다. 선택한 거래가 정책 사용처이면 정책지갑을 자기자금보다 먼저 결제하며, "
-        "이 결제 순서는 소비 자체를 새로 만들라는 뜻이 아니다."
-    )
+    ptypes = {r.get("type") for r in rows}
+    has_wallet = bool(ptypes & {"grant", "subsidy", "voucher"})
+    if has_wallet:
+        lines.append(
+            "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
+            "판단한다. 선택한 거래가 정책 사용처이면 정책지갑을 자기자금보다 먼저 결제하며, "
+            "이 결제 순서는 소비 자체를 새로 만들라는 뜻이 아니다."
+        )
+    else:
+        # cashback류: 정책지갑이 없다. 캐시백은 이번 달에 미리 주는 돈이 아니라
+        # 다음 달에 돌려받는 것 — 지금 소비 예산을 부풀리지 않는다.
+        lines.append(
+            "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
+            "판단한다. 캐시백은 지금 쓸 수 있는 돈이 아니라 다음 달에 돌려받는 것이므로, "
+            "이번 달 소비 예산을 늘려주지 않는다."
+        )
     return "\n".join(lines)
 
 

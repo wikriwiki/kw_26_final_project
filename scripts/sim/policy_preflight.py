@@ -34,7 +34,7 @@ except Exception:
 ROOT = Path(__file__).resolve().parents[2]
 VALID_TIERS = {"하", "중하", "중", "중상", "상"}
 VALID_DECILES = {str(i) for i in range(1, 11)}
-KNOWN_TYPES = {"grant", "subsidy", "regulation", "facility", "campaign", "tax", "transit", "environment"}
+KNOWN_TYPES = {"grant", "subsidy", "cashback", "regulation", "facility", "campaign", "tax", "transit", "environment"}
 
 _PASS, _WARN, _FAIL = "✅", "⚠️ ", "❌"
 
@@ -123,6 +123,7 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
         row = {
             "id": pid, "name": pol["name"], "type": ptype, "description": pol.get("description", ""),
             "rate": pol.get("benefit_rate"), "cap": pol.get("cap_per_agent"),
+            "threshold_ratio": pol.get("threshold_ratio"),   # cashback 문턱 배수 (프롬프트 미리보기용)
             "poi_restricted": bool(pol.get("poi_restricted")),
             "from_": pol.get("effective_from"), "until_": pol.get("effective_until"),
             "regions": pol.get("target_districts") or [], "target_l1s": tl,
@@ -132,7 +133,15 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
             "excluded_deciles": sorted(dexc),
             "grant_key": "spend_decile" if dg else grant_key,
         }
-        if dg:
+        if ptype == "cashback":
+            # 상생 캐시백 — 지갑 없음. 개인 문턱·근접도 고지 미리보기(§4.5 ②).
+            print(f"\n--- {pid} 프롬프트 미리보기 (적립업종 누적 예시, 캐시백) ---")
+            print(_format_policy(
+                [row],
+                persona={"income": "중", "daily_wd": 30000, "daily_we": 40000},
+                state={"sangsaeng_month_spent": 500000},
+            ))
+        elif dg:
             target_decile = next(iter(sorted(dg, key=int)), "5")
             amount = int(dg.get(target_decile, 0))
             print(f"\n--- {pid} 프롬프트 미리보기 (소비 {target_decile}분위, 지급 당일) ---")

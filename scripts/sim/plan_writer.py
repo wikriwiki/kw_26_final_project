@@ -429,19 +429,26 @@ WITH a, prev,
      coalesce(prev.energy, 0.8) AS prev_energy,
      coalesce(prev.mood, 0.5) AS prev_mood,
      coalesce(prev.fatigue, 0.3) AS prev_fatigue,
-     coalesce(prev.month_spent, 0) AS prev_month_spent
+     coalesce(prev.month_spent, 0) AS prev_month_spent,
+     // 상생 캐시백 실적 문턱용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 0.
+     coalesce(prev.sangsaeng_month_spent, 0) AS prev_sangsaeng_month_spent
 
-// 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만)
-OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDES]->()
+// 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만).
+// ip:POI 조인으로 적립업종(sangsaeng_eligible=true) 지출만 따로 합산.
+OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDES]->(ip:POI)
 WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent,
+     prev_sangsaeng_month_spent,
      count(i) AS n_events,
      avg(i.actual_satisfaction) AS avg_sat,
-     sum(coalesce(i.actual_spent, 0)) AS today_spent
+     sum(coalesce(i.actual_spent, 0)) AS today_spent,
+     sum(CASE WHEN ip.sangsaeng_eligible = true THEN coalesce(i.actual_spent, 0) ELSE 0 END)
+       AS today_sangsaeng_spent
 
 // mood EMA: 0.7 * prev + 0.3 * avg_sat
 // fatigue: 0.5 * prev + 0.05 * n_events + (0.2 if low_sat else 0) - (0.1 if home_dominant else 0)
-WITH a, prev_balance, prev_energy, prev_month_spent,
+WITH a, prev_balance, prev_energy, prev_month_spent, prev_sangsaeng_month_spent,
      toInteger(today_spent) AS today_spent,
+     toInteger(today_sangsaeng_spent) AS today_sangsaeng_spent,
      coalesce(avg_sat, prev_mood) AS today_avg_sat,
      n_events,
      0.7 * prev_mood + 0.3 * coalesce(avg_sat, prev_mood) AS new_mood,
@@ -450,7 +457,8 @@ WITH a, prev_balance, prev_energy, prev_month_spent,
        ELSE 0.5 * prev_fatigue + 0.05 * n_events
      END AS new_fatigue_raw
 
-WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat, n_events,
+WITH a, prev_balance, prev_energy, prev_month_spent, prev_sangsaeng_month_spent,
+     today_spent, today_sangsaeng_spent, today_avg_sat, n_events,
      new_mood,
      CASE WHEN new_fatigue_raw > 1.0 THEN 1.0
           WHEN new_fatigue_raw < 0.0 THEN 0.0
@@ -465,6 +473,8 @@ SET s.agent_id = $aid,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
     s.month_spent = prev_month_spent + (today_spent - $today_policy_spent),
+    // 적립업종 누적은 실적(gross) 기준 — 캐시백은 지갑이 없어 policy_spent 차감 불필요.
+    s.sangsaeng_month_spent = prev_sangsaeng_month_spent + today_sangsaeng_spent,
     s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json,   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
     s.grant_received = $grant_received_json,  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
