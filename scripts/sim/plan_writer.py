@@ -349,6 +349,11 @@ def track_policy_usage(
 
         # subsidy 정책 cap-rate 처리 (legacy)
         for pol in policies:
+            # subsidy/voucher(즉시 환급형)만 cap-rate 누적. cashback(상생 P012)은
+            # cap/rate가 있어도 지갑 없는 사후 환급이므로 여기서 누적하면 안 된다
+            # (설계 §2·§4.1: cashback ≠ subsidy). policy_used 오염 방지.
+            if (pol.get("type") or "") not in ("subsidy", "voucher"):
+                continue
             cap = pol.get("cap") or 0
             rate = pol.get("rate") or 0.0
             if cap <= 0 or rate <= 0:

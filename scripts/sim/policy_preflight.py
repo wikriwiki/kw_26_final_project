@@ -35,6 +35,8 @@ ROOT = Path(__file__).resolve().parents[2]
 VALID_TIERS = {"하", "중하", "중", "중상", "상"}
 VALID_DECILES = {str(i) for i in range(1, 11)}
 KNOWN_TYPES = {"grant", "subsidy", "cashback", "regulation", "facility", "campaign", "tax", "transit", "environment"}
+# cashback(상생) 백필 커버리지 최소치 — 상생은 네거티브 방식이라 거의 전 POI에 라벨이 찍혀야 정상.
+_SANGSAENG_COVERAGE_MIN = 0.99
 
 _PASS, _WARN, _FAIL = "✅", "⚠️ ", "❌"
 
@@ -191,7 +193,9 @@ def check_db_wiring(path: Path) -> list[tuple[str, str]]:
     if not uri:
         out.append((_WARN, "NEO4J_URI 미설정 → DB 배선 점검 생략 (정책 적재 후 재실행 권장)"))
         return out
-    pid = json.loads(path.read_text(encoding="utf-8")).get("id", "?")
+    pol = json.loads(path.read_text(encoding="utf-8"))
+    pid = pol.get("id", "?")
+    ptype = pol.get("type")
     try:
         from neo4j import GraphDatabase
         drv = GraphDatabase.driver(uri, auth=(os.environ.get("NEO4J_USER", "neo4j"),
@@ -211,6 +215,26 @@ def check_db_wiring(path: Path) -> list[tuple[str, str]]:
                 "RETURN count(DISTINCT a) AS c", id=pid).single()["c"]
             out.append((_PASS, f"POLICY_CYPHER 경로 실측 → 노출 대상 {n_exposed:,}명") if n_exposed
                        else (_FAIL, f"{pid} 노출 에이전트 0명 — 지역 매칭 경로 단절"))
+            # cashback(상생) 전용: sangsaeng_eligible 백필 커버리지 fail-fast.
+            # 야간 State 집계(sangsaeng_month_spent)는 룰 fallback이 없어 라벨이 없으면
+            # 조용히 0으로 고정 → 문턱 근접도 W가 왜곡된다(§9 G2b). 백필(11) 필수.
+            if ptype == "cashback":
+                rec = s.run(
+                    "MATCH (p:POI {type:'commerce'}) "
+                    "RETURN count(p) AS total, count(p.sangsaeng_eligible) AS labeled"
+                ).single()
+                total, labeled = int(rec["total"]), int(rec["labeled"])
+                cov = labeled / total if total else 0.0
+                if total == 0:
+                    out.append((_WARN, "commerce POI 0건 — 백필 커버리지 판정 생략"))
+                elif cov >= _SANGSAENG_COVERAGE_MIN:
+                    out.append((_PASS, f"sangsaeng_eligible 백필 커버리지 {cov*100:.1f}% "
+                                       f"({labeled:,}/{total:,}) — 11_sangsaeng_eligibility.py 적용됨"))
+                else:
+                    out.append((_FAIL, f"sangsaeng_eligible 백필 커버리지 {cov*100:.1f}% "
+                                       f"({labeled:,}/{total:,}) < {_SANGSAENG_COVERAGE_MIN*100:.0f}% — "
+                                       "11_sangsaeng_eligibility.py 미실행/부분실행. 이대로 돌리면 "
+                                       "sangsaeng_month_spent가 0으로 고정돼 문턱 신호(W)가 왜곡된다"))
         drv.close()
     except Exception as e:
         out.append((_WARN, f"DB 배선 점검 실패(건너뜀): {e}"))
