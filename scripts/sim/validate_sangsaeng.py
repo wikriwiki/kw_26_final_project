@@ -114,26 +114,46 @@ def score(off_agents: dict, on_agents: dict, on_meta: dict | None = None) -> dic
     out["C2"] = c2
     out["C2_pass"] = bool(c2["significant"])
 
-    # ── C1: 적립 vs 제외(시계·귀금속) ──
-    lux_diffs = _diffs(off_agents, on_agents, aids, "excluded_luxury_spent")
-    lux = paired_test(lux_diffs)
-    # 적립 − 제외 쌍체차 (적립이 유의하게 큰가)
-    gap_diffs = [e - l for e, l in zip(elig_diffs, lux_diffs)]
-    gap = paired_test(gap_diffs)
+    # ── C1: 적립 vs 제외 3-arm ──
+    # 게이트는 종전대로 excluded_luxury 하나로 판정한다(호환). vice·nonconsumption 은
+    # 보조 지표 — 세 arm 은 '캐시백에 반응할 수 있는 정도'가 달라 함께 보면 해석이 는다:
+    #   luxury(명품)·vice(유흥·사행)  : 돈이 생기면 갈 수도 있음 → 반응 가능
+    #   nonconsumption(부동산·법무·세무): 캐시백 때문에 세무사를 찾지 않음 → 순수 위약
     mean_elig = c2["mean"]
-    mean_lux = lux["mean"]
-    ratio = (mean_lux / mean_elig) if mean_elig > 0 else (float("inf") if mean_lux > 0 else 0.0)
-    # 경보: 제외가 유의하게 + 이고 적립 대비 비율이 큼 → 일반 수요효과 의심
-    alarm = bool(lux["significant"] and mean_elig > 0 and ratio >= C1_ALARM_RATIO)
+
+    def _arm(metric: str) -> dict:
+        d = _diffs(off_agents, on_agents, aids, metric)
+        t = paired_test(d)
+        g = paired_test([e - x for e, x in zip(elig_diffs, d)])
+        r = (t["mean"] / mean_elig) if mean_elig > 0 else (float("inf") if t["mean"] > 0 else 0.0)
+        return {
+            **t,
+            "gap_eligible_minus_excluded": g,
+            "ratio_excluded_over_eligible": r,
+            "alarm": bool(t["significant"] and mean_elig > 0 and r >= C1_ALARM_RATIO),
+        }
+
+    arms = {
+        "excluded_luxury": _arm("excluded_luxury_spent"),
+        "excluded_vice": _arm("excluded_vice_spent"),
+        "excluded_nonconsumption": _arm("excluded_nonconsumption_spent"),
+    }
+    lux = arms["excluded_luxury"]
+    gap = lux["gap_eligible_minus_excluded"]
     out["C1"] = {
         "eligible": {"mean": mean_elig, "p_t": c2["p_t"]},
+        "arms": arms,
+        # 하위호환 (게이트 arm 을 최상위에도 유지)
         "excluded_luxury": lux,
         "gap_eligible_minus_excluded": gap,
-        "ratio_excluded_over_eligible": ratio,
-        "alarm": alarm,
+        "ratio_excluded_over_eligible": lux["ratio_excluded_over_eligible"],
+        "alarm": lux["alarm"],
+        # 위약군이 반응하면 명품보다 강한 경고 — 게이트는 아니고 해석 플래그
+        "placebo_alarm": arms["excluded_nonconsumption"]["alarm"],
+        "alarm_arms": [k for k, v in arms.items() if v["alarm"]],
     }
-    # C1 통과 = 적립이 제외보다 유의하게 큼 (gap 평균>0 유의) 그리고 경보 아님
-    out["C1_pass"] = bool(gap["significant"] and not alarm)
+    # C1 통과 = 적립이 제외(명품)보다 유의하게 큼 그리고 경보 아님
+    out["C1_pass"] = bool(gap["significant"] and not lux["alarm"])
 
     # ── D1: KDI 8분류 B−A 순위 (집계 총합) ──
     kdi_off: dict[str, float] = {}
@@ -225,15 +245,32 @@ def render_markdown(res: dict, off_meta: dict, on_meta: dict) -> str:
     L.append("")
 
     c1 = res["C1"]
-    L.append("## C1 (C2 해석 보증) — 적립 ≫ 제외(시계·귀금속=명품 proxy)")
+    L.append("## C1 (C2 해석 보증) — 적립 ≫ 제외")
     L.append(f"- 적립 평균 B−A = {c1['eligible']['mean']:,.0f}원")
-    lux = c1["excluded_luxury"]
-    L.append(f"- 제외 평균 B−A = {lux['mean']:,.0f}원 (p={lux['p_t']:.4g}) — 정답은 0~소폭 +")
-    gap = c1["gap_eligible_minus_excluded"]
-    L.append(f"- (적립−제외) 평균 = {gap['mean']:,.0f}원 / p={gap['p_t']:.4g} / "
-             f"제외/적립 비율={c1['ratio_excluded_over_eligible']:.3f}")
-    L.append(f"- 경보(제외도 같이 튐): {'⚠️ 예' if c1['alarm'] else '아니오'}")
-    L.append(f"- 판정: {'✅ 적립이 제외보다 유의하게 큼' if res['C1_pass'] else '❌ 부등식 미확인'}")
+    L.append("")
+    L.append("| 제외 arm | 성격 | 평균 B−A | p | 제외/적립 | (적립−제외) p | 경보 |")
+    L.append("|---|---|---:|---:|---:|---:|:--:|")
+    for key, label, nature in (
+        ("excluded_luxury", "명품(시계·귀금속)", "반응 가능"),
+        ("excluded_vice", "유흥·사행", "반응 가능"),
+        ("excluded_nonconsumption", "비소비(부동산·법무·세무)", "**반응 원천 차단**"),
+    ):
+        a = (c1.get("arms") or {}).get(key)
+        if not a:
+            continue
+        star = " ★게이트" if key == "excluded_luxury" else ""
+        L.append(f"| {label}{star} | {nature} | {a['mean']:,.0f}원 | {a['p_t']:.4g} | "
+                 f"{a['ratio_excluded_over_eligible']:.3f} | "
+                 f"{a['gap_eligible_minus_excluded']['p_t']:.4g} | "
+                 f"{'⚠️' if a['alarm'] else '—'} |")
+    L.append("")
+    L.append(f"- 판정(게이트=명품 arm): "
+             f"{'✅ 적립이 제외보다 유의하게 큼' if res['C1_pass'] else '❌ 부등식 미확인'}")
+    if c1.get("placebo_alarm"):
+        L.append("- ⚠️ **위약군(비소비) 경보** — 캐시백에 반응할 수 없는 업종까지 늘었다면 "
+                 "정책 반응이 아니라 런 간 일반 변동일 가능성이 크다. 명품 경보보다 강한 신호.")
+    elif c1.get("alarm_arms"):
+        L.append(f"- 경보 arm: {', '.join(c1['alarm_arms'])} (위약군은 정상)")
     L.append("- 정답(표4-7): 적립 총결제 +20.82% vs 제외 +2.85~5.35% (적립이 4~7배)")
     L.append("")
 
@@ -255,7 +292,11 @@ def render_markdown(res: dict, off_meta: dict, on_meta: dict) -> str:
     L.append(f"- {pt['n_policy_trigger']:,} / {pt['n_events']:,} 이벤트 = {pt['ratio']*100:.2f}%")
     L.append("")
     L.append("## 한계 (§8 요약)")
-    L.append("- 크기 대조 안 함(시간지평·기대효과 한정). 제외 arm=시계·귀금속 하나(명품 근사 오차).")
+    L.append("- 크기 대조 안 함(시간지평·기대효과 한정).")
+    L.append("- 제외군은 정책 제외 리스트의 **부분집합**이다 — 대형마트·백화점·면세점·온라인몰·"
+             "신차·실외골프장은 모집단(소상공인 상가 DB)에 원천 부재. 성인업소도 포착 불가.")
+    L.append("- 비소비 arm 은 정책의 '비소비성 지출'(보험료·세금 등 거래유형)과 개념이 다르다. "
+             "'반응할 수 없는 업종'이라는 통계적 위약군으로 해석할 것.")
     L.append("- LLM 샘플링 비결정성 잔존(§5.4로 완화). 무반응/방향만+ 도 각각 유효 결과로 구분 기록.")
     return "\n".join(L)
 
@@ -270,9 +311,13 @@ def _load(path: Path) -> tuple[dict, dict]:
 
 def _selftest() -> None:
     # 시나리오1: ON에서 적립만 크게↑, 제외(명품) 거의 그대로 → C2 pass, C1 pass, 경보 없음
-    def mk(elig, lux, kdi=None, dec=5):
-        return {"eligible_spent": elig, "excluded_luxury_spent": lux, "excluded_other_spent": 0,
-                "total_spent": elig + lux, "by_kdi": kdi or {}, "n_events": 3,
+    def mk(elig, lux, kdi=None, dec=5, vice=None, noncon=None):
+        vice = lux // 4 if vice is None else vice
+        noncon = lux // 4 if noncon is None else noncon
+        return {"eligible_spent": elig, "excluded_luxury_spent": lux,
+                "excluded_vice_spent": vice, "excluded_nonconsumption_spent": noncon,
+                "excluded_other_spent": 0,
+                "total_spent": elig + lux + vice + noncon, "by_kdi": kdi or {}, "n_events": 3,
                 "n_policy_trigger": 1, "spend_decile": dec}
     off = {f"A{i}": mk(100000, 20000, {"요식": 60000, "가전·가구": 40000}) for i in range(200)}
     on = {f"A{i}": mk(130000 + (i % 5) * 1000, 21000 + (i % 3) * 200,
@@ -284,6 +329,9 @@ def _selftest() -> None:
     assert r1["verdict"] == "PASS", r1["verdict"]
     # D1: 가전·가구 diff(20000/agent) > 요식 diff(10000/agent) → 가전·가구 상위
     assert r1["D1"]["ranked"][0][0] == "가전·가구", r1["D1"]["ranked"]
+    assert set(r1["C1"]["arms"]) == {"excluded_luxury", "excluded_vice",
+                                     "excluded_nonconsumption"}, r1["C1"]["arms"]
+    assert not r1["C1"]["placebo_alarm"], r1["C1"]
     print("  ✔ 시나리오1: C2 pass / C1 pass / 경보없음 / verdict=PASS / D1 가전·가구 상위")
 
     # 시나리오2: 적립도↑ 제외(명품)도 비슷하게↑ → 경보
@@ -303,10 +351,36 @@ def _selftest() -> None:
     assert r3["verdict"] in ("DIRECTION_ONLY", "NULL"), r3["verdict"]
     print(f"  ✔ 시나리오3: 노이즈만 → C2 미통과 / verdict={r3['verdict']}")
 
+    # 시나리오4: 위약군(비소비)까지 같이 튐 → placebo_alarm
+    #   캐시백에 반응할 수 없는 업종이 늘었다면 정책 반응이 아니라 런 간 일반 변동이다.
+    #   off 의 비소비는 5,000 → on 25,000 (diff 20,000 = 적립 diff 30,000의 0.67 ≥ 임계 0.5)
+    on4 = {f"A{i}": mk(130000, 21000, {"요식": 70000, "가전·가구": 60000},
+                       noncon=25000) for i in range(200)}
+    r4 = score(off, on4)
+    assert r4["C1"]["placebo_alarm"], r4["C1"]["arms"]["excluded_nonconsumption"]
+    assert "excluded_nonconsumption" in r4["C1"]["alarm_arms"], r4["C1"]["alarm_arms"]
+    assert not r4["C1"]["alarm"], "게이트(명품) arm 은 경보 아님 — 게이트 불변 확인"
+    print("  ✔ 시나리오4: 위약군만 튐 → placebo_alarm / 게이트(명품) 판정은 불변")
+
+    # 하위호환: 구 포맷(vice/nonconsumption 키 없음)도 그대로 채점
+    old_off = {f"A{i}": {"eligible_spent": 100000, "excluded_luxury_spent": 20000,
+                         "by_kdi": {}, "n_events": 1, "n_policy_trigger": 0,
+                         "spend_decile": 5} for i in range(200)}
+    old_on = {f"A{i}": {"eligible_spent": 130000, "excluded_luxury_spent": 21000,
+                        "by_kdi": {}, "n_events": 1, "n_policy_trigger": 0,
+                        "spend_decile": 5} for i in range(200)}
+    r5 = score(old_off, old_on)
+    assert r5["C2_pass"] and r5["C1_pass"], r5["verdict"]
+    assert r5["C1"]["arms"]["excluded_vice"]["mean"] == 0.0
+    print("  ✔ 하위호환: 구 집계 포맷(3-arm 키 없음)도 정상 채점")
+
     # 렌더 스모크
     md = render_markdown(r1, {"start": "a", "end": "b"}, {"start": "c", "end": "d"})
     assert "SANGSAENG_BACKTEST" in md and "C2" in md
-    print("  ✔ 리포트 렌더 정상")
+    assert "유흥·사행" in md and "비소비" in md, "C1 3-arm 표가 렌더돼야 한다"
+    md4 = render_markdown(r4, {"start": "a", "end": "b"}, {"start": "c", "end": "d"})
+    assert "위약군(비소비) 경보" in md4
+    print("  ✔ 리포트 렌더 정상 (C1 3-arm 표 · 위약 경보 문구)")
     print("validate_sangsaeng SELFTEST ALL OK")
 
 

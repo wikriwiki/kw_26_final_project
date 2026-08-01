@@ -4,11 +4,13 @@
 한 런(OFF 또는 ON)의 관측창(전1주 또는 후1주) INCLUDES를 POI 라벨(sangsaeng_eligible/
 sangsaeng_arm/sangsaeng_kdi, 11_sangsaeng_eligibility.py 백필)과 조인해 에이전트별로:
 
-  total_spent            : 전체 actual_spent
-  eligible_spent         : 적립업종(sangsaeng_eligible=true) — C1의 '적립' arm ≈ 사실상 총소비
-  excluded_luxury_spent  : 시계·귀금속(명품 proxy) — C1의 깨끗한 '제외' arm
-  excluded_other_spent   : 유흥·사행·대형·비소비 (오염 대조군, 참고)
-  by_kdi                 : 적립업종의 KDI 8분류별 소비 (D1/D2용)
+  total_spent                   : 전체 actual_spent
+  eligible_spent                : 적립업종(sangsaeng_eligible=true) — C1의 '적립' arm
+  excluded_luxury_spent         : 시계·귀금속(G21701, 명품 proxy) — 반응 '가능'한 제외군
+  excluded_vice_spent           : 유흥주점·복권(I21101/I21102/R10410) — 반응 '가능'한 제외군
+  excluded_nonconsumption_spent : 부동산·법무·회계세무 — 반응 '원천 차단' 위약군
+  excluded_other_spent          : 대형업태 (상호명 브랜드 룰) — 잔여 버킷
+  by_kdi                        : 적립업종의 KDI 8분류별 소비 (D1/D2용)
   n_events, n_policy_trigger : trigger='policy' 자기보고 건수 (§4.5 ③ 반응 로그)
   spend_decile           : 소비 10분위 (D2 소득 재배분용)
 
@@ -35,6 +37,15 @@ except Exception:
     pass
 
 ARM_LUXURY = "excluded_luxury"
+ARM_VICE = "excluded_vice"
+ARM_NONCONSUMPTION = "excluded_nonconsumption"
+
+# arm → 집계 키. 여기 없는 제외 arm 은 전부 excluded_other_spent 로 떨어진다.
+_ARM_FIELD = {
+    ARM_LUXURY: "excluded_luxury_spent",
+    ARM_VICE: "excluded_vice_spent",
+    ARM_NONCONSUMPTION: "excluded_nonconsumption_spent",
+}
 
 
 def _blank_agent() -> dict:
@@ -42,6 +53,8 @@ def _blank_agent() -> dict:
         "total_spent": 0,
         "eligible_spent": 0,
         "excluded_luxury_spent": 0,
+        "excluded_vice_spent": 0,
+        "excluded_nonconsumption_spent": 0,
         "excluded_other_spent": 0,
         "by_kdi": defaultdict(int),
         "n_events": 0,
@@ -76,10 +89,7 @@ def aggregate_rows(rows) -> dict[str, dict]:
             if kdi:
                 a["by_kdi"][kdi] += spent
         else:
-            if (r.get("arm") or "") == ARM_LUXURY:
-                a["excluded_luxury_spent"] += spent
-            else:
-                a["excluded_other_spent"] += spent
+            a[_ARM_FIELD.get(r.get("arm") or "", "excluded_other_spent")] += spent
     # defaultdict → dict (JSON 직렬화용)
     for a in agg.values():
         a["by_kdi"] = dict(a["by_kdi"])
@@ -123,29 +133,43 @@ def build_payload(rows, start: date, end: date, tag: str) -> dict:
 
 def _selftest() -> None:
     rows = [
-        # agent A1 (decile 3): 적립 식사 10000 + 적립 가전 50000 + 제외명품 30000 + 유흥 8000
+        # agent A1 (decile 3): 적립 식사 10000 + 적립 가전 50000
+        #                      + 명품 30000 + 유흥 8000 + 비소비 5000 + 대형 3000
         {"aid": "A1", "decile": 3, "elig": True, "arm": "eligible", "kdi": "요식", "spent": 10000, "trigger": "policy"},
         {"aid": "A1", "decile": 3, "elig": True, "arm": "eligible", "kdi": "가전·가구", "spent": 50000, "trigger": "lifestyle"},
         {"aid": "A1", "decile": 3, "elig": False, "arm": "excluded_luxury", "kdi": None, "spent": 30000, "trigger": "none"},
-        {"aid": "A1", "decile": 3, "elig": False, "arm": "excluded_other", "kdi": None, "spent": 8000, "trigger": "none"},
+        {"aid": "A1", "decile": 3, "elig": False, "arm": "excluded_vice", "kdi": None, "spent": 8000, "trigger": "none"},
+        {"aid": "A1", "decile": 3, "elig": False, "arm": "excluded_nonconsumption", "kdi": None, "spent": 5000, "trigger": "none"},
+        {"aid": "A1", "decile": 3, "elig": False, "arm": "excluded_other", "kdi": None, "spent": 3000, "trigger": "none"},
         # agent A2 (decile 9): 적립 유통 20000 (trigger policy)
         {"aid": "A2", "decile": 9, "elig": True, "arm": "eligible", "kdi": "유통", "spent": 20000, "trigger": "policy"},
     ]
     agg = aggregate_rows(rows)
     a1 = agg["A1"]
-    assert a1["total_spent"] == 98000, a1
+    assert a1["total_spent"] == 106000, a1
     assert a1["eligible_spent"] == 60000, a1
     assert a1["excluded_luxury_spent"] == 30000, a1
-    assert a1["excluded_other_spent"] == 8000, a1
+    assert a1["excluded_vice_spent"] == 8000, a1
+    assert a1["excluded_nonconsumption_spent"] == 5000, a1
+    assert a1["excluded_other_spent"] == 3000, a1
     assert a1["by_kdi"] == {"요식": 10000, "가전·가구": 50000}, a1
-    assert a1["n_events"] == 4 and a1["n_policy_trigger"] == 1, a1
+    assert a1["n_events"] == 6 and a1["n_policy_trigger"] == 1, a1
     assert a1["spend_decile"] == 3
+    # 제외 4종 합 + 적립 = 총합 (누락 없음)
+    assert (a1["eligible_spent"] + a1["excluded_luxury_spent"] + a1["excluded_vice_spent"]
+            + a1["excluded_nonconsumption_spent"] + a1["excluded_other_spent"]
+            ) == a1["total_spent"], a1
     a2 = agg["A2"]
     assert a2["eligible_spent"] == 20000 and a2["by_kdi"] == {"유통": 20000}
     assert a2["n_policy_trigger"] == 1
+    # 미지의 arm 은 excluded_other 로 흡수 (하위호환)
+    unk = aggregate_rows([{"aid": "A3", "elig": False, "arm": "excluded_future",
+                           "kdi": None, "spent": 100, "trigger": None}])
+    assert unk["A3"]["excluded_other_spent"] == 100, unk
     # 빈 입력
     assert aggregate_rows([]) == {}
-    print("  ✔ aggregate_rows 적립/제외/KDI/trigger 집계 정확")
+    print("  ✔ aggregate_rows 적립/제외 4arm/KDI/trigger 집계 정확")
+    print("  ✔ arm 합계 = 총합 (누락 없음) · 미지 arm 은 excluded_other 흡수")
     print("aggregate_period SELFTEST ALL OK")
 
 
