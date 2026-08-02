@@ -38,6 +38,21 @@ KNOWN_TYPES = {"grant", "subsidy", "cashback", "regulation", "facility", "campai
 # cashback(상생) 백필 커버리지 최소치 — 상생은 네거티브 방식이라 거의 전 POI에 라벨이 찍혀야 정상.
 _SANGSAENG_COVERAGE_MIN = 0.99
 
+# 업종코드 조인 비율 임계 (sangsaeng_src='upjong_code').
+#   유흥주점(I21101/I21102)·복권(R10410)은 우리 L2에서 각각 '일반주점'·'유원지·오락'에
+#   병합돼 있어 원천 CSV의 L3 코드로만 분리된다. CSV 없이 백필하면 라벨은 100% 채워지지만
+#   (룰 fallback이 항상 값을 내므로) 유흥·복권 3,431개가 적립으로 남아 C1 대조군이 무너진다.
+#   커버리지 검사만으로는 이 상태가 PASS로 통과하므로 src 비율을 따로 본다.
+#
+#   이 실패는 사실상 이분법이다 — CSV를 쓰면 95~100%, 안 쓰면 0%. 중간값이 나오는
+#   시나리오가 거의 없다(상가업소번호는 등록 시 부여돼 세대 간 안정적, 3개월 차이면 2~5%).
+#   그래서 FAIL 임계를 넉넉히 낮게(50%) 잡아 "조인이 통째로 안 된 경우"만 막는다.
+#   세대 불일치·부분 누락은 WARN 으로 흘려보내 정상 런이 막히지 않게 한다.
+#   ※ policy_preflight 는 exit 1 을 내고 배포 스크립트는 set -euo pipefail 이라
+#     FAIL 은 본런을 실제로 중단시킨다. 임계를 빡빡하게 잡으면 안 되는 이유다.
+_SANGSAENG_CODE_PASS = 0.95
+_SANGSAENG_CODE_FAIL = 0.50
+
 _PASS, _WARN, _FAIL = "✅", "⚠️ ", "❌"
 
 
@@ -221,9 +236,11 @@ def check_db_wiring(path: Path) -> list[tuple[str, str]]:
             if ptype == "cashback":
                 rec = s.run(
                     "MATCH (p:POI {type:'commerce'}) "
-                    "RETURN count(p) AS total, count(p.sangsaeng_eligible) AS labeled"
+                    "RETURN count(p) AS total, count(p.sangsaeng_eligible) AS labeled, "
+                    "sum(CASE WHEN p.sangsaeng_src = 'upjong_code' THEN 1 ELSE 0 END) AS coded"
                 ).single()
                 total, labeled = int(rec["total"]), int(rec["labeled"])
+                coded = int(rec["coded"] or 0)
                 cov = labeled / total if total else 0.0
                 if total == 0:
                     out.append((_WARN, "commerce POI 0건 — 백필 커버리지 판정 생략"))
@@ -235,6 +252,23 @@ def check_db_wiring(path: Path) -> list[tuple[str, str]]:
                                        f"({labeled:,}/{total:,}) < {_SANGSAENG_COVERAGE_MIN*100:.0f}% — "
                                        "11_sangsaeng_eligibility.py 미실행/부분실행. 이대로 돌리면 "
                                        "sangsaeng_month_spent가 0으로 고정돼 문턱 신호(W)가 왜곡된다"))
+                # 업종코드 조인 비율 — 라벨이 다 찍혀 있어도 '코드를 안 쓴' 백필은 걸러야 한다.
+                # 룰 fallback 만으로 돌면 유흥주점·복권이 적립으로 남아 C1 대조군이 성립하지 않는다.
+                if total > 0:
+                    cr = coded / total
+                    msg = (f"업종코드 조인 {cr*100:.1f}% ({coded:,}/{total:,}, "
+                           f"sangsaeng_src='upjong_code')")
+                    if cr >= _SANGSAENG_CODE_PASS:
+                        out.append((_PASS, f"{msg} — 원천 CSV 조인 정상, 유흥·복권 분리됨"))
+                    elif cr >= _SANGSAENG_CODE_FAIL:
+                        out.append((_WARN, f"{msg} < {_SANGSAENG_CODE_PASS*100:.0f}% — 원천 CSV와 "
+                                           "DB 적재본의 세대가 다를 수 있다. 미조인 POI는 상호명·L2 "
+                                           "룰로 판정되어 유흥주점·복권이 적립으로 남는다(부분 오염)"))
+                    else:
+                        out.append((_FAIL, f"{msg} < {_SANGSAENG_CODE_FAIL*100:.0f}% — 원천 상가 CSV "
+                                           "조인이 사실상 안 됐다. 11_sangsaeng_eligibility.py 를 "
+                                           "--commerce-csv 로 원천 CSV를 지정해 다시 돌릴 것. 이대로면 "
+                                           "유흥주점·복권 약 3,400개가 적립으로 남아 C1 대조군이 무너진다"))
         drv.close()
     except Exception as e:
         out.append((_WARN, f"DB 배선 점검 실패(건너뜀): {e}"))

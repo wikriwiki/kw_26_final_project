@@ -35,6 +35,9 @@ except Exception:
 ALPHA = 0.05
 # C1 경보 임계: 제외 B−A 평균이 적립 B−A 평균의 이 비율 이상이고 유의하게 +면 '일반 수요효과' 의심.
 C1_ALARM_RATIO = 0.5
+# C1 arm 최소 유효 표본 — 이 arm 에 실제 지출이 있었던 에이전트 수가 이보다 적으면
+# 검정 결과를 신뢰할 수 없다(대부분 0원 → sd→0 → t→inf → 가짜 significant).
+MIN_ACTIVE_AGENTS = 30
 
 
 # =========================================================
@@ -126,11 +129,21 @@ def score(off_agents: dict, on_agents: dict, on_meta: dict | None = None) -> dic
         t = paired_test(d)
         g = paired_test([e - x for e, x in zip(elig_diffs, d)])
         r = (t["mean"] / mean_elig) if mean_elig > 0 else (float("inf") if t["mean"] > 0 else 0.0)
+        # 검정력 노출: 이 arm 에 실제로 지출이 있었던 에이전트 수. 제외군은 POI 수가 많아도
+        # 방문이 희소해 대부분 0원이다. n_active 가 작으면 sd→0 → t→inf 로 significant 가
+        # 뜨지만 그건 '반응 없음'이 아니라 '데이터 없음'이다. 반드시 같이 읽어야 한다.
+        n_active = sum(
+            1 for a in aids
+            if float(off_agents[a].get(metric, 0) or 0) > 0
+            or float(on_agents[a].get(metric, 0) or 0) > 0
+        )
         return {
             **t,
             "gap_eligible_minus_excluded": g,
             "ratio_excluded_over_eligible": r,
             "alarm": bool(t["significant"] and mean_elig > 0 and r >= C1_ALARM_RATIO),
+            "n_active": n_active,
+            "low_power": n_active < MIN_ACTIVE_AGENTS,
         }
 
     arms = {
@@ -196,19 +209,22 @@ def score(off_agents: dict, on_agents: dict, on_meta: dict | None = None) -> dic
         "ratio": (tot_trig / tot_events) if tot_events else 0.0,
     }
 
-    # ── 종합 판정 (§11 성공 기준) ──
-    if out["C2_pass"] and out["C1_pass"]:
-        verdict = "PASS"          # 1차 성공: 총소비 방향+유의 + 적립≫제외
-    elif out["C2_pass"] and not out["C1_pass"]:
-        if out["C1"]["alarm"]:
-            verdict = "PASS_C2_ONLY_ALARM"   # 총소비는 늘었으나 제외도 같이 튐 → '일반 반응성'
-        else:
-            verdict = "PASS_C2_ONLY"         # 총소비 늘고 제외 경보는 없으나 적립≫제외 유의성 부족
-    elif (out["C2"]["mean"] > 0) and not out["C2_pass"]:
+    # ── 종합 판정 (§11 성공 기준) — C2 단독 ──
+    # C1 은 게이트가 아니라 보조 지표다. 제외군 POI 자체는 46,421개로 충분하지만
+    # 시뮬에서 에이전트가 거의 방문하지 않는다(과거 런 114,472 이벤트 기준 시계·귀금속
+    # 24건 / 부동산 13건 / 법무·세무 0건). 그러면 대다수 에이전트의 B−A 가 정확히 0이라
+    # 표준편차가 0에 수렴하고 t→inf, p→0 이 되어 "제외군이 반응하지 않았다"가 아니라
+    # "데이터가 없다"가 significant=True 로 찍힌다. 이 값을 종합판정에 넣으면 결론이
+    # 데이터 부재에 좌우되므로 verdict 에서 분리했다. C1_pass/alarm 은 계산·기록은
+    # 계속 하되(하위호환·리포트용) 판정에는 쓰지 않는다. 검정력은 arm 별 n_active 로 노출한다.
+    if out["C2_pass"]:
+        verdict = "PASS"                     # 총소비 방향+유의 (§5.4 쌍체검정)
+    elif out["C2"]["mean"] > 0:
         verdict = "DIRECTION_ONLY"           # 방향은 + 이나 노이즈와 구분 불가 (§5.4)
     else:
         verdict = "NULL"                     # 무반응/역방향 (§8-7, 유효한 결과)
     out["verdict"] = verdict
+    out["verdict_basis"] = "C2_only"         # C1 은 게이트 아님 (보조 지표)
     return out
 
 
@@ -216,11 +232,12 @@ def score(off_agents: dict, on_agents: dict, on_meta: dict | None = None) -> dic
 # 리포트 렌더
 # =========================================================
 _VERDICT_KO = {
-    "PASS": "1차 성공 — 총소비 방향+유의(C2) 및 적립≫제외(C1) 확인",
-    "PASS_C2_ONLY": "부분 성공 — C2 통과, 단 적립≫제외 유의성 부족(경보는 없음)",
-    "PASS_C2_ONLY_ALARM": "주의 — C2는 통과했으나 제외도 함께 튐(일반 반응성 의심, 신뢰도↓)",
+    "PASS": "1차 성공 — 적립(=사실상 총소비) B−A 방향+유의 확인 (C2 단독 판정)",
     "DIRECTION_ONLY": "판정 보류 — 방향은 +이나 노이즈와 구분 불가(§5.4)",
     "NULL": "무반응/역방향 — 유효한 (부정적) 결과(§8-7)",
+    # 구 판정값 (C1 이 게이트였던 시절 산출물 호환)
+    "PASS_C2_ONLY": "[구] 부분 성공 — C2 통과, 적립≫제외 유의성 부족",
+    "PASS_C2_ONLY_ALARM": "[구] 주의 — C2 통과했으나 제외도 함께 튐",
 }
 
 
@@ -234,6 +251,9 @@ def render_markdown(res: dict, off_meta: dict, on_meta: dict) -> str:
     L.append("")
     L.append(f"## 종합 판정: **{res['verdict']}**")
     L.append(f"> {_VERDICT_KO.get(res['verdict'], res['verdict'])}")
+    L.append("> ")
+    L.append("> 판정 근거는 **C2 단독**이다. C1(적립 vs 제외)은 제외군 방문 희소로 검정력이 "
+             "확보되지 않아 참고 지표로만 싣는다 — 아래 C1 절의 `관측 n` 참조.")
     L.append("")
 
     c2 = res["C2"]
@@ -245,30 +265,41 @@ def render_markdown(res: dict, off_meta: dict, on_meta: dict) -> str:
     L.append("")
 
     c1 = res["C1"]
-    L.append("## C1 (C2 해석 보증) — 적립 ≫ 제외")
+    L.append("## C1 (참고 지표 — 게이트 아님) — 적립 vs 제외")
+    L.append("")
+    L.append("> ⚠️ **C1 은 종합판정에 쓰지 않는다.** 제외군 POI 자체는 46,421개로 충분하지만"
+             " 시뮬에서 에이전트가 거의 방문하지 않는다. 아래 `관측 n`(그 arm 에 실제 지출이"
+             " 있었던 에이전트 수)이 작으면 대다수의 B−A 가 0이라 표준편차가 0에 수렴하고,"
+             " p 값이 작게 나와도 그것은 '반응 없음'이 아니라 **'데이터 없음'**이다."
+             " 방향 확인용으로만 읽을 것.")
+    L.append("")
     L.append(f"- 적립 평균 B−A = {c1['eligible']['mean']:,.0f}원")
     L.append("")
-    L.append("| 제외 arm | 성격 | 평균 B−A | p | 제외/적립 | (적립−제외) p | 경보 |")
-    L.append("|---|---|---:|---:|---:|---:|:--:|")
+    L.append("| 제외 arm | 성격 | 관측 n | 평균 B−A | p | 제외/적립 | (적립−제외) p | 검정력 |")
+    L.append("|---|---|---:|---:|---:|---:|---:|:--:|")
     for key, label, nature in (
         ("excluded_luxury", "명품(시계·귀금속)", "반응 가능"),
         ("excluded_vice", "유흥·사행", "반응 가능"),
-        ("excluded_nonconsumption", "비소비(부동산·법무·세무)", "**반응 원천 차단**"),
+        ("excluded_nonconsumption", "비소비(부동산·법무·세무)", "반응 원천 차단"),
     ):
         a = (c1.get("arms") or {}).get(key)
         if not a:
             continue
-        star = " ★게이트" if key == "excluded_luxury" else ""
-        L.append(f"| {label}{star} | {nature} | {a['mean']:,.0f}원 | {a['p_t']:.4g} | "
-                 f"{a['ratio_excluded_over_eligible']:.3f} | "
-                 f"{a['gap_eligible_minus_excluded']['p_t']:.4g} | "
-                 f"{'⚠️' if a['alarm'] else '—'} |")
+        n_act = a.get("n_active", 0)
+        power = "❌ 부족" if a.get("low_power") else "✅"
+        L.append(f"| {label} | {nature} | {n_act:,}/{a['n']:,} | {a['mean']:,.0f}원 | "
+                 f"{a['p_t']:.4g} | {a['ratio_excluded_over_eligible']:.3f} | "
+                 f"{a['gap_eligible_minus_excluded']['p_t']:.4g} | {power} |")
     L.append("")
-    L.append(f"- 판정(게이트=명품 arm): "
-             f"{'✅ 적립이 제외보다 유의하게 큼' if res['C1_pass'] else '❌ 부등식 미확인'}")
+    weak = [k for k, a in (c1.get("arms") or {}).items() if a.get("low_power")]
+    if weak:
+        L.append(f"- ❌ **검정력 부족 arm: {', '.join(weak)}** "
+                 f"(유효 표본 < {MIN_ACTIVE_AGENTS}명) — 이 arm 의 p 값은 해석하지 말 것")
+    L.append(f"- 참고 부등식(적립>명품): "
+             f"{'성립' if res['C1_pass'] else '미확인'} — **판정에는 반영하지 않음**")
     if c1.get("placebo_alarm"):
-        L.append("- ⚠️ **위약군(비소비) 경보** — 캐시백에 반응할 수 없는 업종까지 늘었다면 "
-                 "정책 반응이 아니라 런 간 일반 변동일 가능성이 크다. 명품 경보보다 강한 신호.")
+        L.append("- ⚠️ 위약군(비소비) 경보 — 캐시백에 반응할 수 없는 업종까지 늘었다면 런 간 "
+                 "일반 변동 가능성. 단 위 검정력 표를 먼저 확인할 것.")
     elif c1.get("alarm_arms"):
         L.append(f"- 경보 arm: {', '.join(c1['alarm_arms'])} (위약군은 정상)")
     L.append("- 정답(표4-7): 적립 총결제 +20.82% vs 제외 +2.85~5.35% (적립이 4~7배)")
@@ -292,6 +323,10 @@ def render_markdown(res: dict, off_meta: dict, on_meta: dict) -> str:
     L.append(f"- {pt['n_policy_trigger']:,} / {pt['n_events']:,} 이벤트 = {pt['ratio']*100:.2f}%")
     L.append("")
     L.append("## 한계 (§8 요약)")
+    L.append("- **C1(적립 vs 제외)은 종합판정에서 제외했다.** 제외군 POI는 46,421개지만 시뮬에서 "
+             "실제 방문이 희소해(과거 런 기준 시계·귀금속 24건/부동산 13건/법무·세무 0건) "
+             "유효 표본이 확보되지 않는다. 따라서 C2 해석 보증 장치가 없는 상태이며, "
+             "총소비 증가가 정책 반응인지 런 간 일반 변동인지는 이 백테스트로 구분하지 못한다.")
     L.append("- 크기 대조 안 함(시간지평·기대효과 한정).")
     L.append("- 제외군은 정책 제외 리스트의 **부분집합**이다 — 대형마트·백화점·면세점·온라인몰·"
              "신차·실외골프장은 모집단(소상공인 상가 DB)에 원천 부재. 성인업소도 포착 불가.")
@@ -334,13 +369,15 @@ def _selftest() -> None:
     assert not r1["C1"]["placebo_alarm"], r1["C1"]
     print("  ✔ 시나리오1: C2 pass / C1 pass / 경보없음 / verdict=PASS / D1 가전·가구 상위")
 
-    # 시나리오2: 적립도↑ 제외(명품)도 비슷하게↑ → 경보
+    # 시나리오2: 적립도↑ 제외(명품)도 비슷하게↑ → 경보는 뜨되 verdict 는 C2 단독이라 PASS
     on2 = {f"A{i}": mk(130000, 50000, {"요식": 70000, "가전·가구": 60000}) for i in range(200)}
     r2 = score(off, on2)
     assert r2["C2_pass"], r2["C2"]
     assert r2["C1"]["alarm"], r2["C1"]
-    assert r2["verdict"] == "PASS_C2_ONLY_ALARM", r2["verdict"]
-    print("  ✔ 시나리오2: 제외도 함께 튐 → 경보 / verdict=PASS_C2_ONLY_ALARM")
+    assert not r2["C1_pass"], r2["C1_pass"]
+    assert r2["verdict"] == "PASS", r2["verdict"]          # ★ C1 은 게이트 아님
+    assert r2["verdict_basis"] == "C2_only"
+    print("  ✔ 시나리오2: 제외도 함께 튐 → C1 경보·C1_pass=False 이나 verdict=PASS (게이트 아님)")
 
     # 시나리오3: 변화 없음(노이즈만, 평균≈0) → DIRECTION_ONLY 또는 NULL
     import random
@@ -374,13 +411,28 @@ def _selftest() -> None:
     assert r5["C1"]["arms"]["excluded_vice"]["mean"] == 0.0
     print("  ✔ 하위호환: 구 집계 포맷(3-arm 키 없음)도 정상 채점")
 
+    # 시나리오6: ★ 제외군 방문 희소 — 실제 시뮬 상황 재현 (검정력 부족 감지)
+    #   5명만 명품 지출, 나머지 195명은 0원. 대다수 B−A=0 → sd≈0 → t=inf → significant=True
+    #   가 되지만 이는 '반응 없음'이 아니라 '데이터 없음'이다. low_power 로 잡아야 한다.
+    off6 = {f"A{i}": mk(100000, 20000 if i < 5 else 0, {"요식": 100000}) for i in range(200)}
+    on6 = {f"A{i}": mk(130000, 26000 if i < 5 else 0, {"요식": 130000}) for i in range(200)}
+    r6 = score(off6, on6)
+    lux6 = r6["C1"]["arms"]["excluded_luxury"]
+    assert lux6["n_active"] == 5, lux6["n_active"]
+    assert lux6["low_power"], lux6
+    assert r6["verdict"] == "PASS", r6["verdict"]     # C2 는 정상 판정
+    md6 = render_markdown(r6, {"start": "a", "end": "b"}, {"start": "c", "end": "d"})
+    assert "검정력 부족 arm" in md6 and "5/200" in md6, "검정력 경고가 리포트에 떠야 한다"
+    print("  ✔ 시나리오6: 제외군 방문 희소(5/200) → low_power 감지 + 리포트 경고, C2 판정은 유지")
+
     # 렌더 스모크
     md = render_markdown(r1, {"start": "a", "end": "b"}, {"start": "c", "end": "d"})
     assert "SANGSAENG_BACKTEST" in md and "C2" in md
     assert "유흥·사행" in md and "비소비" in md, "C1 3-arm 표가 렌더돼야 한다"
+    assert "게이트 아님" in md and "관측 n" in md, "C1 격하·검정력 표기가 있어야 한다"
     md4 = render_markdown(r4, {"start": "a", "end": "b"}, {"start": "c", "end": "d"})
     assert "위약군(비소비) 경보" in md4
-    print("  ✔ 리포트 렌더 정상 (C1 3-arm 표 · 위약 경보 문구)")
+    print("  ✔ 리포트 렌더 정상 (C1 참고 지표 표기 · 관측 n · 위약 경보)")
     print("validate_sangsaeng SELFTEST ALL OK")
 
 
