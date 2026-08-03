@@ -70,6 +70,10 @@ CREATE (p)-[:INCLUDES {
   price_band: ev.price_band,         // POI 가격대 1(₩)/2(₩₩)/3(₩₩₩) — poi_price.py
   price_factor: ev.price_factor,     // 적용 가격배율 (검증·판매자 가격 채널 분석용)
   coupon_eligible: ev.coupon_eligible, // 쿠폰 사용처 여부 (백테스트 T2 업종/사용처 분석용)
+  // 지원금 결제건의 "지원금 없었어도 했을 지출인가"(true/false). 품목별 MPC 산출 입력.
+  // 사후 측정 전용 — 소비 생성에는 쓰이지 않는다(순환 방지).
+  would_buy_anyway: ev.would_buy_anyway,
+  extra_spent: ev.extra_spent,
   // ───── 리뷰 노출·사고변화 흔적 (추가 LLM 호출 0) ─────
   review_seen: ev.review_seen,           // 이 POI 카카오 리뷰를 봤나
   seen_rating: ev.seen_rating,           // 본 평균 별점
@@ -374,8 +378,11 @@ WITH a, p, i, poi
 WHERE i.anchor STARTS WITH 'zone:' OR (i.category IS NOT NULL AND NOT i.category IN ['집','직장'])
 WITH a, p, i, poi,
      0.5 + 1.5 * i.actual_satisfaction AS importance,
-     poi.name + '(' + coalesce(i.sub_category, i.category) + ') 방문, 만족도 ' +
-       toString(round(i.actual_satisfaction * 100) / 100.0) AS summary,
+     // summary = "왜 그랬는지". 새벽 컨텍스트는 장소·업종·만족도를 별도로 이미 찍으므로
+     // 예전처럼 그것을 반복하면 120자가 통째로 낭비된다. 같은 자리에 계기와 이유를 넣는다.
+     // 인터뷰(1:1 회상)용 원문은 아래 why/pick_why에 잘리지 않은 채로 따로 보관한다.
+     toString(coalesce(i.actual_spent, 0)) + '원 · [' + coalesce(i.trigger, '-') + '] ' +
+       left(coalesce(i.reasoning, ''), 90) AS summary,
      // 결정적 id (agent + poi + day + order) — resume 재실행 시 중복 방지
      'mem_vis_' + a.id + '_' + poi.id + '_' + $yesterday + '_' + toString(i.order) AS mem_id
 MERGE (m:Memory {id: mem_id})
@@ -384,7 +391,16 @@ MERGE (m:Memory {id: mem_id})
     m.day = date($yesterday),
     m.importance = importance,
     m.summary = summary,
-    m.satisfaction = i.actual_satisfaction
+    m.satisfaction = i.actual_satisfaction,
+    // ───── 1:1 인터뷰용 소비 이유 (원문 보존, 프롬프트에는 안 들어감) ─────
+    m.why = i.reasoning,              // 왜 이 시간에 이 업종을 하려 했나 (Stage 1)
+    m.pick_why = i.pick_reason,       // 왜 후보 중 이 가게였나 (Stage 2)
+    m.trigger = i.trigger,            // 계기: policy/lifestyle/mood/rumor/appointment
+    m.spent = coalesce(i.actual_spent, 0),
+    m.paid_policy = (i.spent_from_policy IS NOT NULL
+                     AND i.spent_from_policy <> '{}' AND i.spent_from_policy <> 'null'),
+    m.extra_spent = i.extra_spent,    // 이 결제 중 지원금 없었으면 안 썼을 금액
+    m.category = coalesce(i.sub_category, i.category)
 MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 MERGE (m)-[:ABOUT_POI]->(poi)
 
@@ -459,16 +475,30 @@ WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat,
 MERGE (s:State {id: $aid + '_' + $today})
 SET s.agent_id = $aid,
     s.day = date($today),
-    s.balance = prev_balance - (today_spent - $today_policy_spent),
+    // 신용이 없는 모형에서 잔고는 0 아래로 갈 수 없다. 음수 잔고가 그대로 Stage1·Stage2
+    // 프롬프트의 '잔액(내 돈)'으로 노출되어 소비성향 판단을 오염시키고 있었다.
+    // consumption.py가 이미 own_balance = max(0, balance)로 같은 하한을 쓰므로 소비는 불변.
+    // 오늘 자기 돈으로 나간 금액 = (가게 지출 - 지원금 결제분) + 배송 주문.
+    // 배송 주문은 POI 방문이 없어 INCLUDES(today_spent)에 잡히지 않고, 소비쿠폰으로는
+    // 결제할 수 없으므로(P010 사용처 조건) 전액 자기 돈에서 빠진다.
+    s.balance = CASE WHEN prev_balance - (today_spent - $today_policy_spent) - $today_online_spent < 0
+                     THEN 0
+                     ELSE prev_balance - (today_spent - $today_policy_spent) - $today_online_spent END,
+    s.online_spent = $today_online_spent,
     s.energy = 0.8,
     s.yesterday_satisfaction = today_avg_sat,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
-    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent),
+    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent) + $today_online_spent,
     s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json,   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
     s.grant_received = $grant_received_json,  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
-    s.grant_remaining = $grant_remaining_json // 정책별 grant 잔여액 JSON ({"P009": 175000} — 받은액 - 누적 사용)
+    s.grant_remaining = $grant_remaining_json, // 정책별 grant 잔여액 JSON ({"P009": 175000} — 받은액 - 누적 사용)
+    s.grant_carry = $grant_carry, // 오늘 쓰려 했으나 쓸 거래가 없어 못 쓴 몫 (내일로 이월)
+    // 지원금을 받은 시점에 세운 사용 계획(일). 매일 다시 잡지 않고 그대로 이어 간다 —
+    // 매일 재판단하면 잔액이 줄수록 기간을 짧게 답해 소진이 가속되는데, 실측 곡선은 반대로
+    // 감속한다(표1: 4주 76.4 → 5~8주 주당 4.1%p → 9~12주 주당 1.2%p).
+    s.grant_plan_days = $grant_plan_days
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
@@ -482,6 +512,9 @@ def night_create_state(
     grant_received: dict[str, int] | str | None = None,
     grant_remaining: dict[str, int] | str | None = None,
     today_policy_spent: int = 0,
+    grant_carry: int = 0,
+    grant_plan_days: int = 0,
+    today_online_spent: int = 0,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -515,7 +548,10 @@ def night_create_state(
                   policy_lifecycle_json=lifecycle_json,
                   grant_received_json=grant_json,
                   grant_remaining_json=grant_rem_json,
-                  today_policy_spent=int(today_policy_spent or 0)).single()
+                  today_policy_spent=int(today_policy_spent or 0),
+                  grant_carry=int(grant_carry or 0),
+                  grant_plan_days=int(grant_plan_days or 0),
+                  today_online_spent=int(today_online_spent or 0)).single()
         return dict(r) if r else {}
 
 

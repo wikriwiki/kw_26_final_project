@@ -18,8 +18,18 @@ Stage2가 고른 POI 가격대로 정한다. 지원금은 총소비를 강제로
 """
 from __future__ import annotations
 
+import os
+
 ANCHOR_PROPENSITY = 0.70   # p0: 지원금 無·평상일에 이 값이면 지출 = daily_wd (BDC 앵커)
 INTERNAL_CATS = {"집", "직장"}   # 머무름 — 소비 대상 아님
+
+# [소진 rationing] 지원금 일일 인출 한도 비율.
+# 실제 소비쿠폰은 유효기간(수개월) 내 며칠~몇 주에 걸쳐 사용된다(BOK 0주 20.9%·2주 70%).
+# doing_gyu의 지갑우선결제(사용 가능 거래에 지원금 우선 배정)는 그대로 유지하되,
+# 하루 인출을 '잔여 지원금 × 이 비율'로 상한해 소진율을 소비수준과 분리한다.
+# 상한을 넘는 유상소비는 개인 잔액으로 결제되므로 총소비 수준은 유지된다.
+# 1.0이면 상한 없음(=doing_gyu 원본 거동). 환경변수로 튜닝 가능.
+COUPON_DAILY_DRAW_RATE = float(os.environ.get("COUPON_DAILY_DRAW_RATE", "0.25"))
 
 # 소득 등급별 소비성향 prior 중심값 — MPC 이질성(저소득↑) 반영.
 # Jappelli & Pistaferri(2014): 저소득·유동성제약 가구일수록 한계소비성향 높음.
@@ -27,9 +37,66 @@ INCOME_PRIOR = {"하": 0.90, "중하": 0.82, "중": 0.74, "중상": 0.66, "상":
 _DEFAULT_CENTER = 0.74
 
 # 소비성향 LLM 출력 허용 band(중심 ± band) 및 절대 클램프
+#
+# BDC 소비앵커(s_daily_wd)는 그 사람의 '장기 평균 씀씀이'이지 오늘 하루의 지출액이 아니다.
+# band를 좁게 잡으면 앵커가 사실상 그날 지출을 결정해 버려서, 목돈이 들어온 날·장을 몰아 보는
+# 날·병원 가는 날 같은 그날의 사정이 반영될 자리가 없어진다. 실제 가계의 일별 지출 변동은
+# 평균 대비 ±17%보다 훨씬 크다. 앵커는 중심값을 주는 한 요소로 두고, 그날 판단이 움직일 수
+# 있는 폭을 넓힌다. 소득별 prior(INCOME_PRIOR)와 절대 클램프는 그대로 유지된다.
+# [R61 측정] 밴드를 0.25로 넓혔더니 소득 등급별 중심값(0.869 vs 0.701)의 허용 구간이 서로
+# 겹쳐 버렸고, LLM이 전 계층에 0.67을 답하는 탓에 계층 차이가 완전히 사라졌다(평상소비/앵커가
+# 세 tier 모두 0.96배). 넓은 밴드는 'LLM에게 자유를 준다'가 아니라 '유일하게 작동하던 차이를
+# 지운다'로 귀결됐다. 저장소 원래 값으로 되돌린다.
 TENDENCY_SHIFT = {"saver": -0.08, "spender": +0.08, "standard": 0.0}
 BAND = 0.12
 HARD_LO, HARD_HI = 0.15, 0.98
+# 하루 지출 중 배송 주문이 차지할 수 있는 최대 몫. LLM이 극단값을 답해도 하루 지출 전부가
+# 가게 밖으로 빠져나가 방문 일정이 유명무실해지지 않도록 하는 안전장치일 뿐, 목표값이 아니다.
+ONLINE_SHARE_CAP = float(os.environ.get("EXP_ONLINE_SHARE_CAP", "0.85"))
+
+# [서울시 공개데이터 산출] 하루 지출 중 쿠폰 **사용처(소상공인)** 에서 나가는 몫.
+#   서울시 상권분석서비스(추정매출-행정동) 2025년 — 생활밀착 63업종·425개 동·연 103.8조.
+#   업종 목록에 백화점·대형마트·할인점·면세점이 없다 → 사용처 매출로 볼 수 있다.
+#   103.8조 ÷ 서울 인구 940만 ÷ 365 = 1인·일당 30,255원.
+#   우리 소비 앵커(s_daily_wd) 평균 119,371원(규격 교정 후) → 30,255/119,371 ≈ 0.2535.
+# BOK 실측과 무관한 값이며, 앵커 과대와 비사용처 미분리를 함께 보정한다.
+ELIGIBLE_SHARE_SEOUL = float(os.environ.get("EXP_ELIGIBLE_SHARE", "0.2535"))
+
+# [폐기 2026-07-30] 소비수준별 '쿠폰 불가 업종' 지출 비중 표(BDC_OFFSITE_BY_LEVEL)는
+# 업종 분류가 시뮬의 실제 사용처 판정(coupon_eligibility.py — 상호명 기준)과 어긋나 폐기했다.
+# 상세 사유는 apply_consumption_model 안의 '기본 비활성' 주석 참조. 되살리려면 먼저
+# BDC 업종별로 대형 브랜드와 동네 매장을 가를 수 있는 원자료(상호명 또는 매출규모)가 필요하다.
+
+# 지원금 사용 계획(일) prior — 소득이 낮을수록 짧게(=빨리 소진).
+#
+# 근거:
+#   · BOK 이슈노트 2026-13 32항 각주29 — Sahm(2019): 1인당 지급액이 커질수록 정책의
+#     가시성(salience)이 높아져 정책효과가 지급액에 비례할 수 있다. 본 정책은 저소득일수록
+#     지급액이 크다(기초생활수급자 40만 / 차상위 30만 / 일반 15만).
+#   · BOK 31항 — 소득 1분위 MPC 0.25 > 5분위 0.17, 1·2차 서베이 모두에서 일관.
+#   · Jappelli & Pistaferri(2014) — 유동성 제약이 큰 가구일수록 이전지출을 빨리 소비.
+#
+# ★ 해석상 주의(보고서 필수 기재): 이 prior는 **실측에서 관측된 방향을 모형 입력으로 넣은
+#   캘리브레이션**이다. LLM(EXAONE-4.5-33B)이 지급액·소득에 따라 사용 계획을 차등하지 않아
+#   (프롬프트 13종 실험에서 일관되게 실패) 내생적으로는 재현되지 않았다. 따라서 계층별
+#   소진 속도의 '방향'은 본 시뮬의 예측이 아니라 설정값이며, 재현 대상에서 제외한다.
+#   반면 소진 궤적·업종 구성·전체 MPC는 이 prior와 독립적으로 산출된 결과다.
+GRANT_PLAN_PRIOR = {"하": 14, "중하": 16, "중": 22, "중상": 23, "상": 24}
+_DEFAULT_PLAN_DAYS = 20
+GRANT_PLAN_BAND = 2          # LLM 출력이 움직일 수 있는 폭(일)
+GRANT_PLAN_LO, GRANT_PLAN_HI = 5, 60
+
+
+def clamp_plan_days(v, income_tier: str | None) -> int:
+    """LLM의 지원금 사용 계획(일)을 소득별 prior 중심 ± BAND 로 클램프. None이면 중심값."""
+    center = GRANT_PLAN_PRIOR.get((income_tier or "").strip(), _DEFAULT_PLAN_DAYS)
+    lo = max(GRANT_PLAN_LO, center - GRANT_PLAN_BAND)
+    hi = min(GRANT_PLAN_HI, center + GRANT_PLAN_BAND)
+    try:
+        iv = int(round(float(v)))
+    except (TypeError, ValueError):
+        return center
+    return max(lo, min(hi, iv))
 
 
 def classify_tendency(tendency: str | None) -> str:
@@ -302,10 +369,15 @@ def _allocate_policy_capacity(
         return forward_idx
 
     edge_refs: dict[tuple[int, int], tuple[int, int]] = {}
+    # 지갑 한도가 하루 거래 총액보다 작을 때, 어느 거래에 쿠폰을 쓸지는 사람이 고른다.
+    # 사람은 아침 편의점 몇천 원보다 병원비·장보기처럼 목돈이 나가는 자리에서 쿠폰을 꺼낸다.
+    # 최대흐름 총액은 순서와 무관하므로, 큰 거래부터 간선을 놓아 그 선택을 반영한다.
+    order = sorted(range(n_events), key=lambda i: -tx_amounts[i])
     for wi, wallet in enumerate(wallet_specs):
         wallet_node = wallet_base + wi
         add_edge(source, wallet_node, int(wallet.get("amount") or 0))
-        for ei, (event, amount) in enumerate(zip(events, tx_amounts)):
+        for ei in order:
+            event, amount = events[ei], tx_amounts[ei]
             if amount <= 0 or not _envelope_match(wallet, event):
                 continue
             edge_idx = add_edge(wallet_node, event_base + ei, amount)
@@ -373,6 +445,10 @@ def settle_policy_spend_priority(
     *,
     grant_avail: dict[str, int] | None = None,
     restricted_envelopes: list[dict] | None = None,
+    grant_use: float | None = None,
+    # 거래별 '이 결제를 지원금으로 낼 몫'(0~1). Stage2가 건별로 고른 결제수단이다.
+    # 주어지면 지갑우선결제 규칙 대신 이 선택을 그대로 따른다.
+    choice_shares: list[float] | None = None,
 ) -> dict:
     """소비모델과 무관하게 실제 사용 가능 거래에 정책지갑을 우선 정산한다."""
     grants = {
@@ -403,7 +479,32 @@ def settle_policy_spend_priority(
                 requested_by_pid[pid] = requested_by_pid.get(pid, 0) + amount
 
     wallet_specs = _policy_wallet_specs(grants, envelopes)
-    amounts = [max(0, int(e.get("actual_spent") or 0)) for e in commerce]
+    # 지갑우선결제 강도 = LLM의 '오늘 지원금 사용의향'(grant_use). 1.0=가맹점 거래 전액을
+    #   지원금으로(원본). 0.x=거래액의 그 비율만 지원금 배정, 나머지는 자기자금 → 소진을 늦춘다.
+    #   현금이 빠듯한 사람은 높게(지원금 의존), 여유롭고 기한 넉넉하면 낮게(아껴 나눠 씀).
+    #   grant_use가 None이면 실험용 환경변수(EXP_GRANT_USE)로 폴백.
+    if grant_use is not None:
+        _guse = max(0.0, min(1.0, float(grant_use)))
+    else:
+        _guse = float(os.environ.get("EXP_GRANT_USE", "1.0"))
+    if choice_shares is not None and len(choice_shares) == len(commerce):
+        # [결제 선택 모드] 쓸 수 있는 매장이라고 지원금이 자동으로 나가지 않는다. 계산할 때
+        # 지원금을 꺼낼지 늘 쓰던 카드로 낼지는 건별로 이 사람이 정한 것이고, 여기서는 그
+        # 선택을 회계적으로 따를 뿐이다. 지갑 잔액과 사용처 조건만 그 위에 걸린다.
+        amounts = [
+            max(0, int(round((e.get("actual_spent") or 0) * max(0.0, min(1.0, float(s or 0.0))))))
+            for e, s in zip(commerce, choice_shares)
+        ]
+    else:
+        amounts = [max(0, int((e.get("actual_spent") or 0) * _guse)) for e in commerce]
+    # 하루 지출이 오늘 쓸 쿠폰보다 많으면, 쿠폰을 한 자리에 몰아 쓰기보다 그날 지출 전반에 얹어
+    # 쓴다(밥값에도, 장값에도, 병원비에도 조금씩). 거래별로 받을 수 있는 몫을 지출 크기에 비례해
+    # 두면 결과적으로 쿠폰 사용 업종 구성이 그날 소비 구성을 따라간다.
+    _wallet_total = sum(int(w.get("amount") or 0) for w in wallet_specs)
+    _spend_total = sum(amounts)
+    if 0 < _wallet_total < _spend_total:
+        _scale = _wallet_total / _spend_total
+        amounts = [max(0, int(round(a * _scale))) for a in amounts]
     allocation = _allocate_policy_capacity(commerce, amounts, wallet_specs)
     for event, policy_spend in zip(commerce, allocation["allocations"]):
         event["policy_spend"] = policy_spend
@@ -422,6 +523,17 @@ def apply_consumption_model(
     grant_avail: dict[str, int] | None = None,
     llm_propensity: float | None = None,
     restricted_envelopes: list[dict] | None = None,
+    grant_use: float | None = None,
+    grant_spread_days: int | None = None,
+    grant_extra_spend: float | None = None,
+    grant_kept_share: float | None = None,
+    grant_carry: int | None = None,
+    # 지원금 받은 시점에 세운 사용 계획(일). 있으면 LLM의 오늘 답보다 이 값을 따른다.
+    grant_plan_days: int | None = None,
+    # 오늘 지출 중 동네 가게 계산대 밖으로 나가는 몫(0~1). POI 방문이 없는 지출이다.
+    online_share: float | None = None,
+    # 에이전트의 BDC 소비수준(1~10). 주어지면 위 실측 비중을 online_share보다 우선한다.
+    spending_level: int | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
@@ -457,10 +569,92 @@ def apply_consumption_model(
     grant_avail = {k: int(v) for k, v in (grant_avail or {}).items() if int(v) > 0}
     grant_total = sum(grant_avail.values())
     envelopes = [e for e in (restricted_envelopes or []) if int(e.get("amount") or 0) > 0]
+    wallet_total = grant_total + sum(int(e.get("amount") or 0) for e in envelopes)
+
+    # 오늘 쓸 지원금 = 남은 지원금 ÷ (앞으로 며칠에 걸쳐 쓸지). 그 일수는 Stage1에서 본인이
+    # 판단한 계획(grant_spread_days)이며, 여기서는 그 계획을 회계적으로 따를 뿐이다.
+    # 계획이 없으면 실험용 환경변수 → 기존 상수 순으로 폴백하고, 그것도 없으면 상한 없음.
+    # 계획은 지원금을 받은 시점에 세우고 그대로 이어 간다. 매일 다시 물으면 잔액이 줄수록
+    # 짧게 답해 소진이 가속되는데(R54 측정: spread 20.0→17.4→15.9일, hazard 5.50→6.61%),
+    # 실측 곡선은 반대로 감속한다(표1: 4주 76.4 → 5~8주 주당 4.1%p → 9~12주 주당 1.2%p).
+    # 계획은 받은 날 한 번 정해지고(그때 소득별 prior로 클램프) 이후 그대로 이어진다.
+    _plan = int(grant_plan_days or 0)
+    # [폐기] 소득별 계획 prior(clamp_plan_days)는 쓰지 않는다. 소득 등급으로 사용 일수를
+    # 직접 지정하는 것은 실측 방향을 답으로 넣는 것이라, 계층별 소진율이 시뮬의 결과가 아니라
+    # 설정값이 된다. 프롬프트에 "저소득은 빨리 쓴다"고 적는 것과 형태만 다를 뿐 같은 일이다.
+    _eff_spread = _plan if _plan > 0 else (int(grant_spread_days) if grant_spread_days else 0)
+    if _eff_spread > 0:
+        _draw = 1.0 / max(1, _eff_spread)
+    else:
+        _env_spread = float(os.environ.get("EXP_SPREAD_DAYS", "0") or 0)
+        if _env_spread >= 1:
+            _draw = 1.0 / _env_spread
+        elif 0 < COUPON_DAILY_DRAW_RATE < 1:
+            _draw = COUPON_DAILY_DRAW_RATE
+        else:
+            _draw = 1.0
+    intended_grant_today = int(round(wallet_total * _draw))
+    # [배급 표현] 사람이 실제로 정하는 것은 '남은 돈을 며칠로 나눌지'가 아니라 '지금 계산할 때
+    # 지원금으로 낼지 자기 돈으로 낼지'다. 후자로 표현하면 오늘 나가는 금액이 그날 지출에 걸리므로,
+    # 지갑이 클수록 하루 인출 한도가 작아져 구조적으로 느려지던 편향이 사라진다.
+    # 남은 금액이 씀씀이에 비해 넉넉한 사람은 가려 쓸 이유가 없어 그냥 지원금으로 내고,
+    # 하루이틀이면 사라질 사람은 아껴 두는 것 — 그 판단이 grant_use다.
+    # [결제 선택 모드] 하루 인출 계획(지갑÷계획일수)으로 배급하지 않는다. 사람이 실제로 하는
+    # 일은 '오늘 얼마를 꺼낼지' 정하는 것이 아니라 계산대에서 건별로 무엇으로 낼지 고르는 것이고,
+    # 소진 속도는 그 선택의 결과여야 한다. 배급으로 두면 소진율이 1/계획일수로 고정돼 페르소나
+    # 차이가 결과에 남지 않는다(측정: 배정 갭이 요청 갭보다 항상 압축됨).
+    # 기본값 켜짐. 끄면 소진율이 다시 '잔액 ÷ LLM이 답한 계획일수'로 결정되는데, 그것은
+    # 검증하려는 값(소진 속도)을 LLM 답변으로 직접 지정하는 순환이다. 되살리지 않는다.
+    _choice_mode = os.environ.get("EXP_PAYMENT_CHOICE", "1") not in ("0", "false", "False")
+    # 결제 선택 모드에서는 grant_use를 옛 '강도 배급'으로 쓰지 않는다. 하루 단위 태세
+    # (오늘 쓸 수 있는 자리에서 얼마나 챙겨 쓰는가)로만 쓰며, 건별 선택을 그 태세에 맞춰
+    # 재조정하는 목표값이 된다.
+    _intensity_mode = (grant_use is not None) and not _choice_mode
+    if _intensity_mode:
+        _draw = 1.0
+        intended_grant_today = wallet_total   # 상한은 지갑 잔액뿐. 실제 지출액은 grant_use가 정한다.
+    # 어제 쓰려 했으나 그날 쓸 거래가 없어 못 쓴 몫은 사라지지 않는다. 계획은 그대로인데
+    # 하루 소비가 적었을 뿐이므로, 다음에 쓸 데가 생기면 그만큼 앞당겨 쓰게 된다.
+    # 이 이월이 없으면 '하루 인출 계획'이 큰 사람(지갑이 큰 쪽)만 매일 계획에 못 미쳐
+    # 소진이 구조적으로 느려진다 — 지갑 크기와 무관해야 할 부분에서 생기는 편향이다.
+    # 다만 밀린 몫을 무한정 쌓아 두지는 않는다. 며칠씩 계속 계획에 못 미치는 사람은
+    # 계획 자체를 다시 잡지, 못 쓴 몫을 장부에 계속 적립해 두었다가 한꺼번에 쏟지 않는다.
+    # 따라잡기는 '다음 기회에 하루치를 한 번 더' 수준까지로 본다.
+    # 강도(grant_use)로 배급하면 '계획 미달'이라는 개념 자체가 없으므로 이월도 없다.
+    # 상한 없이 이월한다. 이전에는 '하루치까지'로 묶었는데, 그 이유였던 후반부 폭주는
+    # 계획을 고정한 뒤로는 생기지 않는다 — 일일 인출이 잔액/N 이라 잔액이 줄면 함께 줄고,
+    # 아래에서 지갑 잔액으로 한 번 더 막힌다. 상한이 남아 있으면 계획 미달분의 회수가
+    # 절반에서 멈춰(포착률 90.7%) 계획이 가장 짧은 tier만 손해를 본다.
+    if _choice_mode:
+        # 상한은 지갑 잔액뿐. 오늘 얼마가 나갈지는 아래 건별 선택이 정한다.
+        _draw = 1.0
+        intended_grant_today = wallet_total
+    # 배급이 없으면 '계획에 못 미친 몫'이라는 개념도 없으므로 이월도 없다.
+    _carry = 0 if (_intensity_mode or _choice_mode) else max(0, int(grant_carry or 0))
+    if _carry > 0:
+        intended_grant_today = min(wallet_total, intended_grant_today + _carry)
+    _draw = (intended_grant_today / wallet_total) if wallet_total > 0 else _draw
+    grant_avail_alloc = (
+        grant_avail if _draw >= 1.0
+        else {k: max(0, int(round(v * _draw))) for k, v in grant_avail.items()}
+    )
+    grant_avail_alloc = {k: v for k, v in grant_avail_alloc.items() if v > 0}
+    # 봉투(제한 예산) 잔액도 같은 계획으로 하루 상한.
+    envelopes_alloc = [
+        {**e, "amount": max(0, int(round(int(e.get("amount") or 0) * _draw)))}
+        for e in envelopes
+    ] if _draw < 1.0 else envelopes
+    envelopes_alloc = [e for e in envelopes_alloc if int(e.get("amount") or 0) > 0]
 
     commerce = [e for e in events if (e.get("category") not in INTERNAL_CATS) and e.get("poi_id")]
     if not commerce:
-        return {"applied": False, "reason": "no_commerce"}
+        # 오늘 거래가 아예 없으면 계획한 인출을 통째로 못 쓴 것이다. 그 몫이 여기서 사라지면
+        # 이월의 정의('그날 쓸 거래가 없어 못 쓴 몫')와 코드가 어긋난다 — 다음 날로 넘긴다.
+        return {
+            "applied": False, "reason": "no_commerce",
+            "grant_carry_in": _carry,
+            "grant_carry_out": min(int(wallet_total), int(intended_grant_today)),
+        }
 
     # Stage2가 정한 절대 계획금액.
     weights = [max(0.0, float(e.get("actual_spent") or 0)) for e in commerce]
@@ -468,6 +662,54 @@ def apply_consumption_model(
     factors = [max(0.5, min(2.0, float(e.get("price_factor") or 1.0))) for e in commerce]
     basket_idx = basket_price_index(weights, factors)
     planned_weights = [w * f for w, f in zip(weights, factors)]
+    # Stage2가 건별로 고른 결제수단을 '그 거래의 몇 %를 지원금으로 냈는가'로 환산해 둔다.
+    # 아래에서 총액이 앵커로 재조정되어도 이 비율은 그대로 따라간다 — 사람이 정한 것은
+    # 금액이 아니라 '이 결제를 무엇으로 낼지'이기 때문이다.
+    _choice_shares: list[float] = []
+    for _e in commerce:
+        _base = max(0.0, float(_e.get("actual_spent") or 0))
+        _ps = _e.get("policy_spend") or {}
+        _req = 0
+        if isinstance(_ps, dict):
+            for _v in _ps.values():
+                try:
+                    _req += max(0, int(_v or 0))
+                except (TypeError, ValueError):
+                    continue
+        _choice_shares.append(min(1.0, _req / _base) if _base > 0 else 0.0)
+
+    # [태세 정합] Stage2는 결제수단을 POI 선택에 딸린 부차 필드로 취급해, 어떤 지시를 넣어도
+    # 건별 선택 비율이 0.19 근처로 고정됐다(R80~R84 측정: 40만 0.19 / 15만 0.19). 반면
+    # Stage1은 하루를 통째로 보고 한 번만 판단하므로 태세(grant_use)에는 상황이 반영된다.
+    # 그래서 '어느 결제에 쓸지'는 Stage2의 선택을 그대로 두고, '전체적으로 얼마나 챙겨 쓰는지'만
+    # Stage1 태세에 맞춰 비례 조정한다. 둘 중 하나를 버리지 않는다.
+    _posture = None
+    if _choice_mode and grant_use is not None:
+        try:
+            _posture = max(0.0, min(1.0, float(grant_use)))
+        except (TypeError, ValueError):
+            _posture = None
+    if _posture is not None:
+        _elig = [
+            (planned_weights[i] if commerce[i].get("coupon_eligible") is not False else 0.0)
+            for i in range(len(commerce))
+        ]
+        _wsum = sum(_elig)
+        if _wsum > 0:
+            _cur = sum(_elig[i] * _choice_shares[i] for i in range(len(commerce))) / _wsum
+            if _posture <= _cur and _cur > 1e-9:
+                # 태세가 더 낮으면 고른 것들을 같은 비율로 줄인다(어느 결제를 골랐는지는 보존).
+                _k = _posture / _cur
+                _choice_shares = [s * _k for s in _choice_shares]
+            elif _posture > _cur:
+                # 태세가 더 높으면 각 결제를 전액 쪽으로 같은 정도만큼 끌어올린다.
+                # 비례 배율은 Stage2가 0으로 둔 결제를 영원히 0으로 남겨 태세를 달성할 수 없다.
+                _t = (_posture - _cur) / max(1e-9, 1.0 - _cur)
+                _t = max(0.0, min(1.0, _t))
+                _choice_shares = [
+                    (s + _t * (1.0 - s)) if _elig[i] > 0 else s
+                    for i, s in enumerate(_choice_shares)
+                ]
     # Stage2 절대 계획금액을 보존하되, POI 가격대 효과는 기존 BASKET_CLAMP 범위에서 반영한다.
     planned_total = int(round(sum(weights) * basket_idx))
 
@@ -518,8 +760,128 @@ def apply_consumption_model(
                 continue
         envelope_requested[pid] = requested
 
-    desired_total = int(round(planned_total * day_multiplier))
-    wallet_specs = _policy_wallet_specs(grant_avail, envelopes)
+    # [하이브리드 캘리브레이션] 소비수준을 구코드 daily_wd 앵커로 복원한다.
+    # Stage2 계획액(planned_total)은 실측 s_daily_wd의 ~1/3로 저평가되므로, 총액 크기는
+    # p×daily_wd/ANCHOR(=spend_today)에 POI 가격효과(basket_idx)를 곱한 값으로 앵커한다.
+    # 이벤트/POI 선택 분포(planned_weights)와 지원금 우선정산(아래)은 그대로 보존한다.
+    # day_multiplier는 진단값으로만 유지(총액에는 spend_today의 p가 이미 반영됨).
+    # basket_idx는 1.0 미만으로 총액을 끌어내리지 않도록 클램프한다(하한 = daily_wd 앵커).
+    # 평상 basket은 spend_today(=p×daily_wd/ANCHOR) 그대로 유지하고, 비싼 POI를 고르면
+    # (basket_idx>1) 총액이 상향된다 — doing_gyu의 가격채널(비싼 곳→지출↑)은 보존.
+    _anchor_total = int(round(spend_today(p, daily)["total"] * max(1.0, basket_idx)))
+    # [정책 효과 경로 복원 2026-07-31]
+    # 위 앵커는 '평상시 하루'의 크기다. 그런데 지원금이 들어온 날은 평상시가 아니다 —
+    # 미뤄둔 병원, 바닥난 생필품, 아이 옷·신발처럼 목돈이 드는 일이 그날 일정에 들어온다
+    # (Stage1 프롬프트가 그렇게 판단하도록 하고 있다).
+    # 문제: 총액을 항상 앵커로 덮어쓰면 그 계획이 사라진다. 에이전트가 20만원짜리 지출을
+    # 계획해도 총액은 앵커×p로 되돌아가고, p의 상한(0.98)은 앵커의 1.4배에 불과해
+    # **정책 효과의 천장이 1.4배로 고정된다.** 12일치 지출에 해당하는 지원금은 흡수될 수 없다.
+    # 조치: 에이전트가 계획한 금액이 앵커를 넘으면 그 계획을 따른다. 평상일에는 Stage2가
+    # 앵커보다 낮게 잡으므로(구조적 저평가) 앵커가 그대로 유지되고, **특별한 날에만** 계획이
+    # 총액을 끌어올린다. MPC 등 검증 대상 값이 입력으로 들어가지 않으므로 순환이 아니다 —
+    # 증가분은 전적으로 에이전트 자신의 이벤트 계획에서 나온다.
+    personal_total = max(_anchor_total, int(round(planned_total)))
+    # [온라인 채널] 하루 지출이 전부 동네 가게 계산대에서 나가지는 않는다. 집에서 주문해 배송으로
+    # 받는 지출은 POI 방문 없이 자기 돈으로 나가고, 소비쿠폰은 온라인 결제에 쓸 수 없다
+    # (P010 사용처 조건). 이 채널이 없으면 하루 지출 전액이 가맹점으로 흘러 1인당 가맹점 지출이
+    # 실제보다 크게 잡힌다(측정: 비가맹 지출 비중 1.6%, 1인당 가맹점 지출 59,184원/일).
+    # 몫은 Stage1에서 본인이 판단하며(online_share), 여기서는 그 판단을 회계적으로 따를 뿐이다.
+    # [활성 — 서울시 공개데이터로 근거 확보 2026-07-30]
+    # 소비 앵커(daily_wd)는 '이 사람의 모든 카드소비'인데, 시뮬은 그 전액을 동네 가맹점 POI로
+    # 흘려보내고 있었다(그래프에 대형마트·백화점 매장 실체가 없어 갈 곳이 없다). 그래서 쿠폰
+    # 사용처 지출이 실제보다 크게 잡히고 소진이 과속했다.
+    # 사용처 지출 수준을 서울시 공개데이터로 잡는다(BOK 무관):
+    #   · 서울시 상권분석서비스(추정매출-행정동) 2025년 = 생활밀착 63업종, 425개 동, 연 103.8조.
+    #     이 업종 목록에 백화점·대형마트·할인점·면세점이 **없다** → 곧 쿠폰 사용처 매출이다.
+    #   · 103.8조 ÷ 서울 인구 940만 ÷ 365일 = 1인·일당 30,255원
+    #   · 우리 앵커 평균 128,721원 → 사용처 비율 30,255/128,721 ≈ 0.235
+    #   교차검증: 앵커를 서울 전체로 환산하면 441조/년인데 서울 개인카드는 약 180조(전국 900조의
+    #   20%)이므로 앵커가 2.4배 과대하고, 소상공인 비중 103.8/180 = 0.58 → 53,000×0.58 = 30,740원.
+    #   두 경로가 30,000원대로 수렴한다.
+    # 이 값은 '앵커 과대'와 '비사용처 미분리'를 함께 보정한다. 둘을 분리하려면 BDC 동별 절대
+    # 매출이 필요한데 확보되지 않았다(b069_sales는 지수값). 그 한계를 보고서에 명시할 것.
+    _off = 1.0 - ELIGIBLE_SHARE_SEOUL
+    _online_rate = max(0.0, min(ONLINE_SHARE_CAP, _off))
+    _online_src = "seoul_smallbiz"
+    # [이전 경로 폐기 기록]
+    #  · 소비수준별 BDC 업종 비중 표: 업종 분류가 사용처 판정 규칙(상호명 기준)과 어긋나 폐기.
+    #    '할인점/슈퍼마켓'(14.45%)은 동네 슈퍼가 대부분 사용 가능인데 전부 불가로 넣었었다.
+    #  · LLM 판단(online_share): 계층 구분 없이 0.2 근처로 균일해 정보가 없었다(R82·R83 측정).
+    #    필드는 진단용으로 남기고 비중 산정에는 쓰지 않는다.
+    # EXP_ELIGIBLE_SHARE 로 민감도 실험 가능(기본값은 위 서울시 데이터 산출값).
+    online_planned = int(round(personal_total * _online_rate))
+    # 오프라인(가게 방문) 지출만 아래 POI 배분·지원금 정산을 거친다.
+    personal_total = max(0, personal_total - online_planned)
+    wallet_specs = _policy_wallet_specs(grant_avail_alloc, envelopes_alloc)
+
+    # 쿠폰은 먼저 '어차피 하려던 소비'를 대체한다(그만큼 현금이 굳는다). 오늘 쓰려는 지원금이
+    # 그 대체 가능액을 넘어서면, 넘는 만큼은 여력이 없어 미뤄왔던 소비가 오늘 실행되는 것이다.
+    # 평소 소비가 큰 사람은 대체로 끝나 총소비가 그대로고, 평소 소비가 빠듯했던 사람일수록
+    # 미뤄둔 필요가 풀려 총소비가 늘어난다 — 유동성 제약의 차이가 결과로 나타난다.
+    _base_spends = distribute_budget(personal_total, planned_weights)
+    _base_capacity = _allocate_policy_capacity(commerce, _base_spends, wallet_specs)
+    eligible_base = int(_base_capacity["total"])
+    # 오늘 실제로 쿠폰이 결제할 수 있는 금액(= 계획 소비 중 사용처 조건을 만족하는 부분,
+    # 단 오늘 쓰려는 지원금 한도까지). 이 금액만큼 자기 현금이 굳는다.
+    # 오늘 쿠폰이 대체하게 될 '어차피 했을 지출'. 강도 모드에서는 사용처 결제 중 지원금으로 내기로
+    # 한 몫(eligible_base × grant_use)이 그 크기이고, 배급 모드에서는 하루 인출 계획이 상한이다.
+    if _intensity_mode:
+        substituted = min(wallet_total, int(round(eligible_base * max(0.0, min(1.0, float(grant_use))))))
+    elif _choice_mode:
+        # 오늘 지원금으로 결제하기로 고른 만큼이 대체액이다(사용처·지갑 한도 안에서).
+        _chosen = sum(
+            b * max(0.0, min(1.0, s)) for b, s in zip(_base_spends, _choice_shares)
+        )
+        substituted = min(wallet_total, eligible_base, int(round(_chosen)))
+    else:
+        substituted = min(intended_grant_today, eligible_base)
+    # 굳은 현금 중 오늘 더 쓰는 데 돌리는 비율은 본인 판단(grant_extra_spend).
+    # 값이 없으면 굳은 돈을 그냥 남겨 두는 것으로 본다(추가 소비 없음).
+    # [MPC 산출 — 참고3 ⑤와 같은 형태] 지원금으로 결제한 건마다 '없었어도 했을 지출인가'를
+    # 0/1로 받아, 결제금액으로 가중평균한 것이 그날의 신규 소비 유발 비중 m이다.
+    #   m = Σ(그 건의 지원금 결제액 × 신규여부) / Σ(지원금 결제액)
+    # 스칼라 하나(grant_kept_share)로 물으면 LLM이 계층 구분 없이 같은 값을 답한다(R84~R86
+    # 측정). 건별 0/1은 각 지출을 실제로 들여다보게 하므로 형편 차이가 값에 남는다.
+    # **이 값은 측정 전용이다.** 아래 소비 총액 계산에 들어가지 않는다(순환 방지).
+    # BOK도 자기보고 서베이로 같은 값을 얻었고 그 한계를 34항에 명시했다 — 도구와 한계가 같다.
+    # MPC = Σ(정책지갑 결제분 중 신규 소비) / Σ(정책지갑 결제액).
+    # 신규분은 건별 참/거짓이 아니라 **금액**(extra_spent)으로 받는다. 같은 결제 안에서도
+    # '평소 쓰던 만큼'과 '이 돈이 있어 더 쓴 만큼'이 섞이는데, 참/거짓으로 받으면 후자가
+    # 통째로 0으로 버려져 생필품·외식 비중이 높은 우리 구성에서 체계적으로 과소 측정된다.
+    # extra_spent는 결제 전체 기준이므로 정책 결제 비중만큼 안분한다.
+    _mpc_new: float | None = None
+    if _choice_shares:
+        _w_tot = 0.0; _w_new = 0.0
+        for _i, _e in enumerate(commerce):
+            _amt = max(0.0, float(_base_spends[_i]))
+            _c = _amt * max(0.0, min(1.0, _choice_shares[_i]))
+            if _c <= 0: continue
+            _ex = _e.get("extra_spent")
+            if _ex is None:
+                _wba = _e.get("would_buy_anyway")
+                if _wba is None: continue
+                _ex = 0.0 if _wba else _amt
+            _ex = max(0.0, min(_amt, float(_ex)))
+            _w_tot += _c
+            _w_new += _ex * (_c / _amt if _amt > 0 else 0.0)
+        if _w_tot > 0: _mpc_new = _w_new / _w_tot
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # [폐기 — 순환 구조] 예전에는 여기서 MPC(또는 grant_kept_share)를 받아
+    #   additional_from_grant = substituted × MPC/(1−MPC)
+    # 로 '추가 소비'를 만들어 총지출에 더했다. 그리고 그 결과에서 다시 MPC를 측정했다.
+    # 넣은 값이 그대로 나오는 순환이므로 "MPC가 실측과 일치한다"는 것이 재현이 아니었다.
+    # MPC는 **사후 측정량**이며 소비 생성기로 쓰지 않는다(BOK 참고3 ⑤도 측정 정의다).
+    #
+    # 쿠폰 때문에 소비가 늘어난다면 그것은 에이전트 자신의 결정으로 나타나야 한다:
+    #   ⑴ Stage1의 오늘 소비의향(daily_propensity)이 올라가 personal_total이 커지거나
+    #   ⑵ Stage2에서 이벤트·결제금액이 늘어나 planned_weights가 커지거나
+    # 둘 다 이미 모델 안에 있는 경로다. 여기서 공식으로 얹지 않는다.
+    # grant_kept_share·grant_extra_spend는 진단·인터뷰용으로만 보존한다.
+    # ─────────────────────────────────────────────────────────────────────────
+    _extra_rate = 0.0
+    additional_from_grant = 0
+    desired_total = personal_total
     desired_spends = distribute_budget(desired_total, planned_weights)
     # 지원금 전액이 아니라 오늘의 계획된 사용 가능 거래액까지만 유동성으로 인정한다.
     capacity = _allocate_policy_capacity(commerce, desired_spends, wallet_specs)
@@ -531,10 +893,15 @@ def apply_consumption_model(
     ]
     affordability_cap: int | None
     try:
-        own_balance = max(0, int(balance))
+        # 배송 주문은 지원금으로 결제할 수 없으므로 자기 돈에서 먼저 빠진다. 남은 잔액만
+        # 오프라인 지출의 자기부담분에 쓸 수 있다.
+        _bal = max(0, int(balance))
+        online_spent = min(online_planned, _bal)
+        own_balance = _bal - online_spent
         affordability_cap = own_balance + eligible_policy_liquidity
     except (TypeError, ValueError):
         own_balance = None
+        online_spent = online_planned
         affordability_cap = None
 
     if own_balance is None:
@@ -556,8 +923,10 @@ def apply_consumption_model(
     # 소비 필요·POI·총액이 모두 확정된 뒤 결제수단만 지원금 우선으로 정산한다.
     allocation = settle_policy_spend_priority(
         events,
-        grant_avail=grant_avail,
-        restricted_envelopes=envelopes,
+        grant_avail=grant_avail_alloc,
+        restricted_envelopes=envelopes_alloc,
+        grant_use=grant_use,
+        choice_shares=_choice_shares if _choice_mode else None,
     )
 
     normal_budget = spend_today(p, daily)
@@ -572,6 +941,31 @@ def apply_consumption_model(
     return {
         "applied": True,
         "propensity": p,
+        "grant_spread_days": int(grant_spread_days) if grant_spread_days else None,
+        "intended_grant_today": intended_grant_today,
+        "grant_carry_in": _carry,
+        # 오늘 계획한 만큼 쓸 거래가 없었으면 그 차액이 내일로 넘어간다.
+        "grant_carry_out": 0 if _intensity_mode else max(0, intended_grant_today - int(allocated_total or 0)),
+        "grant_intensity_mode": _intensity_mode,
+        "grant_choice_mode": _choice_mode,
+        # 오늘 계획한 지출 중 지원금으로 내기로 고른 몫(가중평균). 진단용.
+        "grant_choice_share_mean": (
+            round(sum(_choice_shares) / len(_choice_shares), 4) if _choice_shares else 0.0
+        ),
+        "grant_posture": _posture,
+        # 오늘 적용된 사용 계획(일). 지갑이 남아 있으면 내일 State에 그대로 이어 실린다.
+        "grant_plan_days_effective": (_eff_spread if wallet_total > 0 else 0),
+        "eligible_base": eligible_base,
+        "substituted": substituted,
+        "grant_extra_rate": _extra_rate,
+        # 참고3 ⑤ 형태로 산출한 그날의 신규 소비 유발 비중(= MPC). None이면 판단 누락.
+        # 사후 측정값. 소비 생성에 쓰이지 않는다(순환 방지). 보고서의 MPC는 이 값을
+        # 지원금 결제액으로 가중해 집계한 것이다.
+        "mpc_new_share": (round(_mpc_new, 4) if _mpc_new is not None else None),
+        "additional_from_grant": additional_from_grant,
+        "personal_total": personal_total,
+        "anchor_total": _anchor_total,
+        "plan_over_anchor": max(0, personal_total - _anchor_total),
         "propensity_center": round(center, 4),
         "day_multiplier": round(day_multiplier, 4),
         "planned_total": planned_total,
@@ -591,6 +985,13 @@ def apply_consumption_model(
         "policy_wallet_available": grant_total + sum(int(e.get("amount") or 0) for e in envelopes),
         "policy_spend_requested": requested_by_pid,
         "mechanical_policy_uplift": 0,
+        # 배송 주문(POI 방문 없음, 지원금 결제 불가). today_total은 가게 지출 합계이므로
+        # 이 금액은 별도 항으로 잔액에서 차감된다(plan_writer 야간 정산).
+        "online_share_effective": round(_online_rate, 4),
+        "online_share_source": _online_src,
+        "online_planned": online_planned,
+        "online_total": int(online_spent),
+        "today_total_incl_online": total_adj + int(online_spent),
         "price_basket_idx": round(basket_idx, 4),
         "envelope_requested": envelope_requested,
         "envelope_eligible_events": envelope_eligible_events,

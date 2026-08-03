@@ -56,6 +56,10 @@ class Stage2Pick(BaseModel):
     # actual_spent 중 정책 지원금에서 사용한 금액 — {"P009": 5000} 형태.
     # 평소 잔액으로 쓴 부분 = actual_spent - sum(policy_spend.values())
     policy_spend: dict[str, float] | None = None
+    # 이 지출이 지원금이 없었어도 했을 것인지(true) / 지원금이 있어서 비로소 한 것인지(false).
+    # 참고3 ④의 서베이 문항 형태(품목별 0/1)를 그대로 옮긴 것. 금액 가중평균이 MPC가 된다.
+    would_buy_anyway: bool | None = None
+    extra_spent: int | None = None
     pick_reason: str | None = None
     pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | random
 
@@ -371,11 +375,50 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 [지원금(grant) 회계와 제약]
 - 지원금은 개인 잔액과 분리된 정책 지갑이다. 지원금으로 결제한 금액은 개인 잔액에서 차감되지 않고 정책 지갑에서 차감된다.
 - 소비 필요·POI·actual_spent는 정책지갑 잔액만으로 만들지 말고 페르소나의 필요와 상황에 따라 정한다.
-- 선택한 거래가 지원금 사용 가능 매장이면 정책지갑을 자기자금보다 먼저 결제한다. `policy_spend`에는 예상 결제액을 기록하되 최종값은 시스템이 사용처·거래액·잔액 범위에서 우선 정산한다.
-- `sum(policy_spend) ≤ actual_spent`이고, 정책별 잔액을 넘을 수 없다.
+- **결제 하나하나를 무엇으로 낼지는 이 사람이 정한다.** 쓸 수 있는 매장이라고 자동으로 이 지갑에서
+  나가지 않는다. `policy_spend`에 적은 금액이 실제로 이 지갑에서 나간 돈이다.
+- 판단의 근거는 **남은 금액이 내 씀씀이로 며칠치인가** 하나다(정책 지갑 정보에 적혀 있다).
+  여러 주치가 되는 금액이면 아껴 둘 이유가 없다 — 쓸 수 있는 자리에서 자기 돈을 먼저 낼 까닭이
+  없으니 대체로 이 지갑으로 낸다. 반대로 며칠치에 그치는 금액이면 자리마다 다 얹으면 금방 사라진다.
+  기한이 가을 끝까지로 남아 있으니 서둘러 없앨 이유가 없어, 꼭 필요한 결제에서만 꺼내 쓰게 된다.
+- **결제 금액이 작다는 것은 건너뛸 이유가 되지 않는다.** 이 지갑은 큰 결제를 위해 아껴 두는
+  상품권이 아니라 끼니·장보기·약값처럼 매일 하는 결제에 그대로 얹혀 나가는 돈이다.
+  "소액이니 평소 쓰던 카드로"라는 습관을 이유로 이 지갑을 건너뛰지 않는다.
+- 왜 그렇게 냈는지는 `pick_reason`에 자연스럽게 적는다.
+- 한 결제에서 일부만 이 지갑으로 낼 수도 있다. `sum(policy_spend) ≤ actual_spent`이고, 정책별
+  잔액을 넘을 수 없다.
+
+**지원금으로 결제한 건마다 `would_buy_anyway` (true/false)**
+이 지갑으로 낸 결제 하나하나에 대해, **지원금이 없었어도 이 지출을 했을지**를 판단해 적는다.
+- `true`  — 지원금이 없었어도 내 돈으로 어차피 했을 지출이다.
+- `false` — 지원금이 있어서 비로소 하게 된 지출이다. 없었으면 오늘 하지 않았을 것이다.
+판단의 기준은 **그 지출이 원래 예정돼 있었는지**다. 없으면 안 되어서 어차피 했을 지출이면
+결제수단만 바뀐 것이므로 `true`다. 반대로 오늘 이 돈이 있어서 비로소 하기로 한 것이면 `false`다.
+업종으로 정해지는 것이 아니다 — 같은 병원 진료도 원래 가려던 날이면 `true`, 이 돈이 생겨
+앞당긴 것이면 `false`다. 같은 외식도 늘 하던 끼니면 `true`, 안 하려던 것을 하게 된 것이면
+`false`다. 이 사람의 평소 지출 습관에 그 지출이 들어 있었는지를 보고 건별로 정한다.
+위 '평소 업종별 지출 구성'과 견주어 본다. 오늘 지출이 그 구성 안에서 늘 하던 만큼이면
+어차피 했을 지출(`true`)이고, 평소 그 업종에 거의 쓰지 않던 사람이 오늘 쓴 것이거나 평소보다
+훨씬 큰 금액이면 이 돈이 있어서 하게 된 지출(`false`)이다.
+이 판단은 품목의 종류만으로 정하지 않는다. **같은 품목도 사람에 따라 다르다.** 평소 필요한 것을
+그때그때 사 오던 사람이면 오늘 결제도 대부분 어차피 했을 지출이고, 쓸 돈이 빠듯해 미뤄둔 것이
+쌓여 있던 사람이면 그중 상당수가 이 돈이 아니었으면 오늘 하지 않았을 지출이다. 이 사람의 형편과
+평소 씀씀이를 보고 건별로 정한다.
+지원금으로 결제하지 않은 건에는 이 필드가 무의미하다(생략).
 - 사용처 제한 정책은 후보에 `[쿠폰]` 표시가 있는 매장에서만 사용할 수 있다. 표시가 없는 매장은 개인 잔액으로만 결제한다.
 - 정책 존재만으로 소비 필요, 소비액, POI 선택을 미리 정하지 않는다. 페르소나의 필요·습관·자산·일정과 후보 특성을 함께 고려해 판단한다.
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
+
+**그 결제에서 `extra_spent` (원)**
+같은 결제 안에도 평소 쓰던 만큼이 있고, 이 돈이 있어서 더 쓴 만큼이 있다. `extra_spent`는
+그 결제 금액 중 **정책지갑이 없었다면 쓰지 않았을 금액**이다.
+- 원래 하려던 지출을 결제수단만 바꾼 것이면 `0`이다.
+- 늘 가던 곳인데 오늘은 이 돈이 있어 평소보다 좋은 것을 고르거나 양을 늘렸다면,
+  **그 늘어난 금액만** 적는다(결제액 전부가 아니다).
+- 이 돈이 없었으면 오늘 아예 하지 않았을 지출이면 결제 금액 전부를 적는다.
+`0 ≤ extra_spent ≤ actual_spent`. `would_buy_anyway`가 `false`면 대개 결제액 전부이고,
+`true`여도 평소보다 더 쓴 것이 있으면 `0`이 아니다.
+
 
 **만족도 설정 (actual_satisfaction)**
 - 0.0 ~ 1.0 범위의 실수입니다.
@@ -394,18 +437,20 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
     "order": 0,
     "poi_id": "C_xxxxxx",
     "actual_spent": 12000,
-    "policy_spend": null,
+    "policy_spend": {"P009": 12000},
+    "would_buy_anyway": true,
+    "extra_spent": 2000,
     "actual_satisfaction": 0.71,
-    "pick_reason": "단골 한식집. 어제 sat 0.72로 만족도 높음. 직장 0.05km. 평소 한식 즐겨 찾는 성향.",
+    "pick_reason": "단골 한식집. 어제 sat 0.72로 만족도 높음. 직장 0.05km. 평소 한식 즐겨 찾는 성향. [쿠폰] 매장이고 남은 지원금이 몇 주치라 굳이 자기 돈 쓸 것 없이 정책지갑으로 계산.",
     "pick_factor": "satisfaction"
   },
   {
     "order": 2,
     "poi_id": "C_yyyyyy",
     "actual_spent": 25000,
-    "policy_spend": {"P009": 15000},
+    "policy_spend": null,
     "actual_satisfaction": 0.68,
-    "pick_reason": "오늘 카페 휴식 의도와 가까운 후보가 맞았고, 사용 가능한 P009 정책지갑에서 15,000원을 결제하기로 선택.",
+    "pick_reason": "오늘 카페 휴식 의도와 가까운 후보가 맞음. 계산할 때는 습관대로 늘 쓰던 카드를 먼저 꺼내 지원금은 그대로 뒀다.",
     "pick_factor": "satisfaction"
   }
 ],
@@ -476,7 +521,21 @@ def build_stage2_prompt(
         balance = (state or {}).get("balance")
         if balance is not None:
             budget_info += f" / 현재 잔액: {int(balance):,}원"
-        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}")
+        # 평소 업종별 지출 구성(BDC 실측) — would_buy_anyway 판정의 근거.
+        # 오늘 지출이 이 사람의 평소 패턴 안이었는지 밖이었는지를 볼 수 있어야 한다.
+        _cat = ""
+        try:
+            import json as _j
+            _raw = persona.get("cat_ratio_wd")
+            if _raw:
+                _d = _j.loads(_raw) if isinstance(_raw, str) else dict(_raw)
+                _top = sorted(_d.items(), key=lambda x: -float(x[1]))[:8]
+                _body = ", ".join(f"{k} {100*float(v):.0f}%" for k, v in _top if float(v) > 0.004)
+                if _body:
+                    _cat = "\n평소 업종별 지출 구성(카드 실측): " + _body
+        except Exception:
+            _cat = ""
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}")
         # 활성 정책 (grant 위주, LLM이 policy_spend 책정 시 참조)
         policy_budget = persona.get("policy_budget_summary") or ""
         if policy_budget:
@@ -651,9 +710,18 @@ def call_stage2(
                                     "actual_spent": {"type": "number", "minimum": 0},
                                     "actual_satisfaction": {"type": "number", "minimum": 0, "maximum": 1},
                                     "policy_spend": {"type": ["object", "null"]},
+                                    "would_buy_anyway": {"type": ["boolean", "null"]},
+                                    "extra_spent": {"type": ["integer", "null"], "minimum": 0},
                                     "pick_reason": {"type": ["string", "null"]},
                                     "pick_factor": {"type": ["string", "null"]},
                                 },
+                                # policy_spend·would_buy_anyway를 필수로 둔다. 선택 필드였을 때 모델이 대부분 생략했고
+                                # (측정: 40만 tier가 5일 중 4일 쿠폰 0건), 생략은 곧 "미사용"으로 처리돼
+                                # 결제 판단이 이뤄지지 않았다. null을 허용하므로 "안 쓴다"도 표현 가능하며,
+                                # 다만 건별로 명시적으로 답해야 한다.
+                                # [되돌림] policy_spend를 필수로 두니 모델이 건별로 판단은 하되
+                                # 사용 수준이 0.42로 뛰어 전체 소진이 7.3%/일(목표 2.73)로 과속했고
+                                # MPC도 0.174→0.085로 무너졌다. 선택 필드로 되돌린다.
                                 "required": ["order", "poi_id", "actual_satisfaction", "actual_spent"],
                                 "additionalProperties": False,
                             },
@@ -1003,6 +1071,9 @@ def merge_to_final_events(
             "coupon_eligible": (coupon_by_poi or {}).get(poi_id) if poi_id else None,
             # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
             "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
+            # 지원금 결제건의 "없었어도 했을 지출인가"(참고3 ④ 문항 형태). MPC 산출 입력.
+            "would_buy_anyway": (pick_obj.would_buy_anyway if pick_obj else None),
+            "extra_spent": (pick_obj.extra_spent if pick_obj else None),
             # ───── 사고과정 흔적 (인터뷰용) ─────
             "reasoning": ev.reasoning,                 # Stage 1: 왜 이 의도·카테고리·anchor
             "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...

@@ -53,7 +53,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import build_dawn_context  # noqa: E402
-from stage1_intent import call_stage1  # noqa: E402
+from stage1_intent import call_stage1, grant_style_to_use  # noqa: E402
 from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
 from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
@@ -144,9 +144,26 @@ def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[s
 # =========================================================
 # 한 agent의 1일 처리 (스레드 워커)
 # =========================================================
+def _local_daily_spend(daily: int | float | None, spend_decile: int | None = None) -> int:
+    """'며칠치인가'를 셀 때 쓰는 하루 지출 — **사용처(소상공인)에서 나가는 몫**.
+
+    지원금은 사용처에서만 쓸 수 있으므로, 며칠 버티는지는 전체 지출이 아니라 사용처 지출로
+    나눠야 실제 감각과 맞는다. 사용처 비율은 서울시 상권분석 산출값(consumption.py)을 쓴다.
+    """
+    from consumption import ELIGIBLE_SHARE_SEOUL
+    try:
+        d = int(daily or 0)
+    except (TypeError, ValueError):
+        return 0
+    if d <= 0:
+        return 0
+    return max(1, int(round(d * ELIGIBLE_SHARE_SEOUL)))
+
+
 def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: dict[str, int] | None,
                                   grants_applied_today: dict[str, int] | None = None,
-                                  grant_remaining: dict[str, int] | None = None) -> str:
+                                  grant_remaining: dict[str, int] | None = None,
+                                  daily_spend: int | float | None = None) -> str:
     """Stage2 LLM에 노출할 정책 예산 요약 텍스트.
 
     - subsidy/voucher: 잔여 cap = cap - used
@@ -170,11 +187,21 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
             if today_amt > 0:
                 parts.append(f"오늘 +{today_amt:,}원")
             parts.append(f"누적 잔여 {rem:,}원")
+            # 남은 지원금이 이 사람의 평소 하루 씀씀이로 며칠치인지. 본인의 지갑과 본인의
+            # 소비규모로 계산한 값이며, 이 비(比)가 '아껴 쓸 돈인지 편히 쓸 돈인지'를 가른다.
+            # LLM이 프롬프트 안에서 이 나눗셈을 스스로 하지 않아(측정: 지급액과 무관하게
+            # 동일한 결제 선택) 계산해서 제시한다.
+            try:
+                _ds = int(daily_spend or 0)
+                if _ds > 0 and rem > 0:
+                    parts.append(f"평소 하루 씀씀이로 약 {max(1, round(rem / _ds))}일치")
+            except (TypeError, ValueError):
+                pass
             lines.append(
                 f"{pid} {name} [정책 지갑] — {' / '.join(parts)}. "
                 "소비 필요·시점·총액·POI는 평소 습관, 자산과 일정에 따라 판단한다. "
-                "선택한 거래가 정책의 사용처·잔액 제약을 충족하면 결제는 정책지갑을 "
-                "자기자금보다 먼저 사용하며, 최종 policy_spend는 시스템이 정산한다."
+                "쓸 수 있는 매장에서 이 지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
+                "본인이 정하며, policy_spend에 적은 금액이 실제로 이 지갑에서 나간다."
             )
             continue
         # subsidy/voucher — 잔여 cap
@@ -299,7 +326,15 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         ctx.state["grant_remaining"] = grant_avail_today
 
         ctx.persona["policy_budget_summary"] = _build_policy_budget_summary(
-            ctx.policy, prev_used_for_budget, grants_applied_today, grant_avail_today
+            ctx.policy, prev_used_for_budget, grants_applied_today, grant_avail_today,
+            # '며칠치'는 전체 지출이 아니라 **동네 가게에서 나가는 지출** 기준으로 센다.
+            # 지원금은 그 자리에서만 쓸 수 있으므로, 그 금액으로 며칠이 버티는지가 실제 감각이다.
+            # 동네 가게 지출 = 평소 지출 × (1 − BDC 실측 대형·제외업종 비중).
+            daily_spend=_local_daily_spend(
+                ctx.persona.get("daily_we") if today.weekday() >= 5
+                else ctx.persona.get("daily_wd"),
+                ctx.persona.get("spend_decile"),
+            ),
         )
 
         # 사용처 제한 정책(민생회복 소비쿠폰류, poi_restricted=true) 감지
@@ -386,6 +421,23 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 grant_avail=_unrestricted_wallets,
                 llm_propensity=getattr(s1, "daily_propensity", None),
                 restricted_envelopes=_envelopes,
+                # grant_use(강도 배급)는 폐기. 측정 결과 고소비 tier가 폭주해
+                # 전체 hazard 37%/day·역진 −54%p로 붕괴했다(R38). 배급은 spread 경로로 일원화.
+                # 결제 선택 모드에서 grant_use는 옛 강도 배급이 아니라 하루 태세다
+                # (consumption.py가 건별 선택을 이 태세에 맞춰 비례 조정한다).
+                # 낱말 태세(grant_style)가 있으면 그것을 비율로 옮겨 쓴다.
+                grant_use=(
+                    grant_style_to_use(getattr(s1, "grant_style", None))
+                    or getattr(s1, "grant_use", None)
+                ),
+                grant_spread_days=getattr(s1, "grant_spread_days", None),
+                grant_extra_spend=getattr(s1, "grant_extra_spend", None),
+                grant_kept_share=getattr(s1, "grant_kept_share", None),
+                grant_carry=(ctx.state or {}).get("grant_carry"),
+                grant_plan_days=(ctx.state or {}).get("grant_plan_days"),
+                online_share=getattr(s1, "online_share", None),
+                # BDC 실측 소비수준 → 대형·제외업종 지출 비중(우리 소비패턴의 사실).
+                spending_level=ctx.persona.get("spend_decile"),
             )
         else:
             # legacy는 총소비액을 건드리지 않되 결제수단은 동일한 우선 정산을 적용한다.
@@ -393,6 +445,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 events,
                 grant_avail=_unrestricted_wallets,
                 restricted_envelopes=_envelopes,
+                grant_use=getattr(s1, "grant_use", None),
             )
             _eligible_spend = int(_settlement["eligible_spend_total"])
             _allocated = int(_settlement["total"])
@@ -469,6 +522,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             grant_received=merged_grant_received,
             grant_remaining=merged_grant_remaining,
             today_policy_spent=sum(today_policy_spend.values()),
+            grant_carry=int((cm_meta or {}).get("grant_carry_out") or 0),
+            grant_plan_days=int((cm_meta or {}).get("grant_plan_days_effective") or 0),
+            # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
+            today_online_spent=int((cm_meta or {}).get("online_total") or 0),
         )
 
         # 만족도 평균
@@ -505,10 +562,41 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             "grant_remaining_total": sum(merged_grant_remaining.values()),
             "policy_spend_corrected": policy_spend_corrected,
             "cm_propensity": cm_meta.get("propensity"),
+            "s1_daily_propensity": getattr(s1, "daily_propensity", None),
+            "s1_grant_use": getattr(s1, "grant_use", None),
+            "s1_grant_style": getattr(s1, "grant_style", None),
+            "s1_grant_spread_days": getattr(s1, "grant_spread_days", None),
+            "s1_grant_plan_reason": getattr(s1, "grant_plan_reason", None),
+            "s1_grant_extra_spend": getattr(s1, "grant_extra_spend", None),
+            "s1_grant_kept_share": getattr(s1, "grant_kept_share", None),
+            "cm_substituted": cm_meta.get("substituted"),
+            "cm_intended_grant_today": cm_meta.get("intended_grant_today"),
+            "cm_grant_carry_in": cm_meta.get("grant_carry_in"),
+            "cm_grant_carry_out": cm_meta.get("grant_carry_out"),
+            "cm_grant_plan_days": cm_meta.get("grant_plan_days_effective"),
+            "cm_eligible_base": cm_meta.get("eligible_base"),
+            "cm_additional_from_grant": cm_meta.get("additional_from_grant"),
+            "cm_personal_total": cm_meta.get("personal_total"),
+            "cm_anchor_total": cm_meta.get("anchor_total"),
+            "cm_plan_over_anchor": cm_meta.get("plan_over_anchor"),
             "cm_propensity_center": cm_meta.get("propensity_center"),
             "cm_day_multiplier": cm_meta.get("day_multiplier"),
             "cm_planned_total": cm_meta.get("planned_total"),
             "cm_today_total": cm_meta.get("today_total"),
+            "cm_grant_choice_mode": cm_meta.get("grant_choice_mode"),
+            "cm_grant_choice_share_mean": cm_meta.get("grant_choice_share_mean"),
+            "cm_grant_posture": cm_meta.get("grant_posture"),
+            "cm_mpc_new_share": cm_meta.get("mpc_new_share"),
+            "spend_decile": ctx.persona.get("spend_decile"),
+            "cm_mpc_new_share_effective": cm_meta.get("mpc_new_share_effective"),
+            "cm_grant_extra_rate": cm_meta.get("grant_extra_rate"),
+            "s1_grant_use": getattr(s1, "grant_use", None),
+            "s1_grant_style": getattr(s1, "grant_style", None),
+            "cm_online_share_source": cm_meta.get("online_share_source"),
+            "cm_online_total": cm_meta.get("online_total"),
+            "cm_online_share": cm_meta.get("online_share_effective"),
+            "cm_today_total_incl_online": cm_meta.get("today_total_incl_online"),
+            "s1_online_share": getattr(s1, "online_share", None),
             "cm_selected_policy_liquidity": cm_meta.get("selected_policy_liquidity", 0),
             "cm_policy_requested_total": sum(
                 (cm_meta.get("policy_spend_requested") or {}).values()

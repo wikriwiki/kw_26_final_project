@@ -54,6 +54,8 @@ RETURN
   a.nvidia_career_goals AS nv_career,
   a.nvidia_skills AS nv_skills,
   a.s_daily_wd AS daily_wd,
+  a.cat_ratio_wd AS cat_ratio_wd,
+  a.cat_ratio_we AS cat_ratio_we,
   a.s_daily_we AS daily_we,
   a.spending_we_wd_ratio AS we_wd_ratio,
   a.behavior_delivery_days AS delivery_days,
@@ -76,7 +78,9 @@ RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc,
        s.policy_used AS policy_used,
        s.grant_received AS grant_received,
-       s.grant_remaining AS grant_remaining
+       s.grant_remaining AS grant_remaining,
+       s.grant_carry AS grant_carry,
+       s.grant_plan_days AS grant_plan_days
 """
 
 
@@ -341,6 +345,7 @@ def _format_persona(p: dict) -> str:
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
         f"소비: 평일 {(p.get('daily_wd') or 0):,}원, 주말 {(p.get('daily_we') or 0):,}원 (주말/평일 {(p.get('we_wd_ratio') or 1):.2f}배) / 성향: {p.get('tendency','')}",
+        _cat_line(p),
         f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]
@@ -365,6 +370,9 @@ def _format_state(s: dict | None) -> str:
     # windfall 감쇠 상세는 정책 카드(_format_policy)가 담당, 여기선 '별도 보유' 사실만 명시.
     bal = s.get("balance", 0) or 0
     bal_line = f"잔액(내 돈): {bal:,}원"
+    # [R71 측정 · 폐기] '잔액은 하루 지출로 N일치' 표시는 역효과였다. 40만 tier가
+    # "16일치나 있으니 내 돈으로 버틸 수 있다"로 읽어 spread가 21.1 → 25.3일로 늘고
+    # 방향이 −0.09 → −0.64%p로 악화됐다. 금액만 보여 준다.
     rem_all = sum(int(v or 0) for v in _json_dict(s.get("grant_remaining")).values())
     if rem_all > 0:
         days_map = s.get("grant_days_since") or {}
@@ -480,6 +488,27 @@ def _compact_regions(raw_regions: list | None) -> str:
     return ", ".join(regions) or "지역 미상"
 
 
+def _cat_line(p: dict) -> str:
+    """평소 지출이 업종별로 어떻게 갈리는지 — BDC 실측 구성.
+
+    이벤트 구성이 이 사람의 실제 소비 구성에서 벗어나지 않도록 사실로 제시한다.
+    (측정: 노출 전 여가 이벤트가 BDC 기준선의 8배, 교육 2배였다.)
+    """
+    import json as _j
+    raw = p.get("cat_ratio_wd")
+    if not raw:
+        return "평소 업종별 지출 구성: (미상)"
+    try:
+        d = _j.loads(raw) if isinstance(raw, str) else dict(raw)
+    except Exception:
+        return "평소 업종별 지출 구성: (미상)"
+    top = sorted(d.items(), key=lambda x: -float(x[1]))[:8]
+    body = ", ".join(f"{k} {100*float(v):.0f}%" for k, v in top if float(v) > 0.004)
+    # 구성은 **사실로만** 제시한다. "이 비중 안에서 움직여라"는 지시를 붙였더니 모든 지출이
+    # '어차피 했을 것'이 되어 MPC가 0.174→0.075로 무너졌다(T4·T5 측정). 목돈이 생기면 평소
+    # 패턴을 벗어나는 것이 곧 신규 소비이므로, 벗어나지 말라고 지시해서는 안 된다.
+    return "평소 업종별 지출 구성(카드 실측): " + body
+
 def _format_policy_facts(rows: list[dict]) -> str:
     """에이전트와 무관한 정책 사실.
 
@@ -539,17 +568,45 @@ def _format_policy_status(
             uses_decile = bool(r.get("decile_grants")) or (
                 (r.get("grant_key") or "income") == "spend_decile"
             )
-            basis = f"소비 {int(decile)}분위" if uses_decile and decile is not None else f"소득 {income or '미상'}"
+            # 프롬프트는 세 곳에서 "소득분위로 고정하지 말라"고 하는데, 정작 컨텍스트가
+            # "대상(소비 1분위) | 지급액 400,000원"으로 본인의 분위 순위를 찍어 주고 있었다.
+            # 지급 근거가 무엇인지만 남기고 순위 숫자는 노출하지 않는다.
+            basis = "소비 규모 기준" if uses_decile and decile is not None else f"소득 {income or '미상'}"
             rec = int(grant_received.get(pid, 0) or 0)
             rem = int(grant_remaining.get(pid, 0) or 0)
             d_since = days_since.get(pid)
             age = "지급 전"
             if rec > 0:
                 age = "지급일" if d_since in (None, 0, "0") else f"지급 후 {int(d_since)}일"
+            # 남은 지원금이 평소 씀씀이의 며칠치인지는 본인이 당연히 아는 사실이고, 오늘
+            # 얼마나 쓰게 될지 판단하는 근거다. 앞서 편향 우려로 뺐던 적이 있으나, 그때는
+            # "평소대로 지내면 며칠에 걸쳐 줄어들지"라는 지시문이 함께 있어 이 값이 곧 정답이
+            # 되어 버렸다. 그 지시문을 제거하고 소액이 오래 남는 기전을 서술한 지금 구성에서
+            # 다시 넣는다.
+            # [R51 측정] 이 사전계산은 15만 tier의 spread를 17.0→15.1일로 단축시켜
+            # (hazard 6.34→7.13%) 공표 곡선 대비 과속을 키웠다 — 그때는 이 값이 곧
+            # grant_spread_days의 답이 되는 구조였기 때문이다.
+            # [R85] spread 배급을 폐기하고 건별 결제 선택으로 바꾼 뒤에는 그 경로가 없다.
+            # 대신 지원금이 '내게 며칠치인가'는 결제할 때마다 챙길지 말지를 가르는 근거다.
+            # 분모는 전체 지출이 아니라 **동네 가게에서 나가는 지출**이다 — 지원금은 그 자리에서만
+            # 쓸 수 있으므로. 비중은 BDC 실측(소비수준별 대형·제외업종 비중)을 쓴다.
             relative = ""
-            daily = float(p.get("daily_wd") or 0)
-            if rem > 0 and daily > 0:
-                relative = f" · 평소 평일소비의 {rem / daily:.1f}일치"
+            # 지급일에는 아직 grant_remaining이 0이므로(정산 전) 지급 예정액으로 센다.
+            # 이 가드가 없으면 1일차에 '며칠치' 사실이 프롬프트에서 빠져 예외가 참조할
+            # 근거가 사라진다(SMOKE85: 15만 tier 전원이 기본값 1.0을 답함).
+            _amt_days = rem if rem > 0 else my_amt
+            if _amt_days > 0:
+                try:
+                    # 분모는 평소 하루 지출 그대로. '쿠폰 불가 업종'을 빼고 세던 것은
+                    # 그 비중 표를 폐기하면서 함께 폐기했다(consumption.py 주석 참조).
+                    _d = int(p.get("daily_wd") or 0)
+                    if _d > 0:
+                        relative = (
+                            f" | 평소 하루 지출 {_d:,}원 기준 약 "
+                            f"{max(1, round(_amt_days / _d))}일치"
+                        )
+                except (TypeError, ValueError):
+                    relative = ""
             eligibility = "대상" if my_amt > 0 else "비대상"
             lines.append(
                 f"- {pid}: {eligibility}({basis}) | 지급액 {my_amt:,}원 | "
@@ -567,8 +624,8 @@ def _format_policy_status(
 
     lines.append(
         "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
-        "판단한다. 선택한 거래가 정책 사용처이면 정책지갑을 자기자금보다 먼저 결제하며, "
-        "이 결제 순서는 소비 자체를 새로 만들라는 뜻이 아니다."
+        "판단한다. 정책 사용처에서 정책지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
+        "본인이 정한다. 정책이 있다는 것이 소비 자체를 새로 만들라는 뜻은 아니다."
     )
     return "\n".join(lines)
 
