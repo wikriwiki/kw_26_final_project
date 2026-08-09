@@ -1,0 +1,2635 @@
+{
+  "run_id": "FINAL",
+  "available": true,
+  "reason": null,
+  "source": "events.jsonl (export_run.py 산출)",
+  "poi_summary": {
+    "poi_total": 543924,
+    "poi_eligible": 491675
+  },
+  "totals": {
+    "events": 30189,
+    "amt": 160854101,
+    "policy_paid": 19064187,
+    "extra_spent": 13656495,
+    "coupon_eligible_events": 30028,
+    "would_buy_anyway": 7250
+  },
+  "day_type_counts": {
+    "weekday": 20137,
+    "weekend": 10052
+  },
+  "policy_paid_by_policy_id": {
+    "P010": 19064187
+  },
+  "by_day": [
+    {
+      "day": "2025-07-21",
+      "events": 976,
+      "amt": 6438695,
+      "policy_paid": 701110,
+      "extra_spent": 553500,
+      "coupon_eligible_events": 968,
+      "would_buy_anyway": 243
+    },
+    {
+      "day": "2025-07-22",
+      "events": 996,
+      "amt": 6588776,
+      "policy_paid": 664848,
+      "extra_spent": 218500,
+      "coupon_eligible_events": 987,
+      "would_buy_anyway": 220
+    },
+    {
+      "day": "2025-07-23",
+      "events": 1055,
+      "amt": 6882887,
+      "policy_paid": 843415,
+      "extra_spent": 358000,
+      "coupon_eligible_events": 1043,
+      "would_buy_anyway": 262
+    },
+    {
+      "day": "2025-07-24",
+      "events": 1063,
+      "amt": 6799123,
+      "policy_paid": 984108,
+      "extra_spent": 407000,
+      "coupon_eligible_events": 1058,
+      "would_buy_anyway": 289
+    },
+    {
+      "day": "2025-07-25",
+      "events": 1031,
+      "amt": 6524894,
+      "policy_paid": 845357,
+      "extra_spent": 456500,
+      "coupon_eligible_events": 1025,
+      "would_buy_anyway": 262
+    },
+    {
+      "day": "2025-07-26",
+      "events": 1370,
+      "amt": 6520847,
+      "policy_paid": 520015,
+      "extra_spent": 862700,
+      "coupon_eligible_events": 1354,
+      "would_buy_anyway": 209
+    },
+    {
+      "day": "2025-07-27",
+      "events": 1369,
+      "amt": 6595896,
+      "policy_paid": 731870,
+      "extra_spent": 733533,
+      "coupon_eligible_events": 1361,
+      "would_buy_anyway": 268
+    },
+    {
+      "day": "2025-07-28",
+      "events": 1054,
+      "amt": 6396665,
+      "policy_paid": 911360,
+      "extra_spent": 472000,
+      "coupon_eligible_events": 1047,
+      "would_buy_anyway": 300
+    },
+    {
+      "day": "2025-07-29",
+      "events": 1059,
+      "amt": 6150831,
+      "policy_paid": 799102,
+      "extra_spent": 494000,
+      "coupon_eligible_events": 1049,
+      "would_buy_anyway": 280
+    },
+    {
+      "day": "2025-07-30",
+      "events": 1079,
+      "amt": 6271576,
+      "policy_paid": 675195,
+      "extra_spent": 408500,
+      "coupon_eligible_events": 1073,
+      "would_buy_anyway": 308
+    },
+    {
+      "day": "2025-07-31",
+      "events": 1045,
+      "amt": 6050096,
+      "policy_paid": 811614,
+      "extra_spent": 293000,
+      "coupon_eligible_events": 1036,
+      "would_buy_anyway": 278
+    },
+    {
+      "day": "2025-08-01",
+      "events": 1044,
+      "amt": 5839262,
+      "policy_paid": 813661,
+      "extra_spent": 431200,
+      "coupon_eligible_events": 1034,
+      "would_buy_anyway": 288
+    },
+    {
+      "day": "2025-08-02",
+      "events": 1267,
+      "amt": 6038708,
+      "policy_paid": 739698,
+      "extra_spent": 596583,
+      "coupon_eligible_events": 1261,
+      "would_buy_anyway": 271
+    },
+    {
+      "day": "2025-08-03",
+      "events": 1302,
+      "amt": 5708306,
+      "policy_paid": 632981,
+      "extra_spent": 566000,
+      "coupon_eligible_events": 1294,
+      "would_buy_anyway": 190
+    },
+    {
+      "day": "2025-08-04",
+      "events": 998,
+      "amt": 5558116,
+      "policy_paid": 770001,
+      "extra_spent": 489000,
+      "coupon_eligible_events": 993,
+      "would_buy_anyway": 318
+    },
+    {
+      "day": "2025-08-05",
+      "events": 993,
+      "amt": 5414040,
+      "policy_paid": 519575,
+      "extra_spent": 367700,
+      "coupon_eligible_events": 985,
+      "would_buy_anyway": 229
+    },
+    {
+      "day": "2025-08-06",
+      "events": 1019,
+      "amt": 5632910,
+      "policy_paid": 610050,
+      "extra_spent": 468500,
+      "coupon_eligible_events": 1014,
+      "would_buy_anyway": 282
+    },
+    {
+      "day": "2025-08-07",
+      "events": 1005,
+      "amt": 5500337,
+      "policy_paid": 639220,
+      "extra_spent": 487400,
+      "coupon_eligible_events": 1002,
+      "would_buy_anyway": 268
+    },
+    {
+      "day": "2025-08-08",
+      "events": 997,
+      "amt": 5513982,
+      "policy_paid": 891217,
+      "extra_spent": 489613,
+      "coupon_eligible_events": 994,
+      "would_buy_anyway": 366
+    },
+    {
+      "day": "2025-08-09",
+      "events": 1235,
+      "amt": 5041441,
+      "policy_paid": 475323,
+      "extra_spent": 528000,
+      "coupon_eligible_events": 1229,
+      "would_buy_anyway": 163
+    },
+    {
+      "day": "2025-08-10",
+      "events": 1233,
+      "amt": 5174493,
+      "policy_paid": 476053,
+      "extra_spent": 401800,
+      "coupon_eligible_events": 1231,
+      "would_buy_anyway": 199
+    },
+    {
+      "day": "2025-08-11",
+      "events": 950,
+      "amt": 5102324,
+      "policy_paid": 721337,
+      "extra_spent": 570200,
+      "coupon_eligible_events": 948,
+      "would_buy_anyway": 308
+    },
+    {
+      "day": "2025-08-12",
+      "events": 945,
+      "amt": 5148784,
+      "policy_paid": 660675,
+      "extra_spent": 610600,
+      "coupon_eligible_events": 944,
+      "would_buy_anyway": 266
+    },
+    {
+      "day": "2025-08-13",
+      "events": 965,
+      "amt": 5060006,
+      "policy_paid": 511321,
+      "extra_spent": 373000,
+      "coupon_eligible_events": 964,
+      "would_buy_anyway": 258
+    },
+    {
+      "day": "2025-08-14",
+      "events": 920,
+      "amt": 4712655,
+      "policy_paid": 479444,
+      "extra_spent": 235300,
+      "coupon_eligible_events": 917,
+      "would_buy_anyway": 226
+    },
+    {
+      "day": "2025-08-15",
+      "events": 943,
+      "amt": 4763285,
+      "policy_paid": 530533,
+      "extra_spent": 462166,
+      "coupon_eligible_events": 943,
+      "would_buy_anyway": 246
+    },
+    {
+      "day": "2025-08-16",
+      "events": 1147,
+      "amt": 4702878,
+      "policy_paid": 460020,
+      "extra_spent": 506200,
+      "coupon_eligible_events": 1145,
+      "would_buy_anyway": 208
+    },
+    {
+      "day": "2025-08-17",
+      "events": 1129,
+      "amt": 4722288,
+      "policy_paid": 645084,
+      "extra_spent": 816000,
+      "coupon_eligible_events": 1129,
+      "would_buy_anyway": 245
+    }
+  ],
+  "by_l1": [
+    {
+      "l1": "식사",
+      "events": 7965,
+      "amt": 36936708,
+      "policy_paid": 5016960,
+      "extra_spent": 1468500,
+      "coupon_eligible_events": 7959,
+      "would_buy_anyway": 2009
+    },
+    {
+      "l1": "건강",
+      "events": 5124,
+      "amt": 27393331,
+      "policy_paid": 4118812,
+      "extra_spent": 1316500,
+      "coupon_eligible_events": 5124,
+      "would_buy_anyway": 1496
+    },
+    {
+      "l1": "마트",
+      "events": 2917,
+      "amt": 24317505,
+      "policy_paid": 3160172,
+      "extra_spent": 1529763,
+      "coupon_eligible_events": 2808,
+      "would_buy_anyway": 767
+    },
+    {
+      "l1": "쇼핑",
+      "events": 1948,
+      "amt": 23899378,
+      "policy_paid": 2152614,
+      "extra_spent": 5292782,
+      "coupon_eligible_events": 1938,
+      "would_buy_anyway": 327
+    },
+    {
+      "l1": "카페",
+      "events": 4536,
+      "amt": 12930552,
+      "policy_paid": 309646,
+      "extra_spent": 260950,
+      "coupon_eligible_events": 4532,
+      "would_buy_anyway": 1105
+    },
+    {
+      "l1": "교육",
+      "events": 979,
+      "amt": 11085526,
+      "policy_paid": 1658712,
+      "extra_spent": 568000,
+      "coupon_eligible_events": 979,
+      "would_buy_anyway": 235
+    },
+    {
+      "l1": "여가",
+      "events": 2143,
+      "amt": 10973985,
+      "policy_paid": 1281046,
+      "extra_spent": 2518700,
+      "coupon_eligible_events": 2119,
+      "would_buy_anyway": 333
+    },
+    {
+      "l1": "편의점",
+      "events": 3802,
+      "amt": 8654580,
+      "policy_paid": 784693,
+      "extra_spent": 107500,
+      "coupon_eligible_events": 3794,
+      "would_buy_anyway": 816
+    },
+    {
+      "l1": "미용",
+      "events": 481,
+      "amt": 3810648,
+      "policy_paid": 517665,
+      "extra_spent": 455500,
+      "coupon_eligible_events": 481,
+      "would_buy_anyway": 110
+    },
+    {
+      "l1": "디저트",
+      "events": 260,
+      "amt": 612917,
+      "policy_paid": 45518,
+      "extra_spent": 88300,
+      "coupon_eligible_events": 260,
+      "would_buy_anyway": 43
+    },
+    {
+      "l1": "주점",
+      "events": 9,
+      "amt": 96448,
+      "policy_paid": 12345,
+      "extra_spent": 0,
+      "coupon_eligible_events": 9,
+      "would_buy_anyway": 3
+    },
+    {
+      "l1": "헬스장",
+      "events": 5,
+      "amt": 70392,
+      "policy_paid": 0,
+      "extra_spent": 0,
+      "coupon_eligible_events": 5,
+      "would_buy_anyway": 0
+    },
+    {
+      "l1": "기타",
+      "events": 14,
+      "amt": 37587,
+      "policy_paid": 6004,
+      "extra_spent": 0,
+      "coupon_eligible_events": 14,
+      "would_buy_anyway": 5
+    },
+    {
+      "l1": "통신",
+      "events": 2,
+      "amt": 12358,
+      "policy_paid": 0,
+      "extra_spent": 50000,
+      "coupon_eligible_events": 2,
+      "would_buy_anyway": 0
+    },
+    {
+      "l1": "식료품",
+      "events": 1,
+      "amt": 10023,
+      "policy_paid": 0,
+      "extra_spent": 0,
+      "coupon_eligible_events": 1,
+      "would_buy_anyway": 0
+    },
+    {
+      "l1": "게임",
+      "events": 1,
+      "amt": 5388,
+      "policy_paid": 0,
+      "extra_spent": 0,
+      "coupon_eligible_events": 1,
+      "would_buy_anyway": 1
+    },
+    {
+      "l1": "사진",
+      "events": 1,
+      "amt": 3939,
+      "policy_paid": 0,
+      "extra_spent": 0,
+      "coupon_eligible_events": 1,
+      "would_buy_anyway": 0
+    },
+    {
+      "l1": "세탁",
+      "events": 1,
+      "amt": 2836,
+      "policy_paid": 0,
+      "extra_spent": 0,
+      "coupon_eligible_events": 1,
+      "would_buy_anyway": 0
+    }
+  ],
+  "by_day_l1": [
+    {
+      "day": "2025-07-21",
+      "l1": "건강",
+      "events": 157,
+      "amt": 1021910,
+      "policy_paid": 114761
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "교육",
+      "events": 31,
+      "amt": 441019,
+      "policy_paid": 102574
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "기타",
+      "events": 1,
+      "amt": 2271,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "디저트",
+      "events": 2,
+      "amt": 4348,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "마트",
+      "events": 83,
+      "amt": 1178622,
+      "policy_paid": 76959
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "미용",
+      "events": 12,
+      "amt": 107160,
+      "policy_paid": 17465
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "쇼핑",
+      "events": 35,
+      "amt": 543858,
+      "policy_paid": 101176
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "식사",
+      "events": 277,
+      "amt": 1792155,
+      "policy_paid": 215507
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "여가",
+      "events": 41,
+      "amt": 274792,
+      "policy_paid": 20951
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "카페",
+      "events": 166,
+      "amt": 606234,
+      "policy_paid": 6829
+    },
+    {
+      "day": "2025-07-21",
+      "l1": "편의점",
+      "events": 171,
+      "amt": 466326,
+      "policy_paid": 44888
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "건강",
+      "events": 182,
+      "amt": 1193243,
+      "policy_paid": 150495
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "교육",
+      "events": 30,
+      "amt": 383047,
+      "policy_paid": 67261
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "기타",
+      "events": 1,
+      "amt": 1901,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "디저트",
+      "events": 2,
+      "amt": 4329,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "마트",
+      "events": 86,
+      "amt": 941172,
+      "policy_paid": 93565
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "미용",
+      "events": 12,
+      "amt": 214187,
+      "policy_paid": 12473
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "쇼핑",
+      "events": 37,
+      "amt": 607210,
+      "policy_paid": 60097
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "식사",
+      "events": 279,
+      "amt": 1856182,
+      "policy_paid": 189244
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "여가",
+      "events": 35,
+      "amt": 317700,
+      "policy_paid": 26969
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "카페",
+      "events": 160,
+      "amt": 637134,
+      "policy_paid": 27476
+    },
+    {
+      "day": "2025-07-22",
+      "l1": "편의점",
+      "events": 172,
+      "amt": 432671,
+      "policy_paid": 37268
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "건강",
+      "events": 223,
+      "amt": 1469415,
+      "policy_paid": 213592
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "교육",
+      "events": 24,
+      "amt": 391691,
+      "policy_paid": 35344
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "기타",
+      "events": 1,
+      "amt": 3080,
+      "policy_paid": 3080
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "디저트",
+      "events": 7,
+      "amt": 20162,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "마트",
+      "events": 98,
+      "amt": 1107883,
+      "policy_paid": 241751
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "미용",
+      "events": 14,
+      "amt": 123715,
+      "policy_paid": 16208
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "세탁",
+      "events": 1,
+      "amt": 2836,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "쇼핑",
+      "events": 39,
+      "amt": 653686,
+      "policy_paid": 68314
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "식사",
+      "events": 267,
+      "amt": 1701812,
+      "policy_paid": 203311
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "여가",
+      "events": 40,
+      "amt": 277982,
+      "policy_paid": 23964
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "주점",
+      "events": 1,
+      "amt": 8750,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "카페",
+      "events": 170,
+      "amt": 669689,
+      "policy_paid": 12065
+    },
+    {
+      "day": "2025-07-23",
+      "l1": "편의점",
+      "events": 170,
+      "amt": 452186,
+      "policy_paid": 25786
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "건강",
+      "events": 230,
+      "amt": 1506089,
+      "policy_paid": 358328
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "교육",
+      "events": 35,
+      "amt": 514355,
+      "policy_paid": 35037
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "디저트",
+      "events": 3,
+      "amt": 5450,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "마트",
+      "events": 110,
+      "amt": 1087775,
+      "policy_paid": 143314
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "미용",
+      "events": 11,
+      "amt": 101612,
+      "policy_paid": 22633
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "쇼핑",
+      "events": 45,
+      "amt": 702382,
+      "policy_paid": 17204
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "식사",
+      "events": 260,
+      "amt": 1626100,
+      "policy_paid": 268482
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "여가",
+      "events": 25,
+      "amt": 181721,
+      "policy_paid": 42678
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "카페",
+      "events": 174,
+      "amt": 601084,
+      "policy_paid": 25027
+    },
+    {
+      "day": "2025-07-24",
+      "l1": "편의점",
+      "events": 170,
+      "amt": 472555,
+      "policy_paid": 71405
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "건강",
+      "events": 221,
+      "amt": 1408443,
+      "policy_paid": 214704
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "교육",
+      "events": 26,
+      "amt": 272596,
+      "policy_paid": 32614
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "디저트",
+      "events": 6,
+      "amt": 17281,
+      "policy_paid": 664
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "마트",
+      "events": 99,
+      "amt": 1030468,
+      "policy_paid": 143903
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "미용",
+      "events": 10,
+      "amt": 183411,
+      "policy_paid": 43560
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "쇼핑",
+      "events": 54,
+      "amt": 858033,
+      "policy_paid": 151220
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "식사",
+      "events": 256,
+      "amt": 1578560,
+      "policy_paid": 206245
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "여가",
+      "events": 33,
+      "amt": 248129,
+      "policy_paid": 20129
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "카페",
+      "events": 165,
+      "amt": 548242,
+      "policy_paid": 15097
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "편의점",
+      "events": 160,
+      "amt": 376391,
+      "policy_paid": 17221
+    },
+    {
+      "day": "2025-07-25",
+      "l1": "헬스장",
+      "events": 1,
+      "amt": 3340,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "건강",
+      "events": 102,
+      "amt": 364853,
+      "policy_paid": 19231
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "교육",
+      "events": 50,
+      "amt": 496319,
+      "policy_paid": 38787
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "기타",
+      "events": 2,
+      "amt": 4596,
+      "policy_paid": 642
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "디저트",
+      "events": 17,
+      "amt": 38571,
+      "policy_paid": 2155
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "마트",
+      "events": 137,
+      "amt": 859852,
+      "policy_paid": 60572
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "미용",
+      "events": 36,
+      "amt": 228199,
+      "policy_paid": 24853
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "쇼핑",
+      "events": 124,
+      "amt": 1363109,
+      "policy_paid": 138942
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "식사",
+      "events": 404,
+      "amt": 1501273,
+      "policy_paid": 132353
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "여가",
+      "events": 200,
+      "amt": 948958,
+      "policy_paid": 77704
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "주점",
+      "events": 1,
+      "amt": 9582,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "카페",
+      "events": 201,
+      "amt": 496557,
+      "policy_paid": 8144
+    },
+    {
+      "day": "2025-07-26",
+      "l1": "편의점",
+      "events": 96,
+      "amt": 208978,
+      "policy_paid": 16632
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "건강",
+      "events": 85,
+      "amt": 289011,
+      "policy_paid": 37901
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "교육",
+      "events": 44,
+      "amt": 461505,
+      "policy_paid": 5939
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "기타",
+      "events": 1,
+      "amt": 2225,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "디저트",
+      "events": 18,
+      "amt": 39373,
+      "policy_paid": 5667
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "마트",
+      "events": 138,
+      "amt": 831665,
+      "policy_paid": 118295
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "미용",
+      "events": 40,
+      "amt": 273023,
+      "policy_paid": 73954
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "쇼핑",
+      "events": 110,
+      "amt": 1347268,
+      "policy_paid": 158819
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "식사",
+      "events": 413,
+      "amt": 1549266,
+      "policy_paid": 154517
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "여가",
+      "events": 219,
+      "amt": 1077093,
+      "policy_paid": 159159
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "카페",
+      "events": 214,
+      "amt": 542797,
+      "policy_paid": 12277
+    },
+    {
+      "day": "2025-07-27",
+      "l1": "편의점",
+      "events": 87,
+      "amt": 182670,
+      "policy_paid": 5342
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "건강",
+      "events": 230,
+      "amt": 1365982,
+      "policy_paid": 227809
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "교육",
+      "events": 33,
+      "amt": 370086,
+      "policy_paid": 114830
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "기타",
+      "events": 1,
+      "amt": 1812,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "디저트",
+      "events": 7,
+      "amt": 19043,
+      "policy_paid": 6644
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "마트",
+      "events": 97,
+      "amt": 976194,
+      "policy_paid": 143838
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "미용",
+      "events": 15,
+      "amt": 137507,
+      "policy_paid": 3802
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "쇼핑",
+      "events": 68,
+      "amt": 1059389,
+      "policy_paid": 70661
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "식료품",
+      "events": 1,
+      "amt": 10023,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "식사",
+      "events": 258,
+      "amt": 1437244,
+      "policy_paid": 269359
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "여가",
+      "events": 24,
+      "amt": 166434,
+      "policy_paid": 24582
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "주점",
+      "events": 1,
+      "amt": 12345,
+      "policy_paid": 12345
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "카페",
+      "events": 153,
+      "amt": 455896,
+      "policy_paid": 3188
+    },
+    {
+      "day": "2025-07-28",
+      "l1": "편의점",
+      "events": 166,
+      "amt": 384710,
+      "policy_paid": 34302
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "건강",
+      "events": 237,
+      "amt": 1341706,
+      "policy_paid": 245716
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "교육",
+      "events": 32,
+      "amt": 447897,
+      "policy_paid": 68239
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "디저트",
+      "events": 7,
+      "amt": 21109,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "마트",
+      "events": 116,
+      "amt": 1114702,
+      "policy_paid": 114087
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "미용",
+      "events": 15,
+      "amt": 152222,
+      "policy_paid": 16044
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "쇼핑",
+      "events": 46,
+      "amt": 611580,
+      "policy_paid": 84309
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "식사",
+      "events": 246,
+      "amt": 1322202,
+      "policy_paid": 217460
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "여가",
+      "events": 39,
+      "amt": 270362,
+      "policy_paid": 15861
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "주점",
+      "events": 1,
+      "amt": 7933,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "카페",
+      "events": 162,
+      "amt": 510033,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-29",
+      "l1": "편의점",
+      "events": 158,
+      "amt": 351085,
+      "policy_paid": 37386
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "건강",
+      "events": 246,
+      "amt": 1370179,
+      "policy_paid": 157365
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "교육",
+      "events": 36,
+      "amt": 520944,
+      "policy_paid": 59202
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "디저트",
+      "events": 7,
+      "amt": 17604,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "마트",
+      "events": 104,
+      "amt": 968941,
+      "policy_paid": 114819
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "미용",
+      "events": 7,
+      "amt": 108320,
+      "policy_paid": 2028
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "쇼핑",
+      "events": 53,
+      "amt": 810428,
+      "policy_paid": 57968
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "식사",
+      "events": 267,
+      "amt": 1315795,
+      "policy_paid": 217634
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "여가",
+      "events": 30,
+      "amt": 177936,
+      "policy_paid": 13119
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "주점",
+      "events": 1,
+      "amt": 15074,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "카페",
+      "events": 162,
+      "amt": 533975,
+      "policy_paid": 11500
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "편의점",
+      "events": 165,
+      "amt": 408424,
+      "policy_paid": 41560
+    },
+    {
+      "day": "2025-07-30",
+      "l1": "헬스장",
+      "events": 1,
+      "amt": 23956,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "건강",
+      "events": 233,
+      "amt": 1276132,
+      "policy_paid": 224972
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "게임",
+      "events": 1,
+      "amt": 5388,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "교육",
+      "events": 32,
+      "amt": 366289,
+      "policy_paid": 45376
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "기타",
+      "events": 1,
+      "amt": 4318,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "디저트",
+      "events": 6,
+      "amt": 19046,
+      "policy_paid": 3757
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "마트",
+      "events": 114,
+      "amt": 1189591,
+      "policy_paid": 130814
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "미용",
+      "events": 11,
+      "amt": 122388,
+      "policy_paid": 20195
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "쇼핑",
+      "events": 49,
+      "amt": 665927,
+      "policy_paid": 106346
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "식사",
+      "events": 255,
+      "amt": 1324164,
+      "policy_paid": 225121
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "여가",
+      "events": 30,
+      "amt": 222202,
+      "policy_paid": 15040
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "카페",
+      "events": 157,
+      "amt": 500057,
+      "policy_paid": 13746
+    },
+    {
+      "day": "2025-07-31",
+      "l1": "편의점",
+      "events": 156,
+      "amt": 354594,
+      "policy_paid": 26247
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "건강",
+      "events": 226,
+      "amt": 1254610,
+      "policy_paid": 198906
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "교육",
+      "events": 38,
+      "amt": 468829,
+      "policy_paid": 111967
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "디저트",
+      "events": 7,
+      "amt": 13427,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "마트",
+      "events": 109,
+      "amt": 1029369,
+      "policy_paid": 132845
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "미용",
+      "events": 9,
+      "amt": 85447,
+      "policy_paid": 44056
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "쇼핑",
+      "events": 48,
+      "amt": 668471,
+      "policy_paid": 95954
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "식사",
+      "events": 251,
+      "amt": 1270042,
+      "policy_paid": 141560
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "여가",
+      "events": 32,
+      "amt": 201958,
+      "policy_paid": 38596
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "카페",
+      "events": 162,
+      "amt": 473945,
+      "policy_paid": 9108
+    },
+    {
+      "day": "2025-08-01",
+      "l1": "편의점",
+      "events": 162,
+      "amt": 373164,
+      "policy_paid": 40669
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "건강",
+      "events": 81,
+      "amt": 282992,
+      "policy_paid": 40560
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "교육",
+      "events": 43,
+      "amt": 473838,
+      "policy_paid": 129411
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "디저트",
+      "events": 18,
+      "amt": 42033,
+      "policy_paid": 6180
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "마트",
+      "events": 132,
+      "amt": 757033,
+      "policy_paid": 105951
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "미용",
+      "events": 34,
+      "amt": 231795,
+      "policy_paid": 53992
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "쇼핑",
+      "events": 121,
+      "amt": 1352199,
+      "policy_paid": 77128
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "식사",
+      "events": 365,
+      "amt": 1281985,
+      "policy_paid": 146891
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "여가",
+      "events": 197,
+      "amt": 957616,
+      "policy_paid": 152180
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "주점",
+      "events": 1,
+      "amt": 7098,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "카페",
+      "events": 189,
+      "amt": 447085,
+      "policy_paid": 18226
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "편의점",
+      "events": 85,
+      "amt": 194767,
+      "policy_paid": 9179
+    },
+    {
+      "day": "2025-08-02",
+      "l1": "헬스장",
+      "events": 1,
+      "amt": 10267,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "건강",
+      "events": 96,
+      "amt": 307673,
+      "policy_paid": 26422
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "교육",
+      "events": 43,
+      "amt": 453363,
+      "policy_paid": 129516
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "디저트",
+      "events": 20,
+      "amt": 42198,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "마트",
+      "events": 126,
+      "amt": 738410,
+      "policy_paid": 83137
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "미용",
+      "events": 26,
+      "amt": 117242,
+      "policy_paid": 14196
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "쇼핑",
+      "events": 111,
+      "amt": 1187952,
+      "policy_paid": 116137
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "식사",
+      "events": 398,
+      "amt": 1371885,
+      "policy_paid": 143129
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "여가",
+      "events": 201,
+      "amt": 870978,
+      "policy_paid": 97050
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "카페",
+      "events": 186,
+      "amt": 421629,
+      "policy_paid": 15572
+    },
+    {
+      "day": "2025-08-03",
+      "l1": "편의점",
+      "events": 95,
+      "amt": 196976,
+      "policy_paid": 7822
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "건강",
+      "events": 223,
+      "amt": 1249136,
+      "policy_paid": 187318
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "교육",
+      "events": 32,
+      "amt": 329356,
+      "policy_paid": 55477
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "디저트",
+      "events": 9,
+      "amt": 27239,
+      "policy_paid": 2748
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "마트",
+      "events": 89,
+      "amt": 858389,
+      "policy_paid": 99272
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "미용",
+      "events": 12,
+      "amt": 114688,
+      "policy_paid": 7392
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "사진",
+      "events": 1,
+      "amt": 3939,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "쇼핑",
+      "events": 49,
+      "amt": 680419,
+      "policy_paid": 40556
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "식사",
+      "events": 251,
+      "amt": 1263834,
+      "policy_paid": 283455
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "여가",
+      "events": 29,
+      "amt": 220196,
+      "policy_paid": 38310
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "주점",
+      "events": 1,
+      "amt": 19553,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "카페",
+      "events": 150,
+      "amt": 462608,
+      "policy_paid": 5945
+    },
+    {
+      "day": "2025-08-04",
+      "l1": "편의점",
+      "events": 152,
+      "amt": 328759,
+      "policy_paid": 49528
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "건강",
+      "events": 214,
+      "amt": 1142063,
+      "policy_paid": 173933
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "교육",
+      "events": 27,
+      "amt": 293977,
+      "policy_paid": 27686
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "디저트",
+      "events": 8,
+      "amt": 19543,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "마트",
+      "events": 97,
+      "amt": 951633,
+      "policy_paid": 129573
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "미용",
+      "events": 11,
+      "amt": 80652,
+      "policy_paid": 5323
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "쇼핑",
+      "events": 46,
+      "amt": 594815,
+      "policy_paid": 7898
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "식사",
+      "events": 248,
+      "amt": 1364319,
+      "policy_paid": 128733
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "여가",
+      "events": 26,
+      "amt": 145972,
+      "policy_paid": 4816
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "카페",
+      "events": 157,
+      "amt": 447341,
+      "policy_paid": 5870
+    },
+    {
+      "day": "2025-08-05",
+      "l1": "편의점",
+      "events": 159,
+      "amt": 373725,
+      "policy_paid": 35743
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "건강",
+      "events": 244,
+      "amt": 1397250,
+      "policy_paid": 201594
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "교육",
+      "events": 36,
+      "amt": 405637,
+      "policy_paid": 46657
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "디저트",
+      "events": 5,
+      "amt": 13331,
+      "policy_paid": 4107
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "마트",
+      "events": 99,
+      "amt": 916439,
+      "policy_paid": 90013
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "미용",
+      "events": 11,
+      "amt": 102967,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "쇼핑",
+      "events": 49,
+      "amt": 614011,
+      "policy_paid": 58109
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "식사",
+      "events": 243,
+      "amt": 1240018,
+      "policy_paid": 149518
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "여가",
+      "events": 28,
+      "amt": 167737,
+      "policy_paid": 27643
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "카페",
+      "events": 147,
+      "amt": 421565,
+      "policy_paid": 14517
+    },
+    {
+      "day": "2025-08-06",
+      "l1": "편의점",
+      "events": 157,
+      "amt": 353955,
+      "policy_paid": 17892
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "건강",
+      "events": 241,
+      "amt": 1355191,
+      "policy_paid": 179115
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "교육",
+      "events": 30,
+      "amt": 346224,
+      "policy_paid": 72794
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "디저트",
+      "events": 6,
+      "amt": 11837,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "마트",
+      "events": 90,
+      "amt": 788373,
+      "policy_paid": 98291
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "미용",
+      "events": 11,
+      "amt": 114745,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "쇼핑",
+      "events": 53,
+      "amt": 797397,
+      "policy_paid": 78600
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "식사",
+      "events": 238,
+      "amt": 1166915,
+      "policy_paid": 142883
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "여가",
+      "events": 31,
+      "amt": 179683,
+      "policy_paid": 25154
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "주점",
+      "events": 1,
+      "amt": 10409,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "카페",
+      "events": 147,
+      "amt": 419141,
+      "policy_paid": 15041
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "통신",
+      "events": 1,
+      "amt": 2852,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-07",
+      "l1": "편의점",
+      "events": 156,
+      "amt": 307570,
+      "policy_paid": 27342
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "건강",
+      "events": 229,
+      "amt": 1223173,
+      "policy_paid": 190211
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "교육",
+      "events": 33,
+      "amt": 421749,
+      "policy_paid": 103939
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "기타",
+      "events": 1,
+      "amt": 2758,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "디저트",
+      "events": 5,
+      "amt": 10299,
+      "policy_paid": 4563
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "마트",
+      "events": 82,
+      "amt": 723084,
+      "policy_paid": 146637
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "미용",
+      "events": 10,
+      "amt": 84941,
+      "policy_paid": 8695
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "쇼핑",
+      "events": 50,
+      "amt": 669406,
+      "policy_paid": 89793
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "식사",
+      "events": 255,
+      "amt": 1345500,
+      "policy_paid": 265402
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "여가",
+      "events": 29,
+      "amt": 197035,
+      "policy_paid": 23864
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "카페",
+      "events": 154,
+      "amt": 492608,
+      "policy_paid": 16622
+    },
+    {
+      "day": "2025-08-08",
+      "l1": "편의점",
+      "events": 149,
+      "amt": 343429,
+      "policy_paid": 41491
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "건강",
+      "events": 79,
+      "amt": 234492,
+      "policy_paid": 26281
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "교육",
+      "events": 45,
+      "amt": 371509,
+      "policy_paid": 74700
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "디저트",
+      "events": 16,
+      "amt": 34986,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "마트",
+      "events": 127,
+      "amt": 689306,
+      "policy_paid": 85267
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "미용",
+      "events": 28,
+      "amt": 135855,
+      "policy_paid": 11892
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "쇼핑",
+      "events": 119,
+      "amt": 1017562,
+      "policy_paid": 58812
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "식사",
+      "events": 367,
+      "amt": 1091425,
+      "policy_paid": 127396
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "여가",
+      "events": 187,
+      "amt": 868275,
+      "policy_paid": 77442
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "카페",
+      "events": 179,
+      "amt": 414457,
+      "policy_paid": 7034
+    },
+    {
+      "day": "2025-08-09",
+      "l1": "편의점",
+      "events": 88,
+      "amt": 183574,
+      "policy_paid": 6499
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "건강",
+      "events": 90,
+      "amt": 281842,
+      "policy_paid": 43188
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "교육",
+      "events": 48,
+      "amt": 410224,
+      "policy_paid": 40877
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "기타",
+      "events": 1,
+      "amt": 1953,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "디저트",
+      "events": 18,
+      "amt": 44356,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "마트",
+      "events": 117,
+      "amt": 611487,
+      "policy_paid": 100664
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "미용",
+      "events": 28,
+      "amt": 167972,
+      "policy_paid": 17365
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "쇼핑",
+      "events": 127,
+      "amt": 1221049,
+      "policy_paid": 93034
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "식사",
+      "events": 360,
+      "amt": 1087337,
+      "policy_paid": 109119
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "여가",
+      "events": 194,
+      "amt": 851941,
+      "policy_paid": 54716
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "카페",
+      "events": 173,
+      "amt": 348961,
+      "policy_paid": 4363
+    },
+    {
+      "day": "2025-08-10",
+      "l1": "편의점",
+      "events": 77,
+      "amt": 147371,
+      "policy_paid": 12727
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "건강",
+      "events": 211,
+      "amt": 1092741,
+      "policy_paid": 168603
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "교육",
+      "events": 26,
+      "amt": 320736,
+      "policy_paid": 38342
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "디저트",
+      "events": 7,
+      "amt": 19853,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "마트",
+      "events": 91,
+      "amt": 833314,
+      "policy_paid": 119310
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "미용",
+      "events": 15,
+      "amt": 128103,
+      "policy_paid": 33931
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "쇼핑",
+      "events": 51,
+      "amt": 638463,
+      "policy_paid": 85327
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "식사",
+      "events": 243,
+      "amt": 1227295,
+      "policy_paid": 198860
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "여가",
+      "events": 28,
+      "amt": 155136,
+      "policy_paid": 20650
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "카페",
+      "events": 140,
+      "amt": 402454,
+      "policy_paid": 11832
+    },
+    {
+      "day": "2025-08-11",
+      "l1": "편의점",
+      "events": 138,
+      "amt": 284229,
+      "policy_paid": 44482
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "건강",
+      "events": 195,
+      "amt": 995798,
+      "policy_paid": 171530
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "교육",
+      "events": 31,
+      "amt": 363011,
+      "policy_paid": 35506
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "기타",
+      "events": 1,
+      "amt": 2282,
+      "policy_paid": 2282
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "디저트",
+      "events": 6,
+      "amt": 12452,
+      "policy_paid": 2658
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "마트",
+      "events": 98,
+      "amt": 829571,
+      "policy_paid": 133233
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "미용",
+      "events": 13,
+      "amt": 123236,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "쇼핑",
+      "events": 62,
+      "amt": 824193,
+      "policy_paid": 36205
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "식사",
+      "events": 222,
+      "amt": 1071098,
+      "policy_paid": 195201
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "여가",
+      "events": 39,
+      "amt": 262672,
+      "policy_paid": 50620
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "카페",
+      "events": 139,
+      "amt": 359567,
+      "policy_paid": 7295
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "통신",
+      "events": 1,
+      "amt": 9506,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-12",
+      "l1": "편의점",
+      "events": 138,
+      "amt": 295398,
+      "policy_paid": 26145
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "건강",
+      "events": 226,
+      "amt": 1174559,
+      "policy_paid": 162861
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "교육",
+      "events": 31,
+      "amt": 381183,
+      "policy_paid": 21966
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "기타",
+      "events": 1,
+      "amt": 3042,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "디저트",
+      "events": 6,
+      "amt": 12492,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "마트",
+      "events": 84,
+      "amt": 681434,
+      "policy_paid": 59278
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "미용",
+      "events": 15,
+      "amt": 109426,
+      "policy_paid": 15716
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "쇼핑",
+      "events": 56,
+      "amt": 758891,
+      "policy_paid": 17366
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "식사",
+      "events": 245,
+      "amt": 1167637,
+      "policy_paid": 170565
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "여가",
+      "events": 26,
+      "amt": 148475,
+      "policy_paid": 29698
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "카페",
+      "events": 139,
+      "amt": 358264,
+      "policy_paid": 3596
+    },
+    {
+      "day": "2025-08-13",
+      "l1": "편의점",
+      "events": 136,
+      "amt": 264603,
+      "policy_paid": 30275
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "건강",
+      "events": 220,
+      "amt": 1138167,
+      "policy_paid": 148079
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "교육",
+      "events": 32,
+      "amt": 329309,
+      "policy_paid": 46173
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "기타",
+      "events": 1,
+      "amt": 5133,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "디저트",
+      "events": 5,
+      "amt": 10190,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "마트",
+      "events": 85,
+      "amt": 727497,
+      "policy_paid": 79893
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "미용",
+      "events": 15,
+      "amt": 101254,
+      "policy_paid": 14914
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "쇼핑",
+      "events": 45,
+      "amt": 581503,
+      "policy_paid": 15654
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "식사",
+      "events": 221,
+      "amt": 1034054,
+      "policy_paid": 148237
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "여가",
+      "events": 22,
+      "amt": 116320,
+      "policy_paid": 1593
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "카페",
+      "events": 134,
+      "amt": 356187,
+      "policy_paid": 6781
+    },
+    {
+      "day": "2025-08-14",
+      "l1": "편의점",
+      "events": 140,
+      "amt": 313041,
+      "policy_paid": 18120
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "건강",
+      "events": 234,
+      "amt": 1151909,
+      "policy_paid": 176316
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "교육",
+      "events": 31,
+      "amt": 294856,
+      "policy_paid": 17734
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "디저트",
+      "events": 6,
+      "amt": 13976,
+      "policy_paid": 3080
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "마트",
+      "events": 89,
+      "amt": 729892,
+      "policy_paid": 111100
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "미용",
+      "events": 11,
+      "amt": 78942,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "쇼핑",
+      "events": 59,
+      "amt": 750248,
+      "policy_paid": 48923
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "식사",
+      "events": 215,
+      "amt": 955459,
+      "policy_paid": 109666
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "여가",
+      "events": 18,
+      "amt": 94435,
+      "policy_paid": 12092
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "카페",
+      "events": 138,
+      "amt": 364620,
+      "policy_paid": 15631
+    },
+    {
+      "day": "2025-08-15",
+      "l1": "편의점",
+      "events": 142,
+      "amt": 328948,
+      "policy_paid": 35991
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "건강",
+      "events": 86,
+      "amt": 264830,
+      "policy_paid": 23631
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "교육",
+      "events": 40,
+      "amt": 379590,
+      "policy_paid": 17745
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "기타",
+      "events": 1,
+      "amt": 2216,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "디저트",
+      "events": 20,
+      "amt": 45840,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "마트",
+      "events": 117,
+      "amt": 631636,
+      "policy_paid": 104520
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "미용",
+      "events": 31,
+      "amt": 169268,
+      "policy_paid": 27124
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "쇼핑",
+      "events": 117,
+      "amt": 1089328,
+      "policy_paid": 49241
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "식사",
+      "events": 326,
+      "amt": 987894,
+      "policy_paid": 142674
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "여가",
+      "events": 169,
+      "amt": 651515,
+      "policy_paid": 79376
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "카페",
+      "events": 155,
+      "amt": 301655,
+      "policy_paid": 5298
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "편의점",
+      "events": 83,
+      "amt": 146277,
+      "policy_paid": 10411
+    },
+    {
+      "day": "2025-08-16",
+      "l1": "헬스장",
+      "events": 2,
+      "amt": 32829,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "건강",
+      "events": 83,
+      "amt": 239942,
+      "policy_paid": 35390
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "교육",
+      "events": 40,
+      "amt": 376387,
+      "policy_paid": 83019
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "디저트",
+      "events": 16,
+      "amt": 32549,
+      "policy_paid": 3295
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "마트",
+      "events": 103,
+      "amt": 533773,
+      "policy_paid": 99271
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "미용",
+      "events": 18,
+      "amt": 112371,
+      "policy_paid": 9854
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "쇼핑",
+      "events": 125,
+      "amt": 1230601,
+      "policy_paid": 168821
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "식사",
+      "events": 335,
+      "amt": 1005258,
+      "policy_paid": 114438
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "여가",
+      "events": 171,
+      "amt": 720732,
+      "policy_paid": 107090
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "주점",
+      "events": 1,
+      "amt": 5704,
+      "policy_paid": 0
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "카페",
+      "events": 163,
+      "amt": 336767,
+      "policy_paid": 11566
+    },
+    {
+      "day": "2025-08-17",
+      "l1": "편의점",
+      "events": 74,
+      "amt": 128204,
+      "policy_paid": 12340
+    }
+  ],
+  "null_only_fields": [
+    "dong"
+  ],
+  "unknown": [
+    "dong"
+  ]
+}

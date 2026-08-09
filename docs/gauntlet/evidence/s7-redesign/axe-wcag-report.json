@@ -1,0 +1,126 @@
+{
+  "generatedAt": "2026-08-03T10:29:08.257Z",
+  "tags": [
+    "wcag2a",
+    "wcag2aa",
+    "wcag21a",
+    "wcag21aa",
+    "wcag22aa",
+    "wcag2aaa"
+  ],
+  "audits": [
+    {
+      "theme": "light",
+      "hash": "#/simulations",
+      "passes": 31,
+      "incomplete": 0,
+      "inapplicable": 35,
+      "violations": 0
+    },
+    {
+      "theme": "light",
+      "hash": "#/simulations/new/about",
+      "passes": 26,
+      "incomplete": 2,
+      "inapplicable": 40,
+      "violations": 0
+    },
+    {
+      "theme": "light",
+      "hash": "#/simulations/new/policy",
+      "passes": 26,
+      "incomplete": 2,
+      "inapplicable": 40,
+      "violations": 0
+    },
+    {
+      "theme": "light",
+      "hash": "#/simulations/BASE/overview",
+      "passes": 30,
+      "incomplete": 0,
+      "inapplicable": 36,
+      "violations": 0
+    },
+    {
+      "theme": "light",
+      "hash": "#/simulations/BASE/agents",
+      "passes": 27,
+      "incomplete": 2,
+      "inapplicable": 39,
+      "violations": 0
+    },
+    {
+      "theme": "light",
+      "hash": "#/simulations/BASE/visualization",
+      "passes": 27,
+      "incomplete": 0,
+      "inapplicable": 39,
+      "violations": 0
+    },
+    {
+      "theme": "light",
+      "hash": "#/simulations/BASE/reports",
+      "passes": 25,
+      "incomplete": 0,
+      "inapplicable": 41,
+      "violations": 0
+    },
+    {
+      "theme": "dark",
+      "hash": "#/simulations",
+      "passes": 31,
+      "incomplete": 0,
+      "inapplicable": 35,
+      "violations": 0
+    },
+    {
+      "theme": "dark",
+      "hash": "#/simulations/new/about",
+      "passes": 26,
+      "incomplete": 2,
+      "inapplicable": 40,
+      "violations": 0
+    },
+    {
+      "theme": "dark",
+      "hash": "#/simulations/new/policy",
+      "passes": 26,
+      "incomplete": 2,
+      "inapplicable": 40,
+      "violations": 0
+    },
+    {
+      "theme": "dark",
+      "hash": "#/simulations/BASE/overview",
+      "passes": 30,
+      "incomplete": 0,
+      "inapplicable": 36,
+      "violations": 0
+    },
+    {
+      "theme": "dark",
+      "hash": "#/simulations/BASE/agents",
+      "passes": 27,
+      "incomplete": 2,
+      "inapplicable": 39,
+      "violations": 0
+    },
+    {
+      "theme": "dark",
+      "hash": "#/simulations/BASE/visualization",
+      "passes": 27,
+      "incomplete": 0,
+      "inapplicable": 39,
+      "violations": 0
+    },
+    {
+      "theme": "dark",
+      "hash": "#/simulations/BASE/reports",
+      "passes": 25,
+      "incomplete": 0,
+      "inapplicable": 41,
+      "violations": 0
+    }
+  ],
+  "violations": []
+}

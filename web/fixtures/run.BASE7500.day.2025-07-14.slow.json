@@ -1,0 +1,17 @@
+{
+  "run_id": "BASE7500",
+  "day": "2025-07-14",
+  "available": false,
+  "reason": "timing/slow_2025-07-14.json 없음",
+  "total": null,
+  "limit": 15,
+  "sorted_by": "max(slow.*) desc",
+  "phase_counts": null,
+  "items": [],
+  "unknown": [
+    "total",
+    "phase_counts",
+    "items",
+    "slow_thresholds_sec"
+  ]
+}

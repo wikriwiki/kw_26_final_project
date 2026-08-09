@@ -98,3 +98,13 @@ output/sim/visualization/sim_standalone.html
 output/sim/visualization/sim_standalone.zip
 output/neo4j_backup_*/
 
+
+# 시연용 시각화·대상자 데이터 — 생성물이라 저장소에 넣지 않는다.
+#   web/viz_store/     extract_viz_json.py + build_standalone_html.py 산출 (250MB)
+#   web/ui/public/agent-console/  build_agent_console_data.py 산출 (46MB, 1826 파일)
+# 재생성:
+#   python web/tools/extract_viz_json.py --src output/sim/visualization/sim_standalone_full.html --out web/viz_store/demo
+#   VIZ_OUT_DIR=web/viz_store/demo python scripts/sim/build_standalone_html.py
+#   python web/ui/tools/build_agent_console_data.py
+web/viz_store/
+web/ui/public/agent-console/

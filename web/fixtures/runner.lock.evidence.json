@@ -1,0 +1,42 @@
+{
+  "source": "logs_scripts/chain_p2.log (실측)",
+  "note": "동일 chain 스크립트가 두 번 기동되어 두 번째 실행의 `neo4j stop` 이 첫 실행의 시뮬레이션을 죽였다. lock 리소스가 막아야 하는 정확한 사건.",
+  "timeline": [
+    {
+      "line_no": 1,
+      "text": "[08-02 16:12:22] 2단계 시작 — 7,500명 순차 전후"
+    },
+    {
+      "line_no": 2,
+      "text": "[08-02 16:12:22] Day 0 덤프 복원"
+    },
+    {
+      "line_no": 189,
+      "text": "[08-02 16:16:20] 기존 7/14 이후 Plan 정리 완료"
+    },
+    {
+      "line_no": 212,
+      "text": "[08-02 16:16:32] 라벨·앵커·업종 적재 완료"
+    },
+    {
+      "line_no": 213,
+      "text": "[08-02 16:16:33] 1구간 BASE7500 기동 PID=1257679 (무정책 7/14~07/20)"
+    },
+    {
+      "line_no": 214,
+      "text": "[08-02 18:59:01] 2단계 시작 — 7,500명 순차 전후"
+    },
+    {
+      "line_no": 215,
+      "text": "[08-02 18:59:01] Day 0 덤프 복원"
+    }
+  ],
+  "timeline_total": 7,
+  "timeline_limit": 8,
+  "killed_run": {
+    "run_id": "BASE7500",
+    "run_root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\rescue\\out_BASE7500",
+    "log": "logs_scripts/run_BASE7500.log"
+  },
+  "unknown": []
+}

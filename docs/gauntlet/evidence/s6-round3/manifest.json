@@ -1,0 +1,198 @@
+{
+  "baseURL": "http://127.0.0.1:8000",
+  "generatedAt": "2026-08-03T08:14:08.421Z",
+  "observations": [
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1280,
+        "height": 768
+      },
+      "view": "monitor",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\wide-monitor.png",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/monitor"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1280,
+        "height": 768
+      },
+      "view": "policy",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\wide-policy.png",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/policy"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1280,
+        "height": 768
+      },
+      "view": "results",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\wide-results.png",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/results"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1280,
+        "height": 768
+      },
+      "view": "contract",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\wide-contract.png",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/contract"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1280,
+        "height": 768
+      },
+      "view": "system",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\wide-system.png",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/system"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "compact",
+        "width": 768,
+        "height": 768
+      },
+      "view": "monitor",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\compact-monitor.png",
+      "layout": {
+        "clientWidth": 768,
+        "scrollWidth": 768,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/monitor"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "compact",
+        "width": 768,
+        "height": 768
+      },
+      "view": "policy",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\compact-policy.png",
+      "layout": {
+        "clientWidth": 768,
+        "scrollWidth": 768,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/policy"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "compact",
+        "width": 768,
+        "height": 768
+      },
+      "view": "results",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\compact-results.png",
+      "layout": {
+        "clientWidth": 768,
+        "scrollWidth": 768,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/results"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "compact",
+        "width": 768,
+        "height": 768
+      },
+      "view": "contract",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\compact-contract.png",
+      "layout": {
+        "clientWidth": 768,
+        "scrollWidth": 768,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/contract"
+      },
+      "mainCount": 1
+    },
+    {
+      "viewport": {
+        "name": "compact",
+        "width": 768,
+        "height": 768
+      },
+      "view": "system",
+      "screenshot": "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\docs\\gauntlet\\evidence\\s6-round3\\compact-system.png",
+      "layout": {
+        "clientWidth": 768,
+        "scrollWidth": 768,
+        "clientHeight": 768,
+        "scrollHeight": 768,
+        "horizontalOverflow": false,
+        "title": "서울 상권정책 시뮬레이션 콘솔",
+        "pathname": "http://127.0.0.1:8000/#/system"
+      },
+      "mainCount": 1
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

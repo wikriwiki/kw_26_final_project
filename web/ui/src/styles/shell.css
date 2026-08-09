@@ -1,0 +1,397 @@
+/* ==========================================================================
+   run 셸 + 시뮬레이션 목록 — docs/DESIGN_IA_RUN_FIRST.md §3·§4.
+
+   layout.css 의 레일/드로어 골격은 그대로 두고, 그 위에 세 층을 얹는다.
+     1. ← 모든 시뮬레이션   (.shellback)
+     2. 현재 실행 + 전환     (.runswitch / .runmenu)
+     3. 기능 내비           (.drawer__link 확장 — 비활성 + 이유)
+   레일의 슬롯 순서도 같아서, 접었다 펴도 항목이 자리를 옮기지 않는다.
+
+   main.tsx 가 읽는 다섯 파일 뒤에 붙는다(App.tsx 에서 import). 같은 특이도면
+   나중 규칙이 이기므로 layout.css 의 :hover 를 여기서 덮을 수 있다.
+   ========================================================================== */
+
+/* --- 셸 없는 화면의 본문 틀 ------------------------------------------------ */
+/* 목록·만들기·오류 화면은 사이드바가 없다. `.page` 가 하던 몫을 여기서 한다.
+   1440px 은 표가 있는 작업 화면용 폭이다. 고르기만 하는 화면은 더 좁게 잡아
+   한 줄이 눈으로 훑기 좋은 길이를 넘지 않게 한다 */
+
+.home {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: var(--sp-6) var(--sp-4) var(--sp-7);
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .home {
+    padding: var(--sp-7) var(--sp-5);
+  }
+}
+
+/* --- 1층: 목록으로 돌아가기 ------------------------------------------------ */
+
+.shellback {
+  display: grid;
+  grid-template-columns: var(--rail-w) minmax(0, 1fr);
+  align-items: center;
+  min-height: var(--hit);
+  margin-inline: 6px;
+  padding-right: var(--sp-3);
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+/* 레일 아이콘과 같은 중심(28px)에 놓는다 — margin-inline 6px 만큼 되돌린다 */
+.shellback__icon {
+  display: grid;
+  place-items: center;
+  width: var(--rail-w);
+  margin-left: -6px;
+}
+
+.shellback:hover {
+  background: var(--surface-sunken);
+  color: var(--fg);
+}
+
+/* --- 2층: 현재 실행 + 전환 -------------------------------------------------- */
+
+.runswitch {
+  position: relative;
+  margin-inline: 6px;
+  margin-top: var(--sp-1);
+}
+
+.runswitch__btn {
+  display: grid;
+  /* 1열을 레일 폭에 맞춰, 실행 이름이 아래 내비 라벨과 같은 x 에서 시작하게 한다 */
+  grid-template-columns: var(--rail-w) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-height: var(--hit);
+  padding: var(--sp-1) var(--sp-3) var(--sp-1) 0;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.runswitch__btn:hover {
+  background: var(--surface-sunken);
+}
+
+/* 실행 식별 마크 — 접힌 레일의 첫 글자와 같은 모양이라 접었다 펴도 같은 것으로 읽힌다 */
+.runswitch__mark {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  /* 레일 아이콘과 같은 중심(드로어 좌측에서 28px)에 놓는다.
+     .runswitch 가 margin-inline 6px 만큼 밀려 있으므로 6 + 8 + 14 = 28 */
+  margin-left: 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+
+.runswitch__text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.runswitch__id {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  line-height: var(--lh-tight);
+  overflow-wrap: break-word;
+}
+
+.runswitch__meta {
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+.runswitch__chev {
+  margin-left: var(--sp-2);
+  color: var(--fg-muted);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.runswitch__btn[aria-expanded="true"] .runswitch__chev {
+  transform: rotate(180deg);
+}
+
+/* 전환 목록 — 목록 화면까지 가지 않고 바꾼다 */
+.runmenu {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(100% + var(--sp-1));
+  z-index: 50;
+  padding: var(--sp-1);
+  background: var(--surface);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  max-height: 320px;
+  /* 세로로만 흐른다. 가로 방향 overflow 는 어디에도 두지 않는다 */
+  overflow: hidden auto;
+}
+
+.runmenu__cap {
+  padding: var(--sp-1) var(--sp-2);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+
+.runmenu__item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  min-height: var(--hit);
+  padding: var(--sp-2);
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.runmenu__item:hover {
+  background: var(--surface-sunken);
+}
+
+/* 지금 보고 있는 실행 — 사이드바 현재 위치와 같은 어법(좌측 3px)으로 말한다.
+   색만으로 전달하지 않는다 */
+.runmenu__item[aria-current]::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 3px;
+  height: 24px;
+  margin-top: -12px;
+  background: var(--primary);
+  border-radius: 0 var(--radius-badge) var(--radius-badge) 0;
+}
+
+.runmenu__item[aria-current] .runmenu__id {
+  color: var(--primary);
+}
+
+.runmenu__id {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  line-height: var(--lh-tight);
+}
+
+.runmenu__meta {
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+/* --- 3층: 기능 내비 --------------------------------------------------------- */
+
+.drawer__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* 데이터가 없는 기능은 숨기지 않고 이유를 적는다 (설계도 §4) */
+.drawer__why {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-regular);
+  color: var(--fg-muted);
+  line-height: 1.4;
+}
+
+/* `.drawer__link` / `.rail__btn` 은 <a> 를 전제로 쓰던 클래스다.
+   비활성 항목은 <button aria-disabled> 라서 버튼 기본값만 걷어낸다.
+   폭은 건드리지 않는다 — 두 클래스가 이미 grid/고정폭을 정해 뒀다 */
+.drawer__link--off,
+.rail__btn--off {
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+/* 눌러도 아무 일이 없다 — 되는 것처럼 밝아지지 않게 한다 */
+.drawer__link--off:hover,
+.rail__btn--off:hover {
+  background: transparent;
+  color: var(--fg-muted);
+}
+
+/* --- 레일의 실행 표시 ------------------------------------------------------- */
+/* 접힘 상태에서도 "무엇을 보는 중인지" 보인다 (설계도 §7) */
+
+.rail__run {
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+}
+
+.rail__run > span {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+}
+
+.rail__run:hover > span {
+  border-color: var(--fg-subtle);
+}
+
+/* 드로어 안 구분선 — 레일의 .rail__sep 과 같은 자리에 온다 */
+.shell__sep {
+  display: block;
+  height: 1px;
+  margin: var(--sp-1) 6px;
+  background: var(--border);
+}
+
+/* ==========================================================================
+   시뮬레이션 목록 — 설계도 §3.
+   상자를 두르지 않는다. 헤어라인 한 톤과 정렬만으로 목록을 만든다 (스펙 §7b).
+   ========================================================================== */
+
+.runlist {
+  display: flex;
+  flex-direction: column;
+  border-top: var(--hairline);
+}
+
+.runlist__li {
+  border-bottom: var(--hairline);
+}
+
+.runrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-1) var(--sp-4);
+  align-items: start;
+  min-height: var(--hit);
+  padding: var(--sp-3) var(--sp-2);
+  border-radius: var(--radius);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.runrow:hover {
+  background: var(--surface-sunken);
+}
+
+.runrow__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.runrow__name {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+
+.runrow__meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.runrow__line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--sp-3);
+  min-width: 0;
+}
+
+.runrow__facts {
+  font-size: var(--fs-md);
+  color: var(--fg-muted);
+}
+
+.runrow__policy {
+  font-size: var(--fs-md);
+  color: var(--fg);
+}
+
+/* 중단된 실행에만 붙는 한마디. 정상일 때는 아예 그리지 않는다 (§7b) */
+.runrow__why {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  line-height: var(--lh-body);
+}
+
+.runrow__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 320px;
+  min-width: 0;
+}
+
+.runrow__progress > .meter {
+  flex: 1;
+  min-width: 0;
+}
+
+.runrow__pct {
+  flex: none;
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+}
+
+.runrow__time {
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+}
+
+/* 768 이상: 이름 | 내용 | 갱신시각 한 줄 */
+@media (min-width: 768px) {
+  .runrow {
+    grid-template-columns: minmax(120px, 20%) minmax(0, 1fr) max-content;
+    align-items: center;
+    padding: var(--sp-3);
+  }
+
+  .runrow__time {
+    justify-self: end;
+    text-align: right;
+  }
+}

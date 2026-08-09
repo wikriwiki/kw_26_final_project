@@ -1,0 +1,47 @@
+{
+  "run_id": "BASE7500",
+  "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\rescue\\out_BASE7500",
+  "status": "incomplete",
+  "artifacts": {
+    "summary_json": false,
+    "events_jsonl": false,
+    "poi_summary_json": false,
+    "stage1_failures_jsonl": true,
+    "timing_dir": false,
+    "checkpoints_dir": true,
+    "metrics_dir": true
+  },
+  "days_present": [
+    "2025-07-14"
+  ],
+  "days_with_timing": [],
+  "days_with_done_checkpoint": [
+    "2025-07-14"
+  ],
+  "days_with_failed_checkpoint": [],
+  "plan": {
+    "source": null,
+    "start_day": null,
+    "planned_days": null,
+    "agents_target": null,
+    "workers": null
+  },
+  "completed_at": null,
+  "updated_at": null,
+  "log_hint": {
+    "source_file": "run_BASE7500.log",
+    "agents_target": 7500,
+    "planned_days": 7,
+    "start_day": "2025-07-14",
+    "workers": 48,
+    "output_dir": "/data/exp001/out_BASE7500",
+    "last_progress_line": "4500/7500 (ok=4500, err=0) @ 0.5/s, ETA 6439s"
+  },
+  "day_summaries": [],
+  "unknown": [
+    "plan.planned_days",
+    "plan.agents_target",
+    "plan.start_day",
+    "completed_at"
+  ]
+}

@@ -1,0 +1,337 @@
+/*
+ * 임베드된 3D 뷰어를 콘솔 디자인 시스템에 맞춰 다시 입힌다.
+ *
+ * 왜 이 파일이 따로 있는가
+ * ------------------------
+ * `scripts/sim/visualization_3d/static/styles.css` 는 시뮬레이션 산출물의 일부이고
+ * 수정 금지 대상이다. 대신 서빙 시점에 이 파일을 뒤에 덧붙여 덮어쓴다.
+ * 원본은 그대로 남고, 콘솔 밖(단독 실행)에서는 원래 모습으로 열린다.
+ *
+ * 무엇을 고치는가
+ * ---------------
+ * 1. 어두운 글래스모피즘 패널 → 콘솔과 같은 흰 표면 + 1px 헤어라인
+ * 2. 전폭 헤더(#top-hud) → 우상단 부유 칩. 콘솔 상단바와 2단으로 쌓이지 않게
+ * 3. 이모지 제목(🏙️ 🎨) → 텍스트 라벨 (스펙 §8 no-emoji-icons)
+ * 4. 시안 accent → 콘솔 네이비
+ * 5. 둥근 모서리 12px 이상 → 6px, blur 제거 (스펙 §4)
+ *
+ * 원본 CSS 가 인라인으로 먼저 들어오므로 !important 가 필요하다.
+ */
+
+:root {
+  --k-surface: #ffffff;
+  --k-sunken: #f1f5f9;
+  --k-fg: #0f172a;
+  --k-muted: #475569;
+  --k-border: #e2e8f0;
+  --k-border-strong: #cbd5e1;
+  --k-primary: #1e3a5f;
+  --k-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --k-sans: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
+  --k-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* ── 패널 공통 ─────────────────────────────────────────────── */
+#info-panel,
+#legend-panel,
+#detail-card,
+#hotspot-card,
+#chapter-rail,
+#transport {
+  background: var(--k-surface) !important;
+  border: 1px solid var(--k-border) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--k-shadow) !important;
+  color: var(--k-fg) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  font-family: var(--k-sans) !important;
+}
+
+#info-panel *,
+#legend-panel *,
+#detail-card *,
+#hotspot-card * {
+  color: inherit;
+  text-shadow: none !important;
+}
+
+/* ── 지표 패널 ─────────────────────────────────────────────── */
+#info-panel h3,
+#legend-panel h3 {
+  /* 이모지를 텍스트에서 지울 수 없으므로 원문을 숨기고 라벨을 다시 그린다 */
+  font-size: 0 !important;
+  margin: 0 0 10px !important;
+  padding: 0 0 8px !important;
+  border-bottom: 1px solid var(--k-border) !important;
+  color: var(--k-fg) !important;
+}
+
+#info-panel h3::before {
+  content: "실행 지표";
+}
+#legend-panel h3::before {
+  content: "범례 · 필터";
+}
+#info-panel h3::before,
+#legend-panel h3::before {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.legacy-row {
+  padding: 3px 0 !important;
+}
+
+.legacy-label {
+  color: var(--k-muted) !important;
+  font-size: 12px !important;
+}
+
+/* 수치는 모노 + tabular-nums (스펙 §3) */
+.legacy-val {
+  color: var(--k-fg) !important;
+  font-family: var(--k-mono) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+.legacy-divider {
+  background: var(--k-border) !important;
+  border-color: var(--k-border) !important;
+}
+
+.legacy-field label {
+  color: var(--k-muted) !important;
+  font-size: 12px !important;
+}
+
+/* ── 상단 컨트롤 — 전폭 바를 걷어내고 우상단 칩으로 ─────────── */
+#top-hud {
+  left: auto !important;
+  right: 12px !important;
+  top: 12px !important;
+  width: auto !important;
+  max-width: calc(100% - 24px);
+  gap: 8px !important;
+  padding: 6px !important;
+  background: var(--k-surface) !important;
+  border: 1px solid var(--k-border) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--k-shadow) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ── 컨트롤 ───────────────────────────────────────────────── */
+#top-hud button,
+#transport button,
+#chapter-toggle-btn {
+  min-height: 32px !important;
+  padding: 0 12px !important;
+  border: 1px solid var(--k-border-strong) !important;
+  border-radius: 6px !important;
+  background: var(--k-surface) !important;
+  color: var(--k-muted) !important;
+  font-family: var(--k-sans) !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+  transition: background 150ms ease-out, color 150ms ease-out;
+}
+
+#top-hud button:hover,
+#transport button:hover {
+  background: var(--k-sunken) !important;
+  color: var(--k-fg) !important;
+}
+
+/* 켜진 토글 — 색이 아니라 면으로 상태를 말한다 */
+#top-hud button.active {
+  background: var(--k-primary) !important;
+  border-color: var(--k-primary) !important;
+  color: #ffffff !important;
+}
+
+#play-btn {
+  min-width: 64px !important;
+  background: var(--k-primary) !important;
+  border-color: var(--k-primary) !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+}
+
+#agent-search,
+#legend-panel select,
+#speed-select {
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border: 1px solid var(--k-border-strong) !important;
+  border-radius: 6px !important;
+  background: var(--k-surface) !important;
+  color: var(--k-fg) !important;
+  font-family: var(--k-sans) !important;
+  font-size: 13px !important;
+}
+
+#agent-search::placeholder {
+  color: #64748b !important;
+}
+
+/* 포커스 링은 지우지 않는다 (스펙 §8, 접근성 §1) */
+#top-hud button:focus-visible,
+#transport button:focus-visible,
+#agent-search:focus-visible,
+#legend-panel select:focus-visible,
+#speed-select:focus-visible {
+  outline: 2px solid #2563eb !important;
+  outline-offset: 2px !important;
+}
+
+/* ── 재생 바 ──────────────────────────────────────────────── */
+#transport {
+  gap: 12px !important;
+  padding: 8px 12px !important;
+}
+
+#frame-label {
+  color: var(--k-muted) !important;
+  font-family: var(--k-mono) !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 12px !important;
+}
+
+#frame-slider {
+  accent-color: var(--k-primary) !important;
+}
+
+/* ── 상세 카드 ────────────────────────────────────────────── */
+#detail-close,
+#hotspot-close {
+  min-width: 28px !important;
+  min-height: 28px !important;
+  border: 1px solid var(--k-border) !important;
+  border-radius: 6px !important;
+  background: var(--k-surface) !important;
+  color: var(--k-muted) !important;
+}
+
+/* ── 뉴스 배너 ────────────────────────────────────────────── */
+#news-banner {
+  background: var(--k-surface) !important;
+  border: 1px solid var(--k-border) !important;
+  border-radius: 6px !important;
+  color: var(--k-fg) !important;
+  box-shadow: var(--k-shadow) !important;
+  backdrop-filter: none !important;
+}
+
+/* ── 좁은 폭: 패널이 지도를 덮지 않게 ──────────────────────── */
+@media (max-width: 768px) {
+  #legend-panel {
+    display: none !important;
+  }
+  #info-panel {
+    max-width: calc(100% - 24px) !important;
+  }
+  #top-hud {
+    left: 12px !important;
+    right: 12px !important;
+    justify-content: space-between !important;
+  }
+}
+
+/* ==========================================================================
+   보정 — 실제 렌더를 캡처해 눈으로 확인한 뒤 잡은 것들
+   ========================================================================== */
+
+/*
+ * 1. 지도 밑판.
+ *    원본 #map 은 `linear-gradient(135deg, rgba(9,20,30,.95), rgba(3,7,13,1)), #05070d`
+ *    로 칠해져 있다. 베이스맵 타일이 도착하기 전까지 이 검은 판이 그대로 보여서,
+ *    라이트 콘솔에서 넘어오면 화면이 꺼진 것처럼 읽힌다. 그라디언트 자체도
+ *    스펙 §4 금지 항목이다. 콘솔 페이지 배경과 같은 평면색으로 바꾸면
+ *    타일 로딩 중에도 "비어 있는 밝은 면"으로 보인다.
+ */
+#map {
+  background: #f8fafc !important;
+}
+
+/*
+ * 2. 한국어 조판.
+ *    콘솔은 body 에 keep-all 을 걸어 어절 단위로 끊는다. iframe 은 다른 문서라
+ *    그 규칙이 상속되지 않아 "현재 프레 / 임" 처럼 단어 중간이 잘렸다.
+ */
+body,
+.legacy-panel,
+.legacy-label,
+.legacy-val {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/*
+ * 3. 상단 칩의 제품명.
+ *    원본에서 밝은 글자였던 텍스트가 흰 칩 위로 올라오면서 흰색-위-흰색이 됐다.
+ *    콘솔 상단바에 이미 "실행 BASE" 가 있으므로 여기서 제품명을 반복할 이유가 없다.
+ *    (§7b 제목 줄이기 — 자명하면 생략)
+ */
+#top-hud > h1,
+#top-hud > .brand,
+#top-hud > span:first-child {
+  display: none !important;
+}
+
+/*
+ * 4. 패널 제목 아래 장식선.
+ *    원본은 패널마다 밑줄을 그어 구분한다. 카드 테두리와 밑줄을 동시에 쓰면
+ *    선이 겹쳐 보인다 (§7b 선 줄이기). 테두리만 남긴다.
+ */
+.legacy-panel h3 {
+  border-bottom: 0 !important;
+  padding-bottom: 0 !important;
+  margin-bottom: 12px !important;
+}
+
+.legacy-divider {
+  background: var(--k-border) !important;
+  height: 1px !important;
+  margin: 12px 0 !important;
+}
+
+/*
+ * 5. 상단 칩의 제품명 — 실제로는 `#top-hud::before` 의사요소였다.
+ *    원본에서 밝은 글자(#edf7ff)라 흰 칩 위에서 유령처럼 비쳤다.
+ *    콘솔 상단바에 "실행 BASE" 가 이미 있으므로 반복하지 않는다.
+ */
+#top-hud::before {
+  display: none !important;
+  content: none !important;
+}
+
+/*
+ * 6. 정보 패널의 레이블 열.
+ *    "현재 프레임" 이 63px 열에서 두 줄로 접혔다. 레이블은 한 줄로 두고
+ *    값 쪽이 접히게 한다 — 항목명이 흔들리면 표가 읽히지 않는다.
+ */
+.legacy-label {
+  white-space: nowrap;
+}
+
+.legacy-val {
+  text-align: right;
+}
+
+/*
+ * 7. 범례 패널 높이.
+ *    자치구 25개 목록이 그대로 펼쳐져 화면 절반을 덮고, 아래쪽에 빈 흰 면이
+ *    남았다. 뷰포트에 맞춰 상한을 두고 넘치면 패널 안에서만 세로로 굴린다.
+ *    (가로 스크롤은 여전히 금지. 세로만 허용)
+ */
+#legend-panel {
+  max-height: calc(100vh - 140px) !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}

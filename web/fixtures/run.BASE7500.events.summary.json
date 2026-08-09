@@ -1,0 +1,23 @@
+{
+  "run_id": "BASE7500",
+  "available": false,
+  "reason": "events.jsonl 없음 — 런 종료 후 별도 export 단계(export_run.py) 산출물",
+  "source": null,
+  "poi_summary": null,
+  "totals": null,
+  "day_type_counts": null,
+  "policy_paid_by_policy_id": null,
+  "by_day": [],
+  "by_l1": [],
+  "by_day_l1": [],
+  "null_only_fields": null,
+  "unknown": [
+    "totals",
+    "day_type_counts",
+    "policy_paid_by_policy_id",
+    "by_day",
+    "by_l1",
+    "by_day_l1",
+    "poi_summary"
+  ]
+}

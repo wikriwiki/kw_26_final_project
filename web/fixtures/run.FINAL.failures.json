@@ -1,0 +1,165 @@
+{
+  "run_id": "FINAL",
+  "available": true,
+  "reason": null,
+  "total": 203,
+  "by_day": {
+    "2025-07-21": 6,
+    "2025-07-22": 8,
+    "2025-07-23": 1,
+    "2025-07-24": 5,
+    "2025-07-25": 5,
+    "2025-07-26": 13,
+    "2025-07-27": 14,
+    "2025-07-28": 5,
+    "2025-07-29": 6,
+    "2025-07-30": 6,
+    "2025-07-31": 3,
+    "2025-08-01": 4,
+    "2025-08-02": 8,
+    "2025-08-03": 10,
+    "2025-08-04": 1,
+    "2025-08-05": 2,
+    "2025-08-06": 8,
+    "2025-08-07": 5,
+    "2025-08-08": 8,
+    "2025-08-09": 8,
+    "2025-08-10": 9,
+    "2025-08-11": 5,
+    "2025-08-12": 9,
+    "2025-08-13": 7,
+    "2025-08-14": 11,
+    "2025-08-15": 12,
+    "2025-08-16": 11,
+    "2025-08-17": 13
+  },
+  "by_error_type": {
+    "ValidationError": 141,
+    "JSONDecodeError": 61,
+    "ValueError": 1
+  },
+  "limit": 12,
+  "items": [
+    {
+      "aid": "AGT_11530510_F_40대_005",
+      "day": "2025-07-21",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "ValidationError",
+      "error": "1 validation error for Stage1Output\nevents.6.time\n  Field required [type=missing, input_value={':time': '18:10', 'ancho....', 'trigger': 'policy'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 0.00으로 피로 없이 잘 쉬었음. 기상 시간을 가족과의 루틴에 맞춰 자연스럽게 일어남.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:15\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"집에서 아침을 준비하며 출근 전 루틴을 시작. 평소 재택 시간이 길고, 아침은 집에서 간단히 해결함.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:00\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출근 준비\",\n      \"reasoning\": \"출근 준비를 하며 옷을 갈아입고 가방을 챙김. 통근 35분 전 출발을 위해 시간 여유를 두고 이동.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"08:40\",\n      \"anchor\": \"zone:11530510\",\n      \"category\": \"편의점\",\n      \"sub_category\": \"편의점\",\n     "
+    },
+    {
+      "aid": "AGT_11545670_M_50대_004",
+      "day": "2025-07-21",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "JSONDecodeError",
+      "error": "Expecting ':' delimiter: line 53 column 15 (char 1454)",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 0.00으로 특별히 피로하지 않았고, 가족을 위해 일찍 일어나 준비를 시작함.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:15\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 식사\",\n      \"reasoning\": \"가족과 함께 아침 식사를 준비함. 평소 집밥을 선호하고, 자녀 양육을 고려할 때 아침은 집에서 해결하는 것이 일상적임.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"07:50\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출근 준비\",\n      \"reasoning\": \"출근 전 집 안에서 옷 갈아입고 가방 정리. 통근 32분을 고려해 여유 있게 출발.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"08:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출발\",\n      \"reasoning\": \"직장은"
+    },
+    {
+      "aid": "AGT_11560605_M_70대이상_002",
+      "day": "2025-07-21",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "ValidationError",
+      "error": "1 validation error for Stage1Output\nevents.8.time\n  Field required [type=missing, input_value={':time': '19:30', 'ancho....', 'trigger': 'policy'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"07:00\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 1.00으로 매우 피곤했지만, 오늘 기분 전환을 위해 일찍 일어나 산책을 준비하는 마음. 평소처럼 가족과의 대화 시간을 갖기 위해 아침 일찍 눈을 뜸.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"가족과 함께 아침 식사를 간단히 해결. 어제 프라자약국 방문 후 몸 상태 점검이 필요했지만 별다른 이상은 없어, 평소처럼 집밥으로 아침을 해결함.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:30\",\n      \"anchor\": \"zone:11560605\",\n      \"category\": \"식사\",\n      \"sub_category\": \"한식\",\n      \"intent\": \"아침 외식\",\n      \"reasoning\": \"어제 철산장에서 먹은 한식이 만족도 0.82로 매우 좋았기 때문에, 그 기억이 다시 떠올라 근처 한식당에서 아침을 해결함. 평소 한식을 선호하는 성향과 맞닿아 있음.\",\n      \"trigger\": \"life"
+    },
+    {
+      "aid": "AGT_11590680_F_40대_002",
+      "day": "2025-07-21",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "ValidationError",
+      "error": "1 validation error for Stage1Output\nevents.6.time\n  Field required [type=missing, input_value={':time': '18:50', 'ancho... 'trigger': 'lifestyle'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"07:15\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 0.00으로 피곤하지 않았으며, 가족이 깨는 시간에 맞춰 자연스럽게 일어남.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:40\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"자녀 등원 준비를 위해 아침 식사와 등하교 준비를 함. 집 안에서 가족과의 아침 루틴을 유지함.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"08:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"등원\",\n      \"reasoning\": \"자녀를 등원시키며 집에서 출발. 평소처럼 일정에 맞춰 가족과의 시간 우선.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"12:00\",\n      \"anchor\": \"zone:11620695\",\n      \"category\": \"식사\",\n      \"sub_category\": \"한식\",\n      \"intent\": \"점심\",\n      \"reasoning\""
+    },
+    {
+      "aid": "AGT_11620645_M_30대_001",
+      "day": "2025-07-21",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "ValidationError",
+      "error": "1 validation error for Stage1Output\nevents.6.time\n  Field required [type=missing, input_value={':time': '15:10', 'ancho... 'trigger': 'lifestyle'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상 및 아침 준비\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 0.00으로 피로는 없었고, 재택 근무 예정이라 집에서 조용히 준비함. 가족이 아직 안 깨는 시간대라 조용히 하루를 시작함.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:10\",\n      \"anchor\": \"zone:11620645\",\n      \"category\": \"편의점\",\n      \"sub_category\": \"편의점\",\n      \"intent\": \"아침 간식 구매\",\n      \"reasoning\": \"평소 아침은 집에서 해결하지만 오늘은 정책지갑 잔액 150,000원이 있어 소비 성향이 높아짐. 지난주에 본 편의점의 따뜻한 샌드위치가 맛있어 보여 오늘 아침 대용으로 선택함.\",\n      \"trigger\": \"policy\"\n    },\n    {\n      \"time\": \"07:40\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출퇴근 준비\",\n      \"reasoning\": \"재택 근무라 외출은 하지만, 회사 출근이 아니라 원격 근무 시작 전 준비. 책상 정리와 노트북 점검을 마침.\",\n      \"trigger\": \"none\"\n    },\n    {\n    "
+    },
+    {
+      "aid": "AGT_11620545_F_40대_002",
+      "day": "2025-07-21",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "ValidationError",
+      "error": "1 validation error for Stage1Output\nevents.8.time\n  Field required [type=missing, input_value={':time': '19:00', 'ancho... 'trigger': 'lifestyle'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.13/v/missing",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 0.00으로 피곤하지 않았고, 가족과의 시간을 소중히 여기는 성향상 아침을 조용히 시작함.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:15\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"자녀와 함께 아침을 먹기 위해 집 안에서 식사 준비. 평소 집밥 선호 성향과 재택 시간이 많던 어제의 경험을 반영해 외식보다는 집에서의 아침을 선택함.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:00\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출근 준비\",\n      \"reasoning\": \"직장까지 55분 소요. 가방과 아이 준비물을 챙기며 이동 준비. 어제 이동성 분위 1로 높은 이동 성향을 보이진 않았으나, 오늘의 출근은 루틴이므로 자연스러운 외출로 이어짐.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"08:50\",\n      \"anchor\": \"zone"
+    },
+    {
+      "aid": "AGT_11170555_F_40대_002",
+      "day": "2025-07-22",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "JSONDecodeError",
+      "error": "Expecting ',' delimiter: line 60 column 7 (char 2017)",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 0.8로 피곤했지만, 가족을 위한 아침 식사 준비를 미리 해야 한다는 책임감이 깨어남. 어제 만족도 0.77로 일상이 그럭저럭 안정되어 있었음.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:15\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"집밥 중심의 라이프스타일이므로 직접 아침 식사를 준비. 어제 배달을 자주 썼던 대신 오늘은 경제적이고 건강한 선택으로 방향 전환. 냉장고에 남은 재료로 간단히 조리.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:00\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출근 준비\",\n      \"reasoning\": \"업무 시작 전 정리 정돈 및 업무 계획 수립. 어제 업무 만족도는 높았으나 업무량이 많아 피로가 누적된 상태라 오늘은 효율적으로 출발하려는 의도.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"09"
+    },
+    {
+      "aid": "AGT_11320521_M_50대_002",
+      "day": "2025-07-22",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "JSONDecodeError",
+      "error": "Expecting ':' delimiter: line 54 column 16 (char 1767)",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 0.60으로 다소 피로했으나, 가족과의 아침 시간이 소중해 자연스럽게 일어남. 평소 김광석 노래를 들으며 낮잠 자는 습관은 오늘 아침엔 생략.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:10\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"가족과 함께 아침 식사를 준비함. 평소 한식 중심 식사 성향에 따라 국, 반찬, 밥을 준비하며, 배달보다 직접 요리하는 습관이 있음. 정책지갑 잔액은 있지만 오늘 아침은 평소 습관대로 진행.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:00\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출발 준비\",\n      \"reasoning\": \"출근 준비를 위해 옷과 가방을 챙김. 통근 59분 소요되므로 여유 있게 출발. 어제 기분(mood 0.56)이 다소 낮았으나, 오늘은 다소 회복된 느낌이 있어 일정에 무리 없이 참여 가능.\",\n      \"trigger\": \"none"
+    },
+    {
+      "aid": "AGT_11320690_M_30대_002",
+      "day": "2025-07-22",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "JSONDecodeError",
+      "error": "Expecting ',' delimiter: line 61 column 6 (char 2252)",
+      "finish_reason": "length",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 1.0으로 매우 피곤했지만, 가족과의 조화로운 아침을 위해 일찍 눈을 뜸. 평소 기상 시간은 6시 30분 전후.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:15\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"어제 D-4에 유성집도봉에서 한식 식사 후 만족도 0.81로 만족스러웠던 기억이 남아 있어, 오늘은 집밥으로 간단히 해결. 어제 mood 0.71로 낮았으나, 어제 D-2에 상경스포츠센터 방문 후 운동 후 회복된 상태라 컨디션은 회복 중.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"07:50\",\n      \"anchor\": \"zone:11320690\",\n      \"category\": \"편의점\",\n      \"sub_category\": \"편의점\",\n      \"intent\": \"출근 전 간식\",\n      \"reasoning\": \"어제 D-2에 아이스앤스낵창고방학 방문 후 만족도 0.67로 약간 아쉬웠던 기억이 남아 있어, 오늘 출근길에 같은 편의점에서 커피와 샌드위치로 보완."
+    },
+    {
+      "aid": "AGT_11320690_M_30대_002",
+      "day": "2025-07-22",
+      "attempt": 1,
+      "temp": 0.8999999999999999,
+      "error_type": "JSONDecodeError",
+      "error": "Expecting ':' delimiter: line 55 column 15 (char 1717)",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"07:00\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상 및 아침 준비\",\n      \"reasoning\": \"평일 오전 기상. 어제 fatigue 1.00으로 매우 피곤했지만, 오늘은 일찍 일어나야 통근 준비와 출근을 마쳐야 하므로 일찍 일어남. 가족이 아직 자는 시간이라 조용히 집안일 정리 시작.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:10\",\n      \"anchor\": \"zone:11320690\",\n      \"category\": \"편의점\",\n      \"sub_category\": \"편의점\",\n      \"intent\": \"출근길 간단한 아침 식사\",\n      \"reasoning\": \"아이스앤스낵창고방학에서 어제 따뜻한 음료 매대를 새로 본 기억이 있어, 오늘도 거기 들러 샌드위치와 음료로 아침 해결. 평소 편의점 지출 비중이 높고, 아침을 자주 그렇게 해결함.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"09:30\",\n      \"anchor\": \"workplace\",\n      \"category\": \"직장\",\n      \"intent\": \"재택근무 시작 (사무실 출근)\",\n      \"reasoning\": \"전기기사로서 재택과 사무실 혼용 근무. 오늘은 사무실 출근일이며, 지난 주와 비슷한 일정. 평소 9시 전후 출근"
+    },
+    {
+      "aid": "AGT_11530510_M_60대_001",
+      "day": "2025-07-22",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "JSONDecodeError",
+      "error": "Expecting ':' delimiter: line 46 column 16 (char 1485)",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"06:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 1.00으로 매우 피곤했지만, 가족을 위해 일찍 일어나는 습관이 있음. 기상 후 가벼운 스트레칭 후 아침 준비 시작.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"07:15\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 식사\",\n      \"reasoning\": \"평소 집밥 위주로 식사하며, 어제 방문했던 놀란곱창에서 얻은 한식 만족 경험(0.83)이 떠오르지만, 오늘은 재택 중이므로 간편히 집에서 반찬과 국으로 해결. 가족과의 조용한 아침을 우선시함.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:45\",\n      \"anchor\": \"zone:11530510\",\n      \"category\": \"편의점\",\n      \"sub_category\": \"편의점\",\n      \"intent\": \"출근길 대신 외출\",\n      \"reasoning\": \"어제 D-2에 1981미나리동태탕과 장군돼지에서 한식 식사 후, 편의점에서 간단히 간식을 샀던 기억이 남아 있어 오늘 아침에도 같은 습관으로 GS25 신도림점(자주 가는 지점)에"
+    },
+    {
+      "aid": "AGT_11530780_M_30대_002",
+      "day": "2025-07-22",
+      "attempt": 0,
+      "temp": 0.7,
+      "error_type": "ValidationError",
+      "error": "1 validation error for Stage1Output\nevents.7.pinned_poi\n  Input should be a valid string [type=string_type, input_value=True, input_type=bool]\n    For further information visit https://errors.pydantic.dev/2.13/v/string_type",
+      "finish_reason": "stop",
+      "raw_excerpt": "{\n  \"events\": [\n    {\n      \"time\": \"07:00\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"기상\",\n      \"reasoning\": \"평일 아침 기상. 어제 fatigue 1.00으로 매우 피곤했으나, 아침 기상은 일상적 루틴이므로 자연스럽게 일어남.\",\n      \"trigger\": \"none\"\n    },\n    {\n      \"time\": \"07:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"아침 준비\",\n      \"reasoning\": \"가족을 위해 아침을 준비함. 어제 미손(한식) 방문 후 만족도 0.75로 식사에 대한 기대는 낮았으나, 오늘은 집밥 선호 성향에 따라 집에서 해결.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"08:30\",\n      \"anchor\": \"residence\",\n      \"category\": \"집\",\n      \"intent\": \"출근 준비\",\n      \"reasoning\": \"출근 전 간단한 스트레칭과 세면 후 이동. 통근 68분이라 시간이 촉박하지만, 어제 당구 후 회복된 에너지(0.80) 덕분에 여유 있게 준비함.\",\n      \"trigger\": \"lifestyle\"\n    },\n    {\n      \"time\": \"12:00\",\n      \"anchor\": \"zone:11545510\",\n      \"c"
+    }
+  ],
+  "unknown": []
+}

@@ -1,0 +1,337 @@
+/* ==========================================================================
+   앱 셸 · 사이드바 · 12열 그리드 — 스펙 §6.
+
+   사이드바 구조가 두 겹인 이유:
+   - `.rail`   56px 아이콘 레일. 항상 남는다(완전 숨김 아님).
+   - `.drawer` 240px 패널. transform 으로만 미끄러져 들어와 레일을 덮는다.
+   두 겹의 아이콘 중심 x 좌표가 28px 로 같아서, 열릴 때 "레일이 늘어난 것"처럼 보인다.
+   width 를 애니메이션하지 않으므로 레이아웃 리플로우가 없다.
+   ========================================================================== */
+
+/* --- 앱 셸 ---------------------------------------------------------------- */
+
+.app {
+  min-height: 100%;
+}
+
+.app__main {
+  margin-left: var(--nav-space);
+  /*
+   * SKILL §7 `transform-performance` 는 레이아웃 속성 애니메이션을 금한다.
+   * 여기서는 예외로 둔다 — `transform: translateX()` 로 바꾸면 본문이 **폭은 그대로인 채**
+   * 밀려나 오른쪽으로 184px(레일 56 → 드로어 240) 넘치고, 가로 스크롤이 생긴다.
+   * 그건 §5 `horizontal-scroll` 위반이라 더 나쁘다.
+   *
+   * push 레이아웃에서 폭이 실제로 줄어야 하므로 리플로우가 불가피하다.
+   * 대신 대상을 컨테이너 하나로 한정하고, 200ms 안에 끝내고,
+   * reduced-motion 에서는 0ms 로 죽는다.
+   */
+  transition: margin-left var(--dur) var(--ease);
+  min-width: 0;
+}
+
+.page {
+  max-width: var(--page-max);
+  margin: 0 auto;
+  padding: var(--sp-5) var(--sp-4) var(--sp-7);
+  min-width: 0;
+}
+
+@media (min-width: 768px) {
+  .page {
+    padding: var(--sp-6) var(--sp-5) var(--sp-7);
+  }
+}
+
+/* 지도가 주인공인 화면 — 최대폭도 여백도 두지 않고 전체를 내준다 (§7) */
+.page--bleed {
+  max-width: none;
+  padding: 0;
+}
+
+/* --- 레일 (상주) ---------------------------------------------------------- */
+
+.rail {
+  position: fixed;
+  inset-block: 0;
+  left: 0;
+  z-index: 20;
+  width: var(--rail-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  background: var(--surface);
+  border-right: var(--hairline);
+}
+
+.rail__btn {
+  position: relative;
+  width: var(--hit);
+  height: var(--hit);
+  margin-inline: 6px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.rail__btn:hover {
+  background: var(--surface-sunken);
+  color: var(--fg);
+}
+
+.rail__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.rail__sep {
+  height: 1px;
+  margin: var(--sp-1) 6px;
+  background: var(--border);
+}
+
+/* 현재 위치: 좌측 3px 인디케이터 + primary 색 */
+.rail__btn[aria-current="page"] {
+  color: var(--primary);
+  background: var(--surface-sunken);
+}
+
+.rail__btn[aria-current="page"]::before,
+.drawer__link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  left: -6px;
+  top: 50%;
+  width: 3px;
+  height: 24px;
+  margin-top: -12px;
+  background: var(--primary);
+  border-radius: 0 var(--radius-badge) var(--radius-badge) 0;
+}
+
+/* --- 드로어 (확장) -------------------------------------------------------- */
+
+.drawer {
+  position: fixed;
+  inset-block: 0;
+  left: 0;
+  z-index: 40;
+  width: var(--drawer-w);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  background: var(--surface);
+  border-right: var(--hairline);
+  transform: translateX(-100%);
+  transition: transform var(--dur) var(--ease);
+}
+
+:root[data-nav="expanded"] .drawer {
+  transform: translateX(0);
+}
+
+.drawer__head {
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  align-items: center;
+  min-height: var(--hit);
+}
+
+.drawer__close {
+  width: var(--hit);
+  height: var(--hit);
+  margin-inline: 6px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+
+.drawer__close:hover {
+  background: var(--surface-sunken);
+  color: var(--fg);
+}
+
+.drawer__brand {
+  padding-right: var(--sp-4);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  line-height: var(--lh-tight);
+}
+
+.drawer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.drawer__link {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--rail-w) 1fr;
+  align-items: center;
+  min-height: var(--hit);
+  margin-inline: 6px;
+  padding-right: var(--sp-3);
+  border-radius: var(--radius);
+  color: var(--fg-muted);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease);
+}
+
+.drawer__link > .drawer__icon {
+  /* 레일 아이콘과 같은 중심(28px)에 놓이도록 56px 칸에서 가운데 정렬.
+     margin-inline 6px 만큼 왼쪽으로 밀린 것을 되돌린다 */
+  display: grid;
+  place-items: center;
+  margin-left: -6px;
+  width: var(--rail-w);
+}
+
+.drawer__link:hover {
+  background: var(--surface-sunken);
+  color: var(--fg);
+}
+
+.drawer__link[aria-current="page"] {
+  color: var(--primary);
+  background: var(--surface-sunken);
+}
+
+.drawer__foot {
+  margin-top: auto;
+  padding: var(--sp-3) var(--sp-4);
+  border-top: var(--hairline);
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+}
+
+/* --- 스크림 (1024px 미만 overlay 모드에서만) ------------------------------- */
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background: var(--scrim);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur) var(--ease);
+  border: 0;
+  padding: 0;
+}
+
+@media (max-width: 1023.98px) {
+  :root[data-nav="expanded"] .scrim {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+}
+
+@media (min-width: 1024px) {
+  .scrim {
+    display: none;
+  }
+}
+
+/* --- 12열 그리드 ---------------------------------------------------------- */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: var(--sp-4);
+  align-items: stretch;
+  min-width: 0;
+}
+
+.grid > * {
+  min-width: 0;
+}
+
+/* 375 기준: 모든 위젯 12열 전폭 */
+.c3,
+.c4,
+.c6,
+.c8,
+.c9,
+.c12 {
+  grid-column: span 12;
+}
+
+/* 768: 절반 단위까지 */
+@media (min-width: 768px) {
+  .c3,
+  .c4 {
+    grid-column: span 6;
+  }
+  .c6 {
+    grid-column: span 6;
+  }
+}
+
+/* 1024 이상: 선언한 열 그대로 */
+@media (min-width: 1024px) {
+  .c3 {
+    grid-column: span 3;
+  }
+  .c4 {
+    grid-column: span 4;
+  }
+  .c6 {
+    grid-column: span 6;
+  }
+  .c8 {
+    grid-column: span 8;
+  }
+  .c9 {
+    grid-column: span 9;
+  }
+}
+
+/* 세로 리듬 — 섹션 사이는 항상 --sp-6 */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.row-between {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  min-width: 0;
+}

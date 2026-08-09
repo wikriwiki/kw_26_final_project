@@ -1,0 +1,127 @@
+{
+  "run_id": "BASE",
+  "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\out_BASE",
+  "status": "completed",
+  "artifacts": {
+    "summary_json": true,
+    "events_jsonl": true,
+    "poi_summary_json": true,
+    "stage1_failures_jsonl": true,
+    "timing_dir": true,
+    "checkpoints_dir": true,
+    "metrics_dir": true
+  },
+  "days_present": [
+    "2025-07-21",
+    "2025-07-22",
+    "2025-07-23",
+    "2025-07-24",
+    "2025-07-25",
+    "2025-07-26",
+    "2025-07-27"
+  ],
+  "days_with_timing": [
+    "2025-07-21",
+    "2025-07-22",
+    "2025-07-23",
+    "2025-07-24",
+    "2025-07-25",
+    "2025-07-26",
+    "2025-07-27"
+  ],
+  "days_with_done_checkpoint": [
+    "2025-07-21",
+    "2025-07-22",
+    "2025-07-23",
+    "2025-07-24",
+    "2025-07-25",
+    "2025-07-26",
+    "2025-07-27"
+  ],
+  "days_with_failed_checkpoint": [
+    "2025-07-21",
+    "2025-07-22",
+    "2025-07-23",
+    "2025-07-24",
+    "2025-07-25",
+    "2025-07-26",
+    "2025-07-27"
+  ],
+  "plan": {
+    "source": "summary.json:args",
+    "start_day": "2025-07-21",
+    "planned_days": 7,
+    "agents_target": 200,
+    "workers": 48
+  },
+  "completed_at": "2026-08-02T14:01:51.204417",
+  "updated_at": null,
+  "log_hint": {
+    "source_file": "run_BASE.log",
+    "agents_target": 200,
+    "planned_days": 7,
+    "start_day": "2025-07-21",
+    "workers": 48,
+    "output_dir": "/data/exp001/out_BASE",
+    "last_progress_line": "200/200 (ok=200, err=0) @ 0.2/s, ETA 0s"
+  },
+  "day_summaries": [
+    {
+      "day": "2025-07-21",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 630.939658164978,
+      "night2_elapsed_sec": 32.78961896896362,
+      "elapsed_sec": 663.8867299556732
+    },
+    {
+      "day": "2025-07-22",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 655.7968480587006,
+      "night2_elapsed_sec": 20.186356782913208,
+      "elapsed_sec": 676.12446641922
+    },
+    {
+      "day": "2025-07-23",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 697.076021194458,
+      "night2_elapsed_sec": 24.875211715698242,
+      "elapsed_sec": 722.0941421985626
+    },
+    {
+      "day": "2025-07-24",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 706.0429930686951,
+      "night2_elapsed_sec": 25.01887273788452,
+      "elapsed_sec": 731.2083144187927
+    },
+    {
+      "day": "2025-07-25",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 721.7740621566772,
+      "night2_elapsed_sec": 25.22920298576355,
+      "elapsed_sec": 747.1403801441193
+    },
+    {
+      "day": "2025-07-26",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 963.0603125095367,
+      "night2_elapsed_sec": 23.163320779800415,
+      "elapsed_sec": 986.3764760494232
+    },
+    {
+      "day": "2025-07-27",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 923.0019974708557,
+      "night2_elapsed_sec": 22.53953218460083,
+      "elapsed_sec": 945.771208524704
+    }
+  ],
+  "unknown": []
+}

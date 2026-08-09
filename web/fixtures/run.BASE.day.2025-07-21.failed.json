@@ -1,0 +1,10 @@
+{
+  "run_id": "BASE",
+  "day": "2025-07-21",
+  "source_file": "checkpoints/failed_2025-07-21.json",
+  "available": true,
+  "reason": null,
+  "total": 0,
+  "items": [],
+  "unknown": []
+}

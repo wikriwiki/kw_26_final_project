@@ -1,0 +1,24 @@
+{
+  "stage": "continuous-round3",
+  "contract_version": "s1.0.0",
+  "status": "conditional",
+  "lead_decision": "keep-open-for-dasol-runtime-and-reference-comparison",
+  "builder_report": "docs/gauntlet/builders/continuous-round3.md",
+  "critic_report": "docs/gauntlet/critics/continuous-round3.md",
+  "feedback": "docs/gauntlet/CLI_FEEDBACK.md",
+  "tests": [
+    {"command": "python -m unittest discover -s tests -p 'test_*.py' -v", "passed": 28, "failed": 0, "exit_code": 0},
+    {"command": "npm run typecheck", "exit_code": 0},
+    {"command": "npm run build", "exit_code": 0},
+    {"command": "npm run gauntlet:screen", "passed": 2, "failed": 0, "exit_code": 0},
+    {"command": "style forbidden-token audit", "gradient": 0, "backdrop_filter": 0, "box_shadow": 0, "radius_over_4px": 0}
+  ],
+  "browser_evidence": "docs/gauntlet/evidence/s6-round3",
+  "snapshot_evidence": "docs/gauntlet/evidence/s6-round3/base-run-snapshot.json",
+  "open_conditions": [
+    "NEO4J_PASSWORD and DASOL_NEO4J_RUN_ID are absent; DASOL runtime job must remain blocked",
+    "Generated report numbers have not been compared to the legacy reference because the source engine is unavailable",
+    "in-app Browser has no available browser; Playwright Chromium evidence is complete"
+  ],
+  "protected_paths": ["scripts/sim", "scripts/neo4j_load"]
+}

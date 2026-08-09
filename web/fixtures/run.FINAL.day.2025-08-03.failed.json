@@ -1,0 +1,18 @@
+{
+  "run_id": "FINAL",
+  "day": "2025-08-03",
+  "source_file": "checkpoints/failed_2025-08-03.json",
+  "available": true,
+  "reason": null,
+  "total": 1,
+  "items": [
+    {
+      "aid": "AGT_11680640_M_50대_005",
+      "status": "error",
+      "elapsed": 176.77,
+      "error": "Stage1 failed after 3 attempts: Expecting ',' delimiter: line 88 column 141 (char 3146)",
+      "trace": "Traceback (most recent call last):\n  File \"/home/ubuntu/data/exp001_repo/scripts/sim/run_simulation.py\", line 367, in process_one\n    s1, m1 = call_stage1(aid, today, ctx=ctx)\n  File \"/home/ubuntu/data/exp001_repo/scripts/sim/stage1_intent.py\", line 795, in call_stage1\n    raise RuntimeError(f\"Stage1 failed after {max_retry+1} attempts: {last_err}\")\nRuntimeError: Stage1 failed after 3 attempts: Expecting ',' delimiter: line 88 column 141 (char 3146)\n"
+    }
+  ],
+  "unknown": []
+}

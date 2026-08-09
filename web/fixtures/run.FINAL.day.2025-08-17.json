@@ -1,0 +1,271 @@
+{
+  "run_id": "FINAL",
+  "day": "2025-08-17",
+  "source_file": "metrics/day_2025-08-17.jsonl",
+  "source_bytes": 936995,
+  "aggregated_server_side": true,
+  "rows": 200,
+  "status_counts": {
+    "ok": 200
+  },
+  "agents_ok": 200,
+  "agents_error": 0,
+  "sums": {
+    "cm_additional_from_grant": 0,
+    "cm_anchor_total": 18466383,
+    "cm_eligible_base": 4659432,
+    "cm_grant_carry_in": 0,
+    "cm_grant_carry_out": 18545017,
+    "cm_intended_grant_today": 19190101,
+    "cm_mechanical_policy_uplift": 0,
+    "cm_online_total": 429981,
+    "cm_personal_total": 6695438,
+    "cm_planned_total": 18719079,
+    "cm_policy_allocated_total": 645084,
+    "cm_policy_eligible_event_count": 136,
+    "cm_policy_eligible_spend_total": 645084,
+    "cm_policy_liquidity_relief": 4636625,
+    "cm_policy_requested_total": 2662724,
+    "cm_selected_policy_liquidity": 4659432,
+    "cm_substituted": 686276,
+    "cm_today_total": 4722288,
+    "cm_today_total_incl_online": 5152269,
+    "grant_applied_today": 0,
+    "grant_expired_today": 0,
+    "grant_remaining_total": 18545017,
+    "n_events": 2093,
+    "n_includes": 2093,
+    "n_visited_memories": 1393,
+    "policy_hits": 1373,
+    "policy_spend_corrected": 0,
+    "policy_spend_today": 645084,
+    "tokens_in": 2215989,
+    "tokens_out": 418357
+  },
+  "distributions": {
+    "avg_sat": {
+      "n": 200,
+      "total": 129.926,
+      "avg": 0.65,
+      "p50": 0.683,
+      "p95": 0.749,
+      "max": 0.793
+    },
+    "balance": {
+      "n": 200,
+      "total": 1182257.0,
+      "avg": 5911.285,
+      "p50": 0.0,
+      "p95": 0.0,
+      "max": 1095184.0
+    },
+    "elapsed": {
+      "n": 200,
+      "total": 41079.26,
+      "avg": 205.396,
+      "p50": 200.555,
+      "p95": 314.37,
+      "max": 374.34
+    },
+    "fatigue": {
+      "n": 200,
+      "total": 197.139,
+      "avg": 0.986,
+      "p50": 1.0,
+      "p95": 1.0,
+      "max": 1.0
+    },
+    "mood": {
+      "n": 200,
+      "total": 132.74,
+      "avg": 0.664,
+      "p50": 0.666,
+      "p95": 0.732,
+      "max": 0.799
+    },
+    "timing_t_dawn": {
+      "n": 200,
+      "total": 41.113,
+      "avg": 0.206,
+      "p50": 0.022,
+      "p95": 0.909,
+      "max": 1.103
+    },
+    "timing_t_s1": {
+      "n": 200,
+      "total": 14611.818,
+      "avg": 73.059,
+      "p50": 67.591,
+      "p95": 115.368,
+      "max": 216.141
+    },
+    "timing_t_s2": {
+      "n": 200,
+      "total": 26410.422,
+      "avg": 132.052,
+      "p50": 128.839,
+      "p95": 230.026,
+      "max": 236.223
+    },
+    "timing_t_write_plan": {
+      "n": 200,
+      "total": 10.289,
+      "avg": 0.051,
+      "p50": 0.032,
+      "p95": 0.147,
+      "max": 0.927
+    }
+  },
+  "fallback_counts": {
+    "fb_cand_all_empty": 0,
+    "fb_cand_l1_district": 0,
+    "fb_cand_l1_dong": 16,
+    "fb_cand_sub_match": 1002,
+    "fb_hallucinations_corrected": 17,
+    "fb_hallucinations_dropped": 0,
+    "fb_missing_picks_filled": 0,
+    "fb_order_mismatch": 17,
+    "fb_pool_split_events": 287,
+    "fb_pool_split_groups": 129,
+    "fb_resolve_dong": 0,
+    "review_lookup_count": 0
+  },
+  "attempt_counts": {
+    "s1=1": 190,
+    "s1=2": 7,
+    "s1=3": 3,
+    "s2=1": 126,
+    "s2=2": 31,
+    "s2=3": 43
+  },
+  "llm_call_totals": {
+    "stage1": 213,
+    "stage2": 407
+  },
+  "cache": {
+    "persona_hit_rate": 1.0,
+    "policy_hit_rate": 0.055
+  },
+  "by_spend_decile": [
+    {
+      "spend_decile": 1,
+      "agents": 15,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 5083403,
+      "policy_spend_today": 47024,
+      "cm_policy_allocated_total": 47024,
+      "cm_today_total_incl_online": 441940
+    },
+    {
+      "spend_decile": 2,
+      "agents": 26,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 5349736,
+      "policy_spend_today": 91659,
+      "cm_policy_allocated_total": 91659,
+      "cm_today_total_incl_online": 756767
+    },
+    {
+      "spend_decile": 3,
+      "agents": 17,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 1326346,
+      "policy_spend_today": 22258,
+      "cm_policy_allocated_total": 22258,
+      "cm_today_total_incl_online": 249407
+    },
+    {
+      "spend_decile": 4,
+      "agents": 18,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 1221189,
+      "policy_spend_today": 50955,
+      "cm_policy_allocated_total": 50955,
+      "cm_today_total_incl_online": 495167
+    },
+    {
+      "spend_decile": 5,
+      "agents": 19,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 1337256,
+      "policy_spend_today": 126242,
+      "cm_policy_allocated_total": 126242,
+      "cm_today_total_incl_online": 459113
+    },
+    {
+      "spend_decile": 6,
+      "agents": 20,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 1193622,
+      "policy_spend_today": 109322,
+      "cm_policy_allocated_total": 109322,
+      "cm_today_total_incl_online": 512216
+    },
+    {
+      "spend_decile": 7,
+      "agents": 21,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 1231465,
+      "policy_spend_today": 107160,
+      "cm_policy_allocated_total": 107160,
+      "cm_today_total_incl_online": 665807
+    },
+    {
+      "spend_decile": 8,
+      "agents": 22,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 1021640,
+      "policy_spend_today": 29961,
+      "cm_policy_allocated_total": 29961,
+      "cm_today_total_incl_online": 763094
+    },
+    {
+      "spend_decile": 9,
+      "agents": 21,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 527339,
+      "policy_spend_today": 58405,
+      "cm_policy_allocated_total": 58405,
+      "cm_today_total_incl_online": 587928
+    },
+    {
+      "spend_decile": 10,
+      "agents": 21,
+      "grant_applied_today": 0,
+      "grant_remaining_total": 253021,
+      "policy_spend_today": 2098,
+      "cm_policy_allocated_total": 2098,
+      "cm_today_total_incl_online": 220830
+    }
+  ],
+  "spend_decile_unknown_agents": 0,
+  "error_samples": [],
+  "_fields_not_aggregated": [
+    "aid",
+    "cm_day_multiplier",
+    "cm_grant_choice_mode",
+    "cm_grant_choice_share_mean",
+    "cm_grant_extra_rate",
+    "cm_grant_plan_days",
+    "cm_grant_posture",
+    "cm_mpc_new_share",
+    "cm_mpc_new_share_effective",
+    "cm_online_share",
+    "cm_online_share_source",
+    "cm_plan_over_anchor",
+    "cm_policy_payment_coverage",
+    "cm_propensity",
+    "cm_propensity_center",
+    "prompt_timing",
+    "s1_daily_propensity",
+    "s1_grant_extra_spend",
+    "s1_grant_kept_share",
+    "s1_grant_plan_reason",
+    "s1_grant_spread_days",
+    "s1_grant_style",
+    "s1_grant_use",
+    "s1_online_share",
+    "timing_t_night_finalize"
+  ],
+  "unknown": []
+}

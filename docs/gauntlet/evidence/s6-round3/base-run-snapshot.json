@@ -1,0 +1,153 @@
+{
+  "schema_version": 1,
+  "run_id": "BASE",
+  "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\out_BASE",
+  "root_relative": "out_BASE",
+  "run_completed_at": "2026-08-02T14:01:51.204417",
+  "plan": {
+    "source": "summary.json:args",
+    "start_day": "2025-07-21",
+    "planned_days": 7,
+    "agents_target": 200,
+    "workers": 48
+  },
+  "available_days": [
+    "2025-07-21",
+    "2025-07-22",
+    "2025-07-23",
+    "2025-07-24",
+    "2025-07-25",
+    "2025-07-26",
+    "2025-07-27"
+  ],
+  "requested": {
+    "start": "2025-07-21",
+    "days": 7,
+    "end": "2025-07-27"
+  },
+  "files": [
+    {
+      "path": "summary.json",
+      "bytes": 12730,
+      "sha256": "72e9181530b16052eb50a82732e5d508c005da5a90104b35e51da15c52f50146"
+    },
+    {
+      "path": "events.jsonl",
+      "bytes": 1236982,
+      "sha256": "6276a5d1ea96913dfe546a9a27d393d5a53bcac8e8472381728da300fcf9df41"
+    },
+    {
+      "path": "poi_summary.json",
+      "bytes": 45,
+      "sha256": "ab91956b579739c3a99afa276069ae655c0cf147a13d018574c109ce15fdbbcc"
+    },
+    {
+      "path": "metrics/day_2025-07-21.jsonl",
+      "bytes": 889688,
+      "sha256": "76c9c5b7d4b275747b180c8b39cc6f2584249ef2becb165a43dc5fa07e082125"
+    },
+    {
+      "path": "timing/day_2025-07-21.json",
+      "bytes": 15980,
+      "sha256": "5fb8f8fd5cd9f0eff2a275c7447d617d0fd9842919cfb3bfa604b5f4689cf0a2"
+    },
+    {
+      "path": "checkpoints/done_2025-07-21.json",
+      "bytes": 5732,
+      "sha256": "758c18fcd877164cf51563d5628a6c70151e2f4393999adfe62a00ed89150456"
+    },
+    {
+      "path": "metrics/day_2025-07-22.jsonl",
+      "bytes": 897462,
+      "sha256": "c47f5f45f784c1a521d7e0be19f4d829fdde01ac669c205c129f1397b2054438"
+    },
+    {
+      "path": "timing/day_2025-07-22.json",
+      "bytes": 16085,
+      "sha256": "ae7421c75ac0a6806f1bc0032e03c2d10373ff8efc4699ad9c9095178099f381"
+    },
+    {
+      "path": "checkpoints/done_2025-07-22.json",
+      "bytes": 5732,
+      "sha256": "758c18fcd877164cf51563d5628a6c70151e2f4393999adfe62a00ed89150456"
+    },
+    {
+      "path": "metrics/day_2025-07-23.jsonl",
+      "bytes": 910602,
+      "sha256": "6cf104b0923e5b8c945df9ba2676957d50034d69bd5381ea7dc1f7e6e7042e86"
+    },
+    {
+      "path": "timing/day_2025-07-23.json",
+      "bytes": 16119,
+      "sha256": "62b89f612b8b4d738591a02eea6a9eafe093679bf0bbb7b980fd45a83d45ab38"
+    },
+    {
+      "path": "checkpoints/done_2025-07-23.json",
+      "bytes": 5732,
+      "sha256": "758c18fcd877164cf51563d5628a6c70151e2f4393999adfe62a00ed89150456"
+    },
+    {
+      "path": "metrics/day_2025-07-24.jsonl",
+      "bytes": 910342,
+      "sha256": "0986652e9859295f3acde4136bb815856b9513ce23f0a0ac0b7220f255d91a3a"
+    },
+    {
+      "path": "timing/day_2025-07-24.json",
+      "bytes": 16062,
+      "sha256": "34b7f868d3509ff9a968b28d9fdd14daf5066ea384682ac9a567927b6e4287eb"
+    },
+    {
+      "path": "checkpoints/done_2025-07-24.json",
+      "bytes": 5732,
+      "sha256": "758c18fcd877164cf51563d5628a6c70151e2f4393999adfe62a00ed89150456"
+    },
+    {
+      "path": "metrics/day_2025-07-25.jsonl",
+      "bytes": 911147,
+      "sha256": "ec5572e3187a12ce5ad2f5937a9a1feec82ead9ce7ff658a71b78ddbb4fc3ed1"
+    },
+    {
+      "path": "timing/day_2025-07-25.json",
+      "bytes": 16078,
+      "sha256": "9a384d97744f8df5d6b8fdf05c1c490196c65f569d9a783ef45ff5ab6fcf85ee"
+    },
+    {
+      "path": "checkpoints/done_2025-07-25.json",
+      "bytes": 5732,
+      "sha256": "758c18fcd877164cf51563d5628a6c70151e2f4393999adfe62a00ed89150456"
+    },
+    {
+      "path": "metrics/day_2025-07-26.jsonl",
+      "bytes": 954430,
+      "sha256": "bfaa7a60869b068588efae7e88b6b8148cf3e42496543abd0940bd367377c32d"
+    },
+    {
+      "path": "timing/day_2025-07-26.json",
+      "bytes": 16105,
+      "sha256": "d3f64cc9545238cecc4a811aa8f85a1f8b44b27eb797ce437220975cb7d76ee6"
+    },
+    {
+      "path": "checkpoints/done_2025-07-26.json",
+      "bytes": 5732,
+      "sha256": "758c18fcd877164cf51563d5628a6c70151e2f4393999adfe62a00ed89150456"
+    },
+    {
+      "path": "metrics/day_2025-07-27.jsonl",
+      "bytes": 946551,
+      "sha256": "89f55d999297eaea212a34a586005f71911693537a9fc5cda4a9bbcf2f98d9cb"
+    },
+    {
+      "path": "timing/day_2025-07-27.json",
+      "bytes": 16104,
+      "sha256": "84e4c651698af622cd58bf41a4527ddfaf3de5b5b239cbb1afe742101a0eb624"
+    },
+    {
+      "path": "checkpoints/done_2025-07-27.json",
+      "bytes": 5732,
+      "sha256": "758c18fcd877164cf51563d5628a6c70151e2f4393999adfe62a00ed89150456"
+    }
+  ],
+  "snapshot_id": "2b14e04827229e6402c16dba",
+  "created_at": "2026-08-03T08:10:40Z",
+  "unknown": []
+}
