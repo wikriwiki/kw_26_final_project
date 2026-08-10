@@ -729,53 +729,79 @@ def _sec_categories(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
     if not categories:
         return '<div class="callout callout--warn">업종 정보를 가진 이벤트가 없습니다.</div>'
     labels = [row["l1"] for row in categories[:TOP_CATEGORIES]]
+    period = bundle.get("period") or {}
+    # 시행일이 run 첫날이면 사전 기간이 비어 `pre_daily_amt` 가 전부 0 이 된다.
+    # 그 0 을 막대로 그리면 "정책 전에는 소비가 없었다"로 읽힌다 — 사실이 아니다.
+    # 전후 비교 자체가 성립하지 않으므로 사후 한 계열만 그리고 그 사실을 적는다.
+    no_pre = not period.get("pre")
     body = [note(narration, "categories")]
+    if no_pre:
+        body.append(
+            '<div class="callout callout--warn">이 실행에는 <b>시행 전 기간이 없습니다.</b> '
+            f'{esc(period.get("reason") or "시행일이 run 첫날입니다.")} '
+            "따라서 아래는 전후 비교가 아니라 <b>시행 후 일평균</b>만 보여줍니다. "
+            "증감률·차이·이중차분은 계산하지 않았습니다.</div>"
+        )
+    series = [
+        {
+            "name": "시행 후 일평균",
+            "values": [row["post_daily_amt"] for row in categories[:TOP_CATEGORIES]],
+            "color": "var(--k1)",
+        }
+    ]
+    if not no_pre:
+        series.insert(
+            0,
+            {
+                "name": "시행 전 일평균",
+                "values": [row["pre_daily_amt"] for row in categories[:TOP_CATEGORIES]],
+                "color": "var(--k5)",
+            },
+        )
     body.append(
         figure(
             charts.grouped_bar(
                 labels,
-                [
-                    {
-                        "name": "시행 전 일평균",
-                        "values": [row["pre_daily_amt"] for row in categories[:TOP_CATEGORIES]],
-                        "color": "var(--k5)",
-                    },
-                    {
-                        "name": "시행 후 일평균",
-                        "values": [row["post_daily_amt"] for row in categories[:TOP_CATEGORIES]],
-                        "color": "var(--k1)",
-                    },
-                ],
-                title="업종별 시행 전후 일평균 소비금액",
+                series,
+                title="업종별 시행 후 일평균 소비금액"
+                if no_pre
+                else "업종별 시행 전후 일평균 소비금액",
                 height=330,
             ),
-            "<b>업종별 시행 전/후 일평균.</b> 기간 길이가 다르므로 총액이 아니라 <b>일평균</b>으로 맞췄습니다. "
-            "총액으로 비교하면 사후 기간이 길다는 이유만으로 모든 업종이 늘어난 것처럼 보입니다.",
+            (
+                "<b>업종별 시행 후 일평균.</b> 시행 전 기간이 없어 비교 대상이 없습니다. "
+                "여기서 큰 업종은 '정책으로 늘어난 업종'이 아니라 '금액이 큰 업종'입니다."
+                if no_pre
+                else "<b>업종별 시행 전/후 일평균.</b> 기간 길이가 다르므로 총액이 아니라 <b>일평균</b>으로 맞췄습니다. "
+                "총액으로 비교하면 사후 기간이 길다는 이유만으로 모든 업종이 늘어난 것처럼 보입니다."
+            ),
             "events.jsonl · 업종×일자 교차표",
         )
     )
-    body.append(
-        figure(
-            charts.diverging_bar(
-                [
-                    {
-                        "label": row["l1"],
-                        "value": row["growth_pct"],
-                        "targeted": row["targeted"],
-                    }
-                    for row in sorted(
-                        [c for c in categories if c["growth_pct"] is not None],
-                        key=lambda c: -(c["growth_pct"] or 0),
-                    )
-                ],
-                title="업종별 증감률",
-                formatter=lambda v: f"{v:+.1f}%",
-            ),
-            "<b>업종별 증감률(단순 전후비교).</b> 진한 막대가 정책 대상 업종입니다. "
-            "여기에는 시장 전체의 추세가 섞여 있으므로, 정책 효과는 다음 절의 이중차분으로 판단해야 합니다.",
-            "events.jsonl",
+    # 사전 기간이 없으면 증감률이 전부 None 이다. 빈 그림을 남기지 않는다
+    if not no_pre:
+        body.append(
+            figure(
+                charts.diverging_bar(
+                    [
+                        {
+                            "label": row["l1"],
+                            "value": row["growth_pct"],
+                            "targeted": row["targeted"],
+                        }
+                        for row in sorted(
+                            [c for c in categories if c["growth_pct"] is not None],
+                            key=lambda c: -(c["growth_pct"] or 0),
+                        )
+                    ],
+                    title="업종별 증감률",
+                    formatter=lambda v: f"{v:+.1f}%",
+                ),
+                "<b>업종별 증감률(단순 전후비교).</b> 진한 막대가 정책 대상 업종입니다. "
+                "여기에는 시장 전체의 추세가 섞여 있으므로, 정책 효과는 다음 절의 이중차분으로 판단해야 합니다.",
+                "events.jsonl",
+            )
         )
-    )
     body.append(
         figure(
             charts.stacked_bar(
@@ -811,9 +837,10 @@ def _sec_categories(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
                 f'<span class="num">{row["events"]:,}</span>',
                 f'<span class="num">{esc(krw(row["amt"]))}</span>',
                 f'<span class="num">{esc(num(row["share"], digits=1))}%</span>',
-                f'<span class="num">{esc(krw(row["pre_daily_amt"]))}</span>',
+                # 사전 기간이 없으면 0 이 아니라 "없음"이다. 0 으로 적으면 뺄셈이 성립한 것처럼 보인다
+                "—" if no_pre else f'<span class="num">{esc(krw(row["pre_daily_amt"]))}</span>',
                 f'<span class="num">{esc(krw(row["post_daily_amt"]))}</span>',
-                _signed(row["delta_daily_amt"]),
+                "—" if no_pre else _signed(row["delta_daily_amt"]),
                 _signed(row["growth_pct"], formatter=lambda v: f"{abs(v):.1f}%")
                 if row["growth_pct"] is not None
                 else "—",

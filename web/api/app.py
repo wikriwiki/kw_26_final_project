@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from scripts.report import llm as report_llm
 
@@ -21,6 +22,31 @@ from .store import ArtifactStore, StoreError
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+
+
+class SpaFiles(StaticFiles):
+    """빌드 산출물을 서빙하되, 없는 경로는 `index.html` 로 넘긴다.
+
+    콘솔은 `BrowserRouter` 를 쓴다. 즉 `/runs/FINAL/report` 같은 주소는 **서버에
+    파일로 존재하지 않고** 브라우저가 받아서 그린다. 기본 `StaticFiles` 는 그런
+    경로를 404 로 돌려주기 때문에, 클릭해서 들어가면 되던 화면이 새로고침하거나
+    링크로 열면 죽는다. 주소 하나로 링크가 완결되어야 한다는 요구(§9 deep-linking)가
+    깨지는 자리다.
+
+    다만 `/api/...` 는 넘기지 않는다. 없는 API 경로가 HTML 을 돌려주면 클라이언트가
+    JSON 을 기대하다 엉뚱한 곳에서 터진다. API 는 API 답게 404 로 끝낸다.
+    """
+
+    async def get_response(self, path: str, scope):  # type: ignore[override]
+        try:
+            return await super().get_response(path, scope)
+        except StarletteHTTPException as exc:
+            # `path` 는 OS 구분자로 정규화돼 넘어온다(윈도우에서는 `api\nope`).
+            # 그래서 판정은 원본 주소로 한다.
+            request_path = scope.get("path", "")
+            if exc.status_code != 404 or request_path.startswith("/api/"):
+                raise
+            return await super().get_response("index.html", scope)
 
 
 class RunStartRequest(BaseModel):
@@ -324,8 +350,8 @@ def create_app(*, store: ArtifactStore | None = None, runner: Runner | None = No
     ui_dist = REPO_ROOT / "web" / "ui" / "dist"
     if ui_dist.is_dir():
         # API routes are registered above; the root mount only serves the
-        # already-built HashRouter bundle and never replaces an API response.
-        app.mount("/", StaticFiles(directory=ui_dist, html=True), name="ui")
+        # already-built bundle and never replaces an API response.
+        app.mount("/", SpaFiles(directory=ui_dist, html=True), name="ui")
 
     return app
 

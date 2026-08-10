@@ -571,9 +571,14 @@ class ReportJobManager:
     def _run(self, job_id: str, command: list[str]) -> None:
         process: subprocess.Popen[str] | None = None
         try:
+            # 자식 프로세스의 stdout 도 UTF-8 로 맞춘다.
+            # 윈도우에서는 파이썬이 콘솔 코드페이지(cp949)로 인코딩해서 내보내는데
+            # 이쪽은 UTF-8 로 읽으므로 한글 로그가 전부 깨진 채 화면에 그대로 실린다.
+            env = dict(os.environ, PYTHONIOENCODING="utf-8", PYTHONUTF8="1")
             process = subprocess.Popen(
                 command,
                 cwd=self.repo_root,
+                env=env,
                 stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,

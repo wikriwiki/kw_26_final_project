@@ -142,6 +142,61 @@ class RenderTests(unittest.TestCase):
         self.assertIn("규칙 기반 서술", self.html)
 
 
+class NoPrePeriodRenderTests(unittest.TestCase):
+    """시행일이 run 첫날인 경우 — 실제 run(FINAL/P010, effective_from=첫날)이 이 모양이다.
+
+    사전 기간이 비면 `pre_daily_amt` 가 전부 0 이 된다. 그 0 을 그대로 막대로 그리면
+    **"정책 전에는 소비가 0이었다"** 로 읽힌다. 비교 자체가 성립하지 않는다는 사실을
+    적고, 없는 값을 0 으로 그리지 않아야 한다.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.temp = tempfile.TemporaryDirectory(prefix="report-v2-nopre-")
+        cls.root = _demo_run.build(Path(cls.temp.name) / "out_NOPRE")
+        cls.policy = dict(_demo_run.policy(), effective_from=_demo_run.START.isoformat())
+        cls.bundle = analytics.build_bundle(run_id="NOPRE", run_root=cls.root, policy=cls.policy)
+        cls.checks = consistency.run_checks(cls.bundle)
+        cls.narration = narrator.narrate_report(cls.bundle, cls.checks, enabled=False)
+        cls.html = render_v2.build_html(
+            cls.bundle, cls.checks, cls.narration, policy=cls.policy, run_id="NOPRE"
+        )
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.temp.cleanup()
+
+    def test_the_run_really_has_no_pre_period(self) -> None:
+        self.assertEqual(self.bundle["period"]["pre"], [])
+        self.assertIsNone(self.bundle.get("did"))
+
+    def test_identities_still_hold(self) -> None:
+        failed = [c for c in self.checks["checks"] if c["status"] == "fail"]
+        self.assertEqual(failed, [], f"실패한 항등식: {[c['id'] for c in failed]}")
+
+    def test_category_section_does_not_plot_a_zero_before_series(self) -> None:
+        section = _section_html(self.html, "s5")
+        # 그림 안에 '시행 전' 계열이 없어야 한다 (막대·범례·툴팁 어디에도)
+        charts_only = "".join(re.findall(r"<svg\b.*?</svg>", section, re.S))
+        self.assertNotIn("시행 전", charts_only)
+        self.assertIn("시행 후 일평균", charts_only)
+        self.assertIn("시행 전 기간이 없습니다", section)
+
+    def test_growth_columns_read_as_missing_not_zero(self) -> None:
+        section = _section_html(self.html, "s5")
+        body = section[section.index("<tbody>") : section.index("</tbody>")]
+        # 표의 '시행 전 일평균'·'차이' 칸은 0 이 아니라 — 로 적힌다
+        self.assertNotIn(">0원<", body)
+        self.assertIn('<td class="n">—</td>', body)
+
+
+def _section_html(html: str, anchor: str) -> str:
+    """`id="sN"` 섹션 하나를 잘라낸다. 검사가 옆 절의 문자열에 걸리지 않게."""
+    start = html.index(f'id="{anchor}"')
+    end = html.find("<section", start)
+    return html[start : end if end != -1 else len(html)]
+
+
 class CatalogTests(unittest.TestCase):
     def test_did_sections_lock_without_an_effective_date(self) -> None:
         policy = {k: v for k, v in _demo_run.policy().items() if k != "effective_from"}
