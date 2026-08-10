@@ -449,6 +449,49 @@ def did_two_by_two(
         ),
         "naive_before_after": round(t1 - t0, 2),
         "bias_removed": round((t1 - t0) - did_abs, 2) if did_abs is not None else None,
+        "reliability": did_reliability(t0, c0, len(pre_days), len(post_days)),
+    }
+
+
+#: 대조군이 사전 거래액에서 차지해야 하는 최소 비중.
+#: 이 아래로 내려가면 대조군 성장률이 몇 건의 거래로 결정돼 반사실이 요동친다.
+MIN_CONTROL_SHARE_PCT = 5.0
+#: 이 미만이면 요일 효과가 정책 효과와 분리되지 않는다 (한 주가 안 됨).
+MIN_POST_DAYS_FOR_WEEKDAY = 7
+
+
+def did_reliability(t0: float, c0: float, pre_days: int, post_days: int) -> dict[str, Any]:
+    """이중차분 추정을 **믿어도 되는지** 판정한다.
+
+    DID 는 대조군의 성장률로 반사실을 만든다. 그래서 대조군이 작으면 반사실 전체가
+    소수의 거래에 끌려간다. 숫자는 계산되지만 그 숫자는 정책 효과가 아니다.
+    계산이 됐다는 것과 믿을 만하다는 것은 다르므로, 판정을 값 옆에 함께 싣는다.
+
+    구간이 짧은 것도 같은 문제다. 사후가 한 주에 못 미치면 요일 구성이 사전과
+    달라서, 요일 효과가 정책 효과에 섞여 들어간다.
+    """
+    total = (t0 or 0) + (c0 or 0)
+    share = (c0 / total * 100) if total else None
+    problems: list[str] = []
+    if share is None:
+        problems.append("사전 거래액이 없어 대조군 비중을 잴 수 없습니다.")
+    elif share < MIN_CONTROL_SHARE_PCT:
+        problems.append(
+            f"대조군이 사전 거래액의 {share:.2f}% 뿐입니다 "
+            f"(최소 {MIN_CONTROL_SHARE_PCT:.0f}%). 반사실이 소수 거래에 끌려갑니다."
+        )
+    if post_days < MIN_POST_DAYS_FOR_WEEKDAY:
+        problems.append(
+            f"사후가 {post_days}일이라 요일 구성이 사전({pre_days}일)과 다릅니다. "
+            "요일 효과가 정책 효과와 섞입니다."
+        )
+    return {
+        "control_share_pct": round(share, 4) if share is not None else None,
+        "min_control_share_pct": MIN_CONTROL_SHARE_PCT,
+        "pre_days": pre_days,
+        "post_days": post_days,
+        "reliable": not problems,
+        "problems": problems,
     }
 
 

@@ -1,0 +1,12 @@
+{
+  "run_id": "EXP7500",
+  "day": "2025-07-21",
+  "source_file": "checkpoints/failed_2025-07-21.json",
+  "available": false,
+  "reason": "checkpoints/failed_2025-07-21.json 없음 — 이 파일은 일자 종료 시에만 기록된다",
+  "total": null,
+  "items": [],
+  "unknown": [
+    "failed_checkpoint"
+  ]
+}

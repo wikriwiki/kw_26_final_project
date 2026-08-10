@@ -22,18 +22,30 @@ def load(name: str) -> dict:
 
 
 class S1ContractTests(unittest.TestCase):
-    def test_fixture_inventory_is_the_three_real_run_cases(self) -> None:
+    def test_fixture_inventory_covers_every_run_in_the_index(self) -> None:
+        """run 목록과 픽스처 파일이 서로를 덮는지 본다.
+
+        예전에는 run 이름 세 개와 파일 개수 36 을 그대로 박아 두었다. 그러면
+        실제 run 을 하나 더 받아올 때마다 — 콘솔이 바로 그러라고 만들어졌는데 —
+        이 검사가 깨진다. 이름을 세는 대신 **관계**를 검사한다.
+        """
         index = load("runs.index.json")
-        self.assertEqual({item["run_id"] for item in index["items"]}, {"BASE", "FINAL", "BASE7500"})
-        self.assertEqual(index["total"], 3)
-        self.assertEqual(
-            {item["status"] for item in index["items"]}, {"completed", "incomplete"}
-        )
+        ids = {item["run_id"] for item in index["items"]}
+        self.assertEqual(index["total"], len(index["items"]))
+        self.assertTrue(ids >= {"BASE", "FINAL", "BASE7500"}, f"기준 run 이 빠졌습니다: {ids}")
+        self.assertTrue({item["status"] for item in index["items"]} <= {"completed", "incomplete"})
+        # 부분 실행 하나는 반드시 남겨 둔다 — "완료가 아닌 run" 경로가 화면에서 죽지 않게
         self.assertEqual(load("run.BASE7500.detail.json")["status"], "incomplete")
+        for run_id in ids:
+            for suffix in ("detail", "days", "failures", "events.summary"):
+                self.assertTrue(
+                    (FIXTURES / f"run.{run_id}.{suffix}.json").is_file(),
+                    f"run.{run_id}.{suffix}.json 이 없습니다",
+                )
 
     def test_every_resource_declares_top_level_unknown(self) -> None:
         resources = list(FIXTURES.glob("*.json"))
-        self.assertEqual(len(resources), 36)
+        self.assertGreaterEqual(len(resources), 36)
         for path in resources:
             payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertIn("unknown", payload, path.name)

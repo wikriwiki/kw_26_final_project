@@ -24,6 +24,8 @@ from typing import Any
 # 금액은 소수 둘째 자리에서 반올림해 저장하므로 항목 수에 비례한 누적오차만 허용한다.
 MONEY_TOLERANCE = 1.0
 RATIO_TOLERANCE = 1e-6
+#: 비율은 소수 6자리로 저장한다. 그 비율을 곱해 만든 금액은 크기에 비례해 어긋난다.
+REL_TOLERANCE = 1e-6
 
 
 def _check(
@@ -47,14 +49,19 @@ def _check(
             "note": note or "비교에 필요한 값이 없어 검사하지 않았습니다.",
         }
     diff = float(actual) - float(expected)
+    # 저장된 값은 이미 반올림돼 있다. 비율은 소수 6자리, 금액은 2자리다.
+    # 그 비율을 2억짜리 금액에 곱하면 반올림분만으로 수백 원이 어긋난다 —
+    # 실제로 out_EXP7500(사전 일평균 2.1억)에서 59원 차이로 항등식이 깨졌다.
+    # 절대 허용치만 두면 금액이 커질수록 반드시 실패하므로 상대 허용치를 함께 둔다.
+    allowed = tolerance + abs(float(expected)) * REL_TOLERANCE
     return {
         "id": check_id,
         "label": label,
-        "status": "pass" if abs(diff) <= tolerance else "fail",
+        "status": "pass" if abs(diff) <= allowed else "fail",
         "expected": round(float(expected), 4),
         "actual": round(float(actual), 4),
         "diff": round(diff, 6),
-        "tolerance": tolerance,
+        "tolerance": round(allowed, 6),
         "note": note,
     }
 

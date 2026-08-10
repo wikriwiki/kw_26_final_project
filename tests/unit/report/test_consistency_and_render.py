@@ -142,6 +142,68 @@ class RenderTests(unittest.TestCase):
         self.assertIn("규칙 기반 서술", self.html)
 
 
+class DidReliabilityTests(unittest.TestCase):
+    """계산이 됐다는 것과 믿을 만하다는 것은 다르다.
+
+    실제 run(EXP7500/P010)에서 대조군은 사전 거래액의 0.09% 였다. 그런데도 DID 는
+    −1,980만이라는 값을 냈다. 그 값을 아무 표시 없이 실으면 정책 효과로 인용된다.
+    """
+
+    def test_a_tiny_control_group_is_called_out(self) -> None:
+        verdict = analytics.did_reliability(t0=212_528_594.0, c0=192_370.0, pre_days=7, post_days=7)
+        self.assertFalse(verdict["reliable"])
+        self.assertAlmostEqual(verdict["control_share_pct"], 0.0904, places=3)
+        self.assertTrue(any("대조군" in p for p in verdict["problems"]))
+
+    def test_a_short_post_window_is_called_out(self) -> None:
+        verdict = analytics.did_reliability(t0=100.0, c0=100.0, pre_days=7, post_days=1)
+        self.assertFalse(verdict["reliable"])
+        self.assertTrue(any("요일" in p for p in verdict["problems"]))
+
+    def test_a_balanced_design_passes(self) -> None:
+        verdict = analytics.did_reliability(t0=100.0, c0=100.0, pre_days=7, post_days=7)
+        self.assertTrue(verdict["reliable"])
+        self.assertEqual(verdict["problems"], [])
+
+    def test_the_warning_reaches_the_reader(self) -> None:
+        temp = tempfile.TemporaryDirectory(prefix="report-v2-weak-")
+        self.addCleanup(temp.cleanup)
+        root = _demo_run.build(Path(temp.name) / "out_WEAK")
+        policy = _demo_run.policy()
+        bundle = analytics.build_bundle(run_id="WEAK", run_root=root, policy=policy)
+        checks = consistency.run_checks(bundle)
+        narration = narrator.narrate_report(bundle, checks, enabled=False)
+        html = render_v2.build_html(bundle, checks, narration, policy=policy, run_id="WEAK")
+        section = _section_html(html, "s6")
+        # 합성 run 은 사후가 4일이라 요일 구성이 사전과 다르다 → 경고가 떠야 한다
+        self.assertFalse(bundle["did"]["reliability"]["reliable"])
+        self.assertIn("정책 효과로 인용하면 안 됩니다", section)
+        # 경고는 숫자보다 **위에** 있어야 한다. 밑에 있으면 이미 읽고 난 뒤다
+        self.assertLess(section.index("인용하면 안 됩니다"), section.index("<svg"))
+
+
+class ToleranceTests(unittest.TestCase):
+    """항등식 허용치는 금액 크기를 따라가야 한다.
+
+    저장값은 이미 반올림돼 있다(비율 6자리·금액 2자리). 그 비율을 2억에 곱하면
+    반올림분만으로 수백 원이 어긋난다 — 실제 run 에서 59원 차이로 검사가 깨졌다.
+    절대 허용치 1원만 두면 금액이 커질수록 반드시 실패한다.
+    """
+
+    def test_rounding_at_scale_does_not_fail_an_identity(self) -> None:
+        check = consistency._check("x", "", 275_288_441.37, 275_288_500.3368)
+        self.assertEqual(check["status"], "pass")
+
+    def test_a_real_discrepancy_still_fails(self) -> None:
+        # 상대 허용치(1e-6)로도 덮이지 않는 크기 — 0.01% 어긋남
+        check = consistency._check("x", "", 275_288_441.37, 275_316_000.0)
+        self.assertEqual(check["status"], "fail")
+
+    def test_small_numbers_keep_the_absolute_floor(self) -> None:
+        self.assertEqual(consistency._check("x", "", 100.0, 100.5)["status"], "pass")
+        self.assertEqual(consistency._check("x", "", 100.0, 102.0)["status"], "fail")
+
+
 class NoPrePeriodRenderTests(unittest.TestCase):
     """시행일이 run 첫날인 경우 — 실제 run(FINAL/P010, effective_from=첫날)이 이 모양이다.
 

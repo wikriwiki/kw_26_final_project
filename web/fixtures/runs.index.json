@@ -1,5 +1,5 @@
 {
-  "total": 3,
+  "total": 4,
   "items": [
     {
       "run_id": "BASE",
@@ -16,6 +16,27 @@
         "events_jsonl": true,
         "poi_summary_json": true,
         "stage1_failures_jsonl": true,
+        "timing_dir": true,
+        "checkpoints_dir": true,
+        "metrics_dir": true
+      },
+      "unknown": []
+    },
+    {
+      "run_id": "EXP7500",
+      "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\out_EXP7500",
+      "status": "completed",
+      "first_day": "2025-07-14",
+      "last_day": "2025-07-21",
+      "days_present": 8,
+      "days_planned": 8,
+      "agents_target": 7500,
+      "completed_at": "2026-08-05T07:08:42.629533",
+      "artifacts": {
+        "summary_json": true,
+        "events_jsonl": true,
+        "poi_summary_json": true,
+        "stage1_failures_jsonl": false,
         "timing_dir": true,
         "checkpoints_dir": true,
         "metrics_dir": true

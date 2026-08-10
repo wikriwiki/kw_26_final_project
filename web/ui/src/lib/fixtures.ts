@@ -51,6 +51,13 @@ import rescueFailuresRaw from '../../../fixtures/run.BASE7500.failures.json?raw'
 import baseEventsRaw from '../../../fixtures/run.BASE.events.summary.json?raw';
 import finalEventsRaw from '../../../fixtures/run.FINAL.events.summary.json?raw';
 import rescueEventsRaw from '../../../fixtures/run.BASE7500.events.summary.json?raw';
+import expDetailRaw from '../../../fixtures/run.EXP7500.detail.json?raw';
+import expDaysRaw from '../../../fixtures/run.EXP7500.days.json?raw';
+import expDayRaw from '../../../fixtures/run.EXP7500.day.2025-07-21.json?raw';
+import expBottlenecksRaw from '../../../fixtures/run.EXP7500.day.2025-07-21.bottlenecks.json?raw';
+import expSlowRaw from '../../../fixtures/run.EXP7500.day.2025-07-21.slow.json?raw';
+import expFailuresRaw from '../../../fixtures/run.EXP7500.failures.json?raw';
+import expEventsRaw from '../../../fixtures/run.EXP7500.events.summary.json?raw';
 
 /* --- CONTRACT 에 있으나 api.ts 에 아직 없는 리소스 타입 -------------------- */
 
@@ -161,7 +168,7 @@ export const policyValidations: Record<string, PolicyValidation> = {
 
 export const runsIndex = parse<RunsIndex>(runsIndexRaw);
 
-export type RunId = 'BASE' | 'FINAL' | 'BASE7500';
+export type RunId = 'BASE' | 'FINAL' | 'BASE7500' | 'EXP7500';
 
 export interface RunBundle {
   detail: RunDetail;
@@ -206,9 +213,19 @@ export const runs: Record<RunId, RunBundle> = {
     failures: parse<FailuresPage>(rescueFailuresRaw),
     events: parse<EventsSummary>(rescueEventsRaw),
   },
+  EXP7500: {
+    detail: parse<RunDetail>(expDetailRaw),
+    days: parse<RunDays>(expDaysRaw),
+    focusDay: '2025-07-21',
+    dayAggregate: parse<DayAggregate>(expDayRaw),
+    bottlenecks: parse<Bottlenecks>(expBottlenecksRaw),
+    slow: parse<SlowPage>(expSlowRaw),
+    failures: parse<FailuresPage>(expFailuresRaw),
+    events: parse<EventsSummary>(expEventsRaw),
+  },
 };
 
-export const RUN_IDS: RunId[] = ['BASE', 'FINAL', 'BASE7500'];
+export const RUN_IDS: RunId[] = ['BASE', 'FINAL', 'BASE7500', 'EXP7500'];
 
 export function isRunId(value: string): value is RunId {
   return (RUN_IDS as string[]).includes(value);

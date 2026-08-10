@@ -96,6 +96,14 @@ class ArtifactStore:
                 self.data_root / "logs_scripts" / "run_BASE7500.log",
             ),
         }
+        # 문서에 적힌 세 run 이 우선이다. 뿌리를 훑어 찾은 run 은 **덧붙이기만** 한다 —
+        # 같은 이름의 디렉터리가 어딘가에 또 있다고 해서 기준 경로가 바뀌면 안 된다.
+        # 훑는 규칙은 픽스처 생성기와 같은 함수를 쓴다. 규칙이 두 벌이면 화면과
+        # 픽스처가 서로 다른 run 목록을 갖게 된다.
+        if self.fixture_dir is None:
+            for run_id, entry in builder.discover_runs(self.data_root).items():
+                builder.RUNS.setdefault(run_id, entry)
+        self.run_ids: tuple[str, ...] = tuple(builder.RUNS)
 
     @classmethod
     def from_environment(cls, repo_root: Path) -> "ArtifactStore":
@@ -108,7 +116,7 @@ class ArtifactStore:
         return cls(repo_root=repo_root, data_root=data_root, fixture_dir=fixture_dir)
 
     def _require_run(self, run_id: str) -> tuple[Path, Path]:
-        if run_id not in RUN_IDS:
+        if run_id not in self.run_ids:
             raise StoreError(404, f"알 수 없는 run: {run_id}")
         root, log = builder.RUNS[run_id]
         if self.fixture_dir is None and not root.exists():
@@ -134,7 +142,7 @@ class ArtifactStore:
         fixture = self._fixture("runs.index.json")
         if fixture is not None:
             return fixture
-        runs = {run_id: self._actual_run(run_id) for run_id in RUN_IDS}
+        runs = {run_id: self._actual_run(run_id) for run_id in self.run_ids}
         items = []
         for run_id, run in runs.items():
             days = run["days_present"]

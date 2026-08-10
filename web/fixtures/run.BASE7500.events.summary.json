@@ -7,9 +7,9 @@
   "totals": null,
   "day_type_counts": null,
   "policy_paid_by_policy_id": null,
-  "by_day": [],
-  "by_l1": [],
-  "by_day_l1": [],
+  "by_day": null,
+  "by_l1": null,
+  "by_day_l1": null,
   "null_only_fields": null,
   "unknown": [
     "totals",

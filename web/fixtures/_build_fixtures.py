@@ -938,7 +938,8 @@ def main() -> None:
                            if run["plan"]["agents_target"] is None else [])})
 
         # 일자 상세는 대표 1일만 (용량). BASE=첫날, FINAL=마지막날, BASE7500=유일한 날
-        pick = {"BASE": days[0], "FINAL": days[-1], "BASE7500": days[0]}[rid]
+        # 훑어서 새로 잡힌 run 은 마지막 날을 쓴다 — 정책 시행 후가 그쪽에 있다.
+        pick = {"BASE": days[0], "FINAL": days[-1], "BASE7500": days[0]}.get(rid, days[-1])
         agg = aggregate_day(Path(run["root"]) / "metrics" / f"day_{pick}.jsonl")
         src = Path(run["root"]) / "metrics" / f"day_{pick}.jsonl"
         write(f"run.{rid}.day.{pick}.json", {

@@ -1,0 +1,16 @@
+{
+  "run_id": "EXP7500",
+  "available": false,
+  "reason": "stage1_failures.jsonl 없음",
+  "total": null,
+  "by_day": null,
+  "by_error_type": null,
+  "limit": 12,
+  "items": [],
+  "unknown": [
+    "total",
+    "by_day",
+    "by_error_type",
+    "items"
+  ]
+}

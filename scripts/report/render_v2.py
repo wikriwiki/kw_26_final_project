@@ -889,6 +889,21 @@ def _sec_did(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
         )
         return "".join(body)
 
+    # 계산이 됐다는 것과 믿을 만하다는 것은 다르다. 판정을 값 **위에** 둔다 —
+    # 밑에 두면 숫자를 먼저 읽고 그대로 인용하게 된다.
+    quality = did.get("reliability") or {}
+    if quality and not quality.get("reliable", True):
+        items = "".join(f"<li>{esc(p)}</li>" for p in quality.get("problems", []))
+        body.append(
+            '<div class="callout callout--warn">'
+            "<b>아래 이중차분 값을 정책 효과로 인용하면 안 됩니다.</b> 계산은 됐지만 "
+            "추정이 성립할 조건을 만족하지 못합니다."
+            f"<ul>{items}</ul>"
+            "값을 지우지 않고 그대로 두는 이유는, 무엇이 어떻게 어긋났는지 함께 보여야 "
+            "다음 실행을 어떻게 설계할지 판단할 수 있기 때문입니다."
+            "</div>"
+        )
+
     body.append(
         figure(
             charts.slope_chart(
