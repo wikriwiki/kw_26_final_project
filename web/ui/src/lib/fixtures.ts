@@ -30,34 +30,13 @@ import p010ValidateRaw from '../../../fixtures/policy.P010.validate.json?raw';
 import p011ValidateRaw from '../../../fixtures/policy.P011.validate.json?raw';
 
 import runsIndexRaw from '../../../fixtures/runs.index.json?raw';
-import baseDetailRaw from '../../../fixtures/run.BASE.detail.json?raw';
-import finalDetailRaw from '../../../fixtures/run.FINAL.detail.json?raw';
-import rescueDetailRaw from '../../../fixtures/run.BASE7500.detail.json?raw';
-import baseDaysRaw from '../../../fixtures/run.BASE.days.json?raw';
-import finalDaysRaw from '../../../fixtures/run.FINAL.days.json?raw';
-import rescueDaysRaw from '../../../fixtures/run.BASE7500.days.json?raw';
-import baseDayRaw from '../../../fixtures/run.BASE.day.2025-07-21.json?raw';
-import finalDayRaw from '../../../fixtures/run.FINAL.day.2025-08-17.json?raw';
-import rescueDayRaw from '../../../fixtures/run.BASE7500.day.2025-07-14.json?raw';
-import baseBottlenecksRaw from '../../../fixtures/run.BASE.day.2025-07-21.bottlenecks.json?raw';
-import finalBottlenecksRaw from '../../../fixtures/run.FINAL.day.2025-08-17.bottlenecks.json?raw';
-import rescueBottlenecksRaw from '../../../fixtures/run.BASE7500.day.2025-07-14.bottlenecks.json?raw';
-import baseSlowRaw from '../../../fixtures/run.BASE.day.2025-07-21.slow.json?raw';
-import finalSlowRaw from '../../../fixtures/run.FINAL.day.2025-08-17.slow.json?raw';
-import rescueSlowRaw from '../../../fixtures/run.BASE7500.day.2025-07-14.slow.json?raw';
-import baseFailuresRaw from '../../../fixtures/run.BASE.failures.json?raw';
-import finalFailuresRaw from '../../../fixtures/run.FINAL.failures.json?raw';
-import rescueFailuresRaw from '../../../fixtures/run.BASE7500.failures.json?raw';
-import baseEventsRaw from '../../../fixtures/run.BASE.events.summary.json?raw';
-import finalEventsRaw from '../../../fixtures/run.FINAL.events.summary.json?raw';
-import rescueEventsRaw from '../../../fixtures/run.BASE7500.events.summary.json?raw';
-import expDetailRaw from '../../../fixtures/run.EXP7500.detail.json?raw';
-import expDaysRaw from '../../../fixtures/run.EXP7500.days.json?raw';
-import expDayRaw from '../../../fixtures/run.EXP7500.day.2025-07-21.json?raw';
-import expBottlenecksRaw from '../../../fixtures/run.EXP7500.day.2025-07-21.bottlenecks.json?raw';
-import expSlowRaw from '../../../fixtures/run.EXP7500.day.2025-07-21.slow.json?raw';
-import expFailuresRaw from '../../../fixtures/run.EXP7500.failures.json?raw';
-import expEventsRaw from '../../../fixtures/run.EXP7500.events.summary.json?raw';
+import runDetailRaw from '../../../fixtures/run.SEOUL7500.detail.json?raw';
+import runDaysRaw from '../../../fixtures/run.SEOUL7500.days.json?raw';
+import runDayRaw from '../../../fixtures/run.SEOUL7500.day.2025-07-27.json?raw';
+import runBottlenecksRaw from '../../../fixtures/run.SEOUL7500.day.2025-07-27.bottlenecks.json?raw';
+import runSlowRaw from '../../../fixtures/run.SEOUL7500.day.2025-07-27.slow.json?raw';
+import runFailuresRaw from '../../../fixtures/run.SEOUL7500.failures.json?raw';
+import runEventsRaw from '../../../fixtures/run.SEOUL7500.events.summary.json?raw';
 
 /* --- CONTRACT 에 있으나 api.ts 에 아직 없는 리소스 타입 -------------------- */
 
@@ -168,7 +147,7 @@ export const policyValidations: Record<string, PolicyValidation> = {
 
 export const runsIndex = parse<RunsIndex>(runsIndexRaw);
 
-export type RunId = 'BASE' | 'FINAL' | 'BASE7500' | 'EXP7500';
+export type RunId = 'SEOUL7500';
 
 export interface RunBundle {
   detail: RunDetail;
@@ -183,49 +162,19 @@ export interface RunBundle {
 }
 
 export const runs: Record<RunId, RunBundle> = {
-  BASE: {
-    detail: parse<RunDetail>(baseDetailRaw),
-    days: parse<RunDays>(baseDaysRaw),
-    focusDay: '2025-07-21',
-    dayAggregate: parse<DayAggregate>(baseDayRaw),
-    bottlenecks: parse<Bottlenecks>(baseBottlenecksRaw),
-    slow: parse<SlowPage>(baseSlowRaw),
-    failures: parse<FailuresPage>(baseFailuresRaw),
-    events: parse<EventsSummary>(baseEventsRaw),
-  },
-  FINAL: {
-    detail: parse<RunDetail>(finalDetailRaw),
-    days: parse<RunDays>(finalDaysRaw),
-    focusDay: '2025-08-17',
-    dayAggregate: parse<DayAggregate>(finalDayRaw),
-    bottlenecks: parse<Bottlenecks>(finalBottlenecksRaw),
-    slow: parse<SlowPage>(finalSlowRaw),
-    failures: parse<FailuresPage>(finalFailuresRaw),
-    events: parse<EventsSummary>(finalEventsRaw),
-  },
-  BASE7500: {
-    detail: parse<RunDetail>(rescueDetailRaw),
-    days: parse<RunDays>(rescueDaysRaw),
-    focusDay: '2025-07-14',
-    dayAggregate: parse<DayAggregate>(rescueDayRaw),
-    bottlenecks: parse<Bottlenecks>(rescueBottlenecksRaw),
-    slow: parse<SlowPage>(rescueSlowRaw),
-    failures: parse<FailuresPage>(rescueFailuresRaw),
-    events: parse<EventsSummary>(rescueEventsRaw),
-  },
-  EXP7500: {
-    detail: parse<RunDetail>(expDetailRaw),
-    days: parse<RunDays>(expDaysRaw),
-    focusDay: '2025-07-21',
-    dayAggregate: parse<DayAggregate>(expDayRaw),
-    bottlenecks: parse<Bottlenecks>(expBottlenecksRaw),
-    slow: parse<SlowPage>(expSlowRaw),
-    failures: parse<FailuresPage>(expFailuresRaw),
-    events: parse<EventsSummary>(expEventsRaw),
+  SEOUL7500: {
+    detail: parse<RunDetail>(runDetailRaw),
+    days: parse<RunDays>(runDaysRaw),
+    focusDay: '2025-07-27',
+    dayAggregate: parse<DayAggregate>(runDayRaw),
+    bottlenecks: parse<Bottlenecks>(runBottlenecksRaw),
+    slow: parse<SlowPage>(runSlowRaw),
+    failures: parse<FailuresPage>(runFailuresRaw),
+    events: parse<EventsSummary>(runEventsRaw),
   },
 };
 
-export const RUN_IDS: RunId[] = ['BASE', 'FINAL', 'BASE7500', 'EXP7500'];
+export const RUN_IDS: RunId[] = ['SEOUL7500'];
 
 export function isRunId(value: string): value is RunId {
   return (RUN_IDS as string[]).includes(value);

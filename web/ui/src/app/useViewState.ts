@@ -9,7 +9,7 @@
  */
 import { useCallback, useEffect } from 'react';
 import { useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
-import { isRunId, runs } from '../lib/fixtures';
+import { isRunId, RUN_IDS, runs } from '../lib/fixtures';
 import type { RunId } from '../lib/fixtures';
 
 const LAST_RUN_KEY = 'simconsole.run';
@@ -31,11 +31,11 @@ function writeLastRun(id: RunId) {
   }
 }
 
-/** 주소의 `?run=` — 없거나 모르는 값이면 직전 실행, 그것도 없으면 BASE */
+/** 주소의 `?run=` — 없거나 모르는 값이면 직전 실행, 그것도 없으면 첫 실행 */
 export function useRunParam(): [RunId, (id: RunId) => void] {
   const [params, setParams] = useSearchParams();
   const raw = params.get('run');
-  const runId: RunId = raw && isRunId(raw) ? raw : (readLastRun() ?? 'BASE');
+  const runId: RunId = raw && isRunId(raw) ? raw : (readLastRun() ?? RUN_IDS[0]);
 
   useEffect(() => {
     writeLastRun(runId);

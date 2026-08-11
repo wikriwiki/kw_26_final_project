@@ -39,7 +39,7 @@ class ReportApiTests(unittest.TestCase):
         self.temp.cleanup()
 
     def test_catalog_separates_applicable_menu_items_and_reports_lock(self) -> None:
-        response = self.client.get("/api/reports/catalog", params={"run_id": "BASE", "policy_id": "P010"})
+        response = self.client.get("/api/reports/catalog", params={"run_id": "SEOUL7500", "policy_id": "P010"})
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertEqual(payload["run"]["status"], "completed")
@@ -64,7 +64,7 @@ class ReportApiTests(unittest.TestCase):
             encoding="utf-8",
         )
         with mock.patch.dict("os.environ", {}, clear=True):
-            status = _neo4j_source_status(temp_path, run_id="BASE")
+            status = _neo4j_source_status(temp_path, run_id="SEOUL7500")
         self.assertTrue(status["configured"])
         self.assertTrue(status["binding_declared"])
         self.assertFalse(status["binding_verified"])
@@ -76,9 +76,9 @@ class ReportApiTests(unittest.TestCase):
         response = self.client.post(
             "/api/reports/jobs",
             json={
-                "run_id": "BASE7500",
+                "run_id": "SEOUL7500",
                 "policy_id": "P010",
-                "start": "2025-07-14",
+                "start": "2025-07-27",
                 "days": 1,
                 "analyses": ["triggers"],
             },
@@ -87,14 +87,14 @@ class ReportApiTests(unittest.TestCase):
         self.assertIn("완료된 run", response.json()["error"])
 
     def test_runner_lock_is_checked_before_report_job(self) -> None:
-        self.runner.lock.acquire(run_id="BASE", policy_id="P010")
+        self.runner.lock.acquire(run_id="SEOUL7500", policy_id="P010")
         try:
             response = self.client.post(
                 "/api/reports/jobs",
                 json={
-                    "run_id": "BASE",
+                    "run_id": "SEOUL7500",
                     "policy_id": "P010",
-                    "start": "2025-07-21",
+                    "start": "2025-07-27",
                     "days": 7,
                     "analyses": ["triggers"],
                 },
@@ -108,16 +108,16 @@ class ReportApiTests(unittest.TestCase):
         response = self.client.post(
             "/api/reports/jobs",
             json={
-                "run_id": "BASE",
+                "run_id": "SEOUL7500",
                 "policy_id": "P010",
-                "start": "2025-07-21",
+                "start": "2025-07-27",
                 "days": 7,
                 "analyses": ["triggers"],
             },
         )
         self.assertEqual(response.status_code, 409)
         self.assertIn("fixture", response.json()["error"])
-        self.assertEqual(self.client.get("/api/reports/jobs", params={"run_id": "BASE"}).json()["total"], 0)
+        self.assertEqual(self.client.get("/api/reports/jobs", params={"run_id": "SEOUL7500"}).json()["total"], 0)
 
 
 if __name__ == "__main__":

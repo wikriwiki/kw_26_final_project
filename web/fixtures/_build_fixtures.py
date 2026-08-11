@@ -29,7 +29,7 @@ except Exception:
     pass
 
 DATA_ROOT = Path(os.environ.get(
-    "SIM_DATA_ROOT", r"C:\Users\srdyh\gpu_exp_data\20260802"))
+    "SIM_DATA_ROOT", r"C:\Users\srdyh\gpu_exp_data\demo"))
 REPO_ROOT = Path(__file__).resolve().parents[2]
 OUT_DIR = Path(__file__).resolve().parent
 POLICY_DIR = REPO_ROOT / "data" / "neo4j_load" / "policies"

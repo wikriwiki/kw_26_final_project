@@ -38,7 +38,7 @@ const EMBED_SRC: string | null = '/viz/standalone.html';
  * 이 조합이 아닌 run 을 고르면 화면의 라벨과 지도 내용이 어긋나므로,
  * 그 사실을 숨기지 않고 화면에 적는다.
  */
-const EMBED_CASE = { runId: 'BASE', label: '시연용 표본' } as const;
+const EMBED_CASE = { runId: 'SEOUL7500', label: '이 실행의 활동 기록' } as const;
 
 /** `scripts/sim/visualization_3d/template.html` 의 범례·필터와 같은 항목을 쓴다 */
 const COLOR_MODES = [
@@ -114,7 +114,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
    * 들고 있으므로 콘솔이 일자를 지시할 필요도 없다.
    */
   const embedSrc = EMBED_SRC;
-  const caseMismatch = embedSrc !== null && runId !== EMBED_CASE.runId;
+  const caseMismatch = embedSrc !== null && (runId as string) !== EMBED_CASE.runId;
 
   return (
     <div className="viz">

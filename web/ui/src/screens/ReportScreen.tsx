@@ -27,6 +27,7 @@ import type { ApiErrorShape, LlmStatus, ReportCatalog, ReportJob } from '../lib/
 import { bytes, dateTime, int } from '../lib/format';
 import { loadReportDoc, SCOPE } from '../lib/reportDoc';
 import type { ReportDoc } from '../lib/reportDoc';
+import { READ_ONLY } from '../lib/runtime';
 
 /** 콘솔은 라이트 테마 하나뿐이다. 보고서도 같은 테마로 고정해 두 문서가 섞이지 않게 한다 */
 const DOC_THEME = 'light';
@@ -260,6 +261,7 @@ export function ReportScreen() {
   }, [start, dayCount, policyFrom]);
 
   const canSubmit =
+    !READ_ONLY &&
     Boolean(policyId) &&
     Object.keys(errors).length === 0 &&
     Boolean(engineInfo?.available) &&
@@ -364,6 +366,8 @@ export function ReportScreen() {
 
       {ready ? (
         <>
+          {!READ_ONLY ? (
+          <>
           {/* ---------- 1단계. 무엇으로 만드는가 ---------- */}
           <section className="section">
             <div className="section__head">
@@ -565,19 +569,21 @@ export function ReportScreen() {
                   </dd>
                 </div>
               </dl>
-              <div className="row" style={{ gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
-                <Button busy={pinging} busyLabel="확인하는 중" onClick={ping}>
-                  연결 확인
-                </Button>
-                <label className="row" style={{ gap: 'var(--sp-2)' }}>
-                  <input
-                    type="checkbox"
-                    checked={useLlm}
-                    onChange={(e) => setUseLlm(e.currentTarget.checked)}
-                  />
-                  <span>이 보고서에 LLM 해설 사용</span>
-                </label>
-              </div>
+              {!READ_ONLY ? (
+                <div className="row" style={{ gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
+                  <Button busy={pinging} busyLabel="확인하는 중" onClick={ping}>
+                    연결 확인
+                  </Button>
+                  <label className="row" style={{ gap: 'var(--sp-2)' }}>
+                    <input
+                      type="checkbox"
+                      checked={useLlm}
+                      onChange={(e) => setUseLlm(e.currentTarget.checked)}
+                    />
+                    <span>이 보고서에 LLM 해설 사용</span>
+                  </label>
+                </div>
+              ) : null}
               {!llm?.configured ? (
                 <p className="card__note wrap">
                   <code>.env</code> 에 <code>GEMINI_API_KEY</code> 를 넣으면 해설이 켜집니다. 키가 없어도
@@ -629,6 +635,10 @@ export function ReportScreen() {
 
             {job ? <JobPanel job={job} onOpen={() => setOpenPath(job.output_path)} /> : null}
           </section>
+          </>
+          ) : (
+            <Callout>읽기 전용으로 배포되어 새 보고서를 생성할 수 없습니다. 아래의 기존 보고서를 열람할 수 있습니다.</Callout>
+          )}
 
           {/* ---------- 이전 보고서 ---------- */}
           {ready.report_artifacts.length > 0 ? (

@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from scripts.report import llm as report_llm
 
+from . import interview
 from .runner import RunLock, Runner
 from .report_jobs import ReportJobManager
 from .store import ArtifactStore, StoreError
@@ -44,7 +45,11 @@ class SpaFiles(StaticFiles):
             # `path` 는 OS 구분자로 정규화돼 넘어온다(윈도우에서는 `api\nope`).
             # 그래서 판정은 원본 주소로 한다.
             request_path = scope.get("path", "")
-            if exc.status_code != 404 or request_path.startswith("/api/"):
+            if (
+                exc.status_code != 404
+                or request_path.startswith("/api/")
+                or request_path in {"/docs", "/redoc", "/openapi.json"}
+            ):
                 raise
             return await super().get_response("index.html", scope)
 
@@ -64,6 +69,14 @@ class PolicyDraftRequest(BaseModel):
     policy: dict[str, Any]
 
 
+class InterviewRequest(BaseModel):
+    """화면이 보낸 대상자 기록 + 질문. 서버는 이 기록 밖의 사실을 만들지 않는다."""
+
+    agent: dict[str, Any]
+    question: str
+    history: list[dict[str, str]] = Field(default_factory=list)
+
+
 class ReportStartRequest(BaseModel):
     run_id: str
     policy_id: str
@@ -76,8 +89,25 @@ class ReportStartRequest(BaseModel):
     use_llm: bool = True
 
 
-def create_app(*, store: ArtifactStore | None = None, runner: Runner | None = None) -> FastAPI:
-    app = FastAPI(title="Policy Simulation Console API", version="0.1.0")
+def _enabled(value: str | None) -> bool:
+    return (value or "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def create_app(
+    *,
+    store: ArtifactStore | None = None,
+    runner: Runner | None = None,
+    read_only: bool | None = None,
+) -> FastAPI:
+    resolved_read_only = _enabled(os.environ.get("WEB_READ_ONLY")) if read_only is None else read_only
+    app = FastAPI(
+        title="Policy Simulation Console API",
+        version="0.1.0",
+        docs_url=None if resolved_read_only else "/docs",
+        redoc_url=None if resolved_read_only else "/redoc",
+        openapi_url=None if resolved_read_only else "/openapi.json",
+    )
+    app.state.read_only = resolved_read_only
     app.state.store = store or ArtifactStore.from_environment(REPO_ROOT)
     app.state.runner = runner or Runner(
         repo_root=REPO_ROOT,
@@ -88,9 +118,26 @@ def create_app(*, store: ArtifactStore | None = None, runner: Runner | None = No
         CORSMiddleware,
         allow_origins=[origin.strip() for origin in os.environ.get("WEB_CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()],
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT"],
+        allow_methods=["GET"] if app.state.read_only else ["GET", "POST", "PUT", "DELETE"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def enforce_read_only(request: Request, call_next):
+        """Make read-only an API boundary, not merely a hidden UI control."""
+        if (
+            app.state.read_only
+            and request.url.path.startswith("/api/")
+            and request.method not in {"GET", "HEAD", "OPTIONS"}
+        ):
+            return JSONResponse(
+                status_code=403,
+                content={"error": "읽기 전용 배포에서는 변경 작업을 사용할 수 없습니다"},
+                headers={"X-Console-Mode": "read-only"},
+            )
+        response = await call_next(request)
+        response.headers["X-Console-Mode"] = "read-only" if app.state.read_only else "read-write"
+        return response
 
     @app.exception_handler(StoreError)
     async def store_error_handler(_request: Request, exc: StoreError) -> JSONResponse:
@@ -333,6 +380,40 @@ def create_app(*, store: ArtifactStore | None = None, runner: Runner | None = No
     async def start_report_job(request: ReportStartRequest) -> dict:
         return await asyncio.to_thread(app.state.report_jobs.create, request.model_dump())
 
+    @app.get("/viz/standalone.html")
+    async def viz_standalone() -> FileResponse:
+        """3D 지도 산출물. 수백 MB라 메모리에 올리지 않고 파일 그대로 흘려보낸다.
+
+        개발 서버(vite)는 자체 플러그인으로 같은 주소를 연다. 배포 형태에서도
+        같은 주소가 열려야 화면 코드가 두 벌이 되지 않는다.
+        """
+        path = Path(
+            os.environ.get(
+                "SIM_VIZ_STANDALONE",
+                str(Path(os.environ.get("SIM_DATA_ROOT", "")) / "viz" / "sim_demo.html"),
+            )
+        )
+        if not path.is_file():
+            raise StoreError(503, "3D 지도 산출물이 아직 만들어지지 않았습니다")
+        return FileResponse(path, media_type="text/html")
+
+    @app.get("/api/interview/status")
+    async def interview_status() -> dict:
+        return await asyncio.to_thread(interview.settings)
+
+    @app.post("/api/interview")
+    async def interview_ask(request: InterviewRequest) -> dict:
+        """대상자 한 명에게 묻는다. 근거는 화면이 보내 준 그 사람의 기록뿐이다.
+
+        키는 서버에만 있다. 화면은 질문과 근거만 보낸다.
+        """
+        try:
+            return await asyncio.to_thread(
+                interview.ask, request.agent, request.question, request.history
+            )
+        except interview.InterviewError as exc:
+            raise StoreError(exc.status, exc.message) from exc
+
     @app.get("/api/artifacts")
     async def list_artifacts() -> dict:
         return await asyncio.to_thread(app.state.store.artifact_index)
@@ -346,6 +427,21 @@ def create_app(*, store: ArtifactStore | None = None, runner: Runner | None = No
     async def get_run_artifact(run_id: str, artifact_path: str) -> FileResponse:
         path = await asyncio.to_thread(app.state.store.artifact, artifact_path, run_id=run_id)
         return FileResponse(path)
+
+    @app.get("/viz/standalone.html", include_in_schema=False)
+    async def standalone_visualization() -> FileResponse:
+        """Serve the prebuilt large visualization from an operator-mounted file."""
+        configured = os.environ.get("SIM_VIZ_FILE", "").strip()
+        if not configured:
+            raise StoreError(404, "3D 시각화 파일이 설정되지 않았습니다")
+        path = Path(configured).resolve()
+        if not path.is_file():
+            raise StoreError(404, "3D 시각화 파일을 찾을 수 없습니다")
+        return FileResponse(
+            path,
+            media_type="text/html",
+            headers={"Cache-Control": "private, max-age=3600"},
+        )
 
     ui_dist = REPO_ROOT / "web" / "ui" / "dist"
     if ui_dist.is_dir():

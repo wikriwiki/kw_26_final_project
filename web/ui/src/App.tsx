@@ -25,6 +25,7 @@ import { ResultsScreen } from './screens/ResultsScreen';
 import { VisualizationScreen } from './screens/VisualizationScreen';
 import { NotFoundScreen } from './screens/NotFoundScreen';
 import { isRunId } from './lib/fixtures';
+import { READ_ONLY } from './lib/runtime';
 
 // 셸 스타일은 화면 스타일 뒤에 온다 — 같은 특이도면 나중 규칙이 이긴다
 import './styles/shell.css';
@@ -76,7 +77,7 @@ export function App() {
     <BrowserRouter>
       <Routes>
         {/* 개발 전용 — 앱 셸 밖에 둬서 사용자 내비게이션에 나타나지 않는다 */}
-        <Route path="/__kit" element={<KitScreen />} />
+        <Route path="/__kit" element={READ_ONLY ? <Navigate to="/" replace /> : <KitScreen />} />
 
         {/* 실행을 고르는 자리. 셸이 없다 */}
         <Route
@@ -90,9 +91,13 @@ export function App() {
         <Route
           path="/new"
           element={
-            <BareScreen>
-              <NewRunScreen />
-            </BareScreen>
+            READ_ONLY ? (
+              <Navigate to="/" replace />
+            ) : (
+              <BareScreen>
+                <NewRunScreen />
+              </BareScreen>
+            )
           }
         />
 

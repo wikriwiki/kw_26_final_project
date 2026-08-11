@@ -22,7 +22,7 @@ class ReportSnapshotTests(unittest.TestCase):
         available = [(start + timedelta(days=index)).isoformat() for index in range(days)]
         for relative, content in {
             "summary.json": json.dumps({"args": {"start": available[0], "days": days}, "completed_at": "2026-08-02T00:00:00Z"}),
-            "events.jsonl": '{"day":"2025-07-21","amt":100}\n',
+            "events.jsonl": '{"day":"2025-07-27","amt":100}\n',
             "poi_summary.json": '{}',
         }.items():
             path = root / relative
@@ -38,7 +38,7 @@ class ReportSnapshotTests(unittest.TestCase):
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text("{}", encoding="utf-8")
         return {
-            "run_id": "BASE",
+            "run_id": "SEOUL7500",
             "root": str(root),
             "status": "completed",
             "days_present": available,
@@ -54,17 +54,17 @@ class ReportSnapshotTests(unittest.TestCase):
             run_root = data_root / "out_BASE"
             run = self._run_tree(run_root)
             manifest = build_manifest(
-                run_id="BASE",
+                run_id="SEOUL7500",
                 run=run,
                 data_root=data_root,
                 requested_start=date(2025, 7, 21),
                 requested_days=1,
             )
-            self.assertTrue(snapshot_readiness(run_id="BASE", run=run, data_root=data_root)["ready"])
+            self.assertTrue(snapshot_readiness(run_id="SEOUL7500", run=run, data_root=data_root)["ready"])
             manifest_path = write_manifest(data_root / "report.json", manifest)
             verified = verify_manifest(
                 manifest_path,
-                expected_run_id="BASE",
+                expected_run_id="SEOUL7500",
                 requested_start=date(2025, 7, 21),
                 requested_days=1,
                 data_root=data_root,
@@ -77,17 +77,17 @@ class ReportSnapshotTests(unittest.TestCase):
             with self.assertRaises(SnapshotError):
                 verify_manifest(
                     partial_path,
-                    expected_run_id="BASE",
+                    expected_run_id="SEOUL7500",
                     requested_start=date(2025, 7, 21),
                     requested_days=1,
                     data_root=data_root,
                 )
 
-            (run_root / "events.jsonl").write_text('{"day":"2025-07-21","amt":999}\n', encoding="utf-8")
+            (run_root / "events.jsonl").write_text('{"day":"2025-07-27","amt":999}\n', encoding="utf-8")
             with self.assertRaises(SnapshotError):
                 verify_manifest(
                     manifest_path,
-                    expected_run_id="BASE",
+                    expected_run_id="SEOUL7500",
                     requested_start=date(2025, 7, 21),
                     requested_days=1,
                     data_root=data_root,
@@ -99,7 +99,7 @@ class ReportSnapshotTests(unittest.TestCase):
             run = self._run_tree(data_root / "out_BASE")
             with self.assertRaises(SnapshotError):
                 build_manifest(
-                    run_id="BASE",
+                    run_id="SEOUL7500",
                     run=run,
                     data_root=data_root,
                     requested_start=date(2025, 7, 22),

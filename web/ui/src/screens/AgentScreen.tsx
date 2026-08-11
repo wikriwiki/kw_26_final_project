@@ -26,13 +26,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { useRun } from '../app/RunContext';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { SelectField, TextField } from '../components/Field';
 import { Callout, EmptyState, ErrorState, SkeletonText } from '../components/Feedback';
 import { BarList } from '../components/Meter';
 import { int } from '../lib/format';
+import { askAgent } from '../lib/interview';
 import {
   EMPTY_FILTER,
   QUESTIONS,
@@ -200,11 +200,15 @@ interface Turn {
   key: number;
   question: string;
   when: string;
-  answer: Answer;
+  /** 기록에서 바로 옮겨 적은 답. 본인 답변일 때는 없다 */
+  answer?: Answer;
+  /** 본인이 직접 한 말 (대화 모델) */
+  said?: string;
+  pending?: boolean;
+  failed?: string;
 }
 
 export function AgentScreen() {
-  const run = useRun();
 
   const [roster, setRoster] = useState<Roster | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
@@ -238,10 +242,9 @@ export function AgentScreen() {
         "무엇이 아닌지"를 먼저 말하지 않으면 읽는 사람이 오해한다.
       */}
       <Callout>
-        이 문답은 <strong>저장된 기록을 찾아 답하는 방식</strong>입니다. 대상자가 문장을 새로
-        만들어내지 않으며, 기록에 없는 질문에는 “답할 기록이 없습니다”라고 답합니다. 여기 실린
-        대상자 기록은 시연용 표본(1,825명 · 2026-05-18~22)이고, 지금 보고 있는 실행{' '}
-        <span className="num">{run.id}</span> 의 산출물이 아닙니다.
+        아래 <strong>질문 버튼</strong>은 저장된 기록을 그대로 옮겨 적습니다 — 숫자가 어디서
+        나왔는지 함께 보입니다. 목록에 없는 것을 직접 물으면 <strong>대상자 본인이 자기 기록만
+        보고</strong> 답합니다. 기록에 없는 일은 “기억에 없다”고 말합니다.
       </Callout>
 
       {rosterError ? (
@@ -581,17 +584,56 @@ function Conversation({
     [detail, dayIdx, hour, days],
   );
 
+  /**
+   * 자유롭게 물었을 때.
+   *
+   * 기록에서 곧바로 답이 나오는 물음은 위 목록이 즉시·정확하게 답한다. 그 밖의 물음은
+   * **본인에게 넘긴다** — 대화 모델이 이 사람의 기록만 근거로 대신 말한다.
+   * 예전에는 여기서 "답할 기록이 없습니다"로 끝났는데, 그건 물어본 사람 잘못이 아니다.
+   */
+  const askFreely = useCallback(
+    async (text: string) => {
+      if (!detail) return;
+      seq.current += 1;
+      const key = seq.current;
+      setTurns((prev) => [{ key, question: text, when: '본인 답변', pending: true }, ...prev].slice(0, 20));
+      try {
+        const history = turns
+          .filter((t) => t.said)
+          .slice(0, 3)
+          .flatMap((t) => [
+            { role: 'user' as const, content: t.question },
+            { role: 'assistant' as const, content: t.said as string },
+          ])
+          .reverse();
+        const reply = await askAgent(detail, text, history);
+        setTurns((prev) =>
+          prev.map((t) => (t.key === key ? { ...t, pending: false, said: reply.answer } : t)),
+        );
+      } catch (err) {
+        setTurns((prev) =>
+          prev.map((t) =>
+            t.key === key
+              ? { ...t, pending: false, failed: (err as Error).message }
+              : t,
+          ),
+        );
+      }
+    },
+    [detail, turns],
+  );
+
   const submit = useCallback(() => {
     const text = draft.trim();
     if (!text || !detail) return;
     const q = matchQuestion(text);
-    if (!q) {
-      setMiss(true);
-      return;
+    if (q) {
+      ask(q);
+    } else {
+      void askFreely(text);
     }
-    ask(q);
     setDraft('');
-  }, [draft, detail, ask]);
+  }, [draft, detail, ask, askFreely]);
 
   if (error) {
     return (
@@ -698,7 +740,7 @@ function Conversation({
                 }
               }}
               placeholder="이 날 왜 거기에 갔나요?"
-              help="위 질문 중 하나로 이어 줍니다. 이어지지 않으면 답하지 않습니다."
+              help="목록에 없는 것을 물으면 본인이 자기 기록을 보고 직접 답합니다."
               error={
                 miss
                   ? '이 질문에 답할 기록이 없습니다 — 위 목록에 있는 질문으로 다시 물어보세요.'
@@ -740,6 +782,31 @@ function Conversation({
 
 function TurnView({ turn }: { turn: Turn }) {
   const a = turn.answer;
+  if (!a) {
+    /* 본인 답변 — 기록을 옮겨 적는 대신 본인이 말한다 */
+    return (
+      <article className="ag-turn">
+        <div>
+          <p className="ag-turn__q wrap">{turn.question}</p>
+          <p className="ag-turn__when num">{turn.when}</p>
+        </div>
+        <div className="ag-turn__a">
+          {turn.pending ? (
+            <p className="wrap" style={{ color: 'var(--fg-muted)' }} role="status">
+              답을 기다리는 중입니다…
+            </p>
+          ) : turn.failed ? (
+            <p className="wrap" style={{ color: 'var(--danger)' }}>{turn.failed}</p>
+          ) : (
+            <p className="wrap">{turn.said}</p>
+          )}
+          {!turn.pending && !turn.failed ? (
+            <p className="ag-turn__src wrap">본인이 자기 기록을 보고 답했습니다</p>
+          ) : null}
+        </div>
+      </article>
+    );
+  }
   return (
     <article className="ag-turn">
       <div>

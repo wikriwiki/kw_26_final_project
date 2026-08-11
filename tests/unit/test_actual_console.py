@@ -24,7 +24,7 @@ class ActualConsoleTests(unittest.TestCase):
 
     def test_first_screen_uses_lightweight_actual_counts(self) -> None:
         started = time.perf_counter()
-        response = self.client.get("/api/runs/BASE7500/days")
+        response = self.client.get("/api/runs/SEOUL7500/days")
         elapsed = time.perf_counter() - started
         self.assertEqual(response.status_code, 200)
         self.assertLess(elapsed, 2.0)
@@ -34,7 +34,7 @@ class ActualConsoleTests(unittest.TestCase):
         self.assertIn("agents_target", item["unknown"])
 
     def test_large_day_is_aggregated_server_side(self) -> None:
-        response = self.client.get("/api/runs/BASE7500/days/2025-07-14")
+        response = self.client.get("/api/runs/SEOUL7500/days/2025-07-27")
         self.assertEqual(response.status_code, 200)
         payload = response.json()
         self.assertTrue(payload["aggregated_server_side"])
@@ -49,7 +49,7 @@ class ActualConsoleTests(unittest.TestCase):
         self.assertIn("visualization/index.html", paths)
         self.assertIn("report/FINAL_REPORT_5D_FULL.html", paths)
 
-        events = self.client.get("/api/runs/BASE7500/events/summary")
+        events = self.client.get("/api/runs/SEOUL7500/events/summary")
         self.assertEqual(events.status_code, 200)
         self.assertFalse(events.json()["available"])
         self.assertIsNone(events.json()["totals"])

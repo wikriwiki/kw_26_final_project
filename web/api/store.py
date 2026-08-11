@@ -20,7 +20,15 @@ from typing import Any
 from web.fixtures import _build_fixtures as builder
 
 
-RUN_IDS = ("BASE", "FINAL", "BASE7500")
+#: 픽스처 모드에서만 쓰는 고정 run 목록. 검사가 디스크 상태에 흔들리지 않게 한다.
+FIXTURE_RUN_IDS = ("BASE", "FINAL", "BASE7500")
+
+
+def _FIXTURE_RUNS(data_root: Path) -> dict[str, tuple[Path, Path]]:
+    logs = data_root / "logs_scripts"
+    return {
+        rid: (data_root / f"out_{rid}", logs / f"run_{rid}.log") for rid in FIXTURE_RUN_IDS
+    }
 POLICY_ID_RE = re.compile(r"^P[0-9]{3,}$")
 DAY_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
@@ -88,26 +96,18 @@ class ArtifactStore:
         builder.DATA_ROOT = self.data_root
         builder.POLICY_DIR = self.policy_dir
         builder.PREFLIGHT = self.repo_root / "scripts" / "sim" / "policy_preflight.py"
-        builder.RUNS = {
-            "BASE": (self.data_root / "out_BASE", self.data_root / "logs_scripts" / "run_BASE.log"),
-            "FINAL": (self.data_root / "out_FINAL", self.data_root / "logs_scripts" / "run_FINAL.log"),
-            "BASE7500": (
-                self.data_root / "rescue" / "out_BASE7500",
-                self.data_root / "logs_scripts" / "run_BASE7500.log",
-            ),
-        }
-        # 문서에 적힌 세 run 이 우선이다. 뿌리를 훑어 찾은 run 은 **덧붙이기만** 한다 —
-        # 같은 이름의 디렉터리가 어딘가에 또 있다고 해서 기준 경로가 바뀌면 안 된다.
-        # 훑는 규칙은 픽스처 생성기와 같은 함수를 쓴다. 규칙이 두 벌이면 화면과
-        # 픽스처가 서로 다른 run 목록을 갖게 된다.
+        # run 목록은 **디스크가 정한다.** 데이터 뿌리에 놓인 `out_<ID>` 디렉터리가 곧 run 이다.
+        # 이름을 코드에 박아 두면 데이터를 갈아 끼울 때마다 소스를 고쳐야 한다.
+        # 훑는 규칙은 픽스처 생성기와 같은 함수를 쓴다 — 규칙이 두 벌이면 화면과
+        # 픽스처가 서로 다른 목록을 갖게 된다.
+        builder.RUNS = {} if self.fixture_dir is None else dict(_FIXTURE_RUNS(self.data_root))
         if self.fixture_dir is None:
-            for run_id, entry in builder.discover_runs(self.data_root).items():
-                builder.RUNS.setdefault(run_id, entry)
+            builder.RUNS.update(builder.discover_runs(self.data_root))
         self.run_ids: tuple[str, ...] = tuple(builder.RUNS)
 
     @classmethod
     def from_environment(cls, repo_root: Path) -> "ArtifactStore":
-        data_root = Path(os.environ.get("SIM_DATA_ROOT", r"C:\Users\srdyh\gpu_exp_data\20260802"))
+        data_root = Path(os.environ.get("SIM_DATA_ROOT", r"C:\Users\srdyh\gpu_exp_data\demo"))
         fixture_dir = None
         # Explicit fixture mode is for local contract/API tests only. It is
         # never an implicit fallback when real data is unavailable.

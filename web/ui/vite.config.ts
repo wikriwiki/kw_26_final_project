@@ -17,7 +17,8 @@ import react from '@vitejs/plugin-react';
  * 127MB 파일을 public/ 으로 복사하면 저장소가 부풀고 빌드가 느려진다.
  * 원본을 스트리밍으로 서빙해서 사본을 만들지 않는다.
  */
-const VIZ_FILE = resolve(__dirname, '../viz_store/demo/sim_standalone.html');
+const VIZ_FILE = process.env.SIM_VIZ_STANDALONE
+  ?? resolve(__dirname, '../viz_store/demo/sim_standalone.html');
 const VIZ_ROUTE = '/viz/standalone.html';
 
 /**

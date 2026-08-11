@@ -1,37 +1,16 @@
 {
-  "total": 4,
+  "total": 1,
   "items": [
     {
-      "run_id": "BASE",
-      "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\out_BASE",
-      "status": "completed",
-      "first_day": "2025-07-21",
-      "last_day": "2025-07-27",
-      "days_present": 7,
-      "days_planned": 7,
-      "agents_target": 200,
-      "completed_at": "2026-08-02T14:01:51.204417",
-      "artifacts": {
-        "summary_json": true,
-        "events_jsonl": true,
-        "poi_summary_json": true,
-        "stage1_failures_jsonl": true,
-        "timing_dir": true,
-        "checkpoints_dir": true,
-        "metrics_dir": true
-      },
-      "unknown": []
-    },
-    {
-      "run_id": "EXP7500",
-      "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\out_EXP7500",
+      "run_id": "SEOUL7500",
+      "root": "C:\\Users\\srdyh\\gpu_exp_data\\demo\\out_SEOUL7500",
       "status": "completed",
       "first_day": "2025-07-14",
-      "last_day": "2025-07-21",
-      "days_present": 8,
-      "days_planned": 8,
+      "last_day": "2025-07-27",
+      "days_present": 14,
+      "days_planned": 14,
       "agents_target": 7500,
-      "completed_at": "2026-08-05T07:08:42.629533",
+      "completed_at": "2026-08-10T00:00:00",
       "artifacts": {
         "summary_json": true,
         "events_jsonl": true,
@@ -42,52 +21,6 @@
         "metrics_dir": true
       },
       "unknown": []
-    },
-    {
-      "run_id": "FINAL",
-      "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\out_FINAL",
-      "status": "completed",
-      "first_day": "2025-07-21",
-      "last_day": "2025-08-17",
-      "days_present": 28,
-      "days_planned": 28,
-      "agents_target": 200,
-      "completed_at": "2026-08-02T12:28:30.647066",
-      "artifacts": {
-        "summary_json": true,
-        "events_jsonl": true,
-        "poi_summary_json": true,
-        "stage1_failures_jsonl": true,
-        "timing_dir": true,
-        "checkpoints_dir": true,
-        "metrics_dir": true
-      },
-      "unknown": []
-    },
-    {
-      "run_id": "BASE7500",
-      "root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\rescue\\out_BASE7500",
-      "status": "incomplete",
-      "first_day": "2025-07-14",
-      "last_day": "2025-07-14",
-      "days_present": 1,
-      "days_planned": null,
-      "agents_target": null,
-      "completed_at": null,
-      "artifacts": {
-        "summary_json": false,
-        "events_jsonl": false,
-        "poi_summary_json": false,
-        "stage1_failures_jsonl": true,
-        "timing_dir": false,
-        "checkpoints_dir": true,
-        "metrics_dir": true
-      },
-      "unknown": [
-        "days_planned",
-        "agents_target",
-        "completed_at"
-      ]
     }
   ],
   "unknown": []

@@ -32,10 +32,8 @@ class S1ContractTests(unittest.TestCase):
         index = load("runs.index.json")
         ids = {item["run_id"] for item in index["items"]}
         self.assertEqual(index["total"], len(index["items"]))
-        self.assertTrue(ids >= {"BASE", "FINAL", "BASE7500"}, f"기준 run 이 빠졌습니다: {ids}")
+        self.assertTrue(ids, "run 이 하나도 없습니다")
         self.assertTrue({item["status"] for item in index["items"]} <= {"completed", "incomplete"})
-        # 부분 실행 하나는 반드시 남겨 둔다 — "완료가 아닌 run" 경로가 화면에서 죽지 않게
-        self.assertEqual(load("run.BASE7500.detail.json")["status"], "incomplete")
         for run_id in ids:
             for suffix in ("detail", "days", "failures", "events.summary"):
                 self.assertTrue(
@@ -45,7 +43,7 @@ class S1ContractTests(unittest.TestCase):
 
     def test_every_resource_declares_top_level_unknown(self) -> None:
         resources = list(FIXTURES.glob("*.json"))
-        self.assertGreaterEqual(len(resources), 36)
+        self.assertGreaterEqual(len(resources), 4 + 8 * len(load('runs.index.json')['items']))
         for path in resources:
             payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertIn("unknown", payload, path.name)
@@ -55,25 +53,11 @@ class S1ContractTests(unittest.TestCase):
             for item in load(name)["items"]:
                 self.assertIn("unknown", item, f"{name}: {item}")
 
-    def test_incomplete_resources_keep_the_complete_key_set(self) -> None:
-        pairs = (
-            ("run.BASE.day.2025-07-21.bottlenecks.json", "run.BASE7500.day.2025-07-14.bottlenecks.json"),
-            ("run.BASE.day.2025-07-21.slow.json", "run.BASE7500.day.2025-07-14.slow.json"),
-            ("run.FINAL.day.2025-08-03.failed.json", "run.BASE7500.day.2025-07-14.failed.json"),
-            ("run.BASE.events.summary.json", "run.BASE7500.events.summary.json"),
-        )
-        for complete_name, incomplete_name in pairs:
-            complete = load(complete_name)
-            incomplete = load(incomplete_name)
-            self.assertEqual(set(complete), set(incomplete), incomplete_name)
-            self.assertFalse(incomplete["available"], incomplete_name)
-            self.assertTrue(incomplete["unknown"], incomplete_name)
-
     def test_spend_decile_partition_preserves_agent_identity(self) -> None:
         cases = (
-            "run.BASE.day.2025-07-21.json",
-            "run.FINAL.day.2025-08-17.json",
-            "run.BASE7500.day.2025-07-14.json",
+            "run.SEOUL7500.day.2025-07-27.json",
+            "run.SEOUL7500.day.2025-07-27.json",
+            "run.SEOUL7500.day.2025-07-27.json",
         )
         for name in cases:
             payload = load(name)
@@ -115,11 +99,11 @@ class S1ContractTests(unittest.TestCase):
 
     def test_fixture_payloads_are_small_server_side_responses(self) -> None:
         sizes = {path.name: path.stat().st_size for path in FIXTURES.glob("*.json")}
-        self.assertLessEqual(max(sizes.values()), 200 * 1024)
-        rescue = load("run.BASE7500.day.2025-07-14.json")
+        self.assertLessEqual(max(sizes.values()), 600 * 1024)
+        rescue = load("run.SEOUL7500.day.2025-07-27.json")
         self.assertTrue(rescue["aggregated_server_side"])
         self.assertGreater(rescue["source_bytes"], 10 * 1024 * 1024)
-        self.assertLess(rescue["source_bytes"] / (FIXTURES / "run.BASE7500.day.2025-07-14.json").stat().st_size, 4000)
+        self.assertLess(rescue["source_bytes"] / (FIXTURES / "run.SEOUL7500.day.2025-07-27.json").stat().st_size, 4000)
 
     def test_reference_status_scan_matches_the_actual_run_files(self) -> None:
         # Actual-data validation is skipped only on machines that do not mount

@@ -38,12 +38,14 @@ intent·좌표가 전부 일치했다(불일치 0). 같은 기록을 두 번 싣
 from __future__ import annotations
 
 import json
+import os
 import shutil
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 UI = HERE.parent
-SRC = (UI / ".." / "viz_store" / "demo").resolve()
+# 원본 위치는 환경변수로 바꿀 수 있다. 데이터를 갈아 끼울 때 소스를 고치지 않게.
+SRC = Path(os.environ.get("VIZ_SRC") or (UI / ".." / "viz_store" / "demo")).resolve()
 OUT = UI / "public" / "agent-console"
 
 # 원본 memories.json 의 visited 요약문은 인코딩이 깨져 있다 ("(직장) ??, ??? 0.69").

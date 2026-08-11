@@ -13,6 +13,7 @@ import { Meter } from '../components/Meter';
 import { PHASE_LABEL, useRunSummaries } from '../app/RunContext';
 import type { RunPhase, RunSummary } from '../app/RunContext';
 import { EMPTY, int, shortTime } from '../lib/format';
+import { READ_ONLY } from '../lib/runtime';
 
 /** 진행중 → 완료 → 중단. 비어 있는 묶음은 그리지 않는다 */
 const GROUP_ORDER: RunPhase[] = ['running', 'completed', 'stopped'];
@@ -109,22 +110,30 @@ export function HomeScreen() {
             <h1 className="pagehead__title">시뮬레이션</h1>
             <p className="pagehead__purpose">확인할 시뮬레이션을 고르세요.</p>
           </div>
-          <div className="pagehead__actions">
-            {/* 이 화면의 유일한 primary */}
-            <Link className="btn btn--primary" to="/new">
-              새 시뮬레이션 만들기
-            </Link>
-          </div>
+          {!READ_ONLY ? (
+            <div className="pagehead__actions">
+              {/* 이 화면의 유일한 primary */}
+              <Link className="btn btn--primary" to="/new">
+                새 시뮬레이션 만들기
+              </Link>
+            </div>
+          ) : null}
         </header>
 
         {groups.length === 0 ? (
           <EmptyState
             title="아직 실행한 시뮬레이션이 없습니다"
-            body="정책을 고르고 기간과 대상자를 정하면 첫 시뮬레이션을 만들 수 있습니다."
+            body={
+              READ_ONLY
+                ? '조회할 수 있는 시뮬레이션 결과가 없습니다.'
+                : '정책을 고르고 기간과 대상자를 정하면 첫 시뮬레이션을 만들 수 있습니다.'
+            }
             action={
-              <Link className="btn btn--primary" to="/new">
-                새 시뮬레이션 만들기
-              </Link>
+              !READ_ONLY ? (
+                <Link className="btn btn--primary" to="/new">
+                  새 시뮬레이션 만들기
+                </Link>
+              ) : undefined
             }
           />
         ) : (

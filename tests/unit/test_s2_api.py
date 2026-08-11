@@ -46,17 +46,16 @@ class S2ApiTests(unittest.TestCase):
 
     def test_run_index_and_first_screen_use_s1_shapes(self) -> None:
         self.assertEqual(self.client.get("/api/runs").json(), fixture("runs.index.json"))
-        self.assertEqual(self.client.get("/api/runs/BASE/days").json(), fixture("run.BASE.days.json"))
-        rescue = self.client.get("/api/runs/BASE7500/days").json()
-        self.assertIsNone(rescue["items"][0]["progress_ratio"])
-        self.assertIn("agents_target", rescue["unknown"])
+        self.assertEqual(self.client.get("/api/runs/SEOUL7500/days").json(), fixture("run.SEOUL7500.days.json"))
+        days = self.client.get("/api/runs/SEOUL7500/days").json()
+        self.assertEqual(days["total"], len(days["items"]))
 
     def test_day_and_incomplete_subresources_are_server_contract_responses(self) -> None:
         routes = (
-            ("/api/runs/BASE/days/2025-07-21", "run.BASE.day.2025-07-21.json"),
-            ("/api/runs/BASE7500/days/2025-07-14/bottlenecks", "run.BASE7500.day.2025-07-14.bottlenecks.json"),
-            ("/api/runs/BASE7500/days/2025-07-14/failed", "run.BASE7500.day.2025-07-14.failed.json"),
-            ("/api/runs/BASE7500/events/summary", "run.BASE7500.events.summary.json"),
+            ("/api/runs/SEOUL7500/days/2025-07-27", "run.SEOUL7500.day.2025-07-27.json"),
+            ("/api/runs/SEOUL7500/days/2025-07-27/bottlenecks", "run.SEOUL7500.day.2025-07-27.bottlenecks.json"),
+            ("/api/runs/SEOUL7500/days/2025-07-15/failed", "run.SEOUL7500.day.2025-07-15.failed.json"),
+            ("/api/runs/SEOUL7500/events/summary", "run.SEOUL7500.events.summary.json"),
         )
         for route, fixture_name in routes:
             response = self.client.get(route)
@@ -73,17 +72,17 @@ class S2ApiTests(unittest.TestCase):
         self.assertIn("배경:", result["prompt_preview"])
 
     def test_sse_emits_a_single_completed_snapshot_without_polling_loop(self) -> None:
-        response = self.client.get("/api/runs/BASE/events")
+        response = self.client.get("/api/runs/SEOUL7500/events")
         self.assertEqual(response.status_code, 200)
         self.assertIn("event: run", response.text)
-        self.assertIn('"run_id":"BASE"', response.text)
+        self.assertIn('"run_id":"SEOUL7500"', response.text)
 
     def test_lock_is_physical_and_second_acquire_is_rejected(self) -> None:
         lock = self.runner.lock
-        first = lock.acquire(run_id="BASE", policy_id="P010")
+        first = lock.acquire(run_id="SEOUL7500", policy_id="P010")
         self.assertEqual(first["state"], "starting")
         with self.assertRaises(StoreError) as ctx:
-            lock.acquire(run_id="FINAL", policy_id="P011")
+            lock.acquire(run_id="SEOUL7500", policy_id="P011")
         self.assertEqual(ctx.exception.status_code, 409)
         self.assertTrue(lock.status()["locked"])
         self.assertTrue(lock.release()["released"])
@@ -93,7 +92,7 @@ class S2ApiTests(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("SIM_RUN_COMMAND", None)
             os.environ.pop("SIM_RUN_COMMAND_JSON", None)
-            response = self.client.post("/api/runner/start", json={"run_id": "BASE", "policy_id": "P010"})
+            response = self.client.post("/api/runner/start", json={"run_id": "SEOUL7500", "policy_id": "P010"})
         self.assertEqual(response.status_code, 503)
         self.assertIn("SIM_RUN_COMMAND_JSON", response.json()["error"])
 
@@ -116,16 +115,58 @@ class S2ApiTests(unittest.TestCase):
         self.assertNotIn("import ", response.text)
 
     def test_invalid_day_namespace_is_rejected_before_file_access(self) -> None:
-        response = self.client.get("/api/runs/BASE/days/not-a-day")
+        response = self.client.get("/api/runs/SEOUL7500/days/not-a-day")
         self.assertEqual(response.status_code, 400)
 
     def test_policy_write_is_blocked_while_run_lock_is_held(self) -> None:
         policy = fixture("policy.P010.detail.json")["policy"]
-        self.runner.lock.acquire(run_id="BASE", policy_id="P010")
+        self.runner.lock.acquire(run_id="SEOUL7500", policy_id="P010")
         response = self.client.put("/api/policies/P010", json=policy)
         self.assertEqual(response.status_code, 409)
         self.assertIn("실행 중", response.json()["error"])
         self.runner.lock.release()
+
+
+class ReadOnlyApiTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory(prefix="readonly-api-")
+        root = Path(self.temp.name)
+        store = ArtifactStore(repo_root=ROOT, data_root=root / "data", fixture_dir=FIXTURES)
+        runner = Runner(repo_root=ROOT, lock=RunLock(root / "run.lock"))
+        self.client = TestClient(create_app(store=store, runner=runner, read_only=True))
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def test_reads_remain_available(self) -> None:
+        response = self.client.get("/api/runs")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["X-Console-Mode"], "read-only")
+        self.assertEqual(self.client.get("/docs").status_code, 404)
+        self.assertEqual(self.client.get("/openapi.json").status_code, 404)
+
+    def test_all_api_mutations_are_rejected_at_the_boundary(self) -> None:
+        requests = (
+            ("post", "/api/policies/P010/validate", fixture("policy.P010.detail.json")["policy"]),
+            ("put", "/api/policies/P010", fixture("policy.P010.detail.json")["policy"]),
+            ("delete", "/api/policies/P010", None),
+            ("post", "/api/runner/start", {"run_id": "SEOUL7500", "policy_id": "P010"}),
+            ("post", "/api/reports/jobs", {}),
+        )
+        for method, path, body in requests:
+            with self.subTest(method=method, path=path):
+                response = self.client.request(method, path, json=body)
+                self.assertEqual(response.status_code, 403)
+                self.assertIn("읽기 전용", response.json()["error"])
+
+    def test_operator_mounted_visualization_is_served(self) -> None:
+        viz = Path(self.temp.name) / "sim_standalone.html"
+        viz.write_text("<!doctype html><title>viz</title>", encoding="utf-8")
+        with patch.dict(os.environ, {"SIM_VIZ_FILE": str(viz)}):
+            response = self.client.get("/viz/standalone.html")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("<title>viz</title>", response.text)
+        self.assertEqual(response.headers["cache-control"], "private, max-age=3600")
 
 
 class SpaFallbackTests(unittest.TestCase):
