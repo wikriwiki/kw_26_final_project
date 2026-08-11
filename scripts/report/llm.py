@@ -153,7 +153,7 @@ def provider_status(*, load_env: bool = True) -> dict[str, Any]:
         status["model"] = _env("GEMINI_MODEL", GEMINI_DEFAULT_MODEL)
         status["configured"] = bool(gemini_key)
         if not gemini_key:
-            status["reason"] = "GEMINI_API_KEY 가 .env 에 없습니다. 키를 넣으면 해설이 자동으로 켜집니다."
+            status["reason"] = "해설 모델이 아직 연결되지 않았습니다."
             status["unknown"].append("GEMINI_API_KEY")
     elif provider == "openai":
         status["model"] = _env("REPORT_LLM_MODEL")
@@ -163,7 +163,7 @@ def provider_status(*, load_env: bool = True) -> dict[str, Any]:
             status["unknown"].append("REPORT_LLM_BASE_URL")
     else:
         status["reason"] = (
-            "해설 LLM 이 설정되지 않았습니다. .env 에 GEMINI_API_KEY 를 넣으면 켜집니다. "
+            "해설 모델이 아직 연결되지 않았습니다. "
             "지금은 보고서가 계산 결과만으로 생성되며 해설 문장은 결정론적 서술로 대체됩니다."
         )
     return status

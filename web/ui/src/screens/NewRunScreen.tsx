@@ -763,7 +763,7 @@ export function NewRunScreen() {
               <pre className="code">{JSON.stringify(draft, null, 2)}</pre>
               <p className="card__note wrap">
                 이 내용이 <span className="num">data/neo4j_load/policies/{draft.id}.json</span> 으로
-                저장됩니다. 저장은 서버의 사전 점검(preflight)을 통과한 경우에만 이뤄집니다.
+                저장됩니다. 저장은 서버 점검을 통과한 경우에만 이뤄집니다.
               </p>
             </Disclosure>
           </section>
@@ -879,7 +879,7 @@ export function NewRunScreen() {
               <h2 className="section__title">검증</h2>
               <p className="section__note">
                 {needsValidation
-                  ? '서버의 사전 점검(policy_preflight.py)을 실제로 실행해 정책이 시뮬레이션에 그대로 배선되는지 확인합니다.'
+                  ? '정책이 시뮬레이션에 그대로 반영되는지 서버가 실제로 확인합니다.'
                   : '대조군에는 검증할 정책 파일이 없습니다.'}
               </p>
             </div>
@@ -1132,11 +1132,6 @@ export function NewRunScreen() {
                 />
               ) : null}
             </div>
-
-            <p className="card__note wrap">
-              실행 명령은 서버 운영자가 <span className="num">SIM_RUN_COMMAND_JSON</span> 으로
-              구성합니다. 콘솔은 임의 명령을 받지 않으며, 실행 파라미터는 환경변수로만 전달됩니다.
-            </p>
           </section>
         </>
       ) : null}

@@ -18,13 +18,12 @@ import { useRun } from '../app/RunContext';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { Disclosure } from '../components/Disclosure';
 import { Callout, EmptyState, ErrorState, SkeletonText } from '../components/Feedback';
 import { SelectField, TextField } from '../components/Field';
 import { AlertCircleIcon, CheckCircleIcon, DownloadIcon, RefreshIcon } from '../components/Icon';
 import { api, artifactUrl } from '../lib/api';
 import type { ApiErrorShape, LlmStatus, ReportCatalog, ReportJob } from '../lib/api';
-import { bytes, dateTime, int } from '../lib/format';
+import { dateTime, int } from '../lib/format';
 import { loadReportDoc, SCOPE } from '../lib/reportDoc';
 import type { ReportDoc } from '../lib/reportDoc';
 import { READ_ONLY } from '../lib/runtime';
@@ -108,6 +107,18 @@ const STAGE_LABEL: Record<string, string> = {
 };
 
 /* --- 화면 ------------------------------------------------------------------- */
+
+/** 목록에서 보고서를 고를 때 읽는 것은 파일 이름이 아니라 언제 만든 것인가다 */
+function reportLabel(item: { created_at?: string }): string {
+  const at = item.created_at ? new Date(item.created_at) : null;
+  if (!at || Number.isNaN(at.getTime())) return '분석 보고서';
+  const two = (n: number) => String(n).padStart(2, '0');
+  return `${at.getFullYear()}-${two(at.getMonth() + 1)}-${two(at.getDate())} ${two(at.getHours())}:${two(at.getMinutes())} 생성`;
+}
+
+function periodLabel(item: { start?: string; days?: number }): string {
+  return item.start && item.days ? `${item.start} 부터 ${item.days}일` : '—';
+}
 
 export function ReportScreen() {
   const run = useRun();
@@ -438,43 +449,12 @@ export function ReportScreen() {
             <div className="section__head">
               <h2 className="section__title">2단계. 보고서 구성</h2>
               <p className="section__note">
-                엔진과 담을 절을 고릅니다. 계산할 수 없는 절은 이유와 함께 잠깁니다 — 화면이 임의로
+                보고서에 담을 내용을 고릅니다. 계산할 수 없는 항목은 이유와 함께 잠깁니다 — 화면이 임의로
                 이중차분을 강제하지 않습니다.
               </p>
             </div>
 
-            <Card title="엔진" flush>
-              <ul className="checks" style={{ padding: 'var(--sp-4)' }}>
-                {ready.engines.map((item) => (
-                  <li key={item.id} className="check">
-                    <label className="row" style={{ gap: 'var(--sp-3)', alignItems: 'flex-start' }}>
-                      <input
-                        type="radio"
-                        name="engine"
-                        checked={engine === item.id}
-                        disabled={!item.available}
-                        onChange={() => setEngine(item.id as 'v2' | 'dasol')}
-                      />
-                      <span>
-                        <strong>{item.label}</strong>{' '}
-                        {item.available ? (
-                          <Badge tone="ok">사용 가능</Badge>
-                        ) : (
-                          <Badge tone="warn">사용 불가</Badge>
-                        )}
-                        <span className="cell-sub wrap">{item.description}</span>
-                        {!item.available && item.reason ? (
-                          <span className="cell-sub wrap">{item.reason}</span>
-                        ) : null}
-                      </span>
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            {engine === 'v2' ? (
-              <Card
+            <Card
                 title="담을 절"
                 note={`선택 ${int(selected.length)}개 · 항상 포함 ${int(ready.v2_required.length)}개`}
                 flush
@@ -525,8 +505,7 @@ export function ReportScreen() {
                     </tbody>
                   </table>
                 </div>
-              </Card>
-            ) : null}
+            </Card>
 
             <Card title="해설 LLM" note="숫자는 계산 결과에서만 옵니다. 해설 문장만 모델이 씁니다.">
               <dl className="dl">
@@ -560,14 +539,6 @@ export function ReportScreen() {
                     </dd>
                   </div>
                 ) : null}
-                <div className="dl__item">
-                  <dt className="dl__k">.env 키</dt>
-                  <dd className="dl__v wrap">
-                    {Object.entries(llm?.key_present ?? {})
-                      .map(([key, present]) => `${key}=${present ? '있음' : '없음'}`)
-                      .join(' · ') || '—'}
-                  </dd>
-                </div>
               </dl>
               {!READ_ONLY ? (
                 <div className="row" style={{ gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
@@ -586,8 +557,8 @@ export function ReportScreen() {
               ) : null}
               {!llm?.configured ? (
                 <p className="card__note wrap">
-                  <code>.env</code> 에 <code>GEMINI_API_KEY</code> 를 넣으면 해설이 켜집니다. 키가 없어도
-                  보고서는 만들어지며, 해설만 규칙 기반 문장으로 대체됩니다.
+                  해설 모델이 연결되지 않아도 보고서는 그대로 만들어집니다. 해설 문장만
+                  정해진 서술로 대체됩니다.
                 </p>
               ) : null}
             </Card>
@@ -610,14 +581,14 @@ export function ReportScreen() {
 
             {ready.snapshot.ready === false ? (
               <Callout tone="warn">
-                이 실행의 immutable snapshot 을 만들 수 없습니다. {ready.snapshot.reason ?? ''}
+                이 실행으로는 보고서를 만들 수 없습니다.
               </Callout>
             ) : null}
 
             <div className="row-between">
               <p className="card__note wrap">
                 {engineInfo?.available
-                  ? `${engineInfo.label} 으로 ${start} 부터 ${int(dayCount)}일을 분석합니다.`
+                  ? `${start} 부터 ${int(dayCount)}일을 분석합니다.`
                   : (engineInfo?.reason ?? '사용할 수 있는 엔진이 없습니다.')}
               </p>
               <Button variant="primary" disabled={!canSubmit} busy={starting} busyLabel="시작하는 중" onClick={submit}>
@@ -654,9 +625,9 @@ export function ReportScreen() {
                   <caption className="visually-hidden">만들어진 보고서 목록</caption>
                   <thead>
                     <tr>
-                      <th scope="col">파일</th>
+                      <th scope="col">보고서</th>
                       <th scope="col" className="col-md">
-                        크기
+                        분석 기간
                       </th>
                     </tr>
                   </thead>
@@ -670,10 +641,10 @@ export function ReportScreen() {
                             onClick={() => setOpenPath(item.path)}
                             aria-current={openPath === item.path ? 'true' : undefined}
                           >
-                            <span className="num">{item.path}</span>
+                            {reportLabel(item)}
                           </button>
                         </td>
-                        <td className="col-md num">{bytes(item.bytes)}</td>
+                        <td className="col-md num">{periodLabel(item)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -689,13 +660,13 @@ export function ReportScreen() {
         <section className="section">
           <div className="section__head">
             <h2 className="section__title">보고서 본문</h2>
-            <p className="section__note num">{openPath}</p>
+            
           </div>
           {doc?.status === 'loading' ? <SkeletonText lines={6} /> : null}
           {doc?.status === 'error' ? (
             <ErrorState
               title="보고서 본문을 불러오지 못했습니다"
-              body={`${doc.error.message} — 파일이 output/sim/report/ 아래에 있는지 확인하세요.`}
+              body={doc.error.message}
               detail={doc.error.detail}
             />
           ) : null}
@@ -777,24 +748,6 @@ function JobPanel({ job, onOpen }: { job: ReportJob; onOpen: () => void }) {
       </dl>
 
       {job.error ? <Callout tone="warn">{job.error}</Callout> : null}
-
-      {job.logs.length > 0 ? (
-        <Disclosure title="생성 로그" meta={`${job.logs.length}줄`}>
-          <pre className="code">{job.logs.join('\n')}</pre>
-        </Disclosure>
-      ) : null}
-
-      {job.artifacts.length > 0 ? (
-        <ul className="checks">
-          {job.artifacts.map((path) => (
-            <li key={path} className="check">
-              <a href={artifactUrl(path)} className="num" download>
-                {path}
-              </a>
-            </li>
-          ))}
-        </ul>
-      ) : null}
 
       {job.state === 'completed' ? (
         <Button variant="primary" onClick={onOpen}>

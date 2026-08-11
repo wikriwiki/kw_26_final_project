@@ -264,7 +264,15 @@ export interface ReportCatalog extends UnknownResource {
     unknown: string[];
   };
   llm: LlmStatus;
-  report_artifacts: Array<{ path: string; bytes: number }>;
+  /** 이 실행에서 만든 보고서만. 서버가 `.meta.json` 으로 실행을 확인한 것만 올린다 */
+  report_artifacts: Array<{
+    path: string;
+    bytes: number;
+    created_at?: string;
+    start?: string;
+    days?: number;
+    policy_id?: string;
+  }>;
   report_lock: LockStatus;
   snapshot: {
     ready: boolean;

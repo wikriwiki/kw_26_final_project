@@ -22,7 +22,7 @@ import { Button } from '../components/Button';
 import { Card, Stat } from '../components/Card';
 import { Disclosure } from '../components/Disclosure';
 import { Callout, EmptyState } from '../components/Feedback';
-import { DownloadIcon, MapIcon } from '../components/Icon';
+import { MapIcon } from '../components/Icon';
 import { BarList } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
 import { rememberScroll, useScrollMemory } from '../app/useViewState';
@@ -301,12 +301,6 @@ export function ResultsScreen() {
                 </div>
               ))}
             </dl>
-            <div className="row">
-              <Button variant="secondary" icon={<DownloadIcon size={18} />} disabled>
-                원자료 내려받기
-              </Button>
-              <span className="card__note">서버에 연결하면 사용할 수 있습니다.</span>
-            </div>
           </Disclosure>
 
           <Disclosure title="이 숫자의 출처">

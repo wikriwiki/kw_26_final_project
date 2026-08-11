@@ -163,10 +163,24 @@ class ReportJobManager:
             artifacts = self.store.artifact_index().get("items", [])
         except StoreError:
             artifacts = []
-        report_artifacts = [
-            item for item in artifacts
-            if isinstance(item, dict) and str(item.get("path", "")).lower().startswith("report/")
-        ]
+        # 다른 실행에서 만든 보고서를 이 실행의 목록에 섞지 않는다.
+        # 어느 실행 것인지 알 수 없는 파일도 올리지 않는다 — 고르는 사람이
+        # 그게 무엇인지 확인할 방법이 없다.
+        report_artifacts = []
+        for item in artifacts:
+            if not isinstance(item, dict):
+                continue
+            path = str(item.get("path", ""))
+            if not path.lower().startswith("report/") or not path.lower().endswith(".html"):
+                continue
+            meta_path = (self.store.output_root / path).with_suffix(".meta.json")
+            try:
+                meta = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if meta.get("run_id") != run_id:
+                continue
+            report_artifacts.append({**item, **meta})
         policy_body = policy.get("policy", policy)
         payload = catalog_payload(policy_body)
         snapshot = snapshot_readiness(run_id=run_id, run=run, data_root=self.store.data_root)
@@ -617,6 +631,22 @@ class ReportJobManager:
                 if complete:
                     job["state"] = "completed"
                     job["stage"] = "ready"
+                    # 목록에서 보고서를 고를 때 사람이 보는 것은 파일 이름이 아니라
+                    # "언제 만든 · 어느 기간 · 어느 정책" 이다. 그걸 옆에 적어 둔다.
+                    output.with_suffix(".meta.json").write_text(
+                        json.dumps(
+                            {
+                                "run_id": job.get("run_id"),
+                                "policy_id": job.get("policy_id"),
+                                "start": job.get("start"),
+                                "days": job.get("days"),
+                                "policy_from": job.get("policy_from"),
+                                "created_at": job.get("finished_at") or _now(),
+                            },
+                            ensure_ascii=False,
+                        ),
+                        encoding="utf-8",
+                    )
                     # exit code 3 = 보고서는 만들어졌지만 일관성 검사가 실패한 상태.
                     job["consistent"] = exit_code == 0
                     if exit_code == 3:
