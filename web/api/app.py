@@ -24,6 +24,27 @@ from .store import ArtifactStore, StoreError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+
+def _viz_standalone_path() -> Path | None:
+    """3D 지도 산출물의 실제 경로. 없으면 ``None``.
+
+    주소는 하나(`/viz/standalone.html`)인데 그 파일을 가리키는 방법은 셋이다.
+    운영자가 파일을 직접 걸어 두거나(`SIM_VIZ_FILE`), 빌드 산출물 경로를 주거나
+    (`SIM_VIZ_STANDALONE`), 데이터 루트 아래 기본 위치에 두는 경우다.
+    셋을 각각 다른 라우트로 만들면 먼저 등록된 것만 살아남고 나머지는 조용히
+    죽는다 — 실제로 그렇게 되어 있었다. 여기서 한 곳으로 모아 순서를 못 박는다.
+    """
+    for name in ("SIM_VIZ_FILE", "SIM_VIZ_STANDALONE"):
+        configured = os.environ.get(name, "").strip()
+        if configured:
+            path = Path(configured).resolve()
+            return path if path.is_file() else None
+    data_root = os.environ.get("SIM_DATA_ROOT", "").strip()
+    if not data_root:
+        return None
+    fallback = (Path(data_root) / "viz" / "sim_demo.html").resolve()
+    return fallback if fallback.is_file() else None
+
 # `.env` 를 먼저 읽는다. 데이터 위치·모델 설정이 여기 있고, 셸에서 export 한 값에
 # 기대면 어떻게 띄웠느냐에 따라 서버가 다르게 동작한다 — 실제로 3D 지도가
 # 그 이유로 없는 것처럼 보였다. 이미 환경에 있는 값은 덮어쓰지 않는다.
@@ -332,6 +353,15 @@ def create_app(
             if request.policy is not None:
                 # 실행 lock 이 이미 있으면 정책 파일을 건드리지 않는다 (B3).
                 ensure_policy_writable()
+                # 실행할 수 없는 상태에서 정책만 저장되면, 사용자는 "만들었는데 안 돌았다"는
+                # 어중간한 결과를 보게 되고 다음 번 ID 도 하나 밀린다. 실행 명령이 없으면
+                # 저장하기 전에 멈춘다 — 시작 시점에 어차피 거절될 요청이다.
+                if not app.state.runner.configured_command():
+                    raise StoreError(
+                        503,
+                        "실행 명령이 구성되지 않아 새 정책을 저장하지 않았습니다. "
+                        "SIM_RUN_COMMAND_JSON을 운영자가 설정해야 합니다.",
+                    )
                 payload = dict(request.policy)
                 payload["id"] = request.policy_id
                 injected = app.state.store.save_policy(request.policy_id, payload)
@@ -392,13 +422,8 @@ def create_app(
         개발 서버(vite)는 자체 플러그인으로 같은 주소를 연다. 배포 형태에서도
         같은 주소가 열려야 화면 코드가 두 벌이 되지 않는다.
         """
-        path = Path(
-            os.environ.get(
-                "SIM_VIZ_STANDALONE",
-                str(Path(os.environ.get("SIM_DATA_ROOT", "")) / "viz" / "sim_demo.html"),
-            )
-        )
-        if not path.is_file():
+        path = _viz_standalone_path()
+        if path is None:
             raise StoreError(503, "3D 지도 산출물이 아직 만들어지지 않았습니다")
 
         # 미리 압축해 둔 것이 있으면 그걸 보낸다. 지도 본문은 대부분 JSON 이라
@@ -415,8 +440,14 @@ def create_app(
                     "Cache-Control": "public, max-age=86400",
                 },
             )
-        return FileResponse(path, media_type="text/html",
-                            headers={"Cache-Control": "public, max-age=86400"})
+        # 운영자가 파일 하나를 직접 걸어 둔 경우(SIM_VIZ_FILE)는 그 사람만 보는
+        # 산출물이므로 공용 캐시에 남기지 않는다.
+        private = bool(os.environ.get("SIM_VIZ_FILE", "").strip())
+        return FileResponse(
+            path,
+            media_type="text/html",
+            headers={"Cache-Control": "private, max-age=3600" if private else "public, max-age=86400"},
+        )
 
     @app.get("/api/interview/status")
     async def interview_status() -> dict:
@@ -448,21 +479,6 @@ def create_app(
     async def get_run_artifact(run_id: str, artifact_path: str) -> FileResponse:
         path = await asyncio.to_thread(app.state.store.artifact, artifact_path, run_id=run_id)
         return FileResponse(path)
-
-    @app.get("/viz/standalone.html", include_in_schema=False)
-    async def standalone_visualization() -> FileResponse:
-        """Serve the prebuilt large visualization from an operator-mounted file."""
-        configured = os.environ.get("SIM_VIZ_FILE", "").strip()
-        if not configured:
-            raise StoreError(404, "3D 시각화 파일이 설정되지 않았습니다")
-        path = Path(configured).resolve()
-        if not path.is_file():
-            raise StoreError(404, "3D 시각화 파일을 찾을 수 없습니다")
-        return FileResponse(
-            path,
-            media_type="text/html",
-            headers={"Cache-Control": "private, max-age=3600"},
-        )
 
     ui_dist = REPO_ROOT / "web" / "ui" / "dist"
     if ui_dist.is_dir():
