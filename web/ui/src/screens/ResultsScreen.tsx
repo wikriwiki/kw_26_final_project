@@ -47,8 +47,10 @@ export function ResultsScreen() {
 
   const events = bundle.events;
   const totals = events.totals;
-  const deciles = bundle.dayAggregate.by_spend_decile as unknown as DecileBucket[];
-  const unknownAgents = bundle.dayAggregate.spend_decile_unknown_agents;
+  // 분위가 없는 대상자는 보여주지 않는다. 읽는 사람이 판단에 쓸 수 없는 줄이다
+  const deciles = (bundle.dayAggregate.by_spend_decile as unknown as DecileBucket[]).filter(
+    (row) => row.spend_decile !== null,
+  );
 
   const industryBars: BarItem[] = (events.by_l1 ?? [])
     .slice()
@@ -83,8 +85,8 @@ export function ResultsScreen() {
 
       {!events.available ? (
         <Callout tone="warn">
-          이 실행에는 결제 기록이 만들어지지 않았습니다. {events.reason ?? ''} 아래 소비 분위별
-          비교는 대상자별 기록에서 바로 집계한 값이라 그대로 볼 수 있습니다.
+          이 실행에는 결제 내역이 없어 업종별 분석을 볼 수 없습니다. 아래 소비 분위별 비교는
+          그대로 보실 수 있습니다.
         </Callout>
       ) : null}
 
@@ -178,16 +180,9 @@ export function ResultsScreen() {
           </p>
         </div>
 
-        {unknownAgents > 0 ? (
-          <Callout tone="warn">
-            소비 분위를 알 수 없는 대상자가 {int(unknownAgents)}명 있습니다. 아래 표의 마지막 줄에
-            따로 표시했습니다 — 10개 분위 합계만으로는 전체 인원이 맞지 않습니다.
-          </Callout>
-        ) : null}
-
         <div className="table-wrap">
           <table className="table table--lead">
-            <caption className="visually-hidden">소비 분위별 지급액과 소비액</caption>
+            <caption className="visually-hidden">소비 분위별 쿠폰 사용액과 소비액</caption>
             <thead>
               <tr>
                 <th scope="col">소비 분위</th>
@@ -195,7 +190,7 @@ export function ResultsScreen() {
                   대상자
                 </th>
                 <th scope="col" className="n col-md">
-                  지급액
+                  쿠폰 사용액
                 </th>
                 <th scope="col" className="n col-lg">
                   당일 소비액
@@ -205,22 +200,19 @@ export function ResultsScreen() {
             <tbody>
               {deciles.map((row) => (
                 <tr key={String(row.spend_decile)}>
-                  <th scope="row" style={{ fontWeight: row.spend_decile === null ? 500 : 400 }}>
+                  <th scope="row">
                     {decile(row.spend_decile)}
-                    {row.spend_decile === null ? (
-                      <span className="cell-sub">기록에 분위가 없는 대상자</span>
-                    ) : null}
                   </th>
                   <td className="n">
                     {int(row.agents)}명
                     <span className="cell-sub cell-sub--md">
-                      지급 {krw(row.grant_applied_today)}
+                      쿠폰 {krw(row.policy_spend_today)}
                     </span>
                     <span className="cell-sub cell-sub--lg">
                       소비 {krw(row.cm_today_total_incl_online)}
                     </span>
                   </td>
-                  <td className="n col-md">{krw(row.grant_applied_today)}</td>
+                  <td className="n col-md">{krw(row.policy_spend_today)}</td>
                   <td className="n col-lg">{krw(row.cm_today_total_incl_online)}</td>
                 </tr>
               ))}
@@ -229,8 +221,7 @@ export function ResultsScreen() {
         </div>
 
         <p className="section__note">
-          합계 {int(deciles.reduce((s, r) => s + r.agents, 0))}명 · 처리 완료{' '}
-          {int(bundle.dayAggregate.agents_ok)}명
+          대상자 {int(deciles.reduce((s, r) => s + r.agents, 0))}명
         </p>
       </section>
 

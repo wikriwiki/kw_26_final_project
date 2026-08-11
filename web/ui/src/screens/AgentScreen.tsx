@@ -29,7 +29,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { SelectField, TextField } from '../components/Field';
-import { Callout, EmptyState, ErrorState, SkeletonText } from '../components/Feedback';
+import { EmptyState, ErrorState, SkeletonText } from '../components/Feedback';
 import { BarList } from '../components/Meter';
 import { int } from '../lib/format';
 import { askAgent } from '../lib/interview';
@@ -232,20 +232,10 @@ export function AgentScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">대상자 문답</h1>
           <p className="pagehead__purpose">
-            대상자 한 명을 골라, 그 사람이 그날 어디에 갔고 왜 그랬는지 기록에서 확인합니다.
+            대상자 한 명을 골라 직접 물어봅니다. 아래 질문을 누르거나, 궁금한 것을 그대로 적으세요.
           </p>
         </div>
       </header>
-
-      {/*
-        이 화면에서 가장 중요한 한 문단. 사람이 답하는 것처럼 보이는 화면이라
-        "무엇이 아닌지"를 먼저 말하지 않으면 읽는 사람이 오해한다.
-      */}
-      <Callout>
-        아래 <strong>질문 버튼</strong>은 저장된 기록을 그대로 옮겨 적습니다 — 숫자가 어디서
-        나왔는지 함께 보입니다. 목록에 없는 것을 직접 물으면 <strong>대상자 본인이 자기 기록만
-        보고</strong> 답합니다. 기록에 없는 일은 “기억에 없다”고 말합니다.
-      </Callout>
 
       {rosterError ? (
         <ErrorState
