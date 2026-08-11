@@ -36,7 +36,7 @@ def _fallback(section: str, payload: dict[str, Any]) -> str:
             f"{meta.get('run_id')} 실행의 {meta.get('day_count')}일 구간을 분석했습니다. "
             f"정책 {meta.get('policy_id') or '미지정'}의 시행일은 {period.get('policy_from') or '미지정'}이며, "
             f"사전 {len(period.get('pre') or [])}일과 사후 {len(period.get('post') or [])}일로 나누어 비교했습니다. "
-            "아래의 모든 수치는 run snapshot 의 events.jsonl 과 metrics 파일에서 직접 집계한 값입니다."
+            "아래의 모든 수치는 이 실행이 남긴 기록에서 직접 집계한 값입니다."
         )
     if section == "did":
         did = payload.get("did")

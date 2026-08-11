@@ -239,6 +239,10 @@ def _openai_compatible(
         "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         "temperature": temperature,
         "max_tokens": max_tokens,
+        # 추론(thinking)을 켜 두면 해설 한 문단에 수십 초가 걸리고, 그 사고 과정이
+        # 본문에 섞여 나오기도 한다. 보고서 해설은 계산 결과를 **옮겨 적는** 일이라
+        # 추론이 필요 없다. 이 옵션을 모르는 서버는 그냥 무시한다.
+        "chat_template_kwargs": {"enable_thinking": False},
     }
     started = time.time()
     try:
