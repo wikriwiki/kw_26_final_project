@@ -125,7 +125,17 @@ V2_CATALOG: tuple[AnalysisSpec, ...] = (
     AnalysisSpec("s4", "시행 전후 겹쳐보기", "같은 길이의 전/후 구간을 한 축에 겹쳐 차이를 면으로 보여줍니다."),
     AnalysisSpec("s5", "업종별 전후 비교", "업종별 하루 평균 소비의 전후 비교."),
     AnalysisSpec("s6", "이중차분 (DID)", "시장 전체 추세를 걷어낸 정책 순효과."),
+    AnalysisSpec(
+        "s12",
+        "정책 순효과의 시간 궤적",
+        "실제 궤적과 반사실 궤적, 누적 순효과, 위약(placebo) 검정.",
+    ),
     AnalysisSpec("s7", "업종별 이중차분", "어떤 업종에서 정책 때문에 금액이 늘었는지."),
+    AnalysisSpec(
+        "s13",
+        "세부업종·지역·요일별 이중차분",
+        "같은 순효과를 세부업종(L2)·자치구·주중주말로 쪼갭니다.",
+    ),
     AnalysisSpec("s8", "분위별 효과", "소비 분위별 1인당 소비 변화."),
     AnalysisSpec("s9", "소비 구조", "결제 구성·요일별·업종별·지역별 분포."),
     AnalysisSpec("s10", "일관성 검증", "보고서에 실린 수치를 다시 계산해 대조합니다. 항상 포함됩니다."),
@@ -160,6 +170,8 @@ def v2_applicability(
         "s5": (has_events, events_reason),
         "s6": (has_events and bool(effective_from), did_reason),
         "s7": (has_events and bool(effective_from), did_reason),
+        "s12": (has_events and bool(effective_from), did_reason),
+        "s13": (has_events and bool(effective_from), did_reason),
         "s8": (
             has_metrics and bool(grants),
             None

@@ -172,10 +172,17 @@ def scan_events(run_root: Path) -> dict[str, Any]:
     by_l1: dict[str, dict[str, float]] = defaultdict(_empty_cell)
     by_day_l1: dict[tuple[str, str], dict[str, float]] = defaultdict(_empty_cell)
     by_l2: dict[tuple[str, str], dict[str, float]] = defaultdict(_empty_cell)
-    # 아래 셋은 **일자를 키에 포함**한다. 분석 창(start/days)을 잘랐을 때
+    # 아래 다섯은 **일자를 키에 포함**한다. 분석 창(start/days)을 잘랐을 때
     # 이 표들만 전체 기간을 보면 총계와 어긋난다. 같은 모집단을 보게 한다.
     by_day_daytype: dict[tuple[str, str], dict[str, float]] = defaultdict(_empty_cell)
     by_day_district: dict[tuple[str, str], dict[str, float]] = defaultdict(_empty_cell)
+    # 세부업종·지역·요일유형별 이중차분을 하려면 그 축과 L1 을 **함께** 갖고 있어야
+    # 한다. L1 을 잃으면 그 칸이 처치군인지 대조군인지 알 수 없기 때문이다.
+    # 값이 비어 있는 행은 버리지 않고 `미분류` 로 모은다 — 버리면 부분합이
+    # 전체합과 어긋나고, 그 어긋남을 일관성 검사가 잡아낸다.
+    by_day_l1_l2: dict[tuple[str, str, str], dict[str, float]] = defaultdict(_empty_cell)
+    by_day_district_l1: dict[tuple[str, str, str], dict[str, float]] = defaultdict(_empty_cell)
+    by_day_daytype_l1: dict[tuple[str, str, str], dict[str, float]] = defaultdict(_empty_cell)
     policy_ids_by_day: dict[tuple[str, str], float] = defaultdict(float)
     agents_by_day: dict[str, set] = defaultdict(set)
     totals = _empty_cell()
@@ -192,10 +199,13 @@ def scan_events(run_root: Path) -> dict[str, Any]:
         _add(by_day_l1[(day, l1)], row)
         if row["l2"]:
             _add(by_l2[(l1, str(row["l2"]))], row)
+        _add(by_day_l1_l2[(day, l1, str(row["l2"]) if row["l2"] else UNCLASSIFIED)], row)
         if row["day_type"]:
             _add(by_day_daytype[(day, str(row["day_type"]))], row)
         if row["district"]:
             _add(by_day_district[(day, str(row["district"]))], row)
+        _add(by_day_district_l1[(day, str(row["district"]) if row["district"] else UNCLASSIFIED, l1)], row)
+        _add(by_day_daytype_l1[(day, str(row["day_type"]) if row["day_type"] else UNCLASSIFIED, l1)], row)
         if row["agent"] is not None:
             agents_by_day[day].add(row["agent"])
         for pid, amount in row["policy_by_id"].items():
@@ -211,6 +221,9 @@ def scan_events(run_root: Path) -> dict[str, Any]:
         "by_l2": {k: dict(v) for k, v in by_l2.items()},
         "by_day_daytype": {k: dict(v) for k, v in by_day_daytype.items()},
         "by_day_district": {k: dict(v) for k, v in by_day_district.items()},
+        "by_day_l1_l2": {k: dict(v) for k, v in by_day_l1_l2.items()},
+        "by_day_district_l1": {k: dict(v) for k, v in by_day_district_l1.items()},
+        "by_day_daytype_l1": {k: dict(v) for k, v in by_day_daytype_l1.items()},
         "policy_paid_by_day_policy_id": dict(policy_ids_by_day),
         "agents_by_day": {k: len(v) for k, v in agents_by_day.items()},
         "event_keys": sorted(seen_keys),
@@ -635,14 +648,47 @@ def overlay_series(scan: dict[str, Any], period: dict[str, Any], *, metric: str 
     }
     overall["delta"] = [round(b - a, 2) for a, b in zip(overall["pre"], overall["post"])]
 
+    # 하루하루의 선은 요일과 잡음으로 흔들린다. 누적선은 그 흔들림을 지우고
+    # "구간 전체로 얼마나 벌어졌는가"만 남긴다. 마지막 값의 차이가 곧 구간 총차이다.
+    def _cumulative(values: list[float]) -> list[float]:
+        out, running = [], 0.0
+        for value in values:
+            running += value
+            out.append(round(running, 2))
+        return out
+
+    overall["pre_cumulative"] = _cumulative(overall["pre"])
+    overall["post_cumulative"] = _cumulative(overall["post"])
+    overall["cumulative_delta"] = [
+        round(b - a, 2) for a, b in zip(overall["pre_cumulative"], overall["post_cumulative"])
+    ]
+
+    # 금액 규모가 다른 업종을 한 그림에 겹치려면 축을 맞춰야 한다.
+    # 사전 구간의 일평균을 100 으로 두면 모든 업종이 같은 자로 읽힌다.
+    def _indexed(values: list[float], base: float | None) -> list[float | None]:
+        if not base:
+            return [None] * len(values)
+        return [round(value / base * 100, 2) for value in values]
+
+    pre_base = (sum(overall["pre"]) / len(overall["pre"])) if overall["pre"] else None
+    overall["index_base"] = round(pre_base, 2) if pre_base else None
+    overall["pre_index"] = _indexed(overall["pre"], pre_base)
+    overall["post_index"] = _indexed(overall["post"], pre_base)
+
     by_category: dict[str, Any] = {}
     for l1 in sorted(scan["by_l1"], key=lambda name: -scan["by_l1"][name]["amt"]):
         pre_vals = _series(pre_window, [l1])
         post_vals = _series(post_window, [l1])
+        base = (sum(pre_vals) / len(pre_vals)) if pre_vals else None
         by_category[l1] = {
             "pre": pre_vals,
             "post": post_vals,
             "delta": [round(b - a, 2) for a, b in zip(pre_vals, post_vals)],
+            "pre_total": round(sum(pre_vals), 2),
+            "post_total": round(sum(post_vals), 2),
+            "index_base": round(base, 2) if base else None,
+            "pre_index": _indexed(pre_vals, base),
+            "post_index": _indexed(post_vals, base),
         }
     return {
         "available": True,
@@ -654,6 +700,405 @@ def overlay_series(scan: dict[str, Any], period: dict[str, Any], *, metric: str 
         ),
         "overall": overall,
         "by_category": by_category,
+    }
+
+
+# --------------------------------------------------------------------------- #
+# 이중차분 — 분해와 강건성
+# --------------------------------------------------------------------------- #
+
+
+def control_growth_factor(
+    scan: dict[str, Any],
+    period: dict[str, Any],
+    control: list[str],
+    *,
+    metric: str = "amt",
+) -> float | None:
+    """대조군 성장률 C1/C0. **보고서 전체가 이 하나의 배율만 쓴다.**
+
+    업종별·세부업종별·지역별·요일유형별 반사실을 모두 이 배율로 만들기 때문에
+    부분 DID 의 합이 전체 DID 와 정확히 같아진다. 축마다 다른 배율을 쓰면
+    그 항등식이 깨지고, 어느 그림을 믿어야 할지 알 수 없게 된다.
+    """
+    pre_days, post_days = period["pre"], period["post"]
+    if not pre_days or not post_days:
+        return None
+    c0 = _daily_average(_period_cell(scan, pre_days, control), len(pre_days))[metric]
+    c1 = _daily_average(_period_cell(scan, post_days, control), len(post_days))[metric]
+    return _ratio(c1, c0)
+
+
+def _axis_cell(
+    table: dict[tuple[str, str, str], dict[str, float]],
+    days: Iterable[str],
+    *,
+    axis_value: str | None,
+    categories: Iterable[str] | None,
+    metric: str,
+) -> float:
+    """``(day, axis, l1)`` 표에서 조건에 맞는 칸만 더한다."""
+    day_set = {str(d) for d in days}
+    want_axis = None if axis_value is None else str(axis_value)
+    want_cats = None if categories is None else {str(c) for c in categories}
+    total = 0.0
+    for (day, axis, l1), cell in table.items():
+        if day not in day_set:
+            continue
+        if want_axis is not None and axis != want_axis:
+            continue
+        if want_cats is not None and l1 not in want_cats:
+            continue
+        total += cell[metric]
+    return total
+
+
+def counterfactual_daily(
+    scan: dict[str, Any],
+    period: dict[str, Any],
+    treat: list[str],
+    control: list[str],
+    *,
+    metric: str = "amt",
+) -> dict[str, Any]:
+    """일자별 처치군 실제값과 **반사실 궤적**, 그리고 누적 격차.
+
+    2×2 이중차분은 사후 전체를 한 숫자로 눌러 버린다. 그래서 "정책이 며칠째부터
+    듣기 시작했는지", "효과가 유지됐는지 하루 반짝이었는지"를 볼 수 없다.
+    여기서는 같은 정의를 **날짜별로** 편다.
+
+        반사실(day) = T0 × (C(day) / C0)
+
+    사후 일자에 대한 ``실제 − 반사실`` 의 평균은 2×2 의 ``did_absolute`` 와
+    항등적으로 같다. (평균 T(day) = T1, 평균 C(day) = C1 이므로.)
+    일관성 검사 ``cf_daily_mean_matches_did`` 가 이 항등식을 실제로 다시 잰다.
+    """
+    pre_days, post_days = period["pre"], period["post"]
+    if not pre_days or not post_days:
+        return {"available": False, "reason": period.get("reason"), "points": []}
+    treat_set = {str(c) for c in treat}
+    control_set = {str(c) for c in control}
+    t0 = _daily_average(_period_cell(scan, pre_days, treat), len(pre_days))[metric]
+    c0 = _daily_average(_period_cell(scan, pre_days, control), len(pre_days))[metric]
+    if not c0:
+        return {
+            "available": False,
+            "reason": "대조군의 사전 소비가 0이라 반사실 궤적을 만들 수 없습니다",
+            "points": [],
+        }
+
+    per_day: dict[str, dict[str, float]] = defaultdict(lambda: {"t": 0.0, "c": 0.0})
+    for (day, l1), cell in scan["by_day_l1"].items():
+        if l1 in treat_set:
+            per_day[day]["t"] += cell[metric]
+        elif l1 in control_set:
+            per_day[day]["c"] += cell[metric]
+
+    cut = _iso(period.get("policy_from"))
+    points: list[dict[str, Any]] = []
+    cumulative = 0.0
+    for day in sorted(set(pre_days) | set(post_days)):
+        actual = per_day[day]["t"]
+        control_day = per_day[day]["c"]
+        cf = t0 * (control_day / c0)
+        gap = actual - cf
+        post = day in set(post_days)
+        if post:
+            cumulative += gap
+        day_iso = _iso(day)
+        points.append(
+            {
+                "day": day,
+                "rel_day": (day_iso - cut).days if (day_iso and cut) else None,
+                "phase": "post" if post else "pre",
+                "treat": round(actual, 2),
+                "control": round(control_day, 2),
+                "counterfactual": round(cf, 2),
+                "gap": round(gap, 2),
+                "cumulative_gap": round(cumulative, 2) if post else None,
+            }
+        )
+    post_points = [p for p in points if p["phase"] == "post"]
+    mean_gap = sum(p["gap"] for p in post_points) / len(post_points) if post_points else None
+    return {
+        "available": True,
+        "reason": None,
+        "treat_pre_daily": round(t0, 2),
+        "control_pre_daily": round(c0, 2),
+        "points": points,
+        "cumulative_gap_total": round(cumulative, 2),
+        "mean_gap_post": round(mean_gap, 2) if mean_gap is not None else None,
+        "post_days": len(post_points),
+    }
+
+
+def _did_rows_from_axis(
+    table: dict[tuple[str, str, str], dict[str, float]],
+    period: dict[str, Any],
+    *,
+    categories: Iterable[str] | None,
+    growth: float | None,
+    metric: str,
+) -> list[dict[str, Any]]:
+    pre_days, post_days = period["pre"], period["post"]
+    names = sorted({axis for (_day, axis, _l1) in table})
+    rows: list[dict[str, Any]] = []
+    for name in names:
+        pre = _axis_cell(table, pre_days, axis_value=name, categories=categories, metric=metric) / max(len(pre_days), 1)
+        post = _axis_cell(table, post_days, axis_value=name, categories=categories, metric=metric) / max(len(post_days), 1)
+        cf = pre * growth if growth is not None else None
+        did = (post - cf) if cf is not None else None
+        rows.append(
+            {
+                "name": name,
+                "pre_daily": round(pre, 2),
+                "post_daily": round(post, 2),
+                "delta": round(post - pre, 2),
+                "counterfactual_post": round(cf, 2) if cf is not None else None,
+                "did_absolute": round(did, 2) if did is not None else None,
+                "did_pct": round(did / cf * 100, 4) if (did is not None and cf) else None,
+            }
+        )
+    rows.sort(key=lambda item: -(item["did_absolute"] or 0))
+    return rows
+
+
+def did_by_subcategory(
+    scan: dict[str, Any],
+    period: dict[str, Any],
+    treat: list[str],
+    control: list[str],
+    *,
+    metric: str = "amt",
+    limit: int = 14,
+) -> dict[str, Any]:
+    """세부업종(L2) 이중차분. "어느 업종에서 늘었나"를 한 단계 더 내려서 본다.
+
+    대조군 성장률은 L1 에서 쓴 것과 **같은 값**이다. 그래서 한 L1 안의
+    세부업종 DID 합은 그 L1 의 DID 와 정확히 같다.
+    """
+    growth = control_growth_factor(scan, period, control, metric=metric)
+    if growth is None:
+        return {"available": False, "reason": "대조군 성장률을 만들 수 없습니다", "items": [], "by_l1": {}}
+    treat_set = {str(c) for c in treat}
+    pre_days, post_days = period["pre"], period["post"]
+    keys = sorted({(l1, l2) for (_day, l1, l2) in scan["by_day_l1_l2"] if l1 in treat_set})
+    if not keys:
+        return {"available": False, "reason": "정책 대상 업종의 세부업종 기록이 없습니다", "items": [], "by_l1": {}}
+
+    def _sum(days: list[str], l1: str, l2: str) -> float:
+        total = 0.0
+        for day in days:
+            cell = scan["by_day_l1_l2"].get((day, l1, l2))
+            if cell:
+                total += cell[metric]
+        return total
+
+    items: list[dict[str, Any]] = []
+    for l1, l2 in keys:
+        pre = _sum(pre_days, l1, l2) / max(len(pre_days), 1)
+        post = _sum(post_days, l1, l2) / max(len(post_days), 1)
+        cf = pre * growth
+        items.append(
+            {
+                "l1": l1,
+                "l2": l2,
+                "label": f"{l1} · {l2}",
+                "pre_daily": round(pre, 2),
+                "post_daily": round(post, 2),
+                "counterfactual_post": round(cf, 2),
+                "did_absolute": round(post - cf, 2),
+                "did_pct": round((post - cf) / cf * 100, 4) if cf else None,
+                "growth_pct": round((post / pre - 1) * 100, 4) if pre else None,
+            }
+        )
+    items.sort(key=lambda item: -item["did_absolute"])
+    by_l1: dict[str, float] = defaultdict(float)
+    for item in items:
+        by_l1[item["l1"]] += item["did_absolute"]
+    unclassified = sum(1 for item in items if item["l2"] == UNCLASSIFIED)
+    return {
+        "available": True,
+        "reason": None,
+        "control_growth": round(growth, 6),
+        "items": items,
+        "top": items[:limit],
+        "bottom": [item for item in items[-limit:] if item["did_absolute"] < 0],
+        "by_l1": {k: round(v, 2) for k, v in by_l1.items()},
+        "unclassified_buckets": unclassified,
+        "note": (
+            "세부업종이 기록되지 않은 거래는 버리지 않고 `미분류` 로 모읍니다. "
+            "버리면 세부업종 합이 업종 합과 어긋나고, 그 어긋남이 그림에 그대로 남습니다."
+        ),
+    }
+
+
+def did_by_region(
+    scan: dict[str, Any],
+    period: dict[str, Any],
+    treat: list[str],
+    control: list[str],
+    *,
+    metric: str = "amt",
+) -> dict[str, Any]:
+    """지역(자치구)별 이중차분 — 정책 대상 업종의 소비가 어디에서 늘었는가."""
+    growth = control_growth_factor(scan, period, control, metric=metric)
+    if growth is None:
+        return {"available": False, "reason": "대조군 성장률을 만들 수 없습니다", "items": []}
+    rows = _did_rows_from_axis(
+        scan["by_day_district_l1"], period, categories=treat, growth=growth, metric=metric
+    )
+    if not rows:
+        return {"available": False, "reason": "지역 기록이 없습니다", "items": []}
+    return {
+        "available": True,
+        "reason": None,
+        "control_growth": round(growth, 6),
+        "items": rows,
+        "total_did": round(sum(row["did_absolute"] or 0 for row in rows), 2),
+    }
+
+
+def did_by_daytype(
+    scan: dict[str, Any],
+    period: dict[str, Any],
+    treat: list[str],
+    control: list[str],
+    *,
+    metric: str = "amt",
+) -> dict[str, Any]:
+    """주중·주말별 이중차분 — 효과가 어느 요일유형에서 나왔는가."""
+    growth = control_growth_factor(scan, period, control, metric=metric)
+    if growth is None:
+        return {"available": False, "reason": "대조군 성장률을 만들 수 없습니다", "items": []}
+    rows = _did_rows_from_axis(
+        scan["by_day_daytype_l1"], period, categories=treat, growth=growth, metric=metric
+    )
+    if not rows:
+        return {"available": False, "reason": "요일유형 기록이 없습니다", "items": []}
+    return {
+        "available": True,
+        "reason": None,
+        "control_growth": round(growth, 6),
+        "items": rows,
+        "total_did": round(sum(row["did_absolute"] or 0 for row in rows), 2),
+    }
+
+
+def placebo_did(
+    scan: dict[str, Any],
+    period: dict[str, Any],
+    treat: list[str],
+    control: list[str],
+    *,
+    metric: str = "amt",
+) -> dict[str, Any]:
+    """**위약 검정** — 사전기간 안에 가짜 시행일을 두고 같은 계산을 돌린다.
+
+    정책이 없던 구간이므로 결과는 0 근처여야 한다. 0 에서 멀면 그 DID 값은
+    정책이 아니라 처치군·대조군의 구조적 차이를 재고 있다는 뜻이다.
+    계산이 된다는 것과 정책 효과라는 것은 다르므로, 이 검정을 값 옆에 함께 싣는다.
+    """
+    pre_days = list(period["pre"])
+    if len(pre_days) < 4:
+        return {
+            "available": False,
+            "reason": f"사전기간이 {len(pre_days)}일뿐이라 둘로 나눌 수 없습니다 (최소 4일).",
+        }
+    half = len(pre_days) // 2
+    fake = {
+        "pre": pre_days[:half],
+        "post": pre_days[half:],
+        "usable": True,
+        "policy_from": pre_days[half],
+    }
+    result = did_two_by_two(scan, fake, treat, control, metric=metric)
+    return {
+        "available": True,
+        "reason": None,
+        "fake_policy_from": pre_days[half],
+        "pre_days": half,
+        "post_days": len(pre_days) - half,
+        "did_absolute": result["did_absolute"],
+        "did_relative": result["did_relative"],
+        "treat_pre": result["treat_pre"],
+        "treat_post": result["treat_post"],
+        "control_pre": result["control_pre"],
+        "control_post": result["control_post"],
+    }
+
+
+def decile_did(deciles: dict[str, Any]) -> dict[str, Any]:
+    """지급 대상 분위 vs 비대상 분위의 1인당 소비 이중차분.
+
+    업종 축이 아니라 **사람 축**에서 같은 질문을 다시 던진다. 업종 DID 와 방향이
+    다르면 둘 중 하나는 다른 것을 재고 있는 것이므로, 두 값을 나란히 싣는다.
+    """
+    items = deciles.get("items") or []
+    if not items:
+        return {"available": False, "reason": deciles.get("reason") or "분위 자료가 없습니다"}
+    granted = [row for row in items if row.get("treated")]
+    others = [row for row in items if not row.get("treated")]
+    if not granted or not others:
+        return {
+            "available": False,
+            "reason": "지급 분위와 비지급 분위 중 한쪽이 없어 이중차분을 만들 수 없습니다",
+        }
+
+    def _mean(rows: list[dict[str, Any]], key: str) -> float | None:
+        values = [row.get(key) for row in rows if row.get(key) is not None]
+        return sum(values) / len(values) if values else None
+
+    t0 = _mean(granted, "per_capita_pre")
+    t1 = _mean(granted, "per_capita_post")
+    c0 = _mean(others, "per_capita_pre")
+    c1 = _mean(others, "per_capita_post")
+    if None in (t0, t1, c0, c1) or not c0:
+        return {"available": False, "reason": "분위별 1인당 소비를 사전/사후로 나눌 수 없습니다"}
+    growth = c1 / c0
+    cf = t0 * growth
+    return {
+        "available": True,
+        "reason": None,
+        "granted_deciles": [row["decile"] for row in granted],
+        "other_deciles": [row["decile"] for row in others],
+        "treat_pre": round(t0, 2),
+        "treat_post": round(t1, 2),
+        "control_pre": round(c0, 2),
+        "control_post": round(c1, 2),
+        "control_growth": round(growth, 6),
+        "counterfactual_post": round(cf, 2),
+        "did_absolute": round(t1 - cf, 2),
+        "did_pct": round((t1 - cf) / cf * 100, 4) if cf else None,
+    }
+
+
+def did_pareto(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """대상 업종 DID 의 누적 기여 — 효과가 몇 개 업종에 몰려 있는가."""
+    targeted = [row for row in rows if row.get("targeted") and (row.get("did_absolute") or 0) > 0]
+    targeted.sort(key=lambda row: -(row["did_absolute"] or 0))
+    total = sum(row["did_absolute"] for row in targeted)
+    if not targeted or total <= 0:
+        return {"available": False, "reason": "증가한 대상 업종이 없습니다", "items": []}
+    running = 0.0
+    items = []
+    for row in targeted:
+        running += row["did_absolute"]
+        items.append(
+            {
+                "l1": row["l1"],
+                "did_absolute": row["did_absolute"],
+                "share_pct": round(row["did_absolute"] / total * 100, 4),
+                "cumulative_pct": round(running / total * 100, 4),
+            }
+        )
+    half = next((i + 1 for i, item in enumerate(items) if item["cumulative_pct"] >= 50), len(items))
+    return {
+        "available": True,
+        "reason": None,
+        "total_positive_did": round(total, 2),
+        "items": items,
+        "categories_for_half": half,
     }
 
 
@@ -695,6 +1140,10 @@ def build_bundle(
     window = set(observed_days)
     scan["by_day"] = {k: v for k, v in scan["by_day"].items() if k in window}
     scan["by_day_l1"] = {k: v for k, v in scan["by_day_l1"].items() if k[0] in window}
+    # 세부업종·지역×업종·요일유형×업종 교차표도 같은 창으로 접는다. 하나라도
+    # 접지 않으면 그 그림만 다른 모집단을 보게 되고, 부분합이 전체합과 어긋난다.
+    for _key in ("by_day_l1_l2", "by_day_district_l1", "by_day_daytype_l1"):
+        scan[_key] = {k: v for k, v in scan[_key].items() if k[0] in window}
     recomputed_l1: dict[str, dict[str, float]] = defaultdict(_empty_cell)
     recomputed_totals = _empty_cell()
     for (day, l1), cell in scan["by_day_l1"].items():
@@ -759,10 +1208,23 @@ def build_bundle(
     did_summary = None
     category_rows: list[dict[str, Any]] = []
     study: dict[str, Any] = {"available": False, "reason": period.get("reason"), "points": []}
+    unavailable = {"available": False, "reason": period.get("reason") or "이중차분을 만들 수 없습니다"}
+    counterfactual: dict[str, Any] = dict(unavailable, points=[])
+    subcategory: dict[str, Any] = dict(unavailable, items=[], by_l1={})
+    region: dict[str, Any] = dict(unavailable, items=[])
+    daytype_did: dict[str, Any] = dict(unavailable, items=[])
+    placebo: dict[str, Any] = dict(unavailable)
+    pareto: dict[str, Any] = dict(unavailable, items=[])
     if period["usable"] and treat and control:
         did_summary = did_two_by_two(scan, period, treat, control, metric=metric)
         category_rows = did_by_category(scan, period, treat, control, metric=metric)
         study = event_study(scan, period, treat, control, metric=metric)
+        counterfactual = counterfactual_daily(scan, period, treat, control, metric=metric)
+        subcategory = did_by_subcategory(scan, period, treat, control, metric=metric)
+        region = did_by_region(scan, period, treat, control, metric=metric)
+        daytype_did = did_by_daytype(scan, period, treat, control, metric=metric)
+        placebo = placebo_did(scan, period, treat, control, metric=metric)
+        pareto = did_pareto(category_rows)
     elif period["usable"] and not control:
         did_summary = None
         category_rows = []
@@ -853,6 +1315,13 @@ def build_bundle(
         "categories": categories,
         "did": did_summary,
         "did_by_category": category_rows,
+        "did_by_subcategory": subcategory,
+        "did_by_region": region,
+        "did_by_daytype": daytype_did,
+        "did_counterfactual_daily": counterfactual,
+        "did_placebo": placebo,
+        "did_pareto": pareto,
+        "did_by_decile": decile_did(decile_rows),
         "event_study": study,
         "overlay": overlay_series(scan, period, metric=metric),
         "deciles": decile_rows,

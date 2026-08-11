@@ -120,6 +120,7 @@ class RenderTests(unittest.TestCase):
             sections=["s6", "s7"],
         )
         anchors = re.findall(r'<li><a href="#(s\d+)">(\d+)\.', partial)
+        # 문서 순서는 SECTION_PLAN 이 정한다 — id 의 숫자 크기가 아니다.
         self.assertEqual([a for a, _ in anchors], ["s1", "s6", "s7", "s10", "s11"])
         self.assertEqual([n for _, n in anchors], ["1", "2", "3", "4", "5"])
         # 항상 포함되는 절은 빼달라고 해도 남는다
@@ -134,6 +135,33 @@ class RenderTests(unittest.TestCase):
         self.assertIn(f"{did:+,.0f}", markdown)
         self.assertIn("이중차분", markdown)
         self.assertIn("일관성 검증", markdown)
+
+    def test_every_svg_declares_a_viewbox(self) -> None:
+        """viewBox 가 없는 SVG 는 인쇄·확대에서 잘린다. 하나라도 빠지면 실패다."""
+        opens = re.findall(r"<svg\b[^>]*>", self.html)
+        self.assertTrue(opens)
+        missing = [tag for tag in opens if "viewBox=" not in tag]
+        self.assertFalse(missing, f"viewBox 없는 SVG {len(missing)}개")
+
+    def test_no_placeholder_values_leak_into_the_document(self) -> None:
+        """계산이 비었을 때 0 이나 NaN 으로 메우지 않는다 — 빈 값은 빈 값으로 보여야 한다."""
+        for token in ("NaN", "undefined", "None원", "Infinity"):
+            self.assertNotIn(token, self.html)
+
+    def test_the_new_decomposition_sections_are_rendered_with_their_figures(self) -> None:
+        """시간 궤적·세부업종 절이 실제로 그림과 함께 들어갔는지.
+
+        절 계획에만 있고 본문이 비어 있으면 목차만 늘어난 것이나 다름없다.
+        """
+        for anchor, title in (("s12", "정책 순효과의 시간 궤적"), ("s13", "세부업종·지역·요일별 이중차분")):
+            self.assertIn(f'id="{anchor}"', self.html)
+            self.assertIn(title, self.html)
+        for phrase in ("반사실 궤적", "누적 순효과", "위약", "세부업종", "지역별 이중차분", "요일유형별 이중차분"):
+            self.assertIn(phrase, self.html)
+
+    def test_the_report_carries_more_figures_than_before_the_expansion(self) -> None:
+        """그림 수는 늘기만 하고 줄지 않아야 한다. 줄었다면 어딘가 조용히 빠진 것이다."""
+        self.assertGreaterEqual(self.html.count("<svg"), 30)
 
     def test_narration_marks_its_own_source(self) -> None:
         self.assertFalse(self.narration["used_llm"])

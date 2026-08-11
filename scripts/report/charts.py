@@ -920,3 +920,196 @@ def donut(items: Sequence[dict[str, Any]], *, title: str = "", size: int = 260, 
     )
     out.append("</svg>")
     return "".join(out)
+
+
+# --------------------------------------------------------------------------- #
+# 12. 반사실 궤적 (실제 vs 정책이 없었다면)
+# --------------------------------------------------------------------------- #
+
+
+def counterfactual_chart(
+    labels: Sequence[str],
+    actual: Sequence[float | None],
+    counterfactual: Sequence[float | None],
+    *,
+    marker_index: int | None = None,
+    marker_label: str = "정책 시행",
+    actual_name: str = "실제 (정책 대상 업종)",
+    counterfactual_name: str = "반사실 — 정책이 없었다면",
+    title: str = "",
+    formatter=krw,
+    height: int = 340,
+    width: int = 860,
+) -> str:
+    """실제 궤적과 반사실 궤적을 한 축에 올리고 **그 사이를 칠한다**.
+
+    2×2 이중차분은 사후 전체를 숫자 하나로 누른다. 이 그림은 같은 정의를 날짜별로
+    펴서, 칠해진 면적이 곧 누적 효과가 되게 한다. 시행일 이전 구간에서도 두 선이
+    같이 움직이는지 눈으로 확인할 수 있다 — 거기서 벌어져 있으면 사후의 격차를
+    정책 때문이라고 말할 수 없다.
+    """
+    if not labels or not actual or len(actual) != len(counterfactual):
+        return _empty("반사실 궤적을 만들 수 없습니다")
+    values = [v for v in list(actual) + list(counterfactual) if v is not None]
+    if not values:
+        return _empty("반사실 궤적 값이 비어 있습니다")
+    left, right, top, bottom = 76, 20, 28, 52
+    plot_w = width - left - right
+    plot_h = height - top - bottom
+    ticks = _nice_ticks(min(0.0, min(values)), max(values))
+    low, high = ticks[0], ticks[-1]
+
+    def sy(value: float) -> float:
+        if high == low:
+            return top + plot_h / 2
+        return top + plot_h - (value - low) / (high - low) * plot_h
+
+    n = len(labels)
+    xs = [left + (plot_w * i / max(n - 1, 1)) for i in range(n)] if n > 1 else [left + plot_w / 2]
+    out = [_open(width, height, title or "반사실 궤적")]
+    out.append(_y_axis(ticks, plot_left=left, plot_right=width - right, scale=sy, formatter=formatter))
+
+    fill_from = 0 if marker_index is None else max(marker_index, 0)
+    for index in range(fill_from, n - 1):
+        a0, a1 = actual[index], actual[index + 1]
+        c0, c1 = counterfactual[index], counterfactual[index + 1]
+        if None in (a0, a1, c0, c1):
+            continue
+        quad = [
+            (xs[index], sy(c0)),
+            (xs[index + 1], sy(c1)),
+            (xs[index + 1], sy(a1)),
+            (xs[index], sy(a0)),
+        ]
+        fill = POS if (a0 + a1) >= (c0 + c1) else NEG
+        pts = " ".join(f"{x:.1f},{y:.1f}" for x, y in quad)
+        out.append(f'<polygon points="{pts}" fill="{fill}" fill-opacity="0.18" stroke="none"/>')
+
+    out.append(
+        f'<line x1="{left}" y1="{top + plot_h}" x2="{width - right}" y2="{top + plot_h}" '
+        f'stroke="{AXIS}" stroke-width="1"/>'
+    )
+    if marker_index is not None and 0 <= marker_index < n:
+        mx = xs[marker_index]
+        out.append(
+            f'<line x1="{mx:.1f}" y1="{top}" x2="{mx:.1f}" y2="{top + plot_h}" stroke="{NEG}" '
+            f'stroke-width="1.5" stroke-dasharray="5 4"/>'
+        )
+        out.append(
+            f'<text x="{mx + 6:.1f}" y="{top + 12}" fill="{NEG}" font-size="11">{escape(marker_label)}</text>'
+        )
+    cf_points = [(x, sy(v)) for x, v in zip(xs, counterfactual) if v is not None]
+    ac_points = [(x, sy(v)) for x, v in zip(xs, actual) if v is not None]
+    out.append(
+        f'<path d="{_path(cf_points)}" fill="none" stroke="{MUTED}" stroke-width="2.2" '
+        f'stroke-dasharray="6 4" stroke-linejoin="round"/>'
+    )
+    out.append(
+        f'<path d="{_path(ac_points)}" fill="none" stroke="{SERIES_VARS[0]}" stroke-width="2.6" '
+        f'stroke-linejoin="round"/>'
+    )
+    if len(ac_points) <= 40:
+        for x, y in ac_points:
+            out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="{SERIES_VARS[0]}"/>')
+    out.append(_x_labels(labels, xs, top + plot_h, every=max(1, math.ceil(n / 12))))
+    out.append(
+        _legend(
+            [(actual_name, SERIES_VARS[0]), (counterfactual_name, MUTED), ("정책 순효과(면적)", POS)],
+            left,
+            height - 10,
+        )
+    )
+    out.append("</svg>")
+    return "".join(out)
+
+
+# --------------------------------------------------------------------------- #
+# 13. 파레토 (막대 + 누적 비중)
+# --------------------------------------------------------------------------- #
+
+
+def pareto_chart(
+    items: Sequence[dict[str, Any]],
+    *,
+    title: str = "",
+    formatter=krw,
+    height: int = 320,
+    width: int = 860,
+    half_index: int | None = None,
+) -> str:
+    """막대는 각 항목의 크기, 꺾은선은 왼쪽부터의 누적 비중(오른쪽 축 0~100%).
+
+    "효과가 몇 개 업종에 몰려 있는가"는 막대만 봐서는 세어야 알 수 있다.
+    누적선을 겹치면 50%·80% 선을 가로지르는 지점이 곧 답이 된다.
+    """
+    rows = [item for item in items if item.get("value") is not None]
+    if not rows:
+        return _empty("파레토로 그릴 항목이 없습니다")
+    left, right, top, bottom = 76, 62, 28, 64
+    plot_w = width - left - right
+    plot_h = height - top - bottom
+    values = [float(item["value"]) for item in rows]
+    ticks = _nice_ticks(0.0, max(values))
+    low, high = ticks[0], ticks[-1]
+
+    def sy(value: float) -> float:
+        if high == low:
+            return top + plot_h
+        return top + plot_h - (value - low) / (high - low) * plot_h
+
+    def sy_pct(value: float) -> float:
+        return top + plot_h - (value / 100.0) * plot_h
+
+    n = len(rows)
+    slot = plot_w / max(n, 1)
+    bar_w = min(48.0, slot * 0.62)
+    out = [_open(width, height, title or "파레토")]
+    out.append(_y_axis(ticks, plot_left=left, plot_right=width - right, scale=sy, formatter=formatter))
+    for value in (50.0, 80.0, 100.0):
+        y = sy_pct(value)
+        out.append(
+            f'<line x1="{left}" y1="{y:.1f}" x2="{width - right}" y2="{y:.1f}" stroke="{GRID}" '
+            f'stroke-width="1" stroke-dasharray="3 4"/>'
+        )
+        out.append(
+            f'<text x="{width - right + 6}" y="{y + 4:.1f}" fill="{MUTED}" font-size="10" '
+            f'class="tick">{value:.0f}%</text>'
+        )
+    for index, item in enumerate(rows):
+        center = left + slot * (index + 0.5)
+        value = float(item["value"])
+        y = sy(value)
+        highlighted = half_index is not None and index < half_index
+        out.append(
+            f'<rect x="{center - bar_w / 2:.1f}" y="{y:.1f}" width="{bar_w:.1f}" '
+            f'height="{max(top + plot_h - y, 0):.1f}" fill="{SERIES_VARS[0]}" '
+            f'fill-opacity="{"1" if highlighted else "0.45"}" rx="1"><title>'
+            f"{escape(str(item.get('label', '')))} · {escape(formatter(value))}</title></rect>"
+        )
+    line_points = [
+        (left + slot * (index + 0.5), sy_pct(float(item.get("cumulative_pct") or 0)))
+        for index, item in enumerate(rows)
+    ]
+    out.append(
+        f'<path d="{_path(line_points)}" fill="none" stroke="{SERIES_VARS[2]}" stroke-width="2.2" '
+        f'stroke-linejoin="round"/>'
+    )
+    for (x, y), item in zip(line_points, rows):
+        out.append(f'<circle cx="{x:.1f}" cy="{y:.1f}" r="3" fill="{SERIES_VARS[2]}"/>')
+        out.append(
+            f'<text x="{x:.1f}" y="{y - 8:.1f}" text-anchor="middle" fill="{MUTED}" font-size="10" '
+            f'class="tick">{float(item.get("cumulative_pct") or 0):.0f}%</text>'
+        )
+    out.append(
+        f'<line x1="{left}" y1="{top + plot_h}" x2="{width - right}" y2="{top + plot_h}" '
+        f'stroke="{AXIS}" stroke-width="1"/>'
+    )
+    for index, item in enumerate(rows):
+        center = left + slot * (index + 0.5)
+        out.append(
+            f'<text x="{center:.1f}" y="{top + plot_h + 18:.1f}" text-anchor="middle" fill="{MUTED}" '
+            f'font-size="11" class="tick">{escape(str(item.get("label", "")))}</text>'
+        )
+    out.append(_legend([("업종별 순효과", SERIES_VARS[0]), ("누적 비중", SERIES_VARS[2])], left, height - 10))
+    out.append("</svg>")
+    return "".join(out)
