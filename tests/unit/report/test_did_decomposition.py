@@ -206,3 +206,60 @@ class DecompositionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class IndependentRecomputationTests(unittest.TestCase):
+    """보고서를 만든 코드를 쓰지 않고 원본에서 다시 세어 대조한다.
+
+    같은 모듈로 두 번 계산하면 같은 버그를 두 번 얻는다. `analytics.py` 의 집계가
+    통째로 틀려도 그 틀린 값들끼리는 완벽히 일치한다 — 자기 일관성은 정확성이
+    아니다. 그래서 표준 라이브러리만으로 처음부터 다시 센 값과 맞춰 본다.
+    """
+
+    def test_the_independent_verifier_agrees_with_the_report(self) -> None:
+        import json
+        import subprocess
+        import sys
+
+        repo_root = Path(__file__).resolve().parents[3]
+        script = repo_root / "scripts" / "report" / "verify_independently.py"
+        self.assertTrue(script.is_file(), "독립 검증 스크립트가 없습니다")
+
+        with tempfile.TemporaryDirectory(prefix="report-verify-") as temp:
+            root = _demo_run.build(Path(temp) / "out_VERIFY")
+            policy_path = Path(temp) / "policy.json"
+            policy_path.write_text(
+                json.dumps(_demo_run.policy(), ensure_ascii=False), encoding="utf-8"
+            )
+            out = Path(temp) / "REPORT.html"
+            build = subprocess.run(
+                [
+                    sys.executable,
+                    str(repo_root / "scripts" / "report" / "build_report_v2.py"),
+                    "--run-id", "VERIFY",
+                    "--run-root", str(root),
+                    "--policy-json", str(policy_path),
+                    "--out", str(out),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(repo_root),
+            )
+            self.assertEqual(build.returncode, 0, build.stderr[-2000:])
+
+            check = subprocess.run(
+                [
+                    sys.executable,
+                    str(script),
+                    "--run-root", str(root),
+                    "--data-json", str(out.with_suffix(".data.json")),
+                    "--policy-json", str(policy_path),
+                ],
+                capture_output=True,
+                text=True,
+                cwd=str(repo_root),
+            )
+            self.assertEqual(
+                check.returncode, 0, f"독립 재계산이 어긋났습니다\n{check.stdout}\n{check.stderr}"
+            )
+            self.assertIn("전부 일치", check.stdout)

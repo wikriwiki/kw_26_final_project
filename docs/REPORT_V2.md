@@ -195,6 +195,26 @@ python scripts/report/merge_run_segments.py \
 기록이 비어 있는 행은 버리지 않고 `미분류` 로 모은다. 버리면 부분합이 전체합과
 어긋나고, 그 어긋남이 그림에는 보이지 않은 채 결론에만 남는다.
 
+### 자기 일관성은 정확성이 아니다
+
+위 검사들은 보고서 안의 값들이 서로 어긋나지 않는지 본다. 훌륭하지만 한계가 있다 —
+`analytics.py` 의 집계가 통째로 틀려도 그 틀린 값들끼리는 완벽하게 일치한다.
+같은 모듈로 두 번 계산하면 **같은 버그를 두 번 얻는다.**
+
+그래서 `analytics.py` 를 import 하지 않고 `events.jsonl` 을 표준 라이브러리만으로
+다시 읽어 처음부터 계산한 뒤, 보고서가 실제로 실은 값과 대조하는 도구를 따로 둔다.
+
+```bash
+python scripts/report/verify_independently.py \
+    --run-root  "C:/Users/srdyh/gpu_exp_data/20260802/out_FINAL" \
+    --data-json output/sim/report/FINAL_REPORT_V3.data.json \
+    --policy-json data/neo4j_load/policies/P010.json
+```
+
+두 구현이 독립적으로 같은 숫자에 도달해야만 exit 0 이다. 17개 값을 대조하며,
+그중 넷은 **같은 DID 를 서로 다른 축(업종·세부업종·지역·요일유형)으로 쪼갠 합**이다.
+`tests/unit/report/test_did_decomposition.py` 가 이 도구를 실제로 돌려서 확인한다.
+
 허용 오차는 반올림 누적분(항목 수 × 1원)뿐이다. 하나라도 실패하면 CLI 는 exit code 3 을
 돌려주고, job 은 완료로 표시하되 **"어긋난 항등식 있음"** 을 함께 남긴다.
 
