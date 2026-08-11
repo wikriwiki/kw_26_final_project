@@ -24,6 +24,11 @@ from .store import ArtifactStore, StoreError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
+# `.env` 를 먼저 읽는다. 데이터 위치·모델 설정이 여기 있고, 셸에서 export 한 값에
+# 기대면 어떻게 띄웠느냐에 따라 서버가 다르게 동작한다 — 실제로 3D 지도가
+# 그 이유로 없는 것처럼 보였다. 이미 환경에 있는 값은 덮어쓰지 않는다.
+report_llm.load_dotenv()
+
 
 class SpaFiles(StaticFiles):
     """빌드 산출물을 서빙하되, 없는 경로는 `index.html` 로 넘긴다.
@@ -381,7 +386,7 @@ def create_app(
         return await asyncio.to_thread(app.state.report_jobs.create, request.model_dump())
 
     @app.get("/viz/standalone.html")
-    async def viz_standalone() -> FileResponse:
+    async def viz_standalone(request: Request) -> FileResponse:
         """3D 지도 산출물. 수백 MB라 메모리에 올리지 않고 파일 그대로 흘려보낸다.
 
         개발 서버(vite)는 자체 플러그인으로 같은 주소를 연다. 배포 형태에서도
@@ -395,7 +400,23 @@ def create_app(
         )
         if not path.is_file():
             raise StoreError(503, "3D 지도 산출물이 아직 만들어지지 않았습니다")
-        return FileResponse(path, media_type="text/html")
+
+        # 미리 압축해 둔 것이 있으면 그걸 보낸다. 지도 본문은 대부분 JSON 이라
+        # 6배 넘게 줄고, 그만큼 사용자가 흰 화면을 보는 시간이 짧아진다.
+        # 압축은 만들 때 한 번만 한다 — 요청마다 압축하면 서버가 그 시간을 대신 쓴다.
+        packed = path.with_suffix(path.suffix + ".gz")
+        if packed.is_file() and "gzip" in request.headers.get("accept-encoding", ""):
+            return FileResponse(
+                packed,
+                media_type="text/html",
+                headers={
+                    "Content-Encoding": "gzip",
+                    # 같은 산출물을 다시 받지 않게 한다. 파일이 바뀌면 이름이 바뀐다
+                    "Cache-Control": "public, max-age=86400",
+                },
+            )
+        return FileResponse(path, media_type="text/html",
+                            headers={"Cache-Control": "public, max-age=86400"})
 
     @app.get("/api/interview/status")
     async def interview_status() -> dict:
