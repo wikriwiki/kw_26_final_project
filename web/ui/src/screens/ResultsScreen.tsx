@@ -29,6 +29,7 @@ import { rememberScroll, useScrollMemory } from '../app/useViewState';
 import type { DecileBucket } from '../lib/fixtures';
 import { dec, int, krw, percent } from '../lib/format';
 import { decile } from '../lib/labels';
+import { policyDetails } from '../lib/fixtures';
 
 const ARTIFACT_LABEL: Record<string, string> = {
   summary_json: '실행 요약',
@@ -41,12 +42,23 @@ const ARTIFACT_LABEL: Record<string, string> = {
 };
 
 export function ResultsScreen() {
-  const { index: indexItem, bundle, path } = useRun();
+  const { index: indexItem, bundle, path, policy } = useRun();
   const navigate = useNavigate();
   useScrollMemory('results');
 
   const events = bundle.events;
   const totals = events.totals;
+  /**
+   * 분위별 **1인당 지급액**은 정책이 정한 값이다 — 실행 집계가 아니다.
+   * 쿠폰은 시행 첫날 한 번 지급되므로 그날치 집계는 이후 모든 날에 0 이고,
+   * 그 0 을 '지급액'이라 적으면 정책이 아무것도 주지 않은 것처럼 읽힌다.
+   */
+  const grants = (() => {
+    const bound = policy.items[0]?.id;
+    const detail = bound ? policyDetails[bound] : undefined;
+    return (detail?.policy?.decile_grants ?? {}) as Record<string, number>;
+  })();
+
   // 분위가 없는 대상자는 보여주지 않는다. 읽는 사람이 판단에 쓸 수 없는 줄이다
   const deciles = (bundle.dayAggregate.by_spend_decile as unknown as DecileBucket[]).filter(
     (row) => row.spend_decile !== null,
@@ -182,7 +194,7 @@ export function ResultsScreen() {
 
         <div className="table-wrap">
           <table className="table table--lead">
-            <caption className="visually-hidden">소비 분위별 쿠폰 사용액과 소비액</caption>
+            <caption className="visually-hidden">소비 분위별 1인당 지급액과 소비액</caption>
             <thead>
               <tr>
                 <th scope="col">소비 분위</th>
@@ -190,7 +202,7 @@ export function ResultsScreen() {
                   대상자
                 </th>
                 <th scope="col" className="n col-md">
-                  쿠폰 사용액
+                  1인당 지급액
                 </th>
                 <th scope="col" className="n col-lg">
                   당일 소비액
@@ -206,13 +218,13 @@ export function ResultsScreen() {
                   <td className="n">
                     {int(row.agents)}명
                     <span className="cell-sub cell-sub--md">
-                      쿠폰 {krw(row.policy_spend_today)}
+                      지급 {krw(grants[String(row.spend_decile)] ?? 0)}
                     </span>
                     <span className="cell-sub cell-sub--lg">
                       소비 {krw(row.cm_today_total_incl_online)}
                     </span>
                   </td>
-                  <td className="n col-md">{krw(row.policy_spend_today)}</td>
+                  <td className="n col-md">{krw(grants[String(row.spend_decile)] ?? 0)}</td>
                   <td className="n col-lg">{krw(row.cm_today_total_incl_online)}</td>
                 </tr>
               ))}
