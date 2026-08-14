@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 1199,
+      "err": 1,
+      "agent_elapsed_sec": 2988.2472109794617,
+      "night2_elapsed_sec": 223.2542281150818,
+      "elapsed_sec": 3212.061501264572,
+      "timing_top": [
+        {
+          "path": "phase.t_s1",
+          "total_sec": 82347.682,
+          "avg_sec": 68.680302,
+          "p95_sec": 85.5618
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 82346.53444,
+          "avg_sec": 68.679345,
+          "p95_sec": 85.560523
+        },
+        {
+          "path": "phase.t_s2",
+          "total_sec": 58434.192,
+          "avg_sec": 48.735773,
+          "p95_sec": 130.8986
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 58364.275128,
+          "avg_sec": 48.67746,
+          "p95_sec": 130.775431
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 41315.020664,
+          "avg_sec": 34.457899,
+          "p95_sec": 53.223794
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 17049.254477,
+          "avg_sec": 14.219562,
+          "p95_sec": 84.48262
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 551.327,
+          "avg_sec": 0.459822,
+          "p95_sec": 0.0482
+        },
+        {
+          "path": "dawn.t_memory",
+          "total_sec": 311.886411,
+          "avg_sec": 0.260122,
+          "p95_sec": 0.009355
+        },
+        {
+          "path": "dawn.t_policy",
+          "total_sec": 115.675346,
+          "avg_sec": 0.096477,
+          "p95_sec": 0.006603
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 64.740583,
+          "avg_sec": 0.053995,
+          "p95_sec": 0.133816
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 1,
+    "limit": 1200,
+    "gu": null,
+    "workers": 48
+  },
+  "completed_at": "2026-07-28T12:20:34.714159"
+}

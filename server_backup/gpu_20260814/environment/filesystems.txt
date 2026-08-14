@@ -1,0 +1,13 @@
+Filesystem                                                                                                                                                        Type     Size  Used Avail Use% Mounted on
+overlay                                                                                                                                                           overlay  2.0T  668G  1.4T  33% /
+tmpfs                                                                                                                                                             tmpfs     64M     0   64M   0% /dev
+tmpfs                                                                                                                                                             tmpfs     32G   20K   32G   1% /dev/shm
+/dev/vdb1                                                                                                                                                         xfs      2.0T  668G  1.4T  33% /etc/hosts
+192.168.3.54:/TTA-KR1-NAS-USER/project-019f6020-e2b4-7cce-9098-ea9078a5046f-storage-019f6058-acf4-7a70-aecf-70f5172f1ddd-pvc-0aaae2cb-4e1f-4c9d-b4fe-789e660dc217 nfs       33T  4.2T   29T  13% /home/ubuntu/data
+tmpfs                                                                                                                                                             tmpfs     89G  4.3M   89G   1% /run/nvidia-persistenced/socket
+/dev/vda1                                                                                                                                                         ext4     497G   38G  459G   8% /usr/bin/nvidia-smi
+tmpfs                                                                                                                                                             tmpfs    4.0K  4.0K     0 100% /run/nvidia-ctk-hooka335abec-e80d-466b-8eee-c7f4f0bf7f10
+tmpfs                                                                                                                                                             tmpfs    443G     0  443G   0% /proc/acpi
+tmpfs                                                                                                                                                             tmpfs    443G     0  443G   0% /proc/scsi
+tmpfs                                                                                                                                                             tmpfs    443G     0  443G   0% /sys/firmware
+tmpfs                                                                                                                                                             tmpfs    443G     0  443G   0% /sys/devices/virtual/powercap

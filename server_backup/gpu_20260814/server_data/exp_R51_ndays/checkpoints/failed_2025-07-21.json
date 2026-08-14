@@ -1,0 +1,9 @@
+[
+  {
+    "aid": "AGT_11290685_F_30대_001",
+    "status": "error",
+    "elapsed": 171.68,
+    "error": "Stage1 failed after 3 attempts: Expecting ',' delimiter: line 1 column 1089 (char 1088)",
+    "trace": "Traceback (most recent call last):\n  File \"/data/exp001_repo/scripts/sim/run_simulation.py\", line 332, in process_one\n    s1, m1 = call_stage1(aid, today, ctx=ctx)\n  File \"/data/exp001_repo/scripts/sim/stage1_intent.py\", line 760, in call_stage1\n    raise RuntimeError(f\"Stage1 failed after {max_retry+1} attempts: {last_err}\")\nRuntimeError: Stage1 failed after 3 attempts: Expecting ',' delimiter: line 1 column 1089 (char 1088)\n"
+  }
+]

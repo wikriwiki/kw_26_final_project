@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 1200,
+      "err": 0,
+      "agent_elapsed_sec": 3077.363393306732,
+      "night2_elapsed_sec": 221.78061151504517,
+      "elapsed_sec": 3299.7047216892242,
+      "timing_top": [
+        {
+          "path": "phase.t_s1",
+          "total_sec": 82406.033,
+          "avg_sec": 68.671694,
+          "p95_sec": 85.327
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 82404.851224,
+          "avg_sec": 68.670709,
+          "p95_sec": 85.326027
+        },
+        {
+          "path": "phase.t_s2",
+          "total_sec": 62558.794,
+          "avg_sec": 52.132328,
+          "p95_sec": 134.9189
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 62488.371206,
+          "avg_sec": 52.073643,
+          "p95_sec": 134.850839
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 43741.901388,
+          "avg_sec": 36.451584,
+          "p95_sec": 52.18064
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 18746.469811,
+          "avg_sec": 15.622058,
+          "p95_sec": 88.995479
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 402.243,
+          "avg_sec": 0.335202,
+          "p95_sec": 0.04825
+        },
+        {
+          "path": "dawn.t_persona",
+          "total_sec": 178.850243,
+          "avg_sec": 0.149042,
+          "p95_sec": 0.006527
+        },
+        {
+          "path": "dawn.t_memory",
+          "total_sec": 106.536966,
+          "avg_sec": 0.088781,
+          "p95_sec": 0.008973
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 65.175754,
+          "avg_sec": 0.054313,
+          "p95_sec": 0.131184
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 3,
+    "limit": 1200,
+    "gu": null,
+    "workers": 48
+  },
+  "updated_at": "2026-07-29T16:54:36.317116"
+}

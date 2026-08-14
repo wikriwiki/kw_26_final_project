@@ -1,0 +1,9 @@
+6.1G	/home/ubuntu/data/exp001
+61M	/home/ubuntu/data/exp001_repo
+1.3G	/home/ubuntu/data/dumps
+750M	/home/ubuntu/data/dumps_nopolicy
+556M	/home/ubuntu/data/dumps_restore
+22G	/home/ubuntu/data/models
+5.4G	/home/ubuntu/data/neo4j-community-5.26.0
+235M	/home/ubuntu/data/venv
+12G	/home/ubuntu/data/venv_sgl

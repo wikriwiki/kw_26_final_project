@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 600,
+      "err": 0,
+      "agent_elapsed_sec": 1512.683052778244,
+      "night2_elapsed_sec": 67.62699246406555,
+      "elapsed_sec": 1580.5546054840088,
+      "timing_top": [
+        {
+          "path": "phase.t_s1",
+          "total_sec": 40582.115,
+          "avg_sec": 67.636858,
+          "p95_sec": 84.7989
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 40581.549002,
+          "avg_sec": 67.635915,
+          "p95_sec": 84.797459
+        },
+        {
+          "path": "phase.t_s2",
+          "total_sec": 28991.509,
+          "avg_sec": 48.319182,
+          "p95_sec": 131.69725
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 28956.448998,
+          "avg_sec": 48.260748,
+          "p95_sec": 131.662296
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 20566.00824,
+          "avg_sec": 34.27668,
+          "p95_sec": 52.888278
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 8390.440752,
+          "avg_sec": 13.984068,
+          "p95_sec": 86.142076
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 585.338,
+          "avg_sec": 0.975563,
+          "p95_sec": 11.8556
+        },
+        {
+          "path": "dawn.t_memory",
+          "total_sec": 336.900142,
+          "avg_sec": 0.5615,
+          "p95_sec": 6.918452
+        },
+        {
+          "path": "dawn.t_policy",
+          "total_sec": 145.66866,
+          "avg_sec": 0.242781,
+          "p95_sec": 2.983265
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 37.132217,
+          "avg_sec": 0.061887,
+          "p95_sec": 0.662887
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 1,
+    "limit": 600,
+    "gu": null,
+    "workers": 48
+  },
+  "completed_at": "2026-07-28T08:15:17.856044"
+}

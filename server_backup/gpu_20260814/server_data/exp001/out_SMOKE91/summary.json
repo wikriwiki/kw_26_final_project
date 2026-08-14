@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 60,
+      "err": 0,
+      "agent_elapsed_sec": 179.62220573425293,
+      "night2_elapsed_sec": 24.9761323928833,
+      "elapsed_sec": 204.68176078796387,
+      "timing_top": [
+        {
+          "path": "phase.t_s1",
+          "total_sec": 3472.796,
+          "avg_sec": 57.879933,
+          "p95_sec": 85.37555
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 3472.737847,
+          "avg_sec": 57.878964,
+          "p95_sec": 85.375018
+        },
+        {
+          "path": "phase.t_s2",
+          "total_sec": 2591.648,
+          "avg_sec": 43.194133,
+          "p95_sec": 78.79555
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 2492.562413,
+          "avg_sec": 41.542707,
+          "p95_sec": 78.362962
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 2279.910698,
+          "avg_sec": 37.998512,
+          "p95_sec": 60.35798
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 284.512,
+          "avg_sec": 4.741867,
+          "p95_sec": 6.2979
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 212.651715,
+          "avg_sec": 3.544195,
+          "p95_sec": 25.394035
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 98.155943,
+          "avg_sec": 1.635932,
+          "p95_sec": 7.546857
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 96.108433,
+          "avg_sec": 1.601807,
+          "p95_sec": 7.546158
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 90.616087,
+          "avg_sec": 1.510268,
+          "p95_sec": 2.199733
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 1,
+    "limit": 60,
+    "gu": null,
+    "workers": 48
+  },
+  "completed_at": "2026-07-30T19:08:14.589214"
+}

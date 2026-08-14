@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Simulation 3D Visualization</title>
+  <!-- __SIM_STYLES__ -->
+</head>
+<body>
+  <div id="map"></div>
+
+  <header id="top-hud">
+    <div>
+      <button id="toggle-heatmap-btn" type="button" class="active">Heatmap</button>
+      <button id="toggle-trails-btn" type="button" class="active">이동 잔상</button>
+      <button id="toggle-gu-boundary-btn" type="button">구 경계</button>
+    </div>
+    <input id="agent-search" type="search" autocomplete="off" placeholder="Agent">
+  </header>
+
+  <aside id="info-panel" class="legacy-panel">
+    <h3>🏙️ Seoul Sim 3D</h3>
+    <div class="legacy-row"><span class="legacy-label">현재 프레임</span><span class="legacy-val" id="info-frame-label">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">활동 agent</span><span class="legacy-val" id="info-active-cnt">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">표본 자치구</span><span class="legacy-val">25개구 균등</span></div>
+    <div class="legacy-divider"></div>
+    <div class="legacy-row"><span class="legacy-label">총 agent</span><span class="legacy-val" id="info-total-agents">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">총 visited memory</span><span class="legacy-val" id="info-total-mem">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">총 약속</span><span class="legacy-val" id="info-total-appt">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">총 들은 소문</span><span class="legacy-val" id="info-total-rumor">-</span></div>
+  </aside>
+
+  <aside id="legend-panel" class="legacy-panel">
+    <h3>🎨 범례 / 필터</h3>
+    <div class="legacy-field">
+      <label for="legend-color-mode">색상 모드</label>
+      <select id="legend-color-mode">
+        <option value="dist">자치구별</option>
+        <option value="cat">카테고리별</option>
+        <option value="appointment">약속 있는 agent</option>
+      </select>
+    </div>
+    <div class="legacy-field">
+      <label for="legend-heat-mode">히트맵</label>
+      <select id="legend-heat-mode">
+        <option value="off">OFF</option>
+        <option value="density">에이전트 수</option>
+        <option value="spending">소비금액</option>
+      </select>
+    </div>
+    <div class="legacy-field">
+      <label for="legend-dist-filter">자치구 필터</label>
+      <select id="legend-dist-filter">
+        <option value="all">전체</option>
+        <option value="11110">종로구</option>
+        <option value="11140">중구</option>
+        <option value="11170">용산구</option>
+        <option value="11200">성동구</option>
+        <option value="11215">광진구</option>
+        <option value="11230">동대문구</option>
+        <option value="11260">중랑구</option>
+        <option value="11290">성북구</option>
+        <option value="11305">강북구</option>
+        <option value="11320">도봉구</option>
+        <option value="11350">노원구</option>
+        <option value="11380">은평구</option>
+        <option value="11410">서대문구</option>
+        <option value="11440">마포구</option>
+        <option value="11470">양천구</option>
+        <option value="11500">강서구</option>
+        <option value="11530">구로구</option>
+        <option value="11545">금천구</option>
+        <option value="11560">영등포구</option>
+        <option value="11590">동작구</option>
+        <option value="11620">관악구</option>
+        <option value="11650">서초구</option>
+        <option value="11680">강남구</option>
+        <option value="11710">송파구</option>
+        <option value="11740">강동구</option>
+      </select>
+    </div>
+    <div id="legend-items"></div>
+  </aside>
+
+  <button id="chapter-toggle-btn" type="button">챕터 ▾</button>
+  <aside id="chapter-rail" hidden></aside>
+
+  <aside id="detail-card" class="legacy-detail">
+    <button id="detail-close" type="button" aria-label="Close detail">x</button>
+    <div id="detail-content"></div>
+  </aside>
+
+  <aside id="hotspot-card" class="legacy-detail" hidden>
+    <button id="hotspot-close" type="button" aria-label="Close hotspot">x</button>
+    <div id="hotspot-content"></div>
+  </aside>
+
+  <div id="news-banner"></div>
+
+  <footer id="transport">
+    <button id="play-btn" type="button">Play</button>
+    <input id="frame-slider" type="range" min="0" max="0" value="0">
+    <output id="frame-label">Frame 0</output>
+    <select id="speed-select">
+      <option value="0.5">0.5x</option>
+      <option value="1" selected>1x</option>
+      <option value="2">2x</option>
+    </select>
+  </footer>
+
+  <!-- __SIM_DATA__ -->
+  <!-- __SIM_SCRIPTS__ -->
+</body>
+</html>

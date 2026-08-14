@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 600,
+      "err": 0,
+      "agent_elapsed_sec": 1606.7945108413696,
+      "night2_elapsed_sec": 82.52897906303406,
+      "elapsed_sec": 1689.6183588504791,
+      "timing_top": [
+        {
+          "path": "phase.t_s1",
+          "total_sec": 40731.698,
+          "avg_sec": 67.886163,
+          "p95_sec": 88.177
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 40731.115408,
+          "avg_sec": 67.885192,
+          "p95_sec": 88.17642
+        },
+        {
+          "path": "phase.t_s2",
+          "total_sec": 33029.658,
+          "avg_sec": 55.04943,
+          "p95_sec": 155.55275
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 32992.522086,
+          "avg_sec": 54.987537,
+          "p95_sec": 155.458145
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 22954.80103,
+          "avg_sec": 38.258002,
+          "p95_sec": 58.205699
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 10037.721058,
+          "avg_sec": 16.729535,
+          "p95_sec": 104.718465
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 534.777,
+          "avg_sec": 0.891295,
+          "p95_sec": 10.79315
+        },
+        {
+          "path": "dawn.t_memory",
+          "total_sec": 334.365097,
+          "avg_sec": 0.557275,
+          "p95_sec": 6.882669
+        },
+        {
+          "path": "dawn.t_policy",
+          "total_sec": 113.186484,
+          "avg_sec": 0.188644,
+          "p95_sec": 2.314502
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 34.466094,
+          "avg_sec": 0.057443,
+          "p95_sec": 0.131922
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 1,
+    "limit": 600,
+    "gu": null,
+    "workers": 48
+  },
+  "completed_at": "2026-07-28T05:40:56.447280"
+}

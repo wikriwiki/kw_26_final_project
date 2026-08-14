@@ -1,0 +1,7 @@
+# The exact selected snapshot remains available in archives/.
+# Keep the expanded Git view focused on source and compact run records.
+server_data/exp_R*/metrics/
+server_data/exp_R*/timing/
+server_data/exp001/archive/*.jsonl
+server_data/exp001/stage_stats/
+server_data/exp001/sim_output/

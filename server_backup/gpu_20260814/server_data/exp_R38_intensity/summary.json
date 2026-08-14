@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 600,
+      "err": 0,
+      "agent_elapsed_sec": 1648.3194766044617,
+      "night2_elapsed_sec": 80.32953262329102,
+      "elapsed_sec": 1728.9272136688232,
+      "timing_top": [
+        {
+          "path": "phase.t_s1",
+          "total_sec": 40310.763,
+          "avg_sec": 67.184605,
+          "p95_sec": 84.34935
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 40310.066994,
+          "avg_sec": 67.183445,
+          "p95_sec": 84.348616
+        },
+        {
+          "path": "phase.t_s2",
+          "total_sec": 36059.417,
+          "avg_sec": 60.099028,
+          "p95_sec": 162.3836
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 36020.90354,
+          "avg_sec": 60.034839,
+          "p95_sec": 162.184565
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 23720.425784,
+          "avg_sec": 39.534043,
+          "p95_sec": 59.427455
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 12300.477754,
+          "avg_sec": 20.500796,
+          "p95_sec": 104.873902
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 573.514,
+          "avg_sec": 0.955857,
+          "p95_sec": 11.60255
+        },
+        {
+          "path": "dawn.t_memory",
+          "total_sec": 308.822568,
+          "avg_sec": 0.514704,
+          "p95_sec": 6.291159
+        },
+        {
+          "path": "dawn.t_policy",
+          "total_sec": 118.451793,
+          "avg_sec": 0.19742,
+          "p95_sec": 2.419146
+        },
+        {
+          "path": "dawn.t_persona",
+          "total_sec": 68.823735,
+          "avg_sec": 0.114706,
+          "p95_sec": 1.396674
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 1,
+    "limit": 600,
+    "gu": null,
+    "workers": 48
+  },
+  "completed_at": "2026-07-28T01:55:26.818321"
+}
