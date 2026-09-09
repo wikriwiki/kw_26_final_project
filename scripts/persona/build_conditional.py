@@ -26,6 +26,7 @@ import json
 import random
 import sys
 from collections import defaultdict
+from itertools import accumulate
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -67,6 +68,38 @@ def pick_dong_by_population(
     weights = [p for (_, p, _) in pool]
     chosen = rng.choices(pool, weights=weights, k=1)[0]
     return (*chosen, level)   # (key, pop, prof, level)
+
+
+class PopulationPicker:
+    """Build-local immutable pools with the exact Random.choices accumulation.
+
+    Cache lifetime is one build: no mutable profile data crosses builds.
+    Fallback concatenation follows cell insertion order, as in the scan helper.
+    """
+
+    def __init__(self, profile_index):
+        self.profile_index = profile_index
+        self.fallback = defaultdict(list)
+        for (_, sex, age), pool in profile_index.items():
+            self.fallback[(sex, age)].extend(pool)
+        self.prepared = {}
+
+    def pick(self, cell, rng):
+        # Preserve custom RNG implementations that interpret weights directly.
+        if type(rng) is not random.Random or getattr(rng.choices, "__func__", None) is not random.Random.choices:
+            return pick_dong_by_population(self.profile_index, cell, rng)
+        pool = self.profile_index.get(cell)
+        level, key = "gu_sex_age", ("cell", cell)
+        if not pool:
+            key = ("fallback", cell[1], cell[2])
+            pool = self.fallback.get((cell[1], cell[2]))
+            level = "sex_age"
+        if not pool:
+            return None
+        if key not in self.prepared:
+            self.prepared[key] = list(accumulate(p for _, p, _ in pool))
+        chosen = rng.choices(pool, cum_weights=self.prepared[key], k=1)[0]
+        return (*chosen, level)
 
 
 # ---------------------------------------------------------------------------
@@ -130,6 +163,7 @@ def build(limit: int = 0, seed: int = 42,
     profiles = stats["profiles"]
     deciles = stats["deciles"]
     profile_index = index_profiles_by_gu_cell(profiles)
+    population_picker = PopulationPicker(profile_index)
 
     rng = random.Random(seed)
     out: list[dict] = []
@@ -143,7 +177,7 @@ def build(limit: int = 0, seed: int = 42,
         cell = nvidia_cell(nv_rec)
         if not cell[1]:
             continue
-        picked = pick_dong_by_population(profile_index, cell, rng)
+        picked = population_picker.pick(cell, rng)
         if not picked:
             continue
         key, _pop, prof, dong_level = picked

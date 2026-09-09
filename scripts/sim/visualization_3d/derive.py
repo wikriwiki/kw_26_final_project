@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from bisect import bisect_left
+from collections import defaultdict
+from collections.abc import Mapping
 from typing import Any
 
 
@@ -16,7 +19,7 @@ def build_viz_meta(
     events: dict[str, list[dict[str, Any]]],
     policy_dongs: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    frame_by_day_hour = _frame_index_by_day_hour(timeline)
+    frame_by_day_hour = _FrameLookup(_frame_index_by_day_hour(timeline))
     frame_positions = _frame_position_lookup(timeline)
     poi_index = _poi_from_events(events)
     frame_summaries = _frame_summaries(timeline)
@@ -266,11 +269,43 @@ def _frame_position_lookup(timeline: list[dict[str, Any]]) -> dict[tuple[int, st
     return lookup
 
 
+class _FrameLookup(Mapping):
+    """Immutable per-build frame lookup, retaining last duplicate key wins."""
+
+    def __init__(self, exact):
+        self.exact = dict(exact)
+        grouped = defaultdict(list)
+        for day, hour in self.exact:
+            grouped[day].append(hour)
+        self.hours_by_day = {day: sorted(hours) for day, hours in grouped.items()}
+
+    def __getitem__(self, key):
+        return self.exact[key]
+
+    def __iter__(self):
+        return iter(self.exact)
+
+    def __len__(self):
+        return len(self.exact)
+
+    def nearest(self, day, hour):
+        if (day, hour) in self.exact:
+            return self.exact[(day, hour)]
+        hours = self.hours_by_day.get(day, [])
+        i = bisect_left(hours, hour)
+        # Only predecessor and successor can be nearest. Equal distance keeps
+        # the smaller frame index, not necessarily the earlier clock hour.
+        neighbors = hours[max(0, i - 1):i + 1]
+        return min((abs(h - hour), self.exact[(day, h)]) for h in neighbors)[1] if neighbors else 0
+
+
 def _frame_for_day_hour(
     frame_by_day_hour: dict[tuple[str, int], int],
     day: str,
     preferred_hour: int,
 ) -> int:
+    if isinstance(frame_by_day_hour, _FrameLookup):
+        return frame_by_day_hour.nearest(day, preferred_hour)
     if (day, preferred_hour) in frame_by_day_hour:
         return frame_by_day_hour[(day, preferred_hour)]
 
@@ -285,6 +320,8 @@ def _frame_for_day_hour(
 
 
 def _has_frame_day(frame_by_day_hour: dict[tuple[str, int], int], day: str) -> bool:
+    if isinstance(frame_by_day_hour, _FrameLookup):
+        return day in frame_by_day_hour.hours_by_day
     return any(candidate_day == day for candidate_day, _hour in frame_by_day_hour)
 
 

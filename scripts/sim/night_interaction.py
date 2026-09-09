@@ -15,7 +15,7 @@ import json
 import random
 import sys
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 import math
@@ -196,9 +196,40 @@ def find_candidate_pairs(data: dict) -> set[tuple[str, str]]:
 # ═══════════════════════════════════════════
 # 3. 3축 점수 (Python — prototype 알고리즘 그대로)
 # ═══════════════════════════════════════════
-def calc_exposure(a: str, b: str, data: dict) -> float:
+def _count_visits(visits):
+    # Neo4j time.hour is an integer. Preserve the general helper's historical
+    # behavior for callers supplying fractional/non-integral hours via fallback.
+    counts = Counter()
+    for dong, hour in visits:
+        if dong is None or hour is None:
+            continue
+        if not isinstance(hour, int):
+            return None
+        counts[(dong, hour)] += 1
+    return counts
+
+
+def calc_exposure(a: str, b: str, data: dict, *, visit_counts: dict | None = None) -> float:
     va = data["visits"].get(a, [])
     vb = data["visits"].get(b, [])
+    ca = _count_visits(va) if visit_counts is None else visit_counts.get(a, {})
+    cb = _count_visits(vb) if visit_counts is None else visit_counts.get(b, {})
+    if ca is not None and cb is not None:
+        if len(ca) > len(cb):
+            ca, cb = cb, ca
+        same = adjacent = 0
+        for (dong, hour), count in ca.items():
+            same += count * cb.get((dong, hour), 0)
+            adjacent += count * (cb.get((dong, hour - 1), 0) + cb.get((dong, hour + 1), 0))
+        n = same + adjacent
+        if not n:
+            return 0.0
+        # All terms in the original sum are exactly 1.0 or 0.5. Keep the
+        # original arithmetic order after counting the Cartesian multiplicity.
+        freq = min(n, 5) / 5.0
+        avg_overlap = (same + adjacent * 0.5) / n
+        return min(freq * 0.6 + avg_overlap * 0.4, 1.0)
+
     co_visits = []
     for (dong_a, hr_a) in va:
         for (dong_b, hr_b) in vb:
@@ -284,7 +315,7 @@ def calc_urgency(a: str, b: str, data: dict) -> float:
 # ═══════════════════════════════════════════
 # 4. 메인 — 매칭 알고리즘
 # ═══════════════════════════════════════════
-def _softmax_select(
+def _softmax_select_scan(
     scored: list[dict],
     max_pairs_per_agent: int,
     temperature: float,
@@ -329,6 +360,14 @@ def _softmax_select(
     return selected
 
 
+def _softmax_select(scored, max_pairs_per_agent, temperature, rng):
+    if __package__:
+        from .weighted_matching import indexed_softmax_select
+    else:
+        from weighted_matching import indexed_softmax_select
+    return indexed_softmax_select(scored, max_pairs_per_agent, temperature, rng, _softmax_select_scan)
+
+
 def select_interaction_pairs(
     day: date,
     threshold: float = THRESHOLD,
@@ -369,8 +408,9 @@ def select_interaction_pairs(
     t1 = time.time()
     scored = []
     ambient_threshold = max(threshold, AMBIENT_THRESHOLD)
+    visit_counts = {aid: _count_visits(visits) for aid, visits in data["visits"].items()}
     for (a, b) in cands:
-        exp = calc_exposure(a, b, data)
+        exp = calc_exposure(a, b, data, visit_counts=visit_counts)
         rel = calc_relationship(a, b, data, current_day=day)
         urg = calc_urgency(a, b, data)
         total = w_e * exp + w_r * rel + w_u * urg

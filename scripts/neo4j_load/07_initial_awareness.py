@@ -11,6 +11,7 @@ KNOWS_POI 엣지(source/since/affinity)만으로 사전 인지를 표현. 별도
 from __future__ import annotations
 
 import math
+import heapq
 import random
 import sys
 from collections import defaultdict
@@ -48,6 +49,21 @@ def haversine_km(lon1, lat1, lon2, lat2):
     dl = math.radians(lon2 - lon1)
     a = math.sin(dp/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(dl/2)**2
     return 2 * R * math.asin(math.sqrt(a))
+
+
+def nearest_pois(pool, lon, lat, limit):
+    """Stable distance top-k without sorting the entire district pool.
+
+    Calculate keys in the same input order as sorted(key=...). Nonfinite keys
+    retain Python's original sort behavior rather than changing NaN ordering.
+    """
+    ranked = [(haversine_km(p["lon"], p["lat"], lon, lat), p) for p in pool]
+    key = lambda item: item[0]
+    if limit <= 0 or any(not math.isfinite(distance) for distance, _ in ranked):
+        selected = sorted(ranked, key=key)[:limit]
+    else:
+        selected = heapq.nsmallest(limit, ranked, key=key)
+    return [poi for _, poi in selected]
 
 
 def main():
@@ -90,19 +106,13 @@ def main():
             # 거주 동
             if a["home_dong"] and a["home_lon"] is not None:
                 pool = dong_pois.get(a["home_dong"]) or []
-                pool_sorted = sorted(
-                    pool,
-                    key=lambda p: haversine_km(p["lon"], p["lat"], a["home_lon"], a["home_lat"])
-                )[:N_HOME]
+                pool_sorted = nearest_pois(pool, a["home_lon"], a["home_lat"], N_HOME)
                 for p in pool_sorted:
                     poi_ids.add(p["id"])
             # 직장 동
             if a["work_dong"] and a["work_lon"] is not None:
                 pool = dong_pois.get(a["work_dong"]) or []
-                pool_sorted = sorted(
-                    pool,
-                    key=lambda p: haversine_km(p["lon"], p["lat"], a["work_lon"], a["work_lat"])
-                )[:N_WORK]
+                pool_sorted = nearest_pois(pool, a["work_lon"], a["work_lat"], N_WORK)
                 for p in pool_sorted:
                     poi_ids.add(p["id"])
             # 랜드마크 (공통)

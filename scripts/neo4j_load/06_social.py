@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import random
 import sys
+from bisect import bisect_right
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -20,6 +22,61 @@ from _common import driver_session, bulk_run
 SEED = 42
 N_COLLEAGUE = 5
 N_NEIGHBOR = 3
+
+
+class _OtherMembers(Sequence):
+    """Ordered view of members excluding every occurrence of one agent.
+
+    random.sample draws the same indices as it does for the filtered list.
+    Large groups no longer need a new O(group size) list for each agent.
+    Shifted exclusion positions also preserve duplicate input rows.
+    """
+
+    def __init__(self, members, excluded_positions):
+        self.members = members
+        self.offsets = [position - i for i, position in enumerate(excluded_positions)]
+
+    def __len__(self):
+        return len(self.members) - len(self.offsets)
+
+    def __getitem__(self, index):
+        if isinstance(index, slice):
+            return [self[i] for i in range(*index.indices(len(self)))]
+        if index < 0:
+            index += len(self)
+        if not 0 <= index < len(self):
+            raise IndexError(index)
+        return self.members[index + bisect_right(self.offsets, index)]
+
+
+def build_social_pairs(work_group, home_group, rng):
+    """Build the original ordered sampling process with indexed membership."""
+    pairs = set()
+    pair_keys = set()
+    for groups, limit, strength, relation in (
+        (work_group, N_COLLEAGUE, 0.6, "colleague"),
+        (home_group, N_NEIGHBOR, 0.4, "neighbor"),
+    ):
+        for members in groups.values():
+            if len(members) < 2:
+                continue
+            positions = defaultdict(list)
+            for i, member in enumerate(members):
+                positions[member].append(i)
+            # Build each view once, including for repeated agent IDs.
+            others_by_agent = {a: _OtherMembers(members, pos) for a, pos in positions.items()}
+            for a in members:
+                others = others_by_agent[a]
+                k = min(limit, len(others))
+                if k == 0:
+                    continue
+                for b in rng.sample(others, k):
+                    key = (a, b) if a < b else (b, a)
+                    if relation == "neighbor" and key in pair_keys:
+                        continue
+                    pairs.add((key, strength, relation))
+                    pair_keys.add(key)
+    return pairs
 
 
 def main():
@@ -44,35 +101,7 @@ def main():
         print(f"  agents: {len(agent_ids)}, home_dongs: {len(home_group)}, work_dongs: {len(work_group)}")
 
         # 매핑 생성
-        pairs = set()  # (a, b) with a < b
-        # 동료 (work_dong)
-        for cd, members in work_group.items():
-            if len(members) < 2:
-                continue
-            for a in members:
-                # 같은 동 멤버 중 N_COLLEAGUE 랜덤
-                others = [m for m in members if m != a]
-                k = min(N_COLLEAGUE, len(others))
-                if k == 0:
-                    continue
-                for b in rng.sample(others, k):
-                    key = (a, b) if a < b else (b, a)
-                    pairs.add((key, 0.6, "colleague"))
-        # 이웃 (home_dong)
-        for cd, members in home_group.items():
-            if len(members) < 2:
-                continue
-            for a in members:
-                others = [m for m in members if m != a]
-                k = min(N_NEIGHBOR, len(others))
-                if k == 0:
-                    continue
-                for b in rng.sample(others, k):
-                    key = (a, b) if a < b else (b, a)
-                    # 이미 colleague면 skip (강한 게 우선)
-                    if any(p[0] == key for p in pairs):
-                        continue
-                    pairs.add((key, 0.4, "neighbor"))
+        pairs = build_social_pairs(work_group, home_group, rng)
 
         rows = []
         for (a, b), strength, rel in pairs:

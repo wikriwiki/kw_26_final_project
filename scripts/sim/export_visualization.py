@@ -157,26 +157,39 @@ def fetch_timeline(s, agent_ids: list[str]):
         by_agent[aid].sort(key=lambda e: (e["day"], e["ord"]))
 
     print(f"  events fetched for {len(by_agent)} agents")
+    return build_timeline_frames(by_agent, DAYS), by_agent
 
+
+def build_timeline_frames(by_agent, days):
+    """Emit the original frames with one day index and one cursor per agent.
+
+    Event order is the existing (day, ord) order, not a new time sort. A later
+    event with an earlier clock hour must still wait for the preceding event.
+    """
+    by_day = defaultdict(dict)
+    for aid, events in by_agent.items():
+        for event in events:
+            by_day[event["day"]].setdefault(aid, []).append(event)
     # 72 프레임 생성: 각 (day_idx, hour) 시점에 각 agent의 위치
     frames = []
-    for day_idx, day_str in enumerate(DAYS):
+    for day_idx, day_str in enumerate(days):
+        today_events = by_day.get(day_str, {})
+        previous_events = by_day.get(days[day_idx - 1], {}) if day_idx > 0 else {}
+        cursors = dict.fromkeys(by_agent, 0)
         for hour in range(0, 24):
             frame_agents = []
-            for aid, events in by_agent.items():
+            for aid in by_agent:
                 # 해당 day의 hour까지의 마지막 이벤트
-                day_events = [e for e in events if e["day"] == day_str]
+                day_events = today_events.get(aid, [])
                 # hour시간까지 발생한 이벤트 중 가장 늦은 것 (HH:MM의 시 부분)
-                current = None
-                for e in day_events:
-                    eh = int(e["time"][:2])
-                    if eh <= hour:
-                        current = e
-                    else:
-                        break
+                cursor = cursors[aid]
+                while cursor < len(day_events) and int(day_events[cursor]["time"][:2]) <= hour:
+                    cursor += 1
+                cursors[aid] = cursor
+                current = day_events[cursor - 1] if cursor else None
                 if current is None and day_idx > 0:
                     # 어제 마지막 이벤트로 fallback (집)
-                    prev_day_events = [e for e in events if e["day"] == DAYS[day_idx - 1]]
+                    prev_day_events = previous_events.get(aid, [])
                     if prev_day_events:
                         current = prev_day_events[-1]
                 if current and current.get("lon") and current.get("lat"):
@@ -197,7 +210,7 @@ def fetch_timeline(s, agent_ids: list[str]):
                 "agents": frame_agents,
             })
         print(f"  Day {day_idx+1} ({day_str}) frames built")
-    return frames, by_agent
+    return frames
 
 
 def fetch_memories(s, agent_ids: list[str]):

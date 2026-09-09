@@ -1,0 +1,102 @@
+{
+  "measured_at": "2026-09-09T07:55:45.854187+00:00",
+  "python": "3.13.7 (tags/v3.13.7:bcee1c3, Aug 14 2025, 14:15:11) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "baseline_commit": "c684f83098f7585fc8f202805725202b081fcd79",
+  "worktree_head": "c684f83098f7585fc8f202805725202b081fcd79",
+  "repeats": 3,
+  "statistic": "median",
+  "includes_index_construction": true,
+  "scope": "local synthetic CPU benchmark; not full simulation or GPU speedup",
+  "results": [
+    {
+      "operation": "social_graph",
+      "agents": 200,
+      "original_seconds": 0.13190649999887682,
+      "optimized_seconds": 0.005431900004623458,
+      "speedup": 24.283676040906915,
+      "equal": true
+    },
+    {
+      "operation": "social_graph",
+      "agents": 500,
+      "original_seconds": 0.9169207999948412,
+      "optimized_seconds": 0.020472100004553795,
+      "speedup": 44.788800357114425,
+      "equal": true
+    },
+    {
+      "operation": "social_graph",
+      "agents": 1000,
+      "original_seconds": 3.7971330999862403,
+      "optimized_seconds": 0.027641799999400973,
+      "speedup": 137.369241513524,
+      "equal": true
+    },
+    {
+      "operation": "night_exposure",
+      "agents": 100,
+      "pairs": 3000,
+      "visits_per_agent": 6,
+      "original_seconds": 0.02205540001159534,
+      "optimized_seconds": 0.0188518000068143,
+      "speedup": 1.1699360275211408,
+      "equal": true
+    },
+    {
+      "operation": "night_exposure",
+      "agents": 100,
+      "pairs": 3000,
+      "visits_per_agent": 30,
+      "original_seconds": 0.365749099990353,
+      "optimized_seconds": 0.05827270000008866,
+      "speedup": 6.276508553573054,
+      "equal": true
+    },
+    {
+      "operation": "night_exposure",
+      "agents": 100,
+      "pairs": 3000,
+      "visits_per_agent": 120,
+      "original_seconds": 5.530240899999626,
+      "optimized_seconds": 0.1422646999999415,
+      "speedup": 38.872896087377256,
+      "equal": true
+    },
+    {
+      "operation": "timeline_frames",
+      "agents": 100,
+      "days": 7,
+      "events_per_day": 6,
+      "original_seconds": 0.13549200000124983,
+      "optimized_seconds": 0.04000310000265017,
+      "speedup": 3.387037504400249,
+      "equal": true
+    },
+    {
+      "operation": "timeline_frames",
+      "agents": 100,
+      "days": 14,
+      "events_per_day": 6,
+      "original_seconds": 0.4352478999935556,
+      "optimized_seconds": 0.08310940000228584,
+      "speedup": 5.237047794612698,
+      "equal": true
+    },
+    {
+      "operation": "timeline_frames",
+      "agents": 100,
+      "days": 28,
+      "events_per_day": 6,
+      "original_seconds": 1.6743259000068065,
+      "optimized_seconds": 0.19767329999012873,
+      "speedup": 8.470167190462332,
+      "equal": true
+    }
+  ],
+  "optimized_source_sha256": {
+    "scripts/neo4j_load/06_social.py": "a4160ee1e9037acad1c7df5ee430b22205f125efbcea02770ac712685f30be40",
+    "scripts/sim/night_interaction.py": "6c8cdff746701abe5a1f51a93ea54c0b1222e6a64469a84c4373508e8abad439",
+    "scripts/sim/export_visualization.py": "532280973b70073dea8d1a6ecb93c3c73768661ba86de5a3239091b680b95bde"
+  }
+}

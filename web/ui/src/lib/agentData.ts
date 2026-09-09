@@ -907,9 +907,13 @@ export function answer(a: AgentDetail, q: Question, ctx: AskContext): Answer {
         return { empty: '기간 전체에 결제 기록이 없습니다.', blocks: [], source: SRC_EVENTS };
       }
       const total = paid.reduce((s, e) => s + e.spent, 0);
+      const totalsByDay = new Map<number, number>();
+      for (const event of paid) {
+        totalsByDay.set(event.d, (totalsByDay.get(event.d) ?? 0) + event.spent);
+      }
       const byDay = a.days.map((d, i) => ({
         name: d,
-        value: paid.filter((e) => e.d === i).reduce((s, e) => s + e.spent, 0),
+        value: totalsByDay.get(i) ?? 0,
       }));
       return {
         blocks: [

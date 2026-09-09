@@ -383,15 +383,28 @@ def target_categories(policy: dict[str, Any], observed: Iterable[str], scan: dic
 
 def _period_cell(scan: dict[str, Any], days: list[str], categories: Iterable[str] | None) -> dict[str, float]:
     cell = _empty_cell()
+    day_set = set(days)
     wanted = None if categories is None else {str(c) for c in categories}
     for (day, l1), value in scan["by_day_l1"].items():
-        if day not in days:
+        if day not in day_set:
             continue
         if wanted is not None and l1 not in wanted:
             continue
         for key in cell:
             cell[key] += value[key]
     return cell
+
+
+def _period_cells_by_category(scan: dict[str, Any], days: list[str]) -> dict[str, dict[str, float]]:
+    """Aggregate each category in its original row order in a single pass."""
+    day_set = set(days)
+    cells = defaultdict(_empty_cell)
+    for (day, l1), value in scan["by_day_l1"].items():
+        if day in day_set:
+            cell = cells[l1]
+            for key in cell:
+                cell[key] += value[key]
+    return dict(cells)
 
 
 def _daily_average(cell: dict[str, float], n_days: int) -> dict[str, float]:
@@ -514,10 +527,14 @@ def did_by_category(
         _daily_average(_period_cell(scan, pre_days, control), len(pre_days))[metric],
     )
     treat_set = {str(c) for c in treat}
+    pre_cells = _period_cells_by_category(scan, pre_days)
+    post_cells = _period_cells_by_category(scan, post_days)
     rows: list[dict[str, Any]] = []
     for l1 in sorted(scan["by_l1"]):
-        pre = _daily_average(_period_cell(scan, pre_days, [l1]), len(pre_days))
-        post = _daily_average(_period_cell(scan, post_days, [l1]), len(post_days))
+        pre_cell = pre_cells.get(str(l1), _empty_cell())
+        post_cell = post_cells.get(str(l1), _empty_cell())
+        pre = _daily_average(pre_cell, len(pre_days))
+        post = _daily_average(post_cell, len(post_days))
         counterfactual = pre[metric] * control_growth if control_growth is not None else None
         did_abs = (post[metric] - counterfactual) if counterfactual is not None else None
         growth = _ratio(post[metric], pre[metric])
@@ -537,8 +554,8 @@ def did_by_category(
                     if (did_abs is not None and counterfactual not in (None, 0))
                     else None
                 ),
-                "pre_events": round(_period_cell(scan, pre_days, [l1])["events"], 0),
-                "post_events": round(_period_cell(scan, post_days, [l1])["events"], 0),
+                "pre_events": round(pre_cell["events"], 0),
+                "post_events": round(post_cell["events"], 0),
                 "policy_paid": round(scan["by_l1"][l1]["policy_paid"], 2),
                 "self_paid": round(scan["by_l1"][l1]["self_paid"], 2),
                 "amt": round(scan["by_l1"][l1]["amt"], 2),
@@ -727,16 +744,18 @@ def build_bundle(
     period = split_period(observed_days, effective_from)
     targets = target_categories(policy, scan["by_l1"].keys(), scan)
     treat = targets["categories"]
-    control = [name for name in sorted(scan["by_l1"]) if name not in set(treat)]
+    treat_set = set(treat)
+    control = [name for name in sorted(scan["by_l1"]) if name not in treat_set]
 
     metrics = read_metrics(run_root, observed_days)
     summary = read_summary(run_root)
     poi = read_poi_summary(run_root)
 
     daily = []
+    pre_days, post_days = set(period["pre"]), set(period["post"])
     for day in observed_days:
         cell = scan["by_day"].get(day, _empty_cell())
-        phase = "post" if day in period["post"] else ("pre" if day in period["pre"] else "unknown")
+        phase = "post" if day in post_days else ("pre" if day in pre_days else "unknown")
         agents = metrics["days"].get(day, {}).get("agents") if metrics.get("available") else None
         daily.append(
             {
@@ -784,7 +803,7 @@ def build_bundle(
         categories.append(
             {
                 "l1": l1,
-                "targeted": l1 in set(treat),
+                "targeted": l1 in treat_set,
                 "amt": round(total["amt"], 2),
                 "events": int(total["events"]),
                 "policy_paid": round(total["policy_paid"], 2),

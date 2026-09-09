@@ -32,6 +32,7 @@ from _common import (  # noqa: E402
     age_to_group, build_quant_from_cell, load_bdc_stats, load_nvidia_seoul,
     nvidia_cell, parse_cell_key, ses_proxy, split_nvidia_fields, write_personas,
 )
+from rank_index import RankMatcher  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -183,19 +184,16 @@ def build(limit: int = 0, seed: int = 42,
     # 2) 셀 내 rank-coupling: 우리 소비순위 ↔ NVIDIA SES순위
     #    중복 방지: 한 번 사용된 NVIDIA uuid는 다른 agent에 재할당 금지
     out: list[dict] = []
-    used_uuids: set = set()
+    matcher = RankMatcher(pool_index, nv_all_sorted, _AGE_NEIGHBORS, ses_proxy)
     match_level_counts: dict[str, int] = defaultdict(int)
     for cell, cell_agents in by_gu_cell.items():
         cell_agents.sort(key=lambda a: a["_consume_rank_key"])
         m = len(cell_agents)
         for i, agent in enumerate(cell_agents):
             pct = i / (m - 1) if m > 1 else 0.5
-            nv_rec, level = pick_nvidia_by_rank(
-                pool_index, nv_all_sorted, cell, pct, used_uuids=used_uuids,
-            )
+            nv_rec, level = matcher.pick(cell, pct)
             uuid = nv_rec.get("uuid")
-            if uuid:
-                used_uuids.add(uuid)
+            matcher.mark_used(uuid)
             match_level_counts[level] += 1
             out.append(_assemble(agent, nv_rec, level, pct))
 

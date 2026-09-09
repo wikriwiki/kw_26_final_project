@@ -1,0 +1,47 @@
+{
+  "measured_at": "2026-09-09T08:00:15.423886+00:00",
+  "python": "3.13.7 (tags/v3.13.7:bcee1c3, Aug 14 2025, 14:15:11) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "baseline_commit": "c684f83098f7585fc8f202805725202b081fcd79",
+  "worktree_head": "c684f83098f7585fc8f202805725202b081fcd79",
+  "repeats": 3,
+  "statistic": "median",
+  "includes_index_construction": true,
+  "scope": "local synthetic CPU benchmark; not full simulation or GPU speedup",
+  "results": [
+    {
+      "operation": "persona_rank",
+      "records": 1000,
+      "assignments": 100,
+      "fallback": "sex_age",
+      "original_seconds": 0.6345506999932695,
+      "optimized_seconds": 0.008445899991784245,
+      "speedup": 75.13121166607812,
+      "equal": true
+    },
+    {
+      "operation": "persona_rank",
+      "records": 4000,
+      "assignments": 100,
+      "fallback": "sex_age",
+      "original_seconds": 2.514583500014851,
+      "optimized_seconds": 0.036107299994910136,
+      "speedup": 69.6419699165908,
+      "equal": true
+    },
+    {
+      "operation": "persona_rank",
+      "records": 8000,
+      "assignments": 100,
+      "fallback": "sex_age",
+      "original_seconds": 5.083657999988645,
+      "optimized_seconds": 0.06086540000978857,
+      "speedup": 83.52295391422835,
+      "equal": true
+    }
+  ],
+  "optimized_source_sha256": {
+    "scripts/persona/build_rank_coupling.py": "66962465632922dbe5e9c650b757c00ff653b6e5b0816ad6cc1252524d4602b3",
+    "scripts/persona/rank_index.py": "3d4a303acf8cb0080517faf023168c5a7c1da6153056908ac27ae85b38bf0f76"
+  }
+}

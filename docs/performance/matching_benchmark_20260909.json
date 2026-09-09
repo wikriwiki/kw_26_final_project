@@ -1,0 +1,62 @@
+{
+  "measured_at": "2026-09-09T08:11:27.405014+00:00",
+  "python": "3.13.7 (tags/v3.13.7:bcee1c3, Aug 14 2025, 14:15:11) [MSC v.1944 64 bit (AMD64)]",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "repeats": 3,
+  "statistic": "median",
+  "scope": "local CPU synthetic matching; not GPU/whole simulation speedup",
+  "sources_sha256": {
+    "scripts/sim/night_interaction.py": "8e1da4ba6e30690eb8132ecdaaaebfd90ed91fcf16b8ce4253be1727f5b95c45",
+    "scripts/sim/weighted_matching.py": "4e0b9d8128e3a844440aca79adaf60ccceb8864f020ab13a41b5e2ff29dcc047"
+  },
+  "results": [
+    {
+      "agents": 256,
+      "candidate_pairs": 2048,
+      "selected": 243,
+      "original_seconds": 0.22923379999701865,
+      "indexed_seconds": 0.02353810000931844,
+      "speedup": 9.738840429187906,
+      "exact_output_and_rng_state": true,
+      "index_stats": {
+        "rebuilds": 5,
+        "weight_evaluations": 2171,
+        "tree_draws": 243,
+        "reference_draws": 0,
+        "removed": 2048
+      }
+    },
+    {
+      "agents": 512,
+      "candidate_pairs": 4096,
+      "selected": 487,
+      "original_seconds": 0.9275345999922138,
+      "indexed_seconds": 0.04166519999853335,
+      "speedup": 22.26161400940986,
+      "exact_output_and_rng_state": true,
+      "index_stats": {
+        "rebuilds": 4,
+        "weight_evaluations": 4219,
+        "tree_draws": 487,
+        "reference_draws": 0,
+        "removed": 4096
+      }
+    },
+    {
+      "agents": 1024,
+      "candidate_pairs": 8192,
+      "selected": 974,
+      "original_seconds": 3.8491540999966674,
+      "indexed_seconds": 0.11378819998935796,
+      "speedup": 33.82735732138007,
+      "exact_output_and_rng_state": true,
+      "index_stats": {
+        "rebuilds": 9,
+        "weight_evaluations": 8692,
+        "tree_draws": 974,
+        "reference_draws": 0,
+        "removed": 8192
+      }
+    }
+  ]
+}
