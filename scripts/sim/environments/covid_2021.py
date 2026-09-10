@@ -114,7 +114,17 @@ def build(day: date) -> dict:
     if mline:
         facts.append(mline)
 
+    # 집합금지는 후속 구간이 다시 적지 않아도 해제된 것이 아니다. 원자료가 변경분만
+    # 기술하므로, 명시가 없으면 직전 구간 값을 이어받는다. 이어받지 않으면 정책 주간
+    # 한복판에서 규제가 사라진 것처럼 보이는 인공 변화가 생긴다.
     closed = reg.get("closed_facilities")
+    if closed is None:
+        for prev in reversed(_regimes()):
+            if str(prev.get("from")) >= str(reg.get("from")):
+                continue
+            if prev.get("closed_facilities") is not None:
+                closed = prev["closed_facilities"]
+                break
     if closed:
         facts.append("집합금지: " + "·".join(str(c) for c in closed))
 

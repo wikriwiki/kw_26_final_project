@@ -280,7 +280,7 @@ class DawnContext:
     dawn_timing: dict = field(default_factory=dict)
     prompt_timing: dict = field(default_factory=dict)
 
-    def to_prompt_blocks(self) -> dict[str, str]:
+    def to_prompt_blocks(self, today: date | None = None) -> dict[str, str]:
         """각 컨텍스트를 LLM 프롬프트에 넣을 텍스트 블록으로 변환."""
         tm: dict[str, float] = {}
 
@@ -307,6 +307,7 @@ class DawnContext:
                     policy_used=policy_used,
                     persona=self.persona,
                     state=self.state,
+                    today=today,
                 ),
             ),
             "persona": timed("t_persona", lambda: _format_persona(self.persona)),
@@ -485,7 +486,9 @@ def _sangsaeng_monthly_anchor(persona: dict) -> int:
     return int(round((daily_wd * 5 + daily_we * 2) / 7 * 30))
 
 
-def _format_cashback_status(pid: str, r: dict, p: dict, st: dict) -> str:
+def _format_cashback_status(
+    pid: str, r: dict, p: dict, st: dict, today: date | None = None
+) -> str:
     """상생 캐시백(P012류) 개인별 문턱·근접도 고지 (§4.5 ② 문턱 근접도 W).
 
     - X = 2분기 월평균 앵커(_sangsaeng_monthly_anchor)
@@ -501,8 +504,20 @@ def _format_cashback_status(pid: str, r: dict, p: dict, st: dict) -> str:
     threshold = int(round(anchor * ratio))
     spent_elig = int(st.get("sangsaeng_month_spent") or 0)
     remaining = max(0, threshold - spent_elig)
+    # 남은 날짜 맥락 — 실제 정책 참여자는 "이번 달이 며칠 남았는지"를 알고 판단한다.
+    # 이게 없으면 큰 잔액만 보고 도달 불가로 읽어, 실제와 반대 방향으로 움직인다.
+    days_left = 0
+    if today is not None:
+        if today.month == 12:
+            month_end = date(today.year, 12, 31)
+        else:
+            month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+        days_left = (month_end - today).days + 1
     if remaining > 0:
         status = f"문턱까지 {remaining:,}원 남음 — 적립업종에서 이만큼 더 쓰면 캐시백 자격 시작"
+        if days_left > 0:
+            pace = int(round(remaining / days_left))
+            status += f" (이번 달 {days_left}일 남음 · 하루 평균 {pace:,}원 페이스)"
     else:
         over = spent_elig - threshold
         est = min(cap, int(over * rate))
@@ -626,6 +641,7 @@ def _format_policy_status(
     policy_used: dict[str, int] | None = None,
     persona: dict | None = None,
     state: dict | None = None,
+    today: date | None = None,
 ) -> str:
     """개인별 자격·잔액만 간결하게 표시한다.
 
@@ -698,7 +714,7 @@ def _format_policy_status(
             )
         elif ptype == "cashback":
             # 상생소비지원금 — 정책지갑 없음. 개인별 실적 문턱·근접도만 고지(§4.5 ②).
-            lines.append(_format_cashback_status(pid, r, p, st))
+            lines.append(_format_cashback_status(pid, r, p, st, today))
         elif ptype == "subsidy":
             cap = int(r.get("cap") or 0)
             spent = int(used.get(pid, 0) or 0)
@@ -1019,7 +1035,7 @@ if __name__ == "__main__":
 
     today = date.fromisoformat(args.day)
     ctx = build_dawn_context(args.aid, today)
-    blocks = ctx.to_prompt_blocks()
+    blocks = ctx.to_prompt_blocks(today)
 
     for name, body in blocks.items():
         print(f"\n=== {name.upper()} ===")
