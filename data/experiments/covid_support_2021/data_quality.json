@@ -1,0 +1,29 @@
+{
+  "rule_table_rows": 19,
+  "cases": {
+    "days": 153,
+    "districts": 25,
+    "same_date_mismatch_count": 153,
+    "city_reference_date_offset_days": 1,
+    "aligned_mismatch_count": 1,
+    "aligned_differences": [
+      {
+        "source_date": "2021-09-29",
+        "city_reference_date": "2021-09-30",
+        "district_total": 944,
+        "city_total": 943
+      }
+    ]
+  },
+  "vaccination": {
+    "records": 154,
+    "inconsistent_records": 31,
+    "duplicate_dates": {
+      "2021-12-29": 2
+    },
+    "missing_dates": [],
+    "runtime_usable": false
+  },
+  "simulation_ready": false,
+  "runtime_integration": "not_implemented"
+}

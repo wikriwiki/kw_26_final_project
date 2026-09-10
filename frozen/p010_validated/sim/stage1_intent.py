@@ -498,13 +498,9 @@ zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코�
 
 def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     blocks = ctx.to_prompt_blocks()
-    # 사회 배경은 정책과 독립한 채널이다. 비어 있으면 섹션 헤더까지 생략해
-    # 이 채널 도입 이전과 렌더 결과가 바이트 단위로 같도록 유지한다.
-    _env = blocks.get("environment") or ""
-    env_section = f"\n## 사회 배경 — 오늘의 세상\n{_env}\n" if _env else ""
     return f"""## 현재 활성 정책 — 공통 사실
 {blocks['policy_facts']}
-{env_section}
+
 ## 페르소나
 {blocks['persona']}
 

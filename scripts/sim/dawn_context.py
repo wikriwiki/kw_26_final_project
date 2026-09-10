@@ -266,6 +266,9 @@ class DawnContext:
     knows_poi_summary: list[dict] = field(default_factory=list)
     # 오늘 갈 수 있는 zone 후보 (생활권 + Huff 광역상권) — Problem A
     zone_candidates: list[dict] = field(default_factory=list)
+    # 정책과 독립한 그날의 사회 배경 (감염병 단계·방역 규제·접종·명절 등).
+    # 비어 있으면 프롬프트에서 섹션 자체가 생략되어 기존 렌더와 바이트 동일하다.
+    environment: dict = field(default_factory=dict)
     # 기존 DB 호출에 타이머만 덧댄 진단 정보. 별도 LLM/DB 호출을 만들지 않는다.
     dawn_timing: dict = field(default_factory=dict)
     prompt_timing: dict = field(default_factory=dict)
@@ -288,6 +291,8 @@ class DawnContext:
             # 정책의 공통 사실과 개인별 상태를 분리한다. Stage1에서 공통 사실을
             # 사용자 메시지 앞쪽에 두면 SGLang prefix/radix cache가 재사용할 수 있다.
             "policy_facts": timed("t_policy_facts", lambda: _format_policy_facts(self.policy)),
+            # 정책과 독립. 없으면 "" 를 돌려주고 호출부가 섹션을 통째로 생략한다.
+            "environment": timed("t_environment", lambda: _format_environment(self.environment)),
             "policy": timed(
                 "t_policy_status",
                 lambda: _format_policy_status(
@@ -508,6 +513,33 @@ def _cat_line(p: dict) -> str:
     # '어차피 했을 것'이 되어 MPC가 0.174→0.075로 무너졌다(T4·T5 측정). 목돈이 생기면 평소
     # 패턴을 벗어나는 것이 곧 신규 소비이므로, 벗어나지 말라고 지시해서는 안 된다.
     return "평소 업종별 지출 구성(카드 실측): " + body
+
+def _format_environment(env: dict | None) -> str:
+    """정책과 독립한 그날의 사회 배경.
+
+    감염병 유행 단계·방역 규제·접종 상태·명절처럼 **정책이 없어도 존재하는**
+    세상의 상태를 기술한다. 수급자와 비수급자 모두에게 동일하게 적용되며,
+    행동 방향("더 써라"/"덜 써라")은 넣지 않는다 — 상태만 제시하고 판단은
+    에이전트가 한다.
+
+    비어 있으면 빈 문자열을 반환한다. 호출부는 이때 섹션 헤더까지 생략하므로
+    환경이 없는 정책(예: P010)의 프롬프트는 이 채널 도입 이전과 바이트가 같다.
+    """
+    if not env:
+        return ""
+    lines: list[str] = []
+    headline = " ".join(str(env.get("headline") or "").split())
+    if headline:
+        lines.append(headline)
+    for f in (env.get("facts") or []):
+        t = " ".join(str(f).split())
+        if t:
+            lines.append(f"- {t}")
+    note = " ".join(str(env.get("note") or "").split())
+    if note:
+        lines.append(f"({note})")
+    return "\n".join(lines)
+
 
 def _format_policy_facts(rows: list[dict]) -> str:
     """에이전트와 무관한 정책 사실.

@@ -1,0 +1,146 @@
+{
+  "retrieved_at": "2026-09-07T12:38:59.392238+00:00",
+  "sources": [
+    {
+      "id": "seoul_grant_rules",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/seoul_grant_rules.html",
+      "bytes": 157223,
+      "sha256": "e6bded3e30d3fa277ae97b98cbcec7229a6f3a8fb28bb400a4ecfa309b412bdd",
+      "content_type": "text/html; charset=UTF-8"
+    },
+    {
+      "id": "grant_announcement",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/grant_announcement.html",
+      "bytes": 165363,
+      "sha256": "7d52e1275bdf1879056eb8e44205fb8c89990bcc5d5c5ab6eab15eb44fe474f4",
+      "content_type": "text/html;charset=utf-8"
+    },
+    {
+      "id": "distancing_0823",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/distancing_0823.html",
+      "bytes": 166043,
+      "sha256": "85ede3ace2418676e1d9d84d3768e8b5569d71e30ef4ab35d432ff92b2c162b0",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "distancing_0906",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/distancing_0906.html",
+      "bytes": 160993,
+      "sha256": "cb2c4c6afd44fd1bbbedde12b92696a2d952cdf46d5a1b999eb4d435158b6298",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "distancing_1018",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/distancing_1018.html",
+      "bytes": 170490,
+      "sha256": "1a3b864929388e24c4f044f0cac8821406c824d2a70c2b111e011ec343450b2c",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "reopening_1101",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/reopening_1101.html",
+      "bytes": 174471,
+      "sha256": "bc9d1d3ffa7669f8e86861c689069400a2e9be4de17c34409e605e05d5c68861",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "restrictions_1206",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/restrictions_1206.html",
+      "bytes": 179760,
+      "sha256": "f81ae55b4bc63ef4a1db0d03fa5b9a90d111397a2ba761a1aad063ee18743f4b",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "restrictions_1218",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/restrictions_1218.html",
+      "bytes": 170799,
+      "sha256": "9d7ff3963b91c5b2871ca87aaa454456e9f79169ecdf5fc550b8eb776b2e6ad2",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "seoul_district_cases",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/seoul_district_cases.xlsx",
+      "bytes": 326639,
+      "sha256": "8a8fe1c64ea066305720f782cef9000b6e095a9a1420f1e02d785ddac6e51fca",
+      "content_type": "application/x-msdownload"
+    },
+    {
+      "id": "seoul_city_cases_catalog",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/seoul_city_cases_catalog.html",
+      "bytes": 85135,
+      "sha256": "fdd643c1a04d8b3adf047f98b30ad1801bc62a90d77266afc0989ec458eeb3be",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "seoul_vaccination_catalog",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/seoul_vaccination_catalog.html",
+      "bytes": 85763,
+      "sha256": "5b308e755969021ddbffd6110eaa103d0625ed764763183ca065844908b30b49",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "grant_outcomes",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/grant_outcomes.html",
+      "bytes": 166139,
+      "sha256": "d2d9d911218012d5a5563057727b3a680781e25c1eb1c01204edbb349717fe69",
+      "content_type": "text/html;charset=UTF-8"
+    },
+    {
+      "id": "distancing_1004",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/distancing_1004.html",
+      "bytes": 612895,
+      "sha256": "27620f08f66835e3d94ff852e849de41c9abb325d7904faea2118988f740384b",
+      "content_type": "text/html;charset=utf-8",
+      "retrieved_at": "2026-09-07T12:27:41.366025+00:00"
+    },
+    {
+      "id": "seoul_vaccination_data",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/seoul_vaccination_data.txt",
+      "bytes": 227556,
+      "sha256": "9716a65f97ef177908b3151123facd3ab7a73c1349609d836682772be27bb142",
+      "content_type": "text/html;charset=UTF-8",
+      "retrieved_at": "2026-09-07T12:27:41.366025+00:00"
+    },
+    {
+      "id": "seoul_city_cases_data",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/seoul_city_cases.csv",
+      "bytes": 46514,
+      "sha256": "0839f06fef39361a52ac37bda1db9ca24ca02f7858126544284034dab98ac610",
+      "content_type": "application/x-msdownload",
+      "retrieved_at": "2026-09-07T12:27:41.366025+00:00"
+    },
+    {
+      "id": "seoul_eligibility_coverage",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/seoul_eligibility_coverage.html",
+      "bytes": 110720,
+      "sha256": "c2cdd105249588ef773f3105ad00833861c49eeb509fbba18dcc26ea1c637605",
+      "content_type": "text/html; charset=utf-8",
+      "retrieved_at": "2026-09-07T12:38:59.392238+00:00"
+    },
+    {
+      "id": "grant_outcome_detail",
+      "status": "downloaded",
+      "path": "data/experiments/covid_support_2021/sources/grant_outcome_detail.html",
+      "bytes": 158089,
+      "sha256": "ea1b972b63adb5ed9965988f29477b9e9f642abf67d34ba8e9ef3fceb1e33d7c",
+      "content_type": "text/html;charset=UTF-8",
+      "retrieved_at": "2026-09-07T12:38:59.392238+00:00"
+    }
+  ]
+}

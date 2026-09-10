@@ -1,0 +1,502 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 630.939658164978,
+      "night2_elapsed_sec": 32.78961896896362,
+      "elapsed_sec": 663.8867299556732,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 13627.472,
+          "avg_sec": 68.13736,
+          "p95_sec": 165.64735
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 13152.455724,
+          "avg_sec": 65.762279,
+          "p95_sec": 162.446394
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 13011.689,
+          "avg_sec": 65.058445,
+          "p95_sec": 81.4456
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 13011.478342,
+          "avg_sec": 65.057392,
+          "p95_sec": 81.44434
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 10044.380529,
+          "avg_sec": 50.221903,
+          "p95_sec": 79.435997
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 3108.075196,
+          "avg_sec": 15.540376,
+          "p95_sec": 97.171055
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 575.113,
+          "avg_sec": 2.875565,
+          "p95_sec": 9.4372
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 472.807115,
+          "avg_sec": 2.364036,
+          "p95_sec": 10.839318
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 469.60252,
+          "avg_sec": 2.348013,
+          "p95_sec": 10.833672
+        },
+        {
+          "path": "dawn.t_memory",
+          "total_sec": 171.984197,
+          "avg_sec": 0.859921,
+          "p95_sec": 3.887607
+        }
+      ]
+    },
+    {
+      "day": "2025-07-22",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 655.7968480587006,
+      "night2_elapsed_sec": 20.186356782913208,
+      "elapsed_sec": 676.12446641922,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 13895.576,
+          "avg_sec": 69.47788,
+          "p95_sec": 210.59075
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 13880.951264,
+          "avg_sec": 69.404756,
+          "p95_sec": 210.510517
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 13859.031,
+          "avg_sec": 69.295155,
+          "p95_sec": 90.12235
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 13858.816948,
+          "avg_sec": 69.294085,
+          "p95_sec": 90.121209
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 9920.519192,
+          "avg_sec": 49.602596,
+          "p95_sec": 75.391039
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 3960.432069,
+          "avg_sec": 19.80216,
+          "p95_sec": 136.089388
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 30.826,
+          "avg_sec": 0.15413,
+          "p95_sec": 0.71215
+        },
+        {
+          "path": "phase.t_night_finalize",
+          "total_sec": 22.599,
+          "avg_sec": 0.112995,
+          "p95_sec": 0.21905
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 13.714242,
+          "avg_sec": 0.068571,
+          "p95_sec": 0.167332
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 13.339338,
+          "avg_sec": 0.066697,
+          "p95_sec": 0.164849
+        }
+      ]
+    },
+    {
+      "day": "2025-07-23",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 697.076021194458,
+      "night2_elapsed_sec": 24.875211715698242,
+      "elapsed_sec": 722.0941421985626,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 16367.195,
+          "avg_sec": 81.835975,
+          "p95_sec": 207.4449
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 16350.425167,
+          "avg_sec": 81.752126,
+          "p95_sec": 207.189971
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 14153.664,
+          "avg_sec": 70.76832,
+          "p95_sec": 95.2981
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 14153.45109,
+          "avg_sec": 70.767255,
+          "p95_sec": 95.297284
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 10519.262111,
+          "avg_sec": 52.596311,
+          "p95_sec": 75.188975
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 5831.163057,
+          "avg_sec": 29.155815,
+          "p95_sec": 136.034801
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 29.502,
+          "avg_sec": 0.14751,
+          "p95_sec": 0.67005
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 15.923739,
+          "avg_sec": 0.079619,
+          "p95_sec": 0.188522
+        },
+        {
+          "path": "phase.t_write_plan",
+          "total_sec": 15.452,
+          "avg_sec": 0.07726,
+          "p95_sec": 0.16815
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 13.232915,
+          "avg_sec": 0.066165,
+          "p95_sec": 0.164548
+        }
+      ]
+    },
+    {
+      "day": "2025-07-24",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 706.0429930686951,
+      "night2_elapsed_sec": 25.01887273788452,
+      "elapsed_sec": 731.2083144187927,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 16917.855,
+          "avg_sec": 84.589275,
+          "p95_sec": 209.3394
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 16903.054007,
+          "avg_sec": 84.51527,
+          "p95_sec": 209.289113
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 14295.69,
+          "avg_sec": 71.47845,
+          "p95_sec": 92.5976
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 14295.496975,
+          "avg_sec": 71.477485,
+          "p95_sec": 92.597027
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 10652.002827,
+          "avg_sec": 53.260014,
+          "p95_sec": 79.089047
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 6251.051185,
+          "avg_sec": 31.255256,
+          "p95_sec": 145.673172
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 38.893,
+          "avg_sec": 0.194465,
+          "p95_sec": 0.84105
+        },
+        {
+          "path": "phase.t_write_plan",
+          "total_sec": 14.392,
+          "avg_sec": 0.07196,
+          "p95_sec": 0.1735
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 14.356127,
+          "avg_sec": 0.071781,
+          "p95_sec": 0.376163
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 13.909465,
+          "avg_sec": 0.069547,
+          "p95_sec": 0.172931
+        }
+      ]
+    },
+    {
+      "day": "2025-07-25",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 721.7740621566772,
+      "night2_elapsed_sec": 25.22920298576355,
+      "elapsed_sec": 747.1403801441193,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 17152.09,
+          "avg_sec": 85.76045,
+          "p95_sec": 215.04455
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 17136.246091,
+          "avg_sec": 85.68123,
+          "p95_sec": 214.941119
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 14182.522,
+          "avg_sec": 70.91261,
+          "p95_sec": 93.9424
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 14182.308688,
+          "avg_sec": 70.911543,
+          "p95_sec": 93.94104
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 10788.10075,
+          "avg_sec": 53.940504,
+          "p95_sec": 79.069585
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 6348.145334,
+          "avg_sec": 31.740727,
+          "p95_sec": 139.06616
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 36.772,
+          "avg_sec": 0.18386,
+          "p95_sec": 0.83965
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 14.965641,
+          "avg_sec": 0.074828,
+          "p95_sec": 0.17573
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 13.856412,
+          "avg_sec": 0.069282,
+          "p95_sec": 0.169635
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 13.398247,
+          "avg_sec": 0.066991,
+          "p95_sec": 0.403236
+        }
+      ]
+    },
+    {
+      "day": "2025-07-26",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 963.0603125095367,
+      "night2_elapsed_sec": 23.163320779800415,
+      "elapsed_sec": 986.3764760494232,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 29365.272,
+          "avg_sec": 146.82636,
+          "p95_sec": 220.83905
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 29350.018772,
+          "avg_sec": 146.750094,
+          "p95_sec": 220.748201
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 16209.029775,
+          "avg_sec": 81.045149,
+          "p95_sec": 149.439404
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 13780.159,
+          "avg_sec": 68.900795,
+          "p95_sec": 103.01435
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 13779.931419,
+          "avg_sec": 68.899657,
+          "p95_sec": 103.013598
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 13140.988992,
+          "avg_sec": 65.704945,
+          "p95_sec": 81.108179
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 50.594,
+          "avg_sec": 0.25297,
+          "p95_sec": 1.08635
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 19.130932,
+          "avg_sec": 0.095655,
+          "p95_sec": 0.556057
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 14.327856,
+          "avg_sec": 0.071639,
+          "p95_sec": 0.146709
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 13.459162,
+          "avg_sec": 0.067296,
+          "p95_sec": 0.145319
+        }
+      ]
+    },
+    {
+      "day": "2025-07-27",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 923.0019974708557,
+      "night2_elapsed_sec": 22.53953218460083,
+      "elapsed_sec": 945.771208524704,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 27751.99,
+          "avg_sec": 138.75995,
+          "p95_sec": 226.9215
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 27736.905927,
+          "avg_sec": 138.68453,
+          "p95_sec": 226.800004
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 14534.011278,
+          "avg_sec": 72.670056,
+          "p95_sec": 150.564155
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 13881.589,
+          "avg_sec": 69.407945,
+          "p95_sec": 99.7793
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 13881.383266,
+          "avg_sec": 69.406916,
+          "p95_sec": 99.778185
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 13202.894658,
+          "avg_sec": 66.014473,
+          "p95_sec": 82.399908
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 44.53,
+          "avg_sec": 0.22265,
+          "p95_sec": 1.06875
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 14.44383,
+          "avg_sec": 0.072219,
+          "p95_sec": 0.381534
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 14.158816,
+          "avg_sec": 0.070794,
+          "p95_sec": 0.148268
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 13.472131,
+          "avg_sec": 0.067361,
+          "p95_sec": 0.146844
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 7,
+    "limit": 200,
+    "gu": null,
+    "workers": 48
+  },
+  "completed_at": "2026-08-02T14:01:51.204417"
+}

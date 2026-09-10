@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 7499,
+      "err": 1,
+      "agent_elapsed_sec": 32385.06721496582,
+      "night2_elapsed_sec": 3516.771091222763,
+      "elapsed_sec": 35905.48300528526,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 3767624.583,
+          "avg_sec": 502.416933,
+          "p95_sec": 988.2893
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 3766878.552541,
+          "avg_sec": 502.317449,
+          "p95_sec": 988.091819
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 2406505.029,
+          "avg_sec": 320.910125,
+          "p95_sec": 373.423
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 2406495.699442,
+          "avg_sec": 320.908881,
+          "p95_sec": 373.421523
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 2074603.878039,
+          "avg_sec": 276.650737,
+          "p95_sec": 335.826813
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 1692274.674516,
+          "avg_sec": 225.666712,
+          "p95_sec": 663.763101
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 2592.301,
+          "avg_sec": 0.345686,
+          "p95_sec": 0.4411
+        },
+        {
+          "path": "dawn.t_persona",
+          "total_sec": 875.583089,
+          "avg_sec": 0.11676,
+          "p95_sec": 0.004985
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 711.278677,
+          "avg_sec": 0.09485,
+          "p95_sec": 0.193401
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 648.169315,
+          "avg_sec": 0.086434,
+          "p95_sec": 0.173005
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 7,
+    "limit": 7500,
+    "gu": null,
+    "workers": 192
+  },
+  "updated_at": "2026-08-05T07:08:42.629533"
+}

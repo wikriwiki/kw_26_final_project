@@ -98,3 +98,8 @@ output/sim/visualization/sim_standalone.html
 output/sim/visualization/sim_standalone.zip
 output/neo4j_backup_*/
 
+
+# SSH 비밀키 — 절대 커밋 금지
+*.pem
+*.key
+id_rsa*
