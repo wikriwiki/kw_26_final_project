@@ -66,23 +66,39 @@ def _regime_for(day: date) -> dict | None:
 
 
 def _meeting_line(pm: dict) -> str:
+    """사적모임 인원 제한 한 줄.
+
+    원자료의 키 구조가 시기에 따라 다르다. 10/17 이전은 시간대로 인원을 가르고
+    (before_18_max / from_18_max), 10/18 이후는 시간 구분이 사라져 총원으로 적는다
+    (total_max / including_vaccinated_total). 한쪽만 처리하면 나머지 기간에
+    사적모임 줄이 조용히 빠진다.
+    """
     if not pm:
         return ""
-    before = pm.get("before_18_max")
-    after = pm.get("from_18_max")
-    base = []
+    base: list[str] = []
+    before, after = pm.get("before_18_max"), pm.get("from_18_max")
+    total = pm.get("total_max") or pm.get("including_vaccinated_total")
     if before is not None and after is not None:
         base.append(f"사적모임 18시 이전 {before}인, 이후 {after}인")
+    elif total is not None:
+        base.append(f"사적모임 최대 {total}인")
+        unvac = pm.get("unvaccinated_max") or pm.get("restaurant_cafe_unvaccinated_max")
+        if unvac is not None:
+            base.append(f"미접종자는 {unvac}인까지")
     elif before is not None:
         base.append(f"사적모임 {before}인")
+
     tot = pm.get("vaccinated_exception_total") or pm.get(
         "restaurant_cafe_vaccinated_exception_total")
     venues = pm.get("vaccinated_exception_venues")
     if tot:
         where = "·".join(venues) if venues else "식당·카페"
-        # 받침 유무로 조사 선택 — "가정은" / "카페는"
         josa = "은" if (ord(where[-1]) - 0xAC00) % 28 else "는"
         base.append(f"{where}{josa} 접종완료자 포함 시 최대 {tot}인")
+
+    solo = pm.get("restaurant_cafe_unvaccinated_without_pass_exception")
+    if solo:
+        base.append(f"식당·카페 미접종자는 {solo}")
     return ". ".join(base)
 
 
@@ -105,7 +121,9 @@ def _materially_changed(reg: dict) -> bool:
     "해제"가 아니라 "그대로"다. 이어받은 실효값끼리 비교해야 없던 변화를
     프롬프트에 만들어 넣지 않는다.
     """
-    keys = ("level", "dine_in_cutoff", "private_meetings", "closed_facilities")
+    keys = ("level", "dine_in_cutoff", "private_meetings", "closed_facilities",
+            "other_22h_restricted_examples", "midnight_closing_examples",
+            "vaccine_pass_examples", "vaccine_pass_expansion_examples")
     prev = None
     for r in _regimes():
         if str(r.get("from")) >= str(reg.get("from")):
@@ -135,18 +153,42 @@ def build(day: date) -> dict:
         facts.append(
             f"서울 신규 확진 {last_n:,}명 ({last_d.isoformat()} 기준, 최근 {len(recent)}일 평균 {avg:,}명)")
 
-    cutoff = reg.get("dine_in_cutoff")
+    # 값이 비었을 때 "그대로"인지 "해제"인지는 원자료가 dine_in_cutoff_note 로 구분한다.
+    # 위드코로나(11/1)처럼 해제된 구간에서 이전 22:00 을 이어받으면 없는 규제를 말하게 된다.
+    if reg.get("dine_in_cutoff") is None and reg.get("dine_in_cutoff_note"):
+        cutoff = None
+    else:
+        cutoff = _effective(reg, "dine_in_cutoff")
     if cutoff:
-        after = reg.get("after_cutoff") or "매장 취식 불가"
+        after = _effective(reg, "after_cutoff") or "매장 취식 불가"
         facts.append(f"식당·카페 매장 취식 {cutoff}까지. 이후 {after}")
+        # 같은 시간제한이 걸린 다른 시설. 학원·영화관·PC방은 소비처라 행동에 직접 닿는다.
+        others = _effective(reg, "other_22h_restricted_examples")
+        if others:
+            facts.append(f"{cutoff}까지 운영 제한: " + "·".join(str(x) for x in others))
+    else:
+        # 시간제한이 풀린 구간. 원자료가 "모든 매장이 24시간 영업한다는 뜻은 아님"을 단서로 단다.
+        if reg.get("dine_in_cutoff_note"):
+            facts.append("식당·카페 영업시간 제한 해제")
+        mid = _effective(reg, "midnight_closing_examples")
+        if mid:
+            facts.append("24시까지 운영 제한: " + "·".join(str(x) for x in mid))
 
-    mline = _meeting_line(reg.get("private_meetings") or {})
+    mline = _meeting_line(_effective(reg, "private_meetings") or {})
     if mline:
         facts.append(mline)
 
     # 집합금지는 후속 구간이 다시 적지 않아도 해제된 것이 아니다. 원자료가 변경분만
     # 기술하므로, 명시가 없으면 직전 구간 값을 이어받는다. 이어받지 않으면 정책 주간
     # 한복판에서 규제가 사라진 것처럼 보이는 인공 변화가 생긴다.
+    vp = _effective(reg, "vaccine_pass_examples")
+    if vp:
+        line = "방역패스(접종증명·음성확인) 적용: " + "·".join(str(x) for x in vp)
+        ext = _effective(reg, "vaccine_pass_expansion_examples")
+        if ext:
+            line += " / 확대: " + "·".join(str(x) for x in ext)
+        facts.append(line)
+
     closed = reg.get("closed_facilities")
     if closed is None:
         for prev in reversed(_regimes()):

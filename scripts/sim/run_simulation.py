@@ -53,6 +53,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import build_dawn_context  # noqa: E402
+from environments import build_environment  # noqa: E402
+
+# 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
+_SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
 from stage1_intent import call_stage1, grant_style_to_use  # noqa: E402
 from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
 from plan_writer import (  # noqa: E402
@@ -280,6 +284,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
     try:
         _t = time.time()
         ctx = build_dawn_context(aid, today)
+        # 사회 배경(방역·유행 상황) 주입. 정책과 독립한 채널이라 수급·비수급,
+        # 정책 유무와 무관하게 같은 날이면 모두에게 같은 세상이 주어진다.
+        # SIM_ENVIRONMENT 가 없으면 {} 라 프롬프트에서 섹션이 통째로 생략된다.
+        ctx.environment = build_environment(_SIM_ENV, today)
         timing["t_dawn"] = round(time.time() - _t, 3)
         if not ctx.persona:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
@@ -945,8 +953,21 @@ def main():
     ap.add_argument("--days", type=int, default=3, help="시뮬 일수")
     ap.add_argument("--limit", type=int, default=None, help="agent 수 제한 (dry-run용)")
     ap.add_argument("--gu", default=None, help="자치구 코드 필터 (예: 11680 강남)")
+    ap.add_argument("--environment", default=None,
+                    help="사회 배경 id (예: covid_2021). 미지정 시 환경 블록 없음")
     ap.add_argument("--workers", type=int, default=64)
     args = ap.parse_args()
+    # --environment 가 환경변수보다 우선한다. 실행 기록에 남도록 전역에 반영.
+    global _SIM_ENV
+    if args.environment:
+        _SIM_ENV = args.environment.strip() or None
+    if _SIM_ENV:
+        from environments import list_environments
+        if _SIM_ENV not in list_environments():
+            ap.error(f"알 수 없는 환경 id: {_SIM_ENV} (가능: {list_environments()})")
+        print(f"[환경] 사회 배경 = {_SIM_ENV}")
+    else:
+        print("[환경] 사회 배경 없음 (프롬프트에 해당 섹션 생략)")
 
     start = date.fromisoformat(args.start)
     agents = fetch_agents(limit=args.limit, gu_only=args.gu)
