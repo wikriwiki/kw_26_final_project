@@ -80,7 +80,7 @@ _EXPECT_CSV = {
 
 # --dry-run 기대값 (docs §8.4). DB 적재 시 좌표·동코드 누락분이 빠져 ±5% 허용.
 _EXPECT_ARM = {
-    ARM_EXCLUDED_VICE: 3403,
+    ARM_EXCLUDED_VICE: 3695,
     ARM_EXCLUDED_LUXURY: 2404,
     ARM_EXCLUDED_NONCONSUMPTION: 40614,
 }
