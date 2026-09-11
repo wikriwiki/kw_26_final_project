@@ -86,6 +86,36 @@ def _meeting_line(pm: dict) -> str:
     return ". ".join(base)
 
 
+def _effective(reg: dict, key: str):
+    """값이 없으면 직전 구간에서 이어받은 실효값. 원자료가 변경분만 적기 때문."""
+    if reg.get(key) is not None:
+        return reg[key]
+    for prev in reversed(_regimes()):
+        if str(prev.get("from")) >= str(reg.get("from")):
+            continue
+        if prev.get(key) is not None:
+            return prev[key]
+    return None
+
+
+def _materially_changed(reg: dict) -> bool:
+    """직전 구간과 견줘 시민이 체감할 내용이 실제로 달라졌는가.
+
+    원자료는 구간을 나눠놓고 변경분만 기술한다. 그래서 항목이 비어 있는 것은
+    "해제"가 아니라 "그대로"다. 이어받은 실효값끼리 비교해야 없던 변화를
+    프롬프트에 만들어 넣지 않는다.
+    """
+    keys = ("level", "dine_in_cutoff", "private_meetings", "closed_facilities")
+    prev = None
+    for r in _regimes():
+        if str(r.get("from")) >= str(reg.get("from")):
+            break
+        prev = r
+    if prev is None:
+        return True
+    return any(_effective(reg, k) != _effective(prev, k) for k in keys)
+
+
 def build(day: date) -> dict:
     """그날의 사회 배경. 규제 구간을 못 찾으면 {} 를 돌려 섹션을 생략한다."""
     reg = _regime_for(day)
@@ -131,13 +161,16 @@ def build(day: date) -> dict:
     level = reg.get("level")
     headline = f"수도권 사회적 거리두기 {level}단계" if level else "수도권 방역 조치 시행 중"
     fy, fm, fd = (int(x) for x in str(reg.get("from")).split("-"))
-    if date(fy, fm, fd) == day:
+    # 구간이 나뉘어도 내용이 같으면 시민에게는 바뀐 게 없다. 자료상 경계일 뿐인데
+    # "오늘부터 바뀐다"를 띄우면 있지도 않은 변화를 프롬프트에 만들어 넣게 된다.
+    if date(fy, fm, fd) == day and _materially_changed(reg):
         headline += " — 오늘부터 조치가 바뀐다"
 
+    # 구간의 note 는 "이 요약에 미포함" 같은 자료 한계 메모라 시민이 알 내용이 아니다.
+    # 프롬프트에 넣으면 의미 없는 문장이 들어가고, 구간이 바뀔 때 문장만 달라져
+    # 없던 변화가 생긴 것처럼 보인다. 실제 세상 사실(추석)만 남긴다.
     note = None
     if CHUSEOK[0] <= day <= CHUSEOK[1]:
         note = "추석 연휴. 가정 내 가족모임 예외가 적용되며 일반 식당 모임에는 확대되지 않는다"
-    elif reg.get("note"):
-        note = " ".join(str(reg["note"]).split())
 
     return {"headline": headline, "facts": facts, "note": note}
