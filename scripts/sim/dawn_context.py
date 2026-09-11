@@ -471,19 +471,40 @@ _POLICY_TYPE_LABEL = {
 }
 
 
-def _sangsaeng_monthly_anchor(persona: dict) -> int:
-    """2분기 월평균 카드소비 앵커 근사 = 평일/주말 일소비 가중 × 30일.
+# 적립업종이 총지출에서 차지하는 몫. 문턱(분모)과 누적(분자)의 회계 단위를 맞추는 값.
+# 시행방안: "개인이 보유한 모든 카드 사용실적을 합산(실적 적립 제외 업종 사용액 제외)"
+# → 2분기 월평균도 제외업종을 뺀 금액이다. 분자만 적립업종으로 걸러놓고 분모를
+#   총지출로 잡으면 문턱이 4배 높아져 도달이 원천 불가능해진다(28일 돌려도 19.3%).
+# 기본값은 무정책 구간 실측치(적립 일평균 29,841 / 앵커 111,155 = 0.268).
+SANGSAENG_BASE_RATIO = float(os.environ.get("EXP_SANGSAENG_BASE_RATIO", "0.268"))
 
-    데이터 앵커(s_daily_wd/we)만 사용 — 결과를 만드는 값이 아니라 프롬프트에
-    개인별 문턱 숫자를 '알아듣게' 제시하기 위한 고지용 근사(§4.2·§4.5).
+
+def _sangsaeng_monthly_anchor(persona: dict) -> int:
+    """2분기 월평균 **적립업종** 카드소비 앵커.
+
+    실제 정책의 2분기 월평균은 제외업종을 뺀 금액이다. 우리 누적
+    (sangsaeng_month_spent)도 적립업종 결제만 세므로 같은 기준이어야 한다.
+    `sangsaeng_base_daily`가 페르소나에 있으면(무정책 구간에서 실측) 그것을
+    우선하고, 없으면 총지출 앵커 × SANGSAENG_BASE_RATIO 로 근사한다.
+
+    데이터 앵커만 사용한다 — 실측 정답지의 수치나 공식은 넣지 않는다.
     """
+    measured = persona.get("sangsaeng_base_daily")
+    if measured:
+        try:
+            v = float(measured)
+            if v > 0:
+                return int(round(v * 30))
+        except (TypeError, ValueError):
+            pass
     daily_wd = float(persona.get("daily_wd") or 0)
     daily_we = float(persona.get("daily_we") or daily_wd)
     if daily_wd <= 0 and daily_we <= 0:
         return 0
     if daily_wd <= 0:
         daily_wd = daily_we
-    return int(round((daily_wd * 5 + daily_we * 2) / 7 * 30))
+    total = (daily_wd * 5 + daily_we * 2) / 7 * 30
+    return int(round(total * SANGSAENG_BASE_RATIO))
 
 
 def _format_cashback_status(
