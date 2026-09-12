@@ -534,15 +534,24 @@ def _format_cashback_status(
         else:
             month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
         days_left = (month_end - today).days + 1
+    # 한도를 채우려면 문턱 위로 얼마가 더 필요한지. rate=0.1·cap=10만이면 100만원이다.
+    # 이 규모를 모르면 "문턱만 겨우 넘기면 된다"로 읽혀 잔돈을 긁어모으는 쪽으로 간다.
+    # 실제 제도의 산식을 그대로 환산한 사실이며 행동을 지시하지 않는다.
+    cap_over = int(round(cap / rate)) if rate > 0 else 0
     if remaining > 0:
         status = f"문턱까지 {remaining:,}원 남음 — 적립업종에서 이만큼 더 쓰면 캐시백 자격 시작"
         if days_left > 0:
             pace = int(round(remaining / days_left))
             status += f" (이번 달 {days_left}일 남음 · 하루 평균 {pace:,}원 페이스)"
+        if cap_over:
+            status += (f" | 문턱을 넘긴 뒤부터 쓴 금액의 {rate*100:.0f}%가 환급되고, "
+                       f"한도 {cap:,}원을 다 받으려면 문턱 위로 {cap_over:,}원이 더 필요하다")
     else:
         over = spent_elig - threshold
         est = min(cap, int(over * rate))
         status = f"문턱 초과 {over:,}원 — 현재 기준 예상 캐시백 약 {est:,}원"
+        if cap_over and est < cap:
+            status += f" (한도 {cap:,}원까지 {cap_over - over:,}원 여지)"
     return (
         f"- {pid}: 적립업종 이번달 누적 {spent_elig:,}원 / 2분기 월평균 약 {anchor:,}원 / "
         f"3% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
