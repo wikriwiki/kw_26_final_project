@@ -103,7 +103,6 @@ def main():
                     anchor_daily(r["wd"], r["we"]) * SANGSAENG_RATIO
                     * (date.fromisoformat(DAY_ZERO).day)
                 )) if SEED_SANGSAENG else 0,
-                "sangsaeng_month_spent": 0,  # 상생 적립업종 한정 누적 (G2b)
                 "policy_lifecycle": "{}",   # JSON string
             })
         print(f"  agents: {len(rows)}")
