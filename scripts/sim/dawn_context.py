@@ -543,7 +543,11 @@ def _format_cashback_status(
         if days_left > 0:
             pace = int(round(remaining / days_left))
             status += f" (이번 달 {days_left}일 남음 · 하루 평균 {pace:,}원 페이스)"
-        if cap_over:
+        # [3차 실측] 한도 환산("문턱 위로 100만원 더")을 넣었더니 C2 가 +1,825 → +847원
+        # (t 4.14 → 1.32)으로 후퇴하고 건당 금액도 6,641 → 5,978원으로 줄었다.
+        # 큰 숫자가 "불가능하네"로 읽혀 포기를 유도한 것으로 보인다. 문턱까지 남은
+        # 금액과 남은 일수만 제시하고, 한도는 넘긴 뒤에만 알린다.
+        if False and cap_over:  # 비활성 — EXP_SHOW_CAP_SCALE 로 재실험 가능
             status += (f" | 문턱을 넘긴 뒤부터 쓴 금액의 {rate*100:.0f}%가 환급되고, "
                        f"한도 {cap:,}원을 다 받으려면 문턱 위로 {cap_over:,}원이 더 필요하다")
     else:
