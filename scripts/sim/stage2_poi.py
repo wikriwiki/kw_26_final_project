@@ -546,7 +546,19 @@ def build_stage2_prompt(
                     _cat = "\n평소 업종별 지출 구성(카드 실측): " + _body
         except Exception:
             _cat = ""
-        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}")
+        # 집안 내구재 상태 — Stage1 이 '냉장고 교체'를 계획했을 때 Stage2 가
+        # actual_spent 를 그 물건의 시세로 잡을 수 있어야 한다. 동네 평균단가
+        # 앵커(쇼핑 ~5만원)만 보면 90만원짜리 냉장고가 나올 수 없다.
+        _dur = ""
+        try:
+            from durables import format_block as _durfmt
+            _dur = _durfmt(persona.get("id") or "", persona.get("life_stage"),
+                           persona.get("age_group"))
+            if _dur:
+                _dur = "\n" + _dur
+        except Exception:
+            _dur = ""
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}{_dur}")
         # 활성 정책 (grant 위주, LLM이 policy_spend 책정 시 참조)
         policy_budget = persona.get("policy_budget_summary") or ""
         if policy_budget:

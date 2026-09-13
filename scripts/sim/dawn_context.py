@@ -368,6 +368,11 @@ def _format_persona(p: dict) -> str:
         lines.append("직장: 없음")
     if lifestyle:
         lines.append(f"라이프스타일: {lifestyle}")
+    # 집안 내구재 보유 상태 — 정책과 무관한 페르소나 사실. EXP_DURABLES=0 이면
+    # 빈 문자열이라 P010 검증본 렌더는 바이트 그대로 유지된다. durables.py 참조.
+    _dur = _durables_line(p)
+    if _dur:
+        lines.append(_dur)
     # NVIDIA 봉합 결과는 personality_lifestyle_raw 한 줄(200자)에 응축되어 있음 (가이드 §7).
     # 그 외 풍부 필드(summary/hobbies/cultural/career/skills/education/marital/family)는
     # Neo4j 에 보존되어 인터뷰·시각화·사후 분석에서 활용되지만, Stage 1 reasoning 프롬프트
@@ -592,6 +597,18 @@ def _compact_regions(raw_regions: list | None) -> str:
     if len(regions) > 5:
         return ", ".join(regions[:5]) + f" 외 {len(regions) - 5}곳"
     return ", ".join(regions) or "지역 미상"
+
+
+def _durables_line(p: dict) -> str:
+    """집안 물건 상태 한 줄. durables 모듈이 꺼져 있으면 빈 문자열."""
+    try:
+        from durables import format_block
+    except ImportError:
+        try:
+            from .durables import format_block   # type: ignore
+        except ImportError:
+            return ""
+    return format_block(p.get("id") or "", p.get("life_stage"), p.get("age_group"))
 
 
 def _cat_line(p: dict) -> str:
