@@ -28,7 +28,10 @@ def status(pid: str, row: dict, persona: dict, state: dict,
         pay = int(round(cap * (1 - float(rate))))
         parts.append(f"이번 달 최대 {cap:,}원어치 ({pay:,}원 내면 {cap:,}원어치)")
     if (row.get("use_scope") or "") == "home_district":
-        dong = persona.get("home_gu") or persona.get("home_dong") or "사는 곳"
-        parts.append(f"{dong} 자치구 안의 표시 가맹점에서만 사용")
+        # 페르소나에 자치구가 없으면 이름을 대지 않는다 — 행정동을 자치구라고
+        # 부르면 틀린 사실을 프롬프트에 넣게 된다(예: "무악동 자치구").
+        gu = (persona.get("home_gu") or "").strip()
+        parts.append(f"{gu} 안의 표시 가맹점에서만 사용" if gu
+                     else "사는 자치구 안의 표시 가맹점에서만 사용")
     parts.append("새로 생긴 돈이 아니라 본인 돈을 싸게 바꾼 것")
     return " | ".join(parts)

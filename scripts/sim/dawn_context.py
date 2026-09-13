@@ -62,7 +62,8 @@ RETURN
   a.behavior_home_h_wd AS home_h_wd,
   a.behavior_home_h_we AS home_h_we,
   a.b_mobility_level AS mobility,
-  hd.code AS home_dong_code, hd.name AS home_dong, home.id AS home_poi_id, home.name AS home_poi,
+  hd.code AS home_dong_code, hd.name AS home_dong, a.residence_gu AS home_gu,
+  home.id AS home_poi_id, home.name AS home_poi,
   wd.code AS work_dong_code, wd.name AS work_dong, work.id AS work_poi_id, work.name AS work_poi,
   wr.commute_min AS commute_min
 """
@@ -162,6 +163,7 @@ RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
        pol.threshold_ratio AS threshold_ratio,
        pol.eligible_marker AS eligible_marker,
+       pol.mech_params AS mech_params,
        pol.poi_restricted AS poi_restricted,
        pol.effective_from AS from_, pol.effective_until AS until_,
        toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
@@ -659,6 +661,24 @@ def _format_environment(env: dict | None) -> str:
     return "\n".join(lines)
 
 
+def _with_params(r: dict) -> dict:
+    """정책 행에 mech_params(JSON) 를 풀어 합친다.
+
+    기전 고유 파라미터는 Cypher RETURN 목록에 하나씩 더하지 않고 이 한 칸에
+    담는다 — 그래야 새 정책이 코드 수정 없이 붙는다.
+    """
+    raw = r.get("mech_params")
+    if not raw:
+        return r
+    try:
+        extra = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except Exception:
+        return r
+    out = dict(extra)
+    out.update({k: v for k, v in r.items() if v is not None})
+    return out
+
+
 def _format_policy_facts(rows: list[dict]) -> str:
     """에이전트와 무관한 정책 사실.
 
@@ -683,7 +703,9 @@ def _format_policy_facts(rows: list[dict]) -> str:
         scope = ", ".join(targets[:8]) if targets else "업종 제한 없음"
         if len(targets) > 8:
             scope += f" 외 {len(targets) - 8}개"
-        restrictions = " · [쿠폰] 표시 POI에서만 사용" if r.get("poi_restricted") else ""
+        # 표시 문자열은 정책이 정한다 — 하드코딩하면 새 정책이 남의 마커를 쓴다.
+        _mk = (r.get("eligible_marker") or "[쿠폰]").strip()
+        restrictions = f" · {_mk} 표시 POI에서만 사용" if r.get("poi_restricted") else ""
         desc = " ".join(str(r.get("description") or "").split())[:280]
         _h2 = _head if _head is not None else f"[{label}] {r.get('name')}"
         lines.append(
@@ -698,7 +720,7 @@ def _format_policy_facts(rows: list[dict]) -> str:
             from mechanisms import get as _mech_get2
             _m2 = _mech_get2(ptype)
             if _m2 is not None and hasattr(_m2, "facts"):
-                for _f in (_m2.facts(r) or []):
+                for _f in (_m2.facts(_with_params(r)) or []):
                     lines.append(f"  · {_f}")
         except ImportError:
             pass
@@ -799,7 +821,7 @@ def _format_policy_status(
                 from mechanisms import get as _mech_get
                 _m = _mech_get(ptype)
                 if _m is not None and hasattr(_m, "status"):
-                    _line = _m.status(pid, r, p, st, today)
+                    _line = _m.status(pid, _with_params(r), p, st, today)
             except ImportError:
                 _line = None
             lines.append(_line or f"- {pid}: 현재 적용 중")

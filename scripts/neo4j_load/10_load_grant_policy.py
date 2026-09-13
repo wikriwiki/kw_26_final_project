@@ -47,6 +47,7 @@ SET p.name = $name,
     p.excluded_deciles = $excluded_deciles,
     p.grant_key = $grant_key,
     p.poi_restricted = $poi_restricted,
+    p.mech_params = $mech_params_json,
     p.notes = $notes
 WITH p
 CALL (p) {
@@ -91,6 +92,18 @@ def main() -> None:
         "notes": pol.get("notes", ""),
         "target_districts": pol.get("target_districts") or [],
     }
+    # [기전 파라미터 일반화] 코어 필드가 아닌 키는 통째로 JSON 하나에 담는다.
+    # 기전마다 Cypher 의 RETURN 목록을 고치면 배관에서 1:1 결합이 되살아난다 —
+    # 새 정책이 코드 수정 없이 붙어야 일반화 주장에 실체가 생긴다.
+    _CORE = {"id", "name", "type", "description", "announce_date",
+             "effective_from", "effective_until", "benefit_rate",
+             "cap_per_agent", "threshold_ratio", "eligible_marker",
+             "income_grants", "excluded_income", "decile_grants",
+             "excluded_deciles", "grant_key", "poi_restricted", "notes",
+             "target_districts", "benefit_categories", "render_mode",
+             "sections", "_notes"}
+    params["mech_params_json"] = json.dumps(
+        {k: v for k, v in pol.items() if k not in _CORE}, ensure_ascii=False)
     with driver_session() as s:
         r = s.run(MERGE, **params).single()
         if pol.get("type") == "cashback":
