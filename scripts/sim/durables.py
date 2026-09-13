@@ -125,6 +125,41 @@ def pending(agent_id: str, life_stage: str | None = None,
     return got[:keep]
 
 
+# 품목 → 시뮬 세부 카테고리. Stage2 가 고른 POI 의 업종과 대조해, 이 사람이
+# 실제로 미뤄 둔 물건을 사러 간 경우에만 그 물건의 시세를 금액 앵커로 쓴다.
+_SUB_OF = {
+    "냉장고": "가전·통신", "세탁기": "가전·통신", "에어컨": "가전·통신",
+    "TV": "가전·통신", "청소기": "가전·통신", "전자레인지": "가전·통신",
+    "가스레인지": "가전·통신", "노트북": "가전·통신", "휴대폰": "통신",
+    "소파": "가구", "침대": "가구", "식탁": "가구", "책상·의자": "가구",
+}
+# 이 세부업종의 이벤트만 내구재 앵커 후보로 본다.
+DURABLE_SUBS = frozenset(_SUB_OF.values()) | {"건자재", "장식품", "생활용품"}
+
+
+def anchor_for(agent_id: str, life_stage: str | None, age_group: str | None,
+               sub_category: str | None) -> int | None:
+    """이 사람이 이 업종에서 미뤄 둔 물건이 있으면 그 시세(원). 없으면 None.
+
+    전원에게 주는 값이 아니다 — 대기 목록에 있는 사람만 그 물건 가격을 받는다.
+    그래서 가전 결제가 '드물고 큰' 형태가 된다. 없는 사람은 기존 동네 평균단가
+    앵커를 그대로 쓴다.
+    """
+    if not ENABLED or not agent_id or not sub_category:
+        return None
+    sub = sub_category.strip()
+    if sub not in DURABLE_SUBS:
+        return None
+    for d in pending(agent_id, life_stage, age_group):
+        if _SUB_OF.get(d["name"]) != sub:
+            continue
+        lo, hi = d["lo_man"] * 10000, d["hi_man"] * 10000
+        # 결정론 — 같은 사람·같은 물건이면 늘 같은 금액대
+        r = (_h(agent_id, "price", d["name"]) % 1000) / 1000.0
+        return int(round((lo + (hi - lo) * r) / 10000.0) * 10000)
+    return None
+
+
 def format_block(agent_id: str, life_stage: str | None = None,
                  age_group: str | None = None) -> str:
     """페르소나 블록 끝에 붙일 한 줄. 비었으면 빈 문자열.

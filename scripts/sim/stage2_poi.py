@@ -87,6 +87,7 @@ def _ensure_positive_spend(
     price_factor: float = 1.0,
     base_won: int | None = None,
     band: int | None = None,
+    durable: bool = False,
 ) -> None:
     """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 fallback 부여.
 
@@ -104,8 +105,10 @@ def _ensure_positive_spend(
     else:
         base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
         base = int(base * (price_factor or 1.0))
-    if daily_wd and daily_wd > 0:
+    if daily_wd and daily_wd > 0 and not durable:
         # daily_wd가 매우 작은 경우 비율 보정 (예: 절약형 페르소나)
+        # 내구재는 예외 — 냉장고는 하루 예산의 0.4배로 살 수 있는 물건이 아니다.
+        # 이 클램프를 그대로 두면 내구재 앵커를 넣어도 4만원 페르소나는 1.6만원이 된다.
         base = min(base, int(daily_wd * 0.4))
     pick.actual_spent = max(1000, base)
 
@@ -269,6 +272,20 @@ def fetch_candidates_for_events(
             # unit_anchor: 이 동네×업종 평균 결제단가(실측 기반) — 프롬프트 스케일 앵커.
             started = time.perf_counter()
             anchor_won = unit_price_anchor(dong_code, l1)
+            # [내구재 앵커] 이 사람이 이 업종에서 미뤄 둔 물건이 있으면 그 시세를 쓴다.
+            # 동네x업종 평균단가(쇼핑 ~5만원)만 보면 90만원짜리 냉장고가 나올 수 없다.
+            # 7차 실측: 내구재 채널은 작동했으나 건당 16,863원에 그쳤다.
+            # 대기 목록이 있는 사람에게만 붙으므로 가전 결제가 '드물고 큰' 형태가 된다.
+            _dur_anchor = None
+            try:
+                from durables import anchor_for as _dur_anchor_for
+                _dur_anchor = _dur_anchor_for(
+                    persona.get("id"), persona.get("life_stage"),
+                    persona.get("age_group"), sub_cat)
+            except Exception:
+                _dur_anchor = None
+            if _dur_anchor:
+                anchor_won = _dur_anchor
             # 사용처 제한 지원금(쿠폰) 잔액 보유 여부 — run_simulation이 persona에 세팅
             # 정책 사용 가능 여부는 후보 정보로만 제공한다. 후보 정렬 가점은 결과를
             # 사전 유도하므로 기본 0이며, 별도 민감도 실험에서만 명시적으로 켠다.
@@ -282,6 +299,7 @@ def fetch_candidates_for_events(
             for c in cands or []:
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
+                c["durable_anchor"] = bool(_dur_anchor)
                 # 쿠폰 사용처 판정 — DB 백필값(p.coupon_eligible) 우선, 없으면 룰 fallback
                 el = c.get("coupon_eligible")
                 if el is None:
@@ -485,7 +503,13 @@ def _format_event_with_candidates(
         return ""
     # 동네×업종 평균 결제단가(실측 카드 데이터 기반) — actual_spent 스케일 앵커
     anchor = cands[0].get("unit_anchor")
-    anchor_s = f" | 동네 평균단가 ~{anchor:,}원" if anchor else ""
+    # 내구재 앵커는 동네 평균이 아니라 그 물건의 시세다 — 라벨을 구분한다.
+    if anchor and cands[0].get("durable_anchor"):
+        anchor_s = f" | 바꾸려는 물건 시세 ~{anchor:,}원"
+    elif anchor:
+        anchor_s = f" | 동네 평균단가 ~{anchor:,}원"
+    else:
+        anchor_s = ""
     lines = [
         f"### 이벤트 {i} | {ev.time} | {ev.anchor} | "
         f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}{anchor_s}"
@@ -910,6 +934,10 @@ def call_stage2(
                 i: (cs[0].get("unit_anchor") if cs else None)
                 for i, cs in cands_by_order.items()
             }
+            durable_by_order = {
+                i: bool(cs[0].get("durable_anchor")) if cs else False
+                for i, cs in cands_by_order.items()
+            }
             for pick in parsed.picks:
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
@@ -917,6 +945,7 @@ def call_stage2(
                     _ensure_positive_spend(
                         pick, cat, daily_wd, price_factor=pf,
                         base_won=anchor_by_order.get(pick.order), band=pb,
+                        durable=bool(durable_by_order.get(pick.order)),
                     )
             elapsed = time.perf_counter() - started
             timing["t_postprocess"] += elapsed
