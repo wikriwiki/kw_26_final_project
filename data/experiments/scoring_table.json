@@ -1,0 +1,119 @@
+{
+  "_meta": {
+    "registered": "2026-09-13",
+    "purpose": "소비행동 프롬프트 일반화 — 정책별 기대 부호 사전등록",
+    "rule": "여기 없는 지표로 후보를 고르지 않는다. 사후에 지표를 추가하면 실효 자유도가 늘어난다.",
+    "expect": "+ 증가 / - 감소 / 0 무효(유의하지 않음이 정답) / rank 순위 관계",
+    "scale": "short = 150명·짧은 런에서 부호가 서는 것 / main = 본런 규모가 필요한 것",
+    "note": "부호만 채점한다. 크기를 목표로 주면 구조가 못 내는 값을 프롬프트가 억지로 짜내고 홀드아웃에서 무너진다."
+  },
+
+  "P010": {
+    "mechanism": "wallet",
+    "answer_key": "한국은행 이슈노트 2026-13",
+    "indicators": [
+      {"id": "P010-1", "expect": "+", "scale": "main", "metric": "mpc_amount",
+       "desc": "한계소비성향 > 0 (실측 0.21)"},
+      {"id": "P010-2", "expect": "+", "scale": "short", "metric": "coupon_elig_spend_paired",
+       "desc": "쿠폰 사용처 지출 — 개인 내 쌍체차"},
+      {"id": "P010-3", "expect": "+", "scale": "short", "metric": "total_spend_paired",
+       "desc": "정책 기간 총지출 — 지갑이 생기므로 총액이 늘어야 한다"}
+    ]
+  },
+
+  "P012": {
+    "mechanism": "cashback",
+    "answer_key": "기획재정부·KDI 「상생소비지원금 사업의 효과 분석」(2022.9)",
+    "indicators": [
+      {"id": "P012-1", "expect": "+", "scale": "short", "metric": "elig_spend_paired",
+       "desc": "적립업종 지출 개인 내 쌍체차 (실측 +20.82%)"},
+      {"id": "P012-2", "expect": "0", "scale": "main", "metric": "excl_spend_paired",
+       "desc": "제외업종 무반응 (실측 +2.85%, 유의하지 않음) — 방어선 지표"},
+      {"id": "P012-3", "expect": "+", "scale": "short", "metric": "threshold_reach_rate",
+       "desc": "문턱 도달자 비율 > 0"},
+      {"id": "P012-4", "expect": "+", "scale": "short", "metric": "cashback_per_capita",
+       "desc": "1인 평균 캐시백 > 0 (실측 47,880원)"},
+      {"id": "P012-5", "expect": "rank", "scale": "main", "metric": "sector_rank",
+       "rank": ["가전·가구", "이·미용"],
+       "desc": "가전·가구 증가율 > 이·미용 증가율 (실측 +36.23% vs +2.87%)"},
+      {"id": "P012-6", "expect": "+", "scale": "main", "metric": "cap_reach_rate",
+       "desc": "한도 10만원 도달 비율 > 0 (실측 21.0%)"}
+    ]
+  },
+
+  "EMERGENCY_2020": {
+    "mechanism": "wallet",
+    "answer_key": "KDI FOCUS 「1차 긴급재난지원금 정책의 효과와 시사점」",
+    "indicators": [
+      {"id": "EM-1", "expect": "-", "scale": "short", "metric": "elig_spend_pre",
+       "desc": "사용가능업종 지급 전 구간 감소 (실측 −4.0%)"},
+      {"id": "EM-2", "expect": "+", "scale": "short", "metric": "elig_spend_post",
+       "desc": "사용가능업종 지급 후 구간 증가 (실측 +7.1%)"},
+      {"id": "EM-3", "expect": "+", "scale": "short", "metric": "total_spend_paired",
+       "desc": "전체 카드매출 증가 (실측 +7.3%)"},
+      {"id": "EM-4", "expect": "rank", "scale": "main", "metric": "sector_rank",
+       "rank": ["준내구재", "대면서비스"],
+       "desc": "준내구재(의류·잡화·가구) 증가 > 대면서비스(여행·사우나) 증가 (실측 +10.8%p vs +3%p)"}
+    ]
+  },
+
+  "DISTANCING_2020": {
+    "mechanism": "hours_limit",
+    "answer_key": "서울연구원 「코로나19 확산이 서울 지역에 미친 경제적 손실」(2021.4, 신한카드 서울 패널)",
+    "indicators": [
+      {"id": "DS-1", "expect": "-", "scale": "short", "metric": "sector_spend:식사",
+       "desc": "음식점 지출 감소 (실측 −14.1%)"},
+      {"id": "DS-2", "expect": "+", "scale": "short", "metric": "sector_spend:쇼핑+마트",
+       "desc": "소매업 지출 증가 (실측 +4.2%) — 같은 정책 안에서 부호가 갈리는 지점"},
+      {"id": "DS-3", "expect": "rank", "scale": "short", "metric": "sector_rank",
+       "rank": ["쇼핑+마트", "식사"],
+       "desc": "소매 > 음식점 — '제약이면 다 줄어든다'로 수렴한 프롬프트를 잡는다"},
+      {"id": "DS-4", "expect": "-", "scale": "short", "metric": "late_night_share",
+       "desc": "21시 이후 이벤트 비중 감소 — 영업시간 제한의 직접 대상"},
+      {"id": "DS-5", "expect": "-", "scale": "short", "metric": "out_district_ratio",
+       "desc": "타 자치구 유출 감소 (유동인구 감소의 우리 쪽 대응물)"},
+      {"id": "DS-6", "expect": "rank", "scale": "main", "metric": "hub_type_rank",
+       "rank": ["발달상권", "관광특구"],
+       "desc": "관광특구 감소폭 > 발달상권 감소폭 (실측 −8.7% vs −4.4%) — hub 태그 확인 필요"}
+    ]
+  },
+
+  "GATHERING_2020": {
+    "mechanism": "gathering_limit",
+    "answer_key": "김다미·김용규(2023) 정보통신정책연구 30(3) — 구글 이동성 기준",
+    "indicators": [
+      {"id": "GA-1", "expect": "0", "scale": "short", "metric": "total_spend_paired",
+       "desc": "총지출 무반응 — 인원 제한 더미가 유의하지 않았다. 방어선 지표"},
+      {"id": "GA-2", "expect": "0", "scale": "short", "metric": "out_district_ratio",
+       "desc": "이동 무반응 — 같은 근거"},
+      {"id": "GA-3", "expect": "+", "scale": "short", "metric": "home_hours",
+       "desc": "거주지 체류 증가 — 논문이 양쪽 정책 공통으로 확인한 유일한 방향"}
+    ],
+    "design_note": "우리 시뮬은 약속·동행 채널이 있어 인원 제한을 주면 기계적으로 모임을 줄일 위험이 있다. 실측은 무효였다(사람들이 인원을 쪼개거나 가족 예외로 우회했다). 프롬프트가 제약을 기계적으로 따르는지, 우회를 판단하는지를 가르는 지표다."
+  },
+
+  "LOCAL_VOUCHER": {
+    "mechanism": "price_discount",
+    "answer_key": "조세재정연구원 「지역화폐 도입이 지역경제에 미친 영향」(송경호·이환웅, 2020)",
+    "indicators": [
+      {"id": "LV-1", "expect": "0", "scale": "short", "metric": "total_spend_paired",
+       "desc": "소비지출 규모 무반응 (실측 영향 미미) — 방어선 지표"},
+      {"id": "LV-2", "expect": "+", "scale": "short", "metric": "home_dong_spend_share",
+       "desc": "거주 행정동 소비 비중 증가 — 구매처가 동네상권으로 이동"},
+      {"id": "LV-3", "expect": "-", "scale": "short", "metric": "out_district_spend_share",
+       "desc": "타 자치구 소비 비중 감소 — 역외 소비 단기 차단"}
+    ]
+  },
+
+  "_holdout": {
+    "SECTOR_VOUCHER_2020": {
+      "mechanism": "sector_voucher",
+      "window": "2020-10-30 ~ 2020-11-22",
+      "answer_key": "봉인 — 팀 보관, 최종 채점 1회에만 개봉",
+      "indicators": "봉인 해제 시 기입. 시행 설계(할인 조건·업종·수량)만 배관에 반영한다.",
+      "scorable_sectors": ["외식", "체육", "숙박", "여가:여행사", "마트:농수산물"],
+      "excluded_sectors": ["영화", "공연", "전시"],
+      "excluded_reason": "소상공인 상가정보에 없어 POI 0"
+    }
+  }
+}
