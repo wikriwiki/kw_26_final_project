@@ -671,14 +671,23 @@ def _format_policy_facts(rows: list[dict]) -> str:
     for r in sorted(rows, key=lambda x: str(x.get("id") or "")):
         ptype = r.get("type") or "기타"
         label = _POLICY_TYPE_LABEL.get(ptype, ptype)
+        # 기전 레지스트리 경유 — EXP_POLICY_ANONYMOUS=1 이면 정책 이름을 빼고
+        # 기전 라벨만 남긴다(lookahead bias 완화, mechanisms/__init__ 참조).
+        _head = None
+        try:
+            from mechanisms import label as _mech_label
+            _head = _mech_label(ptype, r.get("name"))
+        except ImportError:
+            _head = None
         targets = [str(x) for x in (r.get("target_l1s") or []) if x]
         scope = ", ".join(targets[:8]) if targets else "업종 제한 없음"
         if len(targets) > 8:
             scope += f" 외 {len(targets) - 8}개"
         restrictions = " · [쿠폰] 표시 POI에서만 사용" if r.get("poi_restricted") else ""
         desc = " ".join(str(r.get("description") or "").split())[:280]
+        _h2 = _head if _head is not None else f"[{label}] {r.get('name')}"
         lines.append(
-            f"- {r.get('id')} [{label}] {r.get('name')} | "
+            f"- {r.get('id')} {_h2} | "
             f"{r.get('from_')}~{r.get('until_')} | {_compact_regions(r.get('regions'))} | "
             f"{scope}{restrictions}"
         )
@@ -777,6 +786,12 @@ def _format_policy_status(
             lines.append(f"- {pid}: 현재 적용 중")
 
     ptypes = {r.get("type") for r in rows}
+    try:
+        from mechanisms import principle as _mech_principle
+        lines.append("- 판단 원칙: " + _mech_principle(ptypes))
+        return "\n".join(lines)
+    except ImportError:
+        pass
     has_wallet = bool(ptypes & {"grant", "subsidy", "voucher"})
     if has_wallet:
         # P010 BOK 대조 검증을 통과한 문구. 결제수단 선택은 건별로 에이전트가
