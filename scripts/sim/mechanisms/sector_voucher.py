@@ -1,0 +1,67 @@
+"""업종 한정 할인권 — 8대 소비쿠폰류. **홀드아웃 기전.**
+
+훈련 정책이 쓰는 다섯 기전(`wallet`·`cashback`·`hours_limit`·`gathering_limit`·
+`price_discount`) 어디에도 없는 조합이라 진짜 일반화 시험이 된다.
+
+  · 정해진 **업종에서만** 적용된다
+  · 할인 방식이 업종마다 다르다 — 정액 / 정률 / **횟수 문턱 환급**
+  · 상한과 **선착순 수량**이 있어 늘 받을 수 있는 것이 아니다
+  · 외식은 **요일·시간창**까지 걸린다 (금 16시 ~ 일 24시)
+
+시행방안·보도자료에서만 만들었다. **효과분석은 열지 않았다** — 봉인 규칙
+(docs/POLICY_ANSWERKEY_MATRIX.md §0). 여기에 실측 결과를 반영하면 홀드아웃이
+아니게 된다.
+
+정책 JSON 파라미터
+    sectors: {
+      "외식":     {"mode": "count_rebate", "min_amount": 20000,
+                   "count": 3, "rebate": 10000,
+                   "window": "금 16:00 ~ 일 24:00"},
+      "여행":     {"mode": "rate", "rate": 0.30},
+      "숙박":     {"mode": "flat", "amount": 30000},
+      "농수산물": {"mode": "rate", "rate": 0.20, "cap": 10000},
+      "체육":     {"mode": "rebate", "amount": 30000}
+    }
+"""
+from __future__ import annotations
+
+PTYPE = "sector_voucher"
+
+
+def _one(name: str, spec: dict) -> str:
+    mode = (spec.get("mode") or "").strip()
+    if mode == "count_rebate":
+        lo = int(spec.get("min_amount") or 0)
+        n = int(spec.get("count") or 0)
+        rb = int(spec.get("rebate") or 0)
+        s = f"{name} {lo:,}원 이상 {n}회 결제하면 다음 결제에서 {rb:,}원 환급"
+        w = spec.get("window")
+        return s + (f" ({w} 결제만 인정)" if w else "")
+    if mode == "rate":
+        r = float(spec.get("rate") or 0) * 100
+        cap = int(spec.get("cap") or 0)
+        s = f"{name} {r:.0f}% 할인"
+        return s + (f" (최대 {cap:,}원)" if cap else "")
+    if mode == "flat":
+        return f"{name} {int(spec.get('amount') or 0):,}원 할인"
+    if mode == "rebate":
+        return f"{name} 이용료 {int(spec.get('amount') or 0):,}원 환급"
+    return name
+
+
+def facts(row: dict) -> list[str]:
+    """정책 공통 사실 — 업종별 조건을 한 줄씩."""
+    sectors = row.get("sectors") or {}
+    out = [_one(k, v) for k, v in sectors.items() if v]
+    if row.get("first_come"):
+        out.append("수량이 정해져 있어 선착순으로 소진되면 받을 수 없다")
+    return out
+
+
+def status(pid: str, row: dict, persona: dict, state: dict,
+           today=None) -> str:
+    sectors = row.get("sectors") or {}
+    n = len(sectors)
+    tail = "수량 한정(선착순)" if row.get("first_come") else ""
+    head = f"- {pid}: 대상 업종 {n}개에서만 적용"
+    return head + (f" | {tail}" if tail else "")

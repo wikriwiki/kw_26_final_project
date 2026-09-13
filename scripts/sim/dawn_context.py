@@ -693,6 +693,15 @@ def _format_policy_facts(rows: list[dict]) -> str:
         )
         if desc:
             lines.append(f"  배경: {desc}")
+        # 기전 고유 사실(업종별 할인 조건 등) — 레지스트리가 제공하면 붙인다.
+        try:
+            from mechanisms import get as _mech_get2
+            _m2 = _mech_get2(ptype)
+            if _m2 is not None and hasattr(_m2, "facts"):
+                for _f in (_m2.facts(r) or []):
+                    lines.append(f"  · {_f}")
+        except ImportError:
+            pass
     return "\n".join(lines)
 
 
@@ -783,7 +792,17 @@ def _format_policy_status(
             rate_text = f"{float(rate) * 100:.0f}%" if rate is not None else "정책 정의값"
             lines.append(f"- {pid}: 환급률 {rate_text} | 누적사용 {spent:,}원 | 잔여한도 {rem:,}원")
         else:
-            lines.append(f"- {pid}: 현재 적용 중")
+            # 신규 기전은 레지스트리가 처리한다 — 정책마다 여기에 분기를 더하면
+            # 배관에서 1:1 결합이 되살아난다(mechanisms/__init__ 참조).
+            _line = None
+            try:
+                from mechanisms import get as _mech_get
+                _m = _mech_get(ptype)
+                if _m is not None and hasattr(_m, "status"):
+                    _line = _m.status(pid, r, p, st, today)
+            except ImportError:
+                _line = None
+            lines.append(_line or f"- {pid}: 현재 적용 중")
 
     ptypes = {r.get("type") for r in rows}
     try:
