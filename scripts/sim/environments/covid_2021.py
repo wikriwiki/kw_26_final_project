@@ -102,13 +102,34 @@ def _meeting_line(pm: dict) -> str:
     return ". ".join(base)
 
 
+# 이어받으면 안 되는 항목 — 규제 내용이다. 단계가 내려가면 규제도 풀린 것이지
+# "그대로"가 아니다. 이 구분이 없으면 완화 구간에 이전 규제가 따라붙는다.
+# (2020-11-05 은 1단계인데 8/30 2.5단계의 21시 제한·10인 제한이 붙어 있었다.
+#  8대 소비쿠폰 홀드아웃 관측창 2020-10-30~11-22 가 정확히 이 구간이다.)
+_RESTRICTION_KEYS = frozenset({
+    "dine_in_cutoff", "after_cutoff", "private_meetings", "closed_facilities",
+    "other_22h_restricted_examples", "other_21h_restricted_examples",
+    "midnight_closing_examples", "capacity_limited_examples",
+    "cafe_takeout_only_all_day", "franchise_cafe_takeout_only_all_day",
+})
+
+
 def _effective(reg: dict, key: str):
-    """값이 없으면 직전 구간에서 이어받은 실효값. 원자료가 변경분만 적기 때문."""
+    """값이 없으면 직전 구간에서 이어받은 실효값. 원자료가 변경분만 적기 때문.
+
+    단, **단계가 내려간 구간에서는 규제 항목을 이어받지 않는다.** 완화는
+    "안 적은 것"이 아니라 "풀린 것"이다.
+    """
     if reg.get(key) is not None:
         return reg[key]
+    my_level = reg.get("level")
     for prev in reversed(_regimes()):
         if str(prev.get("from")) >= str(reg.get("from")):
             continue
+        if key in _RESTRICTION_KEYS and my_level is not None:
+            pl = prev.get("level")
+            if pl is not None and float(pl) > float(my_level):
+                return None
         if prev.get(key) is not None:
             return prev[key]
     return None
@@ -122,7 +143,8 @@ def _materially_changed(reg: dict) -> bool:
     프롬프트에 만들어 넣지 않는다.
     """
     keys = ("level", "dine_in_cutoff", "private_meetings", "closed_facilities",
-            "other_22h_restricted_examples", "midnight_closing_examples",
+            "other_22h_restricted_examples", "other_21h_restricted_examples",
+            "midnight_closing_examples", "capacity_limited_examples",
             "vaccine_pass_examples", "vaccine_pass_expansion_examples")
     prev = None
     for r in _regimes():
@@ -163,7 +185,8 @@ def build(day: date) -> dict:
         after = _effective(reg, "after_cutoff") or "매장 취식 불가"
         facts.append(f"식당·카페 매장 취식 {cutoff}까지. 이후 {after}")
         # 같은 시간제한이 걸린 다른 시설. 학원·영화관·PC방은 소비처라 행동에 직접 닿는다.
-        others = _effective(reg, "other_22h_restricted_examples")
+        others = (_effective(reg, "other_22h_restricted_examples")
+                  or _effective(reg, "other_21h_restricted_examples"))
         if others:
             facts.append(f"{cutoff}까지 운영 제한: " + "·".join(str(x) for x in others))
     else:
@@ -189,14 +212,10 @@ def build(day: date) -> dict:
             line += " / 확대: " + "·".join(str(x) for x in ext)
         facts.append(line)
 
-    closed = reg.get("closed_facilities")
-    if closed is None:
-        for prev in reversed(_regimes()):
-            if str(prev.get("from")) >= str(reg.get("from")):
-                continue
-            if prev.get("closed_facilities") is not None:
-                closed = prev["closed_facilities"]
-                break
+    # 이어받기는 _effective 로 일원화한다. 자체 루프를 두면 단계 완화 시
+    # 규제를 이어받지 않는 규칙이 적용되지 않는다(2020-10-12 1단계에서 유흥
+    # 집합금지가 따라붙던 버그).
+    closed = _effective(reg, "closed_facilities")
     if closed:
         facts.append("집합금지: " + "·".join(str(c) for c in closed))
 
