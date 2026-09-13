@@ -115,24 +115,49 @@ _RESTRICTION_KEYS = frozenset({
 
 
 def _effective(reg: dict, key: str):
-    """값이 없으면 직전 구간에서 이어받은 실효값. 원자료가 변경분만 적기 때문.
+    """값이 없으면 **연속된** 직전 구간에서 이어받은 실효값.
 
-    단, **단계가 내려간 구간에서는 규제 항목을 이어받지 않는다.** 완화는
-    "안 적은 것"이 아니라 "풀린 것"이다.
+    원자료가 변경분만 적기 때문에 빈 항목은 대개 "그대로"다. 다만 두 가지
+    경우에는 이어받으면 안 된다.
+
+    ① **단계가 내려간 구간** — 완화는 "안 적은 것"이 아니라 "풀린 것"이다.
+       (2020-11-05 는 1단계인데 8/30 2.5단계의 21시 제한이 붙어 있었다.
+        8대 소비쿠폰 홀드아웃 관측창 2020-10-30~11-22 가 정확히 이 구간이다.)
+
+    ② **일정이 끊긴 구간** — 자료에 없는 기간은 "규제가 그대로였다"는 뜻이
+       아니다. 2021-01-18~08-22 는 수록하지 않았는데, 이어받기가 그 공백을
+       건너뛰어 2021-08-25(4단계) 가 2020-12 목록을 물려받았다.
     """
     if reg.get(key) is not None:
         return reg[key]
+    regs = _regimes()
+    try:
+        idx = next(i for i, r in enumerate(regs)
+                   if str(r.get("from")) == str(reg.get("from")))
+    except StopIteration:
+        return None
     my_level = reg.get("level")
-    for prev in reversed(_regimes()):
-        if str(prev.get("from")) >= str(reg.get("from")):
-            continue
+    nxt_from = str(reg.get("from"))
+    for i in range(idx - 1, -1, -1):
+        prev = regs[i]
+        # ② 연속성 — 직전 구간의 until 다음 날이 현재 구간 시작이어야 이어진다.
+        u = str(prev.get("until") or "")
+        if not u or _next_day(u) != nxt_from:
+            return None
+        # ① 완화 구간에서는 규제를 이어받지 않는다.
         if key in _RESTRICTION_KEYS and my_level is not None:
             pl = prev.get("level")
             if pl is not None and float(pl) > float(my_level):
                 return None
         if prev.get(key) is not None:
             return prev[key]
+        nxt_from = str(prev.get("from"))
     return None
+
+
+def _next_day(ds: str) -> str:
+    y, m, d = (int(x) for x in ds.split("-"))
+    return (date(y, m, d) + timedelta(days=1)).isoformat()
 
 
 def _materially_changed(reg: dict) -> bool:
