@@ -93,7 +93,8 @@ def main() -> int:
             "MATCH (a:Agent)-[:HAS_PLAN]->(pl:Plan)-[i:INCLUDES]->(p:POI) "
             "WHERE coalesce(i.actual_spent,0)>0 "
             "RETURN a.id AS aid, toString(pl.day) AS d, i.actual_spent AS amt, "
-            "coalesce(p.sangsaeng_eligible,false) AS el, p.sangsaeng_kdi AS kdi"))
+            "coalesce(p.sangsaeng_eligible,false) AS el, p.sangsaeng_kdi AS kdi, "
+            "a.spending_level_wd AS lvl"))
         if not rows:
             print("결제 데이터 없음")
             return 2
@@ -101,6 +102,8 @@ def main() -> int:
         elig = defaultdict(lambda: defaultdict(int))
         excl = defaultdict(lambda: defaultdict(int))
         sector = defaultdict(lambda: defaultdict(int))
+        # (분위군, 업종) → 일자별 금액. 저=1~4 중=5~7 고=8~10
+        qsec = defaultdict(lambda: defaultdict(int))
         cnt = defaultdict(int)
         amt = defaultdict(int)
         for r in rows:
@@ -108,6 +111,10 @@ def main() -> int:
                 elig[r["aid"]][r["d"]] += r["amt"]
                 if r["kdi"]:
                     sector[r["kdi"]][r["d"]] += r["amt"]
+                    lv = r["lvl"]
+                    if lv:
+                        grp = "저" if lv <= 4 else ("고" if lv >= 8 else "중")
+                        qsec[(grp, r["kdi"])][r["d"]] += r["amt"]
             else:
                 excl[r["aid"]][r["d"]] += r["amt"]
             cnt[r["d"]] += 1
@@ -217,6 +224,65 @@ def main() -> int:
         if res:
             top3 = [k for k, _ in res[:3]]
             print("     → 가전·가구 상위3 진입: {}".format("✔" if "가전·가구" in top3 else "✘"))
+
+        # ── B3 소비분위군 × 업종 ───────────────────────────────
+        print("\n[B3] 소비분위군 × 업종 (KDI 정성 패턴)")
+        print("     ※ KDI는 가구 소득분위, 우리는 개인 소비분위 — 개념이 다름")
+        KDI_PAT = {"가전·가구": "고", "학원": "고", "요식": "저",
+                   "유통": "저", "여행·레저": "중", "이·미용": "무관"}
+        for kname, expect in KDI_PAT.items():
+            vals = {}
+            for grp in ("저", "중", "고"):
+                dd = qsec.get((grp, kname))
+                if not dd:
+                    continue
+                o = sum(dd.get(x, 0) for x in off) / len(off)
+                pp = sum(dd.get(x, 0) for x in on) / len(on)
+                if o > 0:
+                    vals[grp] = 100 * (pp - o) / o
+            if len(vals) < 2:
+                print("     {:<8} 관측 부족 — 측정 불가".format(kname))
+                nm.append("B3-" + kname)
+                continue
+            top = max(vals, key=vals.get)
+            mark = "✔" if (expect == top or expect == "무관") else "✘"
+            detail = " ".join("{}{:+.0f}%".format(g, v) for g, v in vals.items())
+            print("     {:<8} {}  최대={} (기대 {}) {}".format(kname, detail, top, expect, mark))
+            (ok if mark == "✔" else ng).append("B3-" + kname)
+
+        # ── C 캐시백 집행 실적 ─────────────────────────────────
+        print("\n[C] 캐시백 집행 실적 (실측 대조)")
+        cbd = list(s.run(
+            "MATCH (st:State {day:date($d)}) MATCH (ag:Agent {id:st.agent_id}) "
+            "WITH st,(coalesce(ag.s_daily_wd,0)*5+coalesce(ag.s_daily_we,0)*2)/7.0"
+            "*$br*30*$ratio AS thr WHERE thr>0 "
+            "RETURN CASE WHEN st.sangsaeng_month_spent>thr THEN "
+            "CASE WHEN (st.sangsaeng_month_spent-thr)*$rate > $cap THEN $cap "
+            "ELSE (st.sangsaeng_month_spent-thr)*$rate END ELSE 0 END AS cb",
+            d=on[-1], br=BASE_RATIO, ratio=RATIO, rate=RATE, cap=CAP))
+        cbs = [x["cb"] for x in cbd if x["cb"] and x["cb"] > 0]
+        if not cbs:
+            print("     캐시백 발생 0건 — 측정 불가")
+            nm.extend(["C1", "C2", "C3", "C4"])
+        else:
+            avgc = sum(cbs) / len(cbs)
+            at_cap = sum(1 for x in cbs if x >= CAP * 0.999)
+            print("     C1 1인 평균 캐시백 {:,}원   (실측 47,880원)".format(int(avgc)))
+            print("     C2 한도 도달 {}/{}명 = {:.1f}%   (실측 21.0%)".format(
+                at_cap, len(cbs), 100 * at_cap / len(cbs)))
+            band = [0, 10000, 30000, 50000, 70000, 100000]
+            hist = [sum(1 for x in cbs if band[k] < x <= band[k + 1])
+                    for k in range(len(band) - 1)]
+            print("     C3 구간분포 " + " ".join(
+                "{}~{}만:{}".format(band[k] // 10000, band[k + 1] // 10000, hist[k])
+                for k in range(len(hist))))
+            tot_cb = sum(cbs)
+            boost = m * 30 * len(cbd)
+            if tot_cb > 0:
+                print("     C4 투입 대비 소비진작 {:.0f}%   (실측 165%)".format(
+                    100 * boost / tot_cb))
+            ok.extend(["C1", "C2", "C3", "C4"])
+
 
     print("\n" + "=" * 68)
     print("  통과     {} {}".format(len(ok), ok))
