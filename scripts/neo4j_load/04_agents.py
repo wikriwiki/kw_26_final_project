@@ -73,6 +73,12 @@ def transform(agent: dict) -> dict:
         "spending_level_wd": sp.get("weekday_spending_level"),
         "spending_level_we": sp.get("weekend_spending_level"),
         "spending_we_wd_ratio": sp.get("weekend_weekday_spending_ratio"),
+        # [이름 정합 2026-09-13] dawn_context.PERSONA_CYPHER 는 a.cat_ratio_wd 를 읽는데
+        # 여기서 spending_top_wd_json 으로 써서 _cat_line() 이 늘 '(미상)' 이었다.
+        # 업종 구성 채널이 죽어 여가 이벤트가 BDC 기준선의 11.5배까지 부풀었다.
+        # 읽는 쪽 이름을 정본으로 하고, 구 이름은 하위호환으로 함께 남긴다.
+        "cat_ratio_wd": json.dumps(sp.get("weekday_top_categories") or {}, ensure_ascii=False),
+        "cat_ratio_we": json.dumps(sp.get("weekend_top_categories") or {}, ensure_ascii=False),
         "spending_top_wd_json": json.dumps(sp.get("weekday_top_categories") or {}, ensure_ascii=False),
         "spending_top_we_json": json.dumps(sp.get("weekend_top_categories") or {}, ensure_ascii=False),
         "s_daily_wd": sp.get("daily_spending_weekday"),
