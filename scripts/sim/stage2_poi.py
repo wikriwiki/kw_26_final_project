@@ -534,16 +534,13 @@ def build_stage2_prompt(
             budget_info += f" / 현재 잔액: {int(balance):,}원"
         # 평소 업종별 지출 구성(BDC 실측) — would_buy_anyway 판정의 근거.
         # 오늘 지출이 이 사람의 평소 패턴 안이었는지 밖이었는지를 볼 수 있어야 한다.
+        # Stage1 과 같은 줄을 쓴다 — 어휘가 갈리면 두 단계가 다른 기준으로 움직인다.
         _cat = ""
         try:
-            import json as _j
-            _raw = persona.get("cat_ratio_wd")
-            if _raw:
-                _d = _j.loads(_raw) if isinstance(_raw, str) else dict(_raw)
-                _top = sorted(_d.items(), key=lambda x: -float(x[1]))[:8]
-                _body = ", ".join(f"{k} {100*float(v):.0f}%" for k, v in _top if float(v) > 0.004)
-                if _body:
-                    _cat = "\n평소 업종별 지출 구성(카드 실측): " + _body
+            from bdc_category_map import line as _fold_line
+            _b = _fold_line(persona.get("cat_ratio_wd"))
+            if _b:
+                _cat = "\n" + _b
         except Exception:
             _cat = ""
         # 집안 내구재 상태 — Stage1 이 '냉장고 교체'를 계획했을 때 Stage2 가

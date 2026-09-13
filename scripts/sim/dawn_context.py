@@ -615,22 +615,22 @@ def _cat_line(p: dict) -> str:
     """평소 지출이 업종별로 어떻게 갈리는지 — BDC 실측 구성.
 
     이벤트 구성이 이 사람의 실제 소비 구성에서 벗어나지 않도록 사실로 제시한다.
-    (측정: 노출 전 여가 이벤트가 BDC 기준선의 8배, 교육 2배였다.)
+
+    [어휘 정합 2026-09-13] BDC 원본 이름을 그대로 주면 에이전트가 우리 어휘로
+    잘못 옮긴다. 7차에서 "취미/오락 10%" 를 L1 '여가' 로 읽어 여행사·유원지를
+    골랐고 여행·레저가 9.87% → 14.87% 로 악화했다(기준선 4.86%). 그래서
+    에이전트가 실제로 출력해야 하는 L1 12종으로 접어서 준다. bdc_category_map 참조.
     """
-    import json as _j
-    raw = p.get("cat_ratio_wd")
-    if not raw:
-        return "평소 업종별 지출 구성: (미상)"
     try:
-        d = _j.loads(raw) if isinstance(raw, str) else dict(raw)
-    except Exception:
-        return "평소 업종별 지출 구성: (미상)"
-    top = sorted(d.items(), key=lambda x: -float(x[1]))[:8]
-    body = ", ".join(f"{k} {100*float(v):.0f}%" for k, v in top if float(v) > 0.004)
-    # 구성은 **사실로만** 제시한다. "이 비중 안에서 움직여라"는 지시를 붙였더니 모든 지출이
-    # '어차피 했을 것'이 되어 MPC가 0.174→0.075로 무너졌다(T4·T5 측정). 목돈이 생기면 평소
-    # 패턴을 벗어나는 것이 곧 신규 소비이므로, 벗어나지 말라고 지시해서는 안 된다.
-    return "평소 업종별 지출 구성(카드 실측): " + body
+        from bdc_category_map import line as _fold_line
+    except ImportError:
+        try:
+            from .bdc_category_map import line as _fold_line   # type: ignore
+        except ImportError:
+            return "평소 업종별 지출 구성: (미상)"
+    out = _fold_line(p.get("cat_ratio_wd"))
+    return out or "평소 업종별 지출 구성: (미상)"
+
 
 def _format_environment(env: dict | None) -> str:
     """정책과 독립한 그날의 사회 배경.
