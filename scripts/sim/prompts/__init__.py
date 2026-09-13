@@ -23,7 +23,14 @@ from types import ModuleType
 
 from . import p010, p012
 
-_VARIANTS: dict[str, ModuleType] = {"p010": p010, "p012": p012}
+from . import v1, v2, v3, v4, v5, v6  # noqa: E402
+
+# p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
+# v1~v6 이 기전 중립 후보다 — 일반화 실험은 이 중에서 고른다.
+_VARIANTS: dict[str, ModuleType] = {
+    "p010": p010, "p012": p012,
+    "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v5": v5, "v6": v6,
+}
 DEFAULT = "p010"
 
 
