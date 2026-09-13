@@ -222,6 +222,20 @@ def build(day: date) -> dict:
         if mid:
             facts.append("24시까지 운영 제한: " + "·".join(str(x) for x in mid))
 
+    # 카페 전일 포장 제한 — 시간제한과 별개다. 2020-11-24 2단계는 식당이 21시
+    # 이후인 반면 **카페는 시간 무관 포장·배달만** 이었다. 우리 에이전트의 하루는
+    # 20시에 끝나 21시 제한은 물릴 곳이 거의 없지만(심야 결제 0.6%), 카페는
+    # 거래의 6% 라 이 사실이 빠지면 영업제한이 사실상 아무것도 안 하게 된다.
+    if _effective(reg, "cafe_takeout_only_all_day"):
+        facts.append("카페는 시간과 무관하게 매장 이용 불가, 포장·배달만 가능")
+    elif _effective(reg, "franchise_cafe_takeout_only_all_day"):
+        facts.append("프랜차이즈 커피전문점은 시간과 무관하게 포장·배달만 가능")
+
+    # 면적당 인원 제한이 걸린 시설 — 못 가는 것은 아니지만 붐비면 못 들어간다.
+    caps = _effective(reg, "capacity_limited_examples")
+    if caps:
+        facts.append("인원 제한 시설: " + "·".join(str(x) for x in caps))
+
     mline = _meeting_line(_effective(reg, "private_meetings") or {})
     if mline:
         facts.append(mline)
