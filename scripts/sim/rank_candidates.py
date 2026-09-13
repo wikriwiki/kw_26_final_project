@@ -83,6 +83,22 @@ def main() -> int:
                     help="판정 기준. 기본은 1단계=point, 그 외=ci")
     a = ap.parse_args()
     use_point = (a.by == "point") if a.by else (str(a.stage) == "1")
+    # 사전등록된 교란 표시 — 해당 단계에서 못 쓰는 지표를 순위에서 뺀다.
+    # 사후 지표 선택이 아니라 채점표에 미리 적어둔 사유를 적용하는 것이다.
+    drop_conf = str(a.stage) == "1"
+    conf: dict[str, bool] = {}
+    if drop_conf:
+        import json as _j
+        _t = _j.loads((Path(__file__).resolve().parents[2] / "data" /
+                       "experiments" / "scoring_table.json").read_text(encoding="utf-8"))
+        for _k, _v in _t.items():
+            if _k.startswith("_"):
+                continue
+            for _i in _v.get("indicators", []):
+                if _i.get("stage1_confounded"):
+                    conf[_i["id"]] = True
+        if conf:
+            print("1단계 교란으로 제외: " + ", ".join(sorted(conf)))
     print(f"판정 기준: {'평균 부호(거르기)' if use_point else '부트스트랩 구간(판정)'}")
 
     files = sorted(Path(a.dir).glob("*.json"))
@@ -96,11 +112,14 @@ def main() -> int:
     for f in files:
         d = json.loads(f.read_text(encoding="utf-8"))
         cand, pol = d.get("label") or f.stem.split("_")[0], d["policy"]
-        hs = [(r, hit_of(r, use_point)) for r in d["results"]]
+        rs = d["results"]
+        if drop_conf:
+            rs = [r for r in rs if not conf.get(r.get("id"))]
+        hs = [(r, hit_of(r, use_point)) for r in rs]
         hits = sum(1 for _, h in hs if h)
         scored = sum(1 for _, h in hs if h is not None)
-        ci_hits = sum(1 for r in d["results"] if r.get("hit"))
-        nul = [r for r in d["results"] if r.get("expect") == "0"
+        ci_hits = sum(1 for r in rs if r.get("hit"))
+        nul = [r for r in rs if r.get("expect") == "0"
                and r.get("hit") is not None]
         agg[cand][pol] = [hits, scored, sum(1 for r in nul if r["hit"]),
                           len(nul), ci_hits]
