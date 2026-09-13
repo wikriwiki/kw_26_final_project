@@ -49,6 +49,8 @@ _DEFAULT_CENTER = 0.74
 # 지운다'로 귀결됐다. 저장소 원래 값으로 되돌린다.
 TENDENCY_SHIFT = {"saver": -0.08, "spender": +0.08, "standard": 0.0}
 BAND = 0.12
+# 캐시백 정책 활성일의 소비성향 밴드. 지갑형과 달리 총액을 끌어올릴 다른 경로가 없다.
+CASHBACK_BAND = float(os.environ.get("EXP_CASHBACK_BAND", "0.30"))
 HARD_LO, HARD_HI = 0.15, 0.98
 # 하루 지출 중 배송 주문이 차지할 수 있는 최대 몫. LLM이 극단값을 답해도 하루 지출 전부가
 # 가게 밖으로 빠져나가 방문 일정이 유명무실해지지 않도록 하는 안전장치일 뿐, 목표값이 아니다.
@@ -139,14 +141,16 @@ def clamp_propensity(
     balance: float | int | None = None,
     daily_wd: float | int | None = None,
     tendency: str | None = None,
+    band: float | None = None,
 ) -> float:
     """LLM 소비성향 출력을 prior 중심 ± BAND 로 클램프. None이면 중심값 사용.
 
     통계 prior(소득별 MPC 골격)를 벗어나지 못하게 가드 → LLM 노이즈에도 MPC 순서 보존.
     """
     center = propensity_center(income_tier, balance, daily_wd, tendency)
-    lo = max(HARD_LO, center - BAND)
-    hi = min(HARD_HI, center + BAND)
+    _b = BAND if band is None else float(band)
+    lo = max(HARD_LO, center - _b)
+    hi = min(HARD_HI, center + _b)
     if p is None:
         return round(center, 4)
     try:
@@ -534,6 +538,8 @@ def apply_consumption_model(
     online_share: float | None = None,
     # 에이전트의 BDC 소비수준(1~10). 주어지면 위 실측 비중을 online_share보다 우선한다.
     spending_level: int | None = None,
+    # 캐시백형 정책(지갑 없음) 활성 여부. 소비성향 밴드 확장에만 쓴다.
+    cashback_active: bool = False,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
@@ -719,12 +725,23 @@ def apply_consumption_model(
         daily_wd=daily,
         tendency=tendency,
     )
+    # [캐시백 경로 2026-09-13]
+    # 지갑형 정책은 grant 가 spend_today 에서 별도로 더해져 총액을 끌어올린다. 캐시백은
+    # 지갑이 없어 그 경로가 없고, 유일한 통로인 소비성향(p)이 소득 prior ±BAND(0.12)로
+    # 묶여 있었다. 그래서 문턱 압박을 받아도 총액이 앵커에 고정되고, 이벤트만 늘어
+    # (4.33→5.38건) 같은 돈을 잘게 쪼개 건당 금액이 25~28% 떨어졌다. 실측에서는
+    # 요식·여행레저가 +13~14%였는데 우리는 −15~63%로 반대였다.
+    # 조치: 캐시백 활성일에만 밴드를 넓혀 Stage1 의 판단이 총액에 반영될 수 있게 한다.
+    # 폭을 넓힐 뿐 방향을 지시하지 않는다 — 더 쓸지 말지는 에이전트가 정하고,
+    # 문턱을 이미 넘겼거나 필요 없다고 보면 p 는 그대로 낮게 나온다.
+    _band = CASHBACK_BAND if cashback_active else None
     p = clamp_propensity(
         llm_propensity,
         income_tier,
         balance=balance,
         daily_wd=daily,
         tendency=tendency,
+        band=_band,
     )
     day_multiplier = p / center if center > 0 else 1.0
 
