@@ -87,6 +87,13 @@ def main() -> int:
     # 사후 지표 선택이 아니라 채점표에 미리 적어둔 사유를 적용하는 것이다.
     drop_conf = str(a.stage) == "1"
     conf: dict[str, bool] = {}
+    # 현재 채점표에 살아 있는 지표만 인정한다 — 결함이 드러나 제거된 지표가
+    # 과거 결과 파일에 남아 있어도 순위에 들어가지 않게 한다.
+    import json as _j0
+    _tb = _j0.loads((Path(__file__).resolve().parents[2] / "data" / "experiments"
+                     / "scoring_table.json").read_text(encoding="utf-8"))
+    live_ids = {i["id"] for k, v in _tb.items() if not k.startswith("_")
+                for i in v.get("indicators", [])}
     if drop_conf:
         import json as _j
         _t = _j.loads((Path(__file__).resolve().parents[2] / "data" /
@@ -115,6 +122,12 @@ def main() -> int:
         rs = d["results"]
         if drop_conf:
             rs = [r for r in rs if not conf.get(r.get("id"))]
+        # 본런 규모 지표는 짧은 런에서 구조적으로 못 낸다(예: 한도 10만원 도달은
+        # 정책 2일로 불가). 3단계 전까지는 채점에서 뺀다.
+        if str(a.stage) in ("1", "2"):
+            rs = [r for r in rs if r.get("scale") != "main"]
+        # 채점표에서 빠진 지표(사유와 함께 not_scorable 로 이동)는 무시한다.
+        rs = [r for r in rs if r.get("id") in live_ids or not live_ids]
         hs = [(r, hit_of(r, use_point)) for r in rs]
         hits = sum(1 for _, h in hs if h)
         scored = sum(1 for _, h in hs if h is not None)
@@ -126,6 +139,17 @@ def main() -> int:
         for r, h in hs:
             if h is False:
                 detail[cand].append(f"{pol}/{r['id']} 기대 {r['expect']} 실측 {r.get('got')}")
+
+    # [공정 비교] 후보마다 끝난 정책 수가 다르면 어려운 정책이 빠진 후보가
+    # 유리해진다. 모든 후보가 가진 정책으로만 순위를 낸다. 부분 결과를 중간에
+    # 들여다볼 때 순위가 뒤집히는 것을 막는 장치다.
+    common = set.intersection(*(set(v) for v in agg.values())) if agg else set()
+    skipped = sorted({p for v in agg.values() for p in v} - common)
+    if skipped:
+        print("공통 정책만 비교 — 제외: " + ", ".join(skipped))
+    if common:
+        agg = {c: {p: v for p, v in bp.items() if p in common}
+               for c, bp in agg.items()}
 
     rows = []
     for cand, bypol in agg.items():
