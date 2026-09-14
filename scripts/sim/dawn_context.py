@@ -82,6 +82,8 @@ RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.grant_remaining AS grant_remaining,
        s.grant_carry AS grant_carry,
        s.grant_plan_days AS grant_plan_days,
+       s.observations_json AS observations_json,
+       s.policy_appraisals_json AS policy_appraisals_json,
        // 상생 캐시백 실적 문턱 계산용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 NULL.
        s.sangsaeng_month_spent AS sangsaeng_month_spent
 """

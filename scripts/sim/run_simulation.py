@@ -33,6 +33,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import copy
 import os
 import shutil
 import sys
@@ -53,6 +54,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import build_dawn_context  # noqa: E402
+from experience import receipts, observation_window, update_appraisals
 from environments import build_environment  # noqa: E402
 
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
@@ -409,6 +411,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             pre_review_picks=m2.get("pre_review_picks"),
         )
 
+        attempted_decisions = copy.deepcopy(events)
+
         # ── 소비성향(propensity) 모델 — Problem B (EconAgent 방식) ──
         # Stage2 절대 계획금액·POI 가격대를 보존하고, Stage1의 평소 대비 오늘 소비의향을
         # 곱한다. 지원금 잔액은 총액에 더하지 않으며, 계획된 사용 가능 거래액 범위의
@@ -519,6 +523,17 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 if l1:
                     active_policy_cats.add(l1)
 
+        execution_receipts = receipts(
+            aid, today, attempted_decisions, events, ctx.policy,
+            os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
+        )
+        # Validation uses ONLY the previous observation window shown to Stage1.
+        policy_appraisals, appraisal_changes, appraisal_rejections = update_appraisals(
+            aid, today, ctx.state, ctx.persona, getattr(s1, "policy_appraisals", []),
+        )
+        observations = observation_window(
+            (ctx.state or {}).get("observations_json"), execution_receipts,
+        )
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
         tokens_out = m1["tokens_out"] + (m2.get("tokens_out") or 0)
@@ -550,6 +565,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             grant_plan_days=int((cm_meta or {}).get("grant_plan_days_effective") or 0),
             # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
             today_online_spent=int((cm_meta or {}).get("online_total") or 0),
+            execution_receipts=execution_receipts,
+            observations=observations,
+            policy_appraisals=policy_appraisals,
+            appraisal_changes=appraisal_changes,
         )
 
         # 만족도 평균
@@ -568,6 +587,15 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
 
         return {
             "aid": aid, "status": "ok",
+            "experience_day": today.isoformat(),
+            "experience_version": 1,
+            "experience_run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
+            "experience_group": {k: ctx.persona.get(k) for k in ("income", "job", "life_stage")},
+            "experience_policy_ids": [p["id"] for p in ctx.policy if p.get("id")],
+            "execution_receipts": execution_receipts,
+            "policy_appraisals": policy_appraisals,
+            "appraisal_changes": appraisal_changes,
+            "appraisal_rejections": appraisal_rejections,
             "elapsed": round(time.time() - t0, 2),
             # 단계별 timing (병목 분석용)
             **{f"timing_{k}": v for k, v in timing.items()},

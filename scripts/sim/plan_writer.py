@@ -58,6 +58,7 @@ CREATE (p)-[:INCLUDES {
   anchor: ev.anchor,
   with_agents: ev.with_agents,
   actual_satisfaction: ev.actual_satisfaction,
+  execution_event_id: ev.execution_event_id,
   expected_satisfaction: ev.expected_satisfaction,
   purchase_status: ev.purchase_status,
   desired_spent: ev.desired_spent,
@@ -521,7 +522,11 @@ SET s.agent_id = $aid,
     // 지원금을 받은 시점에 세운 사용 계획(일). 매일 다시 잡지 않고 그대로 이어 간다 —
     // 매일 재판단하면 잔액이 줄수록 기간을 짧게 답해 소진이 가속되는데, 실측 곡선은 반대로
     // 감속한다(표1: 4주 76.4 → 5~8주 주당 4.1%p → 9~12주 주당 1.2%p).
-    s.grant_plan_days = $grant_plan_days
+    s.grant_plan_days = $grant_plan_days,
+    s.execution_receipts_json = $execution_receipts_json,
+    s.observations_json = $observations_json,
+    s.policy_appraisals_json = $policy_appraisals_json,
+    s.appraisal_changes_json = $appraisal_changes_json
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
@@ -538,6 +543,10 @@ def night_create_state(
     grant_carry: int = 0,
     grant_plan_days: int = 0,
     today_online_spent: int = 0,
+    execution_receipts: list | None = None,
+    observations: list | None = None,
+    policy_appraisals: dict | None = None,
+    appraisal_changes: list | None = None,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -574,7 +583,11 @@ def night_create_state(
                   today_policy_spent=int(today_policy_spent or 0),
                   grant_carry=int(grant_carry or 0),
                   grant_plan_days=int(grant_plan_days or 0),
-                  today_online_spent=int(today_online_spent or 0)).single()
+                  today_online_spent=int(today_online_spent or 0),
+                  execution_receipts_json=_json.dumps(execution_receipts or [], ensure_ascii=False),
+                  observations_json=_json.dumps(observations or [], ensure_ascii=False),
+                  policy_appraisals_json=_json.dumps(policy_appraisals or {}, ensure_ascii=False),
+                  appraisal_changes_json=_json.dumps(appraisal_changes or [], ensure_ascii=False)).single()
         return dict(r) if r else {}
 
 
