@@ -58,6 +58,9 @@ CREATE (p)-[:INCLUDES {
   anchor: ev.anchor,
   with_agents: ev.with_agents,
   actual_satisfaction: ev.actual_satisfaction,
+  expected_satisfaction: ev.expected_satisfaction,
+  purchase_status: ev.purchase_status,
+  desired_spent: ev.desired_spent,
   actual_spent: coalesce(ev.actual_spent, 0),
   // 정책 지원금에서 사용한 금액 JSON 형태 ({"P009": 5000})
   // 분석 시: 정책별 사용처/누적 사용액 추적 가능
@@ -392,6 +395,7 @@ WITH a, p, i, poi,
      'mem_vis_' + a.id + '_' + poi.id + '_' + $yesterday + '_' + toString(i.order) AS mem_id
 MERGE (m:Memory {id: mem_id})
   ON CREATE SET
+    m.visit_update_pending = true,
     m.type = 'visited',
     m.day = date($yesterday),
     m.importance = importance,
@@ -409,6 +413,9 @@ MERGE (m:Memory {id: mem_id})
 MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 MERGE (m)-[:ABOUT_POI]->(poi)
 
+// Existing legacy memories already contributed to visit aggregates.
+WITH a, poi, i, m
+WHERE coalesce(m.visit_update_pending, false)
 // KNOWS_POI MERGE + 집계 갱신
 // recent_visit_dates: 30일 슬라이딩 윈도우 (saturation 계산용).
 // Python 등가: scripts.sim.visit_window.trim_and_push_visit
@@ -427,6 +434,7 @@ ON MATCH SET
     [d IN coalesce(kp.recent_visit_dates, [])
      WHERE duration.inDays(d, date($yesterday)).days < 30]
     + [date($yesterday)]
+SET m.visit_update_pending = false
 RETURN count(m) AS n_memories
 """
 

@@ -530,12 +530,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
         timing["t_write_plan"] = round(time.time() - _t, 3)
 
-        # Night Phase — Day 1 새벽엔 어제(Day 0) Plan 없으므로 finalize는 Day 2 이상에서만
-        n_mem = 0
-        if day_idx >= 1:
-            _t = time.time()
-            n_mem = night_finalize_yesterday(aid, today)
-            timing["t_night_finalize"] = round(time.time() - _t, 3)
+        # Complete today's visit memory before the next Dawn, including the last day.
+        _t = time.time()
+        n_mem = night_finalize_yesterday(aid, today + timedelta(days=1))
+        timing["t_night_finalize"] = round(time.time() - _t, 3)
         # 정책 인지 상태 — 어제 lifecycle에 오늘 Dawn 정책 ID를 true로 병합
         merged_policy_lifecycle = _merge_policy_lifecycle(
             (ctx.state or {}).get("policy_lc"),

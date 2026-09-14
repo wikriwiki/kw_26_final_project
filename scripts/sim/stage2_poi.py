@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import sys
@@ -891,7 +892,7 @@ def call_stage2(
             hallucinations = 0          # 보정 (해당 order의 cands에 없지만 cands는 존재)
             hallucinations_dropped = 0  # 드롭 (해당 order에 cands 자체 없음)
             order_mismatch = 0          # LLM이 다른 order의 POI를 가져옴 (보정 카운트에 포함)
-            rng = _random.Random(hash(aid))
+            rng = _random.Random(int.from_bytes(hashlib.sha256(aid.encode("utf-8")).digest()[:8], "big"))
             # 전체 cands flat — order 추적용 (어느 다른 order에 속하는지 진단)
             poi_to_orders: dict[str, list[int]] = {}
             for ord_i, cs in cands_by_order.items():
@@ -1026,7 +1027,7 @@ def _fill_missing_picks(
     import random as _random
     picked_orders = {p.order for p in stage2.picks}
     new_picks = list(stage2.picks)
-    rng = _random.Random(hash(aid) if aid else 42)
+    rng = _random.Random(int.from_bytes(hashlib.sha256(aid.encode("utf-8")).digest()[:8], "big") if aid else 42)
     for i, ev in enumerate(stage1_events):
         if i in picked_orders:
             continue

@@ -437,6 +437,8 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
             raw = resp.choices[0].message.content
             data_json = json.loads(_extract_json(raw))
             parsed = IntentOutput.model_validate(data_json)
+            if (parsed.initiator_id, parsed.recipient_id) != pair_key:
+                raise ValueError("conversation participants differ from selected pair")
             return {
                 "intent": parsed.intent,
                 "initiator_id": parsed.initiator_id,
@@ -528,16 +530,20 @@ MATCH (c:Conversation {id:r.cid})
 MATCH (b:Agent {id:r.recipient})
 MATCH (m:Memory {id:r.mem_id})
 WITH r, c, b, m
-OPTIONAL MATCH (poi:POI) WHERE r.topic_type = 'poi'
-  AND (poi.id = r.topic_value OR poi.name = r.topic_value)
+CALL {
+  WITH r
+  OPTIONAL MATCH (candidate:POI) WHERE r.topic_type = 'poi'
+    AND (candidate.id = r.topic_value OR candidate.name = r.topic_value)
+  WITH candidate ORDER BY candidate.id
+  RETURN head(collect(candidate)) AS poi
+}
 WITH r, c, b, m, poi
-ORDER BY poi.id LIMIT 1
 FOREACH (_ IN CASE WHEN poi IS NOT NULL THEN [1] ELSE [] END |
   MERGE (c)-[:MENTIONS_POI]->(poi)
   MERGE (b)-[kp:KNOWS_POI]->(poi)
     ON CREATE SET kp.since = c.day, kp.source = 'rumor',
                   kp.visit_count = 0, kp.affinity = 0.5
-    ON MATCH  SET kp.affinity = kp.affinity + (1.0 - kp.affinity) * 0.15
+    // Exposure creates knowledge; preference requires recipient appraisal.
   CREATE (m)-[:ABOUT_POI]->(poi)
 )
 """
@@ -557,9 +563,14 @@ FOREACH (_ IN CASE WHEN pol IS NOT NULL THEN [1] ELSE [] END |
 LINK_APPOINTMENT_EXTRA_CYPHER = """
 UNWIND $rows AS r
 MATCH (c:Conversation {id:r.cid})
-OPTIONAL MATCH (poi:POI) WHERE r.meeting_hint IS NOT NULL
-  AND (poi.name = r.meeting_hint OR poi.id = r.meeting_hint)
-WITH c, poi ORDER BY poi.id LIMIT 1
+CALL {
+  WITH r
+  OPTIONAL MATCH (candidate:POI) WHERE r.meeting_hint IS NOT NULL
+    AND (candidate.name = r.meeting_hint OR candidate.id = r.meeting_hint)
+  WITH candidate ORDER BY candidate.id
+  RETURN head(collect(candidate)) AS poi
+}
+WITH c, poi
 FOREACH (_ IN CASE WHEN poi IS NOT NULL THEN [1] ELSE [] END |
   MERGE (c)-[:MENTIONS_POI]->(poi)
 )
