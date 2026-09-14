@@ -33,6 +33,8 @@ try:
 except Exception:
     pass
 
+NULL_BAND = 0.10
+
 TABLE = (Path(__file__).resolve().parents[2] / "data" / "experiments"
          / "scoring_table.json")
 
@@ -280,13 +282,20 @@ def main() -> int:
             continue
         m = sum(d) / len(d)
         lo, hi = boot_ci(d)
-        got = sign_of(lo, hi)
-        hit = (got == expect)
+        base = sum(off[x] for x in on if x in off) / max(1, len(d))
+        if expect == "0":
+            # 동등성 검정 — 구간이 기준선 ±10% 밴드 **안에** 들어야 적중.
+            # "구간이 0 을 포함하는가"로 보면 잡음이 큰 후보가 저절로 통과한다.
+            band = NULL_BAND * abs(base) if base else 0.0
+            got = "0" if (band > 0 and -band <= lo and hi <= band) else "≠0"
+            hit = (got == "0")
+        else:
+            got = sign_of(lo, hi)
+            hit = (got == expect)
         agree = split_half_agree(off, on)
         # 순위 지표용으로 평균 변화율을 남긴다
-        base = sum(off[x] for x in on if x in off) / max(1, len(d))
         ranks[name] = (m / base * 100) if base else 0.0
-        results.append({**ind, "got": got, "hit": hit, "mean": m,
+        results.append({**ind, "got": got, "hit": hit, "mean": m, "base": base,
                        "ci": [lo, hi], "n": len(d), "split_agree": agree})
         mark = "O" if hit else "X"
         print(f"  {ind['id']:<8} {ind['desc'][:44]:<46} "

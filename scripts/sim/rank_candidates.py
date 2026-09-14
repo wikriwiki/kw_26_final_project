@@ -94,6 +94,11 @@ def main() -> int:
                      / "scoring_table.json").read_text(encoding="utf-8"))
     live_ids = {i["id"] for k, v in _tb.items() if not k.startswith("_")
                 for i in v.get("indicators", [])}
+    stage_excl = set()
+    if str(a.stage) == "2":
+        stage_excl = set((_tb.get("_meta") or {}).get("stage2_excluded") or {})
+        if stage_excl:
+            print("2단계 제외(채점 방식 변경): " + ", ".join(sorted(stage_excl)))
     if drop_conf:
         import json as _j
         _t = _j.loads((Path(__file__).resolve().parents[2] / "data" /
@@ -128,6 +133,9 @@ def main() -> int:
             rs = [r for r in rs if r.get("scale") != "main"]
         # 채점표에서 빠진 지표(사유와 함께 not_scorable 로 이동)는 무시한다.
         rs = [r for r in rs if r.get("id") in live_ids or not live_ids]
+        # 단계별 제외 — 채점 방식이 중간에 바뀌어 후보 간 기준이 달라진 지표.
+        if stage_excl:
+            rs = [r for r in rs if r.get("id") not in stage_excl]
         hs = [(r, hit_of(r, use_point)) for r in rs]
         hits = sum(1 for _, h in hs if h)
         scored = sum(1 for _, h in hs if h is not None)
