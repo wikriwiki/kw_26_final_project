@@ -37,10 +37,13 @@ def _one(name: str, spec: dict) -> str:
         s = f"{name} {lo:,}원 이상 {n}회 결제하면 다음 결제에서 {rb:,}원 환급"
         w = spec.get("window")
         return s + (f" ({w} 결제만 인정)" if w else "")
-    if mode == "rate":
+    if mode in ("rate", "rate_rebate"):
         r = float(spec.get("rate") or 0) * 100
         cap = int(spec.get("cap") or 0)
-        s = f"{name} {r:.0f}% 할인"
+        # 할인(결제 시 깎임)과 환급(나중에 돌려받음)은 소비 시점이 다르다.
+        # 정책 설명과 기전 줄의 표현이 어긋나면 에이전트가 다른 사실을 본다.
+        verb = "환급" if mode == "rate_rebate" else "할인"
+        s = f"{name} {r:.0f}% {verb}"
         return s + (f" (최대 {cap:,}원)" if cap else "")
     if mode == "flat":
         return f"{name} {int(spec.get('amount') or 0):,}원 할인"

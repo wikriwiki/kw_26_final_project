@@ -302,5 +302,70 @@
       ],
       "excluded_reason": "소상공인 상가정보에 없어 POI 0"
     }
+  },
+  "PLACEBO_FAKE": {
+    "mechanism": "sector_voucher",
+    "answer_key": "없음 — 위약. 기전 처리 여부를 보는 검정이다.",
+    "purpose": "lookahead bias 검정. 실재하지 않은 정책에도 기전에 맞게 반응하면 모델이 기전을 처리하는 것이고, 무반응이면 실제 정책의 결과를 외운 것이다.",
+    "window": {
+      "start": "2021-10-07",
+      "days": 6,
+      "day0": "2021-10-06",
+      "policy": "P090",
+      "off": "2021-10-07:2021-10-08",
+      "on": "2021-10-11:2021-10-12"
+    },
+    "indicators": [
+      {
+        "id": "PL-1",
+        "expect": "+",
+        "scale": "short",
+        "metric": "sector_spend:의류",
+        "desc": "의류 지출 증가 — 가짜 정책의 대상 업종"
+      },
+      {
+        "id": "PL-2",
+        "expect": "0",
+        "scale": "short",
+        "metric": "sector_spend:식사",
+        "desc": "대상 아닌 업종은 무반응 — 위약이 아무 데나 효과를 만들지 않는지"
+      }
+    ]
+  },
+  "PLACEBO_TIMING": {
+    "mechanism": "none",
+    "answer_key": "없음 — 시점 위약. 정책도 레짐 변화도 없는 구간이다.",
+    "purpose": "가정이 맞다면 효과가 없어야 하는 자리다. 효과가 나오면 워밍업 추세·요일 교란 같은 설계 결함이 있다는 뜻이다(인과추론의 음성대조).",
+    "window": {
+      "start": "2021-10-07",
+      "days": 6,
+      "day0": "2021-10-06",
+      "policy": "",
+      "off": "2021-10-07:2021-10-08",
+      "on": "2021-10-11:2021-10-12"
+    },
+    "indicators": [
+      {
+        "id": "PT-1",
+        "expect": "0",
+        "scale": "short",
+        "metric": "total_spend_paired",
+        "desc": "총지출 무변 — 정책이 없으므로"
+      },
+      {
+        "id": "PT-2",
+        "expect": "0",
+        "scale": "short",
+        "metric": "elig_spend_paired",
+        "desc": "적립업종 지출 무변"
+      },
+      {
+        "id": "PT-3",
+        "expect": "0",
+        "scale": "short",
+        "metric": "sector_spend:식사",
+        "desc": "식사 지출 무변"
+      }
+    ]
   }
 }
