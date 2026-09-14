@@ -157,7 +157,11 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
         if subs:
             f = lambda x: (x["l1"] in subs)          # noqa: E731
         else:
-            f = lambda x: (x["kdi"] == key or x["l1"] == key)   # noqa: E731
+            # KDI 8분류·L1 12종·세분류(Category.name) 어느 쪽 이름으로도 지정할 수
+            # 있게 한다. 세분류를 빠뜨리면 위약의 대상 업종(의류 등)이 매칭되지
+            # 않아 반응이 있어도 0 으로 읽힌다.
+            f = lambda x: (x["kdi"] == key or x["l1"] == key
+                           or x.get("sub") == key)   # noqa: E731
         return both(lambda r, d, f=f: per_agent_daily(r, d, f))
     if name == "late_night_share":
         f = lambda x: ((_hour(x["t"]) or 0) >= 21)   # noqa: E731
