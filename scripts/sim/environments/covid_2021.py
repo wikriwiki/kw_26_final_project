@@ -259,7 +259,13 @@ def build(day: date) -> dict:
         facts.append("집합금지: " + "·".join(str(c) for c in closed))
 
     level = reg.get("level")
-    headline = f"수도권 사회적 거리두기 {level}단계" if level else "수도권 방역 조치 시행 중"
+    # 단계 숫자가 이름이 아닌 구간이 있다. 5단계 체계는 2020-11-07 부터다 —
+    # 그 전을 "1단계" 로 적으면 당시 없던 이름을 보여 주는 셋이 된다.
+    # 일정에 headline 이 적혀 있으면 그것을 쓴다.
+    headline = (reg.get("headline") or "").strip() if isinstance(reg, dict) else ""
+    if not headline:
+        headline = (f"수도권 사회적 거리두기 {level}단계" if level
+                    else "수도권 방역 조치 시행 중")
     fy, fm, fd = (int(x) for x in str(reg.get("from")).split("-"))
     # 구간이 나뉘어도 내용이 같으면 시민에게는 바뀐 게 없다. 자료상 경계일 뿐인데
     # "오늘부터 바뀐다"를 띄우면 있지도 않은 변화를 프롬프트에 만들어 넣게 된다.
