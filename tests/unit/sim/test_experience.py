@@ -23,7 +23,8 @@ def receipt_state():
 
 def proposal(eid, **kwargs):
     return dict(policy_id='P', stance='mixed', reason='혜택은 있지만 개인 부담도 고려한다.',
-                evidence_ids=[eid], persona_refs=['income'], **kwargs)
+                evidence_ids=[eid], persona_refs=['income'],
+                claims=[dict(event_id=eid,field='policy_eligible',value=True)], **kwargs)
 
 
 def test_receipt_is_final_fact_and_plan_is_archived_separately():
@@ -101,6 +102,7 @@ def test_two_day_runner_connects_receipts_to_existing_stage1(monkeypatch):
     # DB and LLM are replaced at their boundaries; the real process_one,
     # consumption, validator, experience updates and metrics path are exercised.
     import run_simulation as runner
+    from contextlib import nullcontext
     from dawn_context import DawnContext
     snapshot = {'balance': 100000}
     calls = []
@@ -123,6 +125,9 @@ def test_two_day_runner_connects_receipts_to_existing_stage1(monkeypatch):
         snapshot['grant_received'] = kwargs['grant_received']
         snapshot['grant_remaining'] = kwargs['grant_remaining']
         return {'balance':100000,'mood':.5,'fatigue':.3}
+    monkeypatch.setattr(runner.agent_day_store, 'load_completed', lambda *a: None)
+    monkeypatch.setattr(runner.agent_day_store, 'transaction', lambda *a: nullcontext(object()))
+    monkeypatch.setattr(runner.agent_day_store, 'save_result', lambda tx,result: result)
     monkeypatch.setattr(runner, 'build_dawn_context', dawn)
     monkeypatch.setattr(runner, 'build_environment', lambda *a: {})
     monkeypatch.setattr(runner, 'call_stage1', stage1)
@@ -131,7 +136,7 @@ def test_two_day_runner_connects_receipts_to_existing_stage1(monkeypatch):
         poi_id='C',category='식사',actual_spent=12000,actual_satisfaction=.8,
         policy_spend={'P':12000},coupon_eligible=True,price_factor=1)])
     monkeypatch.setattr(runner, 'write_plan', lambda *a,**k: ('plan',1))
-    monkeypatch.setattr(runner, 'night_finalize_yesterday', lambda *a: 0)
+    monkeypatch.setattr(runner, 'night_finalize_yesterday', lambda *a, **k: 0)
     monkeypatch.setattr(runner, 'night_create_state', write_state)
     first = runner.process_one('A', date(2026,9,14),0)
     second = runner.process_one('A', date(2026,9,15),1)

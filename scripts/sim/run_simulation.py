@@ -55,6 +55,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import build_dawn_context  # noqa: E402
 from experience import receipts, observation_window, update_appraisals
+import agent_day_store
+from evidence_contract import money
+from experience_provenance import source_fingerprint, execution_fingerprint, atomic_json
 from environments import build_environment  # noqa: E402
 
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
@@ -284,11 +287,20 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
     t0 = time.time()
     timing: dict[str, float] = {}
     try:
+        run_identity = os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve())
+        completed = agent_day_store.load_completed(aid, today, run_identity)
+        if completed is not None:
+            return completed
         _t = time.time()
         ctx = build_dawn_context(aid, today)
         # 사회 배경(방역·유행 상황) 주입. 정책과 독립한 채널이라 수급·비수급,
         # 정책 유무와 무관하게 같은 날이면 모두에게 같은 세상이 주어진다.
         # SIM_ENVIRONMENT 가 없으면 {} 라 프롬프트에서 섹션이 통째로 생략된다.
+        # Missing/corrupt balance cannot silently become an unlimited budget.
+        money((ctx.state or {}).get("balance"))
+        if ctx.state.get("experience_run_id") not in (None, run_identity):
+            raise ValueError("previous State belongs to a different experience run")
+        ctx.state["_experience_agent_id"] = aid
         ctx.environment = build_environment(_SIM_ENV, today)
         timing["t_dawn"] = round(time.time() - _t, 3)
         if not ctx.persona:
@@ -537,149 +549,158 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
         tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
         tokens_out = m1["tokens_out"] + (m2.get("tokens_out") or 0)
-        _t = time.time()
-        _, n_inc = write_plan(
-            aid, today, events, day_type, tokens_in, tokens_out,
-            reviews_seen=m2.get("review_lookup_used"),
-            review_lookup_count=m2.get("review_lookup_count", 0),
-        )
-        timing["t_write_plan"] = round(time.time() - _t, 3)
+        with agent_day_store.transaction(aid, today, run_identity) as tx:
+            _t = time.time()
+            _, n_inc = write_plan(
+                aid, today, events, day_type, tokens_in, tokens_out,
+                reviews_seen=m2.get("review_lookup_used"),
+                review_lookup_count=m2.get("review_lookup_count", 0),
+                transaction=tx,
+            )
+            timing["t_write_plan"] = round(time.time() - _t, 3)
 
-        # Complete today's visit memory before the next Dawn, including the last day.
-        _t = time.time()
-        n_mem = night_finalize_yesterday(aid, today + timedelta(days=1))
-        timing["t_night_finalize"] = round(time.time() - _t, 3)
-        # 정책 인지 상태 — 어제 lifecycle에 오늘 Dawn 정책 ID를 true로 병합
-        merged_policy_lifecycle = _merge_policy_lifecycle(
-            (ctx.state or {}).get("policy_lc"),
-            ctx.policy,
-        )
-        state = night_create_state(
-            aid, today,
-            policy_used=updated_policy_used,
-            policy_lifecycle=merged_policy_lifecycle,
-            grant_received=merged_grant_received,
-            grant_remaining=merged_grant_remaining,
-            today_policy_spent=sum(today_policy_spend.values()),
-            grant_carry=int((cm_meta or {}).get("grant_carry_out") or 0),
-            grant_plan_days=int((cm_meta or {}).get("grant_plan_days_effective") or 0),
-            # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
-            today_online_spent=int((cm_meta or {}).get("online_total") or 0),
-            execution_receipts=execution_receipts,
-            observations=observations,
-            policy_appraisals=policy_appraisals,
-            appraisal_changes=appraisal_changes,
-        )
+            # Complete today's visit memory before the next Dawn, including the last day.
+            _t = time.time()
+            n_mem = night_finalize_yesterday(aid, today + timedelta(days=1), transaction=tx)
+            timing["t_night_finalize"] = round(time.time() - _t, 3)
+            # 정책 인지 상태 — 어제 lifecycle에 오늘 Dawn 정책 ID를 true로 병합
+            merged_policy_lifecycle = _merge_policy_lifecycle(
+                (ctx.state or {}).get("policy_lc"),
+                ctx.policy,
+            )
+            state = night_create_state(
+                aid, today,
+                policy_used=updated_policy_used,
+                policy_lifecycle=merged_policy_lifecycle,
+                grant_received=merged_grant_received,
+                grant_remaining=merged_grant_remaining,
+                today_policy_spent=sum(today_policy_spend.values()),
+                grant_carry=int((cm_meta or {}).get("grant_carry_out") or 0),
+                grant_plan_days=int((cm_meta or {}).get("grant_plan_days_effective") or 0),
+                # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
+                today_online_spent=int((cm_meta or {}).get("online_total") or 0),
+                execution_receipts=execution_receipts,
+                observations=observations,
+                policy_appraisals=policy_appraisals,
+                appraisal_changes=appraisal_changes,
+                transaction=tx,
+            )
 
-        # 만족도 평균
-        sats = [e["actual_satisfaction"] for e in events if e["actual_satisfaction"] is not None]
-        avg_sat = sum(sats) / len(sats) if sats else None
+            # 만족도 평균
+            sats = [e["actual_satisfaction"] for e in events if e["actual_satisfaction"] is not None]
+            avg_sat = sum(sats) / len(sats) if sats else None
 
-        # 정책 적용 이벤트 카운트 (사후 분석용 라벨 — modifier 아님)
-        # _policy_match로 자치구·카테고리 둘 다 매칭된 commerce 이벤트만 카운트
-        from plan_writer import _policy_match
-        home5 = (ctx.persona.get("home_dong_code") or "")[:5]
-        work5 = (ctx.persona.get("work_dong_code") or "")[:5]
-        policy_hits = sum(
-            1 for e in events
-            if e.get("poi_id") and any(_policy_match(e, p, home5, work5) for p in (ctx.policy or []))
-        )
+            # 정책 적용 이벤트 카운트 (사후 분석용 라벨 — modifier 아님)
+            # _policy_match로 자치구·카테고리 둘 다 매칭된 commerce 이벤트만 카운트
+            from plan_writer import _policy_match
+            home5 = (ctx.persona.get("home_dong_code") or "")[:5]
+            work5 = (ctx.persona.get("work_dong_code") or "")[:5]
+            policy_hits = sum(
+                1 for e in events
+                if e.get("poi_id") and any(_policy_match(e, p, home5, work5) for p in (ctx.policy or []))
+            )
 
-        return {
-            "aid": aid, "status": "ok",
-            "experience_day": today.isoformat(),
-            "experience_version": 1,
-            "experience_run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
-            "experience_group": {k: ctx.persona.get(k) for k in ("income", "job", "life_stage")},
-            "experience_policy_ids": [p["id"] for p in ctx.policy if p.get("id")],
-            "execution_receipts": execution_receipts,
-            "policy_appraisals": policy_appraisals,
-            "appraisal_changes": appraisal_changes,
-            "appraisal_rejections": appraisal_rejections,
-            "elapsed": round(time.time() - t0, 2),
-            # 단계별 timing (병목 분석용)
-            **{f"timing_{k}": v for k, v in timing.items()},
-            "n_events": len(events), "n_includes": n_inc,
-            "n_visited_memories": n_mem,
-            "avg_sat": round(avg_sat, 3) if avg_sat is not None else None,
-            "balance": state.get("balance"),
-            "mood": round(state.get("mood", 0), 3) if state else None,
-            "fatigue": round(state.get("fatigue", 0), 3) if state else None,
-            "tokens_in": tokens_in, "tokens_out": tokens_out,
-            "policy_hits": policy_hits,
-            # 정책 사용 트래킹 (옵션 A)
-            "grant_applied_today": sum(grants_applied_today.values()),
-            "grant_expired_today": sum(inactive_grant_remaining.values()),
-            "policy_spend_today": sum(today_policy_spend.values()),
-            "grant_remaining_total": sum(merged_grant_remaining.values()),
-            "policy_spend_corrected": policy_spend_corrected,
-            "cm_propensity": cm_meta.get("propensity"),
-            "s1_daily_propensity": getattr(s1, "daily_propensity", None),
-            "s1_grant_use": getattr(s1, "grant_use", None),
-            "s1_grant_style": getattr(s1, "grant_style", None),
-            "s1_grant_spread_days": getattr(s1, "grant_spread_days", None),
-            "s1_grant_plan_reason": getattr(s1, "grant_plan_reason", None),
-            "s1_grant_extra_spend": getattr(s1, "grant_extra_spend", None),
-            "s1_grant_kept_share": getattr(s1, "grant_kept_share", None),
-            "cm_substituted": cm_meta.get("substituted"),
-            "cm_intended_grant_today": cm_meta.get("intended_grant_today"),
-            "cm_grant_carry_in": cm_meta.get("grant_carry_in"),
-            "cm_grant_carry_out": cm_meta.get("grant_carry_out"),
-            "cm_grant_plan_days": cm_meta.get("grant_plan_days_effective"),
-            "cm_eligible_base": cm_meta.get("eligible_base"),
-            "cm_additional_from_grant": cm_meta.get("additional_from_grant"),
-            "cm_personal_total": cm_meta.get("personal_total"),
-            "cm_anchor_total": cm_meta.get("anchor_total"),
-            "cm_plan_over_anchor": cm_meta.get("plan_over_anchor"),
-            "cm_propensity_center": cm_meta.get("propensity_center"),
-            "cm_day_multiplier": cm_meta.get("day_multiplier"),
-            "cm_planned_total": cm_meta.get("planned_total"),
-            "cm_today_total": cm_meta.get("today_total"),
-            "cm_grant_choice_mode": cm_meta.get("grant_choice_mode"),
-            "cm_grant_choice_share_mean": cm_meta.get("grant_choice_share_mean"),
-            "cm_grant_posture": cm_meta.get("grant_posture"),
-            "cm_mpc_new_share": cm_meta.get("mpc_new_share"),
-            "spend_decile": ctx.persona.get("spend_decile"),
-            "cm_mpc_new_share_effective": cm_meta.get("mpc_new_share_effective"),
-            "cm_grant_extra_rate": cm_meta.get("grant_extra_rate"),
-            "s1_grant_use": getattr(s1, "grant_use", None),
-            "s1_grant_style": getattr(s1, "grant_style", None),
-            "cm_online_share_source": cm_meta.get("online_share_source"),
-            "cm_online_total": cm_meta.get("online_total"),
-            "cm_online_share": cm_meta.get("online_share_effective"),
-            "cm_today_total_incl_online": cm_meta.get("today_total_incl_online"),
-            "s1_online_share": getattr(s1, "online_share", None),
-            "cm_selected_policy_liquidity": cm_meta.get("selected_policy_liquidity", 0),
-            "cm_policy_requested_total": sum(
-                (cm_meta.get("policy_spend_requested") or {}).values()
-            ),
-            "cm_policy_allocated_total": cm_meta.get("policy_spend_allocated_total", 0),
-            "cm_policy_eligible_spend_total": cm_meta.get("policy_eligible_spend_total", 0),
-            "cm_policy_eligible_event_count": cm_meta.get("policy_eligible_event_count", 0),
-            "cm_policy_payment_coverage": cm_meta.get("policy_payment_coverage", 0),
-            "cm_policy_liquidity_relief": cm_meta.get("policy_liquidity_relief", 0),
-            "cm_mechanical_policy_uplift": cm_meta.get("mechanical_policy_uplift", 0),
-            "s1_attempts": m1["attempt"] + 1,
-            "s1_timing": m1.get("s1_timing"),
-            "prompt_timing": m1.get("prompt_timing"),
-            "dawn_timing": dict(ctx.dawn_timing),
-            "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
-            "s2_timing": m2.get("s2_timing"),
-            # Stage 2 fallback 카운트 (사후 분석용)
-            "review_lookup_count": m2.get("review_lookup_count", 0),
-            "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),
-            "fb_cand_sub_match": m2.get("cand_sub_match", 0),
-            "fb_cand_l1_dong": m2.get("cand_fallback_l1_dong", 0),
-            "fb_cand_l1_district": m2.get("cand_fallback_l1_district", 0),
-            "fb_cand_all_empty": m2.get("cand_all_empty", 0),
-            "fb_hallucinations_corrected": m2.get("hallucinations_corrected", 0),
-            "fb_hallucinations_dropped": m2.get("hallucinations_dropped", 0),
-            "fb_order_mismatch": m2.get("order_mismatch", 0),
-            "fb_missing_picks_filled": m2.get("missing_picks_filled", 0),
-            # 같은 (dong, sub_cat) 이벤트 후보 풀 분할 (같은 날 반복 방문 차단)
-            "fb_pool_split_groups": m2.get("pool_split_groups", 0),
-            "fb_pool_split_events": m2.get("pool_split_events", 0),
-        }
+            result = {
+                "aid": aid, "status": "ok",
+                "experience_day": today.isoformat(),
+                "experience_version": 2,
+                "source_fingerprint": source_fingerprint(),
+                "execution_fingerprint": execution_fingerprint(),
+                "decision_provenance": {"prompt_sha256": m1.get("prompt_sha256"), "model_id": m1.get("model_id")},
+                "experience_run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
+                "experience_group": {k: ctx.persona.get(k) for k in ("income", "job", "life_stage")},
+                "experience_policy_ids": [p["id"] for p in ctx.policy if p.get("id")],
+                "execution_receipts": execution_receipts,
+                "policy_appraisals": policy_appraisals,
+                "appraisal_changes": appraisal_changes,
+                "appraisal_rejections": appraisal_rejections,
+                "elapsed": round(time.time() - t0, 2),
+                # 단계별 timing (병목 분석용)
+                **{f"timing_{k}": v for k, v in timing.items()},
+                "n_events": len(events), "n_includes": n_inc,
+                "n_visited_memories": n_mem,
+                "avg_sat": round(avg_sat, 3) if avg_sat is not None else None,
+                "balance": state.get("balance"),
+                "mood": round(state.get("mood", 0), 3) if state else None,
+                "fatigue": round(state.get("fatigue", 0), 3) if state else None,
+                "tokens_in": tokens_in, "tokens_out": tokens_out,
+                "policy_hits": policy_hits,
+                # 정책 사용 트래킹 (옵션 A)
+                "grant_applied_today": sum(grants_applied_today.values()),
+                "grant_expired_today": sum(inactive_grant_remaining.values()),
+                "policy_spend_today": sum(today_policy_spend.values()),
+                "grant_remaining_total": sum(merged_grant_remaining.values()),
+                "policy_spend_corrected": policy_spend_corrected,
+                "cm_propensity": cm_meta.get("propensity"),
+                "s1_daily_propensity": getattr(s1, "daily_propensity", None),
+                "s1_grant_use": getattr(s1, "grant_use", None),
+                "s1_grant_style": getattr(s1, "grant_style", None),
+                "s1_grant_spread_days": getattr(s1, "grant_spread_days", None),
+                "s1_grant_plan_reason": getattr(s1, "grant_plan_reason", None),
+                "s1_grant_extra_spend": getattr(s1, "grant_extra_spend", None),
+                "s1_grant_kept_share": getattr(s1, "grant_kept_share", None),
+                "cm_substituted": cm_meta.get("substituted"),
+                "cm_intended_grant_today": cm_meta.get("intended_grant_today"),
+                "cm_grant_carry_in": cm_meta.get("grant_carry_in"),
+                "cm_grant_carry_out": cm_meta.get("grant_carry_out"),
+                "cm_grant_plan_days": cm_meta.get("grant_plan_days_effective"),
+                "cm_eligible_base": cm_meta.get("eligible_base"),
+                "cm_additional_from_grant": cm_meta.get("additional_from_grant"),
+                "cm_personal_total": cm_meta.get("personal_total"),
+                "cm_anchor_total": cm_meta.get("anchor_total"),
+                "cm_plan_over_anchor": cm_meta.get("plan_over_anchor"),
+                "cm_propensity_center": cm_meta.get("propensity_center"),
+                "cm_day_multiplier": cm_meta.get("day_multiplier"),
+                "cm_planned_total": cm_meta.get("planned_total"),
+                "cm_today_total": cm_meta.get("today_total"),
+                "cm_grant_choice_mode": cm_meta.get("grant_choice_mode"),
+                "cm_grant_choice_share_mean": cm_meta.get("grant_choice_share_mean"),
+                "cm_grant_posture": cm_meta.get("grant_posture"),
+                "cm_mpc_new_share": cm_meta.get("mpc_new_share"),
+                "spend_decile": ctx.persona.get("spend_decile"),
+                "cm_mpc_new_share_effective": cm_meta.get("mpc_new_share_effective"),
+                "cm_grant_extra_rate": cm_meta.get("grant_extra_rate"),
+                "s1_grant_use": getattr(s1, "grant_use", None),
+                "s1_grant_style": getattr(s1, "grant_style", None),
+                "cm_online_share_source": cm_meta.get("online_share_source"),
+                "cm_online_total": cm_meta.get("online_total"),
+                "cm_online_share": cm_meta.get("online_share_effective"),
+                "cm_today_total_incl_online": cm_meta.get("today_total_incl_online"),
+                "s1_online_share": getattr(s1, "online_share", None),
+                "cm_selected_policy_liquidity": cm_meta.get("selected_policy_liquidity", 0),
+                "cm_policy_requested_total": sum(
+                    (cm_meta.get("policy_spend_requested") or {}).values()
+                ),
+                "cm_policy_allocated_total": cm_meta.get("policy_spend_allocated_total", 0),
+                "cm_policy_eligible_spend_total": cm_meta.get("policy_eligible_spend_total", 0),
+                "cm_policy_eligible_event_count": cm_meta.get("policy_eligible_event_count", 0),
+                "cm_policy_payment_coverage": cm_meta.get("policy_payment_coverage", 0),
+                "cm_policy_liquidity_relief": cm_meta.get("policy_liquidity_relief", 0),
+                "cm_mechanical_policy_uplift": cm_meta.get("mechanical_policy_uplift", 0),
+                "s1_attempts": m1["attempt"] + 1,
+                "s1_timing": m1.get("s1_timing"),
+                "prompt_timing": m1.get("prompt_timing"),
+                "dawn_timing": dict(ctx.dawn_timing),
+                "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
+                "s2_timing": m2.get("s2_timing"),
+                # Stage 2 fallback 카운트 (사후 분석용)
+                "review_lookup_count": m2.get("review_lookup_count", 0),
+                "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),
+                "fb_cand_sub_match": m2.get("cand_sub_match", 0),
+                "fb_cand_l1_dong": m2.get("cand_fallback_l1_dong", 0),
+                "fb_cand_l1_district": m2.get("cand_fallback_l1_district", 0),
+                "fb_cand_all_empty": m2.get("cand_all_empty", 0),
+                "fb_hallucinations_corrected": m2.get("hallucinations_corrected", 0),
+                "fb_hallucinations_dropped": m2.get("hallucinations_dropped", 0),
+                "fb_order_mismatch": m2.get("order_mismatch", 0),
+                "fb_missing_picks_filled": m2.get("missing_picks_filled", 0),
+                # 같은 (dong, sub_cat) 이벤트 후보 풀 분할 (같은 날 반복 방문 차단)
+                "fb_pool_split_groups": m2.get("pool_split_groups", 0),
+                "fb_pool_split_events": m2.get("pool_split_events", 0),
+            }
+            return agent_day_store.save_result(tx, result)
+    except agent_day_store.AlreadyCommitted as exc:
+        return exc.result
     except Exception as e:
         return {
             "aid": aid, "status": "error",
@@ -816,6 +837,13 @@ def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None
 # =========================================================
 def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> dict:
     day_str = today.isoformat()
+    cohort = {"run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
+              "day": day_str, "agent_ids": sorted(agents),
+              "execution_fingerprint": execution_fingerprint()}
+    cohort_path = OUT_DIR / f"cohort_{day_str}.json"
+    if cohort_path.exists() and json.loads(cohort_path.read_text(encoding="utf-8")) != cohort:
+        raise ValueError("cohort or execution settings changed; refusing to resume")
+    atomic_json(cohort_path, cohort)
     done_path = CHECK_DIR / f"done_{day_str}.json"
     failed_path = CHECK_DIR / f"failed_{day_str}.json"
     metrics_path = METRICS_DIR / f"day_{day_str}.jsonl"
@@ -878,9 +906,10 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
             with lock:
                 try:
                     with metrics_path.open("a", encoding="utf-8") as fp_m:
-                        _safe_write(fp_m, json.dumps(res, ensure_ascii=False) + "\n")
+                        if not _safe_write(fp_m, json.dumps(res, ensure_ascii=False) + "\n"):
+                            raise OSError("metrics write failed; committed result remains in DB outbox")
                 except OSError as e:
-                    print(f"  [warn] metrics write OSError: {e}")
+                    raise RuntimeError("metrics persistence failed; resume from committed DB outbox") from e
                 if res["status"] == "ok":
                     ok_count += 1
                     done_aids.add(res["aid"])

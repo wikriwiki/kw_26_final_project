@@ -42,17 +42,10 @@ def build_report(run_dir, day, group_by='income'):
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--run-dir', required=True)
-    parser.add_argument('--day', required=True)
-    parser.add_argument('--group-by', choices=['income', 'job', 'life_stage'], default='income')
-    parser.add_argument('--out', required=True)
-    args = parser.parse_args()
-    report = build_report(args.run_dir, args.day, args.group_by)
-    output = Path(args.out)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding='utf-8')
-    print(output.resolve())
+    # The public CLI always uses the evidence gate. The original build_report
+    # remains a legacy exploratory API and must not be used for validated export.
+    from experience_export import main as validated_main
+    return validated_main()
 
 
 if __name__ == '__main__':

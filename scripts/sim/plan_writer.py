@@ -11,6 +11,7 @@ Conversation 적재(Night Phase 2)는 별도 night_phase.py로 (LLM 의도 분�
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
@@ -86,6 +87,7 @@ CREATE (p)-[:INCLUDES {
   pre_review_poi: ev.pre_review_poi,     // 리뷰 전(1차) 선택 — 바뀐 경우만
   review_changed: ev.review_changed      // 리뷰가 최종 선택을 바꿨나
 }]->(poi)
+RETURN count(*) AS written
 """
 
 
@@ -93,6 +95,7 @@ def write_plan(
     aid: str, today: date, events: list[dict], day_type: str,
     tokens_in: int = 0, tokens_out: int = 0,
     reviews_seen: dict | None = None, review_lookup_count: int = 0,
+    transaction=None,
 ):
     import json as _json
     plan_id = f"{aid}_{today.isoformat()}"
@@ -105,14 +108,16 @@ def write_plan(
     # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
     reviews_seen_json = _json.dumps(reviews_seen, ensure_ascii=False) if reviews_seen else "{}"
     review_changed_count = sum(1 for ev in valid_events if ev.get("review_changed"))
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         s.run(WRITE_PLAN_CYPHER,
               aid=aid, plan_id=plan_id, day=today.isoformat(), day_type=day_type,
               tokens_in=tokens_in, tokens_out=tokens_out,
               reviews_seen=reviews_seen_json, review_lookup_count=review_lookup_count,
               review_changed_count=review_changed_count)
         if valid_events:
-            s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events)
+            row = s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events).single()
+            if not row or row['written'] != len(valid_events):
+                raise ValueError('activity persistence mismatch: missing or duplicate POI/Plan')
     return plan_id, len(valid_events)
 
 
@@ -440,10 +445,10 @@ RETURN count(m) AS n_memories
 """
 
 
-def night_finalize_yesterday(aid: str, today: date) -> int:
+def night_finalize_yesterday(aid: str, today: date, transaction=None) -> int:
     """어제 INCLUDES → Memory{visited} CREATE + KNOWS_POI 갱신."""
     yesterday = today - timedelta(days=1)
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         r = s.run(NIGHT_VISITED_CYPHER, aid=aid, yesterday=yesterday.isoformat()).single()
         return r["n_memories"] if r else 0
 
@@ -547,6 +552,7 @@ def night_create_state(
     observations: list | None = None,
     policy_appraisals: dict | None = None,
     appraisal_changes: list | None = None,
+    transaction=None,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -573,7 +579,7 @@ def night_create_state(
         grant_rem_json = grant_remaining
     else:
         grant_rem_json = _json.dumps(grant_remaining or {}, ensure_ascii=False)
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
                   policy_used_json=used_json,

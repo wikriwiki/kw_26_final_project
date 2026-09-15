@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import sys
 import time
@@ -495,6 +496,8 @@ def call_stage1(
             timing["t_total"] = time.perf_counter() - total_started
 
             meta = {
+                "prompt_sha256": hashlib.sha256((SYSTEM_PROMPT + "\n" + user_block_now).encode("utf-8")).hexdigest(),
+                "model_id": getattr(resp, "model", None),
                 "attempt": attempt,
                 "temp": temp,
                 "tokens_in": resp.usage.prompt_tokens,

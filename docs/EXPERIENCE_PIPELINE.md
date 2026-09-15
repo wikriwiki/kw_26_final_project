@@ -3,6 +3,8 @@
 작성: 2026-09-15. 기반: fe039529 감사 패치 fbe9a58.
 작업 브랜치: codex/fe039529-execution-audit.
 
+v2 무결성·복구 계약과 검증 범위는 [EXPERIENCE_ASSURANCE.md](EXPERIENCE_ASSURANCE.md)를 함께 참조한다.
+
 ## 이번에 연결한 실행 경로
 
 1. run_simulation.process_one이 Stage2 선택 결과를 깊은 복사로 보관한다.
@@ -52,13 +54,13 @@
 ## 집계 실행
 
 ```powershell
-python scripts/sim/report_experience.py --run-dir <실행디렉터리> --day 2026-09-15 --group-by income --out <결과경로.json>
+python scripts/sim/report_experience.py --run-dir <실행디렉터리> --day 2026-09-15 --cohort <실행디렉터리>/cohort_2026-09-15.json --group-by income --out <결과경로.json>
 ```
 
 group-by: income / job / life_stage.
 해당 날짜의 완료된 agent snapshot을 중복 제거해 정책별·집단별 stance 수, 측정 수, 미측정 수, 입장 측정일 분포를 반환한다. 실패자 수·schema 누락·잘못된 로그 수도 품질 정보로 구분한다. 서로 다른 run_id가 섞이면 집계를 거부한다.
 
-이는 시뮬레이션 에이전트의 표현된 입장 분포이며 실제 여론 정확도나 인간 설문에 대한 검증 성능이 아니다. 예정 전체 인구 대비 결측률은 실행 manifest가 따로 필요하다.
+이는 시뮬레이션 에이전트의 표현된 입장 분포이며 실제 여론 정확도나 인간 설문에 대한 검증 성능이 아니다. v2 runner가 예정 에이전트 manifest를 생성하며 정식 출력은 이를 대조한다. 누락·손상 자료는 정상 출력이 차단된다.
 
 ## 현재 지원 범위와 남은 일
 
@@ -74,4 +76,3 @@ group-by: income / job / life_stage.
 두 날짜 runner 테스트에서는 실제 process_one·소비·정책 validator·경험 갱신·metrics 경로를 실행하고 DB/LLM 경계만 대체했다. 첫날 거래 ID가 다음 날 입장 근거로 저장되고 집단 집계에서 1명으로 측정됨을 검증했다. Stage1/Stage2 호출은 각각 하루 한 번이었다.
 
 실제 Neo4j 및 GPU 통합 실행은 아직 하지 않았다. 저장된 State JSON의 실제 DB 왕복과 운영 모델이 새 optional 필드를 안정적으로 출력하는지는 소규모 실험에서 확인해야 한다.
-
