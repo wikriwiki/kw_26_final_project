@@ -139,6 +139,32 @@ def _hour(t: str) -> int | None:
         return None
 
 
+def _sector_filter(key: str):
+    """업종 이름 하나를 원장 한 줄에 대한 판정 함수로 바꾼다.
+
+    KDI 8분류·L1 12종·세분류(Category.name) 어느 쪽 이름으로도 지정할 수 있게
+    한다. 세분류를 빠뜨리면 위약의 대상 업종(의류 등)이 매칭되지 않아 반응이
+    있어도 0 으로 읽힌다. `a|b|c` 로 여러 업종을 묶을 수 있다 — 관측 수가 적은
+    업종(여행사·숙박·헬스장)을 합쳐야 채점이 가능해진다.
+    """
+    keys = [k.strip() for k in str(key).split("|") if k.strip()]
+    subs: set[str] = set()
+    names: set[str] = set()
+    for k in keys:
+        g = GROUP.get(k)
+        if g:
+            subs |= g
+        else:
+            names.add(k)
+
+    def f(x):
+        if subs and x["l1"] in subs:
+            return True
+        return bool(names) and (x["kdi"] in names or x["l1"] in names
+                                or x.get("sub") in names)
+    return f
+
+
 def metric_values(name: str, off_rows, on_rows, off_days, on_days):
     """(off 값 dict, on 값 dict). 에이전트 id 를 키로 맞춰 쌍체차를 만든다."""
     def both(fn):
@@ -152,17 +178,17 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
     if name == "excl_spend_paired":
         return both(lambda r, d: per_agent_daily(r, d, lambda x: not x["elig"]))
     if name.startswith("sector_spend:"):
-        key = name.split(":", 1)[1]
-        subs = GROUP.get(key)
-        if subs:
-            f = lambda x: (x["l1"] in subs)          # noqa: E731
-        else:
-            # KDI 8분류·L1 12종·세분류(Category.name) 어느 쪽 이름으로도 지정할 수
-            # 있게 한다. 세분류를 빠뜨리면 위약의 대상 업종(의류 등)이 매칭되지
-            # 않아 반응이 있어도 0 으로 읽힌다.
-            f = lambda x: (x["kdi"] == key or x["l1"] == key
-                           or x.get("sub") == key)   # noqa: E731
+        f = _sector_filter(name.split(":", 1)[1])
         return both(lambda r, d, f=f: per_agent_daily(r, d, f))
+    if name.startswith("sector_share:"):
+        # 업종 지출이 **총지출에서 차지하는 몷**. 하루 총액이 페르소나 앵커에
+        # 묶여 있어 한 업종이 오르면 다른 업종이 빠진다(위약 PL-2 가 이 구조로
+        # 실패했다). 몷으로 보면 총액 제약이 약분되어 "어디에 쓰는가" 만 남는다.
+        f = _sector_filter(name.split(":", 1)[1])
+        return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
+    if name == "elig_spend_share":
+        f = lambda x: bool(x["elig"])                # noqa: E731
+        return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
     if name == "late_night_share":
         f = lambda x: ((_hour(x["t"]) or 0) >= 21)   # noqa: E731
         return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
