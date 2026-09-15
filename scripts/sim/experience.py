@@ -84,8 +84,6 @@ def receipts(aid, day, decisions, events, policies, namespace):
                 diagnostics.append({'code': 'invalid_payment_request', 'policy_id': pid})
             policy_facts[pid] = {'eligible_under_modeled_rules': eligible,
                                  'paid': paid.get(pid, 0)}
-        if not policy_facts:
-            continue
         raw_id = f'{namespace}|{aid}|{day}|{index}'
         record = {
             'event_id': 'EX_' + hashlib.sha256(raw_id.encode()).hexdigest()[:24],

@@ -611,6 +611,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "experience_group": {k: ctx.persona.get(k) for k in ("income", "job", "life_stage")},
                 "experience_policy_ids": [p["id"] for p in ctx.policy if p.get("id")],
                 "execution_receipts": execution_receipts,
+                "receipt_scope": "all_modeled_offline_commerce_v1",
                 "policy_appraisals": policy_appraisals,
                 "appraisal_changes": appraisal_changes,
                 "appraisal_rejections": appraisal_rejections,
