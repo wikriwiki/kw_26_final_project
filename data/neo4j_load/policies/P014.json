@@ -28,5 +28,17 @@
     "context": null,
     "purpose": "골목상권·소상공인 매출 지원과 역외 소비 차단",
     "eligibility": "해당 자치구 주민. 1인 월 구매한도 50만원, 10% 할인."
+  },
+  "eligibility": {
+    "mode": "exclude",
+    "exclude": {
+      "subs": {
+        "other": [
+          "백화점",
+          "면세점"
+        ]
+      },
+      "name_regex": "이마트|홈플러스|롯데마트|코스트코|하나로마트"
+    }
   }
 }

@@ -290,6 +290,17 @@ def fetch_candidates_for_events(
             # 정책 사용 가능 여부는 후보 정보로만 제공한다. 후보 정렬 가점은 결과를
             # 사전 유도하므로 기본 0이며, 별도 민감도 실험에서만 명시적으로 켠다.
             coupon_active = bool(persona.get("coupon_poi_restricted"))
+            # 적격 판정은 정책이 정한 룰로 한다. 룰이 없으면 기존 쿠폰 룰(P010)로
+            # 떨어진다 — 정책마다 여기에 분기를 더하면 1:1 결합이 되살아난다.
+            _mk = persona.get("poi_eligible_marker") or "[쿠폰]"
+            _rules = None
+            _spec = persona.get("poi_eligibility_spec")
+            if _spec:
+                try:
+                    from eligibility import Rules as _ERules
+                    _rules = _ERules(_spec)
+                except Exception:
+                    _rules = None
             coupon_boost = (
                 coupon_active
                 and os.environ.get("POLICY_POI_SORT_BOOST", "0") == "1"
@@ -301,12 +312,16 @@ def fetch_candidates_for_events(
                 c["unit_anchor"] = anchor_won
                 c["durable_anchor"] = bool(_dur_anchor)
                 # 쿠폰 사용처 판정 — DB 백필값(p.coupon_eligible) 우선, 없으면 룰 fallback
-                el = c.get("coupon_eligible")
-                if el is None:
-                    el = is_coupon_eligible(c.get("name"), sub_cat, l1)[0]
+                if _rules is not None:
+                    el = _rules.eligible(c.get("name"), sub_cat, l1,
+                                         c.get("upjong_l3"))[0]
+                else:
+                    el = c.get("coupon_eligible")
+                    if el is None:
+                        el = is_coupon_eligible(c.get("name"), sub_cat, l1)[0]
                 c["coupon_eligible"] = bool(el)
-                # 프롬프트 마커: 쿠폰 활성 시에만 표기 (평시 토큰 0)
-                c["coupon_tag"] = "[쿠폰]" if (coupon_active and c["coupon_eligible"]) else ""
+                # 프롬프트 마커: 정책이 정한 표시. 활성 시에만 표기 (평시 토큰 0)
+                c["coupon_tag"] = _mk if (coupon_active and c["coupon_eligible"]) else ""
                 # 상생 적립 판정 — DB 백필값(p.sangsaeng_eligible) 우선, 없으면 룰 fallback
                 sel = c.get("sangsaeng_eligible")
                 if sel is None:

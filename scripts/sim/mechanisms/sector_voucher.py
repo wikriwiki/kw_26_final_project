@@ -56,15 +56,14 @@ def facts(row: dict) -> list[str]:
     """정책 공통 사실 — 업종별 조건을 한 줄씩."""
     sectors = row.get("sectors") or {}
     out = [_one(k, v) for k, v in sectors.items() if v]
-    if row.get("first_come"):
-        out.append("수량이 정해져 있어 선착순으로 소진되면 받을 수 없다")
+    # 선착순 사실은 정책 description 이 이미 말한다. 여기서 또 적으면 같은
+    # 사실이 네 번(배경·기전 줄·개인 상태·판단 원칙) 반복되어 "받을 수 없다"가
+    # 지배적 신호가 된다 — 위약에서 대상 업종이 오히려 -10.5% 로 줄었다.
     return out
 
 
 def status(pid: str, row: dict, persona: dict, state: dict,
            today=None) -> str:
     sectors = row.get("sectors") or {}
-    n = len(sectors)
-    tail = "수량 한정(선착순)" if row.get("first_come") else ""
-    head = f"- {pid}: 대상 업종 {n}개에서만 적용"
-    return head + (f" | {tail}" if tail else "")
+    names = ", ".join(sectors) if sectors else "없음"
+    return f"- {pid}: 적용 업종 — {names}"
