@@ -8,6 +8,7 @@ import sys
 import pytest
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'scripts/sim'))
+sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'scripts'))
 from evidence_contract import EvidenceError, money, seal, verify, canonical
 from experience import receipts, observation_window, update_appraisals, visible_observations
 from experience_export import build_report

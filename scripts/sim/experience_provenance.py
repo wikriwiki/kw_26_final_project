@@ -24,12 +24,16 @@ def execution_fingerprint():
 
 
 def atomic_json(path, value):
+    atomic_text(path, canonical(value))
+
+
+def atomic_text(path, value):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
     try:
         with os.fdopen(fd, 'w', encoding='utf-8') as output:
-            output.write(canonical(value))
+            output.write(value)
             output.flush()
             os.fsync(output.fileno())
         os.replace(name, path)

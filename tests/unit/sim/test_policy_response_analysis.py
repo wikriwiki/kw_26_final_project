@@ -80,3 +80,50 @@ def test_small_group_suppression(tmp_path):
     design=fixture(tmp_path);design['min_group_size']=5
     group=analyze(design,tmp_path)['groups'][0]
     assert group['suppressed'] and 'stance_counts' not in group
+
+
+def test_embedded_evidence_must_exist_in_executed_ledger(tmp_path):
+    design=fixture(tmp_path)
+    path=tmp_path/'p/metrics/day_2026-09-15.jsonl'
+    row=json.loads(path.read_text(encoding='utf-8'))
+    appraisal=row['policy_appraisals']['P']
+    appraisal['evidence_snapshot'][0]=seal(dict(appraisal['evidence_snapshot'][0],poi_id='invented_shop'))
+    row['policy_appraisals']['P']=seal(appraisal)
+    path.write_text(canonical(seal(row)),encoding='utf-8')
+    with pytest.raises(EvidenceError,match='archived execution'):
+        analyze(design,tmp_path)
+
+
+def test_missing_response_bounds_and_report_are_explicit(tmp_path):
+    from analyze_policy_response import render_report
+    design=fixture(tmp_path)
+    design['population']['B']='working'
+    for arm in ('b','p'):
+        for day in ('2026-09-14','2026-09-15'):
+            path=tmp_path/arm/'metrics'/f'day_{day}.jsonl'
+            row=json.loads(path.read_text(encoding='utf-8'))
+            other=copy.deepcopy(row);other['aid']='B';other['policy_appraisals']={}
+            other['execution_receipts']=[seal(dict(r,agent_id='B',event_id=r['event_id']+'_B')) for r in other['execution_receipts']]
+            path.write_text(canonical(row)+'\n'+canonical(seal(other)),encoding='utf-8')
+            cohort_path=tmp_path/arm/f'cohort_{day}.json'
+            cohort=json.loads(cohort_path.read_text());cohort['agent_ids'].append('B')
+            cohort_path.write_text(canonical(cohort))
+    result=analyze(design,tmp_path)
+    group=result['groups'][0]
+    assert group['stance_share_among_measured']['oppose']==1
+    assert group['population_share_bounds']['oppose']=={'lower':0.5,'upper':1}
+    assert group['population_share_bounds']['support']=={'lower':0,'upper':0.5}
+    assert group['missingness_reasons']=={'no_appraisal':1}
+    assert '신뢰구간이 아니다' in render_report(result)
+
+
+def test_settings_change_between_days_blocks_analysis(tmp_path):
+    design=fixture(tmp_path)
+    path=tmp_path/'p/metrics/day_2026-09-15.jsonl'
+    row=json.loads(path.read_text(encoding='utf-8'));row['execution_fingerprint']='changed'
+    path.write_text(canonical(seal(row)),encoding='utf-8')
+    path=tmp_path/'p/cohort_2026-09-15.json'
+    cohort=json.loads(path.read_text());cohort['execution_fingerprint']='changed'
+    path.write_text(canonical(cohort))
+    with pytest.raises(EvidenceError,match='within a run'):
+        analyze(design,tmp_path)
