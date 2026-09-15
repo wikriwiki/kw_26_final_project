@@ -181,9 +181,9 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
         f = _sector_filter(name.split(":", 1)[1])
         return both(lambda r, d, f=f: per_agent_daily(r, d, f))
     if name.startswith("sector_share:"):
-        # 업종 지출이 **총지출에서 차지하는 몷**. 하루 총액이 페르소나 앵커에
+        # 업종 지출이 **총지출에서 차지하는 몫**. 하루 총액이 페르소나 앵커에
         # 묶여 있어 한 업종이 오르면 다른 업종이 빠진다(위약 PL-2 가 이 구조로
-        # 실패했다). 몷으로 보면 총액 제약이 약분되어 "어디에 쓰는가" 만 남는다.
+        # 실패했다). 몫으로 보면 총액 제약이 약분되어 "어디에 쓰는가" 만 남는다.
         f = _sector_filter(name.split(":", 1)[1])
         return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
     if name == "elig_spend_share":
