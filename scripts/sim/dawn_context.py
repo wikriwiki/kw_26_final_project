@@ -679,6 +679,23 @@ def _with_params(r: dict) -> dict:
     return out
 
 
+def _is_include_only(r: dict) -> bool:
+    """이 정책이 '대상 업종에서만' 쓰는 종류인가.
+
+    적격 규칙이 include 모드면 기본이 부적격이고 목록에 들어야 쓸 수 있다.
+    exclude 모드(기본 적격)는 여기 해당하지 않는다 — P012 · P014 는 종전 표기를
+    그대로 유지해야 앞서 돌린 런과 비교할 수 있다.
+    """
+    spec = _with_params(r).get("eligibility")
+    if isinstance(spec, str):
+        try:
+            spec = json.loads(spec)
+        except Exception:
+            return False
+    return bool(isinstance(spec, dict)
+                and (spec.get("mode") or "").strip() == "include")
+
+
 def _format_policy_facts(rows: list[dict]) -> str:
     """에이전트와 무관한 정책 사실.
 
@@ -700,9 +717,17 @@ def _format_policy_facts(rows: list[dict]) -> str:
         except ImportError:
             _head = None
         targets = [str(x) for x in (r.get("target_l1s") or []) if x]
-        scope = ", ".join(targets[:8]) if targets else "업종 제한 없음"
-        if len(targets) > 8:
-            scope += f" 외 {len(targets) - 8}개"
+        if targets:
+            scope = ", ".join(targets[:8])
+            if len(targets) > 8:
+                scope += f" 외 {len(targets) - 8}개"
+        elif _is_include_only(r):
+            # 업종 한정 정책인데 targets 가 비었다고 "제한 없음" 이라 적으면
+            # 바로 다음 칸의 "표시 POI 에서만 사용" 과 정반대로 부딪힌다.
+            # 구체적인 업종은 아래 사실 줄과 개인 상태에 이미 나온다.
+            scope = "대상 업종 한정"
+        else:
+            scope = "업종 제한 없음"
         # 표시 문자열은 정책이 정한다 — 하드코딩하면 새 정책이 남의 마커를 쓴다.
         _mk = (r.get("eligible_marker") or "[쿠폰]").strip()
         restrictions = f" · {_mk} 표시 POI에서만 사용" if r.get("poi_restricted") else ""
