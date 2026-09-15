@@ -836,6 +836,8 @@ def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None
 # Day 루프
 # =========================================================
 def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> dict:
+    if not agents or any(not isinstance(a, str) or not a for a in agents) or len(set(agents)) != len(agents):
+        raise ValueError("cohort must contain distinct nonempty agent IDs")
     day_str = today.isoformat()
     cohort = {"run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
               "day": day_str, "agent_ids": sorted(agents),
@@ -848,33 +850,10 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     failed_path = CHECK_DIR / f"failed_{day_str}.json"
     metrics_path = METRICS_DIR / f"day_{day_str}.jsonl"
 
+    # Checkpoints are advisory. Reconcile every agent against the transactional
+    # outbox in process_one; never erase evidence or trust a stale done list.
     done_aids: set[str] = set()
-    if done_path.exists():
-        done_aids = set(json.loads(done_path.read_text(encoding="utf-8")))
-        print(f"[resume] {len(done_aids)} agents already done for {day_str}, skipping")
-
-        # ★ resume 시 jsonl dedup — status=ok 줄을 aid당 1개만 남김 (이전 error 줄과 중복 제거)
-        if metrics_path.exists() and done_aids:
-            seen_ok: dict[str, str] = {}
-            other_lines: list[str] = []
-            with metrics_path.open(encoding="utf-8") as fp_r:
-                for line in fp_r:
-                    try:
-                        j = json.loads(line)
-                        if j.get("status") == "ok":
-                            seen_ok[j["aid"]] = line   # 마지막 ok가 이김
-                        else:
-                            other_lines.append(line)
-                    except json.JSONDecodeError:
-                        continue
-            # ok 줄만 dedup해서 다시 씀 (error 줄은 폐기 — 어차피 retry로 채움)
-            with metrics_path.open("w", encoding="utf-8") as fp_w:
-                for aid in done_aids:
-                    if aid in seen_ok:
-                        fp_w.write(seen_ok[aid])
-            print(f"[resume] jsonl dedup: kept {len(seen_ok)} ok rows, dropped {len(other_lines)} error rows")
-
-    remaining = [a for a in agents if a not in done_aids]
+    remaining = list(agents)
     print(f"[Day {day_idx} {day_str}] processing {len(remaining)} agents with {workers} workers")
 
     # 메트릭 jsonl append 모드
@@ -928,15 +907,18 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
             # 500 agent마다 checkpoint snapshot (resume 안전)
             if total_done % 500 == 0:
                 try:
-                    done_path.write_text(json.dumps(sorted(done_aids), ensure_ascii=False), encoding="utf-8")
+                    atomic_json(done_path, sorted(done_aids))
                 except OSError as e:
                     print(f"  [warn] checkpoint snapshot failed: {e}")
 
     try:
-        done_path.write_text(json.dumps(sorted(done_aids), ensure_ascii=False), encoding="utf-8")
-        failed_path.write_text(json.dumps(fail_list, ensure_ascii=False, indent=2), encoding="utf-8")
+        atomic_json(done_path, sorted(done_aids))
+        atomic_json(failed_path, fail_list)
     except OSError as e:
         print(f"  [warn] final checkpoint write failed: {e}")
+
+    if err_count or done_aids != set(agents):
+        raise RuntimeError(f"incomplete agent day {day_str}: {err_count} failed; resume this day before advancing")
 
     agent_elapsed = time.time() - t_start
     print(
@@ -946,8 +928,8 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     timing_report = _write_timing_diagnostics(day_str, metrics_path)
     day_result = {
         "day": day_str,
-        "ok": int(timing_report.get("agents_ok") or 0),
-        "err": int(timing_report.get("agents_error") or 0),
+        "ok": len(done_aids),
+        "err": err_count,
         "agent_elapsed_sec": agent_elapsed,
         "night2_elapsed_sec": 0.0,
         "elapsed_sec": agent_elapsed,
@@ -962,24 +944,27 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
         from night_interaction import select_interaction_pairs
         from night_intent_llm import run_intent_classification
         t_n2 = time.time()
-        # 멱등성: 같은 day Conversation 이미 14,000건 이상 적재됐으면 Night2 전체 skip
-        # (select_interaction_pairs까지 다시 도는 비용 회피)
+        # A row count is not proof that all social interactions completed.
+        # Only a matching completion record permits skipping this phase.
+        marker_path = OUT_DIR / f"night2_completed_{day_str}.json"
         from neo4j_load._common import driver_session as _n2_session
-        try:
-            with _n2_session() as _s:
-                _n2_existing = _s.run(
-                    "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
-                    d=day_str
-                ).single()["n"]
-        except Exception:
-            _n2_existing = 0
-        if _n2_existing >= 50:
-            print(f"  [Night2] {day_str}: 이미 {_n2_existing} Conversation 적재됨 — 전체 skip")
+        with _n2_session() as _s:
+            _n2_existing = _s.run(
+                "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
+                d=day_str).single()["n"]
+        if marker_path.exists():
+            marker = json.loads(marker_path.read_text(encoding="utf-8"))
+            if marker.get("cohort") != cohort or marker.get("conversation_count") != _n2_existing:
+                raise ValueError("Night2 completion record does not match current run/database")
         else:
+            if _n2_existing:
+                raise RuntimeError("partial or untracked Night2 writes; explicit recovery required")
             pairs = select_interaction_pairs(today, verbose=False)
             if pairs:
                 print(f"  [Night2] {len(pairs)} pairs, classifying intents ...")
                 n2_stats = run_intent_classification(today, pairs, workers=workers, verbose=False)
+                if n2_stats.get("skipped") or n2_stats.get("errors", 0) or n2_stats.get("processed") != len(pairs):
+                    raise RuntimeError("incomplete Night2 classification")
                 wstats = n2_stats.get("write", {})
                 by_intent = wstats.get("by_intent", {})
                 print(f"  [Night2] Conversation +{wstats.get('created',0)} "
@@ -988,9 +973,16 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                       f"in {time.time()-t_n2:.0f}s")
             else:
                 print(f"  [Night2] no candidate pairs for {day_str}")
+            with _n2_session() as _s:
+                final_count = _s.run(
+                    "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
+                    d=day_str).single()["n"]
+            if final_count != len(pairs):
+                raise RuntimeError("Night2 persisted conversation count differs from planned pairs")
+            atomic_json(marker_path, {"cohort": cohort, "conversation_count": final_count})
         day_result["night2_elapsed_sec"] = time.time() - t_n2
     except Exception as e:
-        print(f"  [Night2] failed: {e}")
+        raise RuntimeError(f"Night2 failed for {day_str}; refusing to advance") from e
 
     day_result["elapsed_sec"] = time.time() - t_start
     print(
@@ -1018,6 +1010,7 @@ def main():
     global _SIM_ENV
     if args.environment:
         _SIM_ENV = args.environment.strip() or None
+        os.environ["SIM_ENVIRONMENT"] = _SIM_ENV or ""
     if _SIM_ENV:
         from environments import list_environments
         if _SIM_ENV not in list_environments():

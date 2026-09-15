@@ -41,9 +41,9 @@ try:
 except Exception:
     pass
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import driver_session  # noqa: E402
+from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import _strip_lifestyle_first_line  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 
@@ -703,24 +703,18 @@ def run_intent_classification(
         return {"processed": 0}
     # 멱등성: 같은 day Conversation이 이미 90% 이상 적재됐으면 skip
     # (resume / 모델 swap 후 재실행 시 Night2 중복 방지)
-    try:
-        with driver_session() as s:
-            existing = s.run(
-                "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
-                d=day.isoformat()
-            ).single()["n"]
-        if existing >= int(0.9 * len(pairs)):
-            if verbose:
-                print(f"[Intent] day {day}: {existing}/{len(pairs)} 이미 적재됨 — Night2 skip")
-            return {"processed": 0, "skipped": True, "existing": existing,
-                    "write": {"created": 0, "by_intent": {}}}
-    except Exception as e:
-        if verbose:
-            print(f"[Intent] idempotency 체크 실패 (계속 진행): {e}")
+    with driver_session() as s:
+        existing = s.run(
+            "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
+            d=day.isoformat()).single()["n"]
+    if existing:
+        raise RuntimeError("existing Night2 data requires completion verification or explicit recovery")
     t0 = time.time()
     if verbose:
         print(f"[Intent] fetching pair data for {len(pairs)} pairs ...")
     pair_data = fetch_pair_data(pairs, day)
+    if len(pair_data) != len(pairs):
+        raise RuntimeError("missing or duplicate interaction pair data")
     if verbose:
         print(f"  pair data fetched: {len(pair_data)}")
 
@@ -743,6 +737,8 @@ def run_intent_classification(
     if verbose:
         print(f"[Intent] LLM done: {len(ok)} ok, {len(err)} err ({time.time()-t0:.0f}s)")
 
+    if err:
+        raise RuntimeError(f"Night2 classification failed for {len(err)} pairs; no conversations written")
     write_stats = write_conversations(day, ok)
     if verbose:
         print(f"[Intent] adapted: {write_stats}")

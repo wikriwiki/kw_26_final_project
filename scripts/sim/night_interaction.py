@@ -26,8 +26,8 @@ try:
 except Exception:
     pass
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
-from _common import driver_session  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from neo4j_load._common import driver_session  # noqa: E402
 
 
 # ═══════════════════════════════════════════
