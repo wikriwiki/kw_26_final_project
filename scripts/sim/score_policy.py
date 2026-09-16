@@ -328,9 +328,15 @@ def main() -> int:
         results.append({**ind, "got": got, "hit": hit, "mean": m, "base": base,
                        "ci": [lo, hi], "n": len(d), "split_agree": agree})
         mark = "O" if hit else "X"
+        # 몷(share) 지표는 0~1 이라 정수로 반올림하면 화면에 전부 0 으로 찍힌다.
+        # JSON 은 원값을 담지만 로그만 보고 판단하는 순간이 있어 자릿수를 갈라 쓴다.
+        _sh = abs(base) <= 1.5
+        _f = "{:+.4f}" if _sh else "{:+,.0f}"
+        _pct = f" ({100*m/base:+.1f}%)" if base else ""
         print(f"  {ind['id']:<8} {ind['desc'][:44]:<46} "
               f"기대 {expect} / 실측 {got} {mark}  "
-              f"평균 {m:+,.0f} CI[{lo:+,.0f},{hi:+,.0f}] n={len(d)} "
+              f"평균 {_f.format(m)}{_pct} "
+              f"CI[{_f.format(lo)},{_f.format(hi)}] n={len(d)} "
               f"반분{'일치' if agree else '불일치'}")
 
     # 순위 지표
