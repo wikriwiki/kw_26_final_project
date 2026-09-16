@@ -360,6 +360,39 @@ def main() -> int:
               f"{hi_k} {vals[hi_k]:+.1f}% vs {lo_k} {vals[lo_k]:+.1f}% "
               f"{'O' if hit else 'X'}")
 
+    # ------------------------------------------------------------------
+    # 진단 지표 — **채점하지 않는다.**
+    # 금액 지표는 하루 총액이 페르소나 앵커에 묶여 있어 한 업종이 오르면 다른
+    # 업종이 빠진다. 같은 업종을 '총지출에서 차지하는 몫' 으로도 같이 남겨 두면
+    # 나중에 원장 없이도 그 구조를 확인할 수 있다. 런이 끝나면 원장은 다음 런의
+    # 97_reset 으로 지워지므로 이때 안 남기면 영영 못 본다.
+    # 사전등록 지표가 아니므로 hits 계산에 들어가지 않는다.
+    diagnostics = []
+    for ind in spec["indicators"]:
+        nm = ind.get("metric") or ""
+        if not nm.startswith("sector_spend:"):
+            continue
+        share = "sector_share:" + nm.split(":", 1)[1]
+        off, on = metric_values(share, off_rows, on_rows, off_days, on_days)
+        if off is None:
+            continue
+        d = paired(off, on)
+        if len(d) < 3:
+            continue
+        m = sum(d) / len(d)
+        lo, hi = boot_ci(d)
+        base = sum(off[x] for x in on if x in off) / max(1, len(d))
+        diagnostics.append({"of": ind["id"], "metric": share, "scored": False,
+                            "mean": m, "base": base, "ci": [lo, hi], "n": len(d)})
+    if diagnostics:
+        print("-" * 78)
+        print("  [진단 · 채점 아님] 같은 업종을 몫으로 보면")
+        for g in diagnostics:
+            b = g["base"] or 1e-9
+            print(f"  {g['of']:<8} {g['metric']:<28} "
+                  f"몫 {g['base']:.3f} → {g['base']+g['mean']:.3f} "
+                  f"({100*g['mean']/b:+.1f}%) CI[{g['ci'][0]:+.4f},{g['ci'][1]:+.4f}] n={g['n']}")
+
     scored = [r for r in results if r["hit"] is not None]
     hits = sum(1 for r in scored if r["hit"])
     print("=" * 78)
@@ -372,7 +405,8 @@ def main() -> int:
     if a.json_out:
         Path(a.json_out).write_text(json.dumps(
             {"policy": a.policy, "label": a.label, "off": a.off, "on": a.on,
-             "hits": hits, "scored": len(scored), "results": results},
+             "hits": hits, "scored": len(scored), "results": results,
+             "diagnostics": diagnostics},
             ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"  → {a.json_out}")
     return 0
