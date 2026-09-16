@@ -66,10 +66,39 @@ def fetch(days: list[str]) -> list[dict]:
            coalesce(i.time,'') AS t,
            coalesce(p.sangsaeng_eligible,false) AS elig,
            p.sangsaeng_kdi AS kdi, c.parent AS l1, c.name AS sub,
+           p.name AS pname, p.upjong_l3 AS upjong_l3,
            p.dong_code AS pdong, h.dong_code AS hdong
     """
     with driver_session() as s:
         return [dict(r) for r in s.run(q, days=days)]
+
+
+def apply_policy_eligibility(rows: list[dict], policy_file: str | None) -> str:
+    """`elig` 을 **해당 정책의 적격 규칙**으로 다시 계산한다.
+
+    원장 조회의 `p.sangsaeng_eligible` 은 `11_sangsaeng_eligibility.py` 가 P012
+    기준(대형마트·백화점·면세점 등만 제외)으로 백필한 값이다. 다른 정책을
+    채점하면서 이 값을 그대로 쓰면 엉뚱한 업종 집합을 재게 된다 — 8대 소비쿠폰
+    홀드아웃에서 HO-3 이 base 0.9872 로 천장에 붙어 무효가 된 원인이 이것이다.
+
+    정책 JSON 에 `eligibility` 명세가 있을 때만 다시 계산하고, 없으면 DB 값을
+    그대로 둔다 — P012·P010 은 명세가 없으므로 앞서 낸 수치가 그대로 유지된다.
+    """
+    if not policy_file:
+        return "DB 백필값(상생 기준)"
+    fp = Path(__file__).resolve().parents[2] / policy_file
+    if not fp.exists():
+        return f"정책 파일 없음: {policy_file}"
+    pol = json.loads(fp.read_text(encoding="utf-8"))
+    spec = pol.get("eligibility")
+    if not spec:
+        return "DB 백필값(상생 기준) — 정책에 적격 명세 없음"
+    from eligibility import Rules
+    rules = Rules(spec)
+    for r in rows:
+        r["elig"] = bool(rules.eligible(r.get("pname"), r.get("sub"),
+                                        r.get("l1"), r.get("upjong_l3"))[0])
+    return f"{pol.get('id')} 적격 규칙({spec.get('mode')})"
 
 
 def fetch_cashback(last_day: str, rate: float, cap: int, ratio: float) -> dict:
@@ -253,6 +282,9 @@ def main() -> int:
     ap.add_argument("--on", required=True, help="정책 구간 YYYY-MM-DD:YYYY-MM-DD")
     ap.add_argument("--label", default="", help="후보 프롬프트 이름 등")
     ap.add_argument("--json-out", default="")
+    ap.add_argument("--elig-policy", default="",
+                    help="적격 판정에 쓸 정책 JSON 경로. 생략하면 채점표의 policy_file"
+                         " 을 쓰고, 그것도 없으면 DB 백필값(상생 기준)을 그대로 둔다.")
     a = ap.parse_args()
 
     table = json.loads(TABLE.read_text(encoding="utf-8"))
@@ -268,7 +300,13 @@ def main() -> int:
         print("결제 데이터 없음 — 구간을 확인할 것", file=sys.stderr)
         return 2
 
-    print(f"[{a.policy}] {a.label or '(무명)'}  기전={spec['mechanism']}")
+    # 적격 판정을 채점하는 정책의 규칙으로 맞춘다(위 함수 주석 참조).
+    _pf = a.elig_policy or spec.get("policy_file") or ""
+    _how = apply_policy_eligibility(off_rows, _pf) if _pf else "DB 백필값(상생 기준)"
+    if _pf:
+        apply_policy_eligibility(on_rows, _pf)
+
+    print(f"[{a.policy}] {a.label or '(무명)'}  기전={spec['mechanism']}  적격={_how}")
     print(f"  무정책 {off_days[0]}~{off_days[-1]} ({len(off_rows):,}건) / "
           f"정책 {on_days[0]}~{on_days[-1]} ({len(on_rows):,}건)")
     print("=" * 78)
