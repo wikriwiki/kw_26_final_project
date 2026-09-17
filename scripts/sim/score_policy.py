@@ -96,8 +96,12 @@ def apply_policy_eligibility(rows: list[dict], policy_file: str | None) -> str:
     from eligibility import Rules
     rules = Rules(spec)
     for r in rows:
+        # 장소 조건이 있는 정책은 결제처와 사는 곳의 자치구를 대조한다.
+        _pg = str(r.get("pdong") or "")[:5]
+        _hg = str(r.get("hdong") or "")[:5]
+        _same = (bool(_pg) and bool(_hg) and _pg == _hg) if (_pg or _hg) else None
         r["elig"] = bool(rules.eligible(r.get("pname"), r.get("sub"),
-                                        r.get("l1"), r.get("upjong_l3"))[0])
+                                        r.get("l1"), r.get("upjong_l3"), _same)[0])
     return f"{pol.get('id')} 적격 규칙({spec.get('mode')})"
 
 

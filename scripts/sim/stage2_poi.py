@@ -293,6 +293,13 @@ def fetch_candidates_for_events(
             # 적격 판정은 정책이 정한 룰로 한다. 룰이 없으면 기존 쿠폰 룰(P010)로
             # 떨어진다 — 정책마다 여기에 분기를 더하면 1:1 결합이 되살아난다.
             _mk = persona.get("poi_eligible_marker") or "[쿠폰]"
+            # 장소 조건이 있는 정책(지역화폐 — 사는 곳 자치구 안에서만)을 위해
+            # 이 후보군이 거주 자치구 안인지 계산해 넣는다. 후보는 이 dong_code
+            # (또는 그 자치구) 로 조회한 것이므로 추가 조회가 필요하지 않다.
+            # 이것이 반영되지 않아 구 밖 가게에도 사용 표시가 붙었다(2026-09-18).
+            _home_gu = str(persona.get("home_dong_code") or "")[:5]
+            _same_gu = (bool(_home_gu)
+                        and str(dong_code or "")[:5] == _home_gu)
             _rules = None
             _spec = persona.get("poi_eligibility_spec")
             if _spec:
@@ -314,7 +321,7 @@ def fetch_candidates_for_events(
                 # 쿠폰 사용처 판정 — DB 백필값(p.coupon_eligible) 우선, 없으면 룰 fallback
                 if _rules is not None:
                     el = _rules.eligible(c.get("name"), sub_cat, l1,
-                                         c.get("upjong_l3"))[0]
+                                         c.get("upjong_l3"), _same_gu)[0]
                 else:
                     el = c.get("coupon_eligible")
                     if el is None:

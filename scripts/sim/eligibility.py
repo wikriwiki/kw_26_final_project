@@ -44,10 +44,12 @@ ARM_EXCLUDED_VICE = "excluded_vice"
 ARM_EXCLUDED_NONCONSUMPTION = "excluded_nonconsumption"
 ARM_EXCLUDED_OTHER = "excluded_other"
 ARM_EXCLUDED_SECTOR = "excluded_sector"     # include 모드에서 대상 업종이 아님
+ARM_EXCLUDED_DISTRICT = "excluded_district"  # 사는 곳 자치구 밖
 
 EXCLUDED_ARMS = (
     ARM_EXCLUDED_LUXURY, ARM_EXCLUDED_VICE,
     ARM_EXCLUDED_NONCONSUMPTION, ARM_EXCLUDED_OTHER, ARM_EXCLUDED_SECTOR,
+    ARM_EXCLUDED_DISTRICT,
 )
 
 _ARM_OF_KIND = {
@@ -62,7 +64,7 @@ class Rules:
     """규칙 명세를 판정 가능한 형태로 굳혀 둔다. 정책당 한 번만 만든다."""
 
     __slots__ = ("mode", "ex_codes", "ex_subs", "name_re",
-                 "in_codes", "in_subs", "in_l1s")
+                 "in_codes", "in_subs", "in_l1s", "same_district")
 
     def __init__(self, spec: dict[str, Any] | None):
         s = spec or {}
@@ -86,11 +88,19 @@ class Rules:
         self.in_codes = {str(c).strip().upper() for c in (inc.get("codes") or ())}
         self.in_subs = {str(x).strip() for x in (inc.get("subs") or ())}
         self.in_l1s = {str(x).strip() for x in (inc.get("l1s") or ())}
+        # 장소 조건 — 업종만 보는 규칙으로는 표현할 수 없는 축이다.
+        # 지역화폐는 "사는 곳 자치구 안에서만"이 기전의 핵심인데, 이것이 판정에
+        # 들어가지 않아 구 밖 가게에도 사용 표시가 붙었다(2026-09-18 지역화폐 0/3).
+        self.same_district: bool = bool(s.get("require_same_district"))
 
     # -----------------------------------------------------
     def arm(self, name: str | None, sub: str | None,
-            l1: str | None = None, upjong_l3: str | None = None) -> tuple[str, str]:
+            l1: str | None = None, upjong_l3: str | None = None,
+            same_district: bool | None = None) -> tuple[str, str]:
         """(arm, 근거코드). 우선순위는 모듈 docstring 참조."""
+        # 장소 조건이 있는 정책은 업종을 보기 전에 여기에서 걸러람다.
+        if self.same_district and same_district is False:
+            return ARM_EXCLUDED_DISTRICT, "other_district"
         n = (name or "").strip()
         c = (upjong_l3 or "").strip().upper()
         s = (sub or "").strip()
@@ -125,8 +135,9 @@ class Rules:
         return ARM_ELIGIBLE, "ok"
 
     def eligible(self, name: str | None, sub: str | None,
-                 l1: str | None = None, upjong_l3: str | None = None) -> tuple[bool, str]:
-        a, why = self.arm(name, sub, l1, upjong_l3)
+                 l1: str | None = None, upjong_l3: str | None = None,
+                 same_district: bool | None = None) -> tuple[bool, str]:
+        a, why = self.arm(name, sub, l1, upjong_l3, same_district)
         return (a == ARM_ELIGIBLE), why
 
 
