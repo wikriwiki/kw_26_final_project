@@ -16,6 +16,45 @@
 # 저장소는 .git 이 11GB 에 git-lfs 를 쓰고 있어 이전 자체가 큰 작업이라,
 # 실험 큐가 도는 중에는 이 응급 복구로 버틴다.
 set -u
+
+# ─────────────────────────────────────────────────────────────────────
+# 예방: 새 객체를 C: 로 쓴다 (2026-09-19)
+#
+# 유실은 늘 **방금 쓴 객체**에서 일어난다. 그래서 새 객체만 G: 밖으로 뺀다.
+# .git 을 통째로 옮기는 것(11GB + git-lfs)보다 훨씬 싸고 되돌리기 쉽다.
+#
+#   ① .git/objects/info/alternates 에 C: 경로를 적어 두면 **평범한 git 명령도**
+#      그곳에서 객체를 찾는다. VS Code 등 다른 도구도 저장소를 정상으로 본다.
+#   ② GIT_OBJECT_DIRECTORY 를 C: 로 두면 **쓰기**가 그곳으로 간다.
+#
+# 아래를 셸에 불러 쓰면 그 셸의 git 쓰기가 C: 로 간다.
+#
+#   source tools/git_heal.sh --env
+#
+# alternates 파일 자체는 G: 에 있어 사라질 수 있다. 사라지면 이 스크립트가
+# 다시 만든다(--env 든 복구든 실행하면 점검한다).
+# ─────────────────────────────────────────────────────────────────────
+GIT_ALT_STORE="${GIT_ALT_STORE:-C:/Users/Administrator/gitobj/kw26}"
+
+_ensure_alt_store () {
+  local root; root=$(git rev-parse --show-toplevel 2>/dev/null) || return 0
+  mkdir -p "$GIT_ALT_STORE/info" "$GIT_ALT_STORE/pack"
+  local f="$root/.git/objects/info/alternates"
+  if [ ! -f "$f" ] || ! grep -qxF "$GIT_ALT_STORE" "$f" 2>/dev/null; then
+    printf '%s
+' "$GIT_ALT_STORE" > "$f"
+    echo "alternates 재등록: $GIT_ALT_STORE"
+  fi
+  export GIT_OBJECT_DIRECTORY="$GIT_ALT_STORE"
+  export GIT_ALTERNATE_OBJECT_DIRECTORIES="$root/.git/objects"
+}
+
+if [ "${1:-}" = "--env" ]; then
+  _ensure_alt_store
+  echo "git 쓰기 대상 = $GIT_OBJECT_DIRECTORY"
+  return 0 2>/dev/null || exit 0
+fi
+_ensure_alt_store
 BR="${1:-$(git rev-parse --abbrev-ref HEAD)}"
 URL=$(git config --get remote.origin.url)
 TMP=$(mktemp -d)
