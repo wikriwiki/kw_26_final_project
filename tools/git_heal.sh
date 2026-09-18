@@ -75,8 +75,22 @@ for pass in $(seq 1 20); do
   done
 done
 
+# 인덱스를 다시 만든다. **여기에 안전장치가 필요하다** — 2026-09-19 에 이
+# 단계에서 HEAD 트리를 못 읽어 인덱스가 사실상 비었고, 그 상태로 커밋해
+# 저장소 내용을 지우는 커밋(최상위 항목 1개)을 만들어 원격에 올렸다.
+BEFORE=$(git ls-files | wc -l)
 rm -f .git/index && git read-tree HEAD
-echo "인덱스 재생성. HEAD=$(git rev-parse --short HEAD)"
+AFTER=$(git ls-files | wc -l)
+echo "인덱스 재생성: $BEFORE → $AFTER 건. HEAD=$(git rev-parse --short HEAD)"
+TOP=$(git ls-tree HEAD | wc -l)
+if [ "$AFTER" -lt 100 ] || [ "$TOP" -lt 5 ]; then
+  echo
+  echo "!! 인덱스가 $AFTER 건, HEAD 최상위가 $TOP 개다. 정상이 아니다."
+  echo "!! **이 상태에서 커밋하면 저장소를 지우는 커밋이 된다.** 커밋하지 마라."
+  echo "!! 원격에서 다시 받아 확인할 것:"
+  echo "     git ls-tree \$(git rev-parse HEAD) | wc -l"
+  exit 2
+fi
 
 # 작업 트리 파일이 통째로 사라지는 경우도 있었다(2026-09-18: prompts/v7~v9.py).
 GONE=$(git status --porcelain | awk '$1=="D"{print $2}' | grep -v '^output/sim/report/' || true)
