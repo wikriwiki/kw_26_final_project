@@ -24,12 +24,15 @@ from types import ModuleType
 from . import p010, p012
 
 from . import v1, v2, v3, v4, v5, v6  # noqa: E402
+from . import v7, v8, v9  # noqa: E402  (2차 후보, 사전등록 2026-09-18)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
-# v1~v6 이 기전 중립 후보다 — 일반화 실험은 이 중에서 고른다.
+# v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
+# v7~v9 는 2차 후보 — 훈련 정책에서 드러난 결함 둘을 겨냥하는 문장을 더한다.
 _VARIANTS: dict[str, ModuleType] = {
     "p010": p010, "p012": p012,
     "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v5": v5, "v6": v6,
+    "v7": v7, "v8": v8, "v9": v9,
 }
 DEFAULT = "p010"
 
