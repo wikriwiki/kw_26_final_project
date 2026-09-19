@@ -25,12 +25,18 @@ def linked_rows(plan_folder,purchase_folder):
     for name in ['manifest.json','responses.jsonl','frozen_inputs.json']:
         if hashlib.sha256((plan_folder/name).read_bytes()).hexdigest()!=provenance[name]:
             raise ValueError('Purchase source does not match frozen planner '+name)
+    frozen=json.loads((plan_folder/'frozen_inputs.json').read_bytes())
+    plan_config=json.loads((plan_folder/'manifest.json').read_bytes())['config']
+    selection=source.get('planner_selection')
+    if selection is not None:
+        from planner_run_selection import select_replicate
+        if selection['variant']!=plan_config['candidates'][0]['id'] or selection['whole_original_matrix_required'] is not True:
+            raise ValueError('Planner selection does not match frozen registration')
+        plans=select_replicate(plans,frozen['cells'],plan_config,selection['replicate'])
     key=lambda r:(r['aid'],r['case'],r['arm'])
     by_plan={key(r):r for r in plans}
     if len(by_plan)!=len(plans):raise ValueError('Select one planner replicate and variant explicitly')
     if not all(r['eligible'] for r in plans):raise ValueError('Failed upstream plans cannot form an effect matrix')
-    frozen=json.loads((plan_folder/'frozen_inputs.json').read_bytes())
-    plan_config=json.loads((plan_folder/'manifest.json').read_bytes())['config']
     expected={(c['aid'],c['case'],c['arm']) for c in frozen['cells']}
     if set(by_plan)!=expected:raise ValueError('Incomplete upstream planner matrix')
     for c in frozen['cells']:
@@ -68,7 +74,7 @@ def report(plan_folder,purchase_folder):
     frozen,source,manifest,rows=linked_rows(plan_folder,purchase_folder)
     result={'scope':'One-day matched conditional catalog-consumption probe. Same people and calendar on/off. No population significance, observed historical magnitude or total household consumption claim.',
         'macro_validated':False,'source_plan_hashes':source['source_sha256'],'purchase_config':manifest['config'],
-        'source_cells':len(source['cells']),'purchase_rows':len(rows),'mechanisms':{}}
+        'planner_selection':source.get('planner_selection'),'source_cells':len(source['cells']),'purchase_rows':len(rows),'mechanisms':{}}
     for mechanism in sorted({c['case'] for c in source['cells']}):
         cells=[c for c in source['cells'] if c['case']==mechanism]
         selected=[r for r in rows if r['case']==mechanism]

@@ -88,11 +88,15 @@ def build_case(row, cell, persona, *, price_factor=1,max_shift_minutes=10,static
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--run', type=Path, required=True)
     ap.add_argument('--static-offers',action='store_true')
+    ap.add_argument('--replicate',type=int,help='Explicit repeat; all original repeats must be complete and eligible')
     ap.add_argument('--out', type=Path, required=True); args = ap.parse_args()
     if args.out.exists(): raise ValueError('Refusing overwrite')
     frozen = json.loads((args.run/'frozen_inputs.json').read_bytes())
     rows = [json.loads(line) for line in (args.run/'responses.jsonl').read_bytes().splitlines()]
     config=json.loads((args.run/'manifest.json').read_bytes())['config']
+    if args.replicate is not None:
+        from planner_run_selection import select_replicate
+        rows=select_replicate(rows,frozen['cells'],config,args.replicate)
     max_shift=config['max_shift_minutes']
     cells = {(c['aid'],c['case'],c['arm']): c for c in frozen['cells']}
     people = {p['id']: p for p in frozen['personas']}
@@ -104,10 +108,12 @@ def main():
         prepared.append({k: row[k] for k in ['aid','case','arm','date','attempt_key']} | {'transaction_case': case, 'bridge_audit': audit})
     if seen != expected: raise ValueError('Incomplete source matrix')
     provenance = {name: hashlib.sha256((args.run/name).read_bytes()).hexdigest() for name in ['frozen_inputs.json','responses.jsonl','manifest.json']}
-    atomic(args.out, {'cells': prepared, 'quote_book': BOOK, 'source_sha256': provenance,
+    result={'cells': prepared, 'quote_book': BOOK, 'source_sha256': provenance,
         'provider_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'planner_time_protocol':{'max_shift_minutes':max_shift,'recorded_execution_equality_required':True},
-        'scope': 'Development end-to-end purchase probe with hypothetical prices/eligibility and explicitly linked frozen plans; no actual market or empirical effect validation.'})
+        'scope': 'Development end-to-end purchase probe with hypothetical prices/eligibility and explicitly linked frozen plans; no actual market or empirical effect validation.'}
+    if args.replicate is not None:result['planner_selection']={'replicate':args.replicate,'variant':config['candidates'][0]['id'],'whole_original_matrix_required':True}
+    atomic(args.out,result)
     print(json.dumps({'cells':len(prepared),'sha256':hashlib.sha256(args.out.read_bytes()).hexdigest()}))
 
 

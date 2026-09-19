@@ -68,3 +68,22 @@ def test_quote_price_or_cash_cannot_change_after_registration(tmp_path):
     a,b=fixture(tmp_path);p=b/'frozen_inputs.json';s=json.loads(p.read_bytes())
     s['cells'][0]['transaction_case']['cash']+=100000;p.write_text(json.dumps(s))
     with pytest.raises(ValueError,match='input snapshot changed'):report(a,b)
+
+
+def test_explicit_repeat_still_audits_complete_original_run(tmp_path):
+    a,b=fixture(tmp_path)
+    p=a/'responses.jsonl';original=[json.loads(x) for x in p.read_text().splitlines()]
+    rows=[dict(r,replicate=s,variant='frozen') for s in [1,2] for r in original]
+    p.write_text('\n'.join(json.dumps(r) for r in rows)+'\n')
+    m=a/'manifest.json';v=json.loads(m.read_bytes());v['config'].update(seeds=[1,2],candidates=[{'id':'frozen'}]);m.write_text(json.dumps(v))
+    source=b/'frozen_inputs.json';s=json.loads(source.read_bytes())
+    s['source_sha256']={name:hashlib.sha256((a/name).read_bytes()).hexdigest() for name in s['source_sha256']}
+    s['planner_selection']={'replicate':2,'variant':'frozen','whole_original_matrix_required':True}
+    source.write_text(json.dumps(s));m=b/'manifest.json';v=json.loads(m.read_bytes())
+    h=hashlib.sha256(source.read_bytes()).hexdigest();v['input_sha256']=h;v['config']['source_sha256']=h;m.write_text(json.dumps(v))
+    assert report(a,b)['all_matrices_complete']
+    # Even a failure outside the selected repeat invalidates this release path.
+    rows[0]['eligible']=False;p.write_text('\n'.join(json.dumps(r) for r in rows)+'\n')
+    s['source_sha256']['responses.jsonl']=hashlib.sha256(p.read_bytes()).hexdigest();source.write_text(json.dumps(s))
+    h=hashlib.sha256(source.read_bytes()).hexdigest();v['input_sha256']=h;v['config']['source_sha256']=h;m.write_text(json.dumps(v))
+    with pytest.raises(ValueError,match='failure must not be hidden'):report(a,b)
