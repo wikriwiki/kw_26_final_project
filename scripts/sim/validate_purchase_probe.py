@@ -15,12 +15,21 @@ from forced_no_purchase import resolve as resolve_forced
 from validate_prompt_v3 import atomic, digest
 
 
+def factual_errors(ledger, expected):
+    from paired_asset_score import METRICS
+    if set(expected)-set(METRICS):raise ValueError('Unknown factual ledger requirement')
+    if any(isinstance(v,bool) or not isinstance(v,int) or v<0 for v in expected.values()):raise ValueError('Invalid factual amount')
+    return ['fact:'+k for k,v in expected.items() if ledger[k]!=v]
+
+
 def protocol_modules(config):
     name=config.get('transaction_protocol','v1')
     if name not in {'v1','v2','v3','v4'}:raise ValueError('Unregistered transaction protocol')
     import importlib
     contract=importlib.import_module('asset_transaction_contract'+('_'+name if name!='v1' else ''))
-    prompt=importlib.import_module('prompts.asset_transaction_'+name).SYSTEM_PROMPT
+    prompt_name=config.get('purchase_prompt_module','asset_transaction_'+name)
+    if prompt_name not in {'asset_transaction_'+v for v in ['v1','v2','v3','v4','v5']}:raise ValueError('Unregistered purchase prompt')
+    prompt=importlib.import_module('prompts.'+prompt_name).SYSTEM_PROMPT
     return contract,prompt
 
 
@@ -41,7 +50,8 @@ def invoke(job, config, base, prefixes, folder):
                     purchases=[{k:v for k,v in a.items() if k in {'id','candidate_id','wallet_spend'}} for a in json.loads(forced['raw'])['actions']]
                     forced['raw']=json.dumps({'acquisition_units':{},'purchases':purchases},ensure_ascii=False)
                     _,forced['ledger']=contract.inspect(forced['raw'],case)
-                row.update(forced,valid=True,errors=[],elapsed_seconds=round(time.monotonic()-started,3))
+                errors=factual_errors(forced['ledger'],cell.get('evaluation_ledger',{}))
+                row.update(forced,valid=not errors,errors=errors,elapsed_seconds=round(time.monotonic()-started,3))
                 atomic(folder/'attempts'/f'{key}_deterministic.json',row)
                 return row
         row['decision_source']='model'
@@ -56,6 +66,7 @@ def invoke(job, config, base, prefixes, folder):
                    answer_usage=second['response']['meta_info'],forced_reasoning_boundary=first['forced_reasoning_boundary'])
         _, ledger = contract.inspect(row['raw'],case)
         errors = [] if row['answer_usage']['finish_reason']['type']=='stop' else ['incomplete_generation']
+        errors.extend(factual_errors(ledger,cell.get('evaluation_ledger',{})))
         row.update(valid=not errors,errors=errors,ledger=ledger)
     except Exception as exc: row.update(valid=False,errors=[str(exc)])
     row['elapsed_seconds'] = round(time.monotonic()-started,3)
@@ -93,7 +104,7 @@ def main():
             print(f"completed {len(rows)}/{len(jobs)} {row['case']} valid={row['valid']} errors={row['errors']}",flush=True)
     expected={(s,c['aid'],c['case'],c['arm']) for s in config['seeds'] for c in cells}
     complete=len(rows)==len(expected) and {(r['replicate'],r['aid'],r['case'],r['arm']) for r in rows}==expected
-    summary={'scope':'Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.',
+    summary={'scope':config.get('scope','Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.'),
         'macro_claim':False,'variants':{'asset_transaction_'+config.get('transaction_protocol','v1')+'_bounded'+str(config['thinking_tokens']):{'responses':len(rows),'complete':complete,
         'valid':sum(r['valid'] for r in rows),'all_pass':complete and all(r['valid'] for r in rows),
         'deterministic_no_purchase':sum(r.get('decision_source')=='deterministic_unique_no_purchase' for r in rows)}},'contrasts':{}}

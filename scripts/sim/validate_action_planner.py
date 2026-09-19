@@ -90,6 +90,9 @@ def main():
             prefixes[(c['id'], cell['aid'], cell['case'], cell['arm'])] = tokenizer.apply_chat_template(
                 [{'role': 'system', 'content': system_prompt}, {'role': 'user', 'content': user}],
                 tokenize=False, add_generation_prompt=True, enable_thinking=bool(c['thinking_tokens']))
+            if c.get('deliberation_prefill'):
+                if not c['thinking_tokens']:raise ValueError('Reasoning prefill requires explicit reasoning stage')
+                prefixes[(c['id'], cell['aid'], cell['case'], cell['arm'])]+=c['deliberation_prefill']
     folder = Path(args.out); folder.mkdir(parents=True, exist_ok=False); (folder/'attempts').mkdir(); (folder/'code').mkdir()
     names = ['validate_action_planner.py','action_plan_contract.py','presence_contract.py','bounded_reasoning.py','temporal_projection.py']
     if config.get('temporal_clock_step') is not None: names.append('temporal_choice_grammar.py')
