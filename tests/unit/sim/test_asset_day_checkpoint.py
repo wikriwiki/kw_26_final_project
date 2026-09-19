@@ -50,3 +50,22 @@ def test_write_failure_does_not_publish_a_partial_day(tmp_path, monkeypatch):
     with pytest.raises(OSError,match='interruption'):
         commit_day(tmp_path,day='2026-09-21',roster=['A'],cases={'A':CASE},rows=[{'aid':'A','complete':True,'raw':RAW}])
     assert not list(tmp_path.iterdir())
+
+
+def test_current_protocol_revalidates_choices_and_preserves_day_chain(tmp_path):
+    raw=json.dumps({'acquisition_units':{},'purchases':[{'id':'walk','candidate_id':None,'wallet_spend':{}}]})
+    rows=[{'aid':'A','complete':True,'raw':raw,'transaction_protocol':'v4'}]
+    prior=commit_day(tmp_path,day='2026-09-21',roster=['A'],cases={'A':CASE},rows=rows)
+    following=commit_day(tmp_path,day='2026-09-22',roster=['A'],cases={'A':CASE},rows=rows,previous=prior)
+    result=json.loads(following.read_bytes())
+    assert result['transaction_protocol']=='v4' and result['closing_states']['A']['cash']==8000
+    with pytest.raises(ValueError,match='protocol changed'):
+        commit_day(tmp_path,day='2026-09-23',roster=['A'],cases={'A':CASE},rows=[dict(rows[0],raw=RAW,transaction_protocol='v1')],previous=following)
+
+
+def test_unknown_or_mixed_protocols_cannot_enter_checkpoint(tmp_path):
+    with pytest.raises(ValueError,match='Unknown'):
+        commit_day(tmp_path,day='2026-09-21',roster=['A'],cases={'A':CASE},rows=[{'aid':'A','complete':True,'raw':RAW,'transaction_protocol':'v999'}])
+    rows=[{'aid':'A','complete':True,'raw':RAW,'transaction_protocol':'v1'},{'aid':'B','complete':True,'raw':RAW,'transaction_protocol':'v4'}]
+    with pytest.raises(ValueError,match='Mixed'):
+        commit_day(tmp_path,day='2026-09-21',roster=['A','B'],cases={'A':CASE,'B':CASE},rows=rows)

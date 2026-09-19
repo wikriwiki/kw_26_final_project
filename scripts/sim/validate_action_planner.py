@@ -32,6 +32,7 @@ def invoke(job, config, base, prefixes, folder):
             first, second = run(prefix=prefix, schema=sc, base=base, seed=sample_seed,
                 thinking_tokens=candidate['thinking_tokens'], answer_tokens=config['answer_tokens'], sampling=config['sampling'],
                 timeout=config['timeout_seconds'], whitespace_limit=2,ebnf=grammar,
+                on_request=lambda stage,value:atomic(folder/'attempts'/f'{key}_{stage}_request.json',value),
                 on_deliberation=lambda value: atomic(folder/'attempts'/f'{key}_deliberation.json', value))
             row.update(thinking_usage=first['response']['meta_info'], forced_reasoning_boundary=first['forced_reasoning_boundary'])
         else:

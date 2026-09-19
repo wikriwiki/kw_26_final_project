@@ -22,6 +22,15 @@ def commit_day(root, *, day, roster, cases, rows, previous=None):
         if row.get('complete') is not True: raise ValueError('Failed response cannot be zero filled')
         by_id[row['aid']] = row
     if set(by_id) != set(roster): raise ValueError('Incomplete day')
+    protocols={row.get('transaction_protocol','v1') for row in rows}
+    if len(protocols)!=1:raise ValueError('Mixed transaction protocols in one day')
+    protocol=next(iter(protocols))
+    if protocol=='v1':check=inspect
+    elif protocol=='v2':
+        from asset_transaction_contract_v2 import inspect as check
+    elif protocol in {'v3','v4'}:
+        from asset_transaction_contract_v3 import inspect as check
+    else:raise ValueError('Unknown transaction protocol')
     prior = None; previous_hash = None
     if previous is not None:
         previous = Path(previous).resolve()
@@ -29,15 +38,16 @@ def commit_day(root, *, day, roster, cases, rows, previous=None):
         raw = previous.read_bytes(); prior = json.loads(raw); previous_hash = hashlib.sha256(raw).hexdigest()
         if prior.get('complete') is not True or (date.fromisoformat(day)-date.fromisoformat(prior['day'])).days != 1 or prior['roster'] != list(roster):
             raise ValueError('Invalid prior day; consecutive day required')
+        if prior.get('transaction_protocol','v1')!=protocol:raise ValueError('Transaction protocol changed within frozen path')
     ledgers = {}; states = {}
     for aid in roster:
         case = cases[aid]
         if prior is not None and (case['cash'] != prior['closing_states'][aid]['cash'] or case['wallet_lots'] != prior['closing_states'][aid]['wallet_lots']):
             raise ValueError('State discontinuity; exogenous transfers need a separate registered transition')
-        _, ledger = inspect(by_id[aid]['raw'], case)
+        _, ledger = check(by_id[aid]['raw'], case)
         ledgers[aid] = ledger
         states[aid] = {'cash': ledger['closing_cash'], 'wallet_lots': ledger['closing_wallet_lots']}
-    snapshot = {'day': day, 'roster': list(roster), 'complete': True, 'previous_sha256': previous_hash,
+    snapshot = {'day': day, 'roster': list(roster), 'complete': True, 'previous_sha256': previous_hash,'transaction_protocol':protocol,
                 'frozen_cases': cases, 'raw_choices': {a: by_id[a]['raw'] for a in roster}, 'ledgers': ledgers, 'closing_states': states}
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / (day + '.json'); lock = folder / 'day_barrier.lock'

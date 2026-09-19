@@ -65,3 +65,17 @@ def test_explicit_grammar_preserved_without_schema_recompile(monkeypatch):
           sampling={},timeout=60,on_deliberation=lambda x:None,whitespace_limit=2,ebnf='root ::= "{}"')
     assert calls[1]['sampling_params']['ebnf']=='root ::= "{}"'
     assert 'json_schema' not in calls[1]['sampling_params']
+
+
+def test_wire_request_saved_before_network_failure(monkeypatch):
+    saved=[]
+    def post(base,payload,timeout):
+        assert saved[-1][1] is payload
+        if len(saved)==1:return {'text':'r','meta_info':{'finish_reason':{'type':'length'}}}
+        raise ConnectionError('disconnected')
+    monkeypatch.setattr(b,'post',post)
+    with pytest.raises(ConnectionError):
+        b.run(prefix='<think>',schema={},base='x',seed=1,thinking_tokens=10,answer_tokens=10,
+              sampling={},timeout=60,on_deliberation=lambda x:None,on_request=lambda s,p:saved.append((s,p)))
+    assert [s for s,p in saved]==['deliberation','answer']
+    assert saved[1][1]['text']=='<think>r\n</think>\n\n'

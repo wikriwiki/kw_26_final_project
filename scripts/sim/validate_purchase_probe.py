@@ -49,6 +49,7 @@ def invoke(job, config, base, prefixes, folder):
         first, second = run(prefix=prefixes[case['id']],schema=contract.schema(case),base=base,seed=sample_seed,
             thinking_tokens=config['thinking_tokens'],answer_tokens=config['answer_tokens'],sampling=config['sampling'],
             timeout=config['timeout_seconds'],whitespace_limit=2,
+            on_request=lambda stage,value:atomic(folder/'attempts'/f'{key}_{stage}_request.json',value),
             on_deliberation=lambda value: atomic(folder/'attempts'/f'{key}_deliberation.json',value))
         atomic(folder/'attempts'/f'{key}_answer.json',second)
         row.update(raw=second['response']['text'],thinking_usage=first['response']['meta_info'],

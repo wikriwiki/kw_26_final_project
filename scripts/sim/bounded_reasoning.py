@@ -13,11 +13,12 @@ def post(base,payload,timeout):
     with urlopen(req,timeout=timeout) as response: return json.load(response)
 
 
-def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout,on_deliberation,whitespace_limit=None,ebnf=None):
+def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout,on_deliberation,whitespace_limit=None,ebnf=None,on_request=None):
     if ebnf is not None and (not isinstance(ebnf,str) or not ebnf.strip()):
         raise ValueError('Invalid explicit grammar')
     params=dict(sampling,sampling_seed=seed,max_new_tokens=thinking_tokens,stop=['</think>'],no_stop_trim=False)
     request={'text':prefix,'sampling_params':params,'require_reasoning':False,'stream':False}
+    if on_request is not None:on_request('deliberation',request)
     deliberation=post(base,request,timeout)
     text=deliberation['text']
     finish=deliberation['meta_info'].get('finish_reason') or {}
@@ -43,5 +44,6 @@ def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout
     answer_request={'text':prefix+text+'\n</think>\n\n','sampling_params':dict(sampling,
         sampling_seed=seed,max_new_tokens=answer_tokens,**constraint),
         'require_reasoning':False,'stream':False}
+    if on_request is not None:on_request('answer',answer_request)
     answer=post(base,answer_request,timeout)
     return record,{'request':answer_request,'response':answer}
