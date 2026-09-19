@@ -66,7 +66,12 @@ def audit(folder):
     for row in rows:
         failures = [] if row['valid'] else ['output_contract']
         try:
-            events = json.loads(row['raw'])['events']
+            if 'execution_plan' in row:
+                if not config.get('temporal_projection'):
+                    raise ValueError('Unregistered projected plan')
+                events = row['execution_plan']['events']
+            else:
+                events = json.loads(row['raw'])['events']
         except (KeyError, ValueError):
             events = []
             failures.append('missing_events')
@@ -86,7 +91,9 @@ def audit(folder):
         if name == 'work_conflict' and not any(e['time'] == '09:00' and e['anchor'] == 'workplace' for e in events):
             failures.append('missed_office_start')
         results.append({k: row[k] for k in ['variant', 'replicate', 'case']} | {'failures': failures})
-    return {'scope': 'Machine checks only. Full manual factual review required before promotion.', 'results': results,
+    return {'scope': 'Machine checks only. Full manual factual review required before promotion.',
+            'auditor_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+            'uses_registered_execution_plan': bool(config.get('temporal_projection')), 'results': results,
             'variants': {c['id']: {'checks': sum(r['variant'] == c['id'] for r in results),
                                   'passed': sum(r['variant'] == c['id'] and not r['failures'] for r in results)} for c in config['candidates']}}
 

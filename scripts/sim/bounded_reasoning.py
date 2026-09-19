@@ -13,7 +13,7 @@ def post(base,payload,timeout):
     with urlopen(req,timeout=timeout) as response: return json.load(response)
 
 
-def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout,on_deliberation):
+def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout,on_deliberation,whitespace_limit=None):
     params=dict(sampling,sampling_seed=seed,max_new_tokens=thinking_tokens,stop=['</think>'],no_stop_trim=False)
     request={'text':prefix,'sampling_params':params,'require_reasoning':False,'stream':False}
     deliberation=post(base,request,timeout)
@@ -29,8 +29,15 @@ def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout
         raise ValueError(f'Unexpected deliberation stop: {finish}')
     # Some tokenizers surface special stop text even with no_stop_trim=False.
     if text.endswith('</think>'): text=text[:-len('</think>')]
+    if whitespace_limit is None:
+        constraint={'json_schema':json.dumps(schema)}
+    else:
+        if isinstance(whitespace_limit,bool) or not isinstance(whitespace_limit,int) or whitespace_limit<0:
+            raise ValueError('Invalid whitespace limit')
+        import xgrammar
+        constraint={'ebnf':str(xgrammar.Grammar.from_json_schema(schema,max_whitespace_cnt=whitespace_limit))}
     answer_request={'text':prefix+text+'\n</think>\n\n','sampling_params':dict(sampling,
-        sampling_seed=seed,max_new_tokens=answer_tokens,json_schema=json.dumps(schema)),
+        sampling_seed=seed,max_new_tokens=answer_tokens,**constraint),
         'require_reasoning':False,'stream':False}
     answer=post(base,answer_request,timeout)
     return record,{'request':answer_request,'response':answer}

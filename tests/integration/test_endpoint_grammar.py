@@ -8,7 +8,7 @@ import xgrammar as xgr
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'scripts/sim'))
 from planning_contract import endpoint_schedule_schema
-from evidence_contract import constrain_evidence, ROUTINE
+from evidence_contract import constrain_evidence, constrain_field, constrain_trigger_evidence, ROUTINE
 
 
 class EndpointGrammarTest(unittest.TestCase):
@@ -59,6 +59,31 @@ class EndpointGrammarTest(unittest.TestCase):
         self.assertTrue(matcher.accept_string(json.dumps(value, ensure_ascii=False)) and matcher.accept_token(0))
         value['events'][2]['reasoning'] = '매일 약을 복용한다.'
         self.assertFalse(xgr.GrammarMatcher(grammar).accept_string(json.dumps(value, ensure_ascii=False)))
+
+    def test_bounded_whitespace_ebnf_preserves_values_and_blocks_loops(self):
+        compiler = xgr.GrammarCompiler(xgr.TokenizerInfo(['<eos>'], stop_token_ids=[0]))
+        ebnf = str(xgr.Grammar.from_json_schema(endpoint_schedule_schema(['11680521'], False, True), max_whitespace_cnt=2))
+        grammar = compiler.compile_grammar(ebnf)
+        raw = json.dumps(self.valid(6), ensure_ascii=False)
+        matcher = xgr.GrammarMatcher(grammar)
+        self.assertTrue(matcher.accept_string(raw) and matcher.accept_token(0))
+        self.assertFalse(xgr.GrammarMatcher(grammar).accept_string('{\n' + '  \n' * 30 + raw[1:]))
+
+    def test_policy_label_cannot_cite_ordinary_employment_fact(self):
+        schema = constrain_evidence(endpoint_schedule_schema(['11680521'], False, True), [ROUTINE, '직장이 있다.', '공공 이용 제한이 있다.'])
+        schema = constrain_field(schema, 'trigger', ['none', 'policy'])
+        schema = constrain_trigger_evidence(schema, {'policy': ['공공 이용 제한이 있다.']})
+        compiler = xgr.GrammarCompiler(xgr.TokenizerInfo(['<eos>'], stop_token_ids=[0]))
+        grammar = compiler.compile_json_schema(schema)
+        value = self.valid(6)
+        for event in value['events']: event['reasoning'] = ROUTINE
+        value['events'][2].update(trigger='policy', reasoning='공공 이용 제한이 있다.')
+        matcher = xgr.GrammarMatcher(grammar)
+        self.assertTrue(matcher.accept_string(json.dumps(value, ensure_ascii=False)) and matcher.accept_token(0))
+        value['events'][2]['reasoning'] = '직장이 있다.'
+        self.assertFalse(xgr.GrammarMatcher(grammar).accept_string(json.dumps(value, ensure_ascii=False)))
+        value['events'][2]['trigger'] = 'none'
+        self.assertTrue(xgr.GrammarMatcher(grammar).accept_string(json.dumps(value, ensure_ascii=False)))
 
 
 if __name__ == '__main__':

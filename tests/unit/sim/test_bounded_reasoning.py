@@ -34,3 +34,22 @@ def test_unexpected_eos_is_not_accepted_as_a_reasoning_boundary(monkeypatch):
     monkeypatch.setattr(b,'post',lambda *a:{'text':'','meta_info':{'finish_reason':{'type':'stop','matched':42}}})
     with pytest.raises(ValueError):
         b.run(prefix='<think>',schema={},base='x',seed=1,thinking_tokens=10,answer_tokens=10,sampling={},timeout=60,on_deliberation=lambda x:None)
+
+
+def test_bounded_whitespace_uses_only_ebnf_constraint(monkeypatch):
+    import types
+    calls=[]
+    class Grammar:
+        @staticmethod
+        def from_json_schema(schema, *, max_whitespace_cnt):
+            assert schema=={'type':'object'} and max_whitespace_cnt==2
+            return 'root ::= "{}"'
+    monkeypatch.setitem(sys.modules,'xgrammar',types.SimpleNamespace(Grammar=Grammar))
+    def post(base,payload,timeout):
+        calls.append(payload)
+        return {'text':'reason' if len(calls)==1 else '{}','meta_info':{'finish_reason':{'type':'length' if len(calls)==1 else 'stop'}}}
+    monkeypatch.setattr(b,'post',post)
+    b.run(prefix='<think>',schema={'type':'object'},base='x',seed=1,thinking_tokens=10,answer_tokens=10,
+          sampling={},timeout=60,on_deliberation=lambda x:None,whitespace_limit=2)
+    assert calls[1]['sampling_params']['ebnf']=='root ::= "{}"'
+    assert 'json_schema' not in calls[1]['sampling_params']

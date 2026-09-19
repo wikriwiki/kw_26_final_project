@@ -1,0 +1,66 @@
+{
+  "config": {
+    "id": "validation_v13_projection",
+    "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "source_inputs_sha256": "8a1ce99d00f33122293d4ff3a35c281321e6abbffee918e733dc4168e13d7469",
+    "candidates": [
+      {
+        "id": "v19_guarded_projection",
+        "prompt": "v19",
+        "structured": true,
+        "thinking_tokens": 4096
+      }
+    ],
+    "seeds": [
+      17001,
+      18001
+    ],
+    "sampling": {
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "presence_penalty": 0.0
+    },
+    "answer_tokens": 4096,
+    "schema_mode": "endpoint_guard",
+    "reasoning_evidence": true,
+    "whitespace_limit": 2,
+    "input_trigger_guard": true,
+    "temporal_projection": {
+      "max_shift_minutes": 10,
+      "minimum_gap_minutes": 20,
+      "tie_break": "minimum total absolute change then earliest lexicographic schedule"
+    },
+    "workers": 8,
+    "timeout_seconds": 900,
+    "order_seed": 20260924,
+    "phase": "Eight known development cases x two new seeds. User text unchanged; typed context availability and explicit clock projection are new protocol components.",
+    "primary": "Every execution plan must satisfy the unchanged schedule and fact requirements. Report raw validity separately, every shifted time, and maximum 10-minute displacement. Non-time errors are not projected. Explicit matched obligation and commute times remain fixed. Never invent or remove activities, alter anchors, prices, or evidence.",
+    "review": "A verbatim span must be related to the chosen action, with material unsupported causal claims rejected. The projection only handles 20-minute spacing, not factual truth, opening hours, travel feasibility or policy effects.",
+    "selection": "No empirical policy direction/magnitude targets. This is a deterministic repair protocol, openly reported, not an unaided first-response success or prompt-only ablation. Keep all raw attempts and failed paths.",
+    "prohibitions": "P010 immutable; P015 not run; no hidden retry, no criteria relaxation, no policy-specific output target. Unused 24-person confirmation remains untouched."
+  },
+  "config_sha256": "31e0c209f81bfcf1199ca62a7edc1d4199063244c8e9de939c51772a97c271f3",
+  "inputs_sha256": "c8551188e8b654fff4585658fd7730d7e6ed02a245c0d7c3ec816f18a9d53cb2",
+  "code_sha256": {
+    "validate_bounded_planner.py": "26342a99b20f8586ff20b91bf7c0b047a673ba1e201fdb715af600302f43bcdd",
+    "bounded_reasoning.py": "e54188fefb537f62a08fb7fba74e5172830acaf2b79f7f1e951841067cc015e2",
+    "planning_contract.py": "6aa420fd6ef5819482f2ff0f43207ab6950bceebbd089bcb70a5cffe6eb0bed9",
+    "validate_prompt_v3.py": "3a4af4679c925c28115df10076804ea5d5ecacd0af75ec69fafa85fb8110871d",
+    "validate_prompt_v4.py": "ca765ac59652ceeecd578de109913266243a21671c8929b86e306d5f7a93624e",
+    "evidence_contract.py": "1ad37c6c45bdd27b844e6a5ca27e42f77e8b42dbc76da4e1f86b8b059cc9bffb",
+    "temporal_projection.py": "a4e7532147ec19c859e01b215d9aea4e8698a4fbe296d53a3188438e9c2778e1"
+  },
+  "registered_at": "2026-09-19T17:21:53.820590+00:00",
+  "tokenizer_path": "/data/hf_cache/hub/models--LGAI-EXAONE--EXAONE-4.5-33B-AWQ/snapshots/31e6a965d0661bbe4a8b895e22a77f8271772ba0",
+  "template_sha256": "03966f66eb508c1ff0606e24e6e334c59917a6416c62e800c37f1a515aae4c14",
+  "prefix_hashes": {
+    "v19_guarded_projection|c7da620929cbd4e482f51721598258aca4d3f29f58eb2cc7ca890ef684a3a76e": "171967098205719fe1943165d5025e9207e1b593c371909c42aeb7a997eabc63",
+    "v19_guarded_projection|14ac330e2bf4c6fab23f2f85f307bc4b355e9f50d740efc5ee07311b076a4d4b": "f5b246c82d661013886e1259b23d059b5adc63a9a0cff08a62b573a0616b9b53",
+    "v19_guarded_projection|0fd4b9f2a54a86c33925509c29c4351128f86a7e8d70aa3cd0bf15578b37c5ab": "a84ac97f9bfd1da2da19a2a6d06c56154332eda93816893cf08517f43775f8d6",
+    "v19_guarded_projection|bc9efbe41b0c50f0f903ea70ca0203471778579a86f6eff51564e1774afb98af": "3e5a3ac0f5ae05ae7176bb3040865cc24874fbca87308f73e23f4b9131a90749",
+    "v19_guarded_projection|faf51c14ec22e05eb041e20c064b3df8265fb54eac172da509bb8dd8d4573eab": "0781c6d60c679c5ea6e4e46741dd5c451f9af9c0b460ab3d47fc6a9f77fb46b7",
+    "v19_guarded_projection|435ca8221f4f05580aa1712117948fa97262e2ff51dedae1d0e812c422445e51": "c894987f4ee5b45c3d058859c155e02325ea9ba8ef9dbd5a4ac58d6fedcaa92b",
+    "v19_guarded_projection|7ce71354dd14c38ec587ea533884d680be1eeb53a029b53dbbefb786859004c6": "bb6b6a2f47763f1fffc2a4b48de057a84029575eb3619c34018c657dce28d99b",
+    "v19_guarded_projection|b9296ffea4a831cb7d33091fe3bbff65b473fcc66451a094c71ddcf9096df614": "6e92084c55528f1f13037d2744d1b407ec8c57e130122e19970d95a4ea93e80b"
+  }
+}
