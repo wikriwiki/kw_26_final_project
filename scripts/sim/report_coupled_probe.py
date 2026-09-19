@@ -16,8 +16,11 @@ from action_repair_feedback import feedback
 def linked_rows(plan_folder,purchase_folder):
     plan_folder=Path(plan_folder);purchase_folder=Path(purchase_folder)
     plans=[json.loads(x) for x in (plan_folder/'responses.jsonl').read_bytes().splitlines()]
-    source=json.loads((purchase_folder/'frozen_inputs.json').read_bytes())
+    source_raw=(purchase_folder/'frozen_inputs.json').read_bytes()
+    source=json.loads(source_raw)
     manifest=json.loads((purchase_folder/'manifest.json').read_bytes())
+    if hashlib.sha256(source_raw).hexdigest()!=manifest['input_sha256'] or manifest['input_sha256']!=manifest['config']['source_sha256']:
+        raise ValueError('Purchase input snapshot changed from registered source')
     provenance=source['source_sha256']
     for name in ['manifest.json','responses.jsonl','frozen_inputs.json']:
         if hashlib.sha256((plan_folder/name).read_bytes()).hexdigest()!=provenance[name]:

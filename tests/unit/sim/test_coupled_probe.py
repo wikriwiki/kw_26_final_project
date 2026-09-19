@@ -28,7 +28,8 @@ def fixture(root):
     (plans/'responses.jsonl').write_text('\n'.join(json.dumps(r) for r in rows)+'\n')
     hashes={name:hashlib.sha256((plans/name).read_bytes()).hexdigest() for name in ['manifest.json','frozen_inputs.json','responses.jsonl']}
     (purchases/'frozen_inputs.json').write_text(json.dumps({'source_sha256':hashes,'cells':quotes}))
-    (purchases/'manifest.json').write_text(json.dumps({'config':{'seeds':[1]}}))
+    input_hash=hashlib.sha256((purchases/'frozen_inputs.json').read_bytes()).hexdigest()
+    (purchases/'manifest.json').write_text(json.dumps({'input_sha256':input_hash,'config':{'seeds':[1],'source_sha256':input_hash}}))
     (purchases/'responses.jsonl').write_text('\n'.join(json.dumps(r) for r in transactions)+'\n')
     return plans,purchases
 
@@ -42,7 +43,8 @@ def test_matched_valid_zero_remains_in_complete_conditional_matrix(tmp_path):
 
 def test_changed_upstream_file_or_wrong_decision_link_rejected(tmp_path):
     a,b=fixture(tmp_path);p=b/'frozen_inputs.json';s=json.loads(p.read_bytes());s['cells'][0]['transaction_case']['id']='wrong';p.write_text(json.dumps(s))
-    with pytest.raises(ValueError,match='wrong upstream'):report(a,b)
+    with pytest.raises(ValueError,match='input snapshot changed'):report(a,b)
+    s['cells'][0]['transaction_case']['id']='off';p.write_text(json.dumps(s))
     (a/'responses.jsonl').write_text('')
     with pytest.raises(ValueError,match='does not match'):report(a,b)
 
@@ -56,4 +58,13 @@ def test_failed_purchase_not_zero_filled_or_removed(tmp_path):
 
 def test_quote_source_cannot_drop_a_planned_activity(tmp_path):
     a,b=fixture(tmp_path);p=b/'frozen_inputs.json';s=json.loads(p.read_bytes());s['cells'][0]['transaction_case']['events'].pop();p.write_text(json.dumps(s))
+    # Register malformed provider output to exercise the independent link check.
+    m=b/'manifest.json';v=json.loads(m.read_bytes());h=hashlib.sha256(p.read_bytes()).hexdigest()
+    v['input_sha256']=h;v['config']['source_sha256']=h;m.write_text(json.dumps(v))
     with pytest.raises(ValueError,match='dropped planned'):report(a,b)
+
+
+def test_quote_price_or_cash_cannot_change_after_registration(tmp_path):
+    a,b=fixture(tmp_path);p=b/'frozen_inputs.json';s=json.loads(p.read_bytes())
+    s['cells'][0]['transaction_case']['cash']+=100000;p.write_text(json.dumps(s))
+    with pytest.raises(ValueError,match='input snapshot changed'):report(a,b)
