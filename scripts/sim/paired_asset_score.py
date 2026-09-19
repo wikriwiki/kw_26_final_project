@@ -23,6 +23,8 @@ def score(rows, *, roster, days, seeds):
         protocol=row.get('transaction_protocol','v1')
         if protocol=='v2':
             from asset_transaction_contract_v2 import inspect as check
+        elif protocol in {'v3','v4'}:
+            from asset_transaction_contract_v3 import inspect as check
         elif protocol=='v1':check=inspect
         else:raise ValueError('Unknown transaction protocol')
         _, ledger = check(row['raw'], row['transaction_case'])

@@ -1,0 +1,314 @@
+{
+  "scope": "Typed action protocol: representational hallucinations impossible by construction, independent factual/choice checks still required. Not prompt-only or macro validation.",
+  "macro_claim": false,
+  "variants": {
+    "v23_bounded2048": {
+      "responses": 384,
+      "complete": true,
+      "raw_valid": 304,
+      "valid": 362,
+      "eligible": 362,
+      "all_pass": false,
+      "adjusted_responses": 58,
+      "mean_generated_tokens": 2317.5286458333335
+    }
+  },
+  "raw_archive_sha256": "e6090813bfb77a3f3f4e2c2ab3509c9e7ac2ee73b562f0bd44c2d1035a681f48",
+  "decision": "Failed registered >=95% final execution gate:362/384=94.27%;22 final failures retained.24-person confirmation now consumed, not reusable as untouched confirmation for revised candidates. No policy effect score from incomplete paths.",
+  "failure_rows": [
+    {
+      "aid": "AGT_11440590_F_20대_001",
+      "case": "cashback",
+      "arm": "on",
+      "replicate": 30001,
+      "attempt_key": "261501532408e97a968b8a12849d167c0daa3bcdfad4fe98146c984f27f0517d",
+      "errors": [
+        "time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\"events\": [\n{\n\"time\": \"07:00\",\n\"activity_id\": \"home_prepare\",\n\"anchor\": \"residence\"\n},\n{\n\"time\": \"09:10\",\n\"activity_id\": \"home_meal\",\n\"anchor\": \"residence\"\n},\n{\n\"time\": \"08:52\",\n\"activity_id\": \"walk\",\n\"anchor\": \"zone:11440660\"\n},\n{\n\"time\": \"09:30\",\n\"activity_id\": \"office_prepare\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"09:50\",\n\"activity_id\": \"office_work\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"12:30\",\n\"activity_id\": \"office_meal\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"13:10\",\n\"activity_id\": \"office_work\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"17:30\",\n\"activity_id\": \"office_finish\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"18:10\",\n\"activity_id\": \"walk\",\n\"anchor\": \"zone:11440590\"\n},\n{\n\"time\": \"19:00\",\n\"activity_id\": \"home_leisure\",\n\"anchor\": \"residence\"\n}\n]\n}"
+    },
+    {
+      "aid": "AGT_11560585_F_50대_001",
+      "case": "grant",
+      "arm": "on",
+      "replicate": 31001,
+      "attempt_key": "7515ee2505457730552b92373bbe5f04a83b55705fa5b15f977db14a16c415bf",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:10\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:50\",\n\t\"activity_id\": \"home_chores\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"09:13\",\n\t\"activity_id\": \"office_prepare\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"09:33\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:25\",\n\t\"activity_id\": \"office_meal\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:05\",\n\t\"activity_id\": \"office_break\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:45\",\n\t\"activity_id\": \"home_delivery\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"15:05\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"18:20\",\n\t\"activity_id\": \"home_sleep\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11545630_F_40대_004",
+      "case": "local_voucher",
+      "arm": "on",
+      "replicate": 30001,
+      "attempt_key": "cff2891a0b37f112ed66cebbb389677ea615222e906a368549eade3b51d1a0dc",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"06:30\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:19\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n\t{\"time\": \"08:49\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"18:00\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n\t{\"time\": \"18:30\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"},\n\t{\"time\": \"20:00\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"21:30\", \"activity_id\": \"home_sleep\", \"anchor\": \"residence\"}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11545630_F_40대_004",
+      "case": "distancing",
+      "arm": "off",
+      "replicate": 30001,
+      "attempt_key": "6dcfdbe692fcb536a67ccec143ddd44271238088ec17dba460a6bf5a84b30290",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n \"events\": [\n { \"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\" },\n { \"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\" },\n { \"time\": \"08:01\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\" },\n { \"time\": \"08:50\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\" },\n { \"time\": \"12:00\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\" },\n { \"time\": \"17:30\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\" },\n { \"time\": \"18:49\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\" },\n { \"time\": \"21:00\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\" },\n { \"time\": \"23:00\", \"activity_id\": \"home_sleep\", \"anchor\": \"residence\" }\n ]\n}"
+    },
+    {
+      "aid": "AGT_11230660_M_50대_002",
+      "case": "cashback",
+      "arm": "on",
+      "replicate": 31001,
+      "attempt_key": "f6f298b07d4cf8c162f689063f24a92c2ccb30f5f9b25e5d13a4a1d6bc72dd96",
+      "errors": [
+        "time",
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\"events\": [\n{\"time\": \"06:30\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n{\"time\": \"07:00\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n{\"time\": \"07:45\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n{\"time\": \"08:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n{\"time\": \"12:00\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\"},\n{\"time\": \"13:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n{\"time\": \"18:00\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n{\"time\": \"18:45\", \"activity_id\": \"walk\", \"anchor\": \"zone:11230660\"},\n{\"time\": \"20:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n{\"time\": \"21:30\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"}\n]\n}"
+    },
+    {
+      "aid": "AGT_11545630_F_40대_004",
+      "case": "cashback",
+      "arm": "on",
+      "replicate": 31001,
+      "attempt_key": "84174c40daab06405248fac1bc10941136fa9b0e7871186af33763395e980ad6",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"06:30\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:00\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"meal_dine_in\",\n\t\"anchor\": \"zone:11545630\"\n\t},\n\t{\n\t\"time\": \"13:00\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"14:00\",\n\t\"activity_id\": \"remote_work\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"15:00\",\n\t\"activity_id\": \"home_chores\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"18:00\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"19:00\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11380520_M_50대_005",
+      "case": "local_voucher",
+      "arm": "on",
+      "replicate": 30001,
+      "attempt_key": "fc4de1efcb504d4ef08827c6022453457b8d7c7248e1b7a48d5f9958819abb11",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"07:00\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:00\",\n\t\"activity_id\": \"walk\",\n\t\"anchor\": \"zone:11380520\"\n\t},\n\t{\n\t\"time\": \"08:40\",\n\t\"activity_id\": \"remote_work\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"09:00\",\n\t\"activity_id\": \"office_prepare\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"09:20\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"office_meal\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:00\",\n\t\"activity_id\": \"office_break\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"14:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"15:00\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11560585_F_50대_001",
+      "case": "grant",
+      "arm": "on",
+      "replicate": 30001,
+      "attempt_key": "6eddf88364d6ef3e59ec1617e0e0232a0d8eb75add9561745f672bb8d746e83f",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"06:30\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:10\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"office_prepare\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"09:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"office_break\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:30\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"17:30\",\n\t\"activity_id\": \"office_finish\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"19:00\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"19:50\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"20:20\",\n\t\"activity_id\": \"home_chores\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11380520_M_50대_005",
+      "case": "grant",
+      "arm": "off",
+      "replicate": 31001,
+      "attempt_key": "7f737e3c681c54d2062bebf0340e77bf7a0cea407044929d8adeb5d12fee60b8",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:00\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n\t{\"time\": \"08:30\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"17:30\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n\t{\"time\": \"19:00\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"20:00\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"},\n\t{\"time\": \"22:00\", \"activity_id\": \"home_sleep\", \"anchor\": \"residence\"}\n]\n}"
+    },
+    {
+      "aid": "AGT_11740690_F_40대_005",
+      "case": "grant",
+      "arm": "off",
+      "replicate": 31001,
+      "attempt_key": "50c5cdff631e442c1dca5703dea2ba13bb700dd4bcacd14f1105c95a81447f78",
+      "errors": [
+        "time",
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"07:00\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:00\",\n\t\"activity_id\": \"walk\",\n\t\"anchor\": \"zone:11740700\"\n\t},\n\t{\n\t\"time\": \"08:58\",\n\t\"activity_id\": \"office_prepare\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"09:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"office_meal\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:00\",\n\t\"activity_id\": \"office_break\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"17:30\",\n\t\"activity_id\": \"office_finish\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"17:30\",\n\t\"activity_id\": \"home_delivery\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"19:00\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11560585_F_50대_001",
+      "case": "local_voucher",
+      "arm": "off",
+      "replicate": 30001,
+      "attempt_key": "43b2f5dbf8f047ae7fc8181af2867df4e6af38dc6fce64e67a65090f23afd94f",
+      "errors": [
+        "time",
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\"events\": [\n{\"time\": \"06:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n{\"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n{\"time\": \"08:10\", \"activity_id\": \"home_chores\", \"anchor\": \"residence\"},\n{\"time\": \"08:50\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n{\"time\": \"09:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n{\"time\": \"12:30\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\"},\n{\"time\": \"16:00\", \"activity_id\": \"office_break\", \"anchor\": \"workplace\"},\n{\"time\": \"18:30\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n{\"time\": \"19:20\", \"activity_id\": \"walk\", \"anchor\": \"zone:11560585\"}\n,\n{\"time\": \"20:40\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"}\n]\n}"
+    },
+    {
+      "aid": "AGT_11230660_M_50대_002",
+      "case": "grant",
+      "arm": "on",
+      "replicate": 31001,
+      "attempt_key": "668f64d1834dca68049cd5b6d2e11892fa59e9431b9a3f67099d51d771c1ba86",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"09:12\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n\t{\"time\": \"09:35\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"12:30\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\"},\n\t{\"time\": \"18:30\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n\t{\"time\": \"19:00\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11740690_F_40대_005",
+      "case": "grant",
+      "arm": "on",
+      "replicate": 31001,
+      "attempt_key": "2c8e624d52ecbc6f8b2b69bc9708daabf1787915d7cff948a394e917a99e9c93",
+      "errors": [
+        "time",
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\"events\": [\n{\"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n{\"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n{\"time\": \"08:00\", \"activity_id\": \"groceries\", \"anchor\": \"zone:11740700\"},\n{\"time\": \"08:40\", \"activity_id\": \"home_chores\", \"anchor\": \"residence\"},\n{\"time\": \"08:58\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n{\"time\": \"09:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n{\"time\": \"18:00\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n{\"time\": \"18:58\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"},\n{\"time\": \"19:20\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n{\"time\": \"20:30\", \"activity_id\": \"home_sleep\", \"anchor\": \"residence\"}\n]\n}"
+    },
+    {
+      "aid": "AGT_11545630_F_40대_004",
+      "case": "cashback",
+      "arm": "off",
+      "replicate": 30001,
+      "attempt_key": "214d21a1a24f359ce7a7cea2d63c05df1edfa69b742264b7cb4883eccf8de161",
+      "errors": [
+        "time",
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"07:00\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:55\",\n\t\"activity_id\": \"home_chores\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:25\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"09:00\",\n\t\"activity_id\": \"office_prepare\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"09:05\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"office_meal\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:00\",\n\t\"activity_id\": \"office_break\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"17:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"17:20\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11230660_M_50대_002",
+      "case": "cashback",
+      "arm": "on",
+      "replicate": 30001,
+      "attempt_key": "ece858766dc1e24ee4143fb9debcb543ee36e3430f1e313d2a6dfb5c8afc6c5a",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"07:40\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:20\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n\t{\"time\": \"08:40\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"12:30\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\"},\n\t{\"time\": \"13:30\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"17:00\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n\t{\"time\": \"19:20\", \"activity_id\": \"home_delivery\", \"anchor\": \"residence\"},\n\t{\"time\": \"20:30\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"},\n\t{\"time\": \"22:00\", \"activity_id\": \"home_sleep\", \"anchor\": \"residence\"}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11560585_F_50대_001",
+      "case": "distancing",
+      "arm": "off",
+      "replicate": 31001,
+      "attempt_key": "b2a540fb70728995fa2786830cc8ce703f6affc6fb7ea594a6a4e247978fe8aa",
+      "errors": [
+        "time",
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"07:30\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:00\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:10\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n\t{\"time\": \"09:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"12:00\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\"},\n\t{\"time\": \"13:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"17:53\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n\t{\"time\": \"18:10\", \"activity_id\": \"walk\", \"anchor\": \"zone:11560585\"}\n\t,\n\t{\"time\": \"21:00\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11740690_F_40대_005",
+      "case": "local_voucher",
+      "arm": "off",
+      "replicate": 30001,
+      "attempt_key": "03ff62f10a5829d52c4b2a89441114e8f30e2d8dc6e5ce35294ccd35921eb912",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:02\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n\t{\"time\": \"09:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"12:00\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\"},\n\t{\"time\": \"12:30\", \"activity_id\": \"office_break\", \"anchor\": \"workplace\"},\n\t{\"time\": \"12:50\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"17:30\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n\t{\"time\": \"19:28\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"20:00\", \"activity_id\": \"home_chores\", \"anchor\": \"residence\"}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11545630_F_40대_004",
+      "case": "cashback",
+      "arm": "off",
+      "replicate": 31001,
+      "attempt_key": "167252c86dc276ae3bd410ace59d2cffca0fc415503f2ab468fb6742be9dc49e",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"07:00\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:00\",\n\t\"activity_id\": \"office_prepare\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"09:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"office_meal\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"17:00\",\n\t\"activity_id\": \"office_finish\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"19:00\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"20:00\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"22:00\",\n\t\"activity_id\": \"home_sleep\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11560585_F_50대_001",
+      "case": "local_voucher",
+      "arm": "on",
+      "replicate": 30001,
+      "attempt_key": "5fc4b4c6a621ffac0fbf468f65994003132f171f45d9873103bf9c7c0fa6485d",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\"events\": [\n{\n\"time\": \"07:00\",\n\"activity_id\": \"home_prepare\",\n\"anchor\": \"residence\"\n},\n{\n\"time\": \"07:40\",\n\"activity_id\": \"home_meal\",\n\"anchor\": \"residence\"\n},\n{\n\"time\": \"08:00\",\n\"activity_id\": \"office_prepare\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"09:00\",\n\"activity_id\": \"office_work\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"17:55\",\n\"activity_id\": \"office_finish\",\n\"anchor\": \"workplace\"\n},\n{\n\"time\": \"18:55\",\n\"activity_id\": \"walk\",\n\"anchor\": \"zone:11560585\"\n},\n{\n\"time\": \"20:00\",\n\"activity_id\": \"home_chores\",\n\"anchor\": \"residence\"\n},\n{\n\"time\": \"21:30\",\n\"activity_id\": \"home_leisure\",\n\"anchor\": \"residence\"\n},\n{\n\"time\": \"23:00\",\n\"activity_id\": \"home_sleep\",\n\"anchor\": \"residence\"\n}\n]\n}"
+    },
+    {
+      "aid": "AGT_11290650_M_50대_001",
+      "case": "cashback",
+      "arm": "off",
+      "replicate": 30001,
+      "attempt_key": "571771280ed8e295e9de9d5fd93ea5fb1df48850998e1eba62e36cbaf9fcf4f0",
+      "errors": [
+        "time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n \"events\": [\n { \"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\" },\n { \"time\": \"08:00\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\" },\n { \"time\": \"08:30\", \"activity_id\": \"walk\", \"anchor\": \"zone:11290650\" },\n { \"time\": \"11:00\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\" },\n { \"time\": \"09:00\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\" },\n { \"time\": \"12:00\", \"activity_id\": \"office_meal\", \"anchor\": \"workplace\" },\n { \"time\": \"17:00\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\" },\n { \"time\": \"18:00\", \"activity_id\": \"groceries\", \"anchor\": \"zone:11290650\" },\n { \"time\": \"19:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\" },\n { \"time\": \"21:00\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\" }\n ]\n}"
+    },
+    {
+      "aid": "AGT_11380520_M_50대_005",
+      "case": "distancing",
+      "arm": "off",
+      "replicate": 30001,
+      "attempt_key": "a82eb52dd01de9b7fb0c0f6757c3058e146e750454fd98f45516f532f60a4238",
+      "errors": [
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"07:30\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:00\", \"activity_id\": \"office_prepare\", \"anchor\": \"workplace\"},\n\t{\"time\": \"09:20\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"12:00\", \"activity_id\": \"office_break\", \"anchor\": \"workplace\"},\n\t{\"time\": \"18:00\", \"activity_id\": \"office_finish\", \"anchor\": \"workplace\"},\n\t{\"time\": \"19:00\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"},\n\t{\"time\": \"21:00\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"23:00\", \"activity_id\": \"home_sleep\", \"anchor\": \"residence\"}\n\t]\n}"
+    },
+    {
+      "aid": "AGT_11560585_F_50대_001",
+      "case": "cashback",
+      "arm": "on",
+      "replicate": 31001,
+      "attempt_key": "58feb225eebb3e3d7bfafd7af62a4da611e5a8100e524f4ee42567cb358de6ed",
+      "errors": [
+        "time",
+        "transition_time",
+        "temporal_projection_infeasible"
+      ],
+      "factual_errors": [],
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"07:00\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:00\",\n\t\"activity_id\": \"home_chores\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:40\",\n\t\"activity_id\": \"home_delivery\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"09:00\",\n\t\"activity_id\": \"office_prepare\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"09:05\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"office_break\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:30\",\n\t\"activity_id\": \"office_meal\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"18:00\",\n\t\"activity_id\": \"office_finish\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"19:30\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}"
+    }
+  ],
+  "manual_review": "All22 failed sequences reviewed; full384 sequence review pending. Timing/commute failures, no registered restriction violations in accepted schedules; absence of a flag is not full behavior validation."
+}

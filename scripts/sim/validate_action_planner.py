@@ -21,16 +21,23 @@ def invoke(job, config, base, prefixes, folder):
     try:
         sc = schema(cell); sample_seed = int(digest([seed, cell['aid'], cell['case']])[:8], 16) % 2147483647
         prefix = prefixes[(candidate['id'], cell['aid'], cell['case'], cell['arm'])]
+        grammar=None
+        if config.get('temporal_clock_step') is not None:
+            from temporal_choice_grammar import build
+            if config['max_shift_minutes'] != 0: raise ValueError('Finite clock protocol forbids post-generation time shifts')
+            grammar,audit=build(cell,clock_step=config['temporal_clock_step'])
+            row.update(temporal_grammar_sha256=digest(grammar),temporal_grammar_audit=audit)
+            atomic(folder/'attempts'/f'{key}_grammar.json',{'ebnf':grammar,'audit':audit})
         if candidate['thinking_tokens']:
             first, second = run(prefix=prefix, schema=sc, base=base, seed=sample_seed,
                 thinking_tokens=candidate['thinking_tokens'], answer_tokens=config['answer_tokens'], sampling=config['sampling'],
-                timeout=config['timeout_seconds'], whitespace_limit=2,
+                timeout=config['timeout_seconds'], whitespace_limit=2,ebnf=grammar,
                 on_deliberation=lambda value: atomic(folder/'attempts'/f'{key}_deliberation.json', value))
             row.update(thinking_usage=first['response']['meta_info'], forced_reasoning_boundary=first['forced_reasoning_boundary'])
         else:
             import xgrammar
             request = {'text': prefix, 'sampling_params': dict(config['sampling'], sampling_seed=sample_seed,
-                       max_new_tokens=config['answer_tokens'], ebnf=str(xgrammar.Grammar.from_json_schema(sc, max_whitespace_cnt=2))),
+                       max_new_tokens=config['answer_tokens'], ebnf=grammar or str(xgrammar.Grammar.from_json_schema(sc, max_whitespace_cnt=2))),
                        'require_reasoning': False, 'stream': False}
             atomic(folder/'attempts'/f'{key}_request.json', request)
             second = {'request': request, 'response': post(base, request, config['timeout_seconds'])}
@@ -60,7 +67,7 @@ def main():
     ap.add_argument('--out', required=True); ap.add_argument('--tokenizer', required=True)
     args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); raw = Path(args.source).read_bytes()
     import importlib
-    if config.get('prompt_module','v22') not in {'v22','v23'}: raise ValueError('Unregistered prompt module')
+    if config.get('prompt_module','v22') not in {'v22','v23','v24'}: raise ValueError('Unregistered prompt module')
     system_prompt = importlib.import_module('prompts.' + config.get('prompt_module','v22')).SYSTEM_PROMPT
     assert hashlib.sha256(raw).hexdigest() == config['source_inputs_sha256']
     inputs = json.loads(raw); people = {p['id']: p for p in inputs['personas']}
@@ -73,6 +80,10 @@ def main():
         user += '\n\n## 선택 가능한 활동 사전\n' + json.dumps(list(catalog(cell).values()), ensure_ascii=False)
         if cell.get('required_activities'):
             user += '\n\n## 입력에 명시된 일정의 실행 표기\n' + json.dumps(cell['required_activities'], ensure_ascii=False)
+        if config.get('temporal_clock_step') is not None:
+            if cell.get('required_presence_intervals'):
+                user += '\n\n## 입력에 명시된 장소 유지 구간\n' + json.dumps(cell['required_presence_intervals'],ensure_ascii=False)
+            user += '\n\n시각은 '+str(config['temporal_clock_step'])+'분 단위 또는 위에 명시된 고정 일정 시각 중에서 고른다. 주어진 일정과 이동 시간을 지키며 저녁과 하루 마무리까지 선택한다.'
         frozen.append(dict(cell, submitted_user=user))
         for c in config['candidates']:
             prefixes[(c['id'], cell['aid'], cell['case'], cell['arm'])] = tokenizer.apply_chat_template(
@@ -80,6 +91,7 @@ def main():
                 tokenize=False, add_generation_prompt=True, enable_thinking=bool(c['thinking_tokens']))
     folder = Path(args.out); folder.mkdir(parents=True, exist_ok=False); (folder/'attempts').mkdir(); (folder/'code').mkdir()
     names = ['validate_action_planner.py','action_plan_contract.py','presence_contract.py','bounded_reasoning.py','temporal_projection.py']
+    if config.get('temporal_clock_step') is not None: names.append('temporal_choice_grammar.py')
     code = {}
     for name in names:
         data = Path(__file__).with_name(name).read_bytes(); code[name] = hashlib.sha256(data).hexdigest(); (folder/'code'/name).write_bytes(data)

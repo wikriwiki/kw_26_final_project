@@ -53,3 +53,15 @@ def test_bounded_whitespace_uses_only_ebnf_constraint(monkeypatch):
           sampling={},timeout=60,on_deliberation=lambda x:None,whitespace_limit=2)
     assert calls[1]['sampling_params']['ebnf']=='root ::= "{}"'
     assert 'json_schema' not in calls[1]['sampling_params']
+
+
+def test_explicit_grammar_preserved_without_schema_recompile(monkeypatch):
+    calls=[]
+    def post(base,payload,timeout):
+        calls.append(payload)
+        return {'text':'reason' if len(calls)==1 else '{}','meta_info':{'finish_reason':{'type':'length' if len(calls)==1 else 'stop'}}}
+    monkeypatch.setattr(b,'post',post)
+    b.run(prefix='<think>',schema={},base='x',seed=1,thinking_tokens=10,answer_tokens=10,
+          sampling={},timeout=60,on_deliberation=lambda x:None,whitespace_limit=2,ebnf='root ::= "{}"')
+    assert calls[1]['sampling_params']['ebnf']=='root ::= "{}"'
+    assert 'json_schema' not in calls[1]['sampling_params']

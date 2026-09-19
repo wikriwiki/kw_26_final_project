@@ -13,7 +13,9 @@ def post(base,payload,timeout):
     with urlopen(req,timeout=timeout) as response: return json.load(response)
 
 
-def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout,on_deliberation,whitespace_limit=None):
+def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout,on_deliberation,whitespace_limit=None,ebnf=None):
+    if ebnf is not None and (not isinstance(ebnf,str) or not ebnf.strip()):
+        raise ValueError('Invalid explicit grammar')
     params=dict(sampling,sampling_seed=seed,max_new_tokens=thinking_tokens,stop=['</think>'],no_stop_trim=False)
     request={'text':prefix,'sampling_params':params,'require_reasoning':False,'stream':False}
     deliberation=post(base,request,timeout)
@@ -29,7 +31,9 @@ def run(*,prefix,schema,base,seed,thinking_tokens,answer_tokens,sampling,timeout
         raise ValueError(f'Unexpected deliberation stop: {finish}')
     # Some tokenizers surface special stop text even with no_stop_trim=False.
     if text.endswith('</think>'): text=text[:-len('</think>')]
-    if whitespace_limit is None:
+    if ebnf is not None:
+        constraint={'ebnf':ebnf}
+    elif whitespace_limit is None:
         constraint={'json_schema':json.dumps(schema)}
     else:
         if isinstance(whitespace_limit,bool) or not isinstance(whitespace_limit,int) or whitespace_limit<0:

@@ -38,5 +38,34 @@ class PurchaseGrammarTest(unittest.TestCase):
         obj={'acquisitions':[{'offer_id':'O','units':1,'reason':'나중에 사용','before_event_id':None}],'purchases':[]}
         self.assertTrue(self.accepts(self.case,obj))
 
+    def test_v3_funding_and_no_purchase_choices_without_redundant_cash(self):
+        from asset_transaction_contract_v3 import schema as schema3
+        c={'cash':10000,'wallet_lots':{'V':[{'face':5000,'own_basis':0}]},'offers':{},
+           'events':[{'id':'A','channel':'offline','candidates':[{'id':'Q','price_won':2500,'eligible_wallets':['V']}]}]}
+        compiler=xgr.GrammarCompiler(xgr.TokenizerInfo(['<eos>'],stop_token_ids=[0]))
+        grammar=compiler.compile_grammar(str(xgr.Grammar.from_json_schema(schema3(c),max_whitespace_cnt=2)))
+        def accepts(obj):
+            m=xgr.GrammarMatcher(grammar);return m.accept_string(json.dumps(obj)) and m.accept_token(0)
+        obj={'acquisition_units':{},'purchases':[{'id':'A','candidate_id':'Q','wallet_spend':{'V':2500}}]}
+        self.assertTrue(accepts(obj))
+        obj['purchases'][0]['cash_payment']=2500;self.assertFalse(accepts(obj))
+        obj['purchases'][0].pop('cash_payment');obj['purchases'][0]['wallet_spend']={'UNKNOWN':2500};self.assertFalse(accepts(obj))
+        obj['purchases'][0].update(candidate_id=None,wallet_spend={});self.assertTrue(accepts(obj))
+
+    def test_v4_acquisition_zero_does_not_make_wallet_available(self):
+        from asset_transaction_contract_v4 import schema as schema4
+        c={'cash':9000,'wallet_lots':{},'offers':{'O':{'wallet_id':'V','unit_face':10000,'unit_cash_cost':9000,'max_units':50}},
+           'execution_assumptions':{'offers_available_before_any_purchase':True,'intraday_income':0},
+           'events':[{'id':'A','channel':'offline','candidates':[{'id':'Q','price_won':2500,'eligible_wallets':['V']}]}]}
+        compiler=xgr.GrammarCompiler(xgr.TokenizerInfo(['<eos>'],stop_token_ids=[0]))
+        grammar=compiler.compile_grammar(str(xgr.Grammar.from_json_schema(schema4(c),max_whitespace_cnt=2)))
+        def accepts(obj):
+            m=xgr.GrammarMatcher(grammar);return m.accept_string(json.dumps(obj)) and m.accept_token(0)
+        obj={'acquisition_units':{'O':0},'purchases':[{'id':'A','candidate_id':'Q','wallet_spend':{'V':2500}}]}
+        self.assertFalse(accepts(obj))
+        obj['acquisition_units']['O']=1;self.assertTrue(accepts(obj))
+        obj['acquisition_units']['O']=2;self.assertFalse(accepts(obj))
+        obj['acquisition_units']['O']=0;obj['purchases'][0]['wallet_spend']={};self.assertTrue(accepts(obj))
+
 
 if __name__=='__main__':unittest.main()

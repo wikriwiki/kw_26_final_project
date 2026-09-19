@@ -1,0 +1,34 @@
+{
+  "id": "validation_purchase_v5_development",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "bced18d3be17b85768951dbd5878d957b435d30fc0aa96c38514712b3f64477f",
+  "seeds": [
+    45001
+  ],
+  "thinking_tokens": 1024,
+  "answer_tokens": 4096,
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20261010,
+  "phase": "Unchanged v4 prompt and financial protocol expanded to all96 known development conditions. Static offer assumption explicit; new purchase seed45001. Fixed v18 upstream plans.",
+  "primary": "All96 financial/quote checks, zero request failures. Forced unique no-purchase outcomes separated from actual model calls. Policy contrasts not inspected for candidate selection. Same execution gate before any financial confirmation.",
+  "selection": "V3 failed once by spending an unowned wallet while explicitly choosing zero acquisition. V4 prevents that inconsistent combination structurally. This is not proof that the model independently inferred all financing rules. No policy-effect outcome selection.",
+  "conditions": [
+    "Hypothetical item prices fixed before output; not inferred from individual daily expenditure.",
+    "Hypothetical merchant participation and personal eligibility; exact age/card history not observed.",
+    "Explicit zero is allowed. Free schedule activities cannot be routed to a merchant.",
+    "Own cash, grant balance and prepaid asset acquisition separate; future rebate not current money.",
+    "Fixed one-day upstream schedules, missing inventory/needs/income path; this is not total daily demand validation.",
+    "No P015; P010 remains immutable.",
+    "Acquisition timing is mechanical within explicitly static all-day offers and zero intraday income, not a model timing preference.",
+    "No generated factual prose; model deliberation remains raw audit material, not asserted simulator facts."
+  ],
+  "interpretation": "Report all paired nominal consumption, funding and asset acquisition contrasts regardless of direction. These are conditional synthetic scenario outputs, never comparisons to historical empirical magnitudes or significance.",
+  "transaction_protocol": "v4",
+  "skip_forced_no_purchase": true
+}

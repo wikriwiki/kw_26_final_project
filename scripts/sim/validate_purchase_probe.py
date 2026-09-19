@@ -17,9 +17,9 @@ from validate_prompt_v3 import atomic, digest
 
 def protocol_modules(config):
     name=config.get('transaction_protocol','v1')
-    if name not in {'v1','v2'}:raise ValueError('Unregistered transaction protocol')
+    if name not in {'v1','v2','v3','v4'}:raise ValueError('Unregistered transaction protocol')
     import importlib
-    contract=importlib.import_module('asset_transaction_contract'+('_v2' if name=='v2' else ''))
+    contract=importlib.import_module('asset_transaction_contract'+('_'+name if name!='v1' else ''))
     prompt=importlib.import_module('prompts.asset_transaction_'+name).SYSTEM_PROMPT
     return contract,prompt
 
@@ -36,6 +36,10 @@ def invoke(job, config, base, prefixes, folder):
                 if row['transaction_protocol']=='v2':
                     purchases=[{k:v for k,v in a.items() if k!='kind'} for a in json.loads(forced['raw'])['actions']]
                     forced['raw']=json.dumps({'acquisitions':[],'purchases':purchases},ensure_ascii=False)
+                    _,forced['ledger']=contract.inspect(forced['raw'],case)
+                elif row['transaction_protocol'] in {'v3','v4'}:
+                    purchases=[{k:v for k,v in a.items() if k in {'id','candidate_id','wallet_spend'}} for a in json.loads(forced['raw'])['actions']]
+                    forced['raw']=json.dumps({'acquisition_units':{},'purchases':purchases},ensure_ascii=False)
                     _,forced['ledger']=contract.inspect(forced['raw'],case)
                 row.update(forced,valid=True,errors=[],elapsed_seconds=round(time.monotonic()-started,3))
                 atomic(folder/'attempts'/f'{key}_deterministic.json',row)
@@ -71,7 +75,7 @@ def main():
     if len(prefixes)!=len(cells):raise ValueError('Duplicate source id')
     folder=args.out;folder.mkdir(parents=True,exist_ok=False);(folder/'attempts').mkdir();(folder/'code').mkdir()
     hashes={}
-    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_transaction_contract_v2.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py','forced_no_purchase.py']:
+    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_transaction_contract_v2.py','asset_transaction_contract_v3.py','asset_transaction_contract_v4.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py','forced_no_purchase.py']:
         data=Path(__file__).with_name(name).read_bytes();hashes[name]=hashlib.sha256(data).hexdigest();(folder/'code'/name).write_bytes(data)
     atomic(folder/'manifest.json',{'config':config,'input_sha256':hashlib.sha256(raw).hexdigest(),'code_sha256':hashes,
         'system_sha256':digest(system_prompt),'prefix_sha256':{k:digest(v) for k,v in prefixes.items()},

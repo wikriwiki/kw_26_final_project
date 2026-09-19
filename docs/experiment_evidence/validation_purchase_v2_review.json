@@ -1,0 +1,29 @@
+{
+  "scope": "Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v2_bounded1024": {
+      "responses": 32,
+      "complete": true,
+      "valid": 31,
+      "all_pass": false,
+      "deterministic_no_purchase": 14
+    }
+  },
+  "raw_archive_sha256": "2ab1bafa7a40f710e6e8bf163181f49d21c24b829a73addb35359ffb3505a5ae",
+  "failures": [
+    {
+      "aid": "AGT_11620565_F_70대이상_001",
+      "case": "local_voucher",
+      "arm": "on",
+      "replicate": 37001,
+      "attempt_key": "92e34826ed3720f997b18383189fe842ea4a8befd5e038f1d7b40ffcb98dcf41",
+      "errors": [
+        "Funding differs from consumption"
+      ],
+      "raw": "{\n \"acquisitions\": [\n {\n \"offer_id\": \"synthetic_unit\",\n \"units\": 50,\n \"reason\": \"P014 정책 내 월 구매 한도(500,000원어치) 전 사용을 위해 조기 구매, 10% 할인(45만원 현금 지출)로 재원 확보 필요\"\n,\n \"before_event_id\": \"event:9\"\n }\n ],\n \"purchases\": [\n {\n \"id\": \"event:0\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"생활 준비 활동으로 구매 대상 없음\"\n },\n {\n \"id\": \"event:1\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"집 식사 활동으로 구매 대상 없음\"\n },\n {\n \"id\": \"event:2\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"집안 정리 활동으로 구매 대상 없음\"\n },\n {\n \"id\": \"event:3\",\n \"candidate_id\": \"quote:home_online_goods\",\n \"cash_payment\": 12000,\n \"wallet_spend\": {},\n \"reason\": \"세탁 세제는 평소 집화 비중 44% 지출 항목이나, 온라인 할인으로 긴급 구매 검토\"\n },\n {\n \"id\": \"event:4\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"집 식사 활동으로 구매 대상 없음\"\n },\n {\n \"id\": \"event:5\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 산책 활동으로 구매 대상 없음\"\n },\n {\n \"id\": \"event:6\",\n \"candidate_id\": \"quote:health_goods\",\n \"cash_payment\": 2500,\n \"wallet_spend\": { \"P014\": 2500 },\n \"reason\": \"건강 물품 구매 검토 시 P014 상품권 적용 가능, 할인 정책 활용\"\n },\n {\n \"id\": \"event:7\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"집 식사 활동으로 구매 대상 없음\"\n },\n {\n \"id\": \"event:8\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"취미 활동 중 구매 검토 없음\"\n },\n {\n \"id\": \"event:9\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"취침 준비 활동으로 구매 대상 없음\"\n }\n ]\n}"
+    }
+  ],
+  "decision": "Not promoted:31/32 financial protocol, including14 deterministic zeros and17/18 actual model responses. One double-funded mask purchase and too-late acquisition. False free-text claims also remain; no empirical effect or optimal prompt claim.",
+  "manual_review": "All18 model transaction selections/acquisitions reviewed. Unsupported online discount/emergency claim in failed case; grant-on one reason incorrectly says grant not received despite opening wallet. Another equates14delivery days/month with2/month and gives wrong price ratio. Removing emitted prose will be a representational constraint, not proof of internal factual reasoning."
+}
