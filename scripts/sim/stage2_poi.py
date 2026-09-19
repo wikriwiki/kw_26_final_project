@@ -730,8 +730,8 @@ def call_stage2(
         with driver_session() as s:
             rows = s.run(
                 "MATCH (a:Agent {id:$aid})-[:REMEMBERS]->(m:Memory {type:'visited'})-[:ABOUT_POI]->(p:POI) "
-                "WHERE m.day >= date($since) RETURN p.id AS pid",
-                aid=aid, since=three_days_ago
+                "WHERE m.day >= date($since) AND m.day < date($today) RETURN p.id AS pid",
+                aid=aid, since=three_days_ago, today=today.isoformat()
             )
             recent_poi_ids = {r["pid"] for r in rows}
     except Exception:
