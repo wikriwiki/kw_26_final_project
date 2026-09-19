@@ -133,7 +133,8 @@ def main():
         'valid':sum(r['valid'] for r in rows),'all_pass':complete and all(r['valid'] for r in rows),
         'deterministic_no_purchase':sum(r.get('decision_source')=='deterministic_unique_no_purchase' for r in rows)}},'contrasts':{}}
     lookup={(c['aid'],c['case'],c['arm']):c['transaction_case'] for c in cells}
-    for mechanism in sorted({c['case'] for c in cells}):
+    mechanisms=sorted({c['case'] for c in cells}) if config.get('score_contrasts',True) else []
+    for mechanism in mechanisms:
         selected=[dict(r,transaction_case=lookup[(r['aid'],r['case'],r['arm'])]) for r in rows if r['case']==mechanism]
         intended=[c for c in cells if c['case']==mechanism]
         try:summary['contrasts'][mechanism]=score(selected,roster=sorted({c['aid'] for c in intended}),days=sorted({c['date'] for c in intended}),seeds=config['seeds'])
