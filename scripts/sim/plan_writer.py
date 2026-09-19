@@ -405,9 +405,15 @@ MERGE (m:Memory {id: mem_id})
     m.paid_policy = (i.spent_from_policy IS NOT NULL
                      AND i.spent_from_policy <> '{}' AND i.spent_from_policy <> 'null'),
     m.extra_spent = i.extra_spent,    // 이 결제 중 지원금 없었으면 안 썼을 금액
-    m.category = coalesce(i.sub_category, i.category)
+    m.category = coalesce(i.sub_category, i.category),
+    m.ingest_token = $ingest_token
 MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 MERGE (m)-[:ABOUT_POI]->(poi)
+
+// Only a newly created visit may increment familiarity. Replaying a completed
+// finalization must not count the same event again.
+WITH a, i, poi, m
+WHERE m.ingest_token = $ingest_token
 
 // KNOWS_POI MERGE + 집계 갱신
 // recent_visit_dates: 30일 슬라이딩 윈도우 (saturation 계산용).
@@ -435,7 +441,8 @@ def night_finalize_yesterday(aid: str, today: date) -> int:
     """어제 INCLUDES → Memory{visited} CREATE + KNOWS_POI 갱신."""
     yesterday = today - timedelta(days=1)
     with driver_session() as s:
-        r = s.run(NIGHT_VISITED_CYPHER, aid=aid, yesterday=yesterday.isoformat()).single()
+        r = s.run(NIGHT_VISITED_CYPHER, aid=aid, yesterday=yesterday.isoformat(),
+                  ingest_token=uuid.uuid4().hex).single()
         return r["n_memories"] if r else 0
 
 

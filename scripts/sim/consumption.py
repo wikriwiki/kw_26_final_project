@@ -658,6 +658,9 @@ def apply_consumption_model(
         # 이월의 정의('그날 쓸 거래가 없어 못 쓴 몫')와 코드가 어긋난다 — 다음 날로 넘긴다.
         return {
             "applied": False, "reason": "no_commerce",
+            # Explicit observed zeros, not absent/missing ledger fields.
+            "today_total": 0, "online_total": 0, "today_total_incl_online": 0,
+            "personal_total": 0,
             "grant_carry_in": _carry,
             "grant_carry_out": 0 if (_choice_mode or _intensity_mode) else min(int(wallet_total), int(intended_grant_today)),
         }

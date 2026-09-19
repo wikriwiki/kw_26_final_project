@@ -27,6 +27,7 @@ from . import v1, v2, v3, v4, v5, v6  # noqa: E402
 from . import v7, v8, v9  # noqa: E402  (2차 후보, 사전등록 2026-09-18)
 from . import v10  # noqa: E402  (validation_v3: independent candidate)
 from . import v11  # noqa: E402  (validation_v4: universal grounded planning)
+from . import v12  # noqa: E402  (validation_v4b: temporal construction)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
 # v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
@@ -37,6 +38,7 @@ _VARIANTS: dict[str, ModuleType] = {
     "v7": v7, "v8": v8, "v9": v9,
     "v10": v10,
     "v11": v11,
+    "v12": v12,
 }
 DEFAULT = "p010"
 

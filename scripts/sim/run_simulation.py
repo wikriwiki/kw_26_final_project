@@ -282,6 +282,13 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
     t0 = time.time()
     timing: dict[str, float] = {}
     try:
+        # Finalize yesterday before it is read as today's lived experience.
+        # plan_writer guards familiarity increments against repeated finalization.
+        n_mem = 0
+        if day_idx >= 1:
+            _t = time.time()
+            n_mem = night_finalize_yesterday(aid, today)
+            timing["t_night_finalize"] = round(time.time() - _t, 3)
         _t = time.time()
         ctx = build_dawn_context(aid, today)
         # 사회 배경(방역·유행 상황) 주입. 정책과 독립한 채널이라 수급·비수급,
@@ -552,12 +559,6 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
         timing["t_write_plan"] = round(time.time() - _t, 3)
 
-        # Night Phase — Day 1 새벽엔 어제(Day 0) Plan 없으므로 finalize는 Day 2 이상에서만
-        n_mem = 0
-        if day_idx >= 1:
-            _t = time.time()
-            n_mem = night_finalize_yesterday(aid, today)
-            timing["t_night_finalize"] = round(time.time() - _t, 3)
         # 정책 인지 상태 — 어제 lifecycle에 오늘 Dawn 정책 ID를 true로 병합
         merged_policy_lifecycle = _merge_policy_lifecycle(
             (ctx.state or {}).get("policy_lc"),
@@ -911,6 +912,10 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
         f"— ok={ok_count}, err={err_count}"
     )
     timing_report = _write_timing_diagnostics(day_str, metrics_path)
+    if os.environ.get("SIM_STRICT_COMPLETION", "0") == "1":
+        from run_integrity import require_complete_day
+        with metrics_path.open(encoding="utf-8") as strict_metrics:
+            require_complete_day(agents, [json.loads(line) for line in strict_metrics])
     day_result = {
         "day": day_str,
         "ok": int(timing_report.get("agents_ok") or 0),
@@ -940,13 +945,18 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                 ).single()["n"]
         except Exception:
             _n2_existing = 0
-        if _n2_existing >= 50:
+        _strict_completion = os.environ.get("SIM_STRICT_COMPLETION", "0") == "1"
+        if _strict_completion and _n2_existing:
+            raise RuntimeError("Existing conversations in strict run: require a clean snapshot, not heuristic resume")
+        if not _strict_completion and _n2_existing >= 50:
             print(f"  [Night2] {day_str}: 이미 {_n2_existing} Conversation 적재됨 — 전체 skip")
         else:
             pairs = select_interaction_pairs(today, verbose=False)
             if pairs:
                 print(f"  [Night2] {len(pairs)} pairs, classifying intents ...")
                 n2_stats = run_intent_classification(today, pairs, workers=workers, verbose=False)
+                if _strict_completion and (n2_stats.get("skipped") or n2_stats.get("errors") or n2_stats.get("processed") != len(pairs)):
+                    raise RuntimeError(f"Incomplete Night2: {n2_stats.get('processed')}/{len(pairs)} pairs")
                 wstats = n2_stats.get("write", {})
                 by_intent = wstats.get("by_intent", {})
                 print(f"  [Night2] Conversation +{wstats.get('created',0)} "
@@ -958,6 +968,8 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
         day_result["night2_elapsed_sec"] = time.time() - t_n2
     except Exception as e:
         print(f"  [Night2] failed: {e}")
+        if os.environ.get("SIM_STRICT_COMPLETION", "0") == "1":
+            raise RuntimeError(f"Night2 incomplete on {day_str}; refusing next day") from e
 
     day_result["elapsed_sec"] = time.time() - t_start
     print(
