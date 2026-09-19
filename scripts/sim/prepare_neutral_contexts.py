@@ -14,6 +14,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--personas-source', required=True); ap.add_argument('--out', required=True)
     ap.add_argument('--reference-dir', type=Path, default=ROOT / 'output/stats')
+    ap.add_argument('--renderer-version',type=int,choices=[1,2],default=1)
     args = ap.parse_args()
     if os.environ.get('PYTHONHASHSEED') != '0':
         raise ValueError('Set PYTHONHASHSEED=0 before process launch')
@@ -53,14 +54,32 @@ def main():
                           'refund_rate': float(params.get('rate') if params.get('rate') is not None else .1),
                           'monthly_cap_won': int(params.get('cap') or 100000), 'available_refund_balance_won': 0,
                           'timing': '현재 적립 조건이며 환급 시점은 정책 본문을 따른다.'}
-                user = render(ctx.to_prompt_blocks(day), today=day, day_type='weekday' if day.weekday() < 5 else 'weekend',
-                              zones=[z['code'] for z in zones], cashback_status=cb)
+                kwargs={'today':day,'day_type':'weekday' if day.weekday()<5 else 'weekend','zones':[z['code'] for z in zones]}
+                if args.renderer_version==1:
+                    user=render(ctx.to_prompt_blocks(day),**kwargs,cashback_status=cb)
+                else:
+                    from neutral_context_v2 import render as facts_render
+                    statuses=[]
+                    if pol:
+                        status={'id':pol['id'],'scenario_assumptions':[
+                            '이 합성 시나리오에서는 제공된 제도의 개인 참여 자격을 만족한다고 가정한다. 실제 세부 나이·카드 사용 이력·가구 자격은 관측되지 않았다.']}
+                        if cb is not None:
+                            status['current_accounting']=cb
+                            status['scenario_assumptions'].append('누적 지출과 기준월 적격 지출은 생성한 초기 상태이며 실제 개인 거래 이력이 아니다.')
+                        if pol['type']=='grant':
+                            status['received_won']=state['grant_received'][pol['id']]
+                            status['available_wallet_won']=state['grant_remaining'][pol['id']]
+                            status['scenario_assumptions'].append('가구별 실제 지급을 재구성하지 않고 동일한 개인별 금액으로 변환한 초기 상태다. 수령 시점은 추가로 관측되지 않았다.')
+                        statuses.append(status)
+                    user=facts_render(ctx.to_prompt_blocks(day),**kwargs,personal_policy_status=statuses)
                 cells.append({'aid': p['id'], 'case': case['id'], 'arm': arm, 'date': day.isoformat(),
                               'zones': [z['code'] for z in zones], 'user': user, 'context_sha256': digest(user), 'synthetic_state': state})
     atomic(out, {'personas': source['personas'], 'cells': cells, 'reference_inputs': references,
         'provenance': {'personas_source_sha256': hashlib.sha256(raw).hexdigest(),
                        'script_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
-                       'renderer_sha256': hashlib.sha256(Path(__file__).with_name('neutral_context.py').read_bytes()).hexdigest(),
+                       'renderer_version':args.renderer_version,
+                       'renderer_sha256': hashlib.sha256(Path(__file__).with_name('neutral_context.py' if args.renderer_version==1 else 'neutral_context_v2.py').read_bytes()).hexdigest(),
+                       'base_renderer_sha256':hashlib.sha256(Path(__file__).with_name('neutral_context.py').read_bytes()).hexdigest(),
                        'scope': 'Read-only preparation. No LLM calls. Common synthetic prehistory, current POI geography, no behavioural spending-pace message.',
                        'assumptions': ['Cash balance is 39 weekday spending anchors, not observed wealth.',
                                        'Eligible-share factor 0.268 is inherited model calibration, not an observed individual baseline or causal effect.',

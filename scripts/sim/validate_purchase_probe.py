@@ -28,9 +28,19 @@ def protocol_modules(config):
     import importlib
     contract=importlib.import_module('asset_transaction_contract'+('_'+name if name!='v1' else ''))
     prompt_name=config.get('purchase_prompt_module','asset_transaction_'+name)
-    if prompt_name not in {'asset_transaction_'+v for v in ['v1','v2','v3','v4','v5']}:raise ValueError('Unregistered purchase prompt')
+    if prompt_name not in {'asset_transaction_'+v for v in ['v1','v2','v3','v4','v5','v6']}:raise ValueError('Unregistered purchase prompt')
     prompt=importlib.import_module('prompts.'+prompt_name).SYSTEM_PROMPT
     return contract,prompt
+
+
+def decision_case(case,config):
+    view=config.get('decision_view','raw')
+    if view=='raw':return case
+    if view=='balances_v1':
+        from purchase_decision_view import build
+        if config.get('purchase_prompt_module')!='asset_transaction_v6':raise ValueError('Balance view requires matching citizen-facing prompt')
+        return build(case)
+    raise ValueError('Unregistered decision view')
 
 
 def invoke(job, config, base, prefixes, folder):
@@ -82,12 +92,12 @@ def main():
     from transformers import AutoTokenizer
     tokenizer=AutoTokenizer.from_pretrained(args.tokenizer,local_files_only=True,trust_remote_code=True)
     prefixes={c['transaction_case']['id']:tokenizer.apply_chat_template(
-        [{'role':'system','content':system_prompt},{'role':'user','content':json.dumps(c['transaction_case'],ensure_ascii=False)}],
+        [{'role':'system','content':system_prompt},{'role':'user','content':json.dumps(decision_case(c['transaction_case'],config),ensure_ascii=False)}],
         tokenize=False,add_generation_prompt=True,enable_thinking=True) for c in cells}
     if len(prefixes)!=len(cells):raise ValueError('Duplicate source id')
     folder=args.out;folder.mkdir(parents=True,exist_ok=False);(folder/'attempts').mkdir();(folder/'code').mkdir()
     hashes={}
-    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_transaction_contract_v2.py','asset_transaction_contract_v3.py','asset_transaction_contract_v4.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py','forced_no_purchase.py']:
+    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_transaction_contract_v2.py','asset_transaction_contract_v3.py','asset_transaction_contract_v4.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py','forced_no_purchase.py','purchase_decision_view.py']:
         data=Path(__file__).with_name(name).read_bytes();hashes[name]=hashlib.sha256(data).hexdigest();(folder/'code'/name).write_bytes(data)
     atomic(folder/'manifest.json',{'config':config,'input_sha256':hashlib.sha256(raw).hexdigest(),'code_sha256':hashes,
         'system_sha256':digest(system_prompt),'prefix_sha256':{k:digest(v) for k,v in prefixes.items()},
