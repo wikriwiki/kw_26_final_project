@@ -8,8 +8,8 @@ from action_plan_contract import catalog, inspect
 from transaction_ledger import won
 
 
-def prepare_case(*, raw_plan, cell, quotes_by_event, cash, wallet_lots, offers):
-    report = inspect(raw_plan, cell)
+def prepare_case(*, raw_plan, cell, quotes_by_event, cash, wallet_lots, offers,max_shift_minutes=10):
+    report = inspect(raw_plan, cell,max_shift=max_shift_minutes)
     if not report['valid']: raise ValueError('Planner contract incomplete')
     activities = catalog(cell); events = []; audit = []
     provided_ids = {a['id'] for a in cell.get('provided_activities', [])}
@@ -45,4 +45,5 @@ def prepare_case(*, raw_plan, cell, quotes_by_event, cash, wallet_lots, offers):
         audit.append({'event_id': 'event:' + key, 'free_activity': channel is None, 'quoted_candidates': len(candidates)})
     return {'context': cell['user'], 'cash': won(cash, 'cash'), 'wallet_lots': deepcopy(wallet_lots),
             'offers': deepcopy(offers), 'events': events}, {'schedule_report': report, 'coverage': audit,
+            'max_shift_minutes':max_shift_minutes,
             'scope': 'Explicit candidate purchases only. Home-food inventory, missing obligations and overall daily demand coverage are not inferred.'}

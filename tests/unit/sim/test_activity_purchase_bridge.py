@@ -42,3 +42,11 @@ def test_appointment_without_fee_information_is_not_silently_free():
     cell=dict(CELL,user='진료 예약 있음.',provided_activities=[provided])
     with pytest.raises(ValueError,match='unresolved billing'):
         prepare_case(raw_plan=json.dumps(obj),cell=cell,quotes_by_event={'3':[QUOTE]},cash=8000,wallet_lots={},offers={})
+
+
+def test_zero_shift_planner_contract_stays_zero_at_purchase_bridge():
+    obj=json.loads(PLAN);obj['events'][1]['time']='07:15'
+    kwargs=dict(raw_plan=json.dumps(obj),cell=CELL,quotes_by_event={'3':[QUOTE]},cash=8000,wallet_lots={},offers={})
+    with pytest.raises(ValueError,match='Planner contract'):prepare_case(**kwargs,max_shift_minutes=0)
+    _,audit=prepare_case(**kwargs,max_shift_minutes=10)
+    assert audit['max_shift_minutes']==10 and audit['schedule_report']['temporal_projection']['shifts']

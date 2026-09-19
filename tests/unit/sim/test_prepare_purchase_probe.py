@@ -2,8 +2,10 @@ import copy
 import json
 from pathlib import Path
 import sys
+import pytest
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'scripts/sim'))
 from prepare_purchase_probe import build_case
+from action_plan_contract import inspect
 
 
 def source(arm='on',mechanism='local_voucher'):
@@ -14,6 +16,7 @@ def source(arm='on',mechanism='local_voucher'):
     row={'eligible':True,'execution_plan':{'events':events},'raw':json.dumps({'events':events}),'attempt_key':'K'}
     cell={'has_work':False,'zones':['11680510','11650510'],'date':'2026-09-21','user':'조건\n\n## 오늘\n계획 작성',
         'case':mechanism,'arm':arm,'synthetic_state':{'balance':100000,'grant_remaining':{'P013':280000}}}
+    row['execution_plan']=inspect(row['raw'],cell,max_shift=0)['execution_plan']
     return row,cell,{'home_dong_code':'11680521'}
 
 
@@ -37,6 +40,18 @@ def test_grant_is_separate_asset_and_cashback_never_becomes_current_cash():
 
 def test_closed_shop_has_no_quote_not_substitute_purchase():
     r,c,p=source();c['user']='집합금지: 유흥주점';r=copy.deepcopy(r)
-    r['execution_plan']['events'][2]['activity_id']='bar';r['raw']=json.dumps(r['execution_plan'])
+    raw=json.loads(r['raw']);raw['events'][2]['activity_id']='bar';r['raw']=json.dumps(raw)
+    r['execution_plan']=inspect(r['raw'],c,max_shift=0)['execution_plan']
     case,_=build_case(r,c,p)
     assert case['events'][2]['candidates']==[]
+
+
+def test_recorded_plan_cannot_be_replaced_during_quote_preparation():
+    r,c,p=source();r['execution_plan']['events'][0]['time']='07:30'
+    with pytest.raises(ValueError,match='changed'):build_case(r,c,p,max_shift_minutes=0,static_offers=True)
+
+
+def test_static_offer_assumption_explicit_when_requested():
+    r,c,p=source();case,audit=build_case(r,c,p,max_shift_minutes=0,static_offers=True)
+    assert case['execution_assumptions']=={'offers_available_before_any_purchase':True,'intraday_income':0}
+    assert audit['max_shift_minutes']==0
