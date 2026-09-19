@@ -11,6 +11,8 @@
   이항 p값의 독립성·귀무확률 한계를 출력
 - `tests/unit/sim/test_score_policy_execution_audit.py`: 업종 진입·이탈·0원 관측,
   쌍체 순서, 날짜 방향, 공통 정책 부재 회귀 검사
+- `tests/unit/sim/test_policy_prompt_timing.py`: 현재 익명화된 소비규모 표기와
+  거래별 결제수단 선택 문구에 맞춰 오래된 기대값 수정
 
 `consumption.py`, 방문 기억 시점, 원자적 agent-day 복구, 경험·정책입장 파이프라인은
 가져오지 않았다. 이 변경들은 다음 날 프롬프트 또는 실제 소비 결과를 바꾸므로 기존
