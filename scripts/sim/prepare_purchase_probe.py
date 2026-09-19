@@ -35,10 +35,57 @@ BOOK = {
 }
 
 
+def base_quote(activity,anchor,cell,persona,*,price_factor=1):
+    """Conditional menu quote, before opening-hour checks; shared with planning."""
+    if price_factor not in {0.5,1,2}:raise ValueError('Unregistered price factor')
+    spec=catalog(cell)[activity];channel=spec['purchase_channel']
+    if anchor not in spec['anchors']:raise ValueError('Quote anchor not allowed for activity')
+    if activity not in BOOK or channel is None:raise ValueError('No registered hypothetical price for activity')
+    description,price=BOOK[activity];eligible=[]
+    zone=anchor.removeprefix('zone:');home=str(persona['home_dong_code'])
+    if channel=='offline' and activity!='bar' and cell['arm']=='on':
+        if cell['case']=='grant' and zone[:2]==home[:2]:eligible=list(cell['synthetic_state']['grant_remaining'])
+        if cell['case']=='local_voucher' and zone[:5]==home[:5]:eligible=['P014']
+    return {'id':'quote:'+activity,'description':description,'price_won':int(price*price_factor),
+        'channel':channel,'eligible_wallets':eligible,
+        'price_provenance':'Hypothetical fixed item quote, not observed merchant or historical price.',
+        'eligibility_provenance':'Synthetic participating independent shop; grant within home city, prepaid within home district; offline only. Not certified historical eligibility.'}
+
+
+def preview_for(cell,persona):
+    candidates=[];acceptance={}
+    for aid,spec in catalog(cell).items():
+        if spec['purchase_channel'] is None:continue
+        quotes=[base_quote(aid,a,cell,persona) for a in spec['anchors']]
+        q=quotes[0]
+        candidates.append({'activity_id':aid,'candidate_id':q['id'],'description':q['description'],
+                           'price_won':q['price_won'],'channel':q['channel']})
+        for wallet in sorted({w for q in quotes for w in q['eligible_wallets']}):
+            anchors=tuple(a for a,q in zip(spec['anchors'],quotes) if wallet in q['eligible_wallets'])
+            acceptance.setdefault((wallet,anchors),[]).append(aid)
+    on=cell['arm']=='on';state=cell['synthetic_state']
+    return {'scope':'가상 상품 후보 개요. 관측 가격·실제 가맹점 자격이 아니다. 실제 구매 단계에도 같은 품목·수량·가격을 제공한다.',
+        'availability':'아래 가격은 해당 활동이 가능한 때의 조건이다. 사회 배경의 휴업·영업시간·이동 제약은 그대로 적용한다.',
+        'choice':'목록에 있다는 것은 구매 의무나 필요가 있다는 뜻이 아니다. 구매 검토 뒤 미구매도 가능하다. 목록 밖 품목·수량은 이 실험에서 선택할 수 없다.',
+        'cash_won':state['balance'],
+        'wallet_balances_won':copy.deepcopy(state['grant_remaining']) if on and cell['case']=='grant' else {},
+        'offers':{'synthetic_unit':{'wallet_id':'P014','unit_face':10000,'unit_cash_cost':9000,'max_units':50}} if on and cell['case']=='local_voucher' else {},
+        'candidates':candidates,
+        'wallet_acceptance':[{'wallet_id':w,'anchors':list(anchors),'activity_ids':ids} for (w,anchors),ids in acceptance.items()],
+        'settlement':'선불 제안은 하루 내내 유효하고 일중 현금 유입은 없다고 가정한다. 취득은 소비가 아니며 현금이 필요하다.'}
+
+
+def render_preview(preview):
+    return '\n\n## 오늘의 구매 후보 개요\n'+json.dumps(preview,ensure_ascii=False,indent=2)
+
+
 def build_case(row, cell, persona, *, price_factor=1,max_shift_minutes=10,static_offers=False):
     if not row.get('eligible'): raise ValueError('Failed schedule must not be omitted or zero-filled')
     if price_factor not in {0.5, 1, 2}: raise ValueError('Unregistered price factor')
     cell = copy.deepcopy(cell)
+    if 'purchase_preview' in cell:
+        if price_factor!=1 or cell['purchase_preview']!=preview_for(cell,persona) or render_preview(cell['purchase_preview']) not in cell['user']:
+            raise ValueError('Purchase quotes differ from preview supplied before planning')
     # Planner-specific output instructions do not belong in a purchase request.
     cell['user'] = cell['user'].split('\n\n## 오늘\n')[0]
     state = cell['synthetic_state']; mechanism = cell['case']; arm = cell['arm']
@@ -59,16 +106,7 @@ def build_case(row, cell, persona, *, price_factor=1,max_shift_minutes=10,static
             and '매장 취식 22:00까지' in cell['user'])
         if closed:
             quotes[str(index)] = []; continue
-        description, price = BOOK[aid]; eligible = []
-        zone = event['anchor'].removeprefix('zone:')
-        home = str(persona['home_dong_code'])
-        if channel == 'offline' and aid != 'bar' and arm == 'on':
-            if mechanism == 'grant' and zone[:2] == home[:2]: eligible = list(lots)
-            if mechanism == 'local_voucher' and zone[:5] == home[:5]: eligible = ['P014']
-        quotes[str(index)] = [{'id': 'quote:' + aid, 'description': description,
-            'price_won': int(price * price_factor), 'channel': channel, 'eligible_wallets': eligible,
-            'price_provenance': 'Hypothetical fixed item quote, not observed merchant or historical price.',
-            'eligibility_provenance': 'Synthetic participating independent shop; grant within home city, prepaid within home district; offline only. Not certified historical eligibility.'}]
+        quotes[str(index)] = [base_quote(aid,event['anchor'],cell,persona,price_factor=price_factor)]
     case, audit = prepare_case(raw_plan=row['raw'], cell=cell, quotes_by_event=quotes,
         cash=state['balance'], wallet_lots=lots, offers=offers,max_shift_minutes=max_shift_minutes)
     if audit['schedule_report']['execution_plan']!=row['execution_plan']:
