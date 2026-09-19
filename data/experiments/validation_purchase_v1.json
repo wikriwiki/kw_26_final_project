@@ -1,0 +1,32 @@
+{
+  "id": "validation_purchase_v1",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "0f7066cb01baa55b2810568f7c2b89e6600c41fafbe3e8e31d2b729c75ee10a5",
+  "seeds": [
+    32001,
+    33001
+  ],
+  "thinking_tokens": 2048,
+  "answer_tokens": 4096,
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20261002,
+  "phase": "96 existing development schedules x two independent purchase seeds = 192. Known 12 citizens and four known policy mechanisms. Fixed v23 plans; no new planner calls or holdout claims.",
+  "primary": "Every registered response retained. >=95% raw financial/quote contract pass, zero request failures, no invented usable funds. Review purchase reasons separately for unsupported needs. No failed response zero filling. Each policy contrast requires a complete valid paired matrix.",
+  "selection": "Generic asset_transaction_v1 frozen; no selection by consumption effect sign or size, no desired effect targets in model inputs.",
+  "conditions": [
+    "Hypothetical item prices fixed before output; not inferred from individual daily expenditure.",
+    "Hypothetical merchant participation and personal eligibility; exact age/card history not observed.",
+    "Explicit zero is allowed. Free schedule activities cannot be routed to a merchant.",
+    "Own cash, grant balance and prepaid asset acquisition separate; future rebate not current money.",
+    "Fixed one-day upstream schedules, missing inventory/needs/income path; this is not total daily demand validation.",
+    "Two purchase seeds share same paired planner draws; not independent whole-engine rollouts.",
+    "No P015; P010 remains immutable."
+  ],
+  "interpretation": "Report all paired nominal consumption, funding and asset acquisition contrasts regardless of direction. These are conditional synthetic scenario outputs, never comparisons to historical empirical magnitudes or significance."
+}

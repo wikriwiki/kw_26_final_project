@@ -30,11 +30,12 @@ ORDER BY km ASC,poi_id ASC LIMIT $limit
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--inputs',required=True); ap.add_argument('--out',required=True)
     ap.add_argument('--limit',type=int,default=8)
+    ap.add_argument('--reference-dir',type=Path,default=ROOT/'output/stats')
     args=ap.parse_args(); out=Path(args.out)
     if out.exists(): raise ValueError('Refusing overwrite')
     if not 1 <= args.limit <= 50: raise ValueError('Invalid candidate limit')
     raw=Path(args.inputs).read_bytes(); inputs=json.loads(raw)
-    references=inspect_references(ROOT/'output/stats')
+    references=inspect_references(args.reference_dir,require_code_geography=True)
     people={p['id']:p for p in inputs['personas']}
     tasks=sorted({(c['aid'],str(z),cat) for c in inputs['cells'] for z in c['zones'] for cat in CATEGORIES})
     result=[]; stats=Counter()
