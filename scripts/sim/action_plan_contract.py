@@ -8,6 +8,7 @@ from datetime import date
 import json
 import re
 from temporal_projection import project, transition_violations
+from presence_contract import violations as presence_violations
 
 # id, location type, display category, literal activity, potential purchase channel
 ACTIVITIES = [
@@ -105,6 +106,8 @@ def inspect(raw, cell, max_shift=10):
     for obligation in cell.get('required_activities', []):
         if not any(all(e.get(k) == v for k, v in obligation.items() if k != 'evidence') for e in rendered):
             raw_errors.append('missing_commitment')
+    raw_presence_errors=presence_violations(rendered,cell)
+    raw_errors.extend(raw_presence_errors)
     errors = list(raw_errors); projected = None; projection = None
     try:
         projected, projection = project({'events': rendered}, max_shift=max_shift, gap=20,
@@ -115,6 +118,7 @@ def inspect(raw, cell, max_shift=10):
     for obligation in cell.get('required_activities', []):
         if obligation['evidence'] not in cell['user']: raise ValueError('Obligation lacks provider evidence')
         if not any(all(e.get(k) == v for k, v in obligation.items() if k != 'evidence') for e in check): errors.append('missing_commitment')
+    errors.extend(presence_violations(check,cell))
     return {'raw_valid': not raw_errors, 'raw_errors': sorted(set(raw_errors)),
             'valid': not errors, 'errors': errors, 'execution_plan': projected, 'temporal_projection': projection,
             'raw_transition_violations': transitions, 'raw_plan': obj}

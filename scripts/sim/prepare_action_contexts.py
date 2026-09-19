@@ -16,7 +16,7 @@ from validate_prompt_v3 import atomic
 def adapt(source):
     result = copy.deepcopy(source)
     for cell in result['cells']:
-        cell.update(provided_activities=[], required_activities=[], action_rules=[], evaluation_requirements=[])
+        cell.update(provided_activities=[], required_activities=[], required_presence_intervals=[], action_rules=[], evaluation_requirements=[])
         name = cell['case']
         if name == 'fixed_appointment':
             evidence = CASES[name]['appointment']
@@ -28,6 +28,7 @@ def adapt(source):
             evidence = EXTRA[name]
             assert evidence in cell['user']
             cell['required_activities'] = [{'time': '09:00', 'activity_id': 'office_work', 'anchor': 'workplace', 'evidence': evidence}]
+            cell['required_presence_intervals'] = [{'start':'09:00','end':'17:00','anchor':'workplace','evidence':evidence}]
         elif name == 'stay_home':
             assert CASES[name]['facts'] in cell['user']
             cell['evaluation_requirements'] = [{'kind': 'no_outside'}]

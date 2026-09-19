@@ -9,27 +9,47 @@ from pathlib import Path
 import random
 import time
 from urllib.request import urlopen
-from asset_transaction_contract import schema, inspect
 from bounded_reasoning import run
 from paired_asset_score import score
-from prompts.asset_transaction_v1 import SYSTEM_PROMPT
+from forced_no_purchase import resolve as resolve_forced
 from validate_prompt_v3 import atomic, digest
+
+
+def protocol_modules(config):
+    name=config.get('transaction_protocol','v1')
+    if name not in {'v1','v2'}:raise ValueError('Unregistered transaction protocol')
+    import importlib
+    contract=importlib.import_module('asset_transaction_contract'+('_v2' if name=='v2' else ''))
+    prompt=importlib.import_module('prompts.asset_transaction_'+name).SYSTEM_PROMPT
+    return contract,prompt
 
 
 def invoke(job, config, base, prefixes, folder):
     seed, cell = job; case = cell['transaction_case']; key = digest([seed,cell['aid'],cell['case'],cell['arm']])
-    row = {k:cell[k] for k in ['aid','case','arm','date']}; row.update(replicate=seed,attempt_key=key)
+    row = {k:cell[k] for k in ['aid','case','arm','date']}; row.update(replicate=seed,attempt_key=key,transaction_protocol=config.get('transaction_protocol','v1'))
+    contract,_=protocol_modules(config)
     started = time.monotonic()
     try:
+        if config.get('skip_forced_no_purchase',False):
+            forced=resolve_forced(case)
+            if forced is not None:
+                if row['transaction_protocol']=='v2':
+                    purchases=[{k:v for k,v in a.items() if k!='kind'} for a in json.loads(forced['raw'])['actions']]
+                    forced['raw']=json.dumps({'acquisitions':[],'purchases':purchases},ensure_ascii=False)
+                    _,forced['ledger']=contract.inspect(forced['raw'],case)
+                row.update(forced,valid=True,errors=[],elapsed_seconds=round(time.monotonic()-started,3))
+                atomic(folder/'attempts'/f'{key}_deterministic.json',row)
+                return row
+        row['decision_source']='model'
         sample_seed = int(digest([seed,cell['aid'],cell['case']])[:8],16) % 2147483647
-        first, second = run(prefix=prefixes[case['id']],schema=schema(case),base=base,seed=sample_seed,
+        first, second = run(prefix=prefixes[case['id']],schema=contract.schema(case),base=base,seed=sample_seed,
             thinking_tokens=config['thinking_tokens'],answer_tokens=config['answer_tokens'],sampling=config['sampling'],
             timeout=config['timeout_seconds'],whitespace_limit=2,
             on_deliberation=lambda value: atomic(folder/'attempts'/f'{key}_deliberation.json',value))
         atomic(folder/'attempts'/f'{key}_answer.json',second)
         row.update(raw=second['response']['text'],thinking_usage=first['response']['meta_info'],
                    answer_usage=second['response']['meta_info'],forced_reasoning_boundary=first['forced_reasoning_boundary'])
-        _, ledger = inspect(row['raw'],case)
+        _, ledger = contract.inspect(row['raw'],case)
         errors = [] if row['answer_usage']['finish_reason']['type']=='stop' else ['incomplete_generation']
         row.update(valid=not errors,errors=errors,ledger=ledger)
     except Exception as exc: row.update(valid=False,errors=[str(exc)])
@@ -42,21 +62,21 @@ def main():
     ap.add_argument('--out',type=Path,required=True);ap.add_argument('--tokenizer',required=True);args=ap.parse_args()
     config=json.loads(args.config.read_bytes()); raw=args.source.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=config['source_sha256']:raise ValueError('Input hash mismatch')
-    source=json.loads(raw);cells=source['cells']
+    source=json.loads(raw);cells=source['cells'];_,system_prompt=protocol_modules(config)
     from transformers import AutoTokenizer
     tokenizer=AutoTokenizer.from_pretrained(args.tokenizer,local_files_only=True,trust_remote_code=True)
     prefixes={c['transaction_case']['id']:tokenizer.apply_chat_template(
-        [{'role':'system','content':SYSTEM_PROMPT},{'role':'user','content':json.dumps(c['transaction_case'],ensure_ascii=False)}],
+        [{'role':'system','content':system_prompt},{'role':'user','content':json.dumps(c['transaction_case'],ensure_ascii=False)}],
         tokenize=False,add_generation_prompt=True,enable_thinking=True) for c in cells}
     if len(prefixes)!=len(cells):raise ValueError('Duplicate source id')
     folder=args.out;folder.mkdir(parents=True,exist_ok=False);(folder/'attempts').mkdir();(folder/'code').mkdir()
     hashes={}
-    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py']:
+    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_transaction_contract_v2.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py','forced_no_purchase.py']:
         data=Path(__file__).with_name(name).read_bytes();hashes[name]=hashlib.sha256(data).hexdigest();(folder/'code'/name).write_bytes(data)
     atomic(folder/'manifest.json',{'config':config,'input_sha256':hashlib.sha256(raw).hexdigest(),'code_sha256':hashes,
-        'system_sha256':digest(SYSTEM_PROMPT),'prefix_sha256':{k:digest(v) for k,v in prefixes.items()},
+        'system_sha256':digest(system_prompt),'prefix_sha256':{k:digest(v) for k,v in prefixes.items()},
         'template_sha256':digest(tokenizer.chat_template),'registered_at':datetime.now(timezone.utc).isoformat()})
-    atomic(folder/'frozen_inputs.json',source);(folder/'system.txt').write_text(SYSTEM_PROMPT,encoding='utf-8')
+    atomic(folder/'frozen_inputs.json',source);(folder/'system.txt').write_text(system_prompt,encoding='utf-8')
     base=os.environ.get('LLM_BASE_URL','http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
     with urlopen(base+'/v1/models',timeout=10) as response:
         if config['model'] not in [m['id'] for m in json.load(response)['data']]:raise ValueError('Model mismatch')
@@ -69,8 +89,9 @@ def main():
     expected={(s,c['aid'],c['case'],c['arm']) for s in config['seeds'] for c in cells}
     complete=len(rows)==len(expected) and {(r['replicate'],r['aid'],r['case'],r['arm']) for r in rows}==expected
     summary={'scope':'Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.',
-        'macro_claim':False,'variants':{'asset_transaction_v1_bounded2048':{'responses':len(rows),'complete':complete,
-        'valid':sum(r['valid'] for r in rows),'all_pass':complete and all(r['valid'] for r in rows)}},'contrasts':{}}
+        'macro_claim':False,'variants':{'asset_transaction_'+config.get('transaction_protocol','v1')+'_bounded'+str(config['thinking_tokens']):{'responses':len(rows),'complete':complete,
+        'valid':sum(r['valid'] for r in rows),'all_pass':complete and all(r['valid'] for r in rows),
+        'deterministic_no_purchase':sum(r.get('decision_source')=='deterministic_unique_no_purchase' for r in rows)}},'contrasts':{}}
     lookup={(c['aid'],c['case'],c['arm']):c['transaction_case'] for c in cells}
     for mechanism in sorted({c['case'] for c in cells}):
         selected=[dict(r,transaction_case=lookup[(r['aid'],r['case'],r['arm'])]) for r in rows if r['case']==mechanism]

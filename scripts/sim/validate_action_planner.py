@@ -79,7 +79,7 @@ def main():
                 [{'role': 'system', 'content': system_prompt}, {'role': 'user', 'content': user}],
                 tokenize=False, add_generation_prompt=True, enable_thinking=bool(c['thinking_tokens']))
     folder = Path(args.out); folder.mkdir(parents=True, exist_ok=False); (folder/'attempts').mkdir(); (folder/'code').mkdir()
-    names = ['validate_action_planner.py','action_plan_contract.py','bounded_reasoning.py','temporal_projection.py']
+    names = ['validate_action_planner.py','action_plan_contract.py','presence_contract.py','bounded_reasoning.py','temporal_projection.py']
     code = {}
     for name in names:
         data = Path(__file__).with_name(name).read_bytes(); code[name] = hashlib.sha256(data).hexdigest(); (folder/'code'/name).write_bytes(data)
