@@ -11,6 +11,11 @@
     "rows": 15000
   },
   "source_seq_offset": -1,
+  "baseline_file": {
+    "sha256": "c379657b600f8d0b4417308740fdfe45bb155cecb7fe70c4e95a61f3a93f81a7",
+    "bytes": 23287688,
+    "rows": 14881
+  },
   "people": 36,
   "mapped": 33,
   "lifestyle_and_uuid_exact_match": 33,
@@ -23,7 +28,9 @@
       "source_id": "AGT_11110700_F_10대_000",
       "graph_lifestyle_matches_frozen": true,
       "rich_and_lifestyle_uuid_conflict": false,
-      "source_status": "unresolved"
+      "source_status": "unresolved",
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": true
     },
     {
       "id": "AGT_11170520_F_20대_002",
@@ -39,7 +46,9 @@
       "job_exact_match": false,
       "source_daily_wd": 48789,
       "frozen_daily_wd": 31431,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11215810_F_30대_001",
@@ -55,7 +64,9 @@
       "job_exact_match": false,
       "source_daily_wd": 76362,
       "frozen_daily_wd": 75537,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11215810_M_50대_003",
@@ -71,7 +82,9 @@
       "job_exact_match": false,
       "source_daily_wd": 103534,
       "frozen_daily_wd": 100880,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11230545_M_30대_003",
@@ -87,14 +100,18 @@
       "job_exact_match": false,
       "source_daily_wd": 48573,
       "frozen_daily_wd": 50720,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11290685_M_10대_001",
       "source_id": "AGT_11290685_M_10대_000",
       "graph_lifestyle_matches_frozen": true,
       "rich_and_lifestyle_uuid_conflict": false,
-      "source_status": "unresolved"
+      "source_status": "unresolved",
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": true
     },
     {
       "id": "AGT_11290725_M_50대_001",
@@ -110,7 +127,9 @@
       "job_exact_match": false,
       "source_daily_wd": 99912,
       "frozen_daily_wd": 104650,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11320670_F_60대_002",
@@ -126,7 +145,9 @@
       "job_exact_match": false,
       "source_daily_wd": 173032,
       "frozen_daily_wd": 137931,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11320681_F_40대_002",
@@ -142,7 +163,9 @@
       "job_exact_match": false,
       "source_daily_wd": 382331,
       "frozen_daily_wd": 284244,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11350720_M_40대_002",
@@ -158,7 +181,9 @@
       "job_exact_match": false,
       "source_daily_wd": 39650,
       "frozen_daily_wd": 28905,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11380580_M_60대_001",
@@ -174,7 +199,9 @@
       "job_exact_match": false,
       "source_daily_wd": 172054,
       "frozen_daily_wd": 280329,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11410615_M_70대이상_001",
@@ -190,7 +217,9 @@
       "job_exact_match": false,
       "source_daily_wd": 87045,
       "frozen_daily_wd": 87396,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11410620_M_30대_003",
@@ -206,7 +235,9 @@
       "job_exact_match": false,
       "source_daily_wd": 50602,
       "frozen_daily_wd": 60584,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11440680_F_20대_003",
@@ -222,7 +253,9 @@
       "job_exact_match": false,
       "source_daily_wd": 77405,
       "frozen_daily_wd": 73904,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11440700_M_40대_002",
@@ -238,7 +271,9 @@
       "job_exact_match": false,
       "source_daily_wd": 102762,
       "frozen_daily_wd": 120415,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11470510_M_50대_002",
@@ -254,7 +289,9 @@
       "job_exact_match": false,
       "source_daily_wd": 409124,
       "frozen_daily_wd": 342022,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11470570_F_40대_001",
@@ -270,7 +307,9 @@
       "job_exact_match": false,
       "source_daily_wd": 171697,
       "frozen_daily_wd": 171683,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11470680_M_70대이상_001",
@@ -286,7 +325,9 @@
       "job_exact_match": true,
       "source_daily_wd": 300845,
       "frozen_daily_wd": 239426,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11500590_F_30대_003",
@@ -302,7 +343,9 @@
       "job_exact_match": false,
       "source_daily_wd": 286886,
       "frozen_daily_wd": 161691,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11500590_F_50대_002",
@@ -318,14 +361,18 @@
       "job_exact_match": false,
       "source_daily_wd": 163140,
       "frozen_daily_wd": 165170,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11530780_M_10대_001",
       "source_id": "AGT_11530780_M_10대_000",
       "graph_lifestyle_matches_frozen": true,
       "rich_and_lifestyle_uuid_conflict": false,
-      "source_status": "unresolved"
+      "source_status": "unresolved",
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": true
     },
     {
       "id": "AGT_11590660_F_30대_004",
@@ -341,7 +388,9 @@
       "job_exact_match": false,
       "source_daily_wd": 88705,
       "frozen_daily_wd": 91037,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11620565_F_70대이상_001",
@@ -357,7 +406,9 @@
       "job_exact_match": false,
       "source_daily_wd": 27469,
       "frozen_daily_wd": 49452,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11620575_F_50대_001",
@@ -373,7 +424,9 @@
       "job_exact_match": false,
       "source_daily_wd": 119153,
       "frozen_daily_wd": 135448,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11620665_F_50대_002",
@@ -389,7 +442,9 @@
       "job_exact_match": false,
       "source_daily_wd": 119531,
       "frozen_daily_wd": 99071,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11650610_F_60대_001",
@@ -405,7 +460,9 @@
       "job_exact_match": false,
       "source_daily_wd": 76157,
       "frozen_daily_wd": 88802,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11680521_M_30대_002",
@@ -421,7 +478,9 @@
       "job_exact_match": false,
       "source_daily_wd": 140003,
       "frozen_daily_wd": 115175,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11680650_F_30대_002",
@@ -437,7 +496,9 @@
       "job_exact_match": false,
       "source_daily_wd": 118754,
       "frozen_daily_wd": 137588,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11710532_M_50대_001",
@@ -453,7 +514,9 @@
       "job_exact_match": false,
       "source_daily_wd": 169771,
       "frozen_daily_wd": 142854,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11710561_F_30대_002",
@@ -469,7 +532,9 @@
       "job_exact_match": false,
       "source_daily_wd": 116029,
       "frozen_daily_wd": 139008,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11710590_F_20대_001",
@@ -485,7 +550,9 @@
       "job_exact_match": false,
       "source_daily_wd": 61840,
       "frozen_daily_wd": 63101,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11710610_M_30대_003",
@@ -501,7 +568,9 @@
       "job_exact_match": false,
       "source_daily_wd": 116535,
       "frozen_daily_wd": 121316,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11740590_M_50대_001",
@@ -517,7 +586,9 @@
       "job_exact_match": false,
       "source_daily_wd": 74238,
       "frozen_daily_wd": 76081,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11740610_F_20대_002",
@@ -533,7 +604,9 @@
       "job_exact_match": false,
       "source_daily_wd": 140475,
       "frozen_daily_wd": 166897,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11740620_F_70대이상_002",
@@ -549,7 +622,9 @@
       "job_exact_match": false,
       "source_daily_wd": 51308,
       "frozen_daily_wd": 61790,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     },
     {
       "id": "AGT_11740690_M_40대_003",
@@ -565,7 +640,9 @@
       "job_exact_match": false,
       "source_daily_wd": 29430,
       "frozen_daily_wd": 31989,
-      "daily_wd_exact_match": false
+      "daily_wd_exact_match": false,
+      "baseline_job_exact_match": true,
+      "baseline_lifestyle_exact_match": false
     }
   ]
 }

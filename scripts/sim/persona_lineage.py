@@ -99,6 +99,7 @@ def main():
     ap.add_argument('--frozen', type=Path, action='append', required=True)
     ap.add_argument('--graph', type=Path, required=True)
     ap.add_argument('--narrative', type=Path, required=True)
+    ap.add_argument('--baseline', type=Path)
     ap.add_argument('--source-seq-offset', type=int, required=True,
                     help='Explicit hypothesis to audit; never inferred or applied to repair')
     ap.add_argument('--out', type=Path, required=True)
@@ -106,6 +107,7 @@ def main():
     if args.out.exists():
         raise ValueError('Refusing overwrite')
     narrative, meta = read_complete(args.narrative, jsonl=True)
+    baseline, baseline_meta = read_complete(args.baseline) if args.baseline else ({}, None)
     graph_raw = args.graph.read_bytes()
     graph_rows = json.loads(graph_raw)
     graph = {r['id']: r for r in graph_rows}
@@ -125,10 +127,16 @@ def main():
     for aid, persona in sorted(people.items()):
         prefix, seq = aid.rsplit('_', 1)
         source_id = f'{prefix}_{int(seq) + args.source_seq_offset:03d}'
-        rows.append(audit_persona(persona, graph[aid], narrative, source_id=source_id))
+        row = audit_persona(persona, graph[aid], narrative, source_id=source_id)
+        if baseline:
+            base = baseline[aid]
+            row['baseline_job_exact_match'] = base['personal']['job'] == persona['job']
+            row['baseline_lifestyle_exact_match'] = base['personality']['lifestyle'] == persona['lifestyle']
+        rows.append(row)
     result = {'scope': 'Read-only selected-citizen provenance audit. Exact job string mismatch is not itself a semantic contradiction.',
               'frozen_sources': sources, 'graph_sha256': hashlib.sha256(graph_raw).hexdigest(),
               'narrative_file': meta, 'source_seq_offset': args.source_seq_offset,
+              'baseline_file': baseline_meta,
               'people': len(rows), 'mapped': sum(r['source_status'] == 'mapped' for r in rows),
               'lifestyle_and_uuid_exact_match': sum(r.get('lifestyle_exact_match', False) and r.get('lifestyle_uuid_exact_match', False) for r in rows),
               'job_string_difference': sum(r.get('job_exact_match') is False for r in rows),
