@@ -1,0 +1,18 @@
+{
+  "id":"validation_v9_bounded_screen",
+  "model":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256":"eb6a08d8318120f3314c26bc3438e69848268901eb71862daeb60e3711a5f880",
+  "candidates":[{"id":"v11_budget2048","prompt":"v11","structured":true,"thinking_tokens":2048}],
+  "seeds":[10001],
+  "sampling":{"temperature":1.0,"top_p":0.95,"presence_penalty":1.5},
+  "answer_tokens":2200,
+  "workers":8,
+  "timeout_seconds":900,
+  "order_seed":20260920,
+  "phase":"96 original fixed development contexts. Two-call bounded deliberation protocol. These contexts lacked broad-zone references and are not spatial validation inputs.",
+  "primary":"Protocol schedule contract >=95%, no request failures or confirmed factual fabrications. Strict time/endpoint/count checks unchanged. Preserve deliberation and final answer separately, including failures. This is not first-response-only raw JSON success.",
+  "comparison":"V8 remains running to completion. Token cost is the primary cost metric; concurrent server load makes latency descriptive. Budget and native two-call interface jointly differ from the unbounded chat protocol.",
+  "selection":"Only format and factual eligibility, then total token cost. Never select on policy-effect magnitude or direction.",
+  "confirmation":"Freeze qualifying candidate before using the unused 24-person input with complete geographic references and fresh seeds.",
+  "prohibitions":"No empirical effect target or policy-specific desired action in prompt. No hidden retry. P010 immutable; P015 not run."
+}

@@ -204,15 +204,17 @@ ORDER BY n_visited DESC, n DESC LIMIT 20
 # Stage 1 출력의 각 이벤트마다 별도 호출
 # =========================================================
 STAGE2_CANDIDATE_CYPHER = """
+MATCH (a:Agent {id: $aid})
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category {name: $sub_category})
-OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
+OPTIONAL MATCH (a)-[kp:KNOWS_POI]->(p)
 OPTIONAL MATCH (a)-[:LIVES_AT|WORKS_AT]->(anchor:POI)
-WITH p, c, kp, anchor,
-     CASE WHEN anchor IS NOT NULL AND p.lon IS NOT NULL THEN
+WITH p, kp,
+     min(CASE WHEN anchor.lon IS NOT NULL AND anchor.lat IS NOT NULL
+                   AND p.lon IS NOT NULL AND p.lat IS NOT NULL THEN
        point.distance(point({longitude: p.lon, latitude: p.lat}),
                       point({longitude: anchor.lon, latitude: anchor.lat})) / 1000.0
-     ELSE NULL END AS km
+     ELSE NULL END) AS km
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
@@ -221,7 +223,7 @@ RETURN p.id AS poi_id, p.name AS name,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
        km
-ORDER BY km ASC LIMIT $limit
+ORDER BY km ASC, poi_id ASC LIMIT $limit
 """
 
 # Fallback: sub_category 매칭 실패 시 L1 단위로 같은 dong에서 fetch
@@ -231,7 +233,7 @@ MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
 WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
-RETURN p.id AS poi_id, p.name AS name,
+RETURN DISTINCT p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
@@ -239,7 +241,7 @@ RETURN p.id AS poi_id, p.name AS name,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
        NULL AS km
-ORDER BY known DESC LIMIT $limit
+ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
 
 # Fallback: dong에 아예 commerce POI 부족 시 자치구 단위 L1 fetch
@@ -249,7 +251,7 @@ MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(d:District {co
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
 WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
-RETURN p.id AS poi_id, p.name AS name,
+RETURN DISTINCT p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
@@ -257,7 +259,7 @@ RETURN p.id AS poi_id, p.name AS name,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
        NULL AS km
-ORDER BY known DESC LIMIT $limit
+ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
 
 

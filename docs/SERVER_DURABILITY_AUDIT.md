@@ -33,6 +33,9 @@
   에이전트 처리 도중 프로세스가 죽으면 Neo4j에 일부만 기록된 agent-day가 생길 수 있다.
 - Neo4j와 SGLang은 현재 systemd 서비스가 아니다. SSH 단절에는 살아남지만 서버가
   재부팅되면 `/data/setup_neo4j.sh`와 `/data/start_sglang.sh`로 다시 시작해야 한다.
+  2026-09-20 추론 비교용 실행은 `/data/start_sglang_reasoning.sh`를 사용한다.
+  이 스크립트는 같은 EXAONE-4.5-33B-AWQ에 `--reasoning-parser qwen3`만 추가하고
+  별도 로그를 남긴다. 원본 시작 스크립트는 보존했다.
 - 서버의 `/data/dumps/neo4j.dump`는 2026-09-11 기준 베이스 덤프다. 이를 로컬 Drive의
   `output/neo4j_backup_20260911_server/neo4j.dump`로 복제했다. 원본과 사본은 모두
   1,009,225,694바이트이며 SHA-256

@@ -1,0 +1,18 @@
+{
+  "macro_claim": false,
+  "first_response_only_protocol": false,
+  "variants": {
+    "v11_budget1024": {
+      "responses": 4,
+      "valid": 4,
+      "all_pass": true,
+      "errors": {}
+    },
+    "v11_budget2048": {
+      "responses": 4,
+      "valid": 4,
+      "all_pass": true,
+      "errors": {}
+    }
+  }
+}

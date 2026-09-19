@@ -24,6 +24,8 @@ def main():
     from prompts import get
     out=Path(args.out)
     if out.exists(): raise SystemExit("Refusing to replace confirmation inputs")
+    from reference_preflight import inspect_references
+    references=inspect_references(ROOT/"output/stats")
     excluded=json.loads(Path(args.exclude_inputs).read_text(encoding="utf-8"))
     old_ids={p["id"] for p in excluded["personas"]}
     with driver_session() as session:
@@ -57,7 +59,7 @@ def main():
                 blocks=ctx.to_prompt_blocks(day)
                 user=get("v5").format_dawn_blocks(blocks,day,"weekday" if day.weekday()<5 else "weekend","월화수목금토일"[day.weekday()])
                 cells.append({"aid":p["id"],"case":case["id"],"arm":arm,"date":case["date"],"zones":[z["code"] for z in zones],"user":user,"context_sha256":digest(user)})
-    atomic(out,{"personas":personas,"cells":cells,"selection":{
+    atomic(out,{"personas":personas,"cells":cells,"reference_inputs":references,"selection":{
         "seed":"confirmation-20260920-{decile}","excluded_ids":sorted(old_ids),"quota":quota,
         "source_excluded_sha256":hashlib.sha256(Path(args.exclude_inputs).read_bytes()).hexdigest(),
         "script_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}})

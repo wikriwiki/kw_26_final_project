@@ -55,7 +55,8 @@ ID: {aid}. 성인 40대, 오늘 출근할 직장 없음. 한 사람 가구.
 def audit(folder):
     rows=[json.loads(s) for s in (Path(folder)/"responses.jsonl").read_text(encoding="utf-8").splitlines()]
     manifest=json.loads((Path(folder)/"manifest.json").read_text(encoding="utf-8"))
-    expected={(c["id"],rep,case) for c in manifest["config"]["candidates"] for rep in manifest["config"]["replicate_seeds"] for case in CASES}
+    seeds=manifest["config"].get("replicate_seeds",manifest["config"].get("seeds"))
+    expected={(c["id"],rep,case) for c in manifest["config"]["candidates"] for rep in seeds for case in CASES}
     keys=Counter((r["variant"],r["replicate"],r["case"]) for r in rows)
     assert set(keys)==expected and all(n==1 for n in keys.values())
     results=[]

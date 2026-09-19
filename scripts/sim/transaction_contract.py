@@ -14,7 +14,7 @@ def schema(case):
             'policy_spend':{'type':'object','properties':{pid:{'type':'integer','minimum':0} for pid in wallet_ids},'additionalProperties':False},
             'pick_reason':{'type':'string','minLength':1}},
             'required':['order','poi_id','actual_spent','policy_spend','pick_reason'],'additionalProperties':False})
-    return {'type':'object','properties':{'picks':{'type':'array','minItems':len(kinds),'maxItems':len(kinds),'items':{'anyOf':kinds}}},'required':['picks'],'additionalProperties':False}
+    return {'type':'object','properties':{'picks':{'type':'array','minItems':len(kinds),'maxItems':len(kinds),'items':{'anyOf':kinds} if kinds else False}},'required':['picks'],'additionalProperties':False}
 
 
 def inspect(raw, case):

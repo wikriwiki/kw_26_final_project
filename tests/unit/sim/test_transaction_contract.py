@@ -2,7 +2,7 @@ import sys,json
 from pathlib import Path
 import pytest
 sys.path.insert(0,str(Path(__file__).resolve().parents[3]/'scripts/sim'))
-from transaction_contract import inspect
+from transaction_contract import inspect,schema
 
 CASE={'cash':1000,'wallets':{'W':8000},'events':[
     {'order':0,'channel':'offline','candidates':[{'poi_id':'A','eligible_wallets':['W']}]},
@@ -33,3 +33,9 @@ def test_prompt_has_no_named_policy_or_effect_target():
     from prompts.transaction_v2 import SYSTEM_PROMPT
     for word in ['P010','P012','P013','P014','P015','캐시백','쿠폰','상품권','%']:
         assert word not in SYSTEM_PROMPT
+
+def test_empty_required_event_roster_can_complete_without_inventing_purchase():
+    case={'cash':8000,'wallets':{},'events':[]}
+    _,ledger,errors=inspect('{"picks":[]}',case)
+    assert ledger['complete'] and ledger['total_including_online']==0 and not errors
+    assert schema(case)['properties']['picks']['maxItems']==0
