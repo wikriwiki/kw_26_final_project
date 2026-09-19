@@ -155,6 +155,9 @@ def main() -> int:
     skipped = sorted({p for v in agg.values() for p in v} - common)
     if skipped:
         print("공통 정책만 비교 — 제외: " + ", ".join(skipped))
+    if not common:
+        print("공통 정책이 없어 후보 순위를 계산할 수 없습니다.", file=sys.stderr)
+        return 2
     if common:
         agg = {c: {p: v for p, v in bp.items() if p in common}
                for c, bp in agg.items()}
@@ -173,6 +176,8 @@ def main() -> int:
                      "p": binom_p(h, n), "bypol": bypol})
     rows.sort(key=lambda r: (-r["rate"], -r["worst"], r["cand"]))
 
+    print("주의: 지표 간 독립성과 50% 귀무확률은 검증되지 않았습니다. "
+          "이항 p는 참고값이며 일반화 유의성의 증거가 아닙니다.")
     pols = sorted({p for r in rows for p in r["bypol"]})
     print(f"=== 순차반감 {a.stage}단계 — 후보 {len(rows)}개 / 정책 {len(pols)}개 ===")
     head = "{:<6}{:>9}{:>8}{:>9}{:>10}".format("후보", "일치율", "적중", "최저정책", "이항 p")

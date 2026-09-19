@@ -25,8 +25,8 @@ from collections import defaultdict
 from datetime import date, timedelta
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "neo4j_load"))
-from _common import driver_session  # noqa: E402
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from neo4j_load._common import driver_session  # noqa: E402
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -50,6 +50,8 @@ def daterange(spec: str) -> list[str]:
     y0, m0, d0 = map(int, a.split("-"))
     y1, m1, d1 = map(int, b.split("-"))
     s, e = date(y0, m0, d0), date(y1, m1, d1)
+    if e < s:
+        raise ValueError("date range must be ascending")
     return [(s + timedelta(days=i)).isoformat() for i in range((e - s).days + 1)]
 
 
@@ -59,10 +61,10 @@ def daterange(spec: str) -> list[str]:
 def fetch(days: list[str]) -> list[dict]:
     q = """
     MATCH (a:Agent)-[:HAS_PLAN]->(pl:Plan)-[i:INCLUDES]->(p:POI)
-    WHERE coalesce(i.actual_spent,0) > 0 AND toString(pl.day) IN $days
+    WHERE toString(pl.day) IN $days
     OPTIONAL MATCH (p)-[:IN_CATEGORY]->(c:Category)
     OPTIONAL MATCH (a)-[:LIVES_AT]->(h:POI)
-    RETURN a.id AS aid, toString(pl.day) AS d, i.actual_spent AS amt,
+    RETURN a.id AS aid, toString(pl.day) AS d, coalesce(i.actual_spent, 0) AS amt,
            coalesce(i.time,'') AS t,
            coalesce(p.sangsaeng_eligible,false) AS elig,
            p.sangsaeng_kdi AS kdi, c.parent AS l1, c.name AS sub,
@@ -145,6 +147,10 @@ def fetch_cashback(last_day: str, rate: float, cap: int, ratio: float) -> dict:
 def per_agent_daily(rows: list[dict], days: list[str], keep) -> dict[str, float]:
     """에이전트별 '해당 조건 지출의 하루 평균'."""
     acc: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    # 해당 업종을 0원 쓴 것도 관측이다. 먼저 전체 활동 에이전트를 넣지 않으면
+    # 정책 전후에 업종을 새로 이용하거나 끊은 사람이 쌍체 표본에서 빠진다.
+    for row in rows:
+        acc[row["aid"]]
     for r in rows:
         if keep(r):
             acc[r["aid"]][r["d"]] += r["amt"]
@@ -241,7 +247,8 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
 # 쌍체차 + 부트스트랩 + 반분
 # =========================================================
 def paired(off: dict, on: dict) -> list[float]:
-    return [on[a] - off[a] for a in on if a in off]
+    # 부트스트랩 시드가 같으면 입력 순서도 같아야 CI가 재현된다.
+    return [on[a] - off[a] for a in sorted(set(on) & set(off))]
 
 
 def boot_ci(d: list[float], n: int = 2000, seed: int = 7) -> tuple[float, float]:
