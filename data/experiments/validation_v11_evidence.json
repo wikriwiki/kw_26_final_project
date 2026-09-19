@@ -1,0 +1,19 @@
+{
+  "id": "validation_v11_evidence",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "69dbf50ba55a976058556c6666dea0982192cd2e3b7b9ce97ef6cb249b0ba7c1",
+  "candidates": [{"id": "v18_evidence", "prompt": "v18", "structured": true, "thinking_tokens": 4096}],
+  "seeds": [13001, 14001],
+  "sampling": {"temperature": 1.0, "top_p": 0.95, "presence_penalty": 0.0},
+  "answer_tokens": 4096,
+  "schema_mode": "endpoint_guard",
+  "reasoning_evidence": true,
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20260922,
+  "phase": "Eight known development cases x two seeds = 16. New prompt-plus-decoding protocol; not an isolated prompt ablation or independent holdout.",
+  "primary": "All format and explicit facts pass; manual review of whether the selected evidence actually supports the action. Literal citation alone is insufficient. No invented need in intent. Arrival before the appointment is manually distinguished from a missing appointment, while the registered exact-time check remains separately reported.",
+  "changes": "Endpoint grammar preserves all existing allowed event counts and home-only days. Reasoning selects a verbatim input span or an explicit ordinary-choice label. Both deliberation and answer budgets increased to 4096; report joint protocol effect and full token cost.",
+  "selection": "No empirical effect targets. No claim of unaided raw-model factual adherence from schema-enforced quotations. Larger development and untouched confirmation still required.",
+  "prohibitions": "No P010 changes; no P015 calls; no hidden retry or post-hoc correction. Preserve all prior protocols and failures."
+}

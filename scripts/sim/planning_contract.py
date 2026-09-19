@@ -57,3 +57,25 @@ def inspect_schedule(raw, cell):
         if cell["arm"] == "off" and cell["case"] != "distancing" and event.get("trigger") == "policy" and re.search(r"P01[234]|캐시백|쿠폰|바우처|지원금|상품권", reason):
             flags.append({"kind": "unsupported_fiscal_benefit_screen", "event": event})
     return obj, sorted(set(errors)), flags
+
+
+def endpoint_schedule_schema(zones, weekend=False, has_work=True):
+    """Opt-in representational guard; choices/count remain as in the old contract.
+
+    Each allowed length has a tuple with residence at both endpoints. This is a
+    new decoding protocol, not a post-generation repair or evidence of better
+    unaided model adherence. Temporal gaps still require independent validation.
+    """
+    result = schedule_schema(zones, weekend, has_work)
+    events = result['properties']['events']
+    middle = events['items']
+    home = middle['anyOf'][0]
+    result['$defs'] = {'any_event': middle, 'home_event': home}
+    result['properties']['events'] = {'anyOf': [
+        {'type': 'array', 'minItems': count, 'maxItems': count,
+         'prefixItems': [{'$ref': '#/$defs/home_event'}]
+                        + [{'$ref': '#/$defs/any_event'} for _ in range(count - 2)]
+                        + [{'$ref': '#/$defs/home_event'}], 'items': False}
+        for count in range(events['minItems'], events['maxItems'] + 1)
+    ]}
+    return result

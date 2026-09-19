@@ -7,9 +7,10 @@ import hashlib,json,os,random,time
 from pathlib import Path
 from urllib.request import urlopen
 from bounded_reasoning import run
-from planning_contract import inspect_schedule,schedule_schema
+from planning_contract import inspect_schedule,schedule_schema,endpoint_schedule_schema
 from validate_prompt_v3 import ROOT,atomic,digest
 from validate_prompt_v4 import prepare
+from evidence_contract import evidence_atoms,constrain_evidence
 
 
 def invoke(job,config,base,prefixes,folder):
@@ -20,13 +21,19 @@ def invoke(job,config,base,prefixes,folder):
     seed=int(digest([rep,cell['aid'],cell['case']])[:8],16)%2147483647
     start=time.monotonic()
     try:
-        s=schedule_schema(cell['zones'],date.fromisoformat(cell['date']).weekday()>=5,cell['has_work'])
+        builder=endpoint_schedule_schema if config.get('schema_mode')=='endpoint_guard' else schedule_schema
+        s=builder(cell['zones'],date.fromisoformat(cell['date']).weekday()>=5,cell['has_work'])
+        atoms=evidence_atoms(cell['user']) if config.get('reasoning_evidence',False) else None
+        if atoms is not None: s=constrain_evidence(s,atoms)
+        row.update(schema_mode=config.get('schema_mode','standard'),schema_sha256=digest(s))
         first,second=run(prefix=prefixes[(c['id'],cell['context_sha256'])],schema=s,base=base,seed=seed,
                          thinking_tokens=c['thinking_tokens'],answer_tokens=config['answer_tokens'],
                          sampling=config['sampling'],timeout=config['timeout_seconds'],
                          on_deliberation=lambda value:atomic(folder/'attempts'/f'{key}_deliberation.json',value))
         atomic(folder/'attempts'/f'{key}_answer.json',second)
         raw=second['response']['text']; obj,errors,flags=inspect_schedule(raw,cell)
+        if atoms is not None and obj is not None and any(e.get('reasoning') not in atoms for e in obj.get('events',[])):
+            errors.append('unsupported_evidence_span')
         reason=second['response']['meta_info'].get('finish_reason',{})
         if reason.get('type')!='stop': errors.append('incomplete_generation')
         row.update(raw=raw,valid=not errors,errors=errors,semantic_flags=flags,
@@ -43,6 +50,7 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--config',required=True); ap.add_argument('--source',required=True)
     ap.add_argument('--out',required=True); ap.add_argument('--tokenizer',required=True)
     args=ap.parse_args();config=json.loads(Path(args.config).read_text(encoding='utf-8'))
+    if config.get('schema_mode','standard') not in {'standard','endpoint_guard'}: raise ValueError('Unknown schema mode')
     folder=Path(args.out);folder.mkdir(parents=True,exist_ok=False);(folder/'attempts').mkdir()
     inputs=prepare(args.source,config)
     for cell in inputs['cells']:
@@ -59,7 +67,7 @@ def main():
     base=os.environ.get('LLM_BASE_URL','http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
     with urlopen(base+'/v1/models',timeout=10) as response: assert config['model'] in [m['id'] for m in json.load(response)['data']]
     code={name:hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in
-          ['validate_bounded_planner.py','bounded_reasoning.py','planning_contract.py','validate_prompt_v3.py','validate_prompt_v4.py']}
+          ['validate_bounded_planner.py','bounded_reasoning.py','planning_contract.py','validate_prompt_v3.py','validate_prompt_v4.py','evidence_contract.py']}
     manifest={'config':config,'config_sha256':digest(config),'inputs_sha256':digest(inputs),'code_sha256':code,
               'registered_at':datetime.now(timezone.utc).isoformat(),'tokenizer_path':args.tokenizer,
               'template_sha256':digest(tokenizer.chat_template),'prefix_hashes':{a+'|'+b:digest(v) for (a,b),v in prefixes.items()}}
