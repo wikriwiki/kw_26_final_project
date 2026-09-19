@@ -37,5 +37,15 @@ class TemporalGrammarTest(unittest.TestCase):
         events[3].update(activity_id='office_break',anchor='workplace');self.assertTrue(self.accepts({'events':events}))
         events[-1]['time']='17:30';self.assertFalse(self.accepts({'events':events}))
 
+    def test_explicit_coverage_boundary_rejects_early_ending(self):
+        grammar,audit=build(self.cell,clock_step=60,last_start_not_before='20:00')
+        compiler=xgr.GrammarCompiler(xgr.TokenizerInfo(['<eos>'],stop_token_ids=[0]))
+        compiled=compiler.compile_grammar(grammar)
+        def accepts(obj):
+            matcher=xgr.GrammarMatcher(compiled)
+            return matcher.accept_string(json.dumps(obj,separators=(',',':'))) and matcher.accept_token(0)
+        obj=copy.deepcopy(audit['feasible_example']);self.assertTrue(accepts(obj))
+        obj['events'][-1]['time']='19:00';self.assertFalse(accepts(obj))
+
 
 if __name__=='__main__':unittest.main()

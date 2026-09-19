@@ -25,7 +25,7 @@ def invoke(job, config, base, prefixes, folder):
         if config.get('temporal_clock_step') is not None:
             from temporal_choice_grammar import build
             if config['max_shift_minutes'] != 0: raise ValueError('Finite clock protocol forbids post-generation time shifts')
-            grammar,audit=build(cell,clock_step=config['temporal_clock_step'])
+            grammar,audit=build(cell,clock_step=config['temporal_clock_step'],last_start_not_before=config.get('last_start_not_before'))
             row.update(temporal_grammar_sha256=digest(grammar),temporal_grammar_audit=audit)
             atomic(folder/'attempts'/f'{key}_grammar.json',{'ebnf':grammar,'audit':audit})
         if candidate['thinking_tokens']:
@@ -49,6 +49,8 @@ def invoke(job, config, base, prefixes, folder):
         # These requirements stay outside the request. They test supplied facts,
         # not empirical policy effect signs or magnitudes.
         executable = (report['execution_plan'] or {}).get('events', [])
+        if config.get('last_start_not_before') and (not executable or executable[-1]['time']<config['last_start_not_before']):
+            report['errors'].append('registered_coverage_boundary');report['valid']=False
         failures = []
         for requirement in cell.get('evaluation_requirements', []):
             if requirement['kind'] not in {'no_outside','forbid_activity','forbid_after'}: raise ValueError('Unknown evaluation requirement')
@@ -85,6 +87,8 @@ def main():
             if cell.get('required_presence_intervals'):
                 user += '\n\n## 입력에 명시된 장소 유지 구간\n' + json.dumps(cell['required_presence_intervals'],ensure_ascii=False)
             user += '\n\n시각은 '+str(config['temporal_clock_step'])+'분 단위 또는 위에 명시된 고정 일정 시각 중에서 고른다. 주어진 일정과 이동 시간을 지키며 저녁과 하루 마무리까지 선택한다.'
+            if config.get('last_start_not_before'):
+                user += '\n이 실험의 일과 표현 범위는 '+config['last_start_not_before']+' 이후의 집에서의 마무리 활동까지다. 남은 항목 수 안에 하루 뒤쪽 활동도 표현한다. 이를 위해 구매나 외출을 추가할 필요는 없다. 실제 개인의 취침 시각을 관측했다는 뜻은 아니다.'
         frozen.append(dict(cell, submitted_user=user))
         for c in config['candidates']:
             prefixes[(c['id'], cell['aid'], cell['case'], cell['arm'])] = tokenizer.apply_chat_template(

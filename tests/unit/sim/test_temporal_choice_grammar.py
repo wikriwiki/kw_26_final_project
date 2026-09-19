@@ -31,3 +31,10 @@ def test_new_committed_time_is_preserved_even_off_grid():
 def test_unsupported_route_constraints_not_ignored():
     c=cell();c['minimum_transitions'].append({'from_anchor':'zone:Z','to_anchor':'workplace','minimum_minutes':70})
     with pytest.raises(ValueError,match='route'):build(c)
+
+
+def test_declared_output_coverage_is_structural_not_a_policy_preference():
+    _,audit=build(cell(),clock_step=60,last_start_not_before='20:00')
+    assert audit['last_start_not_before']=='20:00'
+    assert audit['feasible_example']['events'][-1]['time']>='20:00'
+    assert inspect(json.dumps(audit['feasible_example']),cell(),max_shift=0)['raw_valid']

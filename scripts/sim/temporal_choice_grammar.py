@@ -12,7 +12,7 @@ from action_plan_contract import catalog
 from presence_contract import minute
 
 
-def build(cell, *, clock_step=30):
+def build(cell, *, clock_step=30,last_start_not_before=None):
     if clock_step not in {20,30,60}:raise ValueError('Unregistered clock resolution')
     specs=catalog(cell);required={};presence=[];travel={}
     for row in cell.get('required_activities',[]):
@@ -35,6 +35,7 @@ def build(cell, *, clock_step=30):
     times=sorted(set(range(0,1440,clock_step))|set(required)|{minute(t) for t in cell.get('fixed_times',[])})
     groups=['residence','workplace','zone'];weekend=date.fromisoformat(cell['date']).weekday()>=5
     low,high=(4,8) if weekend else (6,10)
+    ending_floor=minute(last_start_not_before) if last_start_not_before is not None else 0
     productions={};examples={};leaves={}
     def group(anchor):return 'zone' if anchor.startswith('zone:') else anchor
     def literal(text):return json.dumps(text,ensure_ascii=False)
@@ -82,7 +83,7 @@ def build(cell, *, clock_step=30):
                 if any(prior==where and g!=where and previous<b<=t and t-travel.get((prior,g),0)<b
                        for a,b,where in presence):continue
                 new_count=count+1
-                end_ok=new_count>=low and g=='residence' and not any(rt>t for rt in required)
+                end_ok=new_count>=low and g=='residence' and t>=ending_floor and not any(rt>t for rt in required)
                 end_ok=end_ok and not any(t<b and g!=where for a,b,where in presence)
                 following=None
                 if new_count<high:
@@ -100,6 +101,6 @@ def build(cell, *, clock_step=30):
     if start is None:raise ValueError('No executable schedule on this registered clock grid')
     root='root ::= '+literal('{"events":[')+' '+start+' '+literal(']}')
     grammar=root+'\n'+'\n'.join(name+' ::= '+body for name,body in productions.items())+'\n'
-    return grammar,{'clock_step_minutes':clock_step,'clock_values':len(times),'productions':len(productions),
+    return grammar,{'clock_step_minutes':clock_step,'last_start_not_before':last_start_not_before,'clock_values':len(times),'productions':len(productions),
         'grammar_bytes':len(grammar.encode()),'feasible_example':{'events':examples[start]},
         'scope':'Temporal feasibility by construction on finite clock. Does not enforce evaluation-only closure checks, full routing, whole-day consumption or preference validity.'}

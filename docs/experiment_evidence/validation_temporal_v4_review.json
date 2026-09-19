@@ -1,0 +1,31 @@
+{
+  "scope": "Typed action protocol: representational hallucinations impossible by construction, independent factual/choice checks still required. Not prompt-only or macro validation.",
+  "macro_claim": false,
+  "variants": {
+    "v24_outline_prefill512": {
+      "responses": 96,
+      "complete": true,
+      "raw_valid": 96,
+      "valid": 96,
+      "eligible": 96,
+      "all_pass": true,
+      "adjusted_responses": 0,
+      "mean_generated_tokens": 728.875,
+      "last_activity_before18": 17
+    },
+    "v24_budget1024": {
+      "responses": 96,
+      "complete": true,
+      "raw_valid": 96,
+      "valid": 96,
+      "eligible": 96,
+      "all_pass": true,
+      "adjusted_responses": 0,
+      "mean_generated_tokens": 1240.40625,
+      "last_activity_before18": 11
+    }
+  },
+  "raw_archive_sha256": "c935777ab3e04dd2b92699cbcbe6ed40c6ac8b1bc7fbb1a3f5c747357120289d",
+  "decision": "Neither promoted. Execution96/96 per variant, but early endings17/96 for512prefill and11/96 for1024 violate registered coverage screen. All early-ending final events inspected; full192 sequence/reasoning review not claimed. Previous criteria preserved. Confirmation still uncalled.",
+  "policy_contrasts_used_for_selection": false
+}
