@@ -38,3 +38,19 @@ def test_declared_output_coverage_is_structural_not_a_policy_preference():
     assert audit['last_start_not_before']=='20:00'
     assert audit['feasible_example']['events'][-1]['time']>='20:00'
     assert inspect(json.dumps(audit['feasible_example']),cell(),max_shift=0)['raw_valid']
+
+
+def test_declared_school_zone_is_not_collapsed_with_other_outside_locations():
+    c=cell();c['zones']=['school','other'];c['has_work']=False;c['user']='학교에서 09:00부터 15:00까지 수업에 참석한다.'
+    c['provided_activities']=[{'id':'school_class','anchors':['zone:school'],'category':'교육','intent':'수업',
+                              'purchase_channel':None,'billing_status':'no_transaction','evidence':c['user']}]
+    c['required_activities']=[{'time':'09:00','activity_id':'school_class','anchor':'zone:school','evidence':c['user']}]
+    c['required_presence_intervals']=[{'start':'09:00','end':'15:00','anchor':'zone:school','evidence':c['user']}]
+    c['minimum_transitions']=[{'from_anchor':'residence','to_anchor':'zone:school','minimum_minutes':45},
+                              {'from_anchor':'zone:school','to_anchor':'residence','minimum_minutes':45}]
+    _,audit=build(c,clock_step=60,allow_zone_commitments=True,last_start_not_before='18:00')
+    assert audit['distinct_committed_zones']==['zone:school']
+    assert inspect(json.dumps(audit['feasible_example']),c,max_shift=0)['raw_valid']
+    # Every school-zone terminal used within the commitment stays in that exact zone.
+    grammar,_=build(c,clock_step=60,allow_zone_commitments=True)
+    assert 'zone:other' not in next(line for line in grammar.splitlines() if line.startswith('e_10_3 ::='))

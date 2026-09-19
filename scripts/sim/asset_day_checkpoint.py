@@ -47,6 +47,23 @@ def commit_day(root, *, day, roster, cases, rows, previous=None):
         _, ledger = check(by_id[aid]['raw'], case)
         ledgers[aid] = ledger
         states[aid] = {'cash': ledger['closing_cash'], 'wallet_lots': ledger['closing_wallet_lots']}
+        conditions = case.get('daily_conditions')
+        prior_resources = prior['closing_states'][aid].get('resources') if prior else None
+        if prior is not None and (conditions is None) != (prior_resources is None):
+            raise ValueError('Physical-state protocol changed within path')
+        if conditions is not None:
+            if protocol not in {'v3','v4'}:raise ValueError('Physical-state checkpoint requires purchase-choice protocol')
+            from daily_resource_contract import settle, validate
+            validate(conditions)
+            if prior_resources is not None:
+                opening = {k:v['opening_quantity'] for k,v in conditions['resources'].items()}
+                units = {k:v['unit'] for k,v in conditions['resources'].items()}
+                pending = [dict(q,minute=q['minute']-1440) for q in prior['closing_states'][aid]['pending_receipts']]
+                if opening != prior_resources or units != prior['closing_states'][aid]['resource_units'] or conditions.get('opening_pending_receipts',[]) != pending:
+                    raise ValueError('Physical inventory/delivery state discontinuity')
+            physical = settle(by_id[aid]['raw'],case)
+            ledgers[aid]['resource_ledger'] = physical
+            states[aid].update(resources=physical['closing_resources'],resource_units=physical['resource_units'],pending_receipts=physical['pending_receipts'])
     snapshot = {'day': day, 'roster': list(roster), 'complete': True, 'previous_sha256': previous_hash,'transaction_protocol':protocol,
                 'frozen_cases': cases, 'raw_choices': {a: by_id[a]['raw'] for a in roster}, 'ledgers': ledgers, 'closing_states': states}
     folder.mkdir(parents=True, exist_ok=True)

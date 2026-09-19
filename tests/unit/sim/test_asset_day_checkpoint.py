@@ -69,3 +69,25 @@ def test_unknown_or_mixed_protocols_cannot_enter_checkpoint(tmp_path):
     rows=[{'aid':'A','complete':True,'raw':RAW,'transaction_protocol':'v1'},{'aid':'B','complete':True,'raw':RAW,'transaction_protocol':'v4'}]
     with pytest.raises(ValueError,match='Mixed'):
         commit_day(tmp_path,day='2026-09-21',roster=['A','B'],cases={'A':CASE,'B':CASE},rows=rows)
+
+
+def test_physical_stock_cannot_reset_at_next_day_and_late_deliveries_carry(tmp_path):
+    from copy import deepcopy
+    source={'cash':1000,'wallet_lots':{},'offers':{},'events':[{'id':'order','time':'23:30','activity_id':'shop','channel':'online',
+        'candidates':[{'id':'bottle','price_won':100,'eligible_wallets':[]}]}],
+        'daily_conditions':{'provenance':{'kind':'synthetic_assumption','source':'test'},
+            'resources':{'soap':{'unit':'dose','opening_quantity':0}},'activity_consumption':{'wash':{'soap':1}},
+            'quote_receipts':{'bottle':{'soap':10}},'quote_receipt_delay_minutes':{'bottle':90},'needs':[]}}
+    raw=json.dumps({'acquisition_units':{},'purchases':[{'id':'order','candidate_id':'bottle','wallet_spend':{}}]})
+    rows=[{'aid':'A','complete':True,'raw':raw,'transaction_protocol':'v4'}]
+    first=commit_day(tmp_path,day='2026-09-21',roster=['A'],cases={'A':source},rows=rows)
+    state=json.loads(first.read_bytes())['closing_states']['A']
+    assert state['cash']==900 and state['resources']=={'soap':0} and state['pending_receipts'][0]['minute']==1500
+    tomorrow=deepcopy(source);tomorrow['cash']=900
+    tomorrow['events']=[{'id':'wash','time':'08:00','activity_id':'wash','channel':'offline','candidates':[]}]
+    tomorrow['daily_conditions']['opening_pending_receipts']=[dict(q,minute=q['minute']-1440) for q in state['pending_receipts']]
+    rows=[dict(rows[0],raw=json.dumps({'acquisition_units':{},'purchases':[{'id':'wash','candidate_id':None,'wallet_spend':{}}]}))]
+    second=commit_day(tmp_path,day='2026-09-22',roster=['A'],cases={'A':tomorrow},rows=rows,previous=first)
+    assert json.loads(second.read_bytes())['closing_states']['A']['resources']=={'soap':9}
+    with pytest.raises(ValueError,match='Physical inventory/delivery'):
+        commit_day(tmp_path,day='2026-09-23',roster=['A'],cases={'A':tomorrow},rows=rows,previous=second)

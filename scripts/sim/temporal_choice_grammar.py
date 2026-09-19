@@ -12,9 +12,11 @@ from action_plan_contract import catalog
 from presence_contract import minute
 
 
-def build(cell, *, clock_step=30,last_start_not_before=None):
+def build(cell, *, clock_step=30,last_start_not_before=None,allow_zone_commitments=False):
     if clock_step not in {20,30,60}:raise ValueError('Unregistered clock resolution')
     specs=catalog(cell);required={};presence=[];travel={}
+    allowed={'residence','workplace'}
+    if allow_zone_commitments:allowed.update('zone:'+str(z) for z in cell['zones'])
     for row in cell.get('required_activities',[]):
         if not row.get('evidence') or row['evidence'] not in cell['user']:raise ValueError('Commitment lacks evidence')
         t=minute(row['time'])
@@ -24,20 +26,22 @@ def build(cell, *, clock_step=30,last_start_not_before=None):
     for row in cell.get('required_presence_intervals',[]):
         if not row.get('evidence') or row['evidence'] not in cell['user']:raise ValueError('Presence lacks evidence')
         a,b=minute(row['start']),minute(row['end'])
-        if a>=b or row['anchor'] not in {'residence','workplace'}:raise ValueError('Unsupported presence interval')
+        if a>=b or row['anchor'] not in allowed:raise ValueError('Unsupported presence interval')
         presence.append((a,b,row['anchor']))
     for row in cell.get('minimum_transitions',[]):
         a,b=row['from_anchor'],row['to_anchor']
-        if a not in {'residence','workplace'} or b not in {'residence','workplace'}:raise ValueError('Full route bounds require another grammar')
+        if a not in allowed or b not in allowed:raise ValueError('Unsupported route anchors')
         value=row['minimum_minutes']
         if isinstance(value,bool) or not isinstance(value,int) or value<0:raise ValueError('Invalid commute')
         travel[(a,b)]=max(travel.get((a,b),0),value)
     times=sorted(set(range(0,1440,clock_step))|set(required)|{minute(t) for t in cell.get('fixed_times',[])})
-    groups=['residence','workplace','zone'];weekend=date.fromisoformat(cell['date']).weekday()>=5
+    protected={anchor for _,_,anchor in presence if anchor.startswith('zone:')}
+    protected.update(anchor for pair in travel for anchor in pair if anchor.startswith('zone:'))
+    groups=['residence','workplace','zone']+sorted(protected);weekend=date.fromisoformat(cell['date']).weekday()>=5
     low,high=(4,8) if weekend else (6,10)
     ending_floor=minute(last_start_not_before) if last_start_not_before is not None else 0
     productions={};examples={};leaves={}
-    def group(anchor):return 'zone' if anchor.startswith('zone:') else anchor
+    def group(anchor):return 'zone' if anchor.startswith('zone:') and anchor not in protected else anchor
     def literal(text):return json.dumps(text,ensure_ascii=False)
     for ti,t in enumerate(times):
         for gi,g in enumerate(groups):
@@ -101,6 +105,6 @@ def build(cell, *, clock_step=30,last_start_not_before=None):
     if start is None:raise ValueError('No executable schedule on this registered clock grid')
     root='root ::= '+literal('{"events":[')+' '+start+' '+literal(']}')
     grammar=root+'\n'+'\n'.join(name+' ::= '+body for name,body in productions.items())+'\n'
-    return grammar,{'clock_step_minutes':clock_step,'last_start_not_before':last_start_not_before,'clock_values':len(times),'productions':len(productions),
+    return grammar,{'clock_step_minutes':clock_step,'last_start_not_before':last_start_not_before,'allow_zone_commitments':allow_zone_commitments,'distinct_committed_zones':sorted(protected),'clock_values':len(times),'productions':len(productions),
         'grammar_bytes':len(grammar.encode()),'feasible_example':{'events':examples[start]},
         'scope':'Temporal feasibility by construction on finite clock. Does not enforce evaluation-only closure checks, full routing, whole-day consumption or preference validity.'}

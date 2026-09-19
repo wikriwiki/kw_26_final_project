@@ -28,6 +28,11 @@ def score(rows, *, roster, days, seeds):
         elif protocol=='v1':check=inspect
         else:raise ValueError('Unknown transaction protocol')
         _, ledger = check(row['raw'], row['transaction_case'])
+        if 'daily_conditions' in row['transaction_case']:
+            from daily_resource_contract import settle
+            resources = settle(row['raw'], row['transaction_case'])
+            if 'resource_ledger' in row and row['resource_ledger'] != resources:
+                raise ValueError('Recorded physical state differs from raw choices')
         ledgers[(row['aid'],row['date'],row['replicate'],row['arm'])] = ledger
     by_seed = []
     for seed in seeds:

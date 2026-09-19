@@ -48,8 +48,11 @@ def linked_rows(plan_folder,purchase_folder):
         if plan_config.get('last_start_not_before') and checked['execution_plan']['events'][-1]['time']<plan_config['last_start_not_before']:
             raise ValueError('Upstream output coverage violated')
     cases={key(c):c for c in source['cells']}
+    plan_cells={key(c):c for c in frozen['cells']}
     if set(cases)!=expected or len(cases)!=len(source['cells']):raise ValueError('Quote source dropped or duplicated citizen conditions')
     for k,c in cases.items():
+        if plan_cells[k].get('daily_conditions') != c['transaction_case'].get('daily_conditions'):
+            raise ValueError('Daily preconditions changed between planning and purchase')
         p=by_plan[k]
         if c['date']!=p['date'] or c['attempt_key']!=p['attempt_key'] or c['transaction_case']['id']!=p['attempt_key']:
             raise ValueError('Purchase linked to wrong upstream decision')

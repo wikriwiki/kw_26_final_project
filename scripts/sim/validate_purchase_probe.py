@@ -28,7 +28,7 @@ def protocol_modules(config):
     import importlib
     contract=importlib.import_module('asset_transaction_contract'+('_'+name if name!='v1' else ''))
     prompt_name=config.get('purchase_prompt_module','asset_transaction_'+name)
-    if prompt_name not in {'asset_transaction_'+v for v in ['v1','v2','v3','v4','v5','v6']}:raise ValueError('Unregistered purchase prompt')
+    if prompt_name not in {'asset_transaction_'+v for v in ['v1','v2','v3','v4','v5','v6','v7']}:raise ValueError('Unregistered purchase prompt')
     prompt=importlib.import_module('prompts.'+prompt_name).SYSTEM_PROMPT
     return contract,prompt
 
@@ -38,7 +38,7 @@ def decision_case(case,config):
     if view=='raw':return case
     if view=='balances_v1':
         from purchase_decision_view import build
-        if config.get('purchase_prompt_module')!='asset_transaction_v6':raise ValueError('Balance view requires matching citizen-facing prompt')
+        if config.get('purchase_prompt_module') not in {'asset_transaction_v6','asset_transaction_v7'}:raise ValueError('Balance view requires matching citizen-facing prompt')
         return build(case)
     raise ValueError('Unregistered decision view')
 
@@ -60,6 +60,10 @@ def invoke(job, config, base, prefixes, folder):
                     purchases=[{k:v for k,v in a.items() if k in {'id','candidate_id','wallet_spend'}} for a in json.loads(forced['raw'])['actions']]
                     forced['raw']=json.dumps({'acquisition_units':{},'purchases':purchases},ensure_ascii=False)
                     _,forced['ledger']=contract.inspect(forced['raw'],case)
+                row.update(forced)
+                if 'daily_conditions' in case:
+                    from daily_resource_contract import settle
+                    row['resource_ledger']=settle(forced['raw'],case)
                 errors=factual_errors(forced['ledger'],cell.get('evaluation_ledger',{}))
                 row.update(forced,valid=not errors,errors=errors,elapsed_seconds=round(time.monotonic()-started,3))
                 atomic(folder/'attempts'/f'{key}_deterministic.json',row)
@@ -75,6 +79,9 @@ def invoke(job, config, base, prefixes, folder):
         row.update(raw=second['response']['text'],thinking_usage=first['response']['meta_info'],
                    answer_usage=second['response']['meta_info'],forced_reasoning_boundary=first['forced_reasoning_boundary'])
         _, ledger = contract.inspect(row['raw'],case)
+        if 'daily_conditions' in case:
+            from daily_resource_contract import settle
+            row['resource_ledger']=settle(row['raw'],case)
         errors = [] if row['answer_usage']['finish_reason']['type']=='stop' else ['incomplete_generation']
         errors.extend(factual_errors(ledger,cell.get('evaluation_ledger',{})))
         row.update(valid=not errors,errors=errors,ledger=ledger)
@@ -89,6 +96,13 @@ def main():
     config=json.loads(args.config.read_bytes()); raw=args.source.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=config['source_sha256']:raise ValueError('Input hash mismatch')
     source=json.loads(raw);cells=source['cells'];_,system_prompt=protocol_modules(config)
+    if any('daily_conditions' in c['transaction_case'] for c in cells):
+        if config.get('purchase_prompt_module')!='asset_transaction_v7' or config.get('transaction_protocol') not in {'v3','v4'}:
+            raise ValueError('Daily resource contract requires matching v7 prompt and purchase-choice protocol')
+        from daily_resource_contract import validate
+        for c in cells:
+            if 'daily_conditions' not in c['transaction_case']:raise ValueError('Mixed resource and legacy cases')
+            validate(c['transaction_case']['daily_conditions'])
     from transformers import AutoTokenizer
     tokenizer=AutoTokenizer.from_pretrained(args.tokenizer,local_files_only=True,trust_remote_code=True)
     prefixes={c['transaction_case']['id']:tokenizer.apply_chat_template(
@@ -97,7 +111,7 @@ def main():
     if len(prefixes)!=len(cells):raise ValueError('Duplicate source id')
     folder=args.out;folder.mkdir(parents=True,exist_ok=False);(folder/'attempts').mkdir();(folder/'code').mkdir()
     hashes={}
-    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_transaction_contract_v2.py','asset_transaction_contract_v3.py','asset_transaction_contract_v4.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py','forced_no_purchase.py','purchase_decision_view.py']:
+    for name in ['validate_purchase_probe.py','asset_transaction_contract.py','asset_transaction_contract_v2.py','asset_transaction_contract_v3.py','asset_transaction_contract_v4.py','asset_ledger.py','transaction_ledger.py','bounded_reasoning.py','paired_asset_score.py','forced_no_purchase.py','purchase_decision_view.py','daily_resource_contract.py']:
         data=Path(__file__).with_name(name).read_bytes();hashes[name]=hashlib.sha256(data).hexdigest();(folder/'code'/name).write_bytes(data)
     atomic(folder/'manifest.json',{'config':config,'input_sha256':hashlib.sha256(raw).hexdigest(),'code_sha256':hashes,
         'system_sha256':digest(system_prompt),'prefix_sha256':{k:digest(v) for k,v in prefixes.items()},

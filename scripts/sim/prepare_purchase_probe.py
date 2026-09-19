@@ -120,6 +120,11 @@ def build_case(row, cell, persona, *, price_factor=1,max_shift_minutes=10,static
         '주어진 제도가 있다면 참여 자격을 만족한다고 가정한다. 나이 세부값·본인 카드 이력은 실제로 관측되지 않았다.',
         '식재료·생활용품 재고와 현재 질병은 제공되지 않았다. 구매 검토만으로 부족·질병·구매 확정을 새 사실로 만들지 않는다.',
         '오늘의 후보 구매 여부를 고른다. 없는 상품·추가 수량·외상·차입은 선택할 수 없다.']
+    if 'daily_conditions' in cell:
+        from daily_resource_contract import validate
+        validate(cell['daily_conditions'])
+        case['daily_conditions']=copy.deepcopy(cell['daily_conditions'])
+        case['scenario_assumptions'][4]='daily_conditions에 명시한 자원·필요·도착 조건은 해당 합성 시나리오의 선행 상태다. 그 밖의 재고·질병·필요는 미관측이다. 실제 자원 사용은 구매 및 도착 이후만 가능하며 선택한 일정은 이 결제 단계에서 변경하지 않는다.'
     return case, audit
 
 
