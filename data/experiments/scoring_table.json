@@ -1592,6 +1592,12 @@
     "남는 후보": "v5(현직)와 v8. v8 은 A단계에서 기준① 미충족(P012-1 −0.5%)이고 LV-3 는 −4.2% 로 v5 대조가 필요하다.",
     "홀드아웃에 미치는 영향": "없다. 홀드아웃은 v5 로 돌렸고 v5 는 이 감사를 통과한다."
   },
+  "_validation_v3": {
+    "registration": "data/experiments/validation_v3.json",
+    "scope": "matched-context Stage1 pilot; not macro spending validation",
+    "candidates": ["v5", "v10"],
+    "holdout_reuse": false
+  },
   "MAGNITUDE_CRITERION": {
     "when": "2026-09-19. 사용자 요청으로 추가: 방향만이 아니라 **그 방향의 크기 정도**까지 맞기를 바란다. 정확한 수치는 아니다.",
     "기준": {

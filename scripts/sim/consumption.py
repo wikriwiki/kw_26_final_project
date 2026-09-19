@@ -659,7 +659,7 @@ def apply_consumption_model(
         return {
             "applied": False, "reason": "no_commerce",
             "grant_carry_in": _carry,
-            "grant_carry_out": min(int(wallet_total), int(intended_grant_today)),
+            "grant_carry_out": 0 if (_choice_mode or _intensity_mode) else min(int(wallet_total), int(intended_grant_today)),
         }
 
     # Stage2가 정한 절대 계획금액.
@@ -707,15 +707,11 @@ def apply_consumption_model(
                 # 태세가 더 낮으면 고른 것들을 같은 비율로 줄인다(어느 결제를 골랐는지는 보존).
                 _k = _posture / _cur
                 _choice_shares = [s * _k for s in _choice_shares]
-            elif _posture > _cur:
-                # 태세가 더 높으면 각 결제를 전액 쪽으로 같은 정도만큼 끌어올린다.
-                # 비례 배율은 Stage2가 0으로 둔 결제를 영원히 0으로 남겨 태세를 달성할 수 없다.
-                _t = (_posture - _cur) / max(1e-9, 1.0 - _cur)
-                _t = max(0.0, min(1.0, _t))
-                _choice_shares = [
-                    (s + _t * (1.0 - s)) if _elig[i] > 0 else s
-                    for i, s in enumerate(_choice_shares)
-                ]
+            elif _posture > _cur and _cur > 1e-9:
+                # A daily preference may scale selected payments, but cannot turn
+                # an explicitly unselected payment into consent.
+                _k = _posture / _cur
+                _choice_shares = [min(1.0, s * _k) for s in _choice_shares]
     # Stage2 절대 계획금액을 보존하되, POI 가격대 효과는 기존 BASKET_CLAMP 범위에서 반영한다.
     planned_total = int(round(sum(weights) * basket_idx))
 
@@ -946,6 +942,46 @@ def apply_consumption_model(
         choice_shares=_choice_shares if _choice_mode else None,
     )
 
+    # The final payment choice, not theoretical wallet capacity, must fund purchases.
+    # Keep the chosen shares and conservatively shrink the basket when cash is insufficient.
+    cash_required = sum(int(e["actual_spent"]) for e in commerce) - int(allocation["total"])
+    affordability_corrected = own_balance is not None and cash_required > own_balance
+    if affordability_corrected:
+        original = [int(e["actual_spent"]) for e in commerce]
+        denominator = max(1, sum(original))
+
+        def settle_scaled(numerator):
+            for event, amount in zip(commerce, original):
+                event["actual_spent"] = amount * numerator // denominator
+            return settle_policy_spend_priority(
+                events, grant_avail=grant_avail_alloc,
+                restricted_envelopes=envelopes_alloc, grant_use=grant_use,
+                choice_shares=_choice_shares if _choice_mode else None,
+            )
+
+        low, high = 0, denominator
+        while low < high:
+            mid = (low + high + 1) // 2
+            candidate = settle_scaled(mid)
+            required = sum(e["actual_spent"] for e in commerce) - candidate["total"]
+            if required <= own_balance:
+                low = mid
+            else:
+                high = mid - 1
+        allocation = settle_scaled(low)
+        total_adj = sum(e["actual_spent"] for e in commerce)
+
+    # A generated appraisal of a larger purchase is not an observed appraisal of
+    # the reduced purchase. Preserve it as an expectation, not as actual feedback.
+    for event, desired in zip(commerce, desired_spends):
+        event["desired_spent"] = int(desired)
+        event["purchase_status"] = (
+            "not_purchased" if event["actual_spent"] == 0 else
+            "reduced" if event["actual_spent"] < desired else "purchased"
+        )
+        if event["actual_spent"] < desired:
+            event["expected_satisfaction"] = event.get("actual_satisfaction")
+            event["actual_satisfaction"] = None
     normal_budget = spend_today(p, daily)
     allocated_total = int(allocation["total"])
     payment_coverage = (
@@ -962,7 +998,7 @@ def apply_consumption_model(
         "intended_grant_today": intended_grant_today,
         "grant_carry_in": _carry,
         # 오늘 계획한 만큼 쓸 거래가 없었으면 그 차액이 내일로 넘어간다.
-        "grant_carry_out": 0 if _intensity_mode else max(0, intended_grant_today - int(allocated_total or 0)),
+        "grant_carry_out": 0 if (_choice_mode or _intensity_mode) else max(0, intended_grant_today - int(allocated_total or 0)),
         "grant_intensity_mode": _intensity_mode,
         "grant_choice_mode": _choice_mode,
         # 오늘 계획한 지출 중 지원금으로 내기로 고른 몫(가중평균). 진단용.
@@ -987,6 +1023,7 @@ def apply_consumption_model(
         "day_multiplier": round(day_multiplier, 4),
         "planned_total": planned_total,
         "today_total": total_adj,
+        "affordability_corrected": affordability_corrected,
         "grant_part": allocated_total,
         "normal_budget": normal_budget["total"],
         "available": normal_budget["available"],

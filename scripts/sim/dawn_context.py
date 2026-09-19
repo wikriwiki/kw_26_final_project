@@ -565,7 +565,7 @@ def _format_cashback_status(
             status += f" (한도 {cap:,}원까지 {cap_over - over:,}원 여지)"
     return (
         f"- {pid}: 적립업종 이번달 누적 {spent_elig:,}원 / 2분기 월평균 약 {anchor:,}원 / "
-        f"3% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
+        f"{(ratio-1)*100:.3g}% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
         f"{status} | 못 넘기면 이번 달 혜택은 사라짐"
     )
 
@@ -727,11 +727,12 @@ def _format_policy_facts(rows: list[dict]) -> str:
             # 구체적인 업종은 아래 사실 줄과 개인 상태에 이미 나온다.
             scope = "대상 업종 한정"
         else:
-            scope = "업종 제한 없음"
+            scope = "세부 업종 조건은 정책 본문 참조"
         # 표시 문자열은 정책이 정한다 — 하드코딩하면 새 정책이 남의 마커를 쓴다.
         _mk = (r.get("eligible_marker") or "[쿠폰]").strip()
         restrictions = f" · {_mk} 표시 POI에서만 사용" if r.get("poi_restricted") else ""
-        desc = " ".join(str(r.get("description") or "").split())[:280]
+        # Do not remove eligibility, timing or exceptions by truncating mid-sentence.
+        desc = " ".join(str(r.get("description") or "").split())
         _h2 = _head if _head is not None else f"[{label}] {r.get('name')}"
         lines.append(
             f"- {r.get('id')} {_h2} | "
