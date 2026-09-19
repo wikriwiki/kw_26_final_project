@@ -34,6 +34,7 @@ from . import v16  # noqa: E402  (separate observed facts from chosen activities
 from . import v17  # noqa: E402  (first-person grounded choices)
 from . import v18  # noqa: E402  (verbatim evidence protocol)
 from . import v19  # noqa: E402  (grounded v11 with explicit place/time semantics)
+from . import v20, v21  # noqa: E402  (fact/choice separation and contrastive review)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
 # v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
@@ -51,6 +52,8 @@ _VARIANTS: dict[str, ModuleType] = {
     "v17": v17,
     "v18": v18,
     "v19": v19,
+    "v20": v20,
+    "v21": v21,
 }
 DEFAULT = "p010"
 

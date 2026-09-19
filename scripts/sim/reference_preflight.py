@@ -12,7 +12,7 @@ REQUIRED = {
 }
 
 
-def inspect_references(stats_dir):
+def inspect_references(stats_dir, require_code_geography=False):
     root=Path(stats_dir)
     result={'files':{},'limitations':[]}
     for name,key in REQUIRED.items():
@@ -22,6 +22,9 @@ def inspect_references(stats_dir):
         if not isinstance(data,(dict,list)) or not data:
             raise ValueError(f'Missing/empty required reference: {name}:{key}')
         result['files'][name]={'sha256':hashlib.sha256(raw).hexdigest(),'bytes':len(raw),'entries':len(data)}
+        if require_code_geography and name in {'dong_centroids.json','hub_signature.json'}:
+            if obj.get('_meta',{}).get('name_based_join') is not False:
+                raise ValueError('Code-keyed geographical provenance required: ' + name)
         if name=='unit_price.json':
             result['absolute_category_prices_available']=bool(obj.get('l1_unit_price'))
             if not result['absolute_category_prices_available']:

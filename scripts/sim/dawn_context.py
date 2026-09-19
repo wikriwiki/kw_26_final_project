@@ -947,7 +947,7 @@ def _format_knows_poi(rows: list[dict]) -> str:
 # =========================================================
 # 메인 엔트리
 # =========================================================
-def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
+def _build_zone_candidates(persona: dict, today: date, stats_dir: Path | None = None) -> list[dict]:
     """오늘 갈 수 있는 zone 후보 = 생활권(거주·직장) + Huff 광역상권(MOBILITY_WIDE).
 
     좌표/카탈로그 없거나 legacy 모드면 생활권만 → 기존 동작으로 자연 degrade.
@@ -972,12 +972,14 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
         rng = random.Random(hash((persona.get("id"), today.isoformat())))
         for h in mobility.suggest_hubs(home_code, exclude, day_type,
                                        persona.get("mobility"), k=8, rng=rng,
-                                       persona=persona):
+                                       persona=persona, stats_dir=stats_dir):
             zones.append({"code": h["code"], "name": h.get("name", ""),
                           "gu": h.get("gu", ""), "type": "hub",
                           "signature": h.get("signature"),
                           "distance_km": h.get("distance_km")})
     except Exception:
+        if stats_dir is not None:
+            raise  # A registered reference bundle must fail closed.
         pass   # 광역 prior 실패해도 생활권만으로 진행
     return zones
 

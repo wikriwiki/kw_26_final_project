@@ -1,0 +1,111 @@
+"""Registered typed-action experiment. Raw decisions retained; no policy effect score."""
+import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import random
+import time
+from urllib.request import urlopen
+from action_plan_contract import catalog, schema, inspect
+from bounded_reasoning import post, run
+from validate_prompt_v3 import atomic, digest
+
+
+def invoke(job, config, base, prefixes, folder):
+    candidate, seed, cell = job; key = digest([candidate['id'], seed, cell['aid'], cell['case'], cell['arm']])
+    row = {k: cell[k] for k in ['aid','case','arm','date']}
+    row.update(variant=candidate['id'], replicate=seed, attempt_key=key); started = time.monotonic()
+    try:
+        sc = schema(cell); sample_seed = int(digest([seed, cell['aid'], cell['case']])[:8], 16) % 2147483647
+        prefix = prefixes[(candidate['id'], cell['aid'], cell['case'], cell['arm'])]
+        if candidate['thinking_tokens']:
+            first, second = run(prefix=prefix, schema=sc, base=base, seed=sample_seed,
+                thinking_tokens=candidate['thinking_tokens'], answer_tokens=config['answer_tokens'], sampling=config['sampling'],
+                timeout=config['timeout_seconds'], whitespace_limit=2,
+                on_deliberation=lambda value: atomic(folder/'attempts'/f'{key}_deliberation.json', value))
+            row.update(thinking_usage=first['response']['meta_info'], forced_reasoning_boundary=first['forced_reasoning_boundary'])
+        else:
+            import xgrammar
+            request = {'text': prefix, 'sampling_params': dict(config['sampling'], sampling_seed=sample_seed,
+                       max_new_tokens=config['answer_tokens'], ebnf=str(xgrammar.Grammar.from_json_schema(sc, max_whitespace_cnt=2))),
+                       'require_reasoning': False, 'stream': False}
+            atomic(folder/'attempts'/f'{key}_request.json', request)
+            second = {'request': request, 'response': post(base, request, config['timeout_seconds'])}
+        atomic(folder/'attempts'/f'{key}_answer.json', second)
+        response = second['response']; row.update(raw=response['text'], answer_usage=response['meta_info'], schema_sha256=digest(sc))
+        report = inspect(response['text'], cell, max_shift=config['max_shift_minutes'])
+        if response['meta_info']['finish_reason']['type'] != 'stop': report['errors'].append('incomplete_generation'); report['valid'] = False
+        # These requirements stay outside the request. They test supplied facts,
+        # not empirical policy effect signs or magnitudes.
+        executable = (report['execution_plan'] or {}).get('events', [])
+        failures = []
+        for requirement in cell.get('evaluation_requirements', []):
+            if requirement['kind'] not in {'no_outside','forbid_activity','forbid_after'}: raise ValueError('Unknown evaluation requirement')
+            if requirement['kind'] == 'no_outside' and any(e['anchor'] != 'residence' for e in executable): failures.append('outside_prohibited')
+            elif requirement['kind'] == 'forbid_activity' and any(e['activity_id'] in requirement['ids'] for e in executable): failures.append('closed_activity')
+            elif requirement['kind'] == 'forbid_after' and any(e['activity_id'] in requirement['ids'] and e['time'] >= requirement['time'] for e in executable): failures.append('closed_activity_time')
+        report['factual_errors'] = failures
+        report['eligible'] = report['valid'] and not failures
+        row.update(report)
+    except Exception as exc: row.update(valid=False, eligible=False, errors=['request_or_contract'], error=str(exc))
+    row['elapsed_seconds'] = round(time.monotonic() - started, 3)
+    return row
+
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument('--config', required=True); ap.add_argument('--source', required=True)
+    ap.add_argument('--out', required=True); ap.add_argument('--tokenizer', required=True)
+    args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); raw = Path(args.source).read_bytes()
+    import importlib
+    if config.get('prompt_module','v22') not in {'v22','v23'}: raise ValueError('Unregistered prompt module')
+    system_prompt = importlib.import_module('prompts.' + config.get('prompt_module','v22')).SYSTEM_PROMPT
+    assert hashlib.sha256(raw).hexdigest() == config['source_inputs_sha256']
+    inputs = json.loads(raw); people = {p['id']: p for p in inputs['personas']}
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True, trust_remote_code=True)
+    prefixes = {}; frozen = []
+    for cell in inputs['cells']:
+        cell['has_work'] = bool(people[cell['aid']].get('work_poi_id'))
+        user = cell['user'].replace('/no_think', '').replace('/think', '')
+        user += '\n\n## 선택 가능한 활동 사전\n' + json.dumps(list(catalog(cell).values()), ensure_ascii=False)
+        if cell.get('required_activities'):
+            user += '\n\n## 입력에 명시된 일정의 실행 표기\n' + json.dumps(cell['required_activities'], ensure_ascii=False)
+        frozen.append(dict(cell, submitted_user=user))
+        for c in config['candidates']:
+            prefixes[(c['id'], cell['aid'], cell['case'], cell['arm'])] = tokenizer.apply_chat_template(
+                [{'role': 'system', 'content': system_prompt}, {'role': 'user', 'content': user}],
+                tokenize=False, add_generation_prompt=True, enable_thinking=bool(c['thinking_tokens']))
+    folder = Path(args.out); folder.mkdir(parents=True, exist_ok=False); (folder/'attempts').mkdir(); (folder/'code').mkdir()
+    names = ['validate_action_planner.py','action_plan_contract.py','bounded_reasoning.py','temporal_projection.py']
+    code = {}
+    for name in names:
+        data = Path(__file__).with_name(name).read_bytes(); code[name] = hashlib.sha256(data).hexdigest(); (folder/'code'/name).write_bytes(data)
+    atomic(folder/'manifest.json', {'config': config, 'config_sha256': digest(config), 'inputs_sha256': hashlib.sha256(raw).hexdigest(),
+           'system_sha256': digest(system_prompt), 'code_sha256': code, 'registered_at': datetime.now(timezone.utc).isoformat(),
+           'prefix_sha256': {'|'.join(k): digest(v) for k,v in prefixes.items()}, 'template_sha256': digest(tokenizer.chat_template)})
+    atomic(folder/'frozen_inputs.json', {'personas': inputs['personas'], 'cells': frozen}); (folder/'system.txt').write_text(system_prompt, encoding='utf-8')
+    base = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
+    with urlopen(base + '/v1/models', timeout=10) as response: assert config['model'] in [m['id'] for m in json.load(response)['data']]
+    jobs = [(c, seed, cell) for c in config['candidates'] for seed in config['seeds'] for cell in inputs['cells']]
+    random.Random(config['order_seed']).shuffle(jobs); rows = []
+    with (folder/'responses.jsonl').open('x', encoding='utf-8') as fp, ThreadPoolExecutor(max_workers=config['workers']) as pool:
+        pending = [pool.submit(invoke, j, config, base, prefixes, folder) for j in jobs]
+        for future in as_completed(pending):
+            row = future.result(); rows.append(row); fp.write(json.dumps(row, ensure_ascii=False)+'\n'); fp.flush(); os.fsync(fp.fileno())
+            print(f"completed {len(rows)}/{len(jobs)} {row['variant']} {row['case']} eligible={row['eligible']} errors={row['errors']} factual={row.get('factual_errors')} error={row.get('error','')}", flush=True)
+    summary = {'scope': 'Typed action protocol: representational hallucinations impossible by construction, independent factual/choice checks still required. Not prompt-only or macro validation.', 'macro_claim': False, 'variants': {}}
+    expected = {(s, c['aid'], c['case'], c['arm']) for s in config['seeds'] for c in inputs['cells']}
+    for candidate in config['candidates']:
+        rr = [r for r in rows if r['variant'] == candidate['id']]
+        complete = len(rr) == len(expected) and {(r['replicate'],r['aid'],r['case'],r['arm']) for r in rr} == expected
+        summary['variants'][candidate['id']] = {'responses': len(rr), 'complete': complete, 'raw_valid': sum(r.get('raw_valid',False) for r in rr),
+            'valid': sum(r['valid'] for r in rr), 'eligible': sum(r['eligible'] for r in rr), 'all_pass': complete and all(r['eligible'] for r in rr),
+            'adjusted_responses': sum(bool((r.get('temporal_projection') or {}).get('shifts')) for r in rr),
+            'mean_generated_tokens': sum(r.get('thinking_usage',{}).get('completion_tokens',0)+r.get('answer_usage',{}).get('completion_tokens',0) for r in rr)/len(rr)}
+    atomic(folder/'summary.json', summary); print(json.dumps(summary), flush=True)
+
+
+if __name__ == '__main__': main()

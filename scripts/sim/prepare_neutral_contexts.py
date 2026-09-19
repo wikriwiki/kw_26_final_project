@@ -13,6 +13,7 @@ from neutral_context import initial_state, render
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--personas-source', required=True); ap.add_argument('--out', required=True)
+    ap.add_argument('--reference-dir', type=Path, default=ROOT / 'output/stats')
     args = ap.parse_args()
     if os.environ.get('PYTHONHASHSEED') != '0':
         raise ValueError('Set PYTHONHASHSEED=0 before process launch')
@@ -25,13 +26,13 @@ def main():
     if out.exists():
         raise ValueError('Refusing overwrite')
     raw = Path(args.personas_source).read_bytes(); source = json.loads(raw)
-    references = inspect_references(ROOT / 'output/stats')
+    references = inspect_references(args.reference_dir, require_code_geography=True)
     config = json.loads((ROOT / 'data/experiments/validation_v3.json').read_text(encoding='utf-8'))
     cells = []
     for p in source['personas']:
         for case in config['cases']:
             day = date.fromisoformat(case['date'])
-            zones = _build_zone_candidates(p, day)
+            zones = _build_zone_candidates(p, day, stats_dir=args.reference_dir)
             anchor = _sangsaeng_monthly_anchor(p)
             for arm in ['off', 'on']:
                 pol = policy_row(case['policy'], day) if arm == 'on' else None
