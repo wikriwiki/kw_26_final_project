@@ -895,13 +895,13 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
             # 500 agent마다 checkpoint snapshot (resume 안전)
             if total_done % 500 == 0:
                 try:
-                    done_path.write_text(json.dumps(sorted(done_aids), ensure_ascii=False), encoding="utf-8")
+                    write_json_atomic(done_path, sorted(done_aids))
                 except OSError as e:
                     print(f"  [warn] checkpoint snapshot failed: {e}")
 
     try:
-        done_path.write_text(json.dumps(sorted(done_aids), ensure_ascii=False), encoding="utf-8")
-        failed_path.write_text(json.dumps(fail_list, ensure_ascii=False, indent=2), encoding="utf-8")
+        write_json_atomic(done_path, sorted(done_aids))
+        write_json_atomic(failed_path, fail_list)
     except OSError as e:
         print(f"  [warn] final checkpoint write failed: {e}")
 
