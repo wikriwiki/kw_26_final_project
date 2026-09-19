@@ -12,9 +12,14 @@ import tempfile
 from asset_transaction_contract import inspect
 
 
-def commit_day(root, *, day, roster, cases, rows, previous=None):
+def commit_day(root, *, day, roster, cases, rows, previous=None, state_protocol='inventory_v1', transition_templates=None):
     if date.fromisoformat(day).isoformat() != day: raise ValueError('Canonical day required')
     folder = Path(root).resolve()
+    if state_protocol not in {'inventory_v1','carry_needs_v1'}:raise ValueError('Unknown daily state protocol')
+    if transition_templates is not None and (state_protocol!='carry_needs_v1' or previous is None or set(transition_templates)!=set(roster)):
+        raise ValueError('Transition templates require a complete continuing need-state path')
+    if state_protocol=='carry_needs_v1' and previous is not None and transition_templates is None:
+        raise ValueError('Explicit next-day assumption templates required')
     if not roster or len(set(roster)) != len(roster) or set(cases) != set(roster): raise ValueError('Day roster')
     by_id = {}
     for row in rows:
@@ -39,9 +44,18 @@ def commit_day(root, *, day, roster, cases, rows, previous=None):
         if prior.get('complete') is not True or (date.fromisoformat(day)-date.fromisoformat(prior['day'])).days != 1 or prior['roster'] != list(roster):
             raise ValueError('Invalid prior day; consecutive day required')
         if prior.get('transaction_protocol','v1')!=protocol:raise ValueError('Transaction protocol changed within frozen path')
+        if prior.get('state_protocol','inventory_v1')!=state_protocol:raise ValueError('Daily state protocol changed within frozen path')
     ledgers = {}; states = {}
     for aid in roster:
         case = cases[aid]
+        if state_protocol=='carry_needs_v1':
+            if protocol not in {'v3','v4'} or 'daily_conditions' not in case:
+                raise ValueError('Need-state protocol requires current choices and physical state')
+            if prior is not None:
+                from daily_state_transition import advance
+                expected=advance(prior['frozen_cases'][aid],prior['raw_choices'][aid],transition_templates[aid])
+                if any(case[k]!=expected[k] for k in expected):
+                    raise ValueError('Daily need/resource/financial state discontinuity')
         if prior is not None and (case['cash'] != prior['closing_states'][aid]['cash'] or case['wallet_lots'] != prior['closing_states'][aid]['wallet_lots']):
             raise ValueError('State discontinuity; exogenous transfers need a separate registered transition')
         _, ledger = check(by_id[aid]['raw'], case)
@@ -65,6 +79,7 @@ def commit_day(root, *, day, roster, cases, rows, previous=None):
             ledgers[aid]['resource_ledger'] = physical
             states[aid].update(resources=physical['closing_resources'],resource_units=physical['resource_units'],pending_receipts=physical['pending_receipts'])
     snapshot = {'day': day, 'roster': list(roster), 'complete': True, 'previous_sha256': previous_hash,'transaction_protocol':protocol,
+                'state_protocol':state_protocol,'transition_templates':transition_templates,
                 'frozen_cases': cases, 'raw_choices': {a: by_id[a]['raw'] for a in roster}, 'ledgers': ledgers, 'closing_states': states}
     folder.mkdir(parents=True, exist_ok=True)
     target = folder / (day + '.json'); lock = folder / 'day_barrier.lock'
