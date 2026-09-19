@@ -1596,9 +1596,19 @@
     "registration": "data/experiments/validation_v3.json",
     "scope": "matched-context Stage1 pilot; not macro spending validation",
     "candidates": ["v5", "v10"],
-    "holdout_reuse": false
+    "holdout_reuse": false,
+    "result": "Both candidates failed the preregistered raw-contract gate; no macro rollout started.",
+    "report": "docs/VALIDATION_V3_RESULTS.md"
   },
   "MAGNITUDE_CRITERION": {
+    "audit_2026_09_20": {
+      "status": "historical comparisons preserved; magnitude validation not established",
+      "precedence": "이 감사 주석을 아래 역사적 판정 문구보다 우선 적용한다.",
+      "unit_mismatch": "긴급재난 사용가능업종: 실측 +11.1%p와 모형 +13.1%는 추정량·분모 확인 없이 나눌 수 없다. 1.18배 및 이를 포함한 5/6 통과 집계를 검증 근거로 사용하지 않는다.",
+      "outcome_mismatch": "전체 카드매출과 INCLUDES 기반 방문 지출은 같은 총소비 결과가 아니다. 온라인을 포함한 전체 원장으로 재정의해야 한다.",
+      "horizon_mismatch": "2일과 한 달의 크기 차이를 기간 때문이라고 단정하지 않는다. 대상·기간·결과·분모·대조군이 호환될 때만 배수 비교한다.",
+      "reference": "docs/VALIDATION_ARCHITECTURE_V3.md"
+    },
     "when": "2026-09-19. 사용자 요청으로 추가: 방향만이 아니라 **그 방향의 크기 정도**까지 맞기를 바란다. 정확한 수치는 아니다.",
     "기준": {
       "1차": "부호 일치 — 종전 그대로 유지한다. 채점(hit)은 여전히 부호로만 한다.",

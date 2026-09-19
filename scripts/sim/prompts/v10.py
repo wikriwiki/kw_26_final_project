@@ -1,4 +1,4 @@
-"""Candidate v10: policy-independent decision contract, not a validated winner.
+"""Rejected pilot candidate v10: see docs/VALIDATION_V3_RESULTS.md.
 
 Registered in validation_v3.json. No historical effect sizes or policy-specific
 rates, thresholds, category exclusions or behavioural directions belong here.
