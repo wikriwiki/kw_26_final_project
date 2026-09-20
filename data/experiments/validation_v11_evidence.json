@@ -1,19 +1,42 @@
 {
-  "id": "validation_v11_evidence",
-  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
-  "source_inputs_sha256": "69dbf50ba55a976058556c6666dea0982192cd2e3b7b9ce97ef6cb249b0ba7c1",
-  "candidates": [{"id": "v18_evidence", "prompt": "v18", "structured": true, "thinking_tokens": 4096}],
-  "seeds": [13001, 14001],
-  "sampling": {"temperature": 1.0, "top_p": 0.95, "presence_penalty": 0.0},
-  "answer_tokens": 4096,
-  "schema_mode": "endpoint_guard",
-  "reasoning_evidence": true,
-  "workers": 8,
-  "timeout_seconds": 900,
-  "order_seed": 20260922,
-  "phase": "Eight known development cases x two seeds = 16. New prompt-plus-decoding protocol; not an isolated prompt ablation or independent holdout.",
-  "primary": "All format and explicit facts pass; manual review of whether the selected evidence actually supports the action. Literal citation alone is insufficient. No invented need in intent. Arrival before the appointment is manually distinguished from a missing appointment, while the registered exact-time check remains separately reported.",
-  "changes": "Endpoint grammar preserves all existing allowed event counts and home-only days. Reasoning selects a verbatim input span or an explicit ordinary-choice label. Both deliberation and answer budgets increased to 4096; report joint protocol effect and full token cost.",
-  "selection": "No empirical effect targets. No claim of unaided raw-model factual adherence from schema-enforced quotations. Larger development and untouched confirmation still required.",
-  "prohibitions": "No P010 changes; no P015 calls; no hidden retry or post-hoc correction. Preserve all prior protocols and failures."
+ "id": "validation_v11_evidence",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "de134099a94a49b51c6c0d3f2dd7e61760ead6226934beec81f942fb8f8cc5f0",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "evidence_axis",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  66001,
+  66002,
+  66003,
+  66004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "The meal requirement stated as prose where the laundry one already is. v10 showed that changing the system prompt did nothing (44.8 to 46.0 blocked cells); the two requirements sat in different places, one a sentence above the JSON and one a field inside it.",
+ "primary": "Cells the resource gate proves impossible. The control is v10 arm v25 - same prompt, same seeds, only the source differs - measured at 46/47/42/44 of 96.",
+ "limitations": [
+  "This is an input change, not a prompt change. The prompt is v25 in both arms.",
+  "A feasible plan is not a correct plan. This asks only whether the model stops planning the physically impossible.",
+  "How it resolves the shortfall is recorded, not scored.",
+  "Twelve people, four seeds. Precision for these twelve."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Single treatment arm against v10 arm v25 as the control (experiments/v11/prompt_v11.md). Enforced by test_meal_need.py.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
 }

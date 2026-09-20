@@ -39,6 +39,13 @@ ASSUMPTION = ('집에서 드는 한 끼는 집에 있는 식재료 한 끼분을
               '이 가정에서 세 끼분이며 같은 자리에서 바로 쓸 수 있다. 실제 식품 용량이나 영양을 '
               '나타내지 않는다.')
 DESCRIPTION = '오늘 끼니를 든다. 집에서 들 수도 있고 밖에서 들 수도 있다.'
+# The laundry requirement stands as one prose line above the JSON:
+#   "실험 가정: provided_laundry는 집에서 세탁 1회를 하는 활동이며, 실제 시작 전에 세제 1회분이 있어야 한다."
+# The meal requirement only ever appeared inside the JSON, and the model respected the one
+# it could read as a sentence and ignored the one it had to infer from fields. This says the
+# same fact in the same shape. It names no place to eat and no thing to buy.
+EVIDENCE = ('실험 가정: home_meal은 집에서 한 끼를 드는 활동이며, '
+            '실제 시작 전에 집에 있는 식재료 한 끼분이 있어야 한다.')
 
 
 def meal_options(cell):
@@ -47,6 +54,19 @@ def meal_options(cell):
     found = [aid for aid in catalog(cell)
              if any(w in aid for w in MEAL_WORDS) or aid.endswith('_meal')]
     return sorted(set(found))
+
+
+def add_evidence_line(user: str) -> str:
+    """Put the meal requirement where the laundry one already is: a prose line above the JSON."""
+    start = user.find(HEADER)
+    if start < 0:
+        raise ValueError('No pre-policy condition block to add evidence to')
+    brace = user.find('{', start)
+    if brace < 0:
+        raise ValueError('Condition block carries no JSON')
+    if EVIDENCE in user[start:brace]:
+        return user
+    return user[:brace] + EVIDENCE + '\n' + user[brace:]
 
 
 def rewrite_block(user: str, conditions: dict) -> str:
@@ -65,7 +85,7 @@ def rewrite_block(user: str, conditions: dict) -> str:
         + user[end:]
 
 
-def add(source: dict, stocks: dict, meal_count: int = 2) -> dict:
+def add(source: dict, stocks: dict, meal_count: int = 2, evidence: bool = False) -> dict:
     result = copy.deepcopy(source)
     ids = sorted({c['aid'] for c in result['cells']})
     if set(stocks) != set(ids):
@@ -89,6 +109,8 @@ def add(source: dict, stocks: dict, meal_count: int = 2) -> dict:
                               'mandatory': False})
         cond['assumptions'].append(ASSUMPTION)
         validate(cond)
+        if evidence:
+            cell['user'] = add_evidence_line(cell['user'])
         cell['user'] = rewrite_block(cell['user'], cond)
         cell['context_sha256'] = hashlib.sha256(cell['user'].encode('utf-8')).hexdigest()
     result['meal_need_provenance'] = {
@@ -106,11 +128,13 @@ def main():
     ap.add_argument('--source', required=True)
     ap.add_argument('--out', required=True)
     ap.add_argument('--meal-count', type=int, default=2)
+    ap.add_argument('--evidence', action='store_true',
+                    help='state the meal requirement as prose, the way the laundry one is')
     args = ap.parse_args()
     source = json.loads(Path(args.source).read_text(encoding='utf-8'))
     ids = sorted({c['aid'] for c in source['cells']})
     stocks = {aid: (0 if i % 2 == 0 else 2) for i, aid in enumerate(ids)}
-    result = add(source, stocks, args.meal_count)
+    result = add(source, stocks, args.meal_count, evidence=args.evidence)
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(
         json.dumps(result, ensure_ascii=False, indent=1))
     raw = Path(args.out).read_bytes()

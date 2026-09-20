@@ -96,3 +96,22 @@ def test_meal_options_reads_the_cells_own_catalog(monkeypatch):
                                       'home_delivery': {}, 'groceries': {}, 'hair': {}})
     got = meal_options({}, has_work=True)
     assert set(got) == {'home_meal', 'meal_dine_in', 'office_meal', 'home_delivery'}
+
+
+def test_the_evidence_line_lands_where_the_laundry_one_is():
+    """세탁 요구는 JSON 앞 산문 한 줄로 서 있다. 끼니도 같은 자리여야 한다."""
+    from add_meal_need import EVIDENCE, add_evidence_line
+    user = ('## 정책 적용 전 고정한 오늘의 조건\n'
+            '실험 가정: provided_laundry는 ... 세제 1회분이 있어야 한다.\n'
+            '{"resources": {}}\n\n## 오늘\n')
+    got = add_evidence_line(user)
+    brace = got.find('{')
+    assert EVIDENCE in got[:brace], 'JSON 앞에 있어야 한다'
+    assert got.count(EVIDENCE) == 1
+    assert add_evidence_line(got) == got, '두 번 넣지 않는다'
+
+
+def test_the_evidence_line_names_no_place_and_no_product():
+    from add_meal_need import EVIDENCE
+    for word in ('음식점', '카페', '외식', '장을 보', '마트', '배달', '사라'):
+        assert word not in EVIDENCE, word
