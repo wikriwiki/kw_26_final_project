@@ -72,3 +72,12 @@ def test_verdicts_without_their_replicate_are_refused(tmp_path):
     import prepare_action_repair as m
     with pytest.raises(ValueError, match='replicate'):
         m.prepare(tmp_path, resource_verdicts={('A', 'grant', 'off'): {'shortfalls': [SHORTFALL]}})
+
+
+def test_the_case_name_is_preserved_so_quotes_stay_comparable():
+    """case 는 어느 지갑이 받는지를 정한다. 이름을 바꾸면 견적이 미리 준 것과 달라진다."""
+    import inspect as _inspect
+    import prepare_action_repair as m
+    src = _inspect.getsource(m.prepare)
+    assert "__repair_" not in src, 'case 를 다시 renaming 하면 안 된다'
+    assert "cell['repair_of']" in src, '수정 표시는 별도 필드에 남긴다'

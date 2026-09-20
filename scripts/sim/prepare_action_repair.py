@@ -42,7 +42,10 @@ def prepare(run, *, audit_presence=False, resource_verdicts=None, replicate=None
             if row['eligible'] and not blocked:continue
             raise ValueError('Reported failure not reproduced by current execution checks')
         cell.pop('submitted_user',None)
-        cell['case']=cell['case']+'__repair_'+row['attempt_key'][:12]
+        # The case name drives the quote logic (which wallet a zone purchase accepts), so
+        # renaming it made the rebuilt quotes disagree with the preview the planner saw.
+        # The repair identity lives in its own field; repair_parents already carries the rest.
+        cell['repair_of']=row['attempt_key']
         cell['user']=append_feedback(cell['user'],packet);cell['context_sha256']=digest(cell['user'])
         prepared.append(cell);parents.append({'aid':cell['aid'],'case':cell['case'],'arm':cell['arm'],
             'original_attempt_key':row['attempt_key'],'original_variant':row['variant'],'original_seed':row['replicate'],
