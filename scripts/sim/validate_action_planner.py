@@ -80,6 +80,11 @@ def main():
     for cell in inputs['cells']:
         cell['has_work'] = bool(people[cell['aid']].get('work_poi_id'))
         user = cell['user'].replace('/no_think', '').replace('/think', '')
+        # v5: state the wallet's usage rule where the policy's other facts already live.
+        # Off by default, so the control and the treatment share every other byte.
+        if config.get('surface_wallet_acceptance'):
+            from surface_acceptance import surface
+            user = surface(user, cell.get('purchase_preview'))
         user += '\n\n## 선택 가능한 활동 사전\n' + json.dumps(list(catalog(cell).values()), ensure_ascii=False)
         if cell.get('required_activities'):
             user += '\n\n## 입력에 명시된 일정의 실행 표기\n' + json.dumps(cell['required_activities'], ensure_ascii=False)
