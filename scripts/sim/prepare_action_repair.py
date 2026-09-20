@@ -8,7 +8,12 @@ from action_repair_feedback import feedback, append_feedback
 from validate_prompt_v3 import atomic, digest
 
 
-def prepare(run, *, audit_presence=False, resource_verdicts=None):
+def prepare(run, *, audit_presence=False, resource_verdicts=None, replicate=None):
+    # A gate verdict belongs to one seed's plan. Attaching it to another seed's row would
+    # hand the model a shortfall that its own plan never had. Checked before any file read
+    # so the mistake surfaces as a programming error, not a missing-file error.
+    if resource_verdicts is not None and replicate is None:
+        raise ValueError('Resource verdicts require the replicate they were measured on')
     run=Path(run)
     summary=json.loads((run/'summary.json').read_bytes())
     if not all(v['complete'] for v in summary['variants'].values()):raise ValueError('Source run incomplete')
@@ -20,6 +25,7 @@ def prepare(run, *, audit_presence=False, resource_verdicts=None):
     # the failures the resource gate exists to catch.
     verdicts = resource_verdicts or {}
     for row in rows:
+        if replicate is not None and row.get('replicate') != replicate:continue
         verdict = verdicts.get((row['aid'], row['case'], row['arm']))
         blocked = bool((verdict or {}).get('shortfalls'))
         if row['eligible'] and not audit_presence and not blocked:continue
@@ -42,7 +48,7 @@ def prepare(run, *, audit_presence=False, resource_verdicts=None):
             'original_attempt_key':row['attempt_key'],'original_variant':row['variant'],'original_seed':row['replicate'],
             'original_raw_sha256':hashlib.sha256(row['raw'].encode()).hexdigest(),'feedback':packet})
     return {'personas':source['personas'],'cells':prepared,'repair_parents':parents,
-            'unrepairable_attempts':unrepairable,'presence_audit_added':audit_presence,'resource_blocked_included':sum(1 for p in parents if p['feedback'].get('resource_shortfalls')),'source_responses_sha256':hashlib.sha256((run/'responses.jsonl').read_bytes()).hexdigest(),
+            'unrepairable_attempts':unrepairable,'presence_audit_added':audit_presence,'replicate':replicate,'resource_blocked_included':sum(1 for p in parents if p['feedback'].get('resource_shortfalls')),'source_responses_sha256':hashlib.sha256((run/'responses.jsonl').read_bytes()).hexdigest(),
             'scope':'Retrospective development repair of every reproducible failed output. Not a new first-pass or untouched confirmation result. No successful output regenerated.'}
 
 
@@ -50,12 +56,13 @@ if __name__=='__main__':
     ap=argparse.ArgumentParser();ap.add_argument('--run',required=True);ap.add_argument('--out',type=Path,required=True)
     ap.add_argument('--audit-presence',action='store_true')
     ap.add_argument('--resource-source',help='purchase_source json carrying the gate verdicts')
+    ap.add_argument('--replicate',type=int,help='the seed the verdicts were measured on')
     args=ap.parse_args()
     verdicts=None
     if args.resource_source:
         src=json.loads(Path(args.resource_source).read_bytes())
         verdicts={(c['aid'],c['case'],c['arm']):c.get('resource_feasibility') for c in src['cells']}
     if args.out.exists():raise ValueError('Refusing overwrite')
-    result=prepare(args.run,audit_presence=args.audit_presence,resource_verdicts=verdicts);atomic(args.out,result)
+    result=prepare(args.run,audit_presence=args.audit_presence,resource_verdicts=verdicts,replicate=args.replicate);atomic(args.out,result)
     print(json.dumps({'cells':len(result['cells']),'unrepairable':len(result['unrepairable_attempts']),
                       'sha256':hashlib.sha256(args.out.read_bytes()).hexdigest()}))

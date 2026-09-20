@@ -65,3 +65,10 @@ def test_the_request_still_forbids_gaming_and_targets():
 def test_a_valid_decision_is_never_regenerated():
     with pytest.raises(ValueError):
         append_feedback('입력', None)
+
+
+def test_verdicts_without_their_replicate_are_refused(tmp_path):
+    """게이트 판정은 한 seed 의 계획에 속한다. 다른 seed 행에 붙이면 없던 부족을 알려 주게 된다."""
+    import prepare_action_repair as m
+    with pytest.raises(ValueError, match='replicate'):
+        m.prepare(tmp_path, resource_verdicts={('A', 'grant', 'off'): {'shortfalls': [SHORTFALL]}})
