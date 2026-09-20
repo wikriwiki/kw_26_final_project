@@ -49,6 +49,51 @@ _ensure_alt_store () {
   export GIT_ALTERNATE_OBJECT_DIRECTORIES="$root/.git/objects"
 }
 
+# ─────────────────────────────────────────────────────────────────────
+# 작업트리에서 되쓰기 (2026-09-20)
+#
+# 유실된 blob 이 **인덱스에 걸린 추적 파일**이면 원격까지 갈 것 없다.
+# 작업트리 내용이 그대로면 해시가 같으므로 다시 써 넣으면 끝난다.
+# 오늘 8개가 전부 이 경우였다 — 해시가 인덱스 기대값과 전부 일치했다.
+#
+# 내용이 바뀐 파일은 해시가 달라져 되살아나지 않는다. 그때는 원격 복구로 간다.
+#
+#   bash tools/git_heal.sh --scan           유실 목록만 본다 (커밋 전에)
+#   bash tools/git_heal.sh --from-worktree  되쓴다
+# ─────────────────────────────────────────────────────────────────────
+_lost_in_index () {
+  git ls-files -s | while read -r mode sha stage path; do
+    git cat-file -e "$sha" 2>/dev/null || printf '%s	%s
+' "$sha" "$path"
+  done
+}
+
+if [ "${1:-}" = "--scan" ] || [ "${1:-}" = "--from-worktree" ]; then
+  _ensure_alt_store
+  lost=$(_lost_in_index)
+  if [ -z "$lost" ]; then echo "인덱스 유실 객체 없음"; exit 0; fi
+  n=$(printf '%s
+' "$lost" | wc -l)
+  echo "인덱스에 걸린 유실 객체 $n 개:"
+  printf '%s
+' "$lost" | sed 's/^/  /'
+  if [ "${1:-}" = "--scan" ]; then
+    echo; echo "되쓰려면: bash tools/git_heal.sh --from-worktree"
+    exit 1
+  fi
+  echo; failed=0
+  printf '%s
+' "$lost" | while IFS=$'	' read -r sha path; do
+    if [ ! -s "$path" ]; then echo "  !! 디스크에 없음: $path"; continue; fi
+    got=$(git hash-object -w "$path")
+    if [ "$got" = "$sha" ]; then echo "  복구 $path"
+    else echo "  !! 내용이 달라 해시 불일치: $path ($sha -> $got) — 원격 복구 필요"; fi
+  done
+  rest=$(_lost_in_index)
+  if [ -z "$rest" ]; then echo; echo "인덱스 유실 없음. 커밋해도 된다."; exit 0; fi
+  echo; echo "남은 유실이 있다. 원격 복구로: bash tools/git_heal.sh"; exit 2
+fi
+
 if [ "${1:-}" = "--env" ]; then
   _ensure_alt_store
   echo "git 쓰기 대상 = $GIT_OBJECT_DIRECTORY"
