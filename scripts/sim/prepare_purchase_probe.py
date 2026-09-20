@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 from activity_purchase_bridge import prepare_case
+from resource_feasibility import check as feasibility_check
 from action_plan_contract import catalog
 from validate_prompt_v3 import atomic
 
@@ -148,10 +149,19 @@ def main():
         key = (row['aid'],row['case'],row['arm'])
         if key in seen or key not in expected: raise ValueError('Source must have one frozen plan per cell')
         seen.add(key); case, audit = build_case(row, cells[key], people[row['aid']],max_shift_minutes=max_shift,static_offers=args.static_offers)
-        prepared.append({k: row[k] for k in ['aid','case','arm','date','attempt_key']} | {'transaction_case': case, 'bridge_audit': audit})
+        entry = {k: row[k] for k in ['aid','case','arm','date','attempt_key']} | {'transaction_case': case, 'bridge_audit': audit}
+        # Necessary physical bound, attached at the plan->purchase seam. This records an
+        # impossible schedule; it never repairs the plan, shifts a time, or drops the row.
+        if 'daily_conditions' in case: entry['resource_feasibility'] = feasibility_check(case)
+        prepared.append(entry)
     if seen != expected: raise ValueError('Incomplete source matrix')
     provenance = {name: hashlib.sha256((args.run/name).read_bytes()).hexdigest() for name in ['frozen_inputs.json','responses.jsonl','manifest.json']}
+    checked=[c for c in prepared if 'resource_feasibility' in c]
+    impossible=[c for c in checked if c['resource_feasibility']['impossible_even_with_all_candidates']]
     result={'cells': prepared, 'quote_book': BOOK, 'source_sha256': provenance,
+        'resource_feasibility_summary': {'checked': len(checked), 'proven_impossible': len(impossible),
+            'cells': [{k: c[k] for k in ['aid','case','arm','date']} | {'shortfalls': c['resource_feasibility']['shortfalls']} for c in impossible],
+            'rule': 'Necessary physical bound only. Impossible plans stay in the file with their original schedule; the purchase runner excludes them before any model call.'},
         'provider_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         'planner_time_protocol':{'max_shift_minutes':max_shift,'recorded_execution_equality_required':True},
         'scope': 'Development end-to-end purchase probe with hypothetical prices/eligibility and explicitly linked frozen plans; no actual market or empirical effect validation.'}

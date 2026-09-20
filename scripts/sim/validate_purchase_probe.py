@@ -93,6 +93,7 @@ def invoke(job, config, base, prefixes, folder):
 def main():
     ap=argparse.ArgumentParser();ap.add_argument('--config',type=Path,required=True);ap.add_argument('--source',type=Path,required=True)
     ap.add_argument('--out',type=Path,required=True);ap.add_argument('--tokenizer',required=True);args=ap.parse_args()
+    blocked=[]
     config=json.loads(args.config.read_bytes()); raw=args.source.read_bytes()
     if hashlib.sha256(raw).hexdigest()!=config['source_sha256']:raise ValueError('Input hash mismatch')
     source=json.loads(raw);cells=source['cells'];_,system_prompt=protocol_modules(config)
@@ -103,6 +104,12 @@ def main():
         for c in cells:
             if 'daily_conditions' not in c['transaction_case']:raise ValueError('Mixed resource and legacy cases')
             validate(c['transaction_case']['daily_conditions'])
+        # Automatic pre-gate between planning and purchase. A plan that cannot be supplied
+        # even by buying every offered candidate is physically impossible, so spending a
+        # model call on it would score an engine fact as a model failure. Exclude it here,
+        # keep the original row, and report the exclusion instead of hiding it.
+        from resource_feasibility import gate
+        cells,blocked=gate(cells,allow_exclusion=config.get('allow_resource_gate_exclusion',False))
     from transformers import AutoTokenizer
     tokenizer=AutoTokenizer.from_pretrained(args.tokenizer,local_files_only=True,trust_remote_code=True)
     prefixes={c['transaction_case']['id']:tokenizer.apply_chat_template(
@@ -128,7 +135,8 @@ def main():
             print(f"completed {len(rows)}/{len(jobs)} {row['case']} valid={row['valid']} errors={row['errors']}",flush=True)
     expected={(s,c['aid'],c['case'],c['arm']) for s in config['seeds'] for c in cells}
     complete=len(rows)==len(expected) and {(r['replicate'],r['aid'],r['case'],r['arm']) for r in rows}==expected
-    summary={'scope':config.get('scope','Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.'),
+    from resource_feasibility import gate_report
+    summary={'resource_gate':gate_report(cells,blocked),'scope':config.get('scope','Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.'),
         'macro_claim':False,'variants':{'asset_transaction_'+config.get('transaction_protocol','v1')+'_bounded'+str(config['thinking_tokens']):{'responses':len(rows),'complete':complete,
         'valid':sum(r['valid'] for r in rows),'all_pass':complete and all(r['valid'] for r in rows),
         'deterministic_no_purchase':sum(r.get('decision_source')=='deterministic_unique_no_purchase' for r in rows)}},'contrasts':{}}

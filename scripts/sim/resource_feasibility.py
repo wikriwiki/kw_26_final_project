@@ -43,6 +43,37 @@ def check(case):
             'scope':'Necessary physical bound only; no money or exclusive-choice feasibility guarantee. Fixed original schedule, no repair.'}
 
 
+def gate(cells, *, allow_exclusion=False):
+    """Split prepared purchase cells before any model call.
+
+    A plan that cannot be supplied even by buying every offered candidate is
+    physically impossible. Spending a purchase call on it records an engine fact
+    as a model failure, so the caller excludes it here. This never repairs a plan,
+    shifts a time, or deletes the row: the blocked cell is returned with its
+    shortfall evidence and the caller must report the exclusion.
+    """
+    for cell in cells:
+        cell.setdefault('resource_feasibility', check(cell['transaction_case']))
+    blocked = [c for c in cells if c['resource_feasibility']['impossible_even_with_all_candidates']]
+    if blocked and not allow_exclusion:
+        raise ValueError('Resource gate blocked %d cell(s); opt in explicitly to run the remainder as an incomplete matrix' % len(blocked))
+    runnable = [c for c in cells if not c['resource_feasibility']['impossible_even_with_all_candidates']]
+    if not runnable:
+        raise ValueError('Resource gate excluded every cell')
+    return runnable, blocked
+
+
+def gate_report(runnable, blocked):
+    """What the run must disclose about the gate. An empty exclusion is still reported."""
+    return {'checked': len(runnable) + len(blocked), 'excluded': len(blocked),
+            'cells': [{k: c[k] for k in ['aid', 'case', 'arm', 'date'] if k in c}
+                      | {'shortfalls': c['resource_feasibility']['shortfalls']} for c in blocked],
+            'whole_matrix_eligible': not blocked,
+            'effect': 'Excluded before any model call. A non-empty exclusion means the matrix is '
+                      'incomplete by construction: the remaining cells are not a complete comparison, '
+                      'and the exclusion is not a repaired plan.'}
+
+
 if __name__=='__main__':
     ap=argparse.ArgumentParser();ap.add_argument('--source',type=Path,required=True);ap.add_argument('--out',type=Path,required=True)
     args=ap.parse_args()
