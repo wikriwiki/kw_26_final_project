@@ -140,10 +140,10 @@ def main():
         vals = [abs(MEASURED[k][1]) for k in ids if MEASURED[k][1] is not None]
         vals += [abs(sim[k]['mean']) for k in ids if k in sim]
         span = max(vals) if vals else 1.0
-        left, right = '← 감소', '증가 →'
-        head = (' ' * 9 + ' ' * max(0, WIDTH - cells_wide(left)) + left
-                + '0' + right + ' ' * max(0, WIDTH - cells_wide(right)))
-        L += ['```', head]
+        left, right = f'←  {span:,.0f}', f'{span:,.0f}  →'
+        head = (' ' * 9 + left + ' ' * max(0, WIDTH - cells_wide(left)) + '0'
+                + ' ' * max(0, WIDTH - cells_wide(right)) + right)
+        L += ['```', head, ' ' * 9 + '감소' + ' ' * (2 * WIDTH - 7) + '증가']
         for k in ids:
             m = MEASURED[k][1]
             L.append(f'{k:<9}{bar(m, span) if m is not None else " " * (2*WIDTH+1)}  '
@@ -194,7 +194,9 @@ def main():
                 L.append(f'- **{k}** — {CANNOT[k]}')
             L += ['']
 
-    stable = [k for k in MEASURED if k in sim and sim[k].get('sign_stable')]
+    # A [0, 0] interval is not a stable sign - it is no signal at all.
+    stable = [k for k in MEASURED if k in sim and sim[k].get('sign_stable')
+              and sim[k]['mean'] != 0.0]
     L += ['---', '', '## 이 표를 읽는 규칙', '',
           f'- **부호를 말할 수 있는 지표는 {len(stable)}개뿐이다** — {", ".join(stable) if stable else "없다"}.',
           f'  값을 낸 {scored}개 중 나머지는 95% 구간이 0을 지난다. 네 런 384칸을 합쳐도 그렇다',
