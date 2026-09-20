@@ -121,7 +121,9 @@ def event_counts(record: dict, home_dong_code: str | None) -> dict:
     The same plans carry roughly ten anchors each, so counting events uses the evidence
     that the binary discards.
     """
-    width = WALLET_ZONE_PREFIX.get(record.get('case'))
+    case = record.get('case')
+    has_wallet = case in WALLET_ZONE_PREFIX
+    width = WALLET_ZONE_PREFIX.get(case)
     events = (record.get('execution_plan') or {}).get('events', [])
     zone = purchases = eligible = 0
     for ev in events:
@@ -131,11 +133,12 @@ def event_counts(record: dict, home_dong_code: str | None) -> dict:
         if not ev.get('purchase_channel'):
             continue
         purchases += 1
-        if not at_zone or ev.get('activity_id') == 'bar':
+        # A mechanism with no wallet has no eligible purchase. Counting a zone purchase
+        # as eligible there would give the placebo arms a number they cannot have, and
+        # the placebo is the only thing that tells us a difference is real.
+        if not has_wallet or not at_zone or ev.get('activity_id') == 'bar':
             continue
-        if width is None or not home_dong_code:
-            eligible += 1
-        elif anchor.removeprefix('zone:')[:width] == str(home_dong_code)[:width]:
+        if not home_dong_code or anchor.removeprefix('zone:')[:width] == str(home_dong_code)[:width]:
             eligible += 1
     return {'events': len(events), 'zone_events': zone,
             'purchase_events': purchases, 'eligible_purchase_events': eligible}

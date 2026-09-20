@@ -150,3 +150,14 @@ def test_density_reports_rates_over_many_events(tmp_path):
     assert got['zone_share_of_events'] == 0.25
     assert got['eligible_share_of_purchases'] == 1.0
     assert got['eligible_per_plan'] == 0.5
+
+
+def test_a_mechanism_without_a_wallet_has_no_eligible_purchase():
+    """캐시백·거리두기에는 지갑이 없다. 거기서 적격 구매를 세면 위약이 무너진다."""
+    from plan_responsiveness import event_counts
+    buy_at_zone = [ev('18:00', 'groceries', 'zone:11290580', channel='offline')]
+    for case in ('cashback', 'distancing'):
+        got = event_counts(rec('A', case, 'on', buy_at_zone), '11290725')
+        assert got['purchase_events'] == 1
+        assert got['eligible_purchase_events'] == 0, case
+    assert event_counts(rec('A', 'grant', 'on', buy_at_zone), '11290725')['eligible_purchase_events'] == 1
