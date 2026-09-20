@@ -70,7 +70,7 @@ def main():
     ap.add_argument('--out', required=True); ap.add_argument('--tokenizer', required=True)
     args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); raw = Path(args.source).read_bytes()
     import importlib
-    if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28'}: raise ValueError('Unregistered prompt module')
+    if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28','v29'}: raise ValueError('Unregistered prompt module')
     system_prompt = importlib.import_module('prompts.' + config.get('prompt_module','v22')).SYSTEM_PROMPT
     assert hashlib.sha256(raw).hexdigest() == config['source_inputs_sha256']
     inputs = json.loads(raw); people = {p['id']: p for p in inputs['personas']}

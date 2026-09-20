@@ -113,6 +113,51 @@ def reachability(rows: dict, homes: dict | None = None) -> dict:
     return out
 
 
+def event_counts(record: dict, home_dong_code: str | None) -> dict:
+    """Per-plan counts, not a yes/no. A cell-level binary throws away most of the plan.
+
+    Reachability as a binary is a rare event (about 0.15), and a rare binary over 24
+    cells has a standard deviation near 0.08 - which is what the v5 placebo measured.
+    The same plans carry roughly ten anchors each, so counting events uses the evidence
+    that the binary discards.
+    """
+    width = WALLET_ZONE_PREFIX.get(record.get('case'))
+    events = (record.get('execution_plan') or {}).get('events', [])
+    zone = purchases = eligible = 0
+    for ev in events:
+        anchor = str(ev.get('anchor') or '')
+        at_zone = anchor.startswith('zone:')
+        zone += 1 if at_zone else 0
+        if not ev.get('purchase_channel'):
+            continue
+        purchases += 1
+        if not at_zone or ev.get('activity_id') == 'bar':
+            continue
+        if width is None or not home_dong_code:
+            eligible += 1
+        elif anchor.removeprefix('zone:')[:width] == str(home_dong_code)[:width]:
+            eligible += 1
+    return {'events': len(events), 'zone_events': zone,
+            'purchase_events': purchases, 'eligible_purchase_events': eligible}
+
+
+def density(rows: dict, homes: dict | None, cases=None, arm: str = 'on') -> dict:
+    """Event-level rates over the selected cells. Many more observations than the binary."""
+    tot = {'events': 0, 'zone_events': 0, 'purchase_events': 0, 'eligible_purchase_events': 0}
+    cells = 0
+    for (aid, date, case, a), rec in rows.items():
+        if a != arm or (cases is not None and case not in cases):
+            continue
+        cells += 1
+        for k, v in event_counts(rec, (homes or {}).get(aid)).items():
+            tot[k] += v
+    return {**tot, 'cells': cells,
+            'zone_share_of_events': tot['zone_events'] / tot['events'] if tot['events'] else None,
+            'eligible_share_of_purchases': (tot['eligible_purchase_events'] / tot['purchase_events']
+                                            if tot['purchase_events'] else None),
+            'eligible_per_plan': tot['eligible_purchase_events'] / cells if cells else None}
+
+
 def load(spec: str) -> dict:
     """`path` or `path@seed`. One file may hold several replicates, so the seed selects.
 

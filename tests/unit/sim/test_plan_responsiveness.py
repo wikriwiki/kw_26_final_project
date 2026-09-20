@@ -119,3 +119,34 @@ def test_reachability_says_which_rule_it_used(tmp_path):
     assert loose['_all']['share'] == 0.5 and 'superset' in loose['_all']['rule']
     exact = reachability(rows, {'A': '11290725'})
     assert exact['grant']['on']['share'] == 1.0 and exact['grant']['off']['share'] == 0.0
+
+
+def test_event_counts_separate_zone_visits_from_zone_purchases():
+    from plan_responsiveness import event_counts
+    r = rec('A', 'grant', 'on', [ev('08:00', 'home_prepare', 'residence'),
+                                 ev('12:00', 'walk', 'zone:11290580', cat='여가'),
+                                 ev('18:00', 'groceries', 'zone:11290580', channel='offline')])
+    got = event_counts(r, '11290725')
+    assert got == {'events': 3, 'zone_events': 2, 'purchase_events': 1,
+                   'eligible_purchase_events': 1}
+
+
+def test_a_purchase_outside_the_wallet_zone_is_counted_but_not_eligible():
+    from plan_responsiveness import event_counts
+    r = rec('A', 'local_voucher', 'on', [ev('18:00', 'groceries', 'zone:11680521', channel='offline')])
+    got = event_counts(r, '11290725')
+    assert got['purchase_events'] == 1 and got['eligible_purchase_events'] == 0
+
+
+def test_density_reports_rates_over_many_events(tmp_path):
+    from plan_responsiveness import density
+    path = write(tmp_path, 'd.jsonl', [
+        rec('A', 'grant', 'on', [ev('08:00', 'home_prepare', 'residence'),
+                                 ev('18:00', 'groceries', 'zone:11290580', channel='offline')]),
+        rec('B', 'grant', 'on', [ev('08:00', 'home_prepare', 'residence'),
+                                 ev('20:00', 'home_meal', 'residence')])])
+    got = density(load(path), {'A': '11290725', 'B': '11290725'}, cases={'grant'}, arm='on')
+    assert got['cells'] == 2 and got['events'] == 4
+    assert got['zone_share_of_events'] == 0.25
+    assert got['eligible_share_of_purchases'] == 1.0
+    assert got['eligible_per_plan'] == 0.5
