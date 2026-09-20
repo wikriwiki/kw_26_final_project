@@ -1,0 +1,34 @@
+{
+ "changed_cases": [
+  "grant",
+  "local_voucher"
+ ],
+ "untouched_cases": [
+  "cashback",
+  "distancing"
+ ],
+ "primary_changed_cells_on": {
+  "control": 0.16666666666666666,
+  "treatment": 0.17708333333333334,
+  "gap": 0.010416666666666685,
+  "seed_spread": 0.09238982427534773,
+  "moved": false
+ },
+ "placebo_untouched_cells_on": {
+  "control": 0.08333333333333333,
+  "treatment": 0.17708333333333334,
+  "gap": 0.09375000000000001,
+  "seed_spread": 0.14180956844904263,
+  "moved": false
+ },
+ "all_off_arms": {
+  "control": 0.07291666666666667,
+  "treatment": 0.07291666666666667,
+  "gap": 0.0,
+  "seed_spread": 0.049593252975992014,
+  "moved": false
+ },
+ "verdict": "실패 — 차이가 seed 변동 안이다. 자리를 바꿔도 안 문다",
+ "rule": "Fixed in experiments/v5/prompt_v5.md before the run.",
+ "note": "Reaching is necessary, not sufficient."
+}
