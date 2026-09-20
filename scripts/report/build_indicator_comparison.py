@@ -107,8 +107,10 @@ def main():
     sim = json.loads(Path(args.sim).read_text(encoding='utf-8'))['pooled']
 
     L = ['# 정답지 지표 × 시뮬레이션 — 하나씩 전부', '',
-         '> 시뮬 값은 **현행 프롬프트 v25 로 돌린 네 런**(seed 59001·60001·61001·62001)의 평균이다.',
-         '> 괄호는 런 사이 최소~최대. 같은 프롬프트인데도 이 폭이 얼마나 넓은지를 함께 본다.', '',
+         '> 시뮬 값은 **현행 프롬프트 v25 로 돌린 네 런**(seed 59001·60001·61001·62001)을',
+         '> **합쳐서 한 번 나눈 값**이다(384칸). 비율의 평균이 아니라 합계의 비율이다 —',
+         '> 분모가 몇 건일 때 비율의 평균은 가장 얇은 런에 끌려간다.',
+         '> 괄호는 **칸 붓스트랩 95% 구간**(2,000회). 구간이 0을 지나면 부호조차 말할 수 없다.', '',
          '> **금액은 맞대지 않는다.** 카탈로그는 낱개 단가(쌀 1kg 5,000원)이고 실측은 카드매출이다.',
          '> 비율 대 비율로만 비교하고, 크기는 **배율**로만 적는다.', '']
 
@@ -138,21 +140,26 @@ def main():
         vals = [abs(MEASURED[k][1]) for k in ids if MEASURED[k][1] is not None]
         vals += [abs(sim[k]['mean']) for k in ids if k in sim]
         span = max(vals) if vals else 1.0
-        L += ['```', f"{'':<9}{'← 감소':>{WIDTH}}0{'증가 →':<{WIDTH}}"]
+        left, right = '← 감소', '증가 →'
+        head = (' ' * 9 + ' ' * max(0, WIDTH - cells_wide(left)) + left
+                + '0' + right + ' ' * max(0, WIDTH - cells_wide(right)))
+        L += ['```', head]
         for k in ids:
             m = MEASURED[k][1]
             L.append(f'{k:<9}{bar(m, span) if m is not None else " " * (2*WIDTH+1)}  '
                      f'{"실측 %+.1f" % m if m is not None else "실측 수치 없음"}')
             if k in sim:
                 s = sim[k]
+                stable = s.get('sign_stable')
+                flag = '' if stable else '  ← 0을 지난다'
                 L.append(f'{"":<9}{bar(s["mean"], span)}  시뮬 {s["mean"]:+.1f}'
-                         f'  ({s["min"]:+.1f}~{s["max"]:+.1f})')
+                         f'  [{s["min"]:+.1f}, {s["max"]:+.1f}]{flag}')
             else:
                 L.append(f'{"":<9}{" " * (2*WIDTH+1)}  시뮬 — 산출 불가')
             L.append('')
         L += ['```', '',
-              '| 지표 | 무엇을 재나 | 기대 | 실측 | 시뮬(4런) | 부호 | 크기 |',
-              '|---|---|:-:|---:|---:|---|---|']
+              '| 지표 | 무엇을 재나 | 기대 | 실측 | 시뮬(합산) | 95% 구간 | 부호 | 크기 |',
+              '|---|---|:-:|---:|---:|---|---|---|']
         for k in ids:
             _, m, expect, desc = MEASURED[k]
             if k in sim:
@@ -169,7 +176,16 @@ def main():
             else:
                 simtxt, ratio, vd = '산출 불가', '—', '—'
             mtxt = f'{m:+.1f}' if m is not None else '수치 없음'
-            L.append(f'| {k} | {desc} | `{expect}` | {mtxt} | {simtxt} | {vd} | {ratio} |')
+            if k in sim:
+                s = sim[k]
+                citxt = f'[{s["min"]:+.1f}, {s["max"]:+.1f}]'
+                if not s.get('sign_stable'):
+                    citxt += ' **0 포함**'
+                    if vd in ('부호 일치', '순위 일치'):
+                        vd = f'{vd} *(구간이 0을 지나 단정 못 함)*'
+            else:
+                citxt = '—'
+            L.append(f'| {k} | {desc} | `{expect}` | {mtxt} | {simtxt} | {citxt} | {vd} | {ratio} |')
         L += ['']
         miss = [k for k in ids if k not in sim]
         if miss:
@@ -178,9 +194,10 @@ def main():
                 L.append(f'- **{k}** — {CANNOT[k]}')
             L += ['']
 
+    stable = [k for k in MEASURED if k in sim and sim[k].get('sign_stable')]
     L += ['---', '', '## 이 표를 읽는 규칙', '',
-          '- **부호가 맞았다고 검증된 것이 아니다.** 같은 프롬프트의 런 사이 폭이 부호가 뒤집힐 만큼 넓다.',
-          '  위 괄호를 보면 여러 지표에서 최소와 최대의 부호가 다르다',
+          f'- **부호를 말할 수 있는 지표는 {len(stable)}개뿐이다** — {", ".join(stable) if stable else "없다"}.',
+          f'  값을 낸 {scored}개 중 나머지는 95% 구간이 0을 지난다. 네 런 384칸을 합쳐도 그렇다',
           '- **배율은 참고값이다.** 하루 대 한 달, 낱개 단가 대 카드매출이라 같은 척도가 아니다',
           '- **방어선 지표(`0`)는 동등성 검정이 필요하다.** 신뢰구간이 0을 포함하는 것으로는 부족하고,',
           '  미리 정한 띠 **안에** 들어와야 한다. 아직 그 띠를 정하지 않았다',
