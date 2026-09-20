@@ -49,3 +49,45 @@ def test_no_catalog_item_maps_to_a_category_outside_the_profile():
 def test_pooling_weights_agents_equally_by_default():
     got = pooled({'a': {'식사': 1.0}, 'b': {'마트': 1.0}})
     assert abs(got['식사'] - 0.5) < 1e-9 and abs(got['마트'] - 0.5) < 1e-9
+
+
+def test_block_bootstrap_is_wider_than_cell_only():
+    """블록 변동을 담으면 구간이 넓어져야 한다. 안 넓어지면 고친 의미가 없다.
+
+    블록 안은 같고 블록 사이만 다르게 만든다. 칸만 재추출하면 30칸의 평균으로
+    수렴해 좁아지고, 블록을 재추출하면 블록이 셋뿐이라 넓어진다.
+    """
+    import sys
+    from collections import defaultdict
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/report'))
+    from pool_indicators import bootstrap
+
+    def blk(on, off, n=10):
+        b = defaultdict(list)
+        b[('grant', 'on')] = [defaultdict(float, {'total': on, 'cells': 1.0}) for _ in range(n)]
+        b[('grant', 'off')] = [defaultdict(float, {'total': off, 'cells': 1.0}) for _ in range(n)]
+        return b
+
+    blocks = [blk(200.0, 100.0), blk(100.0, 100.0), blk(400.0, 100.0)]
+    one = defaultdict(list)
+    for b in blocks:
+        for k, v in b.items():
+            one[k].extend(v)
+    cell_only = bootstrap(one, 600, blocks=None)['EM-3']
+    two_stage = bootstrap(one, 600, blocks=blocks)['EM-3']
+    assert (two_stage['hi'] - two_stage['lo']) > (cell_only['hi'] - cell_only['lo'])
+
+
+def test_one_block_degenerates_to_the_cell_bootstrap():
+    """블록이 하나면 두 단계가 한 단계와 같아야 한다 — 기존 결과와 이어지게."""
+    import sys
+    from collections import defaultdict
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/report'))
+    from pool_indicators import bootstrap
+
+    b = defaultdict(list)
+    b[('grant', 'on')] = [defaultdict(float, {'total': 150.0, 'cells': 1.0}) for _ in range(8)]
+    b[('grant', 'off')] = [defaultdict(float, {'total': 100.0, 'cells': 1.0}) for _ in range(8)]
+    assert bootstrap(b, 300, blocks=[b])['EM-3'] == bootstrap(b, 300, blocks=None)['EM-3']

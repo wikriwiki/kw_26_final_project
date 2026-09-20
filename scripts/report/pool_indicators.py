@@ -59,6 +59,16 @@ def collect(runs, homes):
     return bucket
 
 
+def collect_blocks(runs, homes):
+    """One bucket per run. A run is a seed block, and blocks vary more than cells do.
+
+    Resampling cells alone gave the same prompt "undecided" in one block and
+    "confidently wrong" in the next (v25's DS-1 across seeds 63001-4 and 64001-4).
+    That spread is real and a cell-only bootstrap cannot see it.
+    """
+    return [collect([r], homes) for r in runs]
+
+
 def summed(bucket, pick=None):
     """Aggregate to the shape `indicators` expects. `pick` selects indices per key."""
     out = {}
@@ -72,11 +82,27 @@ def summed(bucket, pick=None):
     return out
 
 
-def bootstrap(bucket, draws, seed=20260920):
-    """Percentile interval from resampling cells within each (case, arm)."""
+def merge(blocks, chosen):
+    """Concatenate the chosen blocks into one bucket."""
+    out = defaultdict(list)
+    for i in chosen:
+        for k, v in blocks[i].items():
+            out[k].extend(v)
+    return out
+
+
+def bootstrap(bucket, draws, seed=20260920, blocks=None):
+    """Two stages when blocks are given: resample seed blocks, then cells inside them.
+
+    With one block this degenerates to the cell bootstrap, which is what the earlier
+    runs used and why their intervals were too narrow.
+    """
     rng = random.Random(seed)
     keep = defaultdict(list)
     for _ in range(draws):
+        if blocks and len(blocks) > 1:
+            chosen = [rng.randrange(len(blocks)) for _ in blocks]
+            bucket = merge(blocks, chosen)
         pick = {k: [rng.randrange(len(v)) for _ in v] for k, v in bucket.items()}
         for name, val in indicators(summed(bucket, pick)).items():
             keep[name].append(val)
@@ -111,13 +137,15 @@ def main():
         runs.append((src, resp))
 
     bucket = collect(runs, homes)
+    blocks = collect_blocks(runs, homes) if len(runs) > 1 else None
     point = indicators(summed(bucket))
-    ci = bootstrap(bucket, args.draws)
+    ci = bootstrap(bucket, args.draws, blocks=blocks)
     cells = {f'{c}|{a}': len(v) for (c, a), v in bucket.items()}
 
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(json.dumps({
-        'method': 'Sum every run, then take the ratio once. Interval is a cell bootstrap '
-                  'within (case, arm).',
+        'method': 'Sum every run, then take the ratio once. Interval resamples seed blocks '
+                  'first, then cells inside them, because blocks vary more than cells.',
+        'blocks': len(runs),
         'runs': len(runs), 'cells_per_case_arm': cells, 'draws': args.draws,
         'pooled': {k: {'mean': v,
                        'lo': ci.get(k, {}).get('lo'), 'hi': ci.get(k, {}).get('hi'),
