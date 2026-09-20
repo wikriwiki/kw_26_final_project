@@ -64,6 +64,55 @@ def distance(a: set, b: set) -> float:
     return 1.0 - len(a & b) / len(a | b)
 
 
+# The rule a restricted wallet actually uses, copied from prepare_purchase_probe.base_quote:
+# offline channel, not a bar, and the zone anchor inside the home city (grant) or
+# home district (prepaid voucher). If the plan never puts a purchase there, the wallet
+# cannot be offered at payment time no matter what the plan stage was told.
+WALLET_ZONE_PREFIX = {'grant': 2, 'local_voucher': 5}
+
+
+def wallet_reachable(record: dict, home_dong_code: str | None) -> bool:
+    """Does this plan put an offline purchase where this case's wallet would be accepted?
+
+    Without a home code this falls back to 'an offline purchase at any zone anchor',
+    which is a superset - necessary but not sufficient. The caller is told which it got.
+    """
+    width = WALLET_ZONE_PREFIX.get(record.get('case'))
+    for ev in (record.get('execution_plan') or {}).get('events', []):
+        anchor = str(ev.get('anchor') or '')
+        if not anchor.startswith('zone:') or not ev.get('purchase_channel'):
+            continue
+        if ev.get('activity_id') == 'bar':
+            continue
+        if width is None or not home_dong_code:
+            return True
+        if anchor.removeprefix('zone:')[:width] == str(home_dong_code)[:width]:
+            return True
+    return False
+
+
+def reachability(rows: dict, homes: dict | None = None) -> dict:
+    """Pre-registered primary outcome: the share of cells whose plan reaches the wallet.
+
+    Measured at 0-2 of 12 in v3, which is why a prompt could not move the money.
+    """
+    per = {}
+    for (aid, date, case, arm), rec in rows.items():
+        hit = wallet_reachable(rec, (homes or {}).get(aid))
+        block = per.setdefault(case, {}).setdefault(arm, [0, 0])
+        block[1] += 1
+        block[0] += 1 if hit else 0
+    out = {}
+    for case, arms in sorted(per.items()):
+        out[case] = {arm: {'reached': n, 'cells': d, 'share': n / d if d else None}
+                     for arm, (n, d) in sorted(arms.items())}
+    tot_n = sum(b[0] for a in per.values() for b in a.values())
+    tot_d = sum(b[1] for a in per.values() for b in a.values())
+    out['_all'] = {'reached': tot_n, 'cells': tot_d, 'share': tot_n / tot_d if tot_d else None,
+                   'rule': 'exact home-zone rule' if homes else 'any zone anchor (superset)'}
+    return out
+
+
 def load(spec: str) -> dict:
     """`path` or `path@seed`. One file may hold several replicates, so the seed selects.
 

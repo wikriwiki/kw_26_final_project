@@ -84,3 +84,38 @@ def test_purchase_slots_ignore_non_buying_events():
     from plan_responsiveness import buying
     assert distance(buying(a), buying(b)) == 0.0
     assert distance(coarse(a), coarse(b)) > 0.0
+
+
+def test_reachability_needs_an_offline_purchase_at_a_zone(tmp_path):
+    """집·직장에서만 사면 제한 지갑은 결제 시점에 제시되지 않는다."""
+    from plan_responsiveness import wallet_reachable
+    home = rec('A', 'grant', 'on', [ev('20:00', 'home_online_goods', 'residence', channel='online')])
+    assert wallet_reachable(home, '11290725') is False
+    out = rec('A', 'grant', 'on', [ev('18:00', 'groceries', 'zone:11290580', channel='offline')])
+    assert wallet_reachable(out, '11290725') is True
+
+
+def test_reachability_applies_the_case_specific_zone_width():
+    """지원금은 시 단위(2자리), 지역화폐는 자치구 단위(5자리)다."""
+    from plan_responsiveness import wallet_reachable
+    far = [ev('18:00', 'groceries', 'zone:11680521', channel='offline')]
+    assert wallet_reachable(rec('A', 'grant', 'on', far), '11290725') is True
+    assert wallet_reachable(rec('A', 'local_voucher', 'on', far), '11290725') is False
+
+
+def test_a_zone_visit_without_a_purchase_does_not_count():
+    from plan_responsiveness import wallet_reachable
+    walk = rec('A', 'grant', 'on', [ev('18:00', 'walk', 'zone:11290580', cat='여가')])
+    assert wallet_reachable(walk, '11290725') is False
+
+
+def test_reachability_says_which_rule_it_used(tmp_path):
+    from plan_responsiveness import reachability
+    path = write(tmp_path, 'r.jsonl', [
+        rec('A', 'grant', 'on', [ev('18:00', 'groceries', 'zone:11290580', channel='offline')]),
+        rec('A', 'grant', 'off', [ev('20:00', 'home_meal', 'residence')])])
+    rows = load(path)
+    loose = reachability(rows)
+    assert loose['_all']['share'] == 0.5 and 'superset' in loose['_all']['rule']
+    exact = reachability(rows, {'A': '11290725'})
+    assert exact['grant']['on']['share'] == 1.0 and exact['grant']['off']['share'] == 0.0
