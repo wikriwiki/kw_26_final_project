@@ -9,6 +9,11 @@ import re
 
 import pytest
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/sim'))
+
 NAMES = ('v25', 'v26', 'v27')
 CLAUSE = '제도와 사회 배경을 함께 고려한다.'
 

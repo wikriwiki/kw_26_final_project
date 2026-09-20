@@ -102,13 +102,74 @@ def levels_rows(report: dict, metric: str) -> list[tuple[str, float, float]]:
     return rows
 
 
+def mechanism_differences(reports: dict) -> dict:
+    """{기전: {후보: 차이}}. 채점 거부는 빠진 채로 남고, 0으로 채우지 않는다."""
+    table: dict = {}
+    for label, report in reports.items():
+        for mech, block in report['mechanisms'].items():
+            name = MECH_KO.get(mech, mech)
+            if 'matched_contrasts' not in block:
+                continue
+            for entry in block['matched_contrasts']['by_seed']:
+                table.setdefault(name, {})[label] = float(
+                    entry['metrics']['total_consumption']['difference'])
+    return table
+
+
+def candidate_panels(reports: dict, band: dict | None) -> list[str]:
+    """기전마다 후보를 나란히 놓고, 사전에 정한 잡음 폭과 대본다.
+
+    판정은 여기서 계산한다. 결과를 본 뒤 기준을 고쳐 쓰는 일을 막기 위해서다.
+    후보 간 폭이 잡음 폭 이하이면 '구별 불가'이고, 그것도 결과다.
+    """
+    table = mechanism_differences(reports)
+    if not table:
+        return []
+    widths = (band or {}).get('by_mechanism', {})
+    out = ['## 기전별 후보 비교 — 잡음 폭과 함께 읽는다', '']
+    if band:
+        out += [f"> 잣대는 v3 결과를 보기 전에 고정했다 (평균 {band['mean_width']:,.0f}원 · "
+                f"최대 {band['max_width']:,.0f}원). `data/experiments/seed_variation_band_v25.json`",
+                '> **후보 간 폭이 잡음 폭 이하이면 후보의 차이로 읽지 않는다.**', '']
+    verdicts = []
+    for name in sorted(table):
+        per = table[name]
+        rows = [(lbl, per[lbl]) for lbl in sorted(per)]
+        spread = max(v for _, v in rows) - min(v for _, v in rows)
+        bw = widths.get(name, {}).get('width')
+        if bw is None:
+            note = f'후보 간 폭 {spread:,.0f}원 · 이 기전의 잡음 폭은 기록에 없다 — 판정하지 않는다.'
+            verdicts.append((name, spread, None, '잣대 없음'))
+        elif spread <= bw:
+            note = (f'후보 간 폭 **{spread:,.0f}원** ≤ 잡음 폭 {bw:,.0f}원 → '
+                    f'**구별 불가.** 후보의 차이라고 말하지 않는다.')
+            verdicts.append((name, spread, bw, '구별 불가'))
+        else:
+            note = (f'후보 간 폭 **{spread:,.0f}원** > 잡음 폭 {bw:,.0f}원 → 폭을 넘었다. '
+                    f'다만 후보당 seed 하나이므로 **후보 탓이라고 단정하지 않는다** (v4로 넘긴다).')
+            verdicts.append((name, spread, bw, '폭 초과'))
+        out += panel(name, rows, '원', note)
+    out += ['**판정 요약**', '',
+            '| 기전 | 후보 간 폭 | 잡음 폭 | 판정 |', '|---|---:|---:|---|']
+    for name, spread, bw, verdict in verdicts:
+        out.append(f"| {name} | {spread:,.0f} | {'—' if bw is None else format(bw, ',.0f')} | {verdict} |")
+    out += ['']
+    if all(v[3] == '구별 불가' for v in verdicts):
+        out += ['> 네 기전 모두 구별 불가다. **2차 판정으로는 후보를 고를 수 없다.** '
+                '사전등록대로 1차 판정(실행 품질)으로만 고른다.', '']
+    return out
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--round', required=True)
     ap.add_argument('--out', type=Path, required=True)
     ap.add_argument('--source', action='append', required=True,
                     help='label=path to a coupled report, repeatable')
+    ap.add_argument('--band', help='pre-registered seed-variation band; enables the verdict')
     args = ap.parse_args()
+    band = load(args.band) if args.band else None
+    reports: dict = {}
 
     lines = [f'# 실험 {args.round} — 정책별 결과 비교', '']
     lines += ['> 막대는 **0이 가운데**다. 왼쪽이 감소, 오른쪽이 증가.',
@@ -117,6 +178,7 @@ def main() -> int:
     for item in args.source:
         label, path = item.split('=', 1)
         report = load(path)
+        reports[label] = report
         lines += [f'## {label}', '']
         complete = report.get('all_matrices_complete')
         cells, rows_n = report.get('source_cells'), report.get('purchase_rows')
@@ -140,6 +202,9 @@ def main() -> int:
         for name, off, on in lv:
             lines.append(f'| {name} | {off:,.0f} | {on:,.0f} | {on-off:+,.0f} |')
         lines += ['']
+
+    if len(reports) > 1:
+        lines += candidate_panels(reports, band)
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write('\n'.join(lines))
