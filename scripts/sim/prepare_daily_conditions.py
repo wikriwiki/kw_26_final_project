@@ -13,6 +13,21 @@ from daily_resource_contract import validate
 from validate_prompt_v3 import atomic, digest
 
 
+# Every way this cell can have a meal. Read from the cell's own activity dictionary, so a
+# citizen with a workplace gets the office options and a student does not. Listing them is
+# not a nudge to eat out - leaving them out would be the nudge.
+MEAL_WORDS = ('meal', 'delivery')
+
+
+def meal_options(cell, has_work):
+    """`has_work` is supplied because the planner only attaches it later in the pipeline."""
+    from action_plan_contract import catalog
+    probe = dict(cell, has_work=bool(has_work))
+    found = [aid for aid in catalog(probe)
+             if any(w in aid for w in MEAL_WORDS) or aid.endswith('_meal')]
+    return sorted(set(found))
+
+
 def prepare(source, profiles):
     result = copy.deepcopy(source)
     people = {p['id']: p for p in result['personas']}
@@ -35,6 +50,25 @@ def prepare(source, profiles):
             'assumptions': ['세탁기는 이용 가능하고 그 외 세탁 비용은 이 실험에서 추가 발생하지 않는다고 가정한다.',
                 '제시된 세제 한 통은 이 가정에서 세탁 10회분이며 온라인 구입 90분 뒤 도착한다. 실제 상품 용량이나 배송 기록이 아니다.',
                 '다른 물품·식재료·열량·가사 전체의 재고는 아직 모델링하지 않는다. 집안 정리 활동만으로 이 세탁을 완료한 것으로 보지 않는다.']}
+        # The meal stock mirrors the laundry structure exactly: a resource, an activity that
+        # consumes it, a quote that refills it, and an optional need. It exists because
+        # home_meal currently costs nothing and needs nothing, so eating at home is free and
+        # the day never has a reason to buy food anywhere. Nothing here is chosen by looking
+        # at a published effect - the stock alternates like the detergent doses do.
+        if profile.get('meal_stock') is not None:
+            conditions['resources']['meal_stock'] = {
+                'unit': '집에서 한 끼', 'opening_quantity': profile['meal_stock']}
+            conditions['activity_consumption']['home_meal'] = {'meal_stock': 1}
+            conditions['quote_receipts']['quote:groceries'] = {'meal_stock': 3}
+            conditions['quote_receipt_delay_minutes']['quote:groceries'] = 0
+            conditions['needs'].append({
+                'id': 'meals',
+                'description': '오늘 끼니를 든다. 집에서 들 수도 있고 밖에서 들 수도 있다.',
+                'fulfilled_by': meal_options(cell, p.get('work_poi_id')),
+                'desired_count': profile.get('meal_count', 2), 'mandatory': False})
+            conditions['assumptions'].append(
+                '집에서 드는 한 끼는 집에 있는 식재료 한 끼분을 쓴다고 가정한다. 장보기 한 번은 이 가정에서 '
+                '세 끼분이며 같은 자리에서 바로 쓸 수 있다. 실제 식품 용량이나 영양을 나타내지 않는다.')
         validate(conditions)
         laundry_evidence = '실험 가정: provided_laundry는 집에서 세탁 1회를 하는 활동이며, 실제 시작 전에 세제 1회분이 있어야 한다.'
         cell.setdefault('provided_activities', []).append({'id':'provided_laundry','anchors':['residence'],
