@@ -11,6 +11,7 @@ Conversation 적재(Night Phase 2)는 별도 night_phase.py로 (LLM 의도 분�
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
@@ -58,6 +59,10 @@ CREATE (p)-[:INCLUDES {
   anchor: ev.anchor,
   with_agents: ev.with_agents,
   actual_satisfaction: ev.actual_satisfaction,
+  execution_event_id: ev.execution_event_id,
+  expected_satisfaction: ev.expected_satisfaction,
+  purchase_status: ev.purchase_status,
+  desired_spent: ev.desired_spent,
   actual_spent: coalesce(ev.actual_spent, 0),
   // 정책 지원금에서 사용한 금액 JSON 형태 ({"P009": 5000})
   // 분석 시: 정책별 사용처/누적 사용액 추적 가능
@@ -82,6 +87,7 @@ CREATE (p)-[:INCLUDES {
   pre_review_poi: ev.pre_review_poi,     // 리뷰 전(1차) 선택 — 바뀐 경우만
   review_changed: ev.review_changed      // 리뷰가 최종 선택을 바꿨나
 }]->(poi)
+RETURN count(*) AS written
 """
 
 
@@ -89,6 +95,7 @@ def write_plan(
     aid: str, today: date, events: list[dict], day_type: str,
     tokens_in: int = 0, tokens_out: int = 0,
     reviews_seen: dict | None = None, review_lookup_count: int = 0,
+    transaction=None,
 ):
     import json as _json
     plan_id = f"{aid}_{today.isoformat()}"
@@ -101,14 +108,16 @@ def write_plan(
     # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
     reviews_seen_json = _json.dumps(reviews_seen, ensure_ascii=False) if reviews_seen else "{}"
     review_changed_count = sum(1 for ev in valid_events if ev.get("review_changed"))
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         s.run(WRITE_PLAN_CYPHER,
               aid=aid, plan_id=plan_id, day=today.isoformat(), day_type=day_type,
               tokens_in=tokens_in, tokens_out=tokens_out,
               reviews_seen=reviews_seen_json, review_lookup_count=review_lookup_count,
               review_changed_count=review_changed_count)
         if valid_events:
-            s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events)
+            row = s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events).single()
+            if not row or row['written'] != len(valid_events):
+                raise ValueError('activity persistence mismatch: missing or duplicate POI/Plan')
     return plan_id, len(valid_events)
 
 
@@ -392,6 +401,7 @@ WITH a, p, i, poi,
      'mem_vis_' + a.id + '_' + poi.id + '_' + $yesterday + '_' + toString(i.order) AS mem_id
 MERGE (m:Memory {id: mem_id})
   ON CREATE SET
+    m.visit_update_pending = true,
     m.type = 'visited',
     m.day = date($yesterday),
     m.importance = importance,
@@ -405,16 +415,13 @@ MERGE (m:Memory {id: mem_id})
     m.paid_policy = (i.spent_from_policy IS NOT NULL
                      AND i.spent_from_policy <> '{}' AND i.spent_from_policy <> 'null'),
     m.extra_spent = i.extra_spent,    // 이 결제 중 지원금 없었으면 안 썼을 금액
-    m.category = coalesce(i.sub_category, i.category),
-    m.ingest_token = $ingest_token
+    m.category = coalesce(i.sub_category, i.category)
 MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 MERGE (m)-[:ABOUT_POI]->(poi)
 
-// Only a newly created visit may increment familiarity. Replaying a completed
-// finalization must not count the same event again.
-WITH a, i, poi, m
-WHERE m.ingest_token = $ingest_token
-
+// Existing legacy memories already contributed to visit aggregates.
+WITH a, poi, i, m
+WHERE coalesce(m.visit_update_pending, false)
 // KNOWS_POI MERGE + 집계 갱신
 // recent_visit_dates: 30일 슬라이딩 윈도우 (saturation 계산용).
 // Python 등가: scripts.sim.visit_window.trim_and_push_visit
@@ -433,16 +440,16 @@ ON MATCH SET
     [d IN coalesce(kp.recent_visit_dates, [])
      WHERE duration.inDays(d, date($yesterday)).days < 30]
     + [date($yesterday)]
+SET m.visit_update_pending = false
 RETURN count(m) AS n_memories
 """
 
 
-def night_finalize_yesterday(aid: str, today: date) -> int:
+def night_finalize_yesterday(aid: str, today: date, transaction=None) -> int:
     """어제 INCLUDES → Memory{visited} CREATE + KNOWS_POI 갱신."""
     yesterday = today - timedelta(days=1)
-    with driver_session() as s:
-        r = s.run(NIGHT_VISITED_CYPHER, aid=aid, yesterday=yesterday.isoformat(),
-                  ingest_token=uuid.uuid4().hex).single()
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
+        r = s.run(NIGHT_VISITED_CYPHER, aid=aid, yesterday=yesterday.isoformat()).single()
         return r["n_memories"] if r else 0
 
 
@@ -520,7 +527,11 @@ SET s.agent_id = $aid,
     // 지원금을 받은 시점에 세운 사용 계획(일). 매일 다시 잡지 않고 그대로 이어 간다 —
     // 매일 재판단하면 잔액이 줄수록 기간을 짧게 답해 소진이 가속되는데, 실측 곡선은 반대로
     // 감속한다(표1: 4주 76.4 → 5~8주 주당 4.1%p → 9~12주 주당 1.2%p).
-    s.grant_plan_days = $grant_plan_days
+    s.grant_plan_days = $grant_plan_days,
+    s.execution_receipts_json = $execution_receipts_json,
+    s.observations_json = $observations_json,
+    s.policy_appraisals_json = $policy_appraisals_json,
+    s.appraisal_changes_json = $appraisal_changes_json
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
@@ -537,6 +548,11 @@ def night_create_state(
     grant_carry: int = 0,
     grant_plan_days: int = 0,
     today_online_spent: int = 0,
+    execution_receipts: list | None = None,
+    observations: list | None = None,
+    policy_appraisals: dict | None = None,
+    appraisal_changes: list | None = None,
+    transaction=None,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -563,7 +579,7 @@ def night_create_state(
         grant_rem_json = grant_remaining
     else:
         grant_rem_json = _json.dumps(grant_remaining or {}, ensure_ascii=False)
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
                   policy_used_json=used_json,
@@ -573,7 +589,11 @@ def night_create_state(
                   today_policy_spent=int(today_policy_spent or 0),
                   grant_carry=int(grant_carry or 0),
                   grant_plan_days=int(grant_plan_days or 0),
-                  today_online_spent=int(today_online_spent or 0)).single()
+                  today_online_spent=int(today_online_spent or 0),
+                  execution_receipts_json=_json.dumps(execution_receipts or [], ensure_ascii=False),
+                  observations_json=_json.dumps(observations or [], ensure_ascii=False),
+                  policy_appraisals_json=_json.dumps(policy_appraisals or {}, ensure_ascii=False),
+                  appraisal_changes_json=_json.dumps(appraisal_changes or [], ensure_ascii=False)).single()
         return dict(r) if r else {}
 
 

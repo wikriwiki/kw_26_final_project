@@ -689,7 +689,10 @@ def run_intent_classification(
     verbose: bool = True,
 ) -> dict:
     import os
-    strict = os.environ.get("SIM_STRICT_COMPLETION", "0") == "1"
+    # 기본을 엄격으로 둔다. 이미 적재된 Night2 위에 덧쓰는 것은 침묵하는 손상이고,
+    # 멀쩡한 날을 건너뛰는 것도 마찬가지다. 되살리기(resume)는 사람이 그 상황을
+    # 확인하고 SIM_STRICT_COMPLETION=0 으로 명시해야 열린다.
+    strict = os.environ.get("SIM_STRICT_COMPLETION", "1") != "0"
     if not pairs:
         return {"processed": 0}
     # 멱등성: 같은 day Conversation이 이미 90% 이상 적재됐으면 skip

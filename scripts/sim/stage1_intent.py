@@ -8,12 +8,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import sys
 import time
 from datetime import date
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -196,6 +197,8 @@ def grant_style_to_use(style: str | None) -> float | None:
 
 
 class Stage1Output(BaseModel):
+    # Validate optional appraisals after generation; malformed metadata must not retry an otherwise valid day plan.
+    policy_appraisals: Any = Field(default_factory=list)
     events: list[Stage1Event]
     # 오늘 소비성향 p∈[0,1] — 평상 소비예산 대비 오늘의 소비 의향.
     # 정책지갑 인출률이 아니며, consumption 모델이 prior 밴드 안으로 클램프한다.
@@ -296,9 +299,10 @@ SYSTEM_PROMPT = _prompts.get().SYSTEM_PROMPT
 def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
     """Dawn 컨텍스트를 사용자 메시지로. 본문은 정책군별 프롬프트 모듈이 가진다."""
     blocks = ctx.to_prompt_blocks(today)
+    from experience import prompt_block
     return _prompts.get().format_dawn_blocks(
         blocks, today, day_type, _dow_kr(today)
-    )
+    ) + prompt_block(ctx.state, today)
 
 
 _DOW_KR = ["월", "화", "수", "목", "금", "토", "일"]
@@ -492,6 +496,8 @@ def call_stage1(
             timing["t_total"] = time.perf_counter() - total_started
 
             meta = {
+                "prompt_sha256": hashlib.sha256((SYSTEM_PROMPT + "\n" + user_block_now).encode("utf-8")).hexdigest(),
+                "model_id": getattr(resp, "model", None),
                 "attempt": attempt,
                 "temp": temp,
                 "tokens_in": resp.usage.prompt_tokens,
