@@ -53,7 +53,8 @@ def load_rows(spec):
             continue
         if r.get('valid') is not True:
             continue
-        out[(r['aid'], r['date'], r['case'], r['arm'])] = r
+        # 복제(seed)를 키에 넣지 않으면 네 seed 가 서로를 덮어써 384칸이 96칸이 된다.
+        out[(r.get('replicate'), r['aid'], r['date'], r['case'], r['arm'])] = r
     return out
 
 
