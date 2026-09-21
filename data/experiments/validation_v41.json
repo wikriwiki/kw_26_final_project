@@ -1,0 +1,78 @@
+{
+  "id": "validation_v41",
+  "registered_on": "2026-09-22",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "candidates": [
+    "v5",
+    "v40"
+  ],
+  "phase": "Same matched-context Stage1 pilot as validation_v3, with one candidate changed. v40 is v5 with the cashback-specific instructions removed from the shared body: the grant_kept_share section, the sentence that names accrual progress and the threshold, and one worked example whose reasoning acts out buying to clear a threshold. Every format-bearing character is unchanged - the anchor rules, the category vocabulary, the output schema and all fourteen JSON event examples are byte-identical to v5. v10 removed those examples and its contract rate fell from 66.7 to 7.3 per cent, with 167 of the violations being a missing \"zone:\" prefix, so this candidate does not touch them.",
+  "sample_n": 12,
+  "replicate_seeds": [
+    1701,
+    2903
+  ],
+  "temperature": 0.7,
+  "max_tokens": 2200,
+  "workers": 24,
+  "cases": [
+    {
+      "id": "cashback",
+      "policy": "P012",
+      "date": "2021-10-25"
+    },
+    {
+      "id": "grant",
+      "policy": "P013",
+      "date": "2020-05-14"
+    },
+    {
+      "id": "local_voucher",
+      "policy": "P014",
+      "date": "2020-09-23"
+    },
+    {
+      "id": "distancing",
+      "policy": null,
+      "date": "2020-11-24"
+    }
+  ],
+  "arms": [
+    "off",
+    "on"
+  ],
+  "design": "Identical frozen persona, synthetic Day0 state and date within each pair. Fiscal arms share environment. Distancing arms differ only in explicitly registered restrictions, not disease background. Read-only Neo4j; no rollout or database reset.",
+  "initial_state": "39 times daily_wd cash; mood=0.5, fatigue=0.3, energy=0.7, satisfaction=0.6; no prior memories or appointments. These are simulation initial conditions, not observed personal history.",
+  "cashback_seed": "Monthly eligible spend seeded as daily weighted anchor * 0.268 * (day_of_month - 1), identically in off/on arms. Policy facts use experiment date as counterfactual start.",
+  "primary_metrics": [
+    "strict_raw_contract_rate",
+    "missing_response_rate",
+    "fiscal_off_attribution_flag_rate"
+  ],
+  "attribution_rule": "In fiscal off arms flag trigger=policy AND reasoning mentioning P012/P013/P014/cashback/coupon/voucher/grant/local voucher. Environmental regulation attribution is allowed. This is a conservative screening flag, not a validated hallucination classifier; manually inspect flagged text before interpretation.",
+  "diagnostics": [
+    "daily_propensity_paired_difference",
+    "commerce_event_paired_difference",
+    "replicate_sign_agreement",
+    "policy_trigger_rate",
+    "tokens",
+    "latency"
+  ],
+  "contract_checks": [
+    "JSON schema without automatic repair",
+    "valid time and strictly increasing >=20 minute spacing",
+    "start/end at residence",
+    "allowed zone codes",
+    "anchor/category consistency",
+    "required reasoning and trigger",
+    "finite propensity in [0,1]",
+    "6+ weekday or 4+ weekend events"
+  ],
+  "decision": "This round judges the raw contract gate only. v5 is re-measured in the same run rather than compared against its earlier 128/192, because the served model may differ. v40 is eligible for a macro run only if its strict contract rate is at least v5’s in this run. The registered 95 per cent gate is unchanged: if neither reaches it, neither passes, and a higher rate than v5 is not written up as passing.",
+  "inference": "12-person repeated matched-context pilot measures instruction execution and within-person decisions only. No spending outcome, causal macro effect, empirical magnitude score, or fresh holdout generalization claim.",
+  "holdout": "P015 prohibited; already used. All four mechanisms are known development cases.",
+  "magnitude_future": "Use simultaneous independent on/off rollouts, same dates and initial snapshots, independent run replicates. Report effect and interval; 0.5-2.0 empirical magnitude only when population, outcome definition, denominator and horizon match. Otherwise mark not comparable.",
+  "stop_rule": "Run every preregistered cell once; preserve errors and raw outputs. No significance-based early stopping or silent retries. Failure of gate blocks automatic macro rollout.",
+  "predicted": "The rate rises. Removing 658 characters of instructions that belong to a policy the cell may not even carry should leave the format instructions relatively more prominent. If it falls, that is recorded as the result.",
+  "not_changed": "Sample, seeds, dates, cases, arms, temperature, token budget and every contract check are copied from validation_v3 unchanged. The 280-character truncation of policy descriptions is deliberately left in place so the comparison moves one variable."
+}
