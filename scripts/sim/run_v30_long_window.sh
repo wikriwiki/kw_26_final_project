@@ -108,6 +108,8 @@ def pct(r):
     return r["mean"] / r["base"] * 100.0
 
 MEASURED = {"P012-1": 20.82, "P012-2": 2.85}
+# 2일 창(result_FINAL)의 순효과. 이 라운드가 넘어야 하는 선이다.
+TWO_DAY = {"P012-1": 11.5}
 for key in ("P012-1", "P012-2"):
     ra, rb = row(pol, key), row(pla, key)
     a, b = pct(ra), pct(rb)
@@ -115,13 +117,23 @@ for key in ("P012-1", "P012-2"):
         print("%-8s 읽지 못함 (정책 %s · 대조 %s)" % (key, ra and ra.get("mean"), rb and rb.get("mean")))
         continue
     net = a - b
-    band = net / MEASURED[key] if MEASURED[key] else None
-    print("%-8s 정책 %+.1f%% · 대조 %+.1f%% · 순효과 %+.1f%%p · 실측 %+.2f%% · 배수 %.2f"
-          % (key, a, b, net, MEASURED[key], band))
+    print("%-8s 정책 %+.1f%% · 대조 %+.1f%% · 순효과 %+.1f%%p · 실측 %+.2f%%"
+          % (key, a, b, net, MEASURED[key]))
     print("         정책 CI %s (n=%d) · 대조 CI %s (n=%d)"
           % (ra.get("ci"), ra.get("n") or 0, rb.get("ci"), rb.get("n") or 0))
+    if key in TWO_DAY:
+        print("         2일 창 순효과 %+.1f%%p → 21일 창 %+.1f%%p (%s)"
+              % (TWO_DAY[key], net, "커졌다" if net > TWO_DAY[key] else "안 커졌다"))
+    # 배수는 참고값이다. 감사 주석이 호환성 확인 전에는 나누지 말라고 했다.
+    print("         (참고) 순효과 ÷ 실측 = %.2f — 호환표가 비어 있으므로 판정에 쓰지 않는다"
+          % (net / MEASURED[key]))
 print()
-print("합격선: P012-1 배수가 0.5~2.0 안이고 정책 런 CI 가 0 을 제외한다.")
-print("        그리고 P012-2(제외업종)는 움직이지 않아야 한다 — 둘 다 오르면 소득이 흉내 낸 것이다.")
+print("합격선 (사전등록):")
+print("  0) 지갑 관문   11-14 잔고 0 < 20%")
+print("  1) 주 지표     P012-1 순효과가 2일 창 +11.5%p 보다 크고, 정책 런 CI 가 0 을 제외한다")
+print("  2) 방어선      P012-2(제외업종)는 움직이지 않는다 — 둘 다 오르면 소득이 흉내 낸 것이고 폐기한다")
+print()
+print("이 라운드는 검증이 아니라 가설 시험이다. 배수는 호환표가 채워진 뒤에 비교한다.")
+print("호환표 빈칸: KDI 쪽 분모·대조군 (원문 확인 필요)")
 PY
 say "=== V30_DONE ==="
