@@ -17,7 +17,7 @@ say(){ echo "[$(date +%F' '%H:%M:%S)] $*" | tee -a $LOG; }
 say "사전등록 해시 대조"
 sha256sum data/experiments/validation_v41.json scripts/sim/prompts/v40.py | tee -a $LOG
 
-say "576 호출 시작 (v5 192 · v40 192 · v42 192)"
+say "768 호출 시작 (v5 · v40 · v42 · v45 각 192)"
 /data/venv_sgl/bin/python scripts/sim/validate_prompt_v3.py \
   --config data/experiments/validation_v41.json --out "$OUT" 2>&1 | tee -a $LOG
 
@@ -26,7 +26,7 @@ say "=== 결과 ==="
 import json
 d = json.load(open('/data/validation_v41/run/summary.json', encoding='utf-8'))
 v = d['variants']
-order = [n for n in ('v5', 'v40', 'v42') if n in v]
+order = [n for n in ('v5', 'v40', 'v42', 'v45') if n in v]
 print('%-6s %10s %10s %8s %10s %10s' % ('후보','응답','엄격통과','통과율','요청실패','오귀인'))
 for name in order:
     r = v[name]
@@ -50,6 +50,9 @@ if base:
     if 'v42' in v and 'v40' in v:
         print('  형식 고침   v42 - v40 = %+.1f%%p'
               % (100*(v['v42']['strict_valid_rate'] - v['v40']['strict_valid_rate'])))
+    if 'v45' in v and 'v42' in v:
+        print('  지갑 어휘   v45 - v42 = %+.1f%%p'
+              % (100*(v['v45']['strict_valid_rate'] - v['v42']['strict_valid_rate'])))
     print()
     best = max(order, key=lambda n: v[n]['strict_valid_rate'])
     print('등록된 95%% 관문: %s'

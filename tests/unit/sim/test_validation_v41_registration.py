@@ -24,17 +24,24 @@ def test_every_undeclared_field_is_copied_unchanged(key):
 
 def test_only_the_candidates_changed():
     assert V3['candidates'] == ['v5', 'v10']
-    assert V41['candidates'] == ['v5', 'v40', 'v42']
+    assert V41['candidates'] == ['v5', 'v40', 'v42', 'v45']
 
 
 def test_the_amendment_says_it_landed_before_any_cell_ran():
     assert 'before any cell ran' in V41['amendment']
 
 
-def test_the_chain_keeps_the_two_changes_separable():
-    """v40 대 v5 는 오염, v42 대 v40 은 형식. 둘을 한 후보에 섞으면 못 가른다."""
-    assert V41['candidates'] == ['v5', 'v40', 'v42']
+def test_the_chain_keeps_each_change_separable():
+    """v40 대 v5 는 캐시백 오염, v42 대 v40 은 형식, v45 대 v42 는 지갑형 어휘.
+
+    한 후보에 섞으면 무엇이 통했는지 못 가른다.
+    """
+    assert V41['candidates'] == ['v5', 'v40', 'v42', 'v45']
     assert 'separable' in V41['amendment']
+
+
+def test_the_removal_is_no_longer_one_sided():
+    assert 'one-sided' in V41['amendment']
 
 
 def test_the_incumbent_is_re_measured_in_the_same_run():
