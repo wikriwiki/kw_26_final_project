@@ -42,7 +42,11 @@ CATEGORY = {
     'bar': '주점',
 }
 
-PROFILE_RE = re.compile(r'업종별 지출 구성:\s*(.+)')
+# Two renderer generations are in use: the older cells say '…부여한 업종별 지출 구성:'
+# and the newer ones '평소 업종별 지출 구성(카드 실측):'. Requiring the colon to follow
+# the word directly silently matched only the first, which made every distance on the
+# newer cohort vacuously zero.
+PROFILE_RE = re.compile(r'업종별 지출 구성[^:\n]*:\s*(.+)')
 PART_RE = re.compile(r'([가-힣·]+)\s*(\d+)%')
 
 

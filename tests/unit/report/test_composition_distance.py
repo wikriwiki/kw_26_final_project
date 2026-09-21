@@ -91,3 +91,27 @@ def test_one_block_degenerates_to_the_cell_bootstrap():
     b[('grant', 'on')] = [defaultdict(float, {'total': 150.0, 'cells': 1.0}) for _ in range(8)]
     b[('grant', 'off')] = [defaultdict(float, {'total': 100.0, 'cells': 1.0}) for _ in range(8)]
     assert bootstrap(b, 300, blocks=[b])['EM-3'] == bootstrap(b, 300, blocks=None)['EM-3']
+
+
+def test_both_renderer_wordings_are_read():
+    """렌더러 세대가 둘이다. 하나만 읽으면 새 코호트의 거리가 공허하게 0이 된다."""
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/report'))
+    from composition_distance import PROFILE_RE
+    old = '합성 시민에게 부여한 업종별 지출 구성: 쇼핑 40%, 마트 26%'
+    new = '평소 업종별 지출 구성(카드 실측): 마트 45%, 식사 30%, 건강 18%(의원·헬스장)'
+    for text in (old, new):
+        m = PROFILE_RE.search(text)
+        assert m is not None, text
+        assert '%' in m.group(1)
+
+
+def test_a_parenthetical_hint_does_not_become_a_category():
+    import re
+    import sys
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/report'))
+    from composition_distance import PART_RE
+    got = dict(PART_RE.findall('마트 45%, 식사 30%, 건강 18%(의원·헬스장), 기타 7%(주유소)'))
+    assert got == {'마트': '45', '식사': '30', '건강': '18', '기타': '7'}

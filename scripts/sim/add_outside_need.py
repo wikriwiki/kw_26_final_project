@@ -40,7 +40,11 @@ MARKER = '\n\n## 오늘\n'
 SERVICE = {'hair': '미용', 'health_goods': '건강',
            'leisure_service': '여가', 'education_service': '교육'}
 
-PROFILE_RE = re.compile(r'업종별 지출 구성:\s*(.+)')
+# Two renderer generations are in use: the older cells say '…부여한 업종별 지출 구성:'
+# and the newer ones '평소 업종별 지출 구성(카드 실측):'. Requiring the colon to follow
+# the word directly silently matched only the first, which made every distance on the
+# newer cohort vacuously zero.
+PROFILE_RE = re.compile(r'업종별 지출 구성[^:\n]*:\s*(.+)')
 PART_RE = re.compile(r'([가-힣·]+)\s*(\d+)%')
 DESCRIPTION = ('오늘 하려고 미뤄 둔 볼일이 하나 있다. 일정과 자금에 따라 다음 날로 미룰 수도 있다.')
 EVIDENCE = '실험 가정: 이 볼일은 집에서 끝낼 수 없고 해당 장소에 가야 한다.'
