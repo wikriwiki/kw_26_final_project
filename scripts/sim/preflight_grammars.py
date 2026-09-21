@@ -68,15 +68,18 @@ def server_tokenizer_info(tokenizer_path):
 def compiles(ebnf, tokenizer_info):
     """True if xgrammar can compile this grammar. Forked, because an abort is not catchable.
 
-    Compiled the way the server compiles it: a raw EBNF string, and a GrammarCompiler with
-    its default thread count. Pinning max_threads=1 hid a failure that only appears when
-    the compile is threaded.
+    Compiled the way the server compiles it: a raw EBNF string, one thread. The server is
+    pinned to one thread too (patch_sglang_grammar_threads.py), because the threaded
+    compile aborts in C++ after about a hundred grammars. Matching it matters twice over -
+    the check is then deterministic, and it sees the same failures the server will see.
+    Run threaded, this check passed a grammar that a later scan rejected.
     """
     import xgrammar
     pid = os.fork()
     if pid == 0:
         try:
-            xgrammar.GrammarCompiler(tokenizer_info=tokenizer_info).compile_grammar(ebnf)
+            xgrammar.GrammarCompiler(tokenizer_info=tokenizer_info,
+                                     max_threads=1).compile_grammar(ebnf)
             os._exit(0)
         except BaseException:
             os._exit(3)

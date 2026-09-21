@@ -182,3 +182,52 @@ v36·v37 을 더하지 않았으면 `Unregistered prompt module` 로 즉시 죽�
 - **v18·v19 는 영향이 없다.** 같은 서버 인스턴스에서 480칸을 두 번 완주했고,
   그때는 서로 다른 문법이 240개였다. 120명 코호트는 480개다 — 이 배수가
   같은 버그를 깨운 것으로 보인다
+
+---
+
+# 해결 (17:01) — 스레드 하나로 묶으면 사라진다
+
+`compile_grammar` 는 안에서 스스로 병렬화한다. 그래서 "순차"로 돌려도 여덟 스레드였다.
+**스레드를 하나로 묶자 그대로 통과한다.**
+
+```
+공유 컴파일러 · 기본 스레드      233개 중 ~100개에서 abort
+공유 컴파일러 · max_threads=1    233개 전부 통과
+```
+
+그리고 더 중요한 것이 있다. **진짜로 망가진 문법의 운명도 바뀐다.**
+
+```
+기본 스레드     C++ abort         → 서버 전체가 죽는다 (파이썬이 잡을 수 없다)
+max_threads=1   RuntimeError      → dispatch_ebnf 가 잡아 InvalidGrammarObject 로 처리
+```
+
+SGLang 은 이미 `except RuntimeError` 를 갖고 있었다. 다만 abort 는 예외가 아니라
+프로세스 종료라 그 손이 닿지 않았을 뿐이다. **한 칸이 나쁜 문법을 가져도 더는
+라운드 전체를 죽이지 못한다.**
+
+## 무엇을 바꿨나
+
+`scripts/sim/patch_sglang_grammar_threads.py`
+
+```
+- self.grammar_compiler = GrammarCompiler(tokenizer_info=tokenizer_info)
++ self.grammar_compiler = GrammarCompiler(tokenizer_info=tokenizer_info,
++                                         max_threads=1)
+```
+
+**컴파일 병렬도만 바뀐다.** 샘플링도, 문법 자체도, 문법이 허용하는 토큰도 그대로다.
+그러므로 v18 과의 비교가 유지된다. 원본은 `.py.orig` 로 보관했고, 스크립트를 다시
+돌리면 이미 적용됐는지 알아본다.
+
+사전검사도 같은 조건(`max_threads=1`)으로 맞췄다. 그래야 **결정적**이고, 서버가
+보게 될 것과 같은 것을 본다. 스레드를 켠 채로 돌렸을 때는 같은 문법을 한 번은
+통과시키고 한 번은 떨어뜨렸다.
+
+## 방어가 세 겹이 됐다
+
+| 겹 | 무엇을 막나 | 확인 |
+|---|---|---|
+| `max_threads=1` | 크래시 자체 | 233개 전부 통과 |
+| 사전검사 | 진짜 나쁜 문법을 가진 칸을 미리 뺀다 | on/off 짝으로만 빠짐 |
+| 회로 차단기 | 그래도 서버가 사라지면 멈춘다 | 16:24 에 266/948 에서 작동, 오염 0 |
