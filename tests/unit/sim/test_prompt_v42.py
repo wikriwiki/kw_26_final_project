@@ -55,6 +55,14 @@ def test_the_missing_commute_case_is_named():
     assert "출근은 anchor='workplace'" in V42
 
 
+def test_the_two_gaps_are_filled_but_the_stated_rules_are_not_repeated():
+    """이미 있는 규칙을 네 번째로 말하지 않는다 — 그것이 안 통한다는 게 이 라운드의 근거다."""
+    assert 'time 은 빈 문자열이 될 수 없다' in V42          # 빈자리
+    assert '약국·의원·병원은 건강' in V42                    # 빈자리
+    assert V42.count('20분') == V40.count('20분')          # 이미 있음 — 반복 금지
+    assert V42.count('목록의 코드만') == V40.count('목록의 코드만')
+
+
 def test_the_field_name_is_pinned_including_the_last_event():
     """23건 전부 'reason' 오타였고, 전부 하루 마지막 쪽 residence 이벤트였다."""
     assert '`reason`·`reasonning` 은 무효' in V42
