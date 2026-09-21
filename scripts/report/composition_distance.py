@@ -111,6 +111,36 @@ def pooled(mixes, weights=None):
     return {k: v / total for k, v in acc.items()} if total else {}
 
 
+def paired_difference(a_per, b_per, draws=4000, seed=20260921):
+    """Per-citizen distance, candidate B minus candidate A, resampling citizens.
+
+    The two candidates plan for the SAME sixty people, so the comparison is paired and
+    the citizen is the unit that varies. An unpaired comparison of two means would be
+    dominated by which citizens happen to buy anything at all.
+
+    Negative means B is closer to what the citizens' own cards say they buy.
+    """
+    import random
+    shared = sorted(set(a_per) & set(b_per))
+    if not shared:
+        return None
+    diffs = [b_per[k]['distance'] - a_per[k]['distance'] for k in shared]
+    point = sum(diffs) / len(diffs)
+    rng = random.Random(seed)
+    draws_out = []
+    for _ in range(draws):
+        pick = [diffs[rng.randrange(len(diffs))] for _ in diffs]
+        draws_out.append(sum(pick) / len(pick))
+    draws_out.sort()
+    n = len(draws_out)
+    lo, hi = draws_out[int(0.025 * n)], draws_out[int(0.975 * n) - 1]
+    return {'citizens_compared': len(shared), 'mean_difference': point,
+            'ci95': [lo, hi], 'resolved': (lo > 0) == (hi > 0),
+            'closer': 'B' if point < 0 else 'A',
+            'note': ('시민을 단위로 재추출한 쌍체 차이다. 구간이 0을 지나면 '
+                     '어느 쪽이 가까운지 말할 수 없다.')}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--run', action='append', required=True,
@@ -118,6 +148,7 @@ def main():
     ap.add_argument('--source', required=True, help='action_source.json with the profiles')
     ap.add_argument('--arm', default='off')
     ap.add_argument('--out', required=True)
+    ap.add_argument('--against', help='비교 대상 후보의 distance.json — 쌍체 차이를 낸다')
     args = ap.parse_args()
 
     runs = []
@@ -151,6 +182,11 @@ def main():
         'per_agent': per_agent,
         'note': 'Shares only. Buying more of the same category does not reduce the distance.',
     }
+    if args.against:
+        base = json.loads(Path(args.against).read_text(encoding='utf-8'))
+        result['paired_vs'] = {'file': args.against,
+                               'result': paired_difference(base['per_agent'], per_agent)}
+
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(
         json.dumps(result, ensure_ascii=False, indent=1))
     print('wrote', args.out)
@@ -160,6 +196,12 @@ def main():
     print('  칸당 구매 건수          %.3f  (%d건 / %d칸)'
           % (result['items_per_cell'], result['items_total'], result['cells_total']))
     print('  한 번도 안 산 업종       %s' % (', '.join(result['never_bought']) or '없음'))
+    pv = (result.get('paired_vs') or {}).get('result')
+    if pv:
+        print('  쌍체 차이 (이번 − 대조)  %+.4f  [%+.4f, %+.4f]  시민 %d명%s'
+              % (pv['mean_difference'], pv['ci95'][0], pv['ci95'][1],
+                 pv['citizens_compared'],
+                 '' if pv['resolved'] else '   ← 구간이 0을 지난다'))
     return 0
 
 
