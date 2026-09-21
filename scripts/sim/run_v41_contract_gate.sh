@@ -18,7 +18,9 @@ say "사전등록 해시 대조"
 sha256sum data/experiments/validation_v41.json scripts/sim/prompts/v40.py | tee -a $LOG
 
 say "768 호출 시작 (v5 · v40 · v42 · v45 각 192)"
-/data/venv_sgl/bin/python scripts/sim/validate_prompt_v3.py \
+# venv_sgl 에는 neo4j 드라이버가 없다. 이 러너는 Neo4j 에서 시민·zone 을 읽어
+# 맥락을 만들므로 /data/venv 로 돈다 (LLM 호출은 urllib 이라 sglang 패키지가 필요 없다).
+/data/venv/bin/python scripts/sim/validate_prompt_v3.py \
   --config data/experiments/validation_v41.json --out "$OUT" 2>&1 | tee -a $LOG
 
 say "=== 결과 ==="
