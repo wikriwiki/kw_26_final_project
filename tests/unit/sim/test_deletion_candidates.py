@@ -29,13 +29,13 @@ def lines(name):
 
 
 def test_candidates_name_no_policy_and_push_no_direction():
-    for name in ('v36', 'v37'):
+    for name in ('v36', 'v37', 'v38'):
         text = prompt(name)
         assert not [w for w in FORBIDDEN if w in text], name
         assert not re.search(r'\d+\s*(원|퍼센트)', text), name
 
 
-def test_each_candidate_changes_exactly_one_line_of_v25():
+def test_each_single_candidate_changes_exactly_one_line_of_v25():
     base = lines('v25')
     for name in ('v36', 'v37'):
         got = lines(name)
@@ -47,7 +47,7 @@ def test_each_candidate_changes_exactly_one_line_of_v25():
 def test_nothing_is_added_only_removed():
     """지운 판이라면 새 낱말이 하나도 없어야 한다."""
     base = set(re.findall(r'[가-힣]+', prompt('v25')))
-    for name in ('v36', 'v37'):
+    for name in ('v36', 'v37', 'v38'):
         added = set(re.findall(r'[가-힣]+', prompt(name))) - base
         assert not added, (name, added)
         assert len(prompt(name)) < len(prompt('v25')), name
@@ -77,7 +77,29 @@ def test_v37_keeps_the_rest_of_the_no_obligation_line():
     assert '후보의 존재는 구매 의무가 아니다' in v37
 
 
-def test_both_keep_the_padding_guard():
-    """빗장을 두 개 동시에 풀면 무엇이 움직였는지 가릴 수 없다."""
+def test_the_single_candidates_keep_the_padding_guard():
+    """한 줄짜리 후보는 빗장을 하나만 푼다. 둘을 동시에 풀면 무엇이 움직였는지 못 가린다."""
     for name in ('v36', 'v37'):
         assert '활동 수를 채우려고 구매·외출·반복을 추가하지 않는다' in prompt(name), name
+
+
+def test_v38_is_exactly_the_three_deletions_stacked():
+    """v38 은 v36·v37·v30 이 각각 지운 것을 한꺼번에 지운 판이어야 한다."""
+    v25, v30, v36, v37, v38 = (prompt(n) for n in ('v25', 'v30', 'v36', 'v37', 'v38'))
+    assert '평균 지출과 과거 비중은' not in v38          # v36 의 삭제
+    assert '대체' not in v38                              # v37 의 삭제
+    assert '활동 수를 채우려고 활동을 추가하지 않는다' in v38   # v30 의 삭제
+    # 세 줄만 다르고 나머지는 v25 그대로
+    base, got = lines('v25'), lines('v38')
+    assert len(base) == len(got)
+    differing = [i for i, (a, b) in enumerate(zip(base, got)) if a != b]
+    assert len(differing) == 3, differing
+
+
+def test_v38_still_forbids_aiming_at_an_aggregate_and_padding():
+    """빗장을 셋 다 풀면 '나가서 써라'가 된다. 남겨야 할 것이 남아 있는지 본다."""
+    v38 = prompt('v38')
+    assert '사회 전체의 소비나 제도의 성과를 목표로 삼지 않는다' in v38
+    assert '활동 수를 채우려고' in v38
+    assert '후보의 존재는 구매 의무가 아니다' in v38
+    assert '연기·생략할 수 있다' in v38
