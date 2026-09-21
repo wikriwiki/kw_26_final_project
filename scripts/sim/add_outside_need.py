@@ -60,6 +60,9 @@ SERVICE = {'hair': '미용', 'health_goods': '건강',
 PROFILE_RE = re.compile(r'업종별 지출 구성[^:\n]*:\s*(.+)')
 PART_RE = re.compile(r'([가-힣·]+)\s*(\d+)%')
 DESCRIPTION = ('오늘 하려고 미뤄 둔 볼일이 하나 있다. 일정과 자금에 따라 다음 날로 미룰 수도 있다.')
+# 의무판. 근무 일정과 같은 층위의 사실로 적는다 — 무엇을 사라거나 얼마를 쓰라는 말은
+# 없고, 정책이 켜졌을 때 어떻게 할지도 말하지 않는다.
+DESCRIPTION_MANDATORY = ('오늘 해야 하는 볼일이 하나 있다. 다음 날로 미룰 수 없다.')
 EVIDENCE = '실험 가정: 이 볼일은 집에서 끝낼 수 없고 해당 장소에 가야 한다.'
 
 
@@ -105,7 +108,7 @@ def add_evidence_line(user):
     return user[:brace] + EVIDENCE + '\n' + user[brace:]
 
 
-def add(source):
+def add(source, mandatory=False):
     result = copy.deepcopy(source)
     picks = {}
     for cell in result['cells']:
@@ -118,9 +121,14 @@ def add(source):
         picks[cell['aid']] = {'activity': activity, 'assigned_share_percent': share}
         if activity is None:
             continue
-        cond['needs'].append({'id': 'errand', 'description': DESCRIPTION,
+        # 2026-09-22: 선택으로 주면 열에 한 번만 한다(THE_TEN_PERCENT_CEILING.md).
+        # 같은 모델이 mandatory 인 근무는 92% 한다. 의무로 주는 것은 근무·통근·재고를
+        # 지정하는 것과 같은 층위이고, 정책이 켜졌을 때 얼마나 줄어드는지는 여전히
+        # 모델이 정한다.
+        cond['needs'].append({'id': 'errand',
+                              'description': DESCRIPTION_MANDATORY if mandatory else DESCRIPTION,
                               'fulfilled_by': [activity], 'desired_count': 1,
-                              'mandatory': False})
+                              'mandatory': bool(mandatory)})
         cond['assumptions'].append(
             '이 볼일은 해당 장소에서만 할 수 있다고 가정한다. 실제 개인 일정이나 예약을 나타내지 않는다.')
         validate(cond)
@@ -141,9 +149,11 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--source', required=True)
     ap.add_argument('--out', required=True)
+    ap.add_argument('--mandatory', action='store_true',
+                    help='볼일을 의무로 준다 (근무 일정과 같은 층위)')
     args = ap.parse_args()
     source = json.loads(Path(args.source).read_text(encoding='utf-8'))
-    result = add(source)
+    result = add(source, mandatory=args.mandatory)
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(
         json.dumps(result, ensure_ascii=False, indent=1))
     print('wrote', args.out)
