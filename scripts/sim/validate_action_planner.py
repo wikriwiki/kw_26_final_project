@@ -3,6 +3,7 @@ import argparse
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 import hashlib
+import io
 import json
 import os
 from pathlib import Path
@@ -96,6 +97,10 @@ def main():
     # 2026-09-21: 컴파일되지 않는 문법 하나가 서버를 죽이고, 그 뒤 모든 칸이 timeout 을
     # 값으로 기록됐다. preflight_grammars.py 가 미리 걸러낸 칸을 여기서 뺀다.
     ap.add_argument('--exclude', help='preflight_grammars.json — 여기 적힌 칸은 돌리지 않는다')
+    # 2026-09-21: xgrammar 가 300~350칸마다 서버를 죽인다(LogFatalError, 그리고 그것을
+    # 단일 스레드로 막자 이번엔 segfault). 서버를 살리는 대신 이어달리기로 간다.
+    ap.add_argument('--resume', action='store_true',
+                    help='이미 있는 폴더에 이어 쓴다. 끝난 칸은 건너뛴다')
     args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); raw = Path(args.source).read_bytes()
     import importlib
     if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28','v29','v30','v31','v32','v33','v34','v35','v36','v37'}: raise ValueError('Unregistered prompt module')
@@ -141,7 +146,28 @@ def main():
             if c.get('deliberation_prefill'):
                 if not c['thinking_tokens']:raise ValueError('Reasoning prefill requires explicit reasoning stage')
                 prefixes[(c['id'], cell['aid'], cell['case'], cell['arm'])]+=c['deliberation_prefill']
-    folder = Path(args.out); folder.mkdir(parents=True, exist_ok=False); (folder/'attempts').mkdir(); (folder/'code').mkdir()
+    folder = Path(args.out)
+    done = set()
+    if args.resume and folder.exists():
+        # 끝난 칸을 (후보·복제·사람·기전·팔) 로 읽어 둔다. 기반 고장으로 적힌 줄은
+        # 결과가 아니므로 다시 돌린다 — 그것을 남겨 두면 오염이 그대로 남는다.
+        path = folder/'responses.jsonl'
+        kept = []
+        if path.exists():
+            for line in io.open(path, encoding='utf-8'):
+                if not line.strip():
+                    continue
+                r = json.loads(line)
+                if r.get('error') and INFRA_RE.search(str(r['error'])):
+                    continue
+                kept.append(line)
+                done.add((r['variant'], r['replicate'], r['aid'], r['case'], r['arm']))
+            io.open(path, 'w', encoding='utf-8', newline=chr(10)).writelines(kept)
+        (folder/'ABORTED_SERVER_GONE.json').unlink(missing_ok=True)
+        print('이어달리기: 끝난 칸 %d개를 건너뛴다' % len(done), flush=True)
+    else:
+        folder.mkdir(parents=True, exist_ok=False)
+    (folder/'attempts').mkdir(exist_ok=True); (folder/'code').mkdir(exist_ok=True)
     names = ['validate_action_planner.py','action_plan_contract.py','presence_contract.py','bounded_reasoning.py','temporal_projection.py']
     if config.get('temporal_clock_step') is not None: names.append('temporal_choice_grammar.py')
     code = {}
@@ -154,9 +180,12 @@ def main():
     base = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
     with urlopen(base + '/v1/models', timeout=10) as response: assert config['model'] in [m['id'] for m in json.load(response)['data']]
     jobs = [(c, seed, cell) for c in config['candidates'] for seed in config['seeds'] for cell in inputs['cells']]
-    random.Random(config['order_seed']).shuffle(jobs); rows = []
-    with (folder/'responses.jsonl').open('x', encoding='utf-8') as fp, ThreadPoolExecutor(max_workers=config['workers']) as pool:
-        pending = [pool.submit(invoke, j, config, base, prefixes, folder) for j in jobs]
+    random.Random(config['order_seed']).shuffle(jobs)
+    # 순서는 order_seed 로 고정된 뒤에 걸러낸다. 건너뛰는 칸이 순서를 바꾸지 않는다.
+    todo = [j for j in jobs if (j[0]['id'], j[1], j[2]['aid'], j[2]['case'], j[2]['arm']) not in done]
+    rows = [json.loads(l) for l in io.open(folder/'responses.jsonl', encoding='utf-8')] if done else []
+    with (folder/'responses.jsonl').open('a' if done else 'x', encoding='utf-8') as fp, ThreadPoolExecutor(max_workers=config['workers']) as pool:
+        pending = [pool.submit(invoke, j, config, base, prefixes, folder) for j in todo]
         for future in as_completed(pending):
             row = future.result(); rows.append(row); fp.write(json.dumps(row, ensure_ascii=False)+'\n'); fp.flush(); os.fsync(fp.fileno())
             print(f"completed {len(rows)}/{len(jobs)} {row['variant']} {row['case']} eligible={row['eligible']} errors={row['errors']} factual={row.get('factual_errors')} error={row.get('error','')}", flush=True)
