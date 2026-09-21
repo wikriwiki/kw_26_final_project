@@ -49,24 +49,30 @@ def cell_totals(rec, home):
     return t
 
 
-def collect(runs, homes):
+def collect(runs, homes, paired_only=False):
     """{(case, arm): [per-cell totals]} across every run."""
     bucket = defaultdict(list)
-    for src, resp in runs:
-        for rec in purchases(src, resp):
-            bucket[(rec['case'], rec['arm'])].append(
-                (rec['aid'], cell_totals(rec, str(homes.get(rec['aid']) or ''))))
+    recs = [rec for src, resp in runs for rec in purchases(src, resp)]
+    if paired_only:
+        arms = defaultdict(set)
+        for rec in recs:
+            arms[(rec['aid'], rec['case'])].add(rec['arm'])
+        complete = {k for k, v in arms.items() if {'off', 'on'} <= v}
+        recs = [r for r in recs if (r['aid'], r['case']) in complete]
+    for rec in recs:
+        bucket[(rec['case'], rec['arm'])].append(
+            (rec['aid'], cell_totals(rec, str(homes.get(rec['aid']) or ''))))
     return bucket
 
 
-def collect_blocks(runs, homes):
+def collect_blocks(runs, homes, paired_only=False):
     """One bucket per run. A run is a seed block, and blocks vary more than cells do.
 
     Resampling cells alone gave the same prompt "undecided" in one block and
     "confidently wrong" in the next (v25's DS-1 across seeds 63001-4 and 64001-4).
     That spread is real and a cell-only bootstrap cannot see it.
     """
-    return [collect([r], homes) for r in runs]
+    return [collect([r], homes, paired_only) for r in runs]
 
 
 def summed(bucket, pick=None):
@@ -160,6 +166,12 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--cluster', action='store_true',
                     help='resample citizens as bundles; use when there is one replicate')
+    # 2026-09-21: 조립에서 팔마다 다른 수의 칸이 탈락한다. 120명 local_voucher 에서
+    # off 만 남은 짝 19개 대 on 만 남은 짝 4개(McNemar p=0.003) — 정책 문구가 자원
+    # 게이트를 더 자주 못 넘게 만든다. 짝이 깨진 칸을 섞어 재면 on/off 차이에
+    # 탈락 편향이 섞인다.
+    ap.add_argument('--paired-only', action='store_true',
+                    help='양쪽 팔이 다 남은 (사람·기전) 짝만 쓴다')
     args = ap.parse_args()
 
     personas = json.loads(Path(args.frozen).read_text(encoding='utf-8'))['personas']
@@ -171,8 +183,8 @@ def main():
         src, resp = paths.split(':', 1)
         runs.append((src, resp))
 
-    bucket = collect(runs, homes)
-    blocks = collect_blocks(runs, homes) if len(runs) > 1 else None
+    bucket = collect(runs, homes, args.paired_only)
+    blocks = collect_blocks(runs, homes, args.paired_only) if len(runs) > 1 else None
     point = indicators(summed(bucket))
     if args.cluster:
         ci, n_clusters = cluster_bootstrap(bucket, args.draws)
@@ -188,6 +200,7 @@ def main():
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(json.dumps({
         'method': method,
         'resample_unit': 'citizen' if args.cluster else 'seed block then cell',
+        'paired_only': bool(args.paired_only),
         'clusters': n_clusters,
         'blocks': len(runs),
         'runs': len(runs), 'cells_per_case_arm': cells, 'draws': args.draws,
