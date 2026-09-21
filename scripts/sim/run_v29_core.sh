@@ -1,13 +1,13 @@
 #!/bin/bash
-# v29 — 120명·거리두기 전용·240칸을 씨앗 둘로 계획한다 (480 응답, v27 과 같은 계산량).
+# v29 — 179명·거리두기 전용·358칸을 씨앗 둘로 계획한다 (716 응답).
 # 프롬프트는 v25 그대로. 바뀌는 것은 볼일을 받는 사람 수와 시나리오 범위뿐이다.
 set -uo pipefail
 cd /data/validation_v3/repo
-BASE=/data/validation_v29_cohort120
+BASE=/data/validation_v29_cohort179
 mkdir -p $BASE
 TOK=/data/hf_cache/hub/models--LGAI-EXAONE--EXAONE-4.5-33B-AWQ/snapshots/31e6a965d0661bbe4a8b895e22a77f8271772ba0
-SRC=/data/cohort120/source_v29.json
-CFG=data/experiments/validation_v29_cohort120_dinein.json
+SRC=/data/cohort179/source_v29.json
+CFG=data/experiments/validation_v29_cohort179_dinein.json
 say(){ echo "[$(date +%H:%M:%S)] $*" | tee -a $BASE/v29.log; }
 
 # 사전등록한 소스를 실제로 쓰고 있는지 먼저 확인한다. 설정에 적힌 해시와 다르면 멈춘다.
@@ -26,7 +26,7 @@ fi
 say "사전검사: 제외 $(python3 -c "import json;d=json.load(open('$PRE'));print(len(d['rejected'])+len(d['unbuildable']))")칸"
 
 ROOT=$BASE/v25d; mkdir -p $ROOT
-say "########## 계획 240칸 x 씨앗 2 = 480 ##########"
+say "########## 계획 358칸 x 씨앗 2 = 716 ##########"
 /data/plan_until_done.sh $CFG $SRC $ROOT/plans_0 "$PRE" 12 \
   || { say "계획 실패"; tail -8 $ROOT/plans_0.log; exit 1; }
 say "계획 완료"
