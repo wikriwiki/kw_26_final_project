@@ -41,9 +41,13 @@ try:
 except Exception:
     pass
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import driver_session  # noqa: E402
+# `_common` 이라는 이름의 모듈이 저장소에 둘 있다 (neo4j_load, persona). 짧은 이름으로
+# 받으면 먼저 import 된 쪽이 sys.modules 에 남아 이긴다 — 페르소나 테스트가 앞서 돌면
+# 이 줄이 엉뚱한 모듈을 집어 9개 테스트가 수집조차 안 됐다. run_simulation 과 같은
+# 명시적 형태로 받는다.
+from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import _strip_lifestyle_first_line  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 

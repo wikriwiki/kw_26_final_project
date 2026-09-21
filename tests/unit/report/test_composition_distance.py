@@ -65,8 +65,10 @@ def test_block_bootstrap_is_wider_than_cell_only():
 
     def blk(on, off, n=10):
         b = defaultdict(list)
-        b[('grant', 'on')] = [defaultdict(float, {'total': on, 'cells': 1.0}) for _ in range(n)]
-        b[('grant', 'off')] = [defaultdict(float, {'total': off, 'cells': 1.0}) for _ in range(n)]
+        b[('grant', 'on')] = [('c%d' % i, defaultdict(float, {'total': on, 'cells': 1.0}))
+                              for i in range(n)]
+        b[('grant', 'off')] = [('c%d' % i, defaultdict(float, {'total': off, 'cells': 1.0}))
+                               for i in range(n)]
         return b
 
     blocks = [blk(200.0, 100.0), blk(100.0, 100.0), blk(400.0, 100.0)]
@@ -88,8 +90,12 @@ def test_one_block_degenerates_to_the_cell_bootstrap():
     from pool_indicators import bootstrap
 
     b = defaultdict(list)
-    b[('grant', 'on')] = [defaultdict(float, {'total': 150.0, 'cells': 1.0}) for _ in range(8)]
-    b[('grant', 'off')] = [defaultdict(float, {'total': 100.0, 'cells': 1.0}) for _ in range(8)]
+    # 2026-09-22: 시민 군집 붓스트랩이 들어오면서 칸 하나가 (시민, 값) 짝이 됐다.
+    # 군집으로 재추출하려면 어느 시민의 칸인지가 칸 옆에 붙어 있어야 한다.
+    b[('grant', 'on')] = [('c%d' % i, defaultdict(float, {'total': 150.0, 'cells': 1.0}))
+                          for i in range(8)]
+    b[('grant', 'off')] = [('c%d' % i, defaultdict(float, {'total': 100.0, 'cells': 1.0}))
+                           for i in range(8)]
     assert bootstrap(b, 300, blocks=[b])['EM-3'] == bootstrap(b, 300, blocks=None)['EM-3']
 
 
