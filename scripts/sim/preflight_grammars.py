@@ -39,14 +39,44 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from temporal_choice_grammar import build
 
 
+def server_tokenizer_info(tokenizer_path):
+    """The TokenizerInfo the server builds, not a convenient approximation.
+
+    The first version of this check passed a grammar that then killed the server anyway.
+    It compiled with `TokenizerInfo.from_huggingface(tokenizer)`; SGLang compiles with the
+    model's own vocab_size and stop tokens (xgrammar_backend.XGrammarGrammarBackend), and
+    the automaton those produce is not the same one. A check that compiles a different
+    grammar than the server does is not a check.
+    """
+    import json as _json
+    import xgrammar
+    from transformers import AutoTokenizer
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, trust_remote_code=True)
+    config = _json.loads((Path(tokenizer_path) / 'config.json').read_text(encoding='utf-8'))
+    vocab_size = config.get('vocab_size') or len(tokenizer)
+    stop = config.get('eos_token_id')
+    if stop is None:
+        gen = Path(tokenizer_path) / 'generation_config.json'
+        if gen.exists():
+            stop = _json.loads(gen.read_text(encoding='utf-8')).get('eos_token_id')
+    if isinstance(stop, int):
+        stop = [stop]
+    return xgrammar.TokenizerInfo.from_huggingface(
+        tokenizer, vocab_size=vocab_size, stop_token_ids=stop), vocab_size, stop
+
+
 def compiles(ebnf, tokenizer_info):
-    """True if xgrammar can compile this grammar. Forked, because an abort is not catchable."""
+    """True if xgrammar can compile this grammar. Forked, because an abort is not catchable.
+
+    Compiled the way the server compiles it: a raw EBNF string, and a GrammarCompiler with
+    its default thread count. Pinning max_threads=1 hid a failure that only appears when
+    the compile is threaded.
+    """
     import xgrammar
     pid = os.fork()
     if pid == 0:
         try:
-            xgrammar.GrammarCompiler(tokenizer_info, max_threads=1).compile_grammar(
-                xgrammar.Grammar.from_ebnf(ebnf))
+            xgrammar.GrammarCompiler(tokenizer_info=tokenizer_info).compile_grammar(ebnf)
             os._exit(0)
         except BaseException:
             os._exit(3)
@@ -71,10 +101,8 @@ def main():
             json.dumps({'checked': 0, 'rejected': [], 'grammar_free': True}, ensure_ascii=False))
         return 0
 
-    import xgrammar
-    from transformers import AutoTokenizer
-    info = xgrammar.TokenizerInfo.from_huggingface(
-        AutoTokenizer.from_pretrained(args.tokenizer, trust_remote_code=True))
+    info, vocab_size, stop = server_tokenizer_info(args.tokenizer)
+    print('토크나이저: vocab_size=%s · stop_token_ids=%s' % (vocab_size, stop))
 
     # build() reads cell['has_work'] through the activity catalog, and the planner sets it
     # from the persona just before building. Without it every cell raises and the check
@@ -106,6 +134,8 @@ def main():
         'uncompilable_grammars': sum(1 for ok in verdict.values() if not ok),
         'rejected': rejected,
         'unbuildable': unbuildable,
+        'tokenizer': {'vocab_size': vocab_size, 'stop_token_ids': stop,
+                      'note': '서버(xgrammar_backend)와 같은 값으로 컴파일했다.'},
         'reason': ('xgrammar 가 컴파일하지 못하는 문법을 서버에 보내면 C++ abort 로 '
                    '서버 전체가 죽고, 그 뒤 모든 칸이 timeout 을 값으로 기록한다.'),
         'note': '제외된 칸은 행렬을 불완전하게 만든다. 라운드 문서에 그대로 적을 것.',

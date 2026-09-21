@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import random
+import re
 import time
 from urllib.request import urlopen
 from action_plan_contract import catalog, schema, inspect
@@ -60,9 +61,33 @@ def invoke(job, config, base, prefixes, folder):
         report['factual_errors'] = failures
         report['eligible'] = report['valid'] and not failures
         row.update(report)
-    except Exception as exc: row.update(valid=False, eligible=False, errors=['request_or_contract'], error=str(exc))
+        INFRA['count'] = 0     # 한 번이라도 답이 오면 서버는 살아 있다
+    except Exception as exc:
+        row.update(valid=False, eligible=False, errors=['request_or_contract'], error=str(exc))
+        # A refused connection is not this citizen's result; it means the server is gone.
+        # On 2026-09-21 an xgrammar abort killed the server mid-run and 694 of 950 cells
+        # were written as eligible=False — a wrong value, not a missing one, which reads
+        # afterwards as "this prompt fails the resource gate a lot". Count them, and let
+        # the run stop rather than keep filling the round with infrastructure failure.
+        if INFRA_RE.search(str(exc)):
+            INFRA['count'] += 1
+        else:
+            INFRA['count'] = 0
     row['elapsed_seconds'] = round(time.monotonic() - started, 3)
     return row
+
+
+# 서버는 두 가지로 사라진다. 13:21 에는 멎어서 요청이 전부 timed out 됐고,
+# 15:33 에는 죽어서 Connection refused 가 났다. 둘 다 그 칸의 결과가 아니다.
+# 느린 칸 하나로 멈추지 않는 것은 **연속**이라는 조건이 맡는다 — 답이 하나라도
+# 오면 계수기가 0으로 돌아간다.
+INFRA_RE = re.compile(r'Connection refused|Connection reset|Remote end closed|'
+                      r'urlopen error|Max retries exceeded|Errno 111|timed out')
+INFRA = {'count': 0, 'limit': 12}
+
+
+class ServerGone(RuntimeError):
+    """The server stopped answering. Stop the round instead of recording its silence."""
 
 
 def main():
@@ -135,6 +160,18 @@ def main():
         for future in as_completed(pending):
             row = future.result(); rows.append(row); fp.write(json.dumps(row, ensure_ascii=False)+'\n'); fp.flush(); os.fsync(fp.fileno())
             print(f"completed {len(rows)}/{len(jobs)} {row['variant']} {row['case']} eligible={row['eligible']} errors={row['errors']} factual={row.get('factual_errors')} error={row.get('error','')}", flush=True)
+            if INFRA['count'] >= INFRA['limit']:
+                for f in pending: f.cancel()
+                atomic(folder/'ABORTED_SERVER_GONE.json', {
+                    'aborted_at': datetime.now(timezone.utc).isoformat(),
+                    'consecutive_connection_failures': INFRA['count'],
+                    'rows_written': len(rows), 'jobs': len(jobs),
+                    'reason': ('연속 %d회 연결 실패. 서버가 사라진 것이지 이 칸들의 결과가 '
+                               '아니다. 여기서 멈추지 않으면 기반 고장이 eligible=False 로 '
+                               '기록돼 라운드가 오염된다.' % INFRA['count']),
+                })
+                raise ServerGone('연속 %d회 연결 실패 — %d/%d 에서 중단한다'
+                                 % (INFRA['count'], len(rows), len(jobs)))
     summary = {'scope': 'Typed action protocol: representational hallucinations impossible by construction, independent factual/choice checks still required. Not prompt-only or macro validation.', 'macro_claim': False, 'variants': {}}
     expected = {(s, c['aid'], c['case'], c['arm']) for s in config['seeds'] for c in inputs['cells']}
     for candidate in config['candidates']:
