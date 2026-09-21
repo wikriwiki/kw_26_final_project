@@ -29,7 +29,7 @@ def lines(name):
 
 
 def test_candidates_name_no_policy_and_push_no_direction():
-    for name in ('v36', 'v37', 'v38'):
+    for name in ('v36', 'v37', 'v38', 'v39'):
         text = prompt(name)
         assert not [w for w in FORBIDDEN if w in text], name
         assert not re.search(r'\d+\s*(원|퍼센트)', text), name
@@ -47,7 +47,7 @@ def test_each_single_candidate_changes_exactly_one_line_of_v25():
 def test_nothing_is_added_only_removed():
     """지운 판이라면 새 낱말이 하나도 없어야 한다."""
     base = set(re.findall(r'[가-힣]+', prompt('v25')))
-    for name in ('v36', 'v37', 'v38'):
+    for name in ('v36', 'v37', 'v38', 'v39'):
         added = set(re.findall(r'[가-힣]+', prompt(name))) - base
         assert not added, (name, added)
         assert len(prompt(name)) < len(prompt('v25')), name
@@ -103,3 +103,25 @@ def test_v38_still_forbids_aiming_at_an_aggregate_and_padding():
     assert '활동 수를 채우려고' in v38
     assert '후보의 존재는 구매 의무가 아니다' in v38
     assert '연기·생략할 수 있다' in v38
+
+
+def test_v39_removes_the_line_that_builds_the_day_around_fixed_duties():
+    """통근이 있는 사람만 집 밖에서 산다 — 하루가 의무를 뼈대로 세워지기 때문이다."""
+    v25, v39 = prompt('v25'), prompt('v39')
+    assert '먼저 확정된 일정과 이동 시간을 배치하고' in v25
+    assert '먼저 확정된 일정과 이동 시간을 배치하고' not in v39
+    assert len(lines('v39')) == len(lines('v25')) - 1
+
+
+def test_v39_keeps_what_makes_the_day_possible():
+    """이 줄을 빼도 하루가 성립해야 한다. 빈 시간 규칙과 하루 범위는 남는다."""
+    v39 = prompt('v39')
+    assert '확정 일정이 없는 시간에는' in v39
+    assert '아침부터 저녁 마무리까지 표현한다' in v39
+    assert '더 긴 이동시간' in v39
+
+
+def test_v39_changes_only_the_ordering_line():
+    """다른 줄은 v25 그대로여야 한다 — 안 그러면 무엇이 움직였는지 못 가린다."""
+    kept = [l for l in lines('v25') if '먼저 확정된 일정과 이동 시간을 배치하고' not in l]
+    assert kept == lines('v39')

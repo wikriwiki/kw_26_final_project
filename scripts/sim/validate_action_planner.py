@@ -103,7 +103,7 @@ def main():
                     help='이미 있는 폴더에 이어 쓴다. 끝난 칸은 건너뛴다')
     args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); raw = Path(args.source).read_bytes()
     import importlib
-    if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28','v29','v30','v31','v32','v33','v34','v35','v36','v37','v38'}: raise ValueError('Unregistered prompt module')
+    if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28','v29','v30','v31','v32','v33','v34','v35','v36','v37','v38','v39'}: raise ValueError('Unregistered prompt module')
     system_prompt = importlib.import_module('prompts.' + config.get('prompt_module','v22')).SYSTEM_PROMPT
     assert hashlib.sha256(raw).hexdigest() == config['source_inputs_sha256']
     inputs = json.loads(raw); people = {p['id']: p for p in inputs['personas']}
