@@ -35,10 +35,23 @@ from daily_resource_contract import validate
 HEADER = '## 정책 적용 전 고정한 오늘의 조건'
 MARKER = '\n\n## 오늘\n'
 
-# The only purchase activities with no at-home anchor. An errand met by one of these
-# cannot be completed without leaving, which is the whole point.
+# Purchase activities with no at-home anchor. An errand met by one of these cannot be
+# completed without leaving, which is the whole point.
+#
+# 2026-09-22: the first version listed only four service categories, which left 식사·마트·
+# 쇼핑 out for no stated reason - an arbitrary restriction I wrote, not one the data asked
+# for. Eight of sixty citizens then got no errand at all because their mix had no service
+# share. Removing the restriction gives every citizen the category they actually spend most
+# on outside the house.
+#
+# The timing is disclosed in experiments/v27: this change was made AFTER learning that DS-1
+# has no dine-in denominator, and it does supply one. What it does not do is decide how much
+# of that dine-in collapses when the policy is on - that is the model's answer, and it is
+# what the round tests.
 SERVICE = {'hair': '미용', 'health_goods': '건강',
-           'leisure_service': '여가', 'education_service': '교육'}
+           'leisure_service': '여가', 'education_service': '교육',
+           'meal_dine_in': '식사', 'groceries': '마트', 'convenience': '편의점',
+           'cafe_dine_in': '디저트', 'other_service': '기타', 'bar': '주점'}
 
 # Two renderer generations are in use: the older cells say '…부여한 업종별 지출 구성:'
 # and the newer ones '평소 업종별 지출 구성(카드 실측):'. Requiring the colon to follow
