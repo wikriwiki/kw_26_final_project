@@ -1,0 +1,41 @@
+{
+ "id": "validation_v29_cohort120_dinein",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "2bbd11bff16cb820657058a46c14de3063c00cedc5d7c6be839f52474c19c9d2",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "v25_dinein",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  70001,
+  70002
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260922,
+ "phase": "This round changes no prompt text. It changes who gets the dine-in errand and which scenarios are planned. In the previous round the errand went to each citizen's own largest out-of-home category, which gave dine-in to twenty-one of sixty and left the dine-in indicator standing on two events per arm. Splitting that round by category showed the completion rate was not the problem: an errand tied to a resource is done about eleven times in a hundred, one tied to nothing about two, and eleven per cent of twenty-one cells is two events. So the rate is left alone and the denominator is widened - every citizen gets the same errand, only the distancing scenario is planned, and the freed compute buys a second sampling seed.",
+ "primary": "A denominator gate comes first: at least twenty dine-in events on the no-policy arm across both seeds, or no verdict is written on the dine-in indicator at all. Past that gate, the test is a citizen-clustered paired bootstrap on the change in dine-in amount between arms, and success is a 95% interval that excludes zero, reproduced in the same direction under both seeds.",
+ "limitations": [
+  "The errand category is assigned, not observed. Every citizen is given the same one, including the two whose own spending mix has none of it. The source file records this as forced_activity rather than as a rule read from the citizen.",
+  "It is assigned identically to both arms, so it can widen a denominator but cannot create a direction. Whether the errand survives the policy is the model's answer.",
+  "The errand stays optional. It is a need, not an entry in required_activities, because the previous round put it there and the temporal grammar then enforced it - both arms kept the appointment in every cell and the question disappeared.",
+  "Only the distancing scenario is planned. No indicator belonging to any other scenario may be read from this run.",
+  "The alignment of our dine-in measure against the published one is still unsettled: we do not know whether the published restaurant figure includes delivery. Both readings are to be reported side by side, and no verdict follows until that is resolved."
+ ],
+ "preflight": "630 unit checks pass, including twelve new ones on the forced errand and the scenario filter.",
+ "selection": "No new candidate. The v25 prompt module is carried unchanged from v27.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}
