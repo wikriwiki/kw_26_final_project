@@ -36,6 +36,7 @@ from . import v18  # noqa: E402  (verbatim evidence protocol)
 from . import v19  # noqa: E402  (grounded v11 with explicit place/time semantics)
 from . import v20, v21  # noqa: E402  (fact/choice separation and contrastive review)
 from . import v40  # noqa: E402  (v5 minus cashback contamination; format examples kept)
+from . import v42  # noqa: E402  (v40 plus the three contract defects found in raw output)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
 # v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
@@ -56,6 +57,7 @@ _VARIANTS: dict[str, ModuleType] = {
     "v20": v20,
     "v21": v21,
     "v40": v40,
+    "v42": v42,
 }
 DEFAULT = "p010"
 

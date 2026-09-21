@@ -17,7 +17,7 @@ say(){ echo "[$(date +%F' '%H:%M:%S)] $*" | tee -a $LOG; }
 say "사전등록 해시 대조"
 sha256sum data/experiments/validation_v41.json scripts/sim/prompts/v40.py | tee -a $LOG
 
-say "384 호출 시작 (v5 192 · v40 192)"
+say "576 호출 시작 (v5 192 · v40 192 · v42 192)"
 /data/venv_sgl/bin/python scripts/sim/validate_prompt_v3.py \
   --config data/experiments/validation_v41.json --out "$OUT" 2>&1 | tee -a $LOG
 
@@ -26,22 +26,34 @@ say "=== 결과 ==="
 import json
 d = json.load(open('/data/validation_v41/run/summary.json', encoding='utf-8'))
 v = d['variants']
+order = [n for n in ('v5', 'v40', 'v42') if n in v]
 print('%-6s %10s %10s %8s %10s %10s' % ('후보','응답','엄격통과','통과율','요청실패','오귀인'))
-for name in ('v5','v40'):
-    r = v.get(name)
-    if not r: continue
+for name in order:
+    r = v[name]
     print('%-6s %10s %10s %7.1f%% %10s %10s'
           % (name, '%d/%d' % (r['responses'], r['expected']), r['strict_valid'],
              100*r['strict_valid_rate'], r['failed'], r['false_policy_off_responses']))
-a, b = v.get('v5'), v.get('v40')
-if a and b:
+base = v.get('v5')
+if base:
     print()
-    print('사전등록 합격선: v40 통과율 >= v5 통과율')
-    print('  v5 %.1f%% · v40 %.1f%% → %s'
-          % (100*a['strict_valid_rate'], 100*b['strict_valid_rate'],
-             '통과' if b['strict_valid_rate'] >= a['strict_valid_rate'] else '기각'))
-    print('등록된 95%% 관문:',
-          '둘 다 미달' if max(a['strict_valid_rate'], b['strict_valid_rate']) < 0.95 else '확인 필요')
-    print('  → 둘 다 미달이면 v40 이 v5 보다 나아도 "통과했다"고 적지 않는다')
+    print('사전등록 합격선: 각 후보의 통과율 >= v5 의 통과율')
+    for name in order[1:]:
+        r = v[name]
+        print('  %-4s %.1f%% vs v5 %.1f%% → %s'
+              % (name, 100*r['strict_valid_rate'], 100*base['strict_valid_rate'],
+                 '자격' if r['strict_valid_rate'] >= base['strict_valid_rate'] else '기각'))
+    print()
+    print('두 변경을 갈라 읽는다')
+    if 'v40' in v:
+        print('  오염 제거   v40 - v5  = %+.1f%%p'
+              % (100*(v['v40']['strict_valid_rate'] - base['strict_valid_rate'])))
+    if 'v42' in v and 'v40' in v:
+        print('  형식 고침   v42 - v40 = %+.1f%%p'
+              % (100*(v['v42']['strict_valid_rate'] - v['v40']['strict_valid_rate'])))
+    print()
+    best = max(order, key=lambda n: v[n]['strict_valid_rate'])
+    print('등록된 95%% 관문: %s'
+          % ('전부 미달' if v[best]['strict_valid_rate'] < 0.95 else '%s 도달 — 확인 필요' % best))
+    print('  → 전부 미달이면 v5 보다 나아도 "통과했다"고 적지 않는다')
 PY
 say "=== V41_DONE ==="

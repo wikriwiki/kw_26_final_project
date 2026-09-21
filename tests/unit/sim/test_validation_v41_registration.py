@@ -14,7 +14,7 @@ V41 = json.loads((ROOT / 'data/experiments/validation_v41.json').read_text(encod
 
 # 이 라운드가 바꾸기로 선언한 것. 이 목록에 없는 키는 v3 와 같아야 한다.
 DECLARED = {'id', 'registered_on', 'candidates', 'phase', 'decision',
-            'predicted', 'not_changed'}
+            'predicted', 'not_changed', 'amended_on', 'amendment'}
 
 
 @pytest.mark.parametrize('key', sorted(set(V3) - DECLARED))
@@ -22,9 +22,19 @@ def test_every_undeclared_field_is_copied_unchanged(key):
     assert V41[key] == V3[key], '%r 이 v3 와 다르다' % key
 
 
-def test_only_the_candidate_changed():
+def test_only_the_candidates_changed():
     assert V3['candidates'] == ['v5', 'v10']
-    assert V41['candidates'] == ['v5', 'v40']
+    assert V41['candidates'] == ['v5', 'v40', 'v42']
+
+
+def test_the_amendment_says_it_landed_before_any_cell_ran():
+    assert 'before any cell ran' in V41['amendment']
+
+
+def test_the_chain_keeps_the_two_changes_separable():
+    """v40 대 v5 는 오염, v42 대 v40 은 형식. 둘을 한 후보에 섞으면 못 가른다."""
+    assert V41['candidates'] == ['v5', 'v40', 'v42']
+    assert 'separable' in V41['amendment']
 
 
 def test_the_incumbent_is_re_measured_in_the_same_run():
