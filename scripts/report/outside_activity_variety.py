@@ -61,8 +61,9 @@ def load_rows(spec):
 def measure(rows):
     used = Counter()
     per_cell, home_only = [], 0
+    by_cell = {}
     cells = 0
-    for _, r in rows.items():
+    for key, r in rows.items():
         events = (r.get('execution_plan') or {}).get('events', [])
         if not events:
             continue
@@ -72,25 +73,45 @@ def measure(rows):
         for a in kinds:
             used[a] += 1
         per_cell.append(len(kinds))
+        # 같은 칸(사람·기전·팔)을 두 후보가 어떻게 달리 계획했는지 짝지으려면
+        # 칸 이름으로 찾을 수 있어야 한다. 복제는 키에서 뺀다 — 후보끼리 seed 가 같다.
+        by_cell[key[1:]] = len(kinds)
         if at_home and not kinds:
             home_only += 1
-    return {'cells': cells, 'used': used, 'per_cell': per_cell, 'home_only_cells': home_only}
+    return {'cells': cells, 'used': used, 'per_cell': per_cell,
+            'by_cell': by_cell, 'home_only_cells': home_only}
 
 
-def paired_bootstrap(a, b, draws=4000, seed=20260921):
-    """Difference in per-cell variety, resampling cells. Positive means b uses more kinds."""
-    n = min(len(a), len(b))
+def paired_bootstrap(a, b, draws=4000, seed=20260921, a_cells=None, b_cells=None):
+    """Difference in per-cell variety. Matched by cell when both sides expose their cells.
+
+    Two candidates plan the same 480 cells, so the same citizen on the same day appears on
+    both sides. Matching them removes the between-citizen variance, which is most of the
+    variance here: v18 ran 0.03 per cell on sixty citizens and 0.16 on twelve. An unmatched
+    comparison carries that spread into the interval for no reason.
+
+    Falls back to comparing the two distributions when the cells cannot be matched.
+    """
+    if a_cells and b_cells:
+        shared = sorted(set(a_cells) & set(b_cells))
+        diffs = [b_cells[k] - a_cells[k] for k in shared]
+        matched = True
+    else:
+        n = min(len(a), len(b))
+        diffs = [b[i] - a[i] for i in range(n)]
+        matched = False
+    n = len(diffs)
     if n < 20:
         return None
-    diffs = [b[i] - a[i] for i in range(n)]
     rng = random.Random(seed)
     point = sum(diffs) / n
     draw = sorted(sum(diffs[rng.randrange(n)] for _ in range(n)) / n for _ in range(draws))
     lo, hi = draw[int(0.025 * draws)], draw[int(0.975 * draws) - 1]
     return {'mean_difference': point, 'ci95': [lo, hi],
-            'resolved': (lo > 0) == (hi > 0), 'cells_compared': n,
-            'note': ('칸을 재추출한 차이다. 같은 칸끼리 짝지은 것이 아니라 분포끼리 견준 것이므로 '
-                     '후보가 같은 코호트·같은 seed 일 때만 뜻이 있다.')}
+            'resolved': (lo > 0) == (hi > 0), 'cells_compared': n, 'cell_matched': matched,
+            'note': ('같은 칸끼리 짝지어 뺀 차이다. 사람 간 분산이 빠져 구간이 좁다.'
+                     if matched else
+                     '칸을 짝짓지 못해 분포끼리 견줬다. 사람 간 분산이 구간에 그대로 남는다.')}
 
 
 def main():
@@ -124,7 +145,9 @@ def main():
     if len(order) >= 2:
         base = order[0]
         doc['vs_baseline'] = {'baseline': base, 'comparisons': {
-            label: paired_bootstrap(results[base]['per_cell'], results[label]['per_cell'])
+            label: paired_bootstrap(results[base]['per_cell'], results[label]['per_cell'],
+                                    a_cells=results[base].get('by_cell'),
+                                    b_cells=results[label].get('by_cell'))
             for label in order[1:]}}
 
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(
@@ -144,9 +167,10 @@ def main():
             if r is None:
                 print('    %-6s (칸이 모자라 견줄 수 없다)' % label)
                 continue
-            print('    %-6s %+.4f  [%+.4f, %+.4f]  %s'
+            print('    %-6s %+.4f  [%+.4f, %+.4f]  칸 %d %s %s'
                   % (label, r['mean_difference'], r['ci95'][0], r['ci95'][1],
-                     '갈림' if r['resolved'] else '← 0을 지난다'))
+                     r['cells_compared'], '짝지음' if r.get('cell_matched') else '분포비교',
+                     '· 갈림' if r['resolved'] else '· 0을 지난다'))
     return 0
 
 
