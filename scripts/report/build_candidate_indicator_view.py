@@ -74,15 +74,30 @@ def main():
     ap.add_argument('--out', required=True)
     args = ap.parse_args()
 
-    cands = {}
+    cands, meta = {}, {}
     for item in args.cand:
         label, path = item.split('=', 1)
-        cands[label] = json.loads(Path(path).read_text(encoding='utf-8'))['pooled']
+        doc = json.loads(Path(path).read_text(encoding='utf-8'))
+        cands[label] = doc['pooled']
+        meta[label] = doc
     labels = list(cands)
 
+    # These were hardcoded to the twelve-citizen runs (384칸 · 4 seed · 2,000회) and stayed
+    # wrong for every later cohort. Read them from the pooled files that were actually passed.
+    sizes = ' · '.join('%s %d칸' % (c, sum((meta[c].get('cells_per_case_arm') or {}).values()))
+                       for c in labels)
+    one = meta[labels[0]]
+    draws = one.get('draws', 2000)
+    unit = {'citizen': '시민을 통째로 재추출',
+            'seed block then cell': '블록을 먼저, 그 안에서 칸을 재추출'}.get(
+                one.get('resample_unit'), '칸을 재추출')
+    blocks = one.get('blocks', 1)
     L = ['# 정답지 × 후보 — 지표별로 나란히', '',
-         f'> 후보 {len(labels)}개: **{" · ".join(labels)}**. 각 후보 **384칸**(4 seed 결제 합산).',
-         '> 괄호는 칸 붓스트랩 95% 구간(2,000회). 구간이 0을 지나면 부호조차 말할 수 없다.', '',
+         f'> 후보 {len(labels)}개: **{" · ".join(labels)}** · {sizes}.',
+         f'> 괄호는 95% 붓스트랩 구간({draws:,}회, {unit}). 구간이 0을 지나면 부호조차 말할 수 없다.', '']
+    if blocks < 2 and one.get('resample_unit') != 'citizen':
+        L += ['> **주의 — 복제가 하나뿐이라 구간이 실제보다 좁다.** v7 에서 이 조건의 판정을 철회한 적이 있다.', '']
+    L += [
          '> **금액은 맞대지 않는다.** 카탈로그는 낱개 단가, 실측은 카드매출이다. 비율만 같은 종류의 수다.', '']
 
     rows = []

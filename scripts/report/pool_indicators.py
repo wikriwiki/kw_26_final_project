@@ -55,7 +55,7 @@ def collect(runs, homes):
     for src, resp in runs:
         for rec in purchases(src, resp):
             bucket[(rec['case'], rec['arm'])].append(
-                cell_totals(rec, str(homes.get(rec['aid']) or '')))
+                (rec['aid'], cell_totals(rec, str(homes.get(rec['aid']) or ''))))
     return bucket
 
 
@@ -76,7 +76,7 @@ def summed(bucket, pick=None):
         idx = range(len(cells)) if pick is None else pick[key]
         acc = defaultdict(float)
         for i in idx:
-            for k, v in cells[i].items():
+            for k, v in cells[i][1].items():
                 acc[k] += v
         out[key] = acc
     return out
@@ -89,6 +89,48 @@ def merge(blocks, chosen):
         for k, v in blocks[i].items():
             out[k].extend(v)
     return out
+
+
+def percentiles(keep):
+    out = {}
+    for name, vals in keep.items():
+        vals.sort()
+        n = len(vals)
+        if n < 20:
+            continue
+        out[name] = {'lo': vals[int(0.025 * n)], 'hi': vals[int(0.975 * n) - 1],
+                     'draws': n,
+                     'sign_stable': (vals[int(0.025 * n)] > 0) == (vals[int(0.975 * n) - 1] > 0)}
+    return out
+
+
+def cluster_bootstrap(bucket, draws, seed=20260921):
+    """Resample citizens, keeping every cell each drawn citizen contributed.
+
+    v18 ran a single replicate, so the two-stage bootstrap degenerates to the cell
+    bootstrap whose intervals v7 showed were too narrow. The citizen is the next
+    honest unit: the cohort is drawn by person, one person's cells move together,
+    and resampling them as a bundle keeps that dependence instead of assuming it away.
+    """
+    rng = random.Random(seed)
+    by_aid = defaultdict(lambda: defaultdict(list))
+    for key, cells in bucket.items():
+        for aid, totals in cells:
+            by_aid[aid][key].append(totals)
+    aids = sorted(by_aid)
+    keep = defaultdict(list)
+    for _ in range(draws):
+        drawn = [aids[rng.randrange(len(aids))] for _ in aids]
+        acc = {}
+        for aid in drawn:
+            for key, rows in by_aid[aid].items():
+                bag = acc.setdefault(key, defaultdict(float))
+                for totals in rows:
+                    for k, v in totals.items():
+                        bag[k] += v
+        for name, val in indicators(acc).items():
+            keep[name].append(val)
+    return percentiles(keep), len(aids)
 
 
 def bootstrap(bucket, draws, seed=20260920, blocks=None):
@@ -106,16 +148,7 @@ def bootstrap(bucket, draws, seed=20260920, blocks=None):
         pick = {k: [rng.randrange(len(v)) for _ in v] for k, v in bucket.items()}
         for name, val in indicators(summed(bucket, pick)).items():
             keep[name].append(val)
-    out = {}
-    for name, vals in keep.items():
-        vals.sort()
-        n = len(vals)
-        if n < 20:
-            continue
-        out[name] = {'lo': vals[int(0.025 * n)], 'hi': vals[int(0.975 * n) - 1],
-                     'draws': n,
-                     'sign_stable': (vals[int(0.025 * n)] > 0) == (vals[int(0.975 * n) - 1] > 0)}
-    return out
+    return percentiles(keep)
 
 
 def main():
@@ -125,6 +158,8 @@ def main():
     ap.add_argument('--frozen', required=True)
     ap.add_argument('--draws', type=int, default=2000)
     ap.add_argument('--out', required=True)
+    ap.add_argument('--cluster', action='store_true',
+                    help='resample citizens as bundles; use when there is one replicate')
     args = ap.parse_args()
 
     personas = json.loads(Path(args.frozen).read_text(encoding='utf-8'))['personas']
@@ -139,12 +174,21 @@ def main():
     bucket = collect(runs, homes)
     blocks = collect_blocks(runs, homes) if len(runs) > 1 else None
     point = indicators(summed(bucket))
-    ci = bootstrap(bucket, args.draws, blocks=blocks)
+    if args.cluster:
+        ci, n_clusters = cluster_bootstrap(bucket, args.draws)
+        method = ('Sum every run, then take the ratio once. The interval resamples '
+                  'citizens as bundles, because one replicate leaves the seed-block '
+                  'bootstrap nothing to resample and a cell-only interval is too narrow.')
+    else:
+        ci, n_clusters = bootstrap(bucket, args.draws, blocks=blocks), None
+        method = ('Sum every run, then take the ratio once. Interval resamples seed blocks '
+                  'first, then cells inside them, because blocks vary more than cells.')
     cells = {f'{c}|{a}': len(v) for (c, a), v in bucket.items()}
 
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(json.dumps({
-        'method': 'Sum every run, then take the ratio once. Interval resamples seed blocks '
-                  'first, then cells inside them, because blocks vary more than cells.',
+        'method': method,
+        'resample_unit': 'citizen' if args.cluster else 'seed block then cell',
+        'clusters': n_clusters,
         'blocks': len(runs),
         'runs': len(runs), 'cells_per_case_arm': cells, 'draws': args.draws,
         'pooled': {k: {'mean': v,
@@ -155,7 +199,8 @@ def main():
                    for k, v in point.items()},
     }, ensure_ascii=False, indent=1))
 
-    print('wrote', args.out, f'(런 {len(runs)} 묶음 · 붓스트랩 {args.draws})')
+    unit = f'시민 {n_clusters}명 군집' if args.cluster else f'런 {len(runs)} 묶음'
+    print('wrote', args.out, f'({unit} · 붓스트랩 {args.draws})')
     for k in sorted(point):
         c = ci.get(k, {})
         mark = '' if c.get('sign_stable') else '   ← 구간이 0을 지난다'
