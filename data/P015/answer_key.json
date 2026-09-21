@@ -1,0 +1,111 @@
+{
+ "policy_id": "P015",
+ "title": "업종형 소비쿠폰 — 홀드아웃 (정답 봉인)",
+ "kind": "holdout",
+ "cell_date": null,
+ "real_world_counterpart": null,
+ "answer_key_source": "봉인 — 채점 1회에만 개봉. 지표는 **돌리기 전에** 정책 설계만 보고 적었다.",
+ "mechanism": "sector_voucher",
+ "indicators": [
+  {
+   "id": "HO-1",
+   "description": "농수산물(마트) 지출 몫 증가 — 20% 할인(최대 1만원) 대상",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "sector_share:마트",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "HO-2",
+   "description": "관광·숙박·체육 몫 증가 — 여행 30%·숙박 3만원·체육 3만원. 세 업종을 묶은 것은 각각의 관측 수가 적어서다(POI 는 각 4천~6천개로 충분하다)",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "sector_share:여행사|숙박|헬스장",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "HO-3",
+   "description": "쿠폰 대상 업종 전체가 총지출에서 차지하는 몫 증가 — 기전의 핵심 예측",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "elig_spend_share",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "HO-4",
+   "description": "마트 지출 금액 증가 — 금액 수준. 하루 총액이 앵커에 묶여 있어 몫보다 보수적으로 움직인다",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "sector_spend:마트",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "HO-5",
+   "description": "거주 행정동 소비 비중 무변 — 서울 전역 정책이라 동네로 몰릴 유인이 없다. 지역화폐(P014)와 가르는 지점이다 — 그쪽은 가맹점이 거주 자치구로 제한된다",
+   "expected_sign": "0",
+   "expected_meaning": "무반응 (방어선)",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "home_dong_spend_share",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "HO-6",
+   "description": "총소비 무반응 — 새 돈을 주는 지갑이 아니라 할인·환급이다. 지갑(긴급재난지원금 +12.6%)과 가르는지 보는 방어선",
+   "expected_sign": "0",
+   "expected_meaning": "무반응 (방어선)",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "total_spend_paired",
+   "simulation_cannot_produce": null
+  }
+ ],
+ "note": "실측값과 기대부호는 공개된 연구의 결과다. 프롬프트에는 들어가지 않는다 — 검사로 고정돼 있다.",
+ "sealed": {
+  "mechanism": "sector_voucher",
+  "window": "2020-10-30 ~ 2020-11-22",
+  "answer_key": "봉인 — 팀 보관, 최종 채점 1회에만 개봉",
+  "indicators": "사전등록 완료(2026-09-15) — 최상위 키 SECTOR_VOUCHER_2020 참조. 정답값은 여전히 봉인.",
+  "scorable_sectors": [
+   "외식",
+   "체육",
+   "숙박",
+   "여가:여행사",
+   "마트:농수산물"
+  ],
+  "excluded_sectors": [
+   "영화",
+   "공연",
+   "전시"
+  ],
+  "excluded_reason": "소상공인 상가정보에 없어 POI 0",
+  "policy_file": "data/neo4j_load/policies/P015.json",
+  "policy_id": "P015",
+  "run_design": {
+   "warmup": "2020-10-23:2020-10-25 (채점 제외)",
+   "off": "2020-10-26:2020-10-27 (월·화, 발효 전)",
+   "on": "2020-11-02:2020-11-03 (월·화, 발효 후)",
+   "start": "2020-10-23",
+   "days": 12,
+   "day0": "2020-10-22",
+   "note": "요일 정합(월·화 대 월·화) + 워밍업 3일. 발효일은 2020-10-30(금)이라 off 는 발효 전, on 은 발효 후 첫 평일 쌍이다. 구간 전체가 거리두기 1단계(11-19 부터 1.5단계)라 방역 간섭이 적다."
+  },
+  "plumbing_status": "**코드 수정 없이 붙었다.** 정책 JSON 의 sectors 파라미터를 mechanisms/sector_voucher 가 읽어 렌더한다. 이것이 일반화 주장의 실체다 — 홀드아웃을 붙이느라 배관을 고쳤다면 그 시점에 홀드아웃의 의미가 약해진다.",
+  "sealed_rule": "효과분석은 열지 않았다. 시행방안·보도자료만 보고 만들었다. **최종 후보로 딱 한 번만 돌린다** — 돌려보고 프롬프트를 고치면 홀드아웃이 아니다. 채점 지표는 봉인 해제 시 기입한다."
+ },
+ "sealed_note": "정답값은 봉인돼 있다. 홀드아웃은 최종 채점 1회에만 개봉하고, 이미 한 번 썼으면 다시 돌리지 않는다."
+}
