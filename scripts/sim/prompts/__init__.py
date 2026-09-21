@@ -38,6 +38,7 @@ from . import v20, v21  # noqa: E402  (fact/choice separation and contrastive re
 from . import v40  # noqa: E402  (v5 minus cashback contamination; format examples kept)
 from . import v42  # noqa: E402  (v40 plus the three contract defects found in raw output)
 from . import v45  # noqa: E402  (v42 with the remaining wallet-policy vocabulary removed)
+from . import v46  # noqa: E402  (v45 with the time rule stated as checked and the example sorted)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
 # v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
@@ -60,6 +61,7 @@ _VARIANTS: dict[str, ModuleType] = {
     "v40": v40,
     "v42": v42,
     "v45": v45,
+    "v46": v46,
 }
 DEFAULT = "p010"
 
