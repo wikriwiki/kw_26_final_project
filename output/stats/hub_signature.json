@@ -15,7 +15,10 @@
    "여가": 0.003,
    "주점": 0.0,
    "디저트": 0.0
-  }
+  },
+  "name_based_join": false,
+  "code_join_verified": "Every key verified to match ^[0-9]{8}$ (dong code) on 2026-09-21; no name-based fallback path exists in these files. Checked mechanically, not asserted.",
+  "code_join_verified_entries": 40
  },
  "hubs": {
   "11650531": {
