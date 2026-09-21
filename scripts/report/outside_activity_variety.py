@@ -119,10 +119,13 @@ def main():
             'cells_with_any_outside': sum(1 for v in per if v),
             'cells_buying_only_from_home': m['home_only_cells'],
         }
-    if len(order) == 2:
-        doc['paired_vs'] = {'a': order[0], 'b': order[1],
-                            'result': paired_bootstrap(results[order[0]]['per_cell'],
-                                                       results[order[1]]['per_cell'])}
+    # 첫 번째 런을 대조군으로 보고 나머지를 하나씩 견준다. v21 은 후보가 셋이라
+    # 둘씩만 비교하면 한 번에 판정할 수 없다.
+    if len(order) >= 2:
+        base = order[0]
+        doc['vs_baseline'] = {'baseline': base, 'comparisons': {
+            label: paired_bootstrap(results[base]['per_cell'], results[label]['per_cell'])
+            for label in order[1:]}}
 
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(
         json.dumps(doc, ensure_ascii=False, indent=1))
@@ -133,11 +136,17 @@ def main():
               % (label, d['distinct_kinds_used'], d['kinds_available'],
                  d['mean_kinds_per_cell'], d['cells_with_any_outside'], d['cells']))
         print('               한 번도 안 쓴 것: %s' % ', '.join(d['never_used']))
-    pv = (doc.get('paired_vs') or {}).get('result')
-    if pv:
-        print('  차이 (%s − %s)  %+.4f  [%+.4f, %+.4f]%s'
-              % (order[1], order[0], pv['mean_difference'], pv['ci95'][0], pv['ci95'][1],
-                 '' if pv['resolved'] else '   ← 구간이 0을 지난다'))
+    vb = doc.get('vs_baseline')
+    if vb:
+        print()
+        print('  대조군 %s 대비' % vb['baseline'])
+        for label, r in vb['comparisons'].items():
+            if r is None:
+                print('    %-6s (칸이 모자라 견줄 수 없다)' % label)
+                continue
+            print('    %-6s %+.4f  [%+.4f, %+.4f]  %s'
+                  % (label, r['mean_difference'], r['ci95'][0], r['ci95'][1],
+                     '갈림' if r['resolved'] else '← 0을 지난다'))
     return 0
 
 
