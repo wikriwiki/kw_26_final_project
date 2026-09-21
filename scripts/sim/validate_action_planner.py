@@ -68,12 +68,26 @@ def invoke(job, config, base, prefixes, folder):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--config', required=True); ap.add_argument('--source', required=True)
     ap.add_argument('--out', required=True); ap.add_argument('--tokenizer', required=True)
+    # 2026-09-21: 컴파일되지 않는 문법 하나가 서버를 죽이고, 그 뒤 모든 칸이 timeout 을
+    # 값으로 기록됐다. preflight_grammars.py 가 미리 걸러낸 칸을 여기서 뺀다.
+    ap.add_argument('--exclude', help='preflight_grammars.json — 여기 적힌 칸은 돌리지 않는다')
     args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); raw = Path(args.source).read_bytes()
     import importlib
-    if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28','v29','v30','v31','v32','v33','v34','v35'}: raise ValueError('Unregistered prompt module')
+    if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28','v29','v30','v31','v32','v33','v34','v35','v36','v37'}: raise ValueError('Unregistered prompt module')
     system_prompt = importlib.import_module('prompts.' + config.get('prompt_module','v22')).SYSTEM_PROMPT
     assert hashlib.sha256(raw).hexdigest() == config['source_inputs_sha256']
     inputs = json.loads(raw); people = {p['id']: p for p in inputs['personas']}
+    excluded = set()
+    if args.exclude:
+        doc = json.loads(Path(args.exclude).read_text(encoding='utf-8'))
+        excluded = {(r['aid'], r['case'], r['arm'])
+                    for r in doc.get('rejected', []) + doc.get('unbuildable', [])}
+        if excluded:
+            before = len(inputs['cells'])
+            inputs['cells'] = [c for c in inputs['cells']
+                               if (c['aid'], c['case'], c['arm']) not in excluded]
+            print('문법 사전검사로 제외한 칸 %d개 (%d → %d)'
+                  % (before - len(inputs['cells']), before, len(inputs['cells'])), flush=True)
     from transformers import AutoTokenizer
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer, local_files_only=True, trust_remote_code=True)
     prefixes = {}; frozen = []
