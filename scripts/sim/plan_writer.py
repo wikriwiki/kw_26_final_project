@@ -508,9 +508,13 @@ SET s.agent_id = $aid,
     // 오늘 자기 돈으로 나간 금액 = (가게 지출 - 지원금 결제분) + 배송 주문.
     // 배송 주문은 POI 방문이 없어 INCLUDES(today_spent)에 잡히지 않고, 소비쿠폰으로는
     // 결제할 수 없으므로(P010 사용처 조건) 전액 자기 돈에서 빠진다.
-    s.balance = CASE WHEN prev_balance - (today_spent - $today_policy_spent) - $today_online_spent < 0
+    // $today_income 은 기본 0 이다. 소득이 꺼져 있으면 이 식은 예전과 글자 하나 다르지
+    // 않다. 켜면 지갑이 정상상태가 된다 — 소득이 없으면 28일에 3분의 2가 빈털터리가
+    // 되고, 그 붕괴가 정책 효과로 읽힌다 (experiments/THE_PURSE_RUNS_DRY.md).
+    s.balance = CASE WHEN prev_balance + $today_income - (today_spent - $today_policy_spent) - $today_online_spent < 0
                      THEN 0
-                     ELSE prev_balance - (today_spent - $today_policy_spent) - $today_online_spent END,
+                     ELSE prev_balance + $today_income - (today_spent - $today_policy_spent) - $today_online_spent END,
+    s.income_today = $today_income,
     s.online_spent = $today_online_spent,
     s.energy = 0.8,
     s.yesterday_satisfaction = today_avg_sat,
@@ -548,6 +552,7 @@ def night_create_state(
     grant_carry: int = 0,
     grant_plan_days: int = 0,
     today_online_spent: int = 0,
+    today_income: int = 0,
     execution_receipts: list | None = None,
     observations: list | None = None,
     policy_appraisals: dict | None = None,
@@ -590,6 +595,7 @@ def night_create_state(
                   grant_carry=int(grant_carry or 0),
                   grant_plan_days=int(grant_plan_days or 0),
                   today_online_spent=int(today_online_spent or 0),
+                  today_income=int(today_income or 0),
                   execution_receipts_json=_json.dumps(execution_receipts or [], ensure_ascii=False),
                   observations_json=_json.dumps(observations or [], ensure_ascii=False),
                   policy_appraisals_json=_json.dumps(policy_appraisals or {}, ensure_ascii=False),

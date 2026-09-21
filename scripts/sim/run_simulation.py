@@ -568,6 +568,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 (ctx.state or {}).get("policy_lc"),
                 ctx.policy,
             )
+            from income import daily_income as _daily_income
+            _today_income = _daily_income((cm_meta or {}).get("anchor_total"),
+                                          os.environ.get("EXP_DAILY_INCOME"))
             state = night_create_state(
                 aid, today,
                 policy_used=updated_policy_used,
@@ -579,6 +582,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 grant_plan_days=int((cm_meta or {}).get("grant_plan_days_effective") or 0),
                 # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
                 today_online_spent=int((cm_meta or {}).get("online_total") or 0),
+                today_income=_today_income,
                 execution_receipts=execution_receipts,
                 observations=observations,
                 policy_appraisals=policy_appraisals,
@@ -649,6 +653,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "cm_additional_from_grant": cm_meta.get("additional_from_grant"),
                 "cm_personal_total": cm_meta.get("personal_total"),
                 "cm_anchor_total": cm_meta.get("anchor_total"),
+            "cm_income_today": _today_income,
                 "cm_plan_over_anchor": cm_meta.get("plan_over_anchor"),
                 "cm_propensity_center": cm_meta.get("propensity_center"),
                 "cm_day_multiplier": cm_meta.get("day_multiplier"),
