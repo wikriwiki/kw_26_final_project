@@ -11,12 +11,19 @@
 | `정답지_서울연구원_코로나19_서울_경제적손실_2021.pdf` | [www.si.re.kr](https://www.si.re.kr/node/64651) | 9.7MB | `fd186587f51aab93531272f38d52cc5c7a77991d24997a862553a24eaf702d09` |
 | `정책원문_중대본회의_보도자료_20201127.hwp` | [www.korea.kr](https://www.korea.kr/briefing/pressReleaseView.do?newsId=156423736) | 356.0KB | `86d71b936c4e22b84790fb900c1352de8030958d36f9e75795340d5770bfb698` |
 | `환경자료/distancing_0823.html` | `data\experiments\covid_support_2021\sources\distancing_0823.html` | 162.2KB | `85ede3ace2418676e1d9d84d3768e8b5569d71e30ef4ab35d432ff92b2c162b0` |
+| `환경자료/distancing_0823.txt` | `위 HTML 에서 뽑은 본문` | 15.2KB | `3586e3b53688e22bc4696ccb8ade7db981eed472a4b86fba7adc441f425bb92b` |
 | `환경자료/distancing_0906.html` | `data\experiments\covid_support_2021\sources\distancing_0906.html` | 157.2KB | `cb2c4c6afd44fd1bbbedde12b92696a2d952cdf46d5a1b999eb4d435158b6298` |
+| `환경자료/distancing_0906.txt` | `위 HTML 에서 뽑은 본문` | 43.2KB | `a7f9dbfd32e91804f67ac95e3a83667555b548a3cb3a640823ec03ad6406ce70` |
 | `환경자료/distancing_1004.html` | `data\experiments\covid_support_2021\sources\distancing_1004.html` | 598.5KB | `27620f08f66835e3d94ff852e849de41c9abb325d7904faea2118988f740384b` |
+| `환경자료/distancing_1004.txt` | `위 HTML 에서 뽑은 본문` | 63.0KB | `a28415dcae1504cac4a1903a29f5344391d3c9d367f42ac7f6ba60a6bb53ad33` |
 | `환경자료/distancing_1018.html` | `data\experiments\covid_support_2021\sources\distancing_1018.html` | 166.5KB | `1a3b864929388e24c4f044f0cac8821406c824d2a70c2b111e011ec343450b2c` |
+| `환경자료/distancing_1018.txt` | `위 HTML 에서 뽑은 본문` | 15.8KB | `b5663414db03a7b405700487f97b5c1ccd44e372359b45b38efdb6e52cdefa05` |
 | `환경자료/reopening_1101.html` | `data\experiments\covid_support_2021\sources\reopening_1101.html` | 170.4KB | `bc9d1d3ffa7669f8e86861c689069400a2e9be4de17c34409e605e05d5c68861` |
+| `환경자료/reopening_1101.txt` | `위 HTML 에서 뽑은 본문` | 19.3KB | `74fdfaf01c173078772d3819987ed036ebef3c30bfe87f23e77b60205bfff51a` |
 | `환경자료/restrictions_1206.html` | `data\experiments\covid_support_2021\sources\restrictions_1206.html` | 175.5KB | `f81ae55b4bc63ef4a1db0d03fa5b9a90d111397a2ba761a1aad063ee18743f4b` |
+| `환경자료/restrictions_1206.txt` | `위 HTML 에서 뽑은 본문` | 17.1KB | `d4c2a71fd7a9bc04f1b76f9ada6d8cb3be96527497f23ed568b5ac1e958f7f03` |
 | `환경자료/restrictions_1218.html` | `data\experiments\covid_support_2021\sources\restrictions_1218.html` | 166.8KB | `9d7ff3963b91c5b2871ca87aaa454456e9f79169ecdf5fc550b8eb776b2e6ad2` |
+| `환경자료/restrictions_1218.txt` | `위 HTML 에서 뽑은 본문` | 13.6KB | `1df1781c5bd814aad23babac2c2ecb186f1aef5c431621021e162e6cb74ec904` |
 | `환경자료/seoul_district_cases.xlsx` | `data\experiments\covid_support_2021\sources\seoul_district_cases.xlsx` | 319.0KB | `8a8fe1c64ea066305720f782cef9000b6e095a9a1420f1e02d785ddac6e51fca` |
 | `환경자료/seoul_city_cases.csv` | `data\experiments\covid_support_2021\sources\seoul_city_cases.csv` | 45.4KB | `0839f06fef39361a52ac37bda1db9ca24ca02f7858126544284034dab98ac610` |
 

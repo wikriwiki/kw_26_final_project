@@ -85,16 +85,25 @@ DISTANCING_DOCS = [
      '2020-05~2021-01 수도권 단계 전환표. 채점 구간(2020-11-24 2단계)이 여기 들어 있다'),
 ]
 
+# **전부 2021년 문서다.** 채점 구간(2020-11-24)의 자료가 아니라 시뮬이 쓰는
+# environment(covid_2021) 의 배경이다. 같은 폴더에 있다고 같은 시점이 아니다.
 DISTANCING_ENV = [
-    ('distancing_0823.html', '2021 거리두기 재연장 공지'),
-    ('distancing_0906.html', '2021-09-06 4주 연장 (보건복지부)'),
-    ('distancing_1004.html', '2021-10-04 연장 (경기도)'),
-    ('distancing_1018.html', '2021-10-18 유지 공지'),
-    ('reopening_1101.html', '2021-11-01 단계적 일상회복'),
-    ('restrictions_1206.html', '2021-12-06 특별방역대책'),
-    ('restrictions_1218.html', '2021-12-18 거리두기 강화'),
-    ('seoul_district_cases.xlsx', '서울시 자치구별 확진자·사망자'),
-    ('seoul_city_cases.csv', '서울시 확진자 발생 현황'),
+    ('distancing_0823.html', '2021-08 거리두기 재연장 — 달라지는 세부 방역수칙 (정책브리핑)',
+     'https://www.korea.kr/briefing/policyBriefingView.do?newsId=148891876'),
+    ('distancing_0906.html', '2021-09-06 4주 연장 — 수도권 4단계·비수도권 3단계 (보건복지부)',
+     'https://www.mohw.go.kr/gallery.es?act=view&bid=0003&list_no=367787&mid=a10605040000'),
+    ('distancing_1004.html', '2021-10-04~17 거리두기 연장 (경기도)',
+     'https://www.gg.go.kr/bbs/boardView.do?bIdx=31063461&bsIdx=838&menuId=1534'),
+    ('distancing_1018.html', '2021-10-18 현 거리두기 유지 — 사적모임·영업시간 완화 (정책브리핑)',
+     'https://www.korea.kr/news/policyFocusView.do?newsId=148894354&pkgId=49500742'),
+    ('reopening_1101.html', '2021-11-01 단계적 일상회복 1단계 (정책브리핑)',
+     'https://www.korea.kr/news/policyNewsView.do?newsId=148894947'),
+    ('restrictions_1206.html', '2021-12-06 특별방역대책 5문5답 (정책브리핑)',
+     'https://www.korea.kr/multi/visualNewsView.do?newsId=148896526'),
+    ('restrictions_1218.html', '2021-12-18 거리두기 강화 5문5답 (정책브리핑)',
+     'https://www.korea.kr/briefing/policyBriefingView.do?newsId=148896967'),
+    ('seoul_district_cases.xlsx', '서울시 자치구별 확진자·사망자', None),
+    ('seoul_city_cases.csv', '서울시 확진자 발생 현황', None),
 ]
 
 # 내려받은 문서 — (폴더 안 이름, 출처 URL, 설명).
@@ -392,6 +401,38 @@ def audit():
     return seen, bad
 
 
+def html_to_text(src, title_hint=None, url=None):
+    """저장된 HTML 에서 본문만 뽑아 읽을 수 있는 글로 만든다.
+
+    원본 HTML 은 사이트의 CSS·JS 를 상대경로로 가리켜 브라우저에서 빈 화면이
+    된다. 파일이 깨진 것이 아니라 **바깥 자원이 없는 것**이므로, 원본은 그대로
+    두고 옆에 읽을 수 있는 사본을 놓는다.
+    """
+    h = io.open(src, encoding='utf-8', errors='replace').read()
+    m = re.search(r'<title>(.*?)</title>', h, re.S)
+    title = re.sub(r'\s+', ' ', m.group(1)).strip() if m else (title_hint or src.name)
+    for a, b in (('&lt;', '<'), ('&gt;', '>'), ('&amp;', '&'), ('&nbsp;', ' ')):
+        title = title.replace(a, b)
+    body = re.sub(r'<script.*?</script>|<style.*?</style>|<!--.*?-->', ' ', h, flags=re.S)
+    body = re.sub(r'<(br|/p|/div|/li|/tr|/h[1-6])\s*>', '\n', body)
+    body = re.sub(r'<[^>]+>', ' ', body)
+    body = re.sub(r'&nbsp;|&#160;', ' ', body)
+    body = re.sub(r'&lt;', '<', body)
+    body = re.sub(r'&gt;', '>', body)
+    body = re.sub(r'&amp;', '&', body)
+    body = re.sub(r'&[a-zA-Z]+;|&#\d+;', ' ', body)
+    body = '\n'.join(re.sub(r'[ \t]+', ' ', x).strip() for x in body.split('\n'))
+    body = re.sub(r'\n{3,}', '\n\n', body).strip()
+    head = [title, '']
+    if url:
+        head += ['출처 ' + url, '']
+    head += ['원본 HTML: %s — 브라우저에서 빈 화면으로 보이는 것은 사이트의 CSS·JS 를'
+             % src.name,
+             '함께 저장하지 않았기 때문이다. 본문은 아래와 같이 파일 안에 들어 있다.',
+             '=' * 70, '']
+    return '\n'.join(head) + body + '\n'
+
+
 def sha256(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
@@ -432,6 +473,10 @@ CAVEATS = {
         '원문은 연 단위 지역 패널이고 우리 창은 이틀이다. 크기는 견줄 수 없다.',
     ],
     'DISTANCING_2020': [
+        '`환경자료/` 의 HTML 일곱 건은 **전부 2021년 8~12월 문서**다. 채점 구간은 '
+        '**2020-11-24 수도권 2단계**이므로, 이 자료는 채점 구간의 증거가 아니라 '
+        '시뮬이 쓰는 environment(covid_2021) 의 배경이다. 채점 구간의 규칙은 '
+        '`거리두기_단계표_2020-2021.json` 과 중대본 보도자료에 있다.',
         '`DS-1` 의 **−14.1% 는 원문에서 \'한식\' 업종의 값**이다(매출 감소가 가장 컸던 업종). '
         '우리 지표는 식사 전체를 잰다 — **범위가 같지 않다.** 원문의 전체 점포 평균은 −6.2% 다.',
         '원문의 창은 2020년 1~40주 누적이고 우리 창은 이틀(11/24~25)이다. '
@@ -638,7 +683,7 @@ def build(check_only=False):
                     'url': url, 'sha256': digest, 'size': size, 'desc': desc}
             rows.append((name, url, digest, size, desc))
 
-        for fname, desc in e['env']:
+        for fname, desc, url in e['env']:
             src = COVID / 'sources' / fname
             if not src.exists():
                 continue
@@ -647,8 +692,16 @@ def build(check_only=False):
             if not check_only:
                 dst.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copyfile(src, dst)
+                if fname.lower().endswith('.html'):
+                    write(dst.with_suffix('.txt'), html_to_text(src, desc, url))
             rows.append(('환경자료/%s' % fname,
                          str(src.relative_to(ROOT)), digest, size, desc))
+            if fname.lower().endswith('.html'):
+                t = dst.with_suffix('.txt')
+                if t.exists():
+                    rows.append(('환경자료/%s' % t.name, '위 HTML 에서 뽑은 본문',
+                                 sha256(t), t.stat().st_size,
+                                 '읽을 수 있게 만든 사본 — HTML 은 바깥 CSS·JS 가 없어 빈 화면이 된다'))
 
         if not check_only:
             write(out / '평가항목.md', eval_md(e, scoring, rows))
