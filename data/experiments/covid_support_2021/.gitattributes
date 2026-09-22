@@ -1,2 +1,0 @@
-# Preserve downloaded source bytes so download_manifest.json SHA256 checks work on every OS.
-sources/** -text

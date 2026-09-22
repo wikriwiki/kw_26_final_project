@@ -1,8 +1,0 @@
-# Optional environment for EXAONE choice inference / future GPU adapter training.
-# Install the CUDA-compatible torch build for the connected GPU separately.
-torch>=2.6,<2.12
-transformers>=4.54,<5
-peft>=0.17,<0.19
-accelerate>=1.0,<2
-safetensors>=0.4
-
