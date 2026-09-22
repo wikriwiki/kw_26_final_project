@@ -86,6 +86,10 @@ _PRINCIPLE: dict[str, str] = {
         "일을 앞당길지, 평소대로 할지는 본인이 정한다."),
 }
 
+# dawn_context 가 예전부터 직접 그리는 기전들. 여기에 범용 모듈을 덧붙이면
+# 같은 사실이 두 번 들어가고, P010 처럼 동결된 정책의 렌더가 달라진다.
+_LEGACY_HANDLED = frozenset({"grant", "cashback", "subsidy", "voucher", "discount"})
+
 _MODULES: dict[str, ModuleType] = {}
 
 
@@ -94,7 +98,22 @@ def register(ptype: str, mod: ModuleType) -> None:
 
 
 def get(ptype: str | None) -> ModuleType | None:
-    return _MODULES.get((ptype or "").strip())
+    """기전 모듈. **등록되지 않은 기전은 범용 모듈로 떨어진다.**
+
+    None 을 돌려주면 그 정책은 사실·개인 상태 줄을 하나도 못 받는다. 새 정책이
+    올 때마다 모듈을 요구하는 구조가 그 자리다 — 범용 모듈이 선언값만 읽어 옮긴다.
+    """
+    t = (ptype or "").strip()
+    mod = _MODULES.get(t)
+    if mod is not None:
+        return mod
+    if t in _LEGACY_HANDLED:
+        # dawn_context 의 검증된 분기가 이미 이 기전을 그린다. 범용 모듈을 얹으면
+        # 같은 사실이 두 번 들어간다(P012 에서 "1인 누적 한도 10만원" 이 본문과
+        # 사실 줄에 겹쳤다). 범용은 **대체**지 추가가 아니다.
+        return None
+    from . import generic
+    return generic
 
 
 # 등록되지 않은 기전의 대체 표시. 영문 식별자를 한글 문장에 그대로 흘리지 않는다 —
@@ -124,7 +143,13 @@ def has_wallet(ptypes) -> bool:
 
 
 def principle(ptypes) -> str:
-    """활성 기전들에 맞는 판단 원칙. 지갑이 하나라도 있으면 지갑 원칙이 우선한다."""
+    """활성 기전들에 맞는 판단 원칙. 지갑이 하나라도 있으면 지갑 원칙이 우선한다.
+
+    **모르는 기전에 지갑 원칙을 떨어뜨리면 안 된다.** 예전에는 마지막 줄이
+    지갑 원칙이어서, 지갑이 없는 정책에게 "정책지갑으로 낼지 늘 쓰던 카드로
+    낼지" 라고 **있지도 않은 지갑을 사실처럼** 말했다. 라벨이 영문으로 새는 것은
+    어색할 뿐이지만 이쪽은 거짓을 주입한다.
+    """
     ts = {t for t in ptypes if t}
     if has_wallet(ts):
         return _PRINCIPLE["wallet"]
@@ -132,7 +157,8 @@ def principle(ptypes) -> str:
               "hours_limit", "gathering_limit"):
         if t in ts:
             return _PRINCIPLE[t]
-    return _PRINCIPLE["wallet"]
+    from . import generic
+    return generic.PRINCIPLE
 
 
 def known_types() -> tuple[str, ...]:
