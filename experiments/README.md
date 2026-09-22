@@ -129,7 +129,10 @@ vN/graph_vN.md     정책별 결과 그래프와 수치표
 
 | 문서 | 무엇이 들어 있나 |
 |---|---|
-| [PROMPT_FINAL_v45.md](PROMPT_FINAL_v45.md) | **현재 최적 프롬프트와 그 근거.** 무엇이 확정이고 무엇이 아닌지 |
+| [OPTIMAL_PROMPT_STATUS.md](OPTIMAL_PROMPT_STATUS.md) | **먼저 읽을 것 — 지금 최적 프롬프트가 무엇이고 무엇을 알고 무엇을 모르는가** |
+| [PROMPT_FINAL_v45.md](PROMPT_FINAL_v45.md) | 관문 라운드 다섯의 결론. 형식 계약에서 v45 가 최선인 근거 |
+| [SAMPLE_IS_THE_BINDING_CONSTRAINT.md](SAMPLE_IS_THE_BINDING_CONSTRAINT.md) | **병목은 프롬프트가 아니라 표본이다** — 지표 10개 중 8개가 검출 불가 |
+| [WHICH_POLICIES_CAN_CONVERGE.md](WHICH_POLICIES_CAN_CONVERGE.md) | 어느 정책에서 수렴을 잴 수 있는가 — 정답이 숫자로 있기는 한가 |
 | [WHAT_IS_BEING_VALIDATED.md](WHAT_IS_BEING_VALIDATED.md) | 어떤 정책으로 무엇을 검증하고 있으며 그 검증이 유효한가 |
 | [GREEDY_SPLITS_THE_RESIDUAL.md](GREEDY_SPLITS_THE_RESIDUAL.md) | 남은 결함이 프롬프트인가 샘플러인가 — 21 대 4 |
 | [INDICATOR_COMPARISON.md](INDICATOR_COMPARISON.md) | 정답지 지표를 하나씩 시뮬 값과 나란히 놓은 것 |
