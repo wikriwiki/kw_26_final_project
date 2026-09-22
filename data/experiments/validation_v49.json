@@ -1,0 +1,81 @@
+{
+  "id": "validation_v49",
+  "registered_on": "2026-09-22",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "candidates": [
+    "v45",
+    "v49"
+  ],
+  "phase": "A replication, nothing new. The previous round put v49 twenty cells above v45 at p=0.035, and the same round showed that an identical prompt moves thirty cells between runs: v45 scored 356 of 384 in one run and 326 in the next, with seventy-six cells flipping and the shift itself significant. The run is a factor. So a twenty-cell effect measured once is not a finding yet. This round measures the same two candidates again and asks only whether the direction holds.",
+  "sample_n": 12,
+  "replicate_seeds": [
+    1701,
+    2903,
+    4801,
+    6007
+  ],
+  "temperature": 0.7,
+  "max_tokens": 2200,
+  "workers": 24,
+  "cases": [
+    {
+      "id": "cashback",
+      "policy": "P012",
+      "date": "2021-10-25"
+    },
+    {
+      "id": "grant",
+      "policy": "P013",
+      "date": "2020-05-14"
+    },
+    {
+      "id": "local_voucher",
+      "policy": "P014",
+      "date": "2020-09-23"
+    },
+    {
+      "id": "distancing",
+      "policy": null,
+      "date": "2020-11-24"
+    }
+  ],
+  "arms": [
+    "off",
+    "on"
+  ],
+  "design": "Identical frozen persona, synthetic Day0 state and date within each pair. Fiscal arms share environment. Distancing arms differ only in explicitly registered restrictions, not disease background. Read-only Neo4j; no rollout or database reset.",
+  "initial_state": "39 times daily_wd cash; mood=0.5, fatigue=0.3, energy=0.7, satisfaction=0.6; no prior memories or appointments. These are simulation initial conditions, not observed personal history.",
+  "cashback_seed": "Monthly eligible spend seeded as daily weighted anchor * 0.268 * (day_of_month - 1), identically in off/on arms. Policy facts use experiment date as counterfactual start.",
+  "primary_metrics": [
+    "strict_raw_contract_rate",
+    "missing_response_rate",
+    "fiscal_off_attribution_flag_rate"
+  ],
+  "attribution_rule": "In fiscal off arms flag trigger=policy AND reasoning mentioning P012/P013/P014/cashback/coupon/voucher/grant/local voucher. Environmental regulation attribution is allowed. This is a conservative screening flag, not a validated hallucination classifier; manually inspect flagged text before interpretation.",
+  "diagnostics": [
+    "daily_propensity_paired_difference",
+    "commerce_event_paired_difference",
+    "replicate_sign_agreement",
+    "policy_trigger_rate",
+    "tokens",
+    "latency"
+  ],
+  "contract_checks": [
+    "JSON schema without automatic repair",
+    "valid time and strictly increasing >=20 minute spacing",
+    "start/end at residence",
+    "allowed zone codes",
+    "anchor/category consistency",
+    "required reasoning and trigger",
+    "finite propensity in [0,1]",
+    "6+ weekday or 4+ weekend events"
+  ],
+  "decision": "v49 replaces v45 as the incumbent only if this run also puts it above v45 with an interval excluding zero. If the direction flips or the gap collapses, v49 is dropped and v45 stays. The registered 95 per cent gate is unchanged and is not expected to be met; note that the distance to it moved from nine cells to thirty-nine between two runs of the identical prompt, so the distance is reported per run and never as a property of a prompt.",
+  "inference": "12-person repeated matched-context pilot measures instruction execution and within-person decisions only. No spending outcome, causal macro effect, empirical magnitude score, or fresh holdout generalization claim.",
+  "holdout": "P015 prohibited; already used. All four mechanisms are known development cases.",
+  "magnitude_future": "Use simultaneous independent on/off rollouts, same dates and initial snapshots, independent run replicates. Report effect and interval; 0.5-2.0 empirical magnitude only when population, outcome definition, denominator and horizon match. Otherwise mark not comparable.",
+  "stop_rule": "Run every preregistered cell once; preserve errors and raw outputs. No significance-based early stopping or silent retries. Failure of gate blocks automatic macro rollout.",
+  "power": "The minimum detectable difference computed from within-run discordance, about twenty-one cells at 384, left out the between-run shift entirely. That shift is thirty cells. So this round does not claim to resolve twenty cells from one measurement - it asks whether two independent runs agree on the sign. Two agreeing runs is the standard being applied, not a single p-value.",
+  "predicted": "The direction holds and v49 is above v45, by somewhere between five and twenty-five cells. If it does not hold, the earlier plus twenty was the run rather than the sentence, and that is the result - it would mean no single-run comparison in this pilot can carry a twenty-cell claim.",
+  "not_changed": "Sample, seeds, dates, cases, arms, temperature, token budget and every contract check are copied from validation_v47. Only the candidate list differs."
+}
