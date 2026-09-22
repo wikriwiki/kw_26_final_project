@@ -72,19 +72,26 @@ class ReportApiTests(unittest.TestCase):
         self.assertEqual(status["verification_level"], "environment_only")
         self.assertIn("hash", status["reason"])
 
-    def test_incomplete_snapshot_is_rejected_before_job_creation(self) -> None:
+    def test_report_window_outside_the_completed_run_is_rejected(self) -> None:
+        """관측되지 않은 날짜를 기간에 넣으면 보고서를 만들기 전에 거절한다.
+
+        SEOUL7500 의 마지막 관측일은 2025-07-27 이다. 그날부터 7일을 달라고 하면
+        6일이 존재하지 않는다. 그대로 만들면 그 6일이 0으로 채워져 사후 일평균과
+        이중차분이 조용히 낮아진다 — 만든 뒤에 잡을 일이 아니라 만들지 않을 일이다.
+        """
         response = self.client.post(
             "/api/reports/jobs",
             json={
                 "run_id": "SEOUL7500",
                 "policy_id": "P010",
                 "start": "2025-07-27",
-                "days": 1,
+                "days": 7,
                 "analyses": ["triggers"],
             },
         )
         self.assertEqual(response.status_code, 409)
         self.assertIn("완료된 run", response.json()["error"])
+        self.assertIn("2025-07-28", response.json()["detail"])
 
     def test_runner_lock_is_checked_before_report_job(self) -> None:
         self.runner.lock.acquire(run_id="SEOUL7500", policy_id="P010")
@@ -94,7 +101,7 @@ class ReportApiTests(unittest.TestCase):
                 json={
                     "run_id": "SEOUL7500",
                     "policy_id": "P010",
-                    "start": "2025-07-27",
+                    "start": "2025-07-21",
                     "days": 7,
                     "analyses": ["triggers"],
                 },
@@ -110,7 +117,7 @@ class ReportApiTests(unittest.TestCase):
             json={
                 "run_id": "SEOUL7500",
                 "policy_id": "P010",
-                "start": "2025-07-27",
+                "start": "2025-07-21",
                 "days": 7,
                 "analyses": ["triggers"],
             },

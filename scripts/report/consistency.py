@@ -394,6 +394,161 @@ def run_checks(bundle: dict[str, Any]) -> dict[str, Any]:
     else:
         checks.append(_skip("decile_treated_present", "지급 분위 존재", deciles.get("reason") or "분위 정보가 없습니다."))
 
+    # 10. 반사실 궤적 — 날짜별로 편 정의가 2×2 와 같은 값으로 돌아오는가
+    cf = bundle.get("did_counterfactual_daily") or {}
+    did_abs = (did or {}).get("did_absolute")
+    if cf.get("available"):
+        post_points = [point for point in cf.get("points") or [] if point.get("phase") == "post"]
+        checks.append(
+            _check(
+                "cf_daily_mean_matches_did",
+                "일자별 반사실 격차의 평균이 2×2 이중차분과 같다",
+                did_abs,
+                cf.get("mean_gap_post"),
+                tolerance=MONEY_TOLERANCE * max(len(post_points), 1),
+            )
+        )
+        checks.append(
+            _check(
+                "cf_cumulative_matches_did",
+                "누적 순효과를 사후 일수로 나눈 값이 2×2 이중차분과 같다",
+                did_abs,
+                (cf["cumulative_gap_total"] / len(post_points)) if post_points else None,
+                tolerance=MONEY_TOLERANCE * max(len(post_points), 1),
+            )
+        )
+        checks.append(
+            _check(
+                "cf_points_cover_window",
+                "반사실 궤적의 관측 일수가 사전+사후 일수와 같다",
+                len(period.get("pre") or []) + len(period.get("post") or []),
+                len(cf.get("points") or []),
+                tolerance=0,
+            )
+        )
+    else:
+        for check_id, label in (
+            ("cf_daily_mean_matches_did", "반사실 궤적 평균"),
+            ("cf_cumulative_matches_did", "누적 순효과"),
+            ("cf_points_cover_window", "반사실 궤적 관측 일수"),
+        ):
+            checks.append(_skip(check_id, label, cf.get("reason") or "반사실 궤적을 만들 수 없었습니다."))
+
+    # 11. 축을 바꿔도 순효과의 합은 같아야 한다 (세부업종·지역·요일유형)
+    targeted_did_sum = sum(
+        row["did_absolute"] for row in did_rows if row.get("targeted") and row.get("did_absolute") is not None
+    ) if did_rows else None
+
+    sub = bundle.get("did_by_subcategory") or {}
+    if sub.get("available") and targeted_did_sum is not None:
+        checks.append(
+            _check(
+                "subcategory_did_sum",
+                "세부업종별 DID 의 합이 대상 업종 DID 의 합과 같다",
+                targeted_did_sum,
+                sum(item["did_absolute"] for item in sub.get("items") or []),
+                tolerance=MONEY_TOLERANCE * max(len(sub.get("items") or []), 1),
+            )
+        )
+    else:
+        checks.append(_skip("subcategory_did_sum", "세부업종 DID 합", sub.get("reason") or "세부업종 DID 를 만들 수 없었습니다."))
+
+    for key, check_id, label in (
+        ("did_by_region", "region_did_sum", "지역별 DID 의 합이 처치군 전체 DID 와 같다"),
+        ("did_by_daytype", "daytype_did_sum", "요일유형별 DID 의 합이 처치군 전체 DID 와 같다"),
+    ):
+        payload = bundle.get(key) or {}
+        if payload.get("available") and did_abs is not None:
+            checks.append(
+                _check(
+                    check_id,
+                    label,
+                    did_abs,
+                    payload.get("total_did"),
+                    tolerance=MONEY_TOLERANCE * max(len(payload.get("items") or []), 1),
+                )
+            )
+        else:
+            checks.append(_skip(check_id, label, payload.get("reason") or "축별 DID 를 만들 수 없었습니다."))
+
+    # 12. 파레토 — 누적선의 끝이 100% 이고 합이 양의 DID 총합과 같다
+    pareto = bundle.get("did_pareto") or {}
+    if pareto.get("available"):
+        items = pareto.get("items") or []
+        checks.append(
+            _check(
+                "pareto_cumulative_ends_at_100",
+                "파레토 누적 비중의 마지막 값이 100% 다",
+                100.0,
+                items[-1]["cumulative_pct"] if items else None,
+                tolerance=0.01,
+            )
+        )
+        checks.append(
+            _check(
+                "pareto_total_matches_positive_did",
+                "파레토 막대의 합이 증가한 대상 업종 DID 의 합과 같다",
+                sum(
+                    row["did_absolute"]
+                    for row in did_rows
+                    if row.get("targeted") and (row.get("did_absolute") or 0) > 0
+                ),
+                sum(item["did_absolute"] for item in items),
+                tolerance=MONEY_TOLERANCE * max(len(items), 1),
+            )
+        )
+    else:
+        for check_id, label in (
+            ("pareto_cumulative_ends_at_100", "파레토 누적 100%"),
+            ("pareto_total_matches_positive_did", "파레토 합계"),
+        ):
+            checks.append(_skip(check_id, label, pareto.get("reason") or "파레토를 만들 수 없었습니다."))
+
+    # 13. 겹쳐보기의 누적선과 지수선이 원 곡선에서 나왔는가
+    if overlay.get("available"):
+        overall = overlay["overall"]
+        checks.append(
+            _check(
+                "overlay_cumulative_last",
+                "겹쳐보기 누적선의 마지막 값이 그 구간 합계와 같다",
+                sum(overall.get("post") or []),
+                (overall.get("post_cumulative") or [None])[-1],
+                tolerance=MONEY_TOLERANCE * max(len(overall.get("post") or []), 1),
+            )
+        )
+        base = overall.get("index_base")
+        pre_values = overall.get("pre") or []
+        checks.append(
+            _check(
+                "overlay_index_base",
+                "겹쳐보기 지수의 기준값이 사전 구간 일평균과 같다",
+                (sum(pre_values) / len(pre_values)) if pre_values else None,
+                base,
+                tolerance=MONEY_TOLERANCE,
+            )
+        )
+    else:
+        for check_id, label in (
+            ("overlay_cumulative_last", "겹쳐보기 누적선"),
+            ("overlay_index_base", "겹쳐보기 지수 기준값"),
+        ):
+            checks.append(_skip(check_id, label, overlay.get("reason") or "겹쳐보기를 만들 수 없었습니다."))
+
+    # 14. 위약 검정 — 계산했다면 실제 추정치와 같은 정의를 썼는지 (사전기간 안에서만)
+    placebo = bundle.get("did_placebo") or {}
+    if placebo.get("available"):
+        checks.append(
+            _check(
+                "placebo_uses_pre_period_only",
+                "위약 검정이 사전기간 안에서만 계산됐다",
+                len(period.get("pre") or []),
+                (placebo.get("pre_days") or 0) + (placebo.get("post_days") or 0),
+                tolerance=0,
+            )
+        )
+    else:
+        checks.append(_skip("placebo_uses_pre_period_only", "위약 검정 구간", placebo.get("reason") or "위약 검정을 하지 않았습니다."))
+
     failed = [c for c in checks if c["status"] == "fail"]
     skipped = [c for c in checks if c["status"] == "skip"]
     passed = [c for c in checks if c["status"] == "pass"]

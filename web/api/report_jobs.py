@@ -15,7 +15,7 @@ import sys
 import tempfile
 import threading
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, timedelta, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -68,7 +68,10 @@ def _neo4j_source_status(repo_root: Path, *, run_id: str) -> dict[str, Any]:
             values[key] = value
     configured = bool(values.get("NEO4J_PASSWORD"))
     binding = values.get("DASOL_NEO4J_RUN_ID")
-    binding_declared = configured and binding == run_id
+    # `선언됐다` 와 `이 run 과 일치한다` 는 다른 사실이다. 둘을 한 값으로 뭉치면
+    # "환경변수를 적어 뒀다"는 자기선언이 곧 결합 증명처럼 읽힌다. 나눠서 싣는다.
+    binding_declared = bool(configured and binding)
+    binding_matches_run = bool(binding_declared and binding == run_id)
     if not configured:
         reason = "NEO4J_PASSWORD가 없어 DASOL 원본 엔진을 시작할 수 없습니다."
     elif not binding:
@@ -76,8 +79,12 @@ def _neo4j_source_status(repo_root: Path, *, run_id: str) -> dict[str, Any]:
             "DASOL_NEO4J_RUN_ID가 없어 Neo4j 결과를 선택한 run snapshot에 묶을 수 없습니다. "
             "동일 snapshot을 적재한 뒤 명시적으로 설정해야 합니다."
         )
-    elif binding != run_id:
-        reason = f"Neo4j snapshot binding이 {binding}으로 확인되어 선택한 run {run_id}와 다릅니다."
+    elif not binding_matches_run:
+        reason = (
+            f"Neo4j snapshot binding이 {binding}으로 선언되어 선택한 run {run_id}와 다릅니다. "
+            "선언이 일치하더라도 Neo4j 내부 원본과 run snapshot의 hash를 대조하는 "
+            "검증 계약이 아직 없어, 어느 쪽도 결합 증명으로 쓸 수 없습니다."
+        )
     else:
         reason = (
             "DASOL_NEO4J_RUN_ID 환경값은 일치하지만 Neo4j 내부 원본과 run snapshot의 "
@@ -89,12 +96,17 @@ def _neo4j_source_status(repo_root: Path, *, run_id: str) -> dict[str, Any]:
         # 대조가 구현되기 전까지 서버와 UI 모두 fail-closed로 유지한다.
         "snapshot_bound": False,
         "binding_declared": binding_declared,
+        "binding_matches_run": binding_matches_run,
         "binding_verified": False,
         "verification_level": "environment_only" if binding_declared else "unconfigured",
         "binding_run_id": binding,
         "uri": values.get("NEO4J_URI", "bolt://localhost:7687"),
         "reason": reason,
-        "unknown": ["neo4j_snapshot_proof"] if binding_declared else (["NEO4J_PASSWORD"] if not configured else ["DASOL_NEO4J_RUN_ID"]),
+        "unknown": (
+            ["neo4j_snapshot_proof"]
+            if binding_declared
+            else (["NEO4J_PASSWORD"] if not configured else ["DASOL_NEO4J_RUN_ID"])
+        ),
     }
 
 
@@ -419,6 +431,23 @@ class ReportJobManager:
         catalog = self.catalog(run_id=run_id, policy_id=policy_id)
         if catalog["run"].get("status") != "completed":
             raise StoreError(409, "완료된 run snapshot에서만 보고서를 생성할 수 있습니다")
+
+        # 요청한 기간이 그 run 에 실제로 있는 날짜인지 먼저 본다.
+        # 없는 날짜를 섞어 달라고 하면 보고서는 만들어지지만 그 구간은 빈 채로
+        # 남고, 사후 일수만 늘어나 일평균과 이중차분이 조용히 낮아진다.
+        # 어긋난 결과를 만든 뒤 검사에서 잡느니, 만들기 전에 거절한다.
+        covered = {str(day) for day in (catalog.get("snapshot", {}).get("days") or [])}
+        if covered:
+            requested = [(start + timedelta(days=offset)).isoformat() for offset in range(days)]
+            missing = [day for day in requested if day not in covered]
+            if missing:
+                shown = ", ".join(missing[:5]) + (" 외" if len(missing) > 5 else "")
+                raise StoreError(
+                    409,
+                    "완료된 run snapshot에 없는 날짜가 보고서 기간에 들어 있습니다",
+                    f"없는 날짜 {len(missing)}일: {shown}. "
+                    f"이 run 의 관측 구간은 {min(covered)} ~ {max(covered)} 입니다.",
+                )
         source_items = catalog["v2_sections"] if engine == "v2" else catalog["analyses"]
         by_id = {item["id"]: item for item in source_items}
         selected = list(dict.fromkeys(analyses))

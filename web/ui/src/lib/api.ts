@@ -221,6 +221,8 @@ export interface LlmStatus extends UnknownResource {
   configured: boolean;
   model: string;
   reason: string | null;
+  /** 운영자에게만 보여 줄 설정 안내(.env 경로 등). 고객 화면에는 내보내지 않는다. */
+  operator_hint?: string | null;
   env_files: string[];
   expects: Record<string, string[]>;
   key_present: Record<string, boolean>;

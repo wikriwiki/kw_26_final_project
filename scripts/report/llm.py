@@ -41,8 +41,20 @@ ENV_FILES = (REPO_ROOT / ".env", REPO_ROOT / "data" / "neo4j_load" / ".env", REP
 GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
 GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta"
 DEFAULT_TIMEOUT = 60.0
+#: 넘어갈 수 있는 실패에 한해 다시 걸어 보는 횟수 (첫 시도 포함).
+DEFAULT_RETRIES = 3
+RETRY_BACKOFF_SEC = 1.5
+#: 다시 걸면 달라질 수 있는 실패들. 인증·요청 형식 오류는 여기에 없다.
+TRANSIENT_MARKERS = ("HTTP 429", "HTTP 500", "HTTP 502", "HTTP 503", "HTTP 504", "timed out", "TimeoutError", "URLError")
 DEFAULT_MAX_TOKENS = 900
 DEFAULT_TEMPERATURE = 0.2
+
+#: 운영자에게만 보여 줄 안내. 고객 화면에는 `reason` 만 나가고 이 문장은 나가지 않는다.
+#: 두 문장을 하나로 합치면 시연 화면에 `.env` 같은 내부 사정이 그대로 뜬다.
+OPERATOR_HINT = (
+    "저장소 루트의 `.env` 파일에 `GEMINI_API_KEY=<키>` 한 줄을 넣고 서버를 다시 시작하십시오. "
+    "`.env.example` 을 복사해 쓰면 됩니다 (키 발급: https://aistudio.google.com/apikey)."
+)
 
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
 # 문장 속 숫자: 1,234 / 12.5 / -3 / 45% 모두 잡는다.
@@ -154,19 +166,32 @@ def provider_status(*, load_env: bool = True) -> dict[str, Any]:
         status["configured"] = bool(gemini_key)
         if not gemini_key:
             status["reason"] = "해설 모델이 아직 연결되지 않았습니다."
+            status["operator_hint"] = OPERATOR_HINT
             status["unknown"].append("GEMINI_API_KEY")
     elif provider == "openai":
         status["model"] = _env("REPORT_LLM_MODEL")
         status["configured"] = bool(base_url and status["model"])
         if not status["configured"]:
-            status["reason"] = "REPORT_LLM_BASE_URL 과 REPORT_LLM_MODEL 이 모두 필요합니다."
+            status["reason"] = "해설 모델이 아직 연결되지 않았습니다."
+            status["operator_hint"] = (
+                "OpenAI 호환 서버를 쓰려면 `.env` 에 REPORT_LLM_BASE_URL 과 REPORT_LLM_MODEL 을 "
+                "모두 채워야 합니다."
+            )
             status["unknown"].append("REPORT_LLM_BASE_URL")
     else:
         status["reason"] = (
             "해설 모델이 아직 연결되지 않았습니다. "
             "지금은 보고서가 계산 결과만으로 생성되며 해설 문장은 결정론적 서술로 대체됩니다."
         )
+        status["operator_hint"] = OPERATOR_HINT
     return status
+
+
+def _is_transient(error: str | None) -> bool:
+    """다시 걸어 볼 만한 실패인가. 키가 틀린 실패를 재시도하면 시간만 버린다."""
+    if not error:
+        return False
+    return any(marker in error for marker in TRANSIENT_MARKERS)
 
 
 def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeout: float) -> dict[str, Any]:
@@ -290,10 +315,24 @@ def complete(
     temperature = (
         temperature if temperature is not None else _float_env("REPORT_LLM_TEMPERATURE", DEFAULT_TEMPERATURE)
     )
+    call = None
     if provider == "gemini":
-        return _gemini(system, user, timeout=timeout, max_tokens=max_tokens, temperature=temperature)
-    if provider == "openai":
-        return _openai_compatible(system, user, timeout=timeout, max_tokens=max_tokens, temperature=temperature)
+        call = _gemini
+    elif provider == "openai":
+        call = _openai_compatible
+    if call is not None:
+        # 무료 등급 Gemini 는 분당 요청 수를 넘기면 429 로 거절한다. 보고서 한 편은
+        # 해설을 여러 번 부르므로 그 거절이 곧 "해설 없는 보고서"가 된다.
+        # 넘어갈 수 있는 실패(429·5xx·시간초과)만 짧게 물러났다 다시 시도한다.
+        # 키가 틀렸거나 모델 이름이 없는 실패는 다시 걸어도 같으므로 그대로 돌려준다.
+        attempts = max(1, _int_env("REPORT_LLM_RETRIES", DEFAULT_RETRIES))
+        result = LlmResult(False, provider=provider, error="호출을 시도하지 못했습니다")
+        for attempt in range(attempts):
+            result = call(system, user, timeout=timeout, max_tokens=max_tokens, temperature=temperature)
+            if result.ok or not _is_transient(result.error) or attempt == attempts - 1:
+                return result
+            time.sleep(RETRY_BACKOFF_SEC * (2 ** attempt))
+        return result
     return LlmResult(
         False,
         provider="none",

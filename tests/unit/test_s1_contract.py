@@ -103,7 +103,11 @@ class S1ContractTests(unittest.TestCase):
         rescue = load("run.SEOUL7500.day.2025-07-27.json")
         self.assertTrue(rescue["aggregated_server_side"])
         self.assertGreater(rescue["source_bytes"], 10 * 1024 * 1024)
-        self.assertLess(rescue["source_bytes"] / (FIXTURES / "run.SEOUL7500.day.2025-07-27.json").stat().st_size, 4000)
+        # 이 비율은 "서버가 얼마나 줄여서 내보내는가"다. 늘 0 인 열을 걷어내면서
+        # 픽스처가 더 작아졌고 비율은 그만큼 커졌다 — 나빠진 것이 아니라 의도한
+        # 방향이다. 다만 무한정 줄어드는 것도 곤란하므로(정보가 사라진다) 상한은 둔다.
+        ratio = rescue["source_bytes"] / (FIXTURES / "run.SEOUL7500.day.2025-07-27.json").stat().st_size
+        self.assertLess(ratio, 8000)
 
     def test_reference_status_scan_matches_the_actual_run_files(self) -> None:
         # Actual-data validation is skipped only on machines that do not mount

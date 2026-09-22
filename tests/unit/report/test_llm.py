@@ -52,7 +52,11 @@ class ProviderStatusTests(unittest.TestCase):
             status = llm.provider_status(load_env=False)
         self.assertEqual(status["provider"], "none")
         self.assertFalse(status["configured"])
-        self.assertIn(".env", status["reason"])
+        # 화면에 나가는 문장에는 `.env` 같은 내부 사정을 적지 않는다. 대신 그 안내를
+        # `operator_hint` 로 따로 싣는다 — 고칠 수 있는 사람에게만 필요한 정보다.
+        self.assertNotIn(".env", status["reason"])
+        self.assertIn(".env", status["operator_hint"])
+        self.assertIn("GEMINI_API_KEY", status["operator_hint"])
 
     def test_gemini_key_switches_the_provider(self) -> None:
         with clean_env(GEMINI_API_KEY="test-key"):
