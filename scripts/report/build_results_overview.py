@@ -29,6 +29,13 @@ PROMPT_BY_ROUND = {
     'note': 'v50 부터 v45 가 정답지에 대고 처음 돌아간다',
 }
 
+
+def prompt_of(round_name):
+    """라운드 이름 끝의 팔 이름이 곧 그때 쓴 프롬프트다(result_v50_v45 → v45)."""
+    import re
+    m = re.search(r'_(v\d+)$', str(round_name or ''))
+    return m.group(1) if m else PROMPT_BY_ROUND['default']
+
 POLICIES = [
     ('P010', '민생회복 소비쿠폰', 'P010', '민생회복소비쿠폰_P010'),
     ('P012', '상생소비지원금', 'P012', '상생소비지원금_P012'),
@@ -204,7 +211,7 @@ def build():
             rows = indicator_rows(rb, inds)
             hits = sum(1 for r in rows if r['hit'] is True)
             scored = sum(1 for r in rows if r['hit'] in (True, False))
-            summary.append((pid, name, rn, PROMPT_BY_ROUND['default'],
+            summary.append((pid, name, rn, prompt_of(rn),
                             '부호 %d/%d' % (hits, scored) if scored else '—'))
     L += ['## 한눈에', '', '| 정책 | 라운드 | 프롬프트 | 부호 적중 |', '|---|---|:-:|---|']
     for pid, name, rn, pr, res in summary:
@@ -224,16 +231,19 @@ def build():
                   '(P010 의 결과는 EXP-001 라인 — `docs/EXP001_결과분석.md`)', '']
             continue
         for rn, rb in rounds:
-            L += ['### `%s` — 프롬프트 `%s`' % (rn, PROMPT_BY_ROUND['default']), '']
+            L += ['### `%s` — 프롬프트 `%s`' % (rn, prompt_of(rn)), '']
             if rb.get('window') or rb.get('design'):
                 L += ['창 · 설계 — %s' % str(rb.get('window') or rb.get('design')), '']
             rows = indicator_rows(rb, inds)
             L += draw(rows)
             L += table(rows)
-            for r in rows:
-                if r['note']:
-                    L.append('- `%s` — %s' % (r['id'], r['note']))
-            if any(r['note'] for r in rows):
+            # 채점기의 got 값이 '0'·'+'·'-' 로 떨어지는 칸이 있다 — 주석이 아니라
+            # 부호 기록이므로 표에 이미 있다. 사람이 읽을 문장만 남긴다.
+            notes = [r for r in rows
+                     if r['note'] and len(str(r['note']).strip()) > 3]
+            for r in notes:
+                L.append('- `%s` — %s' % (r['id'], r['note']))
+            if notes:
                 L.append('')
             did = rb.get('did')
             if isinstance(did, dict):
