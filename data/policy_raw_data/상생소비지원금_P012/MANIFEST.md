@@ -1,7 +1,8 @@
 # 상생소비지원금_P012 — 파일 출처
 
-복사본이다. 원본을 고치면 다시 만들어야 한다 —
-`python scripts/report/collect_policy_raw_data.py`
+다시 만들려면 `python scripts/report/collect_policy_raw_data.py`.
+**원본**이 `http` 로 시작하면 공공기관에서 직접 내려받은 것이고,
+경로면 저장소 안의 파일을 복사한 것이다.
 
 | 파일 | 원본 | 크기 | sha256 |
 |---|---|---:|---|

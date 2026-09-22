@@ -1,11 +1,14 @@
 # 사회적거리두기_DISTANCING2020 — 파일 출처
 
-복사본이다. 원본을 고치면 다시 만들어야 한다 —
-`python scripts/report/collect_policy_raw_data.py`
+다시 만들려면 `python scripts/report/collect_policy_raw_data.py`.
+**원본**이 `http` 로 시작하면 공공기관에서 직접 내려받은 것이고,
+경로면 저장소 안의 파일을 복사한 것이다.
 
 | 파일 | 원본 | 크기 | sha256 |
 |---|---|---:|---|
 | `거리두기_단계표_2020-2021.json` | `data/experiments/covid_support_2021/distancing_schedule.json` | 12.1KB | `5abc0d0c95496814fd1936fb203eeff5bac943bedcde9bb4603a612b07f45d4b` |
+| `정답지_서울연구원_코로나19_서울_경제적손실_2021.pdf` | [www.si.re.kr](https://www.si.re.kr/node/64651) | 9.7MB | `fd186587f51aab93531272f38d52cc5c7a77991d24997a862553a24eaf702d09` |
+| `정책원문_중대본회의_보도자료_20201127.hwp` | [www.korea.kr](https://www.korea.kr/briefing/pressReleaseView.do?newsId=156423736) | 356.0KB | `86d71b936c4e22b84790fb900c1352de8030958d36f9e75795340d5770bfb698` |
 | `환경자료/distancing_0823.html` | `data\experiments\covid_support_2021\sources\distancing_0823.html` | 162.2KB | `85ede3ace2418676e1d9d84d3768e8b5569d71e30ef4ab35d432ff92b2c162b0` |
 | `환경자료/distancing_0906.html` | `data\experiments\covid_support_2021\sources\distancing_0906.html` | 157.2KB | `cb2c4c6afd44fd1bbbedde12b92696a2d952cdf46d5a1b999eb4d435158b6298` |
 | `환경자료/distancing_1004.html` | `data\experiments\covid_support_2021\sources\distancing_1004.html` | 598.5KB | `27620f08f66835e3d94ff852e849de41c9abb325d7904faea2118988f740384b` |
