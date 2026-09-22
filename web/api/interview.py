@@ -27,6 +27,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from scripts.report import llm as report_llm
 from scripts.report.llm import load_dotenv
 
 #: 추론(thinking)은 끈다. 인터뷰는 한 문단 대화라 지연이 곧 체감 품질이다.
@@ -53,18 +54,32 @@ class InterviewError(Exception):
 
 
 def settings() -> dict[str, Any]:
-    """설정 상태. **키 값 자체는 절대 담지 않는다.**"""
+    """설정 상태. **키 값 자체는 절대 담지 않는다.**
+
+    전용 엔드포인트(K-EXAONE)가 설정돼 있으면 그것을 먼저 쓴다. 없으면 보고서
+    해설이 쓰는 것과 **같은 키**(예: `.env` 의 `GEMINI_API_KEY`)로 되돌아간다.
+    키를 두 벌 넣게 하지 않기 위해서다 — 한 줄만 넣으면 보고서 해설과 인터뷰가
+    함께 켜진다. 어느 쪽으로 답했는지는 응답의 `model_label` 에 그대로 남는다.
+    """
     load_dotenv()
     base = os.environ.get("INTERVIEW_BASE_URL", "").strip()
     model = os.environ.get("INTERVIEW_MODEL", "").strip()
     key = os.environ.get("INTERVIEW_API_KEY", "").strip()
-    ready = bool(base and model and key)
+    if base and model and key:
+        return {"ready": True, "backend": "dedicated", "model_label": "K-EXAONE", "reason": None}
+    shared = report_llm.provider_status(load_env=False)
+    if shared.get("configured"):
+        return {
+            "ready": True,
+            "backend": "shared",
+            "model_label": shared.get("model") or shared.get("provider") or "해설 모델",
+            "reason": None,
+        }
     return {
-        "ready": ready,
+        "ready": False,
+        "backend": "none",
         "model_label": "K-EXAONE",
-        "reason": None
-        if ready
-        else "대화 모델이 아직 연결되지 않았습니다. 준비되면 바로 물어볼 수 있습니다.",
+        "reason": "대화 모델이 아직 연결되지 않았습니다. 준비되면 바로 물어볼 수 있습니다.",
     }
 
 
@@ -104,6 +119,43 @@ def _profile_block(agent: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+def _transcript(question: str, history: list[dict[str, str]] | None) -> str:
+    """지난 대화를 한 덩어리 텍스트로 접는다.
+
+    공유 클라이언트는 system/user 두 칸만 받는다. 대화를 잃지 않으려면 여기서
+    직접 이어 붙여야 한다. 직전 몇 마디만 남기는 규칙은 전용 경로와 같다 —
+    길어질수록 모델이 기록보다 제 말을 근거로 삼기 때문이다.
+    """
+    lines: list[str] = []
+    for turn in (history or [])[-6:]:
+        role = turn.get("role")
+        if role in ("user", "assistant") and turn.get("content"):
+            speaker = "질문" if role == "user" else "나"
+            lines.append(f"{speaker}: {str(turn['content'])[:1000]}")
+    lines.append(f"질문: {question}")
+    lines.append("나:")
+    return "\n".join(lines)
+
+
+def _ask_shared(system: str, question: str, history: list[dict[str, str]] | None, label: str) -> dict[str, Any]:
+    """보고서 해설과 같은 클라이언트로 묻는다 (Gemini 또는 OpenAI 호환)."""
+    result = report_llm.complete(
+        system,
+        _transcript(question, history),
+        max_tokens=MAX_TOKENS,
+        temperature=0.7,
+        load_env=False,
+    )
+    if not result.ok:
+        # 원문 오류를 그대로 올리지 않는다 — 키가 섞여 나올 수 있고 사용자도 못 고친다.
+        raise InterviewError(502, "대화 모델에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+    return {
+        "answer": result.text,
+        "model_label": label,
+        "tokens": {"in": result.usage.get("input_tokens"), "out": result.usage.get("output_tokens")},
+    }
+
+
 def ask(agent: dict[str, Any], question: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
     conf = settings()
     if not conf["ready"]:
@@ -114,8 +166,12 @@ def ask(agent: dict[str, Any], question: str, history: list[dict[str, str]] | No
     if len(question) > 500:
         raise InterviewError(400, "질문이 너무 깁니다. 500자 안으로 줄여 주세요.")
 
+    system = SYSTEM + "\n\n[내 기록]\n" + _profile_block(agent)
+    if conf["backend"] == "shared":
+        return _ask_shared(system, question, history, conf["model_label"])
+
     base = os.environ["INTERVIEW_BASE_URL"].rstrip("/")
-    messages = [{"role": "system", "content": SYSTEM + "\n\n[내 기록]\n" + _profile_block(agent)}]
+    messages = [{"role": "system", "content": system}]
     # 직전 대화만 넘긴다. 길어질수록 모델이 기록보다 제 말을 근거로 삼는다
     for turn in (history or [])[-6:]:
         role = turn.get("role")

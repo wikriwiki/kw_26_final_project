@@ -25,6 +25,10 @@ POST_DAYS = 4
 POLICY_FROM = START + timedelta(days=PRE_DAYS)
 #: 한 업종의 하루치를 몇 건으로 쪼갤지 — 금액이 정확히 나눠떨어지게 고른다
 EVENTS_PER_CELL = 4
+#: 같은 금액을 지역·세부업종으로 **고르게** 나눈다. 총액은 그대로 두고 축만 늘리기
+#: 위해서다 — 그래야 "축을 바꿔도 합은 같다"는 항등식을 정직하게 검사할 수 있다.
+DISTRICTS = ("강남구", "마포구")
+SUBCATEGORIES = ("일반", "프랜차이즈")
 AGENTS = 10
 
 
@@ -61,7 +65,7 @@ def build(root: Path, *, with_metrics: bool = True) -> Path:
                             {
                                 "day": day.isoformat(),
                                 "l1": category,
-                                "sub": None,
+                                "sub": SUBCATEGORIES[slot // 2 % len(SUBCATEGORIES)],
                                 "amt": per_event,
                                 "ex": 0,
                                 "elig": True,
@@ -69,7 +73,7 @@ def build(root: Path, *, with_metrics: bool = True) -> Path:
                                 "sp": json.dumps({"P777": policy_paid}) if policy_paid else "{}",
                                 "day_type": "weekend" if day.weekday() >= 5 else "weekday",
                                 "aid": f"A{slot:03d}",
-                                "gu": "강남구",
+                                "gu": DISTRICTS[slot % len(DISTRICTS)],
                                 "dong": None,
                             },
                             ensure_ascii=False,

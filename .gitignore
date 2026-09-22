@@ -1,5 +1,7 @@
 # Secrets - never commit
 .env
+.env.local
+deploy/aws/.env
 *.env
 data/neo4j_load/.env
 

@@ -62,6 +62,38 @@ def _fallback(section: str, payload: dict[str, Any]) -> str:
             "시행 전 구간과 시행 후 구간을 같은 길이로 잘라 하나의 축에 겹쳤습니다. "
             "두 곡선 사이의 면적이 소비가 달라진 크기이며, 색은 방향을 나타냅니다."
         )
+    if section == "effect_path":
+        cf = payload.get("did_counterfactual_daily") or {}
+        placebo = payload.get("did_placebo") or {}
+        if not cf.get("available"):
+            return (
+                "정책 순효과의 시간 궤적은 만들 수 없었습니다. "
+                f"사유: {cf.get('reason') or '사전 또는 사후 기간이 부족합니다.'}"
+            )
+        base = (
+            "정책 대상 업종의 실제 소비와, 대조군의 일자별 움직임으로 만든 반사실 궤적을 "
+            "같은 축에 올렸습니다. 시행일 이전 구간에서 두 궤적이 붙어 있어야 이후의 간격을 "
+            "정책 때문이라고 읽을 수 있습니다. 누적선은 그 간격이 구간 전체로 얼마나 쌓였는지를 보여줍니다."
+        )
+        if placebo.get("available"):
+            return base + (
+                " 정책이 없던 사전기간에 가짜 시행일을 두고 같은 계산을 돌린 결과도 함께 실었습니다. "
+                "그 값이 0 에서 멀면 이 추정치를 정책 효과로 단정할 수 없습니다."
+            )
+        return base
+    if section == "dimensions":
+        sub = payload.get("did_by_subcategory") or {}
+        if not sub.get("available"):
+            return (
+                "순효과를 더 잘게 쪼갠 결과는 만들 수 없었습니다. "
+                f"사유: {sub.get('reason') or '세부 기록이 없습니다.'}"
+            )
+        return (
+            "같은 순효과를 세부업종·자치구·요일유형으로 나누어 어디에서 나왔는지 확인했습니다. "
+            "세 축 모두 업종 절과 같은 대조군 성장률로 반사실을 만들었기 때문에, 각 축의 값을 "
+            "모두 더하면 처치군 전체 순효과와 같아집니다. 특정 항목만 크게 튄다면 그 항목의 "
+            "표본 수를 먼저 확인해야 합니다."
+        )
     if section == "consistency":
         checks = payload.get("consistency", {})
         return (
@@ -78,6 +110,14 @@ def _prompt(section: str, payload: dict[str, Any]) -> str:
         "categories": "어떤 업종에서 금액이 늘고 줄었는지, 정책 대상 업종과 비대상 업종의 차이를 중심으로 설명하라.",
         "overlay": "시행 전후 곡선이 어떻게 달라졌는지, 어느 구간에서 차이가 벌어졌는지 설명하라.",
         "consistency": "일관성 검사 결과를 근거로 이 보고서의 수치를 신뢰할 수 있는지 판단하라.",
+        "effect_path": (
+            "정책 효과가 언제부터 나타나 얼마나 쌓였는지, 그리고 위약 검정 결과를 근거로 "
+            "그 추정치를 믿을 수 있는지 설명하라."
+        ),
+        "dimensions": (
+            "순효과가 어느 세부업종·지역·요일유형에서 나왔는지 설명하라. "
+            "한쪽에 몰려 있으면 그 사실을 그대로 지적하라."
+        ),
     }
     return (
         f"{guides.get(section, '아래 계산 결과를 설명하라.')}\n\n"
@@ -134,6 +174,39 @@ def _slim(section: str, bundle: dict[str, Any], consistency: dict[str, Any]) -> 
                 "reason": bundle["overlay"].get("reason"),
             },
         }
+    if section == "effect_path":
+        cf = bundle.get("did_counterfactual_daily") or {}
+        return {
+            "meta": meta,
+            "did_absolute": (bundle.get("did") or {}).get("did_absolute"),
+            "did_counterfactual_daily": {
+                "available": cf.get("available"),
+                "reason": cf.get("reason"),
+                "mean_gap_post": cf.get("mean_gap_post"),
+                "cumulative_gap_total": cf.get("cumulative_gap_total"),
+                "post_days": cf.get("post_days"),
+                # 전체 궤적을 넣으면 토큰만 태운다. 방향을 읽을 만큼만 준다.
+                "points": (cf.get("points") or [])[-8:],
+            },
+            "did_placebo": bundle.get("did_placebo"),
+            "reliability": (bundle.get("did") or {}).get("reliability"),
+        }
+    if section == "dimensions":
+        sub = bundle.get("did_by_subcategory") or {}
+        return {
+            "meta": meta,
+            "did_by_subcategory": {
+                "available": sub.get("available"),
+                "reason": sub.get("reason"),
+                "top": (sub.get("top") or [])[:6],
+            },
+            "did_by_region": {
+                "available": (bundle.get("did_by_region") or {}).get("available"),
+                "items": ((bundle.get("did_by_region") or {}).get("items") or [])[:6],
+            },
+            "did_by_daytype": bundle.get("did_by_daytype"),
+            "did_pareto": bundle.get("did_pareto"),
+        }
     if section == "consistency":
         return {"meta": meta, "consistency": consistency}
     return {"meta": meta}
@@ -143,7 +216,15 @@ def narrate_report(
     bundle: dict[str, Any],
     consistency: dict[str, Any],
     *,
-    sections: tuple[str, ...] = ("overview", "did", "categories", "overlay", "consistency"),
+    sections: tuple[str, ...] = (
+        "overview",
+        "did",
+        "effect_path",
+        "categories",
+        "dimensions",
+        "overlay",
+        "consistency",
+    ),
     enabled: bool = True,
 ) -> dict[str, Any]:
     """섹션별 해설을 만든다. 결과에는 항상 출처(LLM/결정론)와 검증 상태가 붙는다."""
@@ -166,6 +247,15 @@ def narrate_report(
             "overlay": bundle.get("overlay"),
             "deciles": bundle.get("deciles"),
             "event_study": bundle.get("event_study"),
+            # 새로 추가된 절의 숫자도 허용 집합에 넣는다. 넣지 않으면 그 절의 해설은
+            # 근거가 있는데도 숫자 가드에 걸려 통째로 버려진다.
+            "did_counterfactual_daily": bundle.get("did_counterfactual_daily"),
+            "did_by_subcategory": bundle.get("did_by_subcategory"),
+            "did_by_region": bundle.get("did_by_region"),
+            "did_by_daytype": bundle.get("did_by_daytype"),
+            "did_placebo": bundle.get("did_placebo"),
+            "did_pareto": bundle.get("did_pareto"),
+            "did_by_decile": bundle.get("did_by_decile"),
             "consistency": consistency,
             "meta_days": bundle.get("meta", {}).get("days"),
         }

@@ -561,6 +561,9 @@ export function ReportScreen() {
                   정해진 서술로 대체됩니다.
                 </p>
               ) : null}
+              {!READ_ONLY && !llm?.configured && llm?.operator_hint ? (
+                <p className="card__note wrap">{llm.operator_hint}</p>
+              ) : null}
             </Card>
           </section>
 

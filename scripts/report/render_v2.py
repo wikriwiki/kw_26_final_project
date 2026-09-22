@@ -698,6 +698,62 @@ def _sec_overlay(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
         )
     )
 
+    # 누적 겹쳐보기 — 하루하루의 흔들림을 지우고 구간 전체의 벌어짐만 남긴다.
+    if overall.get("pre_cumulative") and overall.get("post_cumulative"):
+        gap = overall["cumulative_delta"][-1] if overall["cumulative_delta"] else None
+        body.append(
+            figure(
+                charts.overlay_chart(
+                    overall["labels"],
+                    overall["pre_cumulative"],
+                    overall["post_cumulative"],
+                    pre_name="시행 전 누적",
+                    post_name="시행 후 누적",
+                    title="시행 전후 누적 소비 겹쳐보기",
+                    height=320,
+                ),
+                "<b>누적 겹쳐보기.</b> 같은 두 구간을 하루씩 더해 가며 그렸습니다. 하루 단위 그림은 요일과 "
+                "잡음으로 흔들리지만 누적선은 그 흔들림을 지우고 <b>구간 전체로 얼마나 벌어졌는지</b>만 "
+                f'남깁니다. 마지막 지점의 간격 {esc(_signed(gap))} 이 곧 두 구간의 총차이입니다.',
+                "events.jsonl · 일자별 합계의 누적",
+            )
+        )
+
+    # 지수 겹쳐보기 — 금액 규모가 다른 업종을 한 자로 읽는다.
+    index_top = [row["l1"] for row in bundle["categories"][:5]]
+    index_series = []
+    for order, l1 in enumerate(index_top):
+        series = overlay["by_category"].get(l1)
+        if not series or not series.get("post_index"):
+            continue
+        index_series.append(
+            {
+                "name": f"{l1} 시행 후",
+                "values": series["post_index"],
+                "color": charts.SERIES_VARS[order % len(charts.SERIES_VARS)],
+            }
+        )
+    if index_series:
+        index_series.insert(
+            0,
+            {"name": "시행 전 평균(=100)", "values": [100.0] * len(overall["labels"]), "color": charts.MUTED, "dashed": True},
+        )
+        body.append(
+            figure(
+                charts.line_chart(
+                    overall["labels"],
+                    index_series,
+                    title="업종별 지수 겹쳐보기",
+                    formatter=lambda v: f"{v:.0f}",
+                    height=320,
+                ),
+                "<b>업종별 지수 겹쳐보기(사전 일평균 = 100).</b> 업종마다 금액 규모가 달라 같은 축에 "
+                "그대로 올리면 큰 업종만 보입니다. 각 업종의 <b>시행 전 일평균을 100</b> 으로 두면 규모와 "
+                "무관하게 변화 폭만 비교할 수 있습니다. 100 선 위가 증가입니다.",
+                "events.jsonl · 업종×일자 교차표",
+            )
+        )
+
     # 상위 업종 소형 겹쳐보기
     top = [row["l1"] for row in bundle["categories"][:TOP_CATEGORIES]]
     smalls = []
@@ -1063,6 +1119,21 @@ def _sec_did_by_category(bundle: dict[str, Any]) -> str:
         )
     )
 
+    # 업종별 기여 폭포 — 전체 DID 가 어느 업종에서 왔는지 쌓아 본다.
+    targeted_rows = [row for row in rows if row["targeted"] and row["did_absolute"] is not None]
+    if targeted_rows:
+        steps = [{"label": row["l1"], "value": row["did_absolute"]} for row in targeted_rows]
+        steps.append({"label": "처치군 전체", "value": round(targeted_sum, 2), "absolute": True})
+        body.append(
+            figure(
+                charts.waterfall(steps, title="업종별 순효과 기여"),
+                "<b>업종별 기여 분해.</b> 왼쪽부터 업종별 순효과를 쌓아 올린 것이 오른쪽 끝의 "
+                "처치군 전체 순효과입니다. 모든 업종이 <b>같은 대조군 성장률</b>로 반사실을 만들기 때문에 "
+                "이 합은 근사가 아니라 항등식입니다 — 어긋나면 일관성 검증에서 실패로 남습니다.",
+                "events.jsonl · 업종별 반사실",
+            )
+        )
+
     # 업종 × 일자 히트맵 (사전 일평균 대비 증감률)
     daily_index = {row["day"]: row for row in bundle["daily"]}
     days = [row["day"] for row in bundle["daily"]]
@@ -1095,6 +1166,274 @@ def _sec_did_by_category(bundle: dict[str, Any]) -> str:
         )
     if pre_days and daily_index and overlay_cat:
         pass
+    return "".join(body)
+
+
+def _sec_effect_path(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
+    """7절 — 순효과의 시간 궤적. 2×2 가 눌러 버린 시간축을 다시 편다."""
+    cf = bundle.get("did_counterfactual_daily") or {}
+    did = bundle.get("did") or {}
+    if not cf.get("available"):
+        return f'<div class="callout callout--warn">{esc(cf.get("reason") or "반사실 궤적을 만들 수 없습니다.")}</div>'
+    points = cf["points"]
+    labels = [point["day"][5:] for point in points]
+    marker = next((index for index, point in enumerate(points) if point["phase"] == "post"), None)
+    body = [note(narration, "effect_path")]
+    body.append(
+        figure(
+            charts.counterfactual_chart(
+                labels,
+                [point["treat"] for point in points],
+                [point["counterfactual"] for point in points],
+                marker_index=marker,
+                title="실제 vs 반사실 궤적",
+            ),
+            "<b>실제 궤적과 반사실 궤적.</b> 실선은 정책 대상 업종의 실제 소비, 점선은 "
+            "<b>정책이 없었다면</b> 그 업종이 그렸을 궤적입니다 — 대조군이 그날 보인 움직임을 "
+            f'대상 업종의 사전 일평균({esc(krw(cf["treat_pre_daily"]))})에 그대로 입혀 만들었습니다. '
+            "시행일 <b>이전</b> 구간에서 두 선이 붙어 있어야 이후의 간격을 정책 때문이라고 말할 수 있습니다.",
+            "events.jsonl · 일자별 처치군/대조군",
+        )
+    )
+    post_points = [point for point in points if point["phase"] == "post"]
+    if post_points:
+        body.append(
+            figure(
+                charts.line_chart(
+                    [point["day"][5:] for point in post_points],
+                    [
+                        {
+                            "name": "누적 순효과",
+                            "values": [point["cumulative_gap"] for point in post_points],
+                            "color": charts.SERIES_VARS[0],
+                        }
+                    ],
+                    title="누적 순효과",
+                    height=280,
+                ),
+                "<b>누적 순효과.</b> 시행일부터 하루치 순효과를 더해 나간 값입니다. 선이 계속 올라가면 "
+                "효과가 이어지고 있다는 뜻이고, 평평해지면 그날 이후로는 더 벌어지지 않았다는 뜻입니다. "
+                f'구간 전체 누적은 {esc(krw(cf["cumulative_gap_total"]))} 이며, 이를 사후 일수 '
+                f'{cf["post_days"]}일로 나눈 값이 앞 절의 이중차분 {esc(krw(did.get("did_absolute")))} 와 같습니다.',
+                "events.jsonl · 일자별 반사실 격차",
+            )
+        )
+    rows = []
+    for point in post_points:
+        rows.append(
+            [
+                f'<span class="num">{esc(point["day"])}</span>',
+                f'<span class="num">{esc(point["rel_day"])}</span>',
+                f'<span class="num">{esc(krw(point["treat"]))}</span>',
+                f'<span class="num">{esc(krw(point["counterfactual"]))}</span>',
+                _signed(point["gap"]),
+                f'<span class="num">{esc(krw(point["cumulative_gap"]))}</span>',
+            ]
+        )
+    if rows:
+        body.append(
+            table(
+                [
+                    ("일자", ""),
+                    ("상대일", "n"),
+                    ("실제", "n"),
+                    ("반사실", "n"),
+                    ("당일 순효과", "n"),
+                    ("누적", "n"),
+                ],
+                rows,
+                foot=[
+                    "<b>평균 / 합계</b>",
+                    "",
+                    "",
+                    "",
+                    f'<b>{_signed(cf["mean_gap_post"])}</b>',
+                    f'<span class="num"><b>{esc(krw(cf["cumulative_gap_total"]))}</b></span>',
+                ],
+            )
+        )
+
+    placebo = bundle.get("did_placebo") or {}
+    if placebo.get("available"):
+        real = did.get("did_absolute")
+        body.append(
+            figure(
+                charts.grouped_bar(
+                    ["위약 (사전기간 가짜 시행일)", "실제 (정책 시행일)"],
+                    [
+                        {
+                            "name": "이중차분 추정치",
+                            "values": [placebo.get("did_absolute"), real],
+                            "color": charts.SERIES_VARS[0],
+                        }
+                    ],
+                    title="위약 검정",
+                    height=280,
+                    value_labels=True,
+                ),
+                "<b>위약(placebo) 검정.</b> 정책이 없던 사전기간 한가운데에 "
+                f'<b>가짜 시행일({esc(placebo["fake_policy_from"])})</b>을 두고 똑같은 계산을 돌린 결과입니다. '
+                "정책이 없었으므로 왼쪽 막대는 0 근처여야 합니다. 왼쪽이 오른쪽만큼 크면 그 값은 정책이 아니라 "
+                "처치군과 대조군의 구조적 차이를 재고 있는 것입니다.",
+                "events.jsonl · 사전기간 재분할",
+            )
+        )
+        ratio = (
+            abs(placebo["did_absolute"]) / abs(real) * 100
+            if (placebo.get("did_absolute") is not None and real)
+            else None
+        )
+        verdict = (
+            "위약 추정치가 실제 추정치보다 충분히 작아, 이 DID 를 정책 효과로 읽는 데 무리가 없습니다."
+            if (ratio is not None and ratio < 20)
+            else "위약 추정치가 실제 추정치에 견줄 만큼 큽니다. 이 DID 를 정책 효과로 단정하지 마십시오."
+        )
+        body.append(
+            f'<div class="callout callout--{"ok" if (ratio is not None and ratio < 20) else "warn"}">'
+            f'위약 / 실제 = {esc(f"{ratio:.1f}%") if ratio is not None else "—"} · {esc(verdict)}</div>'
+        )
+    elif placebo.get("reason"):
+        body.append(f'<div class="callout callout--warn">위약 검정 미실시 — {esc(placebo["reason"])}</div>')
+
+    reliability = (did.get("reliability") or {}) if did else {}
+    if reliability.get("problems"):
+        body.append(
+            '<div class="callout callout--warn"><b>이 추정치를 믿기 전에.</b><ul>'
+            + "".join(f"<li>{esc(problem)}</li>" for problem in reliability["problems"])
+            + "</ul></div>"
+        )
+    return "".join(body)
+
+
+def _dimension_block(
+    payload: dict[str, Any],
+    *,
+    heading: str,
+    caption: str,
+    source: str,
+    limit: int = 12,
+) -> str:
+    if not payload.get("available"):
+        return f'<div class="callout callout--warn">{esc(heading)} — {esc(payload.get("reason") or "계산할 수 없습니다.")}</div>'
+    items = [item for item in payload["items"] if item.get("did_absolute") is not None][:limit]
+    if not items:
+        return f'<div class="callout callout--warn">{esc(heading)} — 표시할 값이 없습니다.</div>'
+    return figure(
+        charts.diverging_bar(
+            [{"label": item["name"], "value": item["did_absolute"], "targeted": item["did_absolute"] >= 0} for item in items],
+            title=heading,
+        ),
+        caption,
+        source,
+    )
+
+
+def _sec_did_dimensions(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
+    """9절 — 같은 순효과를 세부업종·지역·요일유형으로 쪼갠다."""
+    body: list[str] = [note(narration, "dimensions")]
+    sub = bundle.get("did_by_subcategory") or {}
+    if sub.get("available"):
+        items = sub.get("top") or []
+        body.append(
+            figure(
+                charts.diverging_bar(
+                    [
+                        {"label": item["label"], "value": item["did_absolute"], "targeted": item["did_absolute"] >= 0}
+                        for item in items
+                    ],
+                    title="세부업종별 이중차분",
+                ),
+                "<b>세부업종(L2) 이중차분 — 상위 항목.</b> 업종 한 단계 아래에서 같은 계산을 돌렸습니다. "
+                "반사실을 만드는 대조군 성장률은 업종 절과 <b>같은 값</b>이므로, 한 업종 안의 세부업종 "
+                "순효과를 모두 더하면 그 업종의 순효과와 같습니다. " + esc(sub.get("note") or ""),
+                "events.jsonl · 업종×세부업종×일자 교차표",
+            )
+        )
+        rows = []
+        for item in items:
+            rows.append(
+                [
+                    esc(item["label"]),
+                    f'<span class="num">{esc(krw(item["pre_daily"]))}</span>',
+                    f'<span class="num">{esc(krw(item["post_daily"]))}</span>',
+                    f'<span class="num">{esc(krw(item["counterfactual_post"]))}</span>',
+                    _signed(item["did_absolute"]),
+                    _signed(item["did_pct"], formatter=lambda v: f"{abs(v):.1f}%") if item["did_pct"] is not None else "—",
+                ]
+            )
+        body.append(
+            table(
+                [
+                    ("세부업종", ""),
+                    ("사전 일평균", "n"),
+                    ("사후 일평균", "n"),
+                    ("반사실", "n"),
+                    ("DID", "n"),
+                    ("DID 비율", "n"),
+                ],
+                rows,
+            )
+        )
+        losers = sub.get("bottom") or []
+        if losers:
+            body.append(
+                figure(
+                    charts.diverging_bar(
+                        [
+                            {"label": item["label"], "value": item["did_absolute"], "targeted": False}
+                            for item in reversed(losers)
+                        ],
+                        title="줄어든 세부업종",
+                    ),
+                    "<b>줄어든 세부업종.</b> 대상 업종 안에서도 오히려 반사실보다 적게 팔린 곳입니다. "
+                    "전체가 늘었다는 결론이 모든 세부업종에 해당하지는 않는다는 뜻이므로 함께 싣습니다.",
+                    "events.jsonl · 업종×세부업종×일자 교차표",
+                )
+            )
+    else:
+        body.append(
+            f'<div class="callout callout--warn">세부업종 이중차분 — {esc(sub.get("reason") or "계산할 수 없습니다.")}</div>'
+        )
+
+    pareto = bundle.get("did_pareto") or {}
+    if pareto.get("available"):
+        body.append(
+            figure(
+                charts.pareto_chart(
+                    [
+                        {"label": item["l1"], "value": item["did_absolute"], "cumulative_pct": item["cumulative_pct"]}
+                        for item in pareto["items"]
+                    ],
+                    title="업종별 순효과 집중도",
+                    half_index=pareto.get("categories_for_half"),
+                ),
+                "<b>효과가 몇 개 업종에 몰려 있는가.</b> 막대는 업종별 순효과, 꺾은선은 왼쪽부터의 누적 비중입니다. "
+                f'증가분의 절반이 <b>상위 {pareto.get("categories_for_half")}개 업종</b>에서 나왔습니다. '
+                "효과가 한두 업종에 몰려 있으면 그 업종의 특수사정을 따로 확인해야 합니다.",
+                "events.jsonl · 업종별 반사실",
+            )
+        )
+
+    body.append(
+        _dimension_block(
+            bundle.get("did_by_region") or {},
+            heading="지역별 이중차분",
+            caption="<b>어디에서 늘었는가 — 지역별 순효과.</b> 정책 대상 업종의 소비만 모아 자치구별로 "
+            "같은 반사실을 적용했습니다. 모든 자치구의 값을 더하면 처치군 전체 순효과와 같습니다. "
+            "특정 자치구만 크게 튀면 그 지역의 표본 수를 먼저 확인해야 합니다.",
+            source="events.jsonl · 일자×지역×업종 교차표",
+        )
+    )
+    body.append(
+        _dimension_block(
+            bundle.get("did_by_daytype") or {},
+            heading="요일유형별 이중차분",
+            caption="<b>언제 늘었는가 — 주중·주말별 순효과.</b> 사후 기간에 주말이 몇 개 더 들어갔는지에 따라 "
+            "단순 전후비교는 왜곡되지만, 여기서는 같은 반사실을 요일유형별로 적용해 그 왜곡을 분리했습니다. "
+            "두 값의 합은 처치군 전체 순효과와 같습니다.",
+            source="events.jsonl · 일자×요일유형×업종 교차표",
+        )
+    )
     return "".join(body)
 
 
@@ -1187,6 +1526,36 @@ def _sec_deciles(bundle: dict[str, Any]) -> str:
             row_attrs=attrs,
         )
     )
+
+    # 사람 축에서 다시 던지는 같은 질문 — 업종 축 DID 와 방향이 맞는지 본다.
+    decile_did = bundle.get("did_by_decile") or {}
+    if decile_did.get("available"):
+        body.append(
+            figure(
+                charts.slope_chart(
+                    treat_pre=decile_did["treat_pre"],
+                    treat_post=decile_did["treat_post"],
+                    control_pre=decile_did["control_pre"],
+                    control_post=decile_did["control_post"],
+                    counterfactual=decile_did["counterfactual_post"],
+                    treat_name="지급 대상 분위",
+                    control_name="비지급 분위",
+                ),
+                "<b>사람 축에서 본 이중차분.</b> 앞 절들은 업종을 처치군/대조군으로 나눴지만, 여기서는 "
+                f'<b>사람</b>을 나눕니다 — 지급을 받은 {esc(", ".join(str(d) for d in decile_did["granted_deciles"]))}분위가 처치군, '
+                "나머지 분위가 대조군입니다. 값은 1인당 소비이고, 반사실은 비지급 분위의 변화율로 만들었습니다. "
+                "업종 축 결과와 방향이 다르면 둘 중 하나는 다른 것을 재고 있는 것이므로 함께 확인해야 합니다.",
+                "metrics/day_*.jsonl · 분위별 1인당 소비",
+            )
+        )
+        did_pct_text = "—" if decile_did.get("did_pct") is None else f'{decile_did["did_pct"]:+.1f}%'
+        body.append(
+            f'<div class="callout">지급 대상 분위의 1인당 소비 순효과 '
+            f'<b>{esc(krw(decile_did["did_absolute"]))}</b> '
+            f'(반사실 {esc(krw(decile_did["counterfactual_post"]))} 대비 {esc(did_pct_text)}).</div>'
+        )
+    elif decile_did.get("reason"):
+        body.append(f'<div class="callout callout--warn">분위별 이중차분 미실시 — {esc(decile_did["reason"])}</div>')
     return "".join(body)
 
 
@@ -1387,8 +1756,10 @@ SECTION_PLAN = [
     ("s4", "4", "시행 전후 겹쳐보기", "같은 길이의 두 구간을 한 축에 올려 소비가 얼마나 달라졌는지 본다."),
     ("s5", "5", "업종별 전후 비교", "어떤 업종에서 금액이 늘고 줄었는가 (단순 비교)."),
     ("s6", "6", "이중차분 (DID)", "시장 전체 추세를 걷어낸 정책 순효과."),
-    ("s7", "7", "업종별 이중차분", "어떤 업종에서 정책 때문에 금액이 늘었는가."),
-    ("s8", "8", "분위별 효과", "지급 대상 분위에 실제로 도달했는가."),
+    ("s12", "7", "정책 순효과의 시간 궤적", "효과가 언제부터 나타나 얼마나 쌓였는가, 그리고 그 값을 믿어도 되는가."),
+    ("s7", "8", "업종별 이중차분", "어떤 업종에서 정책 때문에 금액이 늘었는가."),
+    ("s13", "9", "세부업종·지역·요일별 이중차분", "같은 순효과를 더 잘게 쪼개 어디에서 나왔는지 본다."),
+    ("s8", "10", "분위별 효과", "지급 대상 분위에 실제로 도달했는가."),
     ("s9", "9", "소비 구조", "결제 구성·요일·업종 위치·지역."),
     ("s10", "10", "일관성 검증", "이 보고서 안의 숫자들이 서로 어긋나지 않는지 다시 계산해 대조한다."),
     ("s11", "11", "근거와 한계", "출처, 해설 생성 방식, 해석상의 한계."),
@@ -1418,6 +1789,8 @@ def build_html(
         "s5": lambda: _sec_categories(bundle, narration),
         "s6": lambda: _sec_did(bundle, narration),
         "s7": lambda: _sec_did_by_category(bundle),
+        "s12": lambda: _sec_effect_path(bundle, narration),
+        "s13": lambda: _sec_did_dimensions(bundle, narration),
         "s8": lambda: _sec_deciles(bundle),
         "s9": lambda: _sec_structure(bundle),
         "s10": lambda: _sec_consistency(bundle, consistency, narration),
@@ -1508,7 +1881,67 @@ def build_markdown(
                 f'{("%+.1f%%" % row["growth_pct"]) if row["growth_pct"] is not None else "—"} |'
             )
         lines.append("")
-    lines += ["## 4. 시행 전후 겹쳐보기", "", narration["sections"].get("overlay", {}).get("text", ""), ""]
+    lines += [
+        "## 4. 정책 순효과의 시간 궤적",
+        "",
+        narration["sections"].get("effect_path", {}).get("text", ""),
+        "",
+    ]
+    cf = bundle.get("did_counterfactual_daily") or {}
+    if cf.get("available"):
+        lines += ["| 일자 | 상대일 | 실제 | 반사실 | 당일 순효과 | 누적 |", "|---|---:|---:|---:|---:|---:|"]
+        for point in cf["points"]:
+            if point["phase"] != "post":
+                continue
+            lines.append(
+                f'| {point["day"]} | {point["rel_day"]} | {point["treat"]:,.0f} | '
+                f'{point["counterfactual"]:,.0f} | {point["gap"]:+,.0f} | '
+                f'{(point["cumulative_gap"] or 0):,.0f} |'
+            )
+        lines += [
+            "",
+            f'- 사후 평균 순효과 {cf["mean_gap_post"]:+,.0f} · 누적 {cf["cumulative_gap_total"]:+,.0f}'
+            f' ({cf["post_days"]}일)',
+            "",
+        ]
+    placebo = bundle.get("did_placebo") or {}
+    if placebo.get("available"):
+        lines += [
+            f'- 위약 검정(가짜 시행일 {placebo["fake_policy_from"]}): '
+            f'{(placebo["did_absolute"] or 0):+,.0f} — 0 에 가까울수록 실제 추정치를 정책 효과로 읽을 수 있습니다.',
+            "",
+        ]
+    elif placebo.get("reason"):
+        lines += [f'- 위약 검정 미실시: {placebo["reason"]}', ""]
+
+    lines += [
+        "## 5. 세부업종·지역·요일별 이중차분",
+        "",
+        narration["sections"].get("dimensions", {}).get("text", ""),
+        "",
+    ]
+    sub = bundle.get("did_by_subcategory") or {}
+    if sub.get("available"):
+        lines += ["| 세부업종 | 사전 일평균 | 사후 일평균 | 반사실 | DID |", "|---|---:|---:|---:|---:|"]
+        for item in (sub.get("top") or [])[:10]:
+            lines.append(
+                f'| {item["label"]} | {item["pre_daily"]:,.0f} | {item["post_daily"]:,.0f} | '
+                f'{item["counterfactual_post"]:,.0f} | {item["did_absolute"]:+,.0f} |'
+            )
+        lines.append("")
+    for key, heading in (("did_by_region", "지역별"), ("did_by_daytype", "요일유형별")):
+        payload = bundle.get(key) or {}
+        if not payload.get("available"):
+            continue
+        lines += [f"### {heading} 순효과", "", f"| {heading} | 사전 일평균 | 사후 일평균 | DID |", "|---|---:|---:|---:|"]
+        for item in (payload.get("items") or [])[:12]:
+            lines.append(
+                f'| {item["name"]} | {item["pre_daily"]:,.0f} | {item["post_daily"]:,.0f} | '
+                f'{(item["did_absolute"] or 0):+,.0f} |'
+            )
+        lines += [f'| **합계** | | | **{(payload.get("total_did") or 0):+,.0f}** |', ""]
+
+    lines += ["## 6. 시행 전후 겹쳐보기", "", narration["sections"].get("overlay", {}).get("text", ""), ""]
     overlay = bundle["overlay"]
     if overlay.get("available"):
         overall = overlay["overall"]
@@ -1519,7 +1952,7 @@ def build_markdown(
                 f'{overall["delta"][index]:+,.0f} |'
             )
         lines.append("")
-    lines += ["## 5. 일관성 검증", "", narration["sections"].get("consistency", {}).get("text", ""), ""]
+    lines += ["## 7. 일관성 검증", "", narration["sections"].get("consistency", {}).get("text", ""), ""]
     lines += ["| 검사 | 결과 | 차이 |", "|---|:--:|---:|"]
     for check in consistency.get("checks", []):
         mark = {"pass": "통과", "fail": "실패", "skip": "미검사"}[check["status"]]
@@ -1527,7 +1960,7 @@ def build_markdown(
         lines.append(f'| {check["label"]} | {mark} | {diff} |')
     lines += [
         "",
-        "## 6. 근거와 한계",
+        "## 8. 근거와 한계",
         "",
         f'- 계산 입력: `{meta.get("generated_from")}`',
         f'- 산출물 경로: `{meta.get("run_root")}`',

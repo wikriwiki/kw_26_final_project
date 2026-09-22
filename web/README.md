@@ -32,7 +32,9 @@ npm run dev
 | `SIM_RUN_COMMAND_JSON` | 실행 버튼이 띄울 **고정 명령**. 없으면 `/api/runner/start` 는 503 |
 | `SIM_LOCK_PATH` | 실행 lock 파일 (기본 `web/.run.lock`) |
 | `WEB_CORS_ORIGINS` | 프런트 개발 서버 주소 |
-| `GEMINI_API_KEY` | 보고서 해설 LLM. 없으면 해설만 규칙 기반으로 대체된다 |
+| `SIM_VIZ_FILE` | 운영자가 직접 걸어 둔 3D 지도 파일. `SIM_VIZ_STANDALONE` → `SIM_DATA_ROOT/viz/sim_demo.html` 순으로 물러난다 |
+| `GEMINI_API_KEY` | 보고서 해설 LLM. 없으면 해설만 규칙 기반으로 대체된다. **인터뷰 화면도 같은 키를 쓴다** |
+| `INTERVIEW_BASE_URL` / `_MODEL` / `_API_KEY` | 인터뷰 전용 엔드포인트(K-EXAONE). 셋이 다 있으면 이쪽을 먼저 쓴다 |
 
 산출물이 없다고 해서 fixture 로 자동 fallback 하지 않는다. 없으면 없다고 답한다.
 
@@ -97,6 +99,19 @@ SIM_RUN_ID  SIM_POLICY_ID  SIM_START_DAY  SIM_DAYS  SIM_AGENTS
 |---|---|---|
 | `GET` | `/api/llm/status` | 제공자·모델·설정 여부. **키 값은 절대 내보내지 않는다** |
 | `POST` | `/api/llm/ping` | 실제 왕복 1회로 연결 확인 |
+| `GET` | `/api/interview/status` | 인터뷰 가능 여부와 어느 백엔드로 답하는지 (`dedicated` \| `shared` \| `none`) |
+| `POST` | `/api/interview` | 대상자 한 명에게 질문. 근거는 화면이 보낸 그 사람의 기록뿐 |
+
+`status` 의 `reason` 은 **화면에 그대로 나가는 문장**이라 `.env` 같은 내부 사정을 담지
+않는다. 고칠 수 있는 사람에게 필요한 안내는 `operator_hint` 로 따로 실리고, 읽기 전용
+시연 모드에서는 화면에 뜨지 않는다.
+
+### 키 한 줄로 켜지는 범위
+
+`.env` 에 `GEMINI_API_KEY` 한 줄만 넣으면 **보고서 해설과 인터뷰가 함께** 켜진다.
+인터뷰 전용 엔드포인트(`INTERVIEW_*`)가 설정돼 있으면 그쪽을 먼저 쓰고, 없을 때만
+보고서 해설과 같은 클라이언트로 물러난다. 어느 쪽으로 답했는지는 응답의
+`model_label` 에 남으므로 조용히 바뀌지 않는다.
 
 ## 테스트
 
