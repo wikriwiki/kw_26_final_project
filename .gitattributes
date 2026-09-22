@@ -1,0 +1,4 @@
+output/sim/visualization/sim_standalone.html filter=lfs diff=lfs merge=lfs -text
+output/stats/dong_consumption.json filter=lfs diff=lfs merge=lfs -text
+output/stats/consumption_detail.json filter=lfs diff=lfs merge=lfs -text
+output/stats/agent_profiles.json filter=lfs diff=lfs merge=lfs -text

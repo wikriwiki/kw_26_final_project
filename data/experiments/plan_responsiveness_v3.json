@@ -1,0 +1,194 @@
+{
+ "unit": "1 - Jaccard over plan slots (time, activity, anchor, category, channel)",
+ "signal_is": "off vs on within one run",
+ "floor_is": "same arm, two seeds - what resampling alone moves",
+ "reading": "A candidate whose signal does not exceed the floor is not reading the institution; it is only resampling. Exceeding the floor is necessary, not sufficient - moving is not the same as moving correctly.",
+ "candidates": {
+  "v25": {
+   "cashback": {
+    "pairs": 12,
+    "plan_distance_mean": 0.6811698717948718,
+    "plan_distance_sd": 0.13018677037096343,
+    "purchase_slot_distance_mean": 0.5625,
+    "coarse_distance_mean": 0.2064484126984127,
+    "coarse_distance_sd": 0.1571226629236534,
+    "identical_plans": 0
+   },
+   "distancing": {
+    "pairs": 12,
+    "plan_distance_mean": 0.6714378350407763,
+    "plan_distance_sd": 0.18093227821213506,
+    "purchase_slot_distance_mean": 0.6666666666666666,
+    "coarse_distance_mean": 0.20119949494949493,
+    "coarse_distance_sd": 0.10511687819188734,
+    "identical_plans": 0
+   },
+   "grant": {
+    "pairs": 12,
+    "plan_distance_mean": 0.666056166056166,
+    "plan_distance_sd": 0.08898290337913947,
+    "purchase_slot_distance_mean": 0.5833333333333334,
+    "coarse_distance_mean": 0.24058742183742185,
+    "coarse_distance_sd": 0.1549694118873865,
+    "identical_plans": 0
+   },
+   "local_voucher": {
+    "pairs": 12,
+    "plan_distance_mean": 0.7237618998648411,
+    "plan_distance_sd": 0.0976786042389319,
+    "purchase_slot_distance_mean": 0.5,
+    "coarse_distance_mean": 0.224251443001443,
+    "coarse_distance_sd": 0.15656414685136685,
+    "identical_plans": 0
+   },
+   "_all": {
+    "pairs": 48,
+    "plan_distance_mean": 0.6856064431891638,
+    "plan_distance_sd": 0.12743688319070592,
+    "coarse_distance_mean": 0.21812169312169313,
+    "coarse_distance_sd": 0.14130796672675655,
+    "purchase_slot_distance_mean": 0.578125
+   }
+  },
+  "v26": {
+   "cashback": {
+    "pairs": 12,
+    "plan_distance_mean": 0.610749666999667,
+    "plan_distance_sd": 0.2288382223658553,
+    "purchase_slot_distance_mean": 0.20833333333333334,
+    "coarse_distance_mean": 0.19424302549302552,
+    "coarse_distance_sd": 0.1758259048907672,
+    "identical_plans": 0
+   },
+   "distancing": {
+    "pairs": 12,
+    "plan_distance_mean": 0.6976553675083087,
+    "plan_distance_sd": 0.1242131569813697,
+    "purchase_slot_distance_mean": 0.6666666666666666,
+    "coarse_distance_mean": 0.22615740740740742,
+    "coarse_distance_sd": 0.13871432632741973,
+    "identical_plans": 0
+   },
+   "grant": {
+    "pairs": 12,
+    "plan_distance_mean": 0.7615653953889248,
+    "plan_distance_sd": 0.09717566826990263,
+    "purchase_slot_distance_mean": 0.75,
+    "coarse_distance_mean": 0.23235329485329487,
+    "coarse_distance_sd": 0.12046067845069806,
+    "identical_plans": 0
+   },
+   "local_voucher": {
+    "pairs": 12,
+    "plan_distance_mean": 0.7033864283864284,
+    "plan_distance_sd": 0.18147400308463515,
+    "purchase_slot_distance_mean": 0.5,
+    "coarse_distance_mean": 0.2093163780663781,
+    "coarse_distance_sd": 0.13145179753727151,
+    "identical_plans": 0
+   },
+   "_all": {
+    "pairs": 48,
+    "plan_distance_mean": 0.6933392145708323,
+    "plan_distance_sd": 0.16954472585629213,
+    "coarse_distance_mean": 0.21551752645502648,
+    "coarse_distance_sd": 0.13930426684106378,
+    "purchase_slot_distance_mean": 0.53125
+   }
+  },
+  "v27": {
+   "cashback": {
+    "pairs": 12,
+    "plan_distance_mean": 0.7005004391033802,
+    "plan_distance_sd": 0.13857730830814743,
+    "purchase_slot_distance_mean": 0.5416666666666666,
+    "coarse_distance_mean": 0.22144059644059644,
+    "coarse_distance_sd": 0.18892543348996357,
+    "identical_plans": 0
+   },
+   "distancing": {
+    "pairs": 12,
+    "plan_distance_mean": 0.6810744810744811,
+    "plan_distance_sd": 0.12414839855340189,
+    "purchase_slot_distance_mean": 0.5416666666666666,
+    "coarse_distance_mean": 0.17403198653198654,
+    "coarse_distance_sd": 0.17610477937717062,
+    "identical_plans": 0
+   },
+   "grant": {
+    "pairs": 12,
+    "plan_distance_mean": 0.7193447891977304,
+    "plan_distance_sd": 0.10974702222835636,
+    "purchase_slot_distance_mean": 0.5555555555555556,
+    "coarse_distance_mean": 0.2225258537758538,
+    "coarse_distance_sd": 0.12842141346367378,
+    "identical_plans": 0
+   },
+   "local_voucher": {
+    "pairs": 12,
+    "plan_distance_mean": 0.6381470857573799,
+    "plan_distance_sd": 0.2560413110140159,
+    "purchase_slot_distance_mean": 0.3333333333333333,
+    "coarse_distance_mean": 0.17322631072631073,
+    "coarse_distance_sd": 0.1396209243042116,
+    "identical_plans": 1
+   },
+   "_all": {
+    "pairs": 48,
+    "plan_distance_mean": 0.6847666987832429,
+    "plan_distance_sd": 0.16489591922768768,
+    "coarse_distance_mean": 0.19780618686868687,
+    "coarse_distance_sd": 0.15694408025616444,
+    "purchase_slot_distance_mean": 0.4930555555555556
+   }
+  }
+ },
+ "floor": {
+  "seed56_57": {
+   "cashback": {
+    "pairs": 24,
+    "plan_distance_mean": 0.6205764211278917,
+    "plan_distance_sd": 0.22711973821783835,
+    "purchase_slot_distance_mean": 0.3958333333333333,
+    "coarse_distance_mean": 0.20870159932659935,
+    "coarse_distance_sd": 0.1512882758139962,
+    "identical_plans": 2
+   },
+   "distancing": {
+    "pairs": 24,
+    "plan_distance_mean": 0.6616072652837359,
+    "plan_distance_sd": 0.12076784384790441,
+    "purchase_slot_distance_mean": 0.4375,
+    "coarse_distance_mean": 0.1823442760942761,
+    "coarse_distance_sd": 0.14611193421281468,
+    "identical_plans": 0
+   },
+   "grant": {
+    "pairs": 24,
+    "plan_distance_mean": 0.5971668037844509,
+    "plan_distance_sd": 0.25549994000003057,
+    "purchase_slot_distance_mean": 0.5625,
+    "coarse_distance_mean": 0.2432932807932808,
+    "coarse_distance_sd": 0.15871362277067733,
+    "identical_plans": 1
+   },
+   "local_voucher": {
+    "pairs": 24,
+    "plan_distance_mean": 0.7071535184586655,
+    "plan_distance_sd": 0.119442051358328,
+    "purchase_slot_distance_mean": 0.3506944444444444,
+    "coarse_distance_mean": 0.15485058922558922,
+    "coarse_distance_sd": 0.15042804595808557,
+    "identical_plans": 0
+   },
+   "_all": {
+    "pairs": 96,
+    "plan_distance_mean": 0.6466260021636859,
+    "plan_distance_sd": 0.1924837518194062,
+    "coarse_distance_mean": 0.19729743635993635,
+    "coarse_distance_sd": 0.1528597387805355,
+    "purchase_slot_distance_mean": 0.4366319444444444
+   }
+  }
+ }
+}

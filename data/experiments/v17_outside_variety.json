@@ -1,0 +1,91 @@
+{
+ "activities_outside": {
+  "meal_dine_in": "식사(매장)",
+  "meal_takeaway": "식사(포장)",
+  "cafe_dine_in": "카페(매장)",
+  "cafe_takeaway": "카페(포장)",
+  "dessert": "디저트",
+  "groceries": "마트",
+  "convenience": "편의점",
+  "shopping": "쇼핑(매장)",
+  "hair": "미용",
+  "health_goods": "건강",
+  "leisure_service": "여가",
+  "education_service": "교육",
+  "other_service": "기타",
+  "bar": "주점"
+ },
+ "activities_at_home": [
+  "home_delivery",
+  "home_online_goods",
+  "office_delivery"
+ ],
+ "runs": {
+  "v25": {
+   "cells": 384,
+   "distinct_kinds_used": 3,
+   "kinds_available": 14,
+   "never_used": [
+    "bar",
+    "cafe_dine_in",
+    "cafe_takeaway",
+    "convenience",
+    "dessert",
+    "education_service",
+    "hair",
+    "health_goods",
+    "leisure_service",
+    "other_service",
+    "shopping"
+   ],
+   "uses_by_activity": {
+    "groceries": 45,
+    "meal_dine_in": 15,
+    "meal_takeaway": 1
+   },
+   "mean_kinds_per_cell": 0.15885416666666666,
+   "cells_with_any_outside": 59,
+   "cells_buying_only_from_home": 77
+  },
+  "v34": {
+   "cells": 384,
+   "distinct_kinds_used": 4,
+   "kinds_available": 14,
+   "never_used": [
+    "bar",
+    "cafe_dine_in",
+    "cafe_takeaway",
+    "dessert",
+    "education_service",
+    "hair",
+    "health_goods",
+    "leisure_service",
+    "other_service",
+    "shopping"
+   ],
+   "uses_by_activity": {
+    "groceries": 63,
+    "meal_dine_in": 14,
+    "convenience": 1,
+    "meal_takeaway": 1
+   },
+   "mean_kinds_per_cell": 0.20572916666666666,
+   "cells_with_any_outside": 78,
+   "cells_buying_only_from_home": 92
+  }
+ },
+ "paired_vs": {
+  "a": "v25",
+  "b": "v34",
+  "result": {
+   "mean_difference": 0.046875,
+   "ci95": [
+    -0.005208333333333333,
+    0.09895833333333333
+   ],
+   "resolved": false,
+   "cells_compared": 384,
+   "note": "칸을 재추출한 차이다. 같은 칸끼리 짝지은 것이 아니라 분포끼리 견준 것이므로 후보가 같은 코호트·같은 seed 일 때만 뜻이 있다."
+  }
+ }
+}

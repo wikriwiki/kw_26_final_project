@@ -1,0 +1,642 @@
+{
+  "resource_gate": {
+    "checked": 96,
+    "excluded": 0,
+    "cells": [],
+    "whole_matrix_eligible": true,
+    "effect": "Excluded before any model call. A non-empty exclusion means the matrix is incomplete by construction: the remaining cells are not a complete comparison, and the exclusion is not a repaired plan."
+  },
+  "scope": "Gate-active complete-run probe on the known 12-citizen development cohort. No empirical policy-effect claim.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v4_bounded1024": {
+      "responses": 96,
+      "complete": true,
+      "valid": 96,
+      "all_pass": true,
+      "deterministic_no_purchase": 50
+    }
+  },
+  "contrasts": {
+    "cashback": {
+      "complete_matrix": true,
+      "citizens": 12,
+      "days": 1,
+      "replicates": 1,
+      "unit": "won per person per day",
+      "by_seed": [
+        {
+          "replicate": 53001,
+          "metrics": {
+            "total_consumption": {
+              "off_mean": 3000,
+              "on_mean": 5833.333333333333,
+              "difference": 2833.333333333333,
+              "relative_change": 0.9444444444444443,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 5000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 10000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -12000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 13000,
+                "AGT_11710532_M_50대_001": 18000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "offline_consumption": {
+              "off_mean": 0,
+              "on_mean": 1666.6666666666667,
+              "difference": 1666.6666666666667,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 5000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 10000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 5000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "online_consumption": {
+              "off_mean": 3000,
+              "on_mean": 4166.666666666667,
+              "difference": 1166.666666666667,
+              "relative_change": 0.388888888888889,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -12000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 13000,
+                "AGT_11710532_M_50대_001": 13000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "own_funded_consumption": {
+              "off_mean": 3000,
+              "on_mean": 5833.333333333333,
+              "difference": 2833.333333333333,
+              "relative_change": 0.9444444444444443,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 5000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 10000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -12000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 13000,
+                "AGT_11710532_M_50대_001": 18000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "concession_funded_consumption": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "asset_acquisition_cash_outflow": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "cash_outflow_total": {
+              "off_mean": 3000,
+              "on_mean": 5833.333333333333,
+              "difference": 2833.333333333333,
+              "relative_change": 0.9444444444444443,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 5000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 10000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -12000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 13000,
+                "AGT_11710532_M_50대_001": 18000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            }
+          }
+        }
+      ],
+      "scope": "Equal-weight descriptive conditional-scenario contrasts. No population inference, significance claim, target fitting or empirical magnitude validation. Asset acquisition is separate from consumption."
+    },
+    "distancing": {
+      "complete_matrix": true,
+      "citizens": 12,
+      "days": 1,
+      "replicates": 1,
+      "unit": "won per person per day",
+      "by_seed": [
+        {
+          "replicate": 53001,
+          "metrics": {
+            "total_consumption": {
+              "off_mean": 5083.333333333333,
+              "on_mean": 6083.333333333333,
+              "difference": 1000.0,
+              "relative_change": 0.19672131147540986,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": -12000,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "offline_consumption": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "online_consumption": {
+              "off_mean": 5083.333333333333,
+              "on_mean": 6083.333333333333,
+              "difference": 1000.0,
+              "relative_change": 0.19672131147540986,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": -12000,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "own_funded_consumption": {
+              "off_mean": 5083.333333333333,
+              "on_mean": 6083.333333333333,
+              "difference": 1000.0,
+              "relative_change": 0.19672131147540986,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": -12000,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "concession_funded_consumption": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "asset_acquisition_cash_outflow": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "cash_outflow_total": {
+              "off_mean": 5083.333333333333,
+              "on_mean": 6083.333333333333,
+              "difference": 1000.0,
+              "relative_change": 0.19672131147540986,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": -12000,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            }
+          }
+        }
+      ],
+      "scope": "Equal-weight descriptive conditional-scenario contrasts. No population inference, significance claim, target fitting or empirical magnitude validation. Asset acquisition is separate from consumption."
+    },
+    "grant": {
+      "complete_matrix": true,
+      "citizens": 12,
+      "days": 1,
+      "replicates": 1,
+      "unit": "won per person per day",
+      "by_seed": [
+        {
+          "replicate": 53001,
+          "metrics": {
+            "total_consumption": {
+              "off_mean": 2416.6666666666665,
+              "on_mean": 5416.666666666667,
+              "difference": 3000.0000000000005,
+              "relative_change": 1.2413793103448278,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 5000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 7000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "offline_consumption": {
+              "off_mean": 416.6666666666667,
+              "on_mean": 416.6666666666667,
+              "difference": 0.0,
+              "relative_change": 0.0,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 5000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": -5000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "online_consumption": {
+              "off_mean": 2000,
+              "on_mean": 5000,
+              "difference": 3000,
+              "relative_change": 1.5,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 12000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "own_funded_consumption": {
+              "off_mean": 2416.6666666666665,
+              "on_mean": 5000,
+              "difference": 2583.3333333333335,
+              "relative_change": 1.0689655172413794,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 7000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "concession_funded_consumption": {
+              "off_mean": 0,
+              "on_mean": 416.6666666666667,
+              "difference": 416.6666666666667,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 5000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "asset_acquisition_cash_outflow": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "cash_outflow_total": {
+              "off_mean": 2416.6666666666665,
+              "on_mean": 5000,
+              "difference": 2583.3333333333335,
+              "relative_change": 1.0689655172413794,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 12000,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 7000,
+                "AGT_11710590_F_20대_001": 0
+              }
+            }
+          }
+        }
+      ],
+      "scope": "Equal-weight descriptive conditional-scenario contrasts. No population inference, significance claim, target fitting or empirical magnitude validation. Asset acquisition is separate from consumption."
+    },
+    "local_voucher": {
+      "complete_matrix": true,
+      "citizens": 12,
+      "days": 1,
+      "replicates": 1,
+      "unit": "won per person per day",
+      "by_seed": [
+        {
+          "replicate": 53001,
+          "metrics": {
+            "total_consumption": {
+              "off_mean": 5916.666666666667,
+              "on_mean": 5333.333333333333,
+              "difference": -583.3333333333339,
+              "relative_change": -0.09859154929577474,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 1000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -7000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": -13000
+              }
+            },
+            "offline_consumption": {
+              "off_mean": 750,
+              "on_mean": 1250,
+              "difference": 500,
+              "relative_change": 0.6666666666666666,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 1000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 5000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "online_consumption": {
+              "off_mean": 5166.666666666667,
+              "on_mean": 4083.3333333333335,
+              "difference": -1083.3333333333335,
+              "relative_change": -0.20967741935483872,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -12000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": -13000
+              }
+            },
+            "own_funded_consumption": {
+              "off_mean": 5916.666666666667,
+              "on_mean": 5333.333333333333,
+              "difference": -583.3333333333339,
+              "relative_change": -0.09859154929577474,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 1000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -7000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": -13000
+              }
+            },
+            "concession_funded_consumption": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "asset_acquisition_cash_outflow": {
+              "off_mean": 0,
+              "on_mean": 0,
+              "difference": 0,
+              "relative_change": null,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 0,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 0,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": 0,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": 0
+              }
+            },
+            "cash_outflow_total": {
+              "off_mean": 5916.666666666667,
+              "on_mean": 5333.333333333333,
+              "difference": -583.3333333333339,
+              "relative_change": -0.09859154929577474,
+              "paired_differences": {
+                "AGT_11290685_M_10대_001": 0,
+                "AGT_11290725_M_50대_001": 1000,
+                "AGT_11320670_F_60대_002": 0,
+                "AGT_11350720_M_40대_002": 0,
+                "AGT_11440680_F_20대_003": 12000,
+                "AGT_11470510_M_50대_002": 0,
+                "AGT_11500590_F_50대_002": -7000,
+                "AGT_11590660_F_30대_004": 0,
+                "AGT_11620565_F_70대이상_001": 0,
+                "AGT_11680521_M_30대_002": 0,
+                "AGT_11710532_M_50대_001": 0,
+                "AGT_11710590_F_20대_001": -13000
+              }
+            }
+          }
+        }
+      ],
+      "scope": "Equal-weight descriptive conditional-scenario contrasts. No population inference, significance claim, target fitting or empirical magnitude validation. Asset acquisition is separate from consumption."
+    }
+  }
+}

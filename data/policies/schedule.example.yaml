@@ -1,0 +1,24 @@
+# 정책 적재 스케줄 예시
+# ----------------------
+# 시뮬 시작 전 한 번 실행: python -m scripts.policy_pipeline.apply_schedule
+#
+# 각 정책은 절대 날짜 OR 시뮬 시작 기준 상대 일수 둘 중 하나로 시점을 적는다.
+# 정책 JSON 원본은 건드리지 않고, 여기 적힌 날짜로 override 되어 적재된다.
+
+# 상대 일수(_day) 를 하나라도 쓰면 sim_start 필수. 모두 절대 날짜면 생략 가능.
+sim_start: 2026-05-01
+
+policies:
+  # 절대 날짜 — P007 은 2026-05-06 부터 6/30 까지 활성
+  - file: P007.json
+    effective_from: 2026-05-06
+    effective_until: 2026-06-30
+    # 적재 시 다른 모든 정책을 effective_from 하루 전으로 비활성 (예: P001 자동 종료)
+    deactivate_others: true
+
+  # 상대 일수 — Day 12 부터 Day 45 까지 (sim_start + N일)
+  # 같은 시나리오를 시작 날짜만 바꿔가며 돌릴 때 편하다.
+  # - file: P008.json
+  #   effective_from_day: 12
+  #   effective_until_day: 45
+  #   deactivate_others: false

@@ -1,0 +1,7 @@
+{
+  "unchanged_old_transaction_cases": 96,
+  "strictly_additive_preview_contexts": 96,
+  "source_sha256": "50aa471be089933225685399ad9244b7d31c3ce8a35a89aa753ca5519248a655",
+  "new_source_sha256": "0f70cc6c33a89888918ec95b0c4ac47864713a8ddb58130aa8e7f4f89bb016ef",
+  "scope": "Input/quote consistency, not external realism or behavioral success."
+}

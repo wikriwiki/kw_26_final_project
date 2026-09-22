@@ -1,0 +1,42 @@
+{
+ "id": "validation_v10_scope_v25",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "209402964cbf9147f4c42294f28d0a372b4ce461ee6ef707fec19e225aa428c8",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "v25_scope_axis",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  66001,
+  66002,
+  66003,
+  66004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "Both arms use the meal need model. The only difference is whether the prompt says the resource check covers every activity the model places, not only the injected ones. v9 had the gate refuse 46 of 96 cells because the model planned two meals at home with a stock of zero.",
+ "primary": "Cells the resource gate proves impossible, counted before any purchase call. v9 measured 46/46/45/45 out of 96 with v25. This is contract compliance, not a policy effect: refilling, going out, ordering in and skipping an optional meal all satisfy it.",
+ "limitations": [
+  "A feasible plan is not a correct plan. This round only asks whether the model stops planning the physically impossible.",
+  "How it resolves the shortfall is recorded, not scored - naming one resolution as better would be steering.",
+  "Twelve people, four seeds. Precision for these twelve.",
+  "Purchases are only run if the gate passes; an incomplete matrix is not read as a comparison."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair fixed before the run (experiments/v10/prompt_v10.md). v32 differs from v25 by one phrase; enforced by test_resource_scope_clarified.py.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

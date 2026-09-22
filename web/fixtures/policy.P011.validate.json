@@ -1,0 +1,92 @@
+{
+  "policy_id": "P011",
+  "exit_code": 0,
+  "ok": true,
+  "verdict": "READY — 시뮬 구동 가능",
+  "counts": {
+    "pass": 15,
+    "warn": 2
+  },
+  "checks": [
+    {
+      "grade": "pass",
+      "message": "id 존재"
+    },
+    {
+      "grade": "pass",
+      "message": "name 존재"
+    },
+    {
+      "grade": "pass",
+      "message": "type 존재"
+    },
+    {
+      "grade": "pass",
+      "message": "description 존재"
+    },
+    {
+      "grade": "pass",
+      "message": "effective_from 존재"
+    },
+    {
+      "grade": "pass",
+      "message": "effective_until 존재"
+    },
+    {
+      "grade": "pass",
+      "message": "type=grant"
+    },
+    {
+      "grade": "pass",
+      "message": "기간 2026-06-22~2026-06-23"
+    },
+    {
+      "grade": "pass",
+      "message": "income tier 유효 (['중', '하', '중상', '중하'])"
+    },
+    {
+      "grade": "pass",
+      "message": "지급/제외 tier 무모순"
+    },
+    {
+      "grade": "pass",
+      "message": "지급액 양의 정수"
+    },
+    {
+      "grade": "pass",
+      "message": "사용처 제한 → 실측 가맹점 CSV 1개 준비됨 (서버에서 09_coupon_eligibility.py 백필 필요)"
+    },
+    {
+      "grade": "pass",
+      "message": "정책결제 사용처 제약(require_poi_eligible)으로 배선 — 소비액 강제 가산 없음"
+    },
+    {
+      "grade": "warn",
+      "message": "P011: 소득 기준 차등/제외 사용 — 현재 p_income_level은 소비분위 유도(근사). 정밀 백테스트는 INCOME_ASSIGNMENT_PLAN v2(p_income_pct) 이후 권장"
+    },
+    {
+      "grade": "pass",
+      "message": "프롬프트 카드 렌더 정상"
+    },
+    {
+      "grade": "pass",
+      "message": "tier별 지급: 중상 100,000원, 중 100,000원, 중하 100,000원, 하 100,000원 / 제외 ['상'] — 대상자 수·총예산은 서버에서 MATCH (a:Agent) 집계"
+    },
+    {
+      "grade": "warn",
+      "message": "NEO4J_URI 미설정 → DB 배선 점검 생략 (정책 적재 후 재실행 권장)"
+    }
+  ],
+  "prompt_preview": "- P011 [지원금] 민생회복 소비쿠폰 2차 (백테스트) | 2026-06-22~2026-06-23 | 서울특별시 | 업종 제한 없음 · [쿠폰] 표시 POI에서만 사용\n  배경: 소득 상위 계층을 제외한 시민에게 1인 10만원의 소비쿠폰을 추가 지급합니다. 사용처 제한은 1차와 동일합니다 ([쿠폰] 표시 매장 전용).\n- P011: 대상(소득 중상) | 지급액 100,000원 | 누적수령 100,000원 | 정책지갑 잔액 100,000원 | 지급일 · 평소 평일소비의 3.3일치\n- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 판단한다. 선택한 거래가 정책 사용처이면 정책지갑을 자기자금보다 먼저 결제하며, 이 결제 순서는 소비 자체를 새로 만들라는 뜻이 아니다.",
+  "prompt_preview_persona": "소득 '중상' 대상자, 지급 당일",
+  "db_wiring_checked": false,
+  "stderr": "",
+  "command": [
+    "python",
+    "scripts/sim/policy_preflight.py",
+    "P011.json"
+  ],
+  "unknown": [
+    "db_wiring"
+  ]
+}

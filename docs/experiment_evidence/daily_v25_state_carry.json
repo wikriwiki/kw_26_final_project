@@ -1,0 +1,16 @@
+{
+  "source_hashes": {
+    "manifest.json": "6241e87533759290cfaef4d69a0b9d1b4dd7fa683659b7e577d594732cfe2e37",
+    "frozen_inputs.json": "69de7a2143b1da2b8bb9ad3ed6c4e62c40683e0333e99a146441ba7eca68575f",
+    "responses.jsonl": "49b0dd67fcc208825ae7535bd6a17838f66c48b803a0382d95aff6c5f50f4d76"
+  },
+  "day_one_committed": 96,
+  "day_two_openings": 96,
+  "day_two_executed": false,
+  "new_needs_and_income_assumption": 0,
+  "scope": "Actual completed choices feed isolated cash/wallet/inventory/delivery/unmet-need continuity. No next-day model choice or policy-effect validation.",
+  "carried_one_laundry_need_conditions": 94,
+  "completed_need_not_recreated_conditions": 2,
+  "archive_sha256_local_and_server": "ba01d76817a2744f488884c91b0e2d6e7edfda979a4a3fe0c99a551f8ffe4f16",
+  "targeted_tests_passed": 24
+}

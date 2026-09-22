@@ -1,0 +1,22 @@
+{
+  "stage": "continuous-round2",
+  "contract_version": "s1.0.0",
+  "status": "conditional",
+  "lead_decision": "keep-open-for-runtime-recheck",
+  "builder_report": "docs/gauntlet/builders/continuous-round2.md",
+  "critic_report": "docs/gauntlet/critics/continuous-round2.md",
+  "feedback": "docs/gauntlet/CLI_FEEDBACK.md",
+  "tests": [
+    {"command": "python -m unittest discover -s tests -p 'test_*.py' -v", "passed": 26, "failed": 0, "exit_code": 0},
+    {"command": "npm run typecheck", "exit_code": 0},
+    {"command": "npm run build", "exit_code": 0},
+    {"command": "npm run gauntlet:screen", "passed": 2, "failed": 0, "exit_code": 0},
+    {"command": "style forbidden-token audit", "gradient": 0, "backdrop_filter": 0, "box_shadow": 0, "radius_over_4px": 0}
+  ],
+  "browser_evidence": "docs/gauntlet/evidence/s6-round2",
+  "open_conditions": [
+    "NEO4J_PASSWORD/Neo4j server configuration is absent; DASOL runtime generation was not claimed",
+    "in-app Browser has no available browser; Playwright Chromium evidence is complete"
+  ],
+  "protected_paths": ["scripts/sim", "scripts/neo4j_load"]
+}

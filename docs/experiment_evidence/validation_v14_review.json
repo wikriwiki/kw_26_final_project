@@ -1,0 +1,114 @@
+{
+  "decision": "ineligible",
+  "reasons": [
+    "91/96 protocol validity below registered 95% gate",
+    "Confirmed material factual fabrication in manual review"
+  ],
+  "summary": {
+    "macro_claim": false,
+    "first_response_only_protocol": false,
+    "variants": {
+      "v19_grounded_protocol": {
+        "responses": 96,
+        "valid": 91,
+        "complete_unique_matrix": true,
+        "valid_rate": 0.9479166666666666,
+        "protocol_format_gate": false,
+        "all_pass": false,
+        "raw_valid": 82,
+        "adjusted_responses": 9,
+        "semantic_flags": {},
+        "mean_generated_tokens": 4691.71875,
+        "errors": {
+          "time": 1,
+          "transition_time": 5,
+          "temporal_projection_infeasible": 5
+        }
+      }
+    }
+  },
+  "manual_findings": [
+    {
+      "row": {
+        "aid": "AGT_11620565_F_70대이상_001",
+        "case": "grant",
+        "arm": "on",
+        "replicate": 19001,
+        "attempt_key": "fc8f0be49f64d2492c847cd8ecc8bbe778993209b2344d3e1857245724263fe9"
+      },
+      "event_index": 8,
+      "event": {
+        "time": "16:00",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "약 복용 및 정리",
+        "reasoning": "평소 업종별 지출 구성(카드 실측): 마트 44%(청과·수산), 쇼핑 26%(의류), 건강 25%(한의원·약국), 교육 5%",
+        "trigger": "none"
+      },
+      "kind": "unsupported_medication",
+      "explanation": "Only historical health-category spending is supplied; no current medicine or regimen."
+    },
+    {
+      "row": {
+        "aid": "AGT_11620565_F_70대이상_001",
+        "case": "distancing",
+        "arm": "on",
+        "replicate": 19001,
+        "attempt_key": "7ce3519d6715bcb3aba878d6d448e53a768a69e4aa4002ea156fab0aff73bf14"
+      },
+      "event_index": 5,
+      "event": {
+        "time": "14:00",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "건강 관리 (약 복용)",
+        "reasoning": "오늘의 일상 선택",
+        "trigger": "none"
+      },
+      "kind": "unsupported_medication",
+      "explanation": "The routine sentinel does not supply a medication fact."
+    },
+    {
+      "row": {
+        "aid": "AGT_11320670_F_60대_002",
+        "case": "grant",
+        "arm": "on",
+        "replicate": 19001,
+        "attempt_key": "9135a247be866b91a884b6642f5c52f58df2110734991076e5e5ca7095c159e7"
+      },
+      "event_index": 6,
+      "event": {
+        "time": "15:00",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "도서관 이용",
+        "reasoning": "전통 음식과 지역 문화를 좋아하며, 도서관 공연이나 지역 봉사활동을 통해 사회와 연결되려는 열정이 있습니다.",
+        "trigger": "lifestyle"
+      },
+      "kind": "activity_location_conflict",
+      "explanation": "Library use is rendered as inside the residence, without an online-library qualification."
+    },
+    {
+      "row": {
+        "aid": "AGT_11290725_M_50대_001",
+        "case": "cashback",
+        "arm": "off",
+        "replicate": 19001,
+        "attempt_key": "cb3eb23aafdbd3f3eef6368bb6deeb6fca4f6f692360487e2f1c5acc2e937b29"
+      },
+      "event_index": 2,
+      "event": {
+        "time": "08:00",
+        "anchor": "workplace",
+        "category": "직장",
+        "intent": "재택근무 시작",
+        "reasoning": "평소 업종별 지출 구성(카드 실측): 마트 53%, 식사 26%, 기타 12%(주유소·차량정비), 편의점 5%, 건강 4%(치과)",
+        "trigger": "none"
+      },
+      "kind": "activity_location_conflict",
+      "explanation": "Remote work is rendered at workplace, alongside an infeasible commute."
+    }
+  ],
+  "raw_archive_sha256": "5133dd8d5474dd5933b94eebf3931855e9fe00880b68ab6cf99fa8807f4c44f2",
+  "scope": "Examples are confirmed findings, not an exhaustive numerical semantic error rate. All 96 raw outputs retained."
+}

@@ -1,0 +1,75 @@
+{
+  "scope": "Known synthetic financial stress, zero paired policy-effect analysis. Evaluation facts withheld from model payload; fixed needs/current funds only.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v4_bounded1024": {
+      "responses": 18,
+      "complete": true,
+      "valid": 17,
+      "all_pass": false,
+      "deterministic_no_purchase": 0
+    }
+  },
+  "raw_archive_sha256": "a6b025c627efa10050ab775822a3a9adcb08e7c0c1d6aab82c4584d5e52a5d3b",
+  "decision": "Not promoted. Shared-wallet F06 failures; each failed raw choice and deliberation reviewed. Deliberation mistakes accounting own_basis for available face balance. Other raw choices not fully manually re-reviewed here. Next representation exposes only sum(face) as spendable balance, retaining lots in independent ledger.",
+  "failure_rows": [
+    {
+      "aid": "F06",
+      "case": "F06",
+      "arm": "off",
+      "date": "2026-09-21",
+      "replicate": 47001,
+      "attempt_key": "90a32e00b655abb316549d1100dc0a5c18e5880d0963bd11e8a26bde303f87a7",
+      "transaction_protocol": "v4",
+      "decision_source": "model",
+      "raw": "{\n\t\"acquisition_units\": {},\n\t\"purchases\": [\n\t{\n\t\"id\": \"a\",\n\t\"candidate_id\": \"quote:a\",\n\t\"wallet_spend\": {\n\t\"V\": 2000\n\t}\n\t},\n\t{\n\t\"id\": \"b\",\n\t\"candidate_id\": \"quote:b\",\n\t\"wallet_spend\": {}\n\t}\n\t]\n}",
+      "thinking_usage": {
+        "id": "135d1b063a724ad59e02b432c22d7af0",
+        "finish_reason": {
+          "type": "length",
+          "length": 1024
+        },
+        "prompt_tokens": 710,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 1024,
+        "cached_tokens": 490,
+        "cached_tokens_details": {
+          "device": 490,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 50.22995050996542,
+        "response_sent_to_client_ts": 1789848360.569471
+      },
+      "answer_usage": {
+        "id": "812f9cedc25c4ce794b6bccd800e611c",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 1737,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 83,
+        "cached_tokens": 1219,
+        "cached_tokens_details": {
+          "device": 1219,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 6.753728776006028,
+        "response_sent_to_client_ts": 1789848367.3316157
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Purchase exceeds current cash"
+      ],
+      "elapsed_seconds": 56.997
+    }
+  ],
+  "policy_contrasts_used_for_selection": false
+}

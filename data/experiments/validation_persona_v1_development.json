@@ -1,0 +1,44 @@
+{
+  "id": "validation_persona_v1_development",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "d6d590f0c47dea614acfbbdcbfd00da0779dafc8f0d73098439063cb915a0949",
+  "prompt_module": "v24",
+  "candidates": [
+    {
+      "id": "v24_finite_clock",
+      "thinking_tokens": 512
+    }
+  ],
+  "seeds": [
+    44001
+  ],
+  "answer_tokens": 2048,
+  "max_shift_minutes": 0,
+  "temporal_clock_step": 30,
+  "sampling": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20261011,
+  "phase": "Declared persona-input repair bundle on same12known citizens/96cells/seed44001. Restore baseline narrative after identity and occupation checks, quarantine mixed NVIDIA generations, explicitly label synthetic anchors and unobserved workplace; preserve numeric values and all policy/market/state sections.",
+  "primary": "All96 original cells retained; zero request errors; independently inspect execution and supplied facts; zero post-generation time shifts; mean generated tokens<=1300; review all96raw sequences. No gate on spending, offline visits, benefit use, policy sign, or resemblance to previous outputs.",
+  "limitations": [
+    "Finite activity vocabulary and supplied home/work commute, not complete route or duration model.",
+    "Work schedules, school attendance and inventory often unobserved; no full human behavior proof.",
+    "Late activity is a declared representation constraint, not evidence of observed bedtime.",
+    "Personal policy eligibility and initial financial histories explicitly synthetic in provider v2.",
+    "No external policy effect or magnitude claim.",
+    "Same narrow hypothetical item catalog. No demand or historical magnitude validity claim.",
+    "New preview is a bundle of downstream information, not an isolated price-only intervention.",
+    "Control is prior frozen temporal_v5; same seed does not certify bitwise sampling determinism under changed context or scheduling.",
+    "Baseline qualitative prior is synthetic and coarse; no semantic truth or observed job schedule proof.",
+    "Source numeric calibration remains fixed while qualitative fields restored; original baseline numeric values are audit-only.",
+    "Previous market_v1 outputs are the registered comparison, not an untouched sample."
+  ],
+  "preflight": "33/36 audited previous citizens have exact narrative+UUID match to shifted newer source whose daily spending differs;26have mixed nonempty UUIDs. No changes to system prompt v24 or policy sources. All96 non-persona sections and all12 structured persona values independently compared equal. One original12 residence has different mapped POI dong; retained explicitly as previous spatial assumption.",
+  "selection": "Input consistency ablation only; successful execution does not establish optimal prompting or external policy validity. Preserve all failures.",
+  "last_start_not_before": "18:00"
+}

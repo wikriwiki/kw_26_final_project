@@ -1,0 +1,34 @@
+{
+  "stage": "S2",
+  "contract_version": "s1.0.0",
+  "status": "passed",
+  "round": 1,
+  "lead_decision": "open-S3",
+  "builder_report": "docs/gauntlet/builders/S2-round1.md",
+  "critic_report": "docs/gauntlet/critics/S2-1.md",
+  "tests": {
+    "command": "python -m unittest tests.unit.test_s1_contract tests.unit.test_s2_api -v",
+    "passed": 16,
+    "failed": 0,
+    "exit_code": 0
+  },
+  "actual_smoke": {
+    "runs_status": 200,
+    "days_status": 200,
+    "rescue_day_detail": 200,
+    "preflight_p010": {"exit_code": 0, "pass": 16, "warn": 1}
+  },
+  "changed_files": [
+    "web/api/__init__.py",
+    "web/api/store.py",
+    "web/api/runner.py",
+    "web/api/app.py",
+    "web/api/requirements.txt",
+    "tests/unit/test_s2_api.py",
+    "docs/gauntlet/contracts/S2.md",
+    "docs/gauntlet/builders/S2-round1.md",
+    "docs/gauntlet/critics/S2-1.md",
+    "docs/gauntlet/gates/S2.json"
+  ],
+  "protected_paths": ["scripts/sim", "scripts/neo4j_load"]
+}

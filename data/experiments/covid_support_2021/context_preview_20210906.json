@@ -1,0 +1,58 @@
+{
+  "day": "2021-09-06",
+  "district": "종로구",
+  "latest_case_source_date": "2021-09-04",
+  "latest_city_reference_date": "2021-09-05",
+  "seoul_cases_7d_sum": 3736,
+  "district_cases_7d_sum": 49,
+  "case_lag_basis": "Conservative assumed availability: city_reference_date strictly before dawn date. Retrospective revised data.",
+  "distancing": {
+    "from": "2021-09-06",
+    "until": "2021-10-03",
+    "source_ids": [
+      "distancing_0906"
+    ],
+    "level": 4,
+    "dine_in_cutoff": "22:00",
+    "after_cutoff": "포장·배달 가능, 매장 취식 불가",
+    "private_meetings": {
+      "before_18_max": 4,
+      "from_18_max": 2,
+      "vaccinated_exception_venues": [
+        "식당",
+        "카페",
+        "가정"
+      ],
+      "vaccinated_exception_total": 6,
+      "exception_unvaccinated_before_18_max": 4,
+      "exception_unvaccinated_from_18_max": 2
+    },
+    "closed_facilities": [
+      "유흥·단란주점",
+      "클럽·나이트",
+      "감성주점",
+      "헌팅포차",
+      "콜라텍·무도장",
+      "홀덤펍·홀덤게임장"
+    ],
+    "other_22h_restricted_examples": [
+      "노래연습장",
+      "실내체육시설",
+      "영화관",
+      "PC방",
+      "학원"
+    ],
+    "note": "일반주점·호프와 집합금지 유흥업종을 구분한다. L1 주점 전체를 집합금지로 매핑하지 않는다."
+  },
+  "overrides": [],
+  "vaccination_status": "unknown",
+  "vaccination_reason": "Individual history absent and downloaded aggregate counts require review",
+  "runtime_integration": "not_implemented",
+  "constraints_enforced": false,
+  "source_ids": [
+    "distancing_0906",
+    "seoul_city_cases_data",
+    "seoul_district_cases"
+  ],
+  "prompt_preview": "오늘의 외부 환경: 2021-09-06, 서울 종로구. 코로나19 유행 상황이다.\n최근 사용 가능한 7일 집계: 서울 확진 3,736명, 거주 자치구 49명.\n이 집계의 마지막 발생자료 날짜는 2021-09-04이다. 개인의 감염 여부나 감염 확률을 뜻하지 않는다.\n식당·카페는 22:00 이후 매장 취식이 제한되며 포장·배달은 가능하다.\n사적모임 조건: {\"before_18_max\": 4, \"from_18_max\": 2, \"vaccinated_exception_venues\": [\"식당\", \"카페\", \"가정\"], \"vaccinated_exception_total\": 6, \"exception_unvaccinated_before_18_max\": 4, \"exception_unvaccinated_from_18_max\": 2}\n집합금지 업종: 유흥·단란주점, 클럽·나이트, 감성주점, 헌팅포차, 콜라텍·무도장, 홀덤펍·홀덤게임장. 일반주점 전체와 같지 않다.\n본인과 동행인의 접종 상태는 제공되지 않았다. 접종 완료자로 단정하거나 접종 예외 자격을 만들어내지 않는다.\n현재 페르소나의 나이·직업·가족·평소 소비 특성은 그대로인 가상실험이다. 이 날짜에 맞춰 출생연도나 성격을 재계산하지 않는다.\n이 정보는 활동의 배경과 허용 조건이다. 감염 우려에 대한 반응과 구매 필요는 본인의 상황에 따라 판단한다."
+}

@@ -1,0 +1,69 @@
+{
+  "total_l3_codes": 247,
+  "matched_by_name": 47,
+  "matched_by_industry_l2": 200,
+  "fallback": 0,
+  "consumer_l1_distribution": [
+    {
+      "name": "식사",
+      "count": 95393,
+      "sub_count": 11
+    },
+    {
+      "name": "카페",
+      "count": 24116,
+      "sub_count": 1
+    },
+    {
+      "name": "디저트",
+      "count": 6375,
+      "sub_count": 2
+    },
+    {
+      "name": "주점",
+      "count": 15201,
+      "sub_count": 2
+    },
+    {
+      "name": "편의점",
+      "count": 10193,
+      "sub_count": 2
+    },
+    {
+      "name": "마트",
+      "count": 19469,
+      "sub_count": 7
+    },
+    {
+      "name": "미용",
+      "count": 35006,
+      "sub_count": 5
+    },
+    {
+      "name": "쇼핑",
+      "count": 73253,
+      "sub_count": 16
+    },
+    {
+      "name": "여가",
+      "count": 19156,
+      "sub_count": 7
+    },
+    {
+      "name": "건강",
+      "count": 29633,
+      "sub_count": 8
+    },
+    {
+      "name": "교육",
+      "count": 45080,
+      "sub_count": 3
+    },
+    {
+      "name": "기타",
+      "count": 164614,
+      "sub_count": 29
+    }
+  ],
+  "top_unmatched": []
+}

@@ -1,0 +1,172 @@
+{
+  "source_id": "seoul_grant_rules",
+  "runtime_integration": "not_implemented",
+  "policy_name": "코로나 상생 국민지원금",
+  "amount_per_eligible_person_krw": 250000,
+  "announcement_on": "2021-08-30",
+  "applications_online_from": "2021-09-06",
+  "applications_offline_from": "2021-09-13",
+  "applications_until": "2021-10-29",
+  "use_until": "2021-12-31",
+  "card_credit_lag_days_after_application": 1,
+  "eligibility": {
+    "insurance_reference_month": "2021-06",
+    "exclude_long_term_care_premium": true,
+    "comparison": "household_premium <= threshold",
+    "household_size_cap_for_table": 10,
+    "thresholds": [
+      {
+        "household_size": 1,
+        "multiple_earners": false,
+        "employee_krw": 170000,
+        "regional_krw": 170000,
+        "mixed_krw": null
+      },
+      {
+        "household_size": 2,
+        "multiple_earners": false,
+        "employee_krw": 200000,
+        "regional_krw": 210000,
+        "mixed_krw": 200000
+      },
+      {
+        "household_size": 3,
+        "multiple_earners": false,
+        "employee_krw": 250000,
+        "regional_krw": 280000,
+        "mixed_krw": 260000
+      },
+      {
+        "household_size": 4,
+        "multiple_earners": false,
+        "employee_krw": 310000,
+        "regional_krw": 350000,
+        "mixed_krw": 330000
+      },
+      {
+        "household_size": 5,
+        "multiple_earners": false,
+        "employee_krw": 390000,
+        "regional_krw": 430000,
+        "mixed_krw": 420000
+      },
+      {
+        "household_size": 6,
+        "multiple_earners": false,
+        "employee_krw": 420000,
+        "regional_krw": 460000,
+        "mixed_krw": 450000
+      },
+      {
+        "household_size": 7,
+        "multiple_earners": false,
+        "employee_krw": 490000,
+        "regional_krw": 540000,
+        "mixed_krw": 550000
+      },
+      {
+        "household_size": 8,
+        "multiple_earners": false,
+        "employee_krw": 550000,
+        "regional_krw": 590000,
+        "mixed_krw": 640000
+      },
+      {
+        "household_size": 9,
+        "multiple_earners": false,
+        "employee_krw": 640000,
+        "regional_krw": 670000,
+        "mixed_krw": 820000
+      },
+      {
+        "household_size": 10,
+        "multiple_earners": false,
+        "employee_krw": 640000,
+        "regional_krw": 670000,
+        "mixed_krw": 820000
+      },
+      {
+        "household_size": 2,
+        "multiple_earners": true,
+        "employee_krw": 250000,
+        "regional_krw": 280000,
+        "mixed_krw": 260000
+      },
+      {
+        "household_size": 3,
+        "multiple_earners": true,
+        "employee_krw": 310000,
+        "regional_krw": 350000,
+        "mixed_krw": 330000
+      },
+      {
+        "household_size": 4,
+        "multiple_earners": true,
+        "employee_krw": 390000,
+        "regional_krw": 430000,
+        "mixed_krw": 420000
+      },
+      {
+        "household_size": 5,
+        "multiple_earners": true,
+        "employee_krw": 420000,
+        "regional_krw": 460000,
+        "mixed_krw": 450000
+      },
+      {
+        "household_size": 6,
+        "multiple_earners": true,
+        "employee_krw": 490000,
+        "regional_krw": 540000,
+        "mixed_krw": 550000
+      },
+      {
+        "household_size": 7,
+        "multiple_earners": true,
+        "employee_krw": 550000,
+        "regional_krw": 590000,
+        "mixed_krw": 640000
+      },
+      {
+        "household_size": 8,
+        "multiple_earners": true,
+        "employee_krw": 640000,
+        "regional_krw": 670000,
+        "mixed_krw": 820000
+      },
+      {
+        "household_size": 9,
+        "multiple_earners": true,
+        "employee_krw": 640000,
+        "regional_krw": 670000,
+        "mixed_krw": 820000
+      },
+      {
+        "household_size": 10,
+        "multiple_earners": true,
+        "employee_krw": 640000,
+        "regional_krw": 670000,
+        "mixed_krw": 820000
+      }
+    ],
+    "excluded_if_property_tax_base_2020_krw_gt": 900000000,
+    "excluded_if_financial_income_2020_krw_gt": 20000000,
+    "regional_earner_min_comprehensive_income_2020_krw": 3000000,
+    "household_membership_rules": "Use official household/dependent rules. Individual spending decile is not household insurance eligibility.",
+    "exceptions_requiring_separate_handling": [
+      "의료급여 수급자",
+      "외국인·재외국민 자격",
+      "가구구성·보험료 이의신청"
+    ]
+  },
+  "seoul_usage": {
+    "region": "서울특별시 전역",
+    "merchant_rule": "지역사랑상품권 가맹점",
+    "year": 2021,
+    "large_online_platform_payment_allowed": false,
+    "delivery_order_paid_in_person_at_eligible_merchant_terminal_allowed": true,
+    "merchant_registry_2021_downloaded": false
+  },
+  "agent_entitlement_manifest_present": false,
+  "note": "Reference rules only. Not a legacy Policy JSON. Missing household data must not be replaced by fabricated observed values."
+}

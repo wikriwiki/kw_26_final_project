@@ -1,0 +1,39 @@
+{
+  "purpose": "v25 한 프롬프트가 seed 만 바뀔 때 보이는 기전별 총소비 차이의 폭. v3 후보 비교의 잡음 바닥.",
+  "unit": "won per person per day",
+  "source_runs": [
+    "56001",
+    "57001",
+    "58001"
+  ],
+  "by_mechanism": {
+    "캐시백": {
+      "seeds": 3,
+      "min": 166.66666666666697,
+      "max": 2833.333333333333,
+      "width": 2666.666666666666
+    },
+    "거리두기": {
+      "seeds": 2,
+      "min": -1916.666666666667,
+      "max": 1000.0,
+      "width": 2916.666666666667
+    },
+    "지원금": {
+      "seeds": 3,
+      "min": 833.3333333333339,
+      "max": 3000.0000000000005,
+      "width": 2166.6666666666665
+    },
+    "지역화폐": {
+      "seeds": 3,
+      "min": -583.3333333333339,
+      "max": 3416.666666666667,
+      "width": 4000.000000000001
+    }
+  },
+  "mean_width": 2937.5,
+  "max_width": 4000.000000000001,
+  "rule": "A v3 candidate difference within this width is not read as a candidate difference. Fixed before v3 results were seen.",
+  "caveat": "거리두기는 seed 2개뿐이다(57001 은 채점 거부). 폭이 과소평가일 수 있다."
+}

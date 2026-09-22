@@ -1,0 +1,20 @@
+{
+  "scope": "Known synthetic financial stress, zero paired policy-effect analysis. Evaluation facts withheld from model payload; fixed needs/current funds only.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v4_bounded1024": {
+      "responses": 18,
+      "complete": true,
+      "valid": 18,
+      "all_pass": true,
+      "deterministic_no_purchase": 0
+    }
+  },
+  "raw_archive_sha256": "8c9268c487d3f845ce92d2ebf120b4e442b9aff17366cfd258b09b1bd2d6cfcb",
+  "decision": "18/18 financial and explicit factual checks; all18 raw choice arrays read. All18 requests audited: no ledger-only cost basis or evaluation requirements. Qualifies for unchanged expanded financial development, not actual demand/macro effect validity.",
+  "policy_contrasts_used_for_selection": false,
+  "request_audit": {
+    "requests": 18,
+    "ledger_only_and_evaluation_fields_absent": true
+  }
+}

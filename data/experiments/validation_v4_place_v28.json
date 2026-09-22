@@ -1,0 +1,41 @@
+{
+ "id": "validation_v4_place_v28",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "78961fc28d0f27915a58b2db58c22d3fdc888f3e4be4bbfc6d56dbf054e29000",
+ "prompt_module": "v28",
+ "candidates": [
+  {
+   "id": "v28_place_axis",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  60001,
+  60002,
+  60003,
+  60004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "Place-axis candidate comparison. Four seeds per candidate so each candidate carries its OWN resampling floor, which v3 could not do.",
+ "primary": "Pre-registered primary outcome is the plan, not the money: (a) share of cells whose plan puts an offline purchase at a zone anchor - the only place a restricted wallet applies, measured at 0-2 of 12 in v3; (b) time-insensitive plan distance between arms, read against this candidate's own same-arm floor. Money metrics are secondary and underpowered at 12 people.",
+ "limitations": [
+  "Twelve people. Four seeds raise precision for THESE twelve, not generalisation to a population.",
+  "Distancing cells have no cafe or late dining in any observed plan, so that arm may stay unscorable.",
+  "Responding is necessary, not sufficient: moving more is not the same as moving correctly.",
+  "Adds one axis: choosing WHERE an existing need is met. Nothing else differs."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed set v25/v28 fixed before the run (experiments/v4/prompt_v4.md). v28 differs from v25 on one axis only, enforced by test_where_axis_candidate.py.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true
+}

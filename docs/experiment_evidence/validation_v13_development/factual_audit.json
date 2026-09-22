@@ -1,0 +1,109 @@
+{
+  "scope": "Machine checks only. Full manual factual review required before promotion.",
+  "auditor_sha256": "a077f03aec9264b13e3b96e459d936d71fa0045550c504a619575cb3073f1ccc",
+  "uses_registered_execution_plan": true,
+  "results": [
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "work_conflict",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 17001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "work_conflict",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "replicate": 18001,
+      "case": "stay_home",
+      "failures": []
+    }
+  ],
+  "variants": {
+    "v19_guarded_projection": {
+      "checks": 16,
+      "passed": 16
+    }
+  }
+}

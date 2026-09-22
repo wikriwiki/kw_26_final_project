@@ -1,0 +1,54 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# GPU 서버에서 도는 운영 스택 (CI 가 만든 GHCR 이미지를 pull 해서 실행)
+#
+# 배포(자동): git pull → docker compose -f docker-compose.prod.yml pull → up -d
+# 시뮬 실행(수동): docker compose -f docker-compose.prod.yml run --rm app \
+#                    scripts/sim/run_simulation.py --days 3 --workers 8
+#
+# LLM(vLLM/SGLang)은 GPU 서버에서 별도로 띄우고(scripts/serve/*.sh) LLM_BASE_URL 로 연결.
+# 서버에 .env 파일 한 번만 두면 됨 (NEO4J_PASSWORD / LLM_BASE_URL 등).
+# ─────────────────────────────────────────────────────────────────────────────
+services:
+  app:
+    image: ghcr.io/wikriwiki/kw_26_final_project:latest
+    pull_policy: always
+    depends_on:
+      neo4j:
+        condition: service_healthy
+    environment:
+      NEO4J_URI: bolt://neo4j:7687
+      NEO4J_USER: neo4j
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-changeme123}
+      NEO4J_DATABASE: neo4j
+      LLM_BASE_URL: ${LLM_BASE_URL:-http://host.docker.internal:30000/v1}
+      LLM_MODE: ${LLM_MODE:-qwen8b}
+      SIM_OUTPUT_DIR: /output
+      PYTHONUNBUFFERED: "1"
+    volumes:
+      - ./sim_output:/output
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # 같은 서버의 LLM 접근
+    # 배치 작업이라 상주 X — 배포 시 pull 만으로 다음 run 에 새 코드 반영.
+    # 상주 서비스로 바꾸려면 아래 command 를 원하는 장기 실행 명령으로 교체.
+    restart: "no"
+
+  neo4j:
+    image: neo4j:5.23
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:-changeme123}
+      NEO4J_PLUGINS: '["apoc"]'
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u neo4j -p ${NEO4J_PASSWORD:-changeme123} 'RETURN 1' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 40s
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:
