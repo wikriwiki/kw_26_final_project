@@ -97,12 +97,24 @@ def get(ptype: str | None) -> ModuleType | None:
     return _MODULES.get((ptype or "").strip())
 
 
+# 등록되지 않은 기전의 대체 표시. 영문 식별자를 한글 문장에 그대로 흘리지 않는다 —
+# 모르는 기전이 들어와도 모델이 읽을 수 있는 말이어야 하고, 동시에 **무엇을 하라는
+# 말이 아니어야** 한다. 조건은 정책 본문(description)이 이미 말한다.
+FALLBACK_LABEL = "지원 제도"
+
+
 def label(ptype: str | None, name: str | None = None) -> str:
-    """프롬프트에 넣을 표시. 익명 모드면 정책 이름을 쓰지 않는다."""
+    """프롬프트에 넣을 표시. 익명 모드면 정책 이름을 쓰지 않는다.
+
+    등록되지 않은 기전이 들어오면 타입 문자열을 그대로 내보내던 자리가 있었다.
+    그러면 "[interest_subsidy] 소상공인 이자지원" 처럼 한글 문장 한가운데에
+    영문 식별자가 박힌다. 새 정책을 붙일 때마다 그 구멍이 다시 열리므로
+    **모르는 기전은 중립 한글로 떨어뜨린다.**
+    """
     t = (ptype or "").strip()
     if ANONYMOUS:
-        return f"[{_LABEL.get(t, t or '기타')}]"
-    lab = _LEGACY_LABEL.get(t, t or "기타")
+        return f"[{_LABEL.get(t) or FALLBACK_LABEL}]"
+    lab = _LEGACY_LABEL.get(t) or _LABEL.get(t) or FALLBACK_LABEL
     nm = (name or "").strip()
     return f"[{lab}] {nm}" if nm else f"[{lab}]"
 

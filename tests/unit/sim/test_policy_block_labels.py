@@ -55,6 +55,22 @@ def test_frozen_policies_render_exactly_as_before():
     assert label('cashback', '상생소비지원금') == '[캐시백] 상생소비지원금'
 
 
+@pytest.mark.parametrize('unknown', ['interest_subsidy', 'tax_credit', 'rent_support', '', None])
+def test_an_unregistered_mechanism_never_leaks_english(unknown):
+    """새 기전을 붙일 때마다 라벨을 빼먹을 수 있다. 그래도 영문이 새면 안 된다."""
+    got = label(unknown, '어떤 정책')
+    inside = got[got.find('[') + 1:got.find(']')]
+    assert not re.search(r'[A-Za-z_]', inside), '등록 안 된 기전이 영문으로 샌다: %r' % got
+    assert inside == '지원 제도'
+
+
+def test_the_fallback_does_not_tell_the_agent_what_to_do():
+    """모르는 기전의 대체 라벨도 방향을 말하면 안 된다."""
+    got = label('brand_new_thing', '어떤 정책')
+    for w in DIRECTION_WORDS:
+        assert w not in got
+
+
 def test_every_policy_in_the_repo_has_a_label():
     """새 정책을 넣고 라벨을 빼먹으면 여기서 잡는다."""
     import io
