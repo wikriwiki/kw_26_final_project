@@ -13,6 +13,7 @@
 from pathlib import Path
 import io
 import json
+import re
 import sys
 
 import pytest
@@ -102,11 +103,41 @@ def test_the_proxy_gap_is_written_down():
     assert 'DID' in blk['unit_note']
 
 
-def test_the_window_avoids_a_regime_change():
-    """두 창이 거리두기 같은 단계 안에 있어야 규제 변화가 효과로 새지 않는다."""
-    assert '2020-11-10' in SCORING['P016']['window']
-    assert '2020-11-17' in SCORING['P016']['window']
-    assert '1.5단계' in SCORING['P016']['window']
+def _window_dates():
+    """채점표 창 문구에서 무정책·정책 날짜를 꺼낸다."""
+    w = SCORING['P016']['window']
+    off = re.search(r'무정책\s*(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})', w)
+    # '무정책' 안에도 '정책' 이 들어 있다 — 앞 글자를 막지 않으면 그쪽을 잡는다
+    on = re.search(r'(?<!무)정책\s*(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})', w)
+    assert off and on, '창 문구에서 날짜를 못 읽었다: %s' % w[:80]
+    return [off.group(1), off.group(2)], [on.group(1), on.group(2)]
+
+
+def test_the_off_window_is_actually_before_the_policy_starts():
+    """처음에 이것을 틀렸다 — 무정책·정책 양쪽이 모두 사업기간 안이었다.
+
+    날짜를 박아 두면 다음에 또 틀려도 못 잡는다. 성질을 검사한다.
+    """
+    off, on = _window_dates()
+    start, end = P016['effective_from'], P016['effective_until']
+    for d in off:
+        assert d < start, '무정책 창 %s 가 사업 시작 %s 이후다 — 대조가 성립하지 않는다' % (d, start)
+    for d in on:
+        assert start <= d <= end, '정책 창 %s 가 사업기간(%s~%s) 밖이다' % (d, start, end)
+
+
+def test_the_policy_period_matches_the_source():
+    """사업기간은 정답지 p20 이 말한다 — 2020-07-30~11-30."""
+    assert P016['effective_from'] == '2020-07-30'
+    assert P016['effective_until'] == '2020-11-30'
+    assert 'p20' in SCORING['P016']['window'] or 'p20' in SCORING['P016'].get('source_verified', '')
+
+
+def test_both_windows_sit_in_the_same_distancing_regime():
+    """규제가 바뀌면 그 변화가 정책 효과로 샌다. 수도권 2단계는 2020-08-16 부터다."""
+    off, on = _window_dates()
+    for d in off + on:
+        assert d < '2020-08-16', '%s 가 수도권 2단계(8-16) 이후다' % d
 
 
 def test_frozen_policies_are_untouched():
