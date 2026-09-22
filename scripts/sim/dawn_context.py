@@ -54,13 +54,16 @@ RETURN
   a.nvidia_career_goals AS nv_career,
   a.nvidia_skills AS nv_skills,
   a.s_daily_wd AS daily_wd,
+  a.cat_ratio_wd AS cat_ratio_wd,
+  a.cat_ratio_we AS cat_ratio_we,
   a.s_daily_we AS daily_we,
   a.spending_we_wd_ratio AS we_wd_ratio,
   a.behavior_delivery_days AS delivery_days,
   a.behavior_home_h_wd AS home_h_wd,
   a.behavior_home_h_we AS home_h_we,
   a.b_mobility_level AS mobility,
-  hd.code AS home_dong_code, hd.name AS home_dong, home.id AS home_poi_id, home.name AS home_poi,
+  hd.code AS home_dong_code, hd.name AS home_dong, a.residence_gu AS home_gu,
+  home.id AS home_poi_id, home.name AS home_poi,
   wd.code AS work_dong_code, wd.name AS work_dong, work.id AS work_poi_id, work.name AS work_poi,
   wr.commute_min AS commute_min
 """
@@ -76,7 +79,14 @@ RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.month_spent AS month_spent, s.policy_lifecycle AS policy_lc,
        s.policy_used AS policy_used,
        s.grant_received AS grant_received,
-       s.grant_remaining AS grant_remaining
+       s.grant_remaining AS grant_remaining,
+       s.grant_carry AS grant_carry,
+       s.grant_plan_days AS grant_plan_days,
+       s.observations_json AS observations_json,
+       s.experience_run_id AS experience_run_id,
+       s.policy_appraisals_json AS policy_appraisals_json,
+       // 상생 캐시백 실적 문턱 계산용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 NULL.
+       s.sangsaeng_month_spent AS sangsaeng_month_spent
 """
 
 
@@ -154,6 +164,9 @@ WITH pol, regions, region_codes, collect(DISTINCT cat.parent) AS target_l1s
 RETURN pol.id AS id, pol.name AS name, pol.type AS type,
        pol.description AS description,
        pol.benefit_rate AS rate, pol.cap_per_agent AS cap,
+       pol.threshold_ratio AS threshold_ratio,
+       pol.eligible_marker AS eligible_marker,
+       pol.mech_params AS mech_params,
        pol.poi_restricted AS poi_restricted,
        pol.effective_from AS from_, pol.effective_until AS until_,
        toString(pol.effective_from) AS effective_from, toString(pol.effective_until) AS effective_until,
@@ -194,23 +207,26 @@ ORDER BY n_visited DESC, n DESC LIMIT 20
 # Stage 1 출력의 각 이벤트마다 별도 호출
 # =========================================================
 STAGE2_CANDIDATE_CYPHER = """
+MATCH (a:Agent {id: $aid})
 MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category {name: $sub_category})
-OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
+OPTIONAL MATCH (a)-[kp:KNOWS_POI]->(p)
 OPTIONAL MATCH (a)-[:LIVES_AT|WORKS_AT]->(anchor:POI)
-WITH p, c, kp, anchor,
-     CASE WHEN anchor IS NOT NULL AND p.lon IS NOT NULL THEN
+WITH p, kp,
+     min(CASE WHEN anchor.lon IS NOT NULL AND anchor.lat IS NOT NULL
+                   AND p.lon IS NOT NULL AND p.lat IS NOT NULL THEN
        point.distance(point({longitude: p.lon, latitude: p.lat}),
                       point({longitude: anchor.lon, latitude: anchor.lat})) / 1000.0
-     ELSE NULL END AS km
+     ELSE NULL END) AS km
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible,
        km
-ORDER BY km ASC LIMIT $limit
+ORDER BY km ASC, poi_id ASC LIMIT $limit
 """
 
 # Fallback: sub_category 매칭 실패 시 L1 단위로 같은 dong에서 fetch
@@ -220,14 +236,15 @@ MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong {code: $dong_code})
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
 WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
-RETURN p.id AS poi_id, p.name AS name,
+RETURN DISTINCT p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible,
        NULL AS km
-ORDER BY known DESC LIMIT $limit
+ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
 
 # Fallback: dong에 아예 commerce POI 부족 시 자치구 단위 L1 fetch
@@ -237,14 +254,15 @@ MATCH (p:POI {type:'commerce'})-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(d:District {co
 MATCH (p)-[:IN_CATEGORY]->(c:Category)
 WHERE c.parent = $l1 OR c.name = $l1
 OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
-RETURN p.id AS poi_id, p.name AS name,
+RETURN DISTINCT p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
        kp.avg_satisfaction AS avg_satisfaction,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible,
        NULL AS km
-ORDER BY known DESC LIMIT $limit
+ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
 
 
@@ -262,11 +280,14 @@ class DawnContext:
     knows_poi_summary: list[dict] = field(default_factory=list)
     # 오늘 갈 수 있는 zone 후보 (생활권 + Huff 광역상권) — Problem A
     zone_candidates: list[dict] = field(default_factory=list)
+    # 정책과 독립한 그날의 사회 배경 (감염병 단계·방역 규제·접종·명절 등).
+    # 비어 있으면 프롬프트에서 섹션 자체가 생략되어 기존 렌더와 바이트 동일하다.
+    environment: dict = field(default_factory=dict)
     # 기존 DB 호출에 타이머만 덧댄 진단 정보. 별도 LLM/DB 호출을 만들지 않는다.
     dawn_timing: dict = field(default_factory=dict)
     prompt_timing: dict = field(default_factory=dict)
 
-    def to_prompt_blocks(self) -> dict[str, str]:
+    def to_prompt_blocks(self, today: date | None = None) -> dict[str, str]:
         """각 컨텍스트를 LLM 프롬프트에 넣을 텍스트 블록으로 변환."""
         tm: dict[str, float] = {}
 
@@ -284,6 +305,8 @@ class DawnContext:
             # 정책의 공통 사실과 개인별 상태를 분리한다. Stage1에서 공통 사실을
             # 사용자 메시지 앞쪽에 두면 SGLang prefix/radix cache가 재사용할 수 있다.
             "policy_facts": timed("t_policy_facts", lambda: _format_policy_facts(self.policy)),
+            # 정책과 독립. 없으면 "" 를 돌려주고 호출부가 섹션을 통째로 생략한다.
+            "environment": timed("t_environment", lambda: _format_environment(self.environment)),
             "policy": timed(
                 "t_policy_status",
                 lambda: _format_policy_status(
@@ -291,6 +314,7 @@ class DawnContext:
                     policy_used=policy_used,
                     persona=self.persona,
                     state=self.state,
+                    today=today,
                 ),
             ),
             "persona": timed("t_persona", lambda: _format_persona(self.persona)),
@@ -341,6 +365,7 @@ def _format_persona(p: dict) -> str:
         f"ID: {p['id']}",
         f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
         f"소비: 평일 {(p.get('daily_wd') or 0):,}원, 주말 {(p.get('daily_we') or 0):,}원 (주말/평일 {(p.get('we_wd_ratio') or 1):.2f}배) / 성향: {p.get('tendency','')}",
+        _cat_line(p),
         f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]
@@ -350,6 +375,11 @@ def _format_persona(p: dict) -> str:
         lines.append("직장: 없음")
     if lifestyle:
         lines.append(f"라이프스타일: {lifestyle}")
+    # 집안 내구재 보유 상태 — 정책과 무관한 페르소나 사실. EXP_DURABLES=0 이면
+    # 빈 문자열이라 P010 검증본 렌더는 바이트 그대로 유지된다. durables.py 참조.
+    _dur = _durables_line(p)
+    if _dur:
+        lines.append(_dur)
     # NVIDIA 봉합 결과는 personality_lifestyle_raw 한 줄(200자)에 응축되어 있음 (가이드 §7).
     # 그 외 풍부 필드(summary/hobbies/cultural/career/skills/education/marital/family)는
     # Neo4j 에 보존되어 인터뷰·시각화·사후 분석에서 활용되지만, Stage 1 reasoning 프롬프트
@@ -365,6 +395,9 @@ def _format_state(s: dict | None) -> str:
     # windfall 감쇠 상세는 정책 카드(_format_policy)가 담당, 여기선 '별도 보유' 사실만 명시.
     bal = s.get("balance", 0) or 0
     bal_line = f"잔액(내 돈): {bal:,}원"
+    # [R71 측정 · 폐기] '잔액은 하루 지출로 N일치' 표시는 역효과였다. 40만 tier가
+    # "16일치나 있으니 내 돈으로 버틸 수 있다"로 읽어 spread가 21.1 → 25.3일로 늘고
+    # 방향이 −0.09 → −0.64%p로 악화됐다. 금액만 보여 준다.
     rem_all = sum(int(v or 0) for v in _json_dict(s.get("grant_remaining")).values())
     if rem_all > 0:
         days_map = s.get("grant_days_since") or {}
@@ -444,9 +477,102 @@ def _format_appointment(rows: list[dict]) -> str:
 
 
 _POLICY_TYPE_LABEL = {
-    "subsidy": "환급/쿠폰", "grant": "지원금", "regulation": "규제", "facility": "시설",
+    "subsidy": "환급/쿠폰", "grant": "지원금", "cashback": "캐시백",
+    "regulation": "규제", "facility": "시설",
     "campaign": "홍보", "tax": "세제", "transit": "교통", "environment": "환경",
 }
+
+
+# 적립업종이 총지출에서 차지하는 몫. 문턱(분모)과 누적(분자)의 회계 단위를 맞추는 값.
+# 시행방안: "개인이 보유한 모든 카드 사용실적을 합산(실적 적립 제외 업종 사용액 제외)"
+# → 2분기 월평균도 제외업종을 뺀 금액이다. 분자만 적립업종으로 걸러놓고 분모를
+#   총지출로 잡으면 문턱이 4배 높아져 도달이 원천 불가능해진다(28일 돌려도 19.3%).
+# 기본값은 무정책 구간 실측치(적립 일평균 29,841 / 앵커 111,155 = 0.268).
+SANGSAENG_BASE_RATIO = float(os.environ.get("EXP_SANGSAENG_BASE_RATIO", "0.268"))
+
+
+def _sangsaeng_monthly_anchor(persona: dict) -> int:
+    """2분기 월평균 **적립업종** 카드소비 앵커.
+
+    실제 정책의 2분기 월평균은 제외업종을 뺀 금액이다. 우리 누적
+    (sangsaeng_month_spent)도 적립업종 결제만 세므로 같은 기준이어야 한다.
+    `sangsaeng_base_daily`가 페르소나에 있으면(무정책 구간에서 실측) 그것을
+    우선하고, 없으면 총지출 앵커 × SANGSAENG_BASE_RATIO 로 근사한다.
+
+    데이터 앵커만 사용한다 — 실측 정답지의 수치나 공식은 넣지 않는다.
+    """
+    measured = persona.get("sangsaeng_base_daily")
+    if measured:
+        try:
+            v = float(measured)
+            if v > 0:
+                return int(round(v * 30))
+        except (TypeError, ValueError):
+            pass
+    daily_wd = float(persona.get("daily_wd") or 0)
+    daily_we = float(persona.get("daily_we") or daily_wd)
+    if daily_wd <= 0 and daily_we <= 0:
+        return 0
+    if daily_wd <= 0:
+        daily_wd = daily_we
+    total = (daily_wd * 5 + daily_we * 2) / 7 * 30
+    return int(round(total * SANGSAENG_BASE_RATIO))
+
+
+def _format_cashback_status(
+    pid: str, r: dict, p: dict, st: dict, today: date | None = None
+) -> str:
+    """상생 캐시백(P012류) 개인별 문턱·근접도 고지 (§4.5 ② 문턱 근접도 W).
+
+    - X = 2분기 월평균 앵커(_sangsaeng_monthly_anchor)
+    - Y = 적립업종 한정 이번달 누적(sangsaeng_month_spent, G2b) — 미적재 시 0
+    - Z = X × threshold_ratio(기본 1.03) = 3% 실적 문턱
+    - W = max(0, Z − Y) = 문턱까지 남은 거리 (매일 갱신, 목표 근접 효과)
+    행동 방향은 지시하지 않는다. 손실 프레임은 정책 description 공통 문구가 담당.
+    """
+    ratio = float(r.get("threshold_ratio") or 1.03)
+    rate = float(r.get("rate") if r.get("rate") is not None else 0.10)
+    cap = int(r.get("cap") or 100000)
+    anchor = _sangsaeng_monthly_anchor(p)
+    threshold = int(round(anchor * ratio))
+    spent_elig = int(st.get("sangsaeng_month_spent") or 0)
+    remaining = max(0, threshold - spent_elig)
+    # 남은 날짜 맥락 — 실제 정책 참여자는 "이번 달이 며칠 남았는지"를 알고 판단한다.
+    # 이게 없으면 큰 잔액만 보고 도달 불가로 읽어, 실제와 반대 방향으로 움직인다.
+    days_left = 0
+    if today is not None:
+        if today.month == 12:
+            month_end = date(today.year, 12, 31)
+        else:
+            month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+        days_left = (month_end - today).days + 1
+    # 한도를 채우려면 문턱 위로 얼마가 더 필요한지. rate=0.1·cap=10만이면 100만원이다.
+    # 이 규모를 모르면 "문턱만 겨우 넘기면 된다"로 읽혀 잔돈을 긁어모으는 쪽으로 간다.
+    # 실제 제도의 산식을 그대로 환산한 사실이며 행동을 지시하지 않는다.
+    cap_over = int(round(cap / rate)) if rate > 0 else 0
+    if remaining > 0:
+        status = f"문턱까지 {remaining:,}원 남음 — 적립업종에서 이만큼 더 쓰면 캐시백 자격 시작"
+        if days_left > 0:
+            pace = int(round(remaining / days_left))
+            status += f" (이번 달 {days_left}일 남음 · 하루 평균 {pace:,}원 페이스)"
+        # [3차 실측] 한도 환산("문턱 위로 100만원 더")을 넣었더니 C2 가 +1,825 → +847원
+        # (t 4.14 → 1.32)으로 후퇴하고 건당 금액도 6,641 → 5,978원으로 줄었다.
+        # 큰 숫자가 "불가능하네"로 읽혀 포기를 유도한 것으로 보인다. 문턱까지 남은
+        # 금액과 남은 일수만 제시하고, 한도는 넘긴 뒤에만 알린다.
+        if False and cap_over:  # 비활성 — EXP_SHOW_CAP_SCALE 로 재실험 가능
+            status += (f" | 문턱을 넘긴 뒤부터 쓴 금액의 {rate*100:.0f}%가 환급되고, "
+                       f"한도 {cap:,}원을 다 받으려면 문턱 위로 {cap_over:,}원이 더 필요하다")
+    else:
+        over = spent_elig - threshold
+        est = min(cap, int(over * rate))
+        status = f"문턱 초과 {over:,}원 — 현재 기준 예상 캐시백 약 {est:,}원"
+        if cap_over and est < cap:
+            status += f" (한도 {cap:,}원까지 {cap_over - over:,}원 여지)"
+    return (
+        f"- {pid}: 적립업종 이번달 누적 {spent_elig:,}원 / 2분기 월평균 약 {anchor:,}원 / "
+        f"{(ratio-1)*100:.3g}% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
+        f"{status} | 못 넘기면 이번 달 혜택은 사라짐"
+    )
 
 
 def _grant_amount_for(income: str, pol: dict, spend_decile=None) -> int:
@@ -480,6 +606,101 @@ def _compact_regions(raw_regions: list | None) -> str:
     return ", ".join(regions) or "지역 미상"
 
 
+def _durables_line(p: dict) -> str:
+    """집안 물건 상태 한 줄. durables 모듈이 꺼져 있으면 빈 문자열."""
+    try:
+        from durables import format_block
+    except ImportError:
+        try:
+            from .durables import format_block   # type: ignore
+        except ImportError:
+            return ""
+    return format_block(p.get("id") or "", p.get("life_stage"), p.get("age_group"))
+
+
+def _cat_line(p: dict) -> str:
+    """평소 지출이 업종별로 어떻게 갈리는지 — BDC 실측 구성.
+
+    이벤트 구성이 이 사람의 실제 소비 구성에서 벗어나지 않도록 사실로 제시한다.
+
+    [어휘 정합 2026-09-13] BDC 원본 이름을 그대로 주면 에이전트가 우리 어휘로
+    잘못 옮긴다. 7차에서 "취미/오락 10%" 를 L1 '여가' 로 읽어 여행사·유원지를
+    골랐고 여행·레저가 9.87% → 14.87% 로 악화했다(기준선 4.86%). 그래서
+    에이전트가 실제로 출력해야 하는 L1 12종으로 접어서 준다. bdc_category_map 참조.
+    """
+    try:
+        from bdc_category_map import line as _fold_line
+    except ImportError:
+        try:
+            from .bdc_category_map import line as _fold_line   # type: ignore
+        except ImportError:
+            return "평소 업종별 지출 구성: (미상)"
+    out = _fold_line(p.get("cat_ratio_wd"))
+    return out or "평소 업종별 지출 구성: (미상)"
+
+
+def _format_environment(env: dict | None) -> str:
+    """정책과 독립한 그날의 사회 배경.
+
+    감염병 유행 단계·방역 규제·접종 상태·명절처럼 **정책이 없어도 존재하는**
+    세상의 상태를 기술한다. 수급자와 비수급자 모두에게 동일하게 적용되며,
+    행동 방향("더 써라"/"덜 써라")은 넣지 않는다 — 상태만 제시하고 판단은
+    에이전트가 한다.
+
+    비어 있으면 빈 문자열을 반환한다. 호출부는 이때 섹션 헤더까지 생략하므로
+    환경이 없는 정책(예: P010)의 프롬프트는 이 채널 도입 이전과 바이트가 같다.
+    """
+    if not env:
+        return ""
+    lines: list[str] = []
+    headline = " ".join(str(env.get("headline") or "").split())
+    if headline:
+        lines.append(headline)
+    for f in (env.get("facts") or []):
+        t = " ".join(str(f).split())
+        if t:
+            lines.append(f"- {t}")
+    note = " ".join(str(env.get("note") or "").split())
+    if note:
+        lines.append(f"({note})")
+    return "\n".join(lines)
+
+
+def _with_params(r: dict) -> dict:
+    """정책 행에 mech_params(JSON) 를 풀어 합친다.
+
+    기전 고유 파라미터는 Cypher RETURN 목록에 하나씩 더하지 않고 이 한 칸에
+    담는다 — 그래야 새 정책이 코드 수정 없이 붙는다.
+    """
+    raw = r.get("mech_params")
+    if not raw:
+        return r
+    try:
+        extra = json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except Exception:
+        return r
+    out = dict(extra)
+    out.update({k: v for k, v in r.items() if v is not None})
+    return out
+
+
+def _is_include_only(r: dict) -> bool:
+    """이 정책이 '대상 업종에서만' 쓰는 종류인가.
+
+    적격 규칙이 include 모드면 기본이 부적격이고 목록에 들어야 쓸 수 있다.
+    exclude 모드(기본 적격)는 여기 해당하지 않는다 — P012 · P014 는 종전 표기를
+    그대로 유지해야 앞서 돌린 런과 비교할 수 있다.
+    """
+    spec = _with_params(r).get("eligibility")
+    if isinstance(spec, str):
+        try:
+            spec = json.loads(spec)
+        except Exception:
+            return False
+    return bool(isinstance(spec, dict)
+                and (spec.get("mode") or "").strip() == "include")
+
+
 def _format_policy_facts(rows: list[dict]) -> str:
     """에이전트와 무관한 정책 사실.
 
@@ -492,19 +713,48 @@ def _format_policy_facts(rows: list[dict]) -> str:
     for r in sorted(rows, key=lambda x: str(x.get("id") or "")):
         ptype = r.get("type") or "기타"
         label = _POLICY_TYPE_LABEL.get(ptype, ptype)
+        # 기전 레지스트리 경유 — EXP_POLICY_ANONYMOUS=1 이면 정책 이름을 빼고
+        # 기전 라벨만 남긴다(lookahead bias 완화, mechanisms/__init__ 참조).
+        _head = None
+        try:
+            from mechanisms import label as _mech_label
+            _head = _mech_label(ptype, r.get("name"))
+        except ImportError:
+            _head = None
         targets = [str(x) for x in (r.get("target_l1s") or []) if x]
-        scope = ", ".join(targets[:8]) if targets else "업종 제한 없음"
-        if len(targets) > 8:
-            scope += f" 외 {len(targets) - 8}개"
-        restrictions = " · [쿠폰] 표시 POI에서만 사용" if r.get("poi_restricted") else ""
-        desc = " ".join(str(r.get("description") or "").split())[:280]
+        if targets:
+            scope = ", ".join(targets[:8])
+            if len(targets) > 8:
+                scope += f" 외 {len(targets) - 8}개"
+        elif _is_include_only(r):
+            # 업종 한정 정책인데 targets 가 비었다고 "제한 없음" 이라 적으면
+            # 바로 다음 칸의 "표시 POI 에서만 사용" 과 정반대로 부딪힌다.
+            # 구체적인 업종은 아래 사실 줄과 개인 상태에 이미 나온다.
+            scope = "대상 업종 한정"
+        else:
+            scope = "세부 업종 조건은 정책 본문 참조"
+        # 표시 문자열은 정책이 정한다 — 하드코딩하면 새 정책이 남의 마커를 쓴다.
+        _mk = (r.get("eligible_marker") or "[쿠폰]").strip()
+        restrictions = f" · {_mk} 표시 POI에서만 사용" if r.get("poi_restricted") else ""
+        # Do not remove eligibility, timing or exceptions by truncating mid-sentence.
+        desc = " ".join(str(r.get("description") or "").split())
+        _h2 = _head if _head is not None else f"[{label}] {r.get('name')}"
         lines.append(
-            f"- {r.get('id')} [{label}] {r.get('name')} | "
+            f"- {r.get('id')} {_h2} | "
             f"{r.get('from_')}~{r.get('until_')} | {_compact_regions(r.get('regions'))} | "
             f"{scope}{restrictions}"
         )
         if desc:
             lines.append(f"  배경: {desc}")
+        # 기전 고유 사실(업종별 할인 조건 등) — 레지스트리가 제공하면 붙인다.
+        try:
+            from mechanisms import get as _mech_get2
+            _m2 = _mech_get2(ptype)
+            if _m2 is not None and hasattr(_m2, "facts"):
+                for _f in (_m2.facts(_with_params(r)) or []):
+                    lines.append(f"  · {_f}")
+        except ImportError:
+            pass
     return "\n".join(lines)
 
 
@@ -513,6 +763,7 @@ def _format_policy_status(
     policy_used: dict[str, int] | None = None,
     persona: dict | None = None,
     state: dict | None = None,
+    today: date | None = None,
 ) -> str:
     """개인별 자격·잔액만 간결하게 표시한다.
 
@@ -539,22 +790,53 @@ def _format_policy_status(
             uses_decile = bool(r.get("decile_grants")) or (
                 (r.get("grant_key") or "income") == "spend_decile"
             )
-            basis = f"소비 {int(decile)}분위" if uses_decile and decile is not None else f"소득 {income or '미상'}"
+            # 프롬프트는 세 곳에서 "소득분위로 고정하지 말라"고 하는데, 정작 컨텍스트가
+            # "대상(소비 1분위) | 지급액 400,000원"으로 본인의 분위 순위를 찍어 주고 있었다.
+            # 지급 근거가 무엇인지만 남기고 순위 숫자는 노출하지 않는다.
+            basis = "소비 규모 기준" if uses_decile and decile is not None else f"소득 {income or '미상'}"
             rec = int(grant_received.get(pid, 0) or 0)
             rem = int(grant_remaining.get(pid, 0) or 0)
             d_since = days_since.get(pid)
             age = "지급 전"
             if rec > 0:
                 age = "지급일" if d_since in (None, 0, "0") else f"지급 후 {int(d_since)}일"
+            # 남은 지원금이 평소 씀씀이의 며칠치인지는 본인이 당연히 아는 사실이고, 오늘
+            # 얼마나 쓰게 될지 판단하는 근거다. 앞서 편향 우려로 뺐던 적이 있으나, 그때는
+            # "평소대로 지내면 며칠에 걸쳐 줄어들지"라는 지시문이 함께 있어 이 값이 곧 정답이
+            # 되어 버렸다. 그 지시문을 제거하고 소액이 오래 남는 기전을 서술한 지금 구성에서
+            # 다시 넣는다.
+            # [R51 측정] 이 사전계산은 15만 tier의 spread를 17.0→15.1일로 단축시켜
+            # (hazard 6.34→7.13%) 공표 곡선 대비 과속을 키웠다 — 그때는 이 값이 곧
+            # grant_spread_days의 답이 되는 구조였기 때문이다.
+            # [R85] spread 배급을 폐기하고 건별 결제 선택으로 바꾼 뒤에는 그 경로가 없다.
+            # 대신 지원금이 '내게 며칠치인가'는 결제할 때마다 챙길지 말지를 가르는 근거다.
+            # 분모는 전체 지출이 아니라 **동네 가게에서 나가는 지출**이다 — 지원금은 그 자리에서만
+            # 쓸 수 있으므로. 비중은 BDC 실측(소비수준별 대형·제외업종 비중)을 쓴다.
             relative = ""
-            daily = float(p.get("daily_wd") or 0)
-            if rem > 0 and daily > 0:
-                relative = f" · 평소 평일소비의 {rem / daily:.1f}일치"
+            # 지급일에는 아직 grant_remaining이 0이므로(정산 전) 지급 예정액으로 센다.
+            # 이 가드가 없으면 1일차에 '며칠치' 사실이 프롬프트에서 빠져 예외가 참조할
+            # 근거가 사라진다(SMOKE85: 15만 tier 전원이 기본값 1.0을 답함).
+            _amt_days = rem if rem > 0 else my_amt
+            if _amt_days > 0:
+                try:
+                    # 분모는 평소 하루 지출 그대로. '쿠폰 불가 업종'을 빼고 세던 것은
+                    # 그 비중 표를 폐기하면서 함께 폐기했다(consumption.py 주석 참조).
+                    _d = int(p.get("daily_wd") or 0)
+                    if _d > 0:
+                        relative = (
+                            f" | 평소 하루 지출 {_d:,}원 기준 약 "
+                            f"{max(1, round(_amt_days / _d))}일치"
+                        )
+                except (TypeError, ValueError):
+                    relative = ""
             eligibility = "대상" if my_amt > 0 else "비대상"
             lines.append(
                 f"- {pid}: {eligibility}({basis}) | 지급액 {my_amt:,}원 | "
                 f"누적수령 {rec:,}원 | 정책지갑 잔액 {rem:,}원 | {age}{relative}"
             )
+        elif ptype == "cashback":
+            # 상생소비지원금 — 정책지갑 없음. 개인별 실적 문턱·근접도만 고지(§4.5 ②).
+            lines.append(_format_cashback_status(pid, r, p, st, today))
         elif ptype == "subsidy":
             cap = int(r.get("cap") or 0)
             spent = int(used.get(pid, 0) or 0)
@@ -563,13 +845,42 @@ def _format_policy_status(
             rate_text = f"{float(rate) * 100:.0f}%" if rate is not None else "정책 정의값"
             lines.append(f"- {pid}: 환급률 {rate_text} | 누적사용 {spent:,}원 | 잔여한도 {rem:,}원")
         else:
-            lines.append(f"- {pid}: 현재 적용 중")
+            # 신규 기전은 레지스트리가 처리한다 — 정책마다 여기에 분기를 더하면
+            # 배관에서 1:1 결합이 되살아난다(mechanisms/__init__ 참조).
+            _line = None
+            try:
+                from mechanisms import get as _mech_get
+                _m = _mech_get(ptype)
+                if _m is not None and hasattr(_m, "status"):
+                    _line = _m.status(pid, _with_params(r), p, st, today)
+            except ImportError:
+                _line = None
+            lines.append(_line or f"- {pid}: 현재 적용 중")
 
-    lines.append(
-        "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
-        "판단한다. 선택한 거래가 정책 사용처이면 정책지갑을 자기자금보다 먼저 결제하며, "
-        "이 결제 순서는 소비 자체를 새로 만들라는 뜻이 아니다."
-    )
+    ptypes = {r.get("type") for r in rows}
+    try:
+        from mechanisms import principle as _mech_principle
+        lines.append("- 판단 원칙: " + _mech_principle(ptypes))
+        return "\n".join(lines)
+    except ImportError:
+        pass
+    has_wallet = bool(ptypes & {"grant", "subsidy", "voucher"})
+    if has_wallet:
+        # P010 BOK 대조 검증을 통과한 문구. 결제수단 선택은 건별로 에이전트가
+        # 정한다(EXP_PAYMENT_CHOICE=1). 수정하면 P010 재현이 깨진다.
+        lines.append(
+            "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
+            "판단한다. 정책 사용처에서 정책지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
+            "본인이 정한다. 정책이 있다는 것이 소비 자체를 새로 만들라는 뜻은 아니다."
+        )
+    else:
+        # cashback류: 정책지갑이 없다. 캐시백은 이번 달에 미리 주는 돈이 아니라
+        # 다음 달에 돌려받는 것 — 지금 소비 예산을 부풀리지 않는다.
+        lines.append(
+            "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
+            "판단한다. 캐시백은 지금 쓸 수 있는 돈이 아니라 다음 달에 돌려받는 것이므로, "
+            "이번 달 소비 예산을 늘려주지 않는다."
+        )
     return "\n".join(lines)
 
 
@@ -639,7 +950,7 @@ def _format_knows_poi(rows: list[dict]) -> str:
 # =========================================================
 # 메인 엔트리
 # =========================================================
-def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
+def _build_zone_candidates(persona: dict, today: date, stats_dir: Path | None = None) -> list[dict]:
     """오늘 갈 수 있는 zone 후보 = 생활권(거주·직장) + Huff 광역상권(MOBILITY_WIDE).
 
     좌표/카탈로그 없거나 legacy 모드면 생활권만 → 기존 동작으로 자연 degrade.
@@ -664,12 +975,14 @@ def _build_zone_candidates(persona: dict, today: date) -> list[dict]:
         rng = random.Random(hash((persona.get("id"), today.isoformat())))
         for h in mobility.suggest_hubs(home_code, exclude, day_type,
                                        persona.get("mobility"), k=8, rng=rng,
-                                       persona=persona):
+                                       persona=persona, stats_dir=stats_dir):
             zones.append({"code": h["code"], "name": h.get("name", ""),
                           "gu": h.get("gu", ""), "type": "hub",
                           "signature": h.get("signature"),
                           "distance_km": h.get("distance_km")})
     except Exception:
+        if stats_dir is not None:
+            raise  # A registered reference bundle must fail closed.
         pass   # 광역 prior 실패해도 생활권만으로 진행
     return zones
 
@@ -862,7 +1175,7 @@ if __name__ == "__main__":
 
     today = date.fromisoformat(args.day)
     ctx = build_dawn_context(args.aid, today)
-    blocks = ctx.to_prompt_blocks()
+    blocks = ctx.to_prompt_blocks(today)
 
     for name, body in blocks.items():
         print(f"\n=== {name.upper()} ===")

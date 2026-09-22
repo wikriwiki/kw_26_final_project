@@ -1,0 +1,51 @@
+{
+  "config": {
+    "id": "validation_v7b_reasoning_probe",
+    "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "source_inputs_sha256": "d8944c1467db387ebf118d3f396a09bf6f1b7bcbb108340a84321a543f4912e5",
+    "candidates": [
+      {
+        "id": "v11_thinking_recommended",
+        "prompt": "v11",
+        "structured": true,
+        "thinking": true
+      },
+      {
+        "id": "v15_thinking_recommended",
+        "prompt": "v15",
+        "structured": true,
+        "thinking": true
+      }
+    ],
+    "replicate_seeds": [
+      5901
+    ],
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 1.5,
+    "max_tokens": 16384,
+    "workers": 8,
+    "timeout_seconds": 900,
+    "job_order_seed": 20260920,
+    "phase": "Development probe: concise versus detailed neutral prompt under identical official recommended text-only sampling. Four known synthetic constraint cases.",
+    "primary": "All factual and schedule checks; no request failures or incomplete generation. Capture reasoning tokens and latency. No repairs/retries.",
+    "interpretation": "Within-run prompt comparison only. Compared with v7, sampling and ceiling both change, so between-run changes cannot be attributed to a single factor.",
+    "next": "Register development matrix only for a passing probe candidate; untouched 24-person confirmation remains separate.",
+    "prohibitions": "No policy-specific action direction or empirical policy-effect numbers. P010 immutable. P015 not run."
+  },
+  "config_sha256": "a2fd2b816a176ff7ddb2cbcb5e2d6c2482356eabeef34fc4dda75b435c301684",
+  "inputs_sha256": "56b7ac02055246afcf278167e7268d9e66d10a376737efae08db34453de4720f",
+  "registered_at": "2026-09-19T15:57:36.661282+00:00",
+  "source_sha256": "d8944c1467db387ebf118d3f396a09bf6f1b7bcbb108340a84321a543f4912e5",
+  "code_sha256": {
+    "validate_reasoning_prompt.py": "9c99dd5553ffa5aea15cc0e9e749412c8c36f5f0779d8138021bf801a47b9201",
+    "planning_contract.py": "1d241c3c1addac5eb8224a16d4ae59dea5c5d44da8b1bbe16d4bfa03b6bab483",
+    "validate_prompt_v3.py": "3a4af4679c925c28115df10076804ea5d5ecacd0af75ec69fafa85fb8110871d",
+    "validate_prompt_v4.py": "ca765ac59652ceeecd578de109913266243a21671c8929b86e306d5f7a93624e"
+  },
+  "system_hashes": {
+    "v11_thinking_recommended": "4bcad90de102c7c56f89af9b5f0f7b6ca38c04d4015c8262b72eb4d61f27c2c4",
+    "v15_thinking_recommended": "a55171018edf21ef48975edec06083dc759f1c5508b45773e327dc0e85c477be"
+  },
+  "server_info_sha256": "423211a87d21f87655e6ad4006580679201c7ad66224c367d25687c303d565c4"
+}

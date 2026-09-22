@@ -1,0 +1,43 @@
+{
+ "id": "validation_v9_need_laundry",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "78961fc28d0f27915a58b2db58c22d3fdc888f3e4be4bbfc6d56dbf054e29000",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "laundry_need_axis",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  65001,
+  65002,
+  65003,
+  65004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "Scenario A/B with the PROMPT FROZEN at v25. Eight rounds of prompt edits moved nothing because every cell has exactly one need - laundry - and it is met online from home. This asks whether a second need changes what the day can do.",
+ "primary": "Count of meal_dine_in in the no-policy arm. It is 1 in 192 cells today, which is why the distancing restriction has nothing to suppress and DS-1 cannot reach its measured sign. Secondary: share of planned events at a zone anchor, stuck at 0.105 for six rounds.",
+ "limitations": [
+  "The prompt is identical in both arms. This round cannot and does not select a prompt.",
+  "A need can only make a behaviour possible. It does not make the behaviour correct, and the answer-key indicators are reported, not used to choose.",
+  "Meal stock alternates 0/2 by sorted citizen index, the same rule the detergent uses. It is a scenario assumption.",
+  "More needs means more spending by construction; the composition distance to each citizen's own profile is checked so the arm cannot win by inflating.",
+  "Current need model: one need, laundry, met by an online detergent."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair fixed before the run (experiments/v9/prompt_v9.md). The arms differ only in the need model; the prompt, seeds, contracts and gate are the same.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

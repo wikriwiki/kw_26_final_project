@@ -8,12 +8,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import re
 import sys
 import time
 from datetime import date
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -23,6 +24,7 @@ except Exception:
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from dawn_context import DawnContext, build_dawn_context  # noqa: E402
+import prompts as _prompts  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 
 
@@ -83,6 +85,9 @@ _CAT_TO_L1: dict[str, str] = {
     "수영": "여가", "운동": "여가", "볼링": "여가", "독서실": "여가",
     # 교육
     "학원": "교육", "과외": "교육", "학교": "교육", "보습": "교육",
+    # 내구재 — 그래프 실제 Category: 쇼핑 아래 '가전·통신'·'가구'·'안경'
+    "전자제품": "쇼핑", "가전제품": "쇼핑", "가전": "쇼핑", "가전·통신": "쇼핑",
+    "휴대폰": "쇼핑", "컴퓨터": "쇼핑", "가구점": "쇼핑", "침구": "쇼핑", "안경점": "쇼핑",
     # 주점
     "술집": "주점", "바": "주점", "호프": "주점", "포차": "주점",
 }
@@ -178,13 +183,55 @@ class Stage1Event(BaseModel):
         raise ValueError(f"anchor must be residence|workplace|zone:<code>, got {v!r}")
 
 
+# 낱말 태세 → 오늘 쓸 수 있는 결제 중 이 지갑으로 내는 비율.
+# 연속값(grant_use)으로 물으면 계층 구분 없이 균일한 값이 나왔으므로(R84 전원 0.19 /
+# R85 전원 0.87) 분기를 강제하는 범주로 묻고, 낱말의 뜻대로 비율을 해석한다.
+GRANT_STYLE_MAP: dict[str, float] = {"빠짐없이": 1.0, "섞어서": 0.5, "가끔만": 0.18}
+
+
+def grant_style_to_use(style: str | None) -> float | None:
+    """낱말 태세를 비율로. 알 수 없는 값이면 None(태세 미지정)."""
+    if not style:
+        return None
+    return GRANT_STYLE_MAP.get(str(style).strip())
+
+
 class Stage1Output(BaseModel):
+    # Validate optional appraisals after generation; malformed metadata must not retry an otherwise valid day plan.
+    policy_appraisals: Any = Field(default_factory=list)
     events: list[Stage1Event]
     # 오늘 소비성향 p∈[0,1] — 평상 소비예산 대비 오늘의 소비 의향.
     # 정책지갑 인출률이 아니며, consumption 모델이 prior 밴드 안으로 클램프한다.
     daily_propensity: float | None = Field(default=None, description="오늘 소비성향 0~1")
+    # 오늘 정책지갑(지원금) 사용의향 g∈[0,1] — 가진 지원금을 오늘 얼마나 적극 쓸지.
+    # 유동성 제약이 큰 사람(쓸 현금이 빠듯한 사람)은 지원금이 미뤄둔 필요를 풀 여력이라
+    # 높고, 현금 여유가 있고 사용기한이 넉넉하면 아껴 나눠 쓰므로 낮다. 지급액 크기나
+    # 소득분위로 고정하지 말고 이 사람의 오늘 형편에서 판단한다. 지원금이 없으면 무의미.
+    grant_use: float | None = Field(default=None, description="오늘 지원금 사용의향 0~1")
+    # 낱말 선택형 태세. 연속값(grant_use)은 계층 구분 없이 균일한 값이 나왔으므로
+    # (R84 전원 0.19 / R85 전원 0.87), 분기를 강제하는 범주로 묻는다.
+    grant_style: str | None = Field(default=None, description="빠짐없이 | 섞어서 | 가끔만")
 
-    @field_validator("daily_propensity")
+    # 남은 지원금을 앞으로 며칠에 걸쳐 쓸 생각인지(일). 사람이 실제로 하는 판단 형태.
+    # 짧으면 오늘 많이, 길면 오늘 조금 쓰게 된다. consumption 모델이 이 계획을 그대로 따른다.
+    grant_spread_days: int | None = Field(default=None, description="남은 지원금을 며칠에 걸쳐 쓸지")
+    # 위 일수를 왜 그렇게 잡았는지 한 줄. 습관적으로 같은 숫자를 내지 않고 자기 상황을
+    # 실제로 들여다보게 하는 장치(사고 흔적). 분석·인터뷰에도 쓰인다.
+    grant_plan_reason: str | None = Field(default=None, description="그 일수로 잡은 이유 한 줄")
+    # 쿠폰으로 결제해 굳은 현금 덕에 오늘 평소보다 더 쓰게 되는 정도(0~1).
+    # 굳은 돈을 그대로 아끼면 0, 그 돈만큼 다른 데 더 쓰면 1에 가깝다.
+    grant_extra_spend: float | None = Field(default=None, description="굳은 현금으로 더 쓰는 정도 0~1")
+    # 쿠폰으로 굳은 현금 중 그대로 통장에 남는 몫(0~1). 유동성 제약이 큰 사람일수록 남지 않는다.
+    # 지정되면 이 값이 우선하며 (1 - 남는 몫)이 오늘 추가 소비로 이어진다.
+    grant_kept_share: float | None = Field(default=None, description="굳은 현금이 통장에 남는 몫 0~1")
+    # 오늘 지출 중 집에서 주문해 배송으로 받는 몫(0~1). 가게 방문(events)이 없는 지출이며
+    # 소비쿠폰은 온라인 결제에 쓸 수 없다(P010 사용처 조건). 이 채널이 없으면 하루 지출
+    # 전액이 동네 가맹점으로 흘러 1인당 가맹점 지출이 실제보다 크게 잡힌다.
+    online_share: float | None = Field(default=None, description="오늘 지출 중 배송으로 받는 몫 0~1")
+
+    @field_validator(
+        "daily_propensity", "grant_use", "grant_extra_spend", "grant_kept_share", "online_share"
+    )
     @classmethod
     def _clip_propensity(cls, v):
         if v is None:
@@ -193,6 +240,17 @@ class Stage1Output(BaseModel):
             return max(0.0, min(1.0, float(v)))
         except (TypeError, ValueError):
             return None
+
+    @field_validator("grant_spread_days")
+    @classmethod
+    def _clip_spread(cls, v):
+        if v is None:
+            return v
+        try:
+            iv = int(round(float(v)))
+        except (TypeError, ValueError):
+            return None
+        return max(1, min(180, iv))
 
     @field_validator("events")
     @classmethod
@@ -233,181 +291,18 @@ class Stage1Output(BaseModel):
 # =========================================================
 # 프롬프트 빌더
 # =========================================================
-SYSTEM_PROMPT = """당신은 서울 시민 에이전트의 하루 동선을 설계하는 Daily Planner입니다.
-출력은 반드시 주어진 JSON 스키마만 따르며, 자연어 해설을 덧붙이지 않습니다.
-
-[이벤트 규칙 — 중요]
-- 하루 이벤트 수: **평일 6~10개**, 주말/공휴일 4~8개.
-- 첫 이벤트와 마지막 이벤트는 반드시 anchor='residence' (집).
-- 평일 + 직장 있음: anchor='workplace' 체류가 09~18시 사이 누적 4시간 이상.
-- 이벤트 간 최소 체류 20분.
-- 시간은 24시간제 "HH:MM", 단조 증가.
-- 카테고리 운영시간을 넘는 방문 금지.
-
-[외출 — 자연스러운 일상 패턴 참고]
-- 사람들은 평일에도 일상적 외출(점심·간식·간단 쇼핑·운동·약 처방)을 한다. 외출을 너무 보수적으로 줄이면 부자연스럽다.
-- 평일 + 직장 있음: 점심(12~13시) 직장 동 식사 외출, 퇴근길/저녁(18~20시) 외출 한 번 정도가 자연스러운 편 (anchor='zone:<work_dong>' 또는 'zone:<home_dong>'). 단 매일 똑같지 않다 — 어떤 날은 점심을 짧게 끝내거나 저녁 외출 없이 바로 귀가하기도 한다.
-- 평일 + 직장 없음(은퇴·전업·학생): Top 카테고리 기반 외출(병원·헬스장·학원·마트)이 한두 번 자연스럽게 나오는 편. 종일 집에만 있는 plan은 드물지만, 컨디션이 안 좋거나 비 오는 날엔 가능하다.
-- 주말: 외식·카페·쇼핑·여가 외출 두세 번이 자연스러운 편.
-- 외출 카테고리(commerce)는 anchor='zone:<dong_code>' 사용 (residence/workplace 아님 — 스키마 제약).
-
-[페르소나 = 성향의 큰 그림, 공식이 아님]
-페르소나(Top 카테고리·라이프스타일·소비분위)는 장기 성향이지 매일의 공식이 아니다.
-행동이 성향에서 직선으로 도출되면 기계다. 하루 행동은 다음이 함께 결정한다:
-1. 어제·그제의 잔상 — 방문지·만족도(actual_satisfaction)·만난 사람·들은 정보(visited/rumor)
-2. 오늘 컨디션 — yesterday_satisfaction·mood·fatigue (평소 성향을 일시적으로 뒤집을 수 있음)
-3. 곱씹은 기억 — 같은 사건도 페르소나라는 *렌즈*를 거쳐 다르게 해석(외향↔내향이 다른 결론)
-다만 길게 보면 Top 카테고리 비중은 우세하게 나타난다 — 성향에서 멀리 벗어나긴 어렵다.
-회상 재료는 반드시 Dawn 컨텍스트(어제 State·최근 Memory·Conversation·활성 정책) 안에서만.
-시뮬에 없는 사건(TV·길거리 광고·우연한 향기 등 가상 자극) 금지.
-
-[카테고리 어휘]
-L1: 식사 · 카페 · 디저트 · 주점 · 편의점 · 마트 · 미용 · 쇼핑 · 여가 · 건강 · 교육 · 기타 · 집 · 직장
-- anchor='residence'일 때 category='집' (수면·휴식·재택·집안일만)
-- anchor='workplace'일 때 category='직장' (회의·근무·직장 내 체류만)
-- 외출 이벤트(식사·카페·편의점·미용·쇼핑 등 commerce 카테고리): **반드시 zone anchor** 사용
-
-[카테고리 구분 — 자주 헷갈리는 케이스 명시]
-- **주점** = 술집·바·호프·이자카야 같은 "술 마시러 가는 가게"만. 일상 식사 곁들임 음주는 식사로 분류.
-- **편의점** = 편의점 술/생필품/간단 식품 모두 편의점 (주점 X).
-- **마트** = 대형마트·중형슈퍼에서 장보기. 술 구매도 마트.
-- **식사** = 식당·한식·양식·중식·일식·분식 등 끼니. 음주 동반이라도 끼니가 주목적이면 식사.
-- 즉 **'술'은 행위, '주점'은 가게 카테고리** — 편의점·마트에서 술 사오는 건 주점이 아님.
-
-[anchor 규칙 — 매우 중요]
-- "residence": 집 안에서만 일어나는 활동. category는 '집'만.
-- "workplace": 직장 빌딩 내부에서만 일어나는 활동. category는 '직장'만.
-- "zone:<dong_code>": **모든 외출 활동의 anchor**. 집·직장 외 카테고리(식사·카페·편의점·미용·쇼핑·여가·건강·교육·마트·주점·디저트·기타)는 반드시 zone anchor.
-  - 거주 동 근처 외출(예: 집 앞 편의점·식당) → zone:<home_dong_code>
-  - 직장 동 근처 외출(예: 점심 식당·퇴근길 카페) → zone:<work_dong_code>
-  - 그 외 자치구 이동(주말 나들이·약속) → zone:<other_dong_code>
-- 절대 금지: anchor='residence' + category='편의점/식사/카페/한식/...' 같은 조합. 외출 카테고리면 무조건 zone.
-
-[정책·약속 반영]
-- 정책 블록의 공통 사실과 개인별 자격·정책지갑 잔액·사용 제약을 사실 그대로 읽는다.
-- 정책은 가능한 예산과 제약 중 하나다. 정책이 있다는 이유만으로 외출, 소비, 특정 업종·동네 선택을 반드시 추가하거나 제거하지 않는다.
-- grant의 실제 결제수단과 금액은 Stage2가 결정한다. Stage1에서는 정책이 오늘 의도에 실제로 관련된 경우에만 reasoning과 trigger에 반영한다.
-- subsidy·regulation·facility·campaign도 description을 페르소나·필요·일정과 함께 자율 해석하며, 정해진 행동 방향을 가정하지 않는다.
-- 개인별 정책 상태가 비대상이거나 잔액 0원이면 사용할 수 있는 혜택처럼 서술하지 않는다.
-- 어제 만족 낮은 곳은 회피하거나 망설임이 reasoning에 드러남. 약속(appointment)은 그 시간대 우선(anchor=zone, pinned_poi).
-
-[pinned_poi]
-- appointment의 meeting_poi_id가 있으면 해당 event에 pinned_poi 설정.
-- 그 외엔 pinned_poi 생략 (POI 결정은 Stage 2에 위임).
-
-[reasoning + trigger — 매우 중요, 인터뷰 가능성을 위한 핵심]
-각 이벤트마다 **왜 이 결정을 했는지** 1~3문장으로 reasoning에, 그리고 사후적으로
-가장 가까운 결정 요인을 trigger에 라벨링한다.
-
-reasoning 작성 규칙:
-- Dawn 컨텍스트에 주어진 데이터(어제 State, 최근 Memory, Conversation, 활성 정책)
-  안에서 회상·인용한다. 시뮬에 없는 사건은 만들어내지 않는다.
-- 페르소나의 성향은 인용해도 좋다. **단 그것만으로 결정한 듯한 한 줄 환원형 reasoning은
-  금지**. 성향은 *해석의 렌즈*로 작동해야지 *행동의 공식*이 되면 안 된다.
-- 위 동적 요인(잔상·컨디션·곱씹은 기억) 중 최소 하나를 자연스럽게 녹일 것.
-- 정책 사용 시 잔액·할인율·카테고리를 명시 (예: "강남 카페 바우처 잔액 45,000원 남았고,
-  어제 거기 분위기가 의외로 좋았던 게 떠올라 또 가고 싶음").
-- 약속 진입 시 상대 agent_id와 약속 잡힌 사유 명시.
-- 소문 따라간 경우 출처 agent와 topic 명시.
-- 같은 카테고리·같은 페르소나라도 매일 reasoning이 다르게 풀려야 한다.
-  추상적 진술("그냥 좋아서") 금지.
-
-**금지 — 한 줄 환원형 reasoning 예**:
-- "라이프스타일이 가족중심이라 점심에 한식 단골 방문" ← 페르소나 → 행동 직결, 기계적.
-- "평일 Top 한식 14%라 점심은 한식" ← 통계 → 행동 직결, 기계적.
-- "절약형이라 쿠폰 사용" ← 성향 → 행동 직결, 기계적.
-
-**좋은 예** (같은 카테고리라도 잔상·컨디션·정책이 사고 흐름을 만든다):
-# lifestyle — 어제 잔상
-{"time":"12:00","anchor":"zone:11680670","category":"식사","sub_category":"한식","intent":"점심",
- "reasoning":"어제 두부마을찬 sat 0.65로 음식이 좋았던 잔상. 한식 자주 가지만 오늘 굳이 거긴 그 잔상 때문.","trigger":"lifestyle"}
-# mood — 컨디션이 성향을 뒤집음
-{"time":"15:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"오후 휴식",
- "reasoning":"평소 카페 잘 안 가는데 fatigue 0.7로 피곤. 어제 이웃이 '거기 차분하다'던 게 떠올라 가봄.","trigger":"mood"}
-# policy — 쿠폰 잔액 + 잔상
-{"time":"19:00","anchor":"zone:11680670","category":"카페","sub_category":"카페","intent":"퇴근 후",
- "reasoning":"퇴근 후 피로가 남아 잠깐 쉴 생각. 카페 바우처 잔액 45,000원이 있지만 오늘 꼭 써야 하는 것은 아니며, 어제 만족했던 조용한 카페가 일정과 맞아 후보로 생각함.","trigger":"policy"}
-(약속은 상대 agent_id·사유, 소문은 출처 agent·topic을 reasoning에 명시.)
-
-trigger enum (reasoning을 먼저 쓰고 가장 가까운 하나 선택):
-- appointment(약속) · rumor(어제·그제 소문/추천) · policy(쿠폰·바우처·캠페인)
-- lifestyle(장기 성향·정형 루틴) · mood(오늘 컨디션) · none(집·직장 자동 anchor 등)
-
-[소비성향 daily_propensity — 최상위 필드]
-최상위에 오늘의 **소비성향 `daily_propensity` (0~1)** 를 출력한다. 금액이 아니라 오늘 소비하려는
-성향의 비율이다. 어제 컨디션, 개인 잔액, 정책지갑, 일정, 평소 소비습관을 함께 고려한다.
-특정 소득분위나 정책 존재만으로 높거나 낮게 고정하지 말고 이 에이전트의 오늘 상황에서 판단한다.
-단가와 결제수단은 Stage2가 결정하므로 여기서는 소비 의향만 표현한다.
-
-[출력 형식]
-다음 JSON 스키마만 출력. 다른 텍스트 금지.
-zone anchor의 dong_code는 **반드시 8자리 숫자** (행정동 표준 코드). 위 'zone 후보' 목록의 코드만 그대로 복사할 것.
-플레이스홀더 텍스트 (`<home_dong_code>` 등)는 **금지**. 실제 숫자만.
-
-**모든 이벤트는 reasoning + trigger 필드를 반드시 포함**. 절대 생략 금지.
-
-예시 (실제 dong_code는 페르소나 블록 참조 / reasoning은 페르소나 → 행동 직결이 아닌 살아있는 흐름):
-{"daily_propensity": 0.72,
- "events": [
-  {"time":"08:10","anchor":"residence","category":"집","intent":"기상",
-   "reasoning":"평일 아침 기상. 어제 fatigue 0.4로 그리 피곤하진 않았음. 가족이 깰 시간 맞춰 자연스럽게 일어남.",
-   "trigger":"none"},
-  {"time":"08:50","anchor":"zone:11680103","category":"편의점","sub_category":"편의점","intent":"출근길 음료",
-   "reasoning":"GS25 자양우성점은 자주 가는데 어제 거기 들렀을 때 따뜻한 음료 매대 새로 생긴 게 기억남. 오늘도 그게 떠올라 들름.",
-   "trigger":"lifestyle"},
-  {"time":"12:00","anchor":"zone:11680111","category":"식사","sub_category":"한식","intent":"점심",
-   "reasoning":"어제 두부마을찬에서 sat 0.65로 음식이 좋았던 잔상이 남음. 평소 한식 자주 가는 편이지만 오늘 굳이 거기 가는 건 그 잔상 때문.",
-   "trigger":"lifestyle"},
-  {"time":"15:00","anchor":"zone:11680111","category":"카페","sub_category":"카페","intent":"오후 휴식",
-   "reasoning":"오후 피로로 잠깐 쉴 장소를 찾음. 바우처 잔액 45,000원이 있고 어제 그 카페의 차분한 분위기에 만족했던 기억도 있어 후보로 고려함.",
-   "trigger":"policy"},
-  ...
-]}"""
+# 소비행동 지시문은 정책군별 프롬프트 모듈에 있다 (scripts/sim/prompts/).
+# P010 검증본이 기본이며, SIM_PROMPT_VARIANT 로 바꾼다.
+SYSTEM_PROMPT = _prompts.get().SYSTEM_PROMPT
 
 
 def _format_dawn_blocks(ctx: DawnContext, today: date, day_type: str) -> str:
-    blocks = ctx.to_prompt_blocks()
-    return f"""## 현재 활성 정책 — 공통 사실
-{blocks['policy_facts']}
-
-## 페르소나
-{blocks['persona']}
-
-## 나에게 적용되는 정책 상태
-{blocks['policy']}
-
-## 오늘 갈 수 있는 zone 후보 (외출 anchor=zone:<코드> 에는 아래 코드만 사용)
-{blocks['zones']}
-
-## 어제 상태
-{blocks['state']}
-
-## 오늘
-- 날짜: {today.isoformat()} ({_dow_kr(today)})
-- 요일유형: {day_type}
-
-## 최근 30일 기억 (Memory Top-N)
-{blocks['memory']}
-
-## 오늘 예정 약속
-{blocks['appointment']}
-
-## 지인 풀
-{blocks['social']}
-
-## 사전 인지 POI 요약 (카테고리별)
-{blocks['knows_poi']}
-
-====================================================================
-[마지막 점검 — 자주 실수하는 부분, 반드시 따를 것]
-1. events[0].anchor = 'residence' (집에서 시작, 보통 06~07시 기상)
-2. events[-1].anchor = 'residence' (집에서 마무리, 23~24시 취침)
-3. time은 단조 증가, 24시간제 HH:MM
-4. 활성 정책 블록이 "(없음)" 이면 reasoning에 P0xx·바우처·쿠폰 인용 금지
-5. 어제 visit 데이터 블록이 "(없음)" 이면 "어제 만족도 X" 같은 회상 금지
-====================================================================
-
-→ 위 정보로 오늘 하루 이벤트 시퀀스를 JSON으로 생성하세요. **JSON만 출력**. /no_think"""
+    """Dawn 컨텍스트를 사용자 메시지로. 본문은 정책군별 프롬프트 모듈이 가진다."""
+    blocks = ctx.to_prompt_blocks(today)
+    from experience import prompt_block
+    return _prompts.get().format_dawn_blocks(
+        blocks, today, day_type, _dow_kr(today)
+    ) + prompt_block(ctx.state, today)
 
 
 _DOW_KR = ["월", "화", "수", "목", "금", "토", "일"]
@@ -601,6 +496,8 @@ def call_stage1(
             timing["t_total"] = time.perf_counter() - total_started
 
             meta = {
+                "prompt_sha256": hashlib.sha256((SYSTEM_PROMPT + "\n" + user_block_now).encode("utf-8")).hexdigest(),
+                "model_id": getattr(resp, "model", None),
                 "attempt": attempt,
                 "temp": temp,
                 "tokens_in": resp.usage.prompt_tokens,

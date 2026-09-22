@@ -1,0 +1,38 @@
+{
+ "id": "validation_v26_cohort120_v25_s2",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "8ac101a0cefcf93cf9d30292f6530c60adb28fa346fba629b843384061ac6c0e",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "v25_c120_s2",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  71002
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "One indicator is within reach and the rest are not. Working back from the interval width at 120 citizens, EM-3 would need about 19,000 cells and DS-2 about 16,500 - forty times what has been run. P012-1 needs about 886, and 394 paired cells are already in hand with the correct sign (+100.0 [+0.0, +300.0] against a measured +20.82). A second seed on the same cohort roughly doubles the paired cells.",
+ "primary": "The seventeen answer-key indicators, and whether any candidate difference becomes decidable at the sample size the power calculation asked for.",
+ "limitations": [
+  "Seed 71002 on the v20 cohort; prompt and pipeline unchanged so the two seeds pool as blocks.",
+  "The power figure assumes half-width scales as one over root n, which is optimistic when the denominator is a few dozen purchases. The real requirement is larger.",
+  "P012-1 resolving with the right sign would be the first such indicator. It would still be one indicator of seventeen, and one round; a replication would be needed before it is claimed."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair carried from v16 (experiments/v20/prompt_v20.md). No new candidate.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

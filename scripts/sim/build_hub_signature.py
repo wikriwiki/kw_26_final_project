@@ -49,11 +49,12 @@ def _load_events() -> dict:
 
 def build_signatures() -> dict:
     prof = json.load(io.open(STATS / "agent_profiles.json", encoding="utf-8"))
-    name2code = {}
+    name2codes = defaultdict(set)
     for v in prof.values():
         loc = v.get("location") or {}
         if loc.get("dong") and loc.get("adm_cd_8"):
-            name2code[_canon(loc["dong"])] = loc["adm_cd_8"]
+            name2codes[_canon(loc["dong"])].add(loc["adm_cd_8"])
+    name2code = {name: next(iter(codes)) for name, codes in name2codes.items() if len(codes) == 1}
 
     hubs = json.load(io.open(STATS / "hub_catalog.json", encoding="utf-8"))["hubs"]
     top_codes = {h["code"]: h["name"] for h in hubs if h.get("is_top_hub")}

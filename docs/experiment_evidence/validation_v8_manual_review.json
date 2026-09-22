@@ -1,0 +1,76 @@
+{
+  "scope": "Interim source review; does not replace the complete registered matrix or exhaustive factual audit",
+  "reviewed_at": "2026-09-20",
+  "findings": [
+    {
+      "variant": "v15_no_thinking",
+      "replicate": 6701,
+      "aid": "AGT_11710532_M_50대_001",
+      "case": "distancing",
+      "arm": "on",
+      "event_index": 2,
+      "output_intent": "약국 방문 (필수 약 구입)",
+      "output_reason": "오전 중 약국 방문은 일상 건강 관리로 자주 하는 행위이며, 평일 교통 혼잡 전 이동 가능.",
+      "source_fact": "평소 업종별 지출 구성: 건강 36%(의원·치과). 현재 질병·약 복용·필수 약 구매·약국 단골 정보는 제공되지 않음.",
+      "finding": "과거 업종 비중에서 오늘 필수 약과 자주 방문하는 행위를 구체적 사실로 만들어냄. 일상 건강 소비를 선택할 가능성과 필수 약/방문 습관이 주어진 사실이라는 주장은 구별해야 함.",
+      "disposition": "Format-valid but fact grounding fails. Do not promote this exact candidate solely on aggregate schedule validity. Keep remaining registered calls and raw outputs; revised prompt requires separate trial."
+    },
+    {
+      "variant": "v11_thinking",
+      "replicate": 6701,
+      "aid": "AGT_11710532_M_50대_001",
+      "case": "cashback",
+      "arm": "on",
+      "event_index": 2,
+      "event": {
+        "time": "09:20",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "재택근무 시작",
+        "reasoning": "사회적 거리두기 지침에 따른 회사 재택 근무 규칙 준수",
+        "trigger": "policy"
+      },
+      "source_context_sha256": "8ac89ecca7e5fc5c823d576d02994436ea7cbf02824ce48a8a6a4ac3fc4befc5",
+      "finding": "정책 본문과 배경에는 회사 재택근무 규칙이 없다. 생활 서술의 재택 경향을 정부·회사 규칙으로 바꿀 근거가 없다.",
+      "disposition": "Fails factual grounding; do not promote. Remaining registered calls retained."
+    },
+    {
+      "variant": "v11_thinking",
+      "replicate": 6701,
+      "aid": "AGT_11680521_M_30대_002",
+      "case": "cashback",
+      "arm": "on",
+      "event_index": 6,
+      "event": {
+        "time": "18:30",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "저녁 식사 준비",
+        "reasoning": "단일인 가구 특성상 단순 메뉴로 저녁을 구성한다.",
+        "trigger": "lifestyle"
+      },
+      "source_context_sha256": "ea712e54178823129f975ec11665caaacd8d311c157804fb8ace862b32b7eee8",
+      "finding": "정형 생애주기는 자녀 무(신혼)이며 생활 서술에도 가족 식사가 있다. 단일인 가구라는 근거는 없다.",
+      "disposition": "Fails factual grounding; do not promote. Remaining registered calls retained."
+    },
+    {
+      "variant": "v15_thinking",
+      "replicate": 6701,
+      "aid": "AGT_11620565_F_70대이상_001",
+      "case": "cashback",
+      "arm": "off",
+      "event_index": 4,
+      "event": {
+        "time": "11:30",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "휴식",
+        "reasoning": "외출 후 체력 보충 및 실내 정돈",
+        "trigger": "rumor"
+      },
+      "source_context_sha256": "d4afa0e11640a8349220658abd7c81d2cd9712cbc2eb2b1b8d8eefcb2835da9f",
+      "finding": "소문·지인 추천이 없는 입력이다. 휴식 선택에 rumor trigger를 붙였다.",
+      "disposition": "Fails factual grounding; do not promote. Remaining registered calls retained."
+    }
+  ]
+}

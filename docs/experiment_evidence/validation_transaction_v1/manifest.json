@@ -1,0 +1,32 @@
+{
+  "config": {
+    "id": "validation_transaction_v1",
+    "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "thinking_modes": [
+      false,
+      true
+    ],
+    "seeds": [
+      7101,
+      8201
+    ],
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 1.5,
+    "max_tokens": 16384,
+    "workers": 8,
+    "timeout_seconds": 1200,
+    "order_seed": 20260920,
+    "phase": "Seven synthetic factual feasibility cases x two modes x two seeds = 28 development calls. No DB access.",
+    "primary": "All seven constraints and complete exact ledger pass in every seed. Zero purchase is preserved. Positive purchase only required where the input explicitly confirms a feasible fixed-price purchase. No empirical effect values or policy-direction targets.",
+    "selection": "Only complete passing modes can advance; choose lower token cost. Do not count hidden retries or corrections. Save raw response before validation.",
+    "prohibitions": "No actual P010/P015 calls. These are accounting and individual fact-following tests, not macro policy validation."
+  },
+  "config_sha256": "f14e9bc24f504ec7eee7b1914b9dbb8d993277e013683542bb7f65202391ac24",
+  "cases_sha256": "e7814bfc4f4c6efb8291c0bf69735a1487adcb6d8cbc6a82fb75336f0af1ca11",
+  "system_sha256": "f358076c8b32e4a607a2431c726e84af948313600683c517dbadaaa499af2a7c",
+  "runner_sha256": "23c41df6a2511fccecbb760c2feaca4c69515dd1d23041225b58b5c837eeaa10",
+  "contract_sha256": "102c8057fc911227c5c1054512566a47de74ea174e0a3eccc79d451488311fd6",
+  "ledger_sha256": "0f0ba188ab7fe2c405a33add4fa154334cedd87d57d5326cf009adde510676a5",
+  "registered_at": "2026-09-19T17:03:51.625397+00:00"
+}

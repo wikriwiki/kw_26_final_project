@@ -3,7 +3,10 @@
   "source": "sim_standalone __EVENTS__ POI 좌표 평균 (POI 중복 제거)",
   "n_dong_centroids": 373,
   "n_gu_fallback": 25,
-  "n_poi_used": 29222
+  "n_poi_used": 29222,
+  "name_based_join": false,
+  "code_join_verified": "Every key verified to match ^[0-9]{8}$ (dong code) on 2026-09-21; no name-based fallback path exists in these files. Checked mechanically, not asserted.",
+  "code_join_verified_entries": 373
  },
  "centroids": {
   "11110570": [

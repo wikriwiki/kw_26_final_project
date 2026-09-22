@@ -53,13 +53,15 @@ def _grab_events(html: str) -> dict:
 
 
 def build_centroids() -> dict:
-    # 동명(정규화) → 8자리 코드 (agent_profiles 기준; 중복명은 last-wins 근사)
+    # Legacy visualization fallback: an ambiguous name must never overwrite a code.
+    # New validation uses code_centroids.py with a code-keyed read-only DB export.
     profiles = json.load(io.open(STATS / "agent_profiles.json", encoding="utf-8"))
-    name2code: dict[str, str] = {}
+    name2codes: dict[str, set[str]] = defaultdict(set)
     for v in profiles.values():
         loc = v.get("location") or {}
         if loc.get("dong") and loc.get("adm_cd_8"):
-            name2code[_canon(loc["dong"])] = loc["adm_cd_8"]
+            name2codes[_canon(loc["dong"])].add(loc["adm_cd_8"])
+    name2code = {name: next(iter(codes)) for name, codes in name2codes.items() if len(codes) == 1}
 
     html = _load_events_html()
     events = _grab_events(html)
@@ -98,6 +100,8 @@ def build_centroids() -> dict:
             "n_dong_centroids": len(centroids),
             "n_gu_fallback": len(gu_fallback),
             "n_poi_used": len(seen_poi),
+            "ambiguous_names_excluded": sorted(name for name, codes in name2codes.items() if len(codes) > 1),
+            "warning": "Legacy name-based visualization means. Prefer code_centroids.py; unique names in a partial persona file do not prove geographic identity.",
         },
         "centroids": centroids,
         "gu_fallback": gu_fallback,

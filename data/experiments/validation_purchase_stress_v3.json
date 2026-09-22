@@ -1,0 +1,33 @@
+{
+  "id": "validation_purchase_stress_v3",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "f6d05b39696d9a166614113b7c991d7a5f302d4d44a36d261238a8e6ef582a9f",
+  "seeds": [
+    46001,
+    47001
+  ],
+  "thinking_tokens": 1024,
+  "answer_tokens": 4096,
+  "sampling": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 4,
+  "timeout_seconds": 900,
+  "order_seed": 20261013,
+  "phase": "Registered matched follow-ups, fixed before calls: stress_v2 changes only temperature1to0.2; stress_v3 adds empty-input semantics and concise financing instructions to v2. Same18 cases/seeds/budget/schema.",
+  "primary": "All18 financial and evaluation-only factual checks must pass. Model choices unchanged by validators. No outcome-dependent retries or sampling. Mean tokens and raw errors retained.",
+  "selection": "Both variants registered together after v1 failed2/18 from no-money purchases and empty offers vs candidate confusion. Compare low temperature alone vs clarified universal input semantics at same temperature. No policy-effect target or contrast.",
+  "conditions": [
+    "No policy identities or empirical effect target in common prompt.",
+    "Explicit fixed purchase decisions are synthetic factual compliance tests, not evidence of realistic endogenous demand.",
+    "Expected ledger outputs only in source cell evaluation_ledger, not transaction_case used in model request.",
+    "No P015; immutable P010; same EXAONE model."
+  ],
+  "interpretation": "Known synthetic factual/financial stress only. Choices explicitly fixed in fixtures are not an economic preference oracle.",
+  "transaction_protocol": "v4",
+  "skip_forced_no_purchase": false,
+  "scope": "Known synthetic financial stress, zero paired policy-effect analysis. Evaluation facts withheld from model payload; fixed needs/current funds only.",
+  "purchase_prompt_module": "asset_transaction_v5"
+}

@@ -80,7 +80,7 @@ def test_policy_balance_does_not_expand_daily_consumption_budget():
     assert with_grant["grant_part"] == 0
 
 
-def test_same_plan_policy_on_off_has_same_total_and_policy_pays_eligible_spend_first():
+def test_same_plan_policy_on_off_has_same_total_and_respects_payment_choice():
     off_events = _events()
     on_events = _events({"P010": 10_000})
 
@@ -92,9 +92,11 @@ def test_same_plan_policy_on_off_has_same_total_and_policy_pays_eligible_spend_f
         e["actual_spent"] for e in on_events
     )
     assert aggregate_policy_spend(off_events) == {}
-    assert aggregate_policy_spend(on_events) == {"P010": 25_000}
+    expected_payment = round(on_events[0]["actual_spent"] * 10_000 / 18_000)
+    assert aggregate_policy_spend(on_events) == {"P010": expected_payment}
+    assert on_events[1]["policy_spend"] == {}
     assert on_meta["policy_spend_requested"] == {"P010": 10_000}
-    assert on_meta["policy_spend_allocated_total"] == 25_000
+    assert on_meta["policy_spend_allocated_total"] == expected_payment
     assert on_meta["policy_payment_coverage"] == 1.0
     assert on_meta["mechanical_policy_uplift"] == 0
 
@@ -130,21 +132,21 @@ def test_selected_policy_payment_can_relax_liquidity_constraint():
     off_meta = _apply(off_events, with_policy=False, balance=10_000)
     on_meta = _apply(on_events, with_policy=True, balance=10_000)
 
-    assert off_meta["today_total"] == 10_000
-    assert on_meta["selected_policy_liquidity"] == 25_000
-    assert on_meta["policy_liquidity_relief"] == 15_000
-    assert on_meta["today_total"] == 25_000
+    # Online consumption reserves cash first in the current model. Fully chosen
+    # policy payments can still fund offline purchases without overdrawing cash.
+    fully_chosen = _events({"P010": 18_000})
+    full_meta = _apply(fully_chosen, with_policy=True, balance=10_000)
+    assert full_meta["today_total"] > off_meta["today_total"]
+    assert on_meta["today_total"] + on_meta["online_total"] - on_meta["grant_part"] <= 10_000
 
 
-def test_eligible_store_uses_policy_wallet_before_own_money():
+def test_eligible_store_preserves_unselected_payment():
     events = _events()
     meta = _apply(events, with_policy=True)
-
-    assert aggregate_policy_spend(events) == {"P010": 25_000}
+    assert aggregate_policy_spend(events) == {}
     assert meta["envelope_requested"]["P010"] == 0
     assert meta["envelope_eligible_events"]["P010"] == 2
-    assert meta["policy_eligible_spend_total"] == 25_000
-    assert meta["policy_eligible_event_count"] == 2
+    assert meta["policy_spend_allocated_total"] == 0
 
 
 def test_ineligible_store_never_uses_restricted_wallet():
@@ -225,11 +227,11 @@ def test_mixed_eligibility_never_spends_more_own_money_than_balance():
 
     policy_paid = sum(aggregate_policy_spend(events).values())
     total = sum(e["actual_spent"] for e in events)
-    assert events[0]["actual_spent"] == 18_000
+    assert events[0]["actual_spent"] == 0
     assert events[1]["actual_spent"] == 0
-    assert policy_paid == 18_000
+    assert policy_paid == 0
     assert total - policy_paid == 0
-    assert meta["policy_liquidity_relief"] == 18_000
+    assert meta["policy_liquidity_relief"] == 0
 
 
 def test_validator_never_autofills_payment_from_reason_text():
@@ -281,18 +283,10 @@ def test_priority_payment_uses_only_actual_eligible_purchases_not_wallet_percent
     remaining_history = []
     for _ in range(7):
         events = _events()
-        apply_consumption_model(
+        settle_policy_spend_priority(
             events,
-            daily=35_000,
-            income_tier="중",
-            tendency="표준형",
-            balance=800_000,
-            grant_avail=None,
-            llm_propensity=None,
             restricted_envelopes=[{
-                "pid": "P010",
-                "amount": remaining,
-                "require_poi_eligible": True,
+                "pid": "P010", "amount": remaining, "require_poi_eligible": True,
             }] if remaining > 0 else None,
         )
         validate_policy_spend(

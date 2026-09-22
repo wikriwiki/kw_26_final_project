@@ -1,0 +1,136 @@
+{
+  "scope": "Known synthetic financial stress, zero paired policy-effect analysis. Evaluation facts withheld from model payload; fixed needs/current funds only.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v4_bounded1024": {
+      "responses": 18,
+      "complete": true,
+      "valid": 16,
+      "all_pass": false,
+      "deterministic_no_purchase": 0
+    }
+  },
+  "raw_archive_sha256": "2e0e8c2732ae645ffef58d28eaa10c358e026a57de2457736dc2c5bf6d820194",
+  "decision": "Failed:16/18. All18 raw choices and both failure deliberations read. F08seed46001 buys10000 with8000cash and no available wallet; F02seed47001 buys3000 withzero funds, looping over empty offers versus item candidates in reasoning. No promotion from96 abundant-fund successes to general financial validity.",
+  "failure_rows": [
+    {
+      "aid": "F08",
+      "case": "F08",
+      "arm": "off",
+      "date": "2026-09-21",
+      "replicate": 46001,
+      "attempt_key": "42c60bda84d110c517e0d7573aa9dc8d2e377315ad9db90bb3917fe13811420d",
+      "transaction_protocol": "v4",
+      "decision_source": "model",
+      "raw": "{\n\t\"acquisition_units\": {\n\t\"O\": 0\n\t},\n\t\"purchases\": [\n\t{\n\t\"id\": \"food\",\n\t\"candidate_id\": \"quote:food\",\n\t\"wallet_spend\": {}\n\t}\n\t]\n}",
+      "thinking_usage": {
+        "id": "2891b21f526d4b2cb6bfe03e185de6e6",
+        "finish_reason": {
+          "type": "length",
+          "length": 1024
+        },
+        "prompt_tokens": 677,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 1024,
+        "cached_tokens": 676,
+        "cached_tokens_details": {
+          "device": 676,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 17.219063626951538,
+        "response_sent_to_client_ts": 1789847981.9175715
+      },
+      "answer_usage": {
+        "id": "5e6f43bb465f48d2b2b105c234430330",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 1703,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 55,
+        "cached_tokens": 1184,
+        "cached_tokens_details": {
+          "device": 1184,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 2.402837718022056,
+        "response_sent_to_client_ts": 1789847984.3286338
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Purchase exceeds current cash"
+      ],
+      "elapsed_seconds": 19.636
+    },
+    {
+      "aid": "F02",
+      "case": "F02",
+      "arm": "off",
+      "date": "2026-09-21",
+      "replicate": 47001,
+      "attempt_key": "ef5ae6acd2c8067c5927aa86c75815e9276f9c9c3ea90d9802af46321156ba14",
+      "transaction_protocol": "v4",
+      "decision_source": "model",
+      "raw": "{\n\t\"acquisition_units\": {},\n\t\"purchases\": [\n\t{\n\t\"id\": \"food\",\n\t\"candidate_id\": \"quote:food\",\n\t\"wallet_spend\": {}\n\t}\n\t]\n}",
+      "thinking_usage": {
+        "id": "e222ea8cb205419c910002de83362543",
+        "finish_reason": {
+          "type": "length",
+          "length": 1024
+        },
+        "prompt_tokens": 629,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 1024,
+        "cached_tokens": 628,
+        "cached_tokens_details": {
+          "device": 628,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 17.45504813606385,
+        "response_sent_to_client_ts": 1789848002.3363378
+      },
+      "answer_usage": {
+        "id": "9b884c59afd04700a26cdd8c5fe84609",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 1655,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 46,
+        "cached_tokens": 736,
+        "cached_tokens_details": {
+          "device": 736,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 1.3204821199178696,
+        "response_sent_to_client_ts": 1789848003.6664674
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Purchase exceeds current cash"
+      ],
+      "elapsed_seconds": 18.791
+    }
+  ],
+  "policy_contrasts_used_for_selection": false,
+  "request_audit": {
+    "requests": 18,
+    "evaluation_keys_absent": true
+  }
+}

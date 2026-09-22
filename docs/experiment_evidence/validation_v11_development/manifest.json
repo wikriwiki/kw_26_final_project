@@ -1,0 +1,58 @@
+{
+  "config": {
+    "id": "validation_v11_evidence",
+    "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "source_inputs_sha256": "69dbf50ba55a976058556c6666dea0982192cd2e3b7b9ce97ef6cb249b0ba7c1",
+    "candidates": [
+      {
+        "id": "v18_evidence",
+        "prompt": "v18",
+        "structured": true,
+        "thinking_tokens": 4096
+      }
+    ],
+    "seeds": [
+      13001,
+      14001
+    ],
+    "sampling": {
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "presence_penalty": 0.0
+    },
+    "answer_tokens": 4096,
+    "schema_mode": "endpoint_guard",
+    "reasoning_evidence": true,
+    "workers": 8,
+    "timeout_seconds": 900,
+    "order_seed": 20260922,
+    "phase": "Eight known development cases x two seeds = 16. New prompt-plus-decoding protocol; not an isolated prompt ablation or independent holdout.",
+    "primary": "All format and explicit facts pass; manual review of whether the selected evidence actually supports the action. Literal citation alone is insufficient. No invented need in intent. Arrival before the appointment is manually distinguished from a missing appointment, while the registered exact-time check remains separately reported.",
+    "changes": "Endpoint grammar preserves all existing allowed event counts and home-only days. Reasoning selects a verbatim input span or an explicit ordinary-choice label. Both deliberation and answer budgets increased to 4096; report joint protocol effect and full token cost.",
+    "selection": "No empirical effect targets. No claim of unaided raw-model factual adherence from schema-enforced quotations. Larger development and untouched confirmation still required.",
+    "prohibitions": "No P010 changes; no P015 calls; no hidden retry or post-hoc correction. Preserve all prior protocols and failures."
+  },
+  "config_sha256": "a0bc9eac743843a762169931ae83ccbdfb3d1915332b906304d2600c64111b78",
+  "inputs_sha256": "cb0283a2e85c3fcd8bc256b0a526ff6354aa13ad01eb18cb56a733f2fb004aa9",
+  "code_sha256": {
+    "validate_bounded_planner.py": "a0c92c7dc308cbe9118378942bce36b9022dde77ed52f77624e52a22989767d7",
+    "bounded_reasoning.py": "a333fef0b33c884443c8b345018c271612dcb121f972c22191432bcee125fc74",
+    "planning_contract.py": "6aa420fd6ef5819482f2ff0f43207ab6950bceebbd089bcb70a5cffe6eb0bed9",
+    "validate_prompt_v3.py": "3a4af4679c925c28115df10076804ea5d5ecacd0af75ec69fafa85fb8110871d",
+    "validate_prompt_v4.py": "ca765ac59652ceeecd578de109913266243a21671c8929b86e306d5f7a93624e",
+    "evidence_contract.py": "bccc4870aea82d1e15c1225047484f533d48f31e7b1c43e901fbc177bce2edb2"
+  },
+  "registered_at": "2026-09-19T17:03:44.712655+00:00",
+  "tokenizer_path": "/data/hf_cache/hub/models--LGAI-EXAONE--EXAONE-4.5-33B-AWQ/snapshots/31e6a965d0661bbe4a8b895e22a77f8271772ba0",
+  "template_sha256": "03966f66eb508c1ff0606e24e6e334c59917a6416c62e800c37f1a515aae4c14",
+  "prefix_hashes": {
+    "v18_evidence|c7da620929cbd4e482f51721598258aca4d3f29f58eb2cc7ca890ef684a3a76e": "864e0f03d5675535b0d4e6de8e1545b4c595274dcb97de5da6984bd54b897f99",
+    "v18_evidence|14ac330e2bf4c6fab23f2f85f307bc4b355e9f50d740efc5ee07311b076a4d4b": "b4ae3743a10de23b1f84dcb7dc3d354882754bed2df75683369b66d73e1943f1",
+    "v18_evidence|0fd4b9f2a54a86c33925509c29c4351128f86a7e8d70aa3cd0bf15578b37c5ab": "cfa3956f3b7eb463859310bb5adab3ba5fab404e25dacd6df11fbcad9ea6fcd3",
+    "v18_evidence|bc9efbe41b0c50f0f903ea70ca0203471778579a86f6eff51564e1774afb98af": "fd3a34c56a931b0fc7cce496668fb023f81e23797a95c7c5ddd38b6b8e34286f",
+    "v18_evidence|faf51c14ec22e05eb041e20c064b3df8265fb54eac172da509bb8dd8d4573eab": "633581307a2a28c07b1a12d9c8f7e1979de2d3a7428417cd5f12b4df50d12749",
+    "v18_evidence|435ca8221f4f05580aa1712117948fa97262e2ff51dedae1d0e812c422445e51": "e6032d84aa95116c714321594e79690a779131c51f5b3f46820e32871827b090",
+    "v18_evidence|7ce71354dd14c38ec587ea533884d680be1eeb53a029b53dbbefb786859004c6": "4723b817ee96f14c323acf7b6f60242d6070dff7ffa028c628d120ffbfb507cd",
+    "v18_evidence|b9296ffea4a831cb7d33091fe3bbff65b473fcc66451a094c71ddcf9096df614": "3f01fd2b59e5cb6a15c221a368189c28239cda0aab9e917e823b019c26c13832"
+  }
+}

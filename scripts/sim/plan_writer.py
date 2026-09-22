@@ -11,6 +11,7 @@ Conversation 적재(Night Phase 2)는 별도 night_phase.py로 (LLM 의도 분�
 from __future__ import annotations
 
 import sys
+from contextlib import nullcontext
 import uuid
 from datetime import date, timedelta
 from pathlib import Path
@@ -58,6 +59,10 @@ CREATE (p)-[:INCLUDES {
   anchor: ev.anchor,
   with_agents: ev.with_agents,
   actual_satisfaction: ev.actual_satisfaction,
+  execution_event_id: ev.execution_event_id,
+  expected_satisfaction: ev.expected_satisfaction,
+  purchase_status: ev.purchase_status,
+  desired_spent: ev.desired_spent,
   actual_spent: coalesce(ev.actual_spent, 0),
   // 정책 지원금에서 사용한 금액 JSON 형태 ({"P009": 5000})
   // 분석 시: 정책별 사용처/누적 사용액 추적 가능
@@ -70,6 +75,10 @@ CREATE (p)-[:INCLUDES {
   price_band: ev.price_band,         // POI 가격대 1(₩)/2(₩₩)/3(₩₩₩) — poi_price.py
   price_factor: ev.price_factor,     // 적용 가격배율 (검증·판매자 가격 채널 분석용)
   coupon_eligible: ev.coupon_eligible, // 쿠폰 사용처 여부 (백테스트 T2 업종/사용처 분석용)
+  // 지원금 결제건의 "지원금 없었어도 했을 지출인가"(true/false). 품목별 MPC 산출 입력.
+  // 사후 측정 전용 — 소비 생성에는 쓰이지 않는다(순환 방지).
+  would_buy_anyway: ev.would_buy_anyway,
+  extra_spent: ev.extra_spent,
   // ───── 리뷰 노출·사고변화 흔적 (추가 LLM 호출 0) ─────
   review_seen: ev.review_seen,           // 이 POI 카카오 리뷰를 봤나
   seen_rating: ev.seen_rating,           // 본 평균 별점
@@ -78,6 +87,7 @@ CREATE (p)-[:INCLUDES {
   pre_review_poi: ev.pre_review_poi,     // 리뷰 전(1차) 선택 — 바뀐 경우만
   review_changed: ev.review_changed      // 리뷰가 최종 선택을 바꿨나
 }]->(poi)
+RETURN count(*) AS written
 """
 
 
@@ -85,6 +95,7 @@ def write_plan(
     aid: str, today: date, events: list[dict], day_type: str,
     tokens_in: int = 0, tokens_out: int = 0,
     reviews_seen: dict | None = None, review_lookup_count: int = 0,
+    transaction=None,
 ):
     import json as _json
     plan_id = f"{aid}_{today.isoformat()}"
@@ -97,14 +108,16 @@ def write_plan(
     # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
     reviews_seen_json = _json.dumps(reviews_seen, ensure_ascii=False) if reviews_seen else "{}"
     review_changed_count = sum(1 for ev in valid_events if ev.get("review_changed"))
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         s.run(WRITE_PLAN_CYPHER,
               aid=aid, plan_id=plan_id, day=today.isoformat(), day_type=day_type,
               tokens_in=tokens_in, tokens_out=tokens_out,
               reviews_seen=reviews_seen_json, review_lookup_count=review_lookup_count,
               review_changed_count=review_changed_count)
         if valid_events:
-            s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events)
+            row = s.run(WRITE_INCLUDES_CYPHER, plan_id=plan_id, events=valid_events).single()
+            if not row or row['written'] != len(valid_events):
+                raise ValueError('activity persistence mismatch: missing or duplicate POI/Plan')
     return plan_id, len(valid_events)
 
 
@@ -349,6 +362,11 @@ def track_policy_usage(
 
         # subsidy 정책 cap-rate 처리 (legacy)
         for pol in policies:
+            # subsidy/voucher(즉시 환급형)만 cap-rate 누적. cashback(상생 P012)은
+            # cap/rate가 있어도 지갑 없는 사후 환급이므로 여기서 누적하면 안 된다
+            # (설계 §2·§4.1: cashback ≠ subsidy). policy_used 오염 방지.
+            if (pol.get("type") or "") not in ("subsidy", "voucher"):
+                continue
             cap = pol.get("cap") or 0
             rate = pol.get("rate") or 0.0
             if cap <= 0 or rate <= 0:
@@ -374,20 +392,36 @@ WITH a, p, i, poi
 WHERE i.anchor STARTS WITH 'zone:' OR (i.category IS NOT NULL AND NOT i.category IN ['집','직장'])
 WITH a, p, i, poi,
      0.5 + 1.5 * i.actual_satisfaction AS importance,
-     poi.name + '(' + coalesce(i.sub_category, i.category) + ') 방문, 만족도 ' +
-       toString(round(i.actual_satisfaction * 100) / 100.0) AS summary,
+     // summary = "왜 그랬는지". 새벽 컨텍스트는 장소·업종·만족도를 별도로 이미 찍으므로
+     // 예전처럼 그것을 반복하면 120자가 통째로 낭비된다. 같은 자리에 계기와 이유를 넣는다.
+     // 인터뷰(1:1 회상)용 원문은 아래 why/pick_why에 잘리지 않은 채로 따로 보관한다.
+     toString(coalesce(i.actual_spent, 0)) + '원 · [' + coalesce(i.trigger, '-') + '] ' +
+       left(coalesce(i.reasoning, ''), 90) AS summary,
      // 결정적 id (agent + poi + day + order) — resume 재실행 시 중복 방지
      'mem_vis_' + a.id + '_' + poi.id + '_' + $yesterday + '_' + toString(i.order) AS mem_id
 MERGE (m:Memory {id: mem_id})
   ON CREATE SET
+    m.visit_update_pending = true,
     m.type = 'visited',
     m.day = date($yesterday),
     m.importance = importance,
     m.summary = summary,
-    m.satisfaction = i.actual_satisfaction
+    m.satisfaction = i.actual_satisfaction,
+    // ───── 1:1 인터뷰용 소비 이유 (원문 보존, 프롬프트에는 안 들어감) ─────
+    m.why = i.reasoning,              // 왜 이 시간에 이 업종을 하려 했나 (Stage 1)
+    m.pick_why = i.pick_reason,       // 왜 후보 중 이 가게였나 (Stage 2)
+    m.trigger = i.trigger,            // 계기: policy/lifestyle/mood/rumor/appointment
+    m.spent = coalesce(i.actual_spent, 0),
+    m.paid_policy = (i.spent_from_policy IS NOT NULL
+                     AND i.spent_from_policy <> '{}' AND i.spent_from_policy <> 'null'),
+    m.extra_spent = i.extra_spent,    // 이 결제 중 지원금 없었으면 안 썼을 금액
+    m.category = coalesce(i.sub_category, i.category)
 MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 MERGE (m)-[:ABOUT_POI]->(poi)
 
+// Existing legacy memories already contributed to visit aggregates.
+WITH a, poi, i, m
+WHERE coalesce(m.visit_update_pending, false)
 // KNOWS_POI MERGE + 집계 갱신
 // recent_visit_dates: 30일 슬라이딩 윈도우 (saturation 계산용).
 // Python 등가: scripts.sim.visit_window.trim_and_push_visit
@@ -406,14 +440,15 @@ ON MATCH SET
     [d IN coalesce(kp.recent_visit_dates, [])
      WHERE duration.inDays(d, date($yesterday)).days < 30]
     + [date($yesterday)]
+SET m.visit_update_pending = false
 RETURN count(m) AS n_memories
 """
 
 
-def night_finalize_yesterday(aid: str, today: date) -> int:
+def night_finalize_yesterday(aid: str, today: date, transaction=None) -> int:
     """어제 INCLUDES → Memory{visited} CREATE + KNOWS_POI 갱신."""
     yesterday = today - timedelta(days=1)
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         r = s.run(NIGHT_VISITED_CYPHER, aid=aid, yesterday=yesterday.isoformat()).single()
         return r["n_memories"] if r else 0
 
@@ -429,19 +464,26 @@ WITH a, prev,
      coalesce(prev.energy, 0.8) AS prev_energy,
      coalesce(prev.mood, 0.5) AS prev_mood,
      coalesce(prev.fatigue, 0.3) AS prev_fatigue,
-     coalesce(prev.month_spent, 0) AS prev_month_spent
+     coalesce(prev.month_spent, 0) AS prev_month_spent,
+     // 상생 캐시백 실적 문턱용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 0.
+     coalesce(prev.sangsaeng_month_spent, 0) AS prev_sangsaeng_month_spent
 
-// 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만)
-OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDES]->()
+// 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만).
+// ip:POI 조인으로 적립업종(sangsaeng_eligible=true) 지출만 따로 합산.
+OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDES]->(ip:POI)
 WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent,
+     prev_sangsaeng_month_spent,
      count(i) AS n_events,
      avg(i.actual_satisfaction) AS avg_sat,
-     sum(coalesce(i.actual_spent, 0)) AS today_spent
+     sum(coalesce(i.actual_spent, 0)) AS today_spent,
+     sum(CASE WHEN ip.sangsaeng_eligible = true THEN coalesce(i.actual_spent, 0) ELSE 0 END)
+       AS today_sangsaeng_spent
 
 // mood EMA: 0.7 * prev + 0.3 * avg_sat
 // fatigue: 0.5 * prev + 0.05 * n_events + (0.2 if low_sat else 0) - (0.1 if home_dominant else 0)
-WITH a, prev_balance, prev_energy, prev_month_spent,
+WITH a, prev_balance, prev_energy, prev_month_spent, prev_sangsaeng_month_spent,
      toInteger(today_spent) AS today_spent,
+     toInteger(today_sangsaeng_spent) AS today_sangsaeng_spent,
      coalesce(avg_sat, prev_mood) AS today_avg_sat,
      n_events,
      0.7 * prev_mood + 0.3 * coalesce(avg_sat, prev_mood) AS new_mood,
@@ -450,7 +492,8 @@ WITH a, prev_balance, prev_energy, prev_month_spent,
        ELSE 0.5 * prev_fatigue + 0.05 * n_events
      END AS new_fatigue_raw
 
-WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat, n_events,
+WITH a, prev_balance, prev_energy, prev_month_spent, prev_sangsaeng_month_spent,
+     today_spent, today_sangsaeng_spent, today_avg_sat, n_events,
      new_mood,
      CASE WHEN new_fatigue_raw > 1.0 THEN 1.0
           WHEN new_fatigue_raw < 0.0 THEN 0.0
@@ -459,16 +502,36 @@ WITH a, prev_balance, prev_energy, prev_month_spent, today_spent, today_avg_sat,
 MERGE (s:State {id: $aid + '_' + $today})
 SET s.agent_id = $aid,
     s.day = date($today),
-    s.balance = prev_balance - (today_spent - $today_policy_spent),
+    // 신용이 없는 모형에서 잔고는 0 아래로 갈 수 없다. 음수 잔고가 그대로 Stage1·Stage2
+    // 프롬프트의 '잔액(내 돈)'으로 노출되어 소비성향 판단을 오염시키고 있었다.
+    // consumption.py가 이미 own_balance = max(0, balance)로 같은 하한을 쓰므로 소비는 불변.
+    // 오늘 자기 돈으로 나간 금액 = (가게 지출 - 지원금 결제분) + 배송 주문.
+    // 배송 주문은 POI 방문이 없어 INCLUDES(today_spent)에 잡히지 않고, 소비쿠폰으로는
+    // 결제할 수 없으므로(P010 사용처 조건) 전액 자기 돈에서 빠진다.
+    s.balance = CASE WHEN prev_balance - (today_spent - $today_policy_spent) - $today_online_spent < 0
+                     THEN 0
+                     ELSE prev_balance - (today_spent - $today_policy_spent) - $today_online_spent END,
+    s.online_spent = $today_online_spent,
     s.energy = 0.8,
     s.yesterday_satisfaction = today_avg_sat,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
-    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent),
+    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent) + $today_online_spent,
+    // 적립업종 누적은 실적(gross) 기준 — 캐시백은 지갑이 없어 policy_spent 차감 불필요.
+    s.sangsaeng_month_spent = prev_sangsaeng_month_spent + today_sangsaeng_spent,
     s.policy_lifecycle = $policy_lifecycle_json,
     s.policy_used = $policy_used_json,   // 정책별 누적 사용액 JSON {"P007": 87000, ...}
     s.grant_received = $grant_received_json,  // 정책별 누적 grant 수령액 JSON {"P009": 250000, ...}
-    s.grant_remaining = $grant_remaining_json // 정책별 grant 잔여액 JSON ({"P009": 175000} — 받은액 - 누적 사용)
+    s.grant_remaining = $grant_remaining_json, // 정책별 grant 잔여액 JSON ({"P009": 175000} — 받은액 - 누적 사용)
+    s.grant_carry = $grant_carry, // 오늘 쓰려 했으나 쓸 거래가 없어 못 쓴 몫 (내일로 이월)
+    // 지원금을 받은 시점에 세운 사용 계획(일). 매일 다시 잡지 않고 그대로 이어 간다 —
+    // 매일 재판단하면 잔액이 줄수록 기간을 짧게 답해 소진이 가속되는데, 실측 곡선은 반대로
+    // 감속한다(표1: 4주 76.4 → 5~8주 주당 4.1%p → 9~12주 주당 1.2%p).
+    s.grant_plan_days = $grant_plan_days,
+    s.execution_receipts_json = $execution_receipts_json,
+    s.observations_json = $observations_json,
+    s.policy_appraisals_json = $policy_appraisals_json,
+    s.appraisal_changes_json = $appraisal_changes_json
 MERGE (a)-[:HAS_STATE {day: date($today)}]->(s)
 RETURN s.id AS state_id, s.balance AS balance, s.mood AS mood, s.fatigue AS fatigue
 """
@@ -482,6 +545,14 @@ def night_create_state(
     grant_received: dict[str, int] | str | None = None,
     grant_remaining: dict[str, int] | str | None = None,
     today_policy_spent: int = 0,
+    grant_carry: int = 0,
+    grant_plan_days: int = 0,
+    today_online_spent: int = 0,
+    execution_receipts: list | None = None,
+    observations: list | None = None,
+    policy_appraisals: dict | None = None,
+    appraisal_changes: list | None = None,
+    transaction=None,
 ) -> dict:
     """오늘 State 노드 CREATE.
 
@@ -508,14 +579,21 @@ def night_create_state(
         grant_rem_json = grant_remaining
     else:
         grant_rem_json = _json.dumps(grant_remaining or {}, ensure_ascii=False)
-    with driver_session() as s:
+    with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
                   policy_used_json=used_json,
                   policy_lifecycle_json=lifecycle_json,
                   grant_received_json=grant_json,
                   grant_remaining_json=grant_rem_json,
-                  today_policy_spent=int(today_policy_spent or 0)).single()
+                  today_policy_spent=int(today_policy_spent or 0),
+                  grant_carry=int(grant_carry or 0),
+                  grant_plan_days=int(grant_plan_days or 0),
+                  today_online_spent=int(today_online_spent or 0),
+                  execution_receipts_json=_json.dumps(execution_receipts or [], ensure_ascii=False),
+                  observations_json=_json.dumps(observations or [], ensure_ascii=False),
+                  policy_appraisals_json=_json.dumps(policy_appraisals or {}, ensure_ascii=False),
+                  appraisal_changes_json=_json.dumps(appraisal_changes or [], ensure_ascii=False)).single()
         return dict(r) if r else {}
 
 

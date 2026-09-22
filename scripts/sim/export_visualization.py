@@ -362,15 +362,14 @@ def main():
     ap.add_argument("--start", default=DEFAULT_START)
     ap.add_argument("--days", type=int, default=DEFAULT_DAYS)
     ap.add_argument("--per-gu", type=int, default=0,
-                    help="자치구당 표본 수. 0 이면 전체 (기본값은 SAMPLE 표)")
+                    help="자치구당 표본 수. 0 이면 기존 SAMPLE 표를 사용 (기본값)")
     ap.add_argument("--sample", type=int, default=0,
                     help="agent sample 수 (0=전체). 작을수록 HTML 용량 ↓ (500 권장)")
     args = ap.parse_args()
 
     global DAYS, SAMPLE
     if args.per_gu:
-        # 표본을 뽑지 않고 전부 싣고 싶을 때. 시연 화면은 '이 실행에 있던 사람들'을
-        # 보여줘야 하지 표본을 보여주는 자리가 아니다.
+        # 기존 기본 표본은 보존하고, 명시적으로 요청한 경우에만 구별 한도를 바꾼다.
         SAMPLE = {code: args.per_gu for code in SAMPLE}
     start = date.fromisoformat(args.start)
     DAYS = [(start + timedelta(days=i)).isoformat() for i in range(args.days)]

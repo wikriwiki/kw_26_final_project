@@ -688,6 +688,11 @@ def run_intent_classification(
     workers: int = 16,
     verbose: bool = True,
 ) -> dict:
+    import os
+    # 기본을 엄격으로 둔다. 이미 적재된 Night2 위에 덧쓰는 것은 침묵하는 손상이고,
+    # 멀쩡한 날을 건너뛰는 것도 마찬가지다. 되살리기(resume)는 사람이 그 상황을
+    # 확인하고 SIM_STRICT_COMPLETION=0 으로 명시해야 열린다.
+    strict = os.environ.get("SIM_STRICT_COMPLETION", "1") != "0"
     if not pairs:
         return {"processed": 0}
     # 멱등성: 같은 day Conversation이 이미 90% 이상 적재됐으면 skip
@@ -698,12 +703,16 @@ def run_intent_classification(
                 "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
                 d=day.isoformat()
             ).single()["n"]
-        if existing >= int(0.9 * len(pairs)):
+        if strict and existing:
+            raise RuntimeError("Strict Night2 requires no existing conversations")
+        if not strict and existing >= int(0.9 * len(pairs)):
             if verbose:
                 print(f"[Intent] day {day}: {existing}/{len(pairs)} 이미 적재됨 — Night2 skip")
             return {"processed": 0, "skipped": True, "existing": existing,
                     "write": {"created": 0, "by_intent": {}}}
     except Exception as e:
+        if strict:
+            raise
         if verbose:
             print(f"[Intent] idempotency 체크 실패 (계속 진행): {e}")
     t0 = time.time()
@@ -729,6 +738,8 @@ def run_intent_classification(
 
     ok = [r for r in results if "error" not in r]
     err = [r for r in results if "error" in r]
+    if strict and (err or len(ok) != len(pairs)):
+        raise RuntimeError(f"Night2 incomplete before writing: {len(ok)}/{len(pairs)}, errors={len(err)}")
     if verbose:
         print(f"[Intent] LLM done: {len(ok)} ok, {len(err)} err ({time.time()-t0:.0f}s)")
 

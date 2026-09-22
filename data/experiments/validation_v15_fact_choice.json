@@ -1,0 +1,48 @@
+{
+  "id": "validation_v15_fact_choice",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "ecb166d1c64b466e33ea4be3ba910b834ed38d082dc6354a4614f42e4349c0b6",
+  "candidates": [
+    {
+      "id": "v20_free_reason",
+      "prompt": "v20",
+      "structured": true,
+      "thinking_tokens": 4096
+    },
+    {
+      "id": "v21_free_reason",
+      "prompt": "v21",
+      "structured": true,
+      "thinking_tokens": 4096
+    }
+  ],
+  "seeds": [
+    21001,
+    22001
+  ],
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "answer_tokens": 4096,
+  "schema_mode": "endpoint_guard",
+  "reasoning_evidence": false,
+  "whitespace_limit": 2,
+  "input_trigger_guard": true,
+  "trigger_evidence_guard": false,
+  "temporal_projection": {
+    "max_shift_minutes": 10,
+    "minimum_gap_minutes": 20
+  },
+  "workers": 16,
+  "timeout_seconds": 900,
+  "order_seed": 20260926,
+  "phase": "16 known development contexts x two candidates x two fresh seeds = 64. Compare fact/choice explanation with and without contrastive review. Remove quotation enum in both; availability, schedule and timing constraints unchanged.",
+  "primary": "Complete unique matrix; at least 95% schedule protocol validity, no request failures, all hard synthetic factual conditions, and zero confirmed material fabrication. Full manual semantic review of all 64 outputs before promotion.",
+  "new_protocol_components": "Free short reasoning instead of forced verbatim spans. Neither quotation nor policy-channel provenance is grammar-enforced in this trial. Compare two prompts under the same changed protocol; do not attribute a V14 difference solely to wording.",
+  "preflight": "V14 generated unsupported medication despite verbatim evidence and a routine sentinel. Do not promote V14. Free reasons avoid forcing unrelated evidence quotes; every factual claim still needs manual review.",
+  "selection": "Factual/contract eligibility and cost only. This is a constrained two-call protocol with disclosed deterministic projection, not unaided first-response or prompt-only efficacy. No macro-spending claim from this planner screen.",
+  "confirmation": "If eligible, freeze before the 24 different citizens in the unused typed neutral source with fresh seeds. Do not tune on confirmation outputs.",
+  "prohibitions": "P010 immutable; P015 not run; no empirical effect targets, no hidden retry, no policy-specific required spending direction. All failures preserved."
+}

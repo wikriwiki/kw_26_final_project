@@ -1,0 +1,35 @@
+{
+  "rows": 96,
+  "original_matrix_complete": true,
+  "independent_errors": [],
+  "request_files_audited": 192,
+  "activity_counts": {
+    "home_prepare": 97,
+    "groceries": 5,
+    "provided_work_duty": 64,
+    "office_meal": 33,
+    "office_finish": 64,
+    "home_leisure": 116,
+    "home_sleep": 74,
+    "provided_school_duty": 16,
+    "walk": 63,
+    "home_chores": 104,
+    "home_meal": 145,
+    "home_online_goods": 29,
+    "home_delivery": 8,
+    "office_break": 16,
+    "provided_laundry": 3,
+    "meal_dine_in": 2,
+    "office_delivery": 2,
+    "meal_takeaway": 1
+  },
+  "adjacent_duplicate_keys": [
+    "2a4a4a797b4792e20904b2e2556ad85e28abe6e64c4b5ff4e09bdda9a65e940d",
+    "6d2f2bee75fc3ecf8a9db2d62d6c8d799ce4d1734bd65dfe7510914f81a15091",
+    "6ed9c9cd8331ba5393efbf339ddf554f9bbc895ace122b9947899d7af1e3e3e3",
+    "3a8576cbc8f92dedb0517ea7d72775229dd0b41960d47851bad4dcd3ee4c2585"
+  ],
+  "office_prepare_after_committed_start_keys": [],
+  "repeated_commitment_activity_keys": [],
+  "scope": "Raw execution, supplied facts and request fidelity. Behavioral flags are descriptive and not post-hoc acceptance gates; optional need completion is not required spending."
+}

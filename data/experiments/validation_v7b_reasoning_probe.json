@@ -1,0 +1,22 @@
+{
+  "id":"validation_v7b_reasoning_probe",
+  "model":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256":"d8944c1467db387ebf118d3f396a09bf6f1b7bcbb108340a84321a543f4912e5",
+  "candidates":[
+    {"id":"v11_thinking_recommended", "prompt":"v11", "structured":true, "thinking":true},
+    {"id":"v15_thinking_recommended", "prompt":"v15", "structured":true, "thinking":true}
+  ],
+  "replicate_seeds":[5901],
+  "temperature":1.0,
+  "top_p":0.95,
+  "presence_penalty":1.5,
+  "max_tokens":16384,
+  "workers":8,
+  "timeout_seconds":900,
+  "job_order_seed":20260920,
+  "phase":"Development probe: concise versus detailed neutral prompt under identical official recommended text-only sampling. Four known synthetic constraint cases.",
+  "primary":"All factual and schedule checks; no request failures or incomplete generation. Capture reasoning tokens and latency. No repairs/retries.",
+  "interpretation":"Within-run prompt comparison only. Compared with v7, sampling and ceiling both change, so between-run changes cannot be attributed to a single factor.",
+  "next":"Register development matrix only for a passing probe candidate; untouched 24-person confirmation remains separate.",
+  "prohibitions":"No policy-specific action direction or empirical policy-effect numbers. P010 immutable. P015 not run."
+}

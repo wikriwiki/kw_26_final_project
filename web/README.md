@@ -115,6 +115,12 @@ SIM_RUN_ID  SIM_POLICY_ID  SIM_START_DAY  SIM_DAYS  SIM_AGENTS
 
 ## 테스트
 
+Windows의 실행 상태 조회는 프로세스에 신호를 보내지 않고 Win32 API로 확인한다.
+Windows에서는 웹 콘솔의 중단 요청을 거절하고 실행 lock을 유지한다. 운영 도구에서
+정상 종료한 뒤 lock을 해제해야 한다. POSIX 환경에서는 소유 PID에 SIGINT를 보낸다.
+콘솔의 lock은 콘솔이 시작한 실행에만 적용된다. 외부 CLI 실행과 함께 사용하는 경우
+읽기 전용 모드(`WEB_READ_ONLY=true`)로 실행한다.
+
 ```bash
 python -m pytest tests/unit/report tests/unit/test_report_api.py tests/unit/test_s2_api.py -q
 cd web/ui && npx tsc --noEmit -p tsconfig.json

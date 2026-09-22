@@ -1,0 +1,512 @@
+{
+  "scope": "Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v1_bounded2048": {
+      "responses": 192,
+      "complete": true,
+      "valid": 183,
+      "all_pass": false
+    }
+  },
+  "raw_archive_sha256": "bf0a653654bddd9c2415a4e84f2388ad43605299acda40f283dad0ae74ed4869",
+  "decision": "183/192 financial valid. Nine failures retained:8 chronological roster,1 funding mismatch. No promotion. Only failure categories audited here; no full manual raw review. Contrast values not inspected for prompt selection.",
+  "policy_contrasts_used_for_selection": false,
+  "failure_rows": [
+    {
+      "aid": "AGT_11710590_F_20대_001",
+      "case": "grant",
+      "arm": "on",
+      "date": "2020-05-14",
+      "replicate": 32001,
+      "attempt_key": "8256b35a21611cbf4a303c39056e8748c0fcd12f6d98d4d084d4aa51e4610c9a",
+      "raw": "{\n \"actions\": [\n {\"kind\": \"consume\",\n \"id\": \"event:4\",\n \"candidate_id\": \"quote:groceries\",\n \"cash_payment\": 0,\n \"wallet_spend\": { \"P013\": 5000 },\n \"reason\": \"식료품 구매 검토, 정책지갑(P013) 사용 가능, 쌀 1kg 구매\" },\n {\"kind\": \"consume\",\n \"id\": \"event:5\",\n \"candidate_id\": \"quote:home_delivery\",\n \"cash_payment\": 13000,\n \"wallet_spend\": {},\n \"reason\": \"배달 식사 주문 검토, 현금 결제 가능, 배달 식사 한 끼 구매\"\n }\n, {\"kind\": \"consume\",\n \"id\": \"event:0\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"집에서의 준비 활동, 구매 대상 없음\" },\n {\"kind\": \"consume\",\n \"id\": \"event:1\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"집에서 식사, 구매 대상 없음\" },\n {\"kind\": \"consume\",\n \"id\": \"event:2\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"재택 업무, 구매 대상 없음\" },\n {\"kind\": \"consume\",\n \"id\": \"event:3\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 산책, 구매 대상 없음\" },\n {\"kind\": \"consume\",\n \"id\": \"event:6\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"집에서 식사, 구매 대상 없음\" },\n {\"kind\": \"consume\",\n \"id\": \"event:7\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"재택 업무, 구매 대상 없음\" },\n {\"kind\": \"consume\",\n \"id\": \"event:8\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 산책, 구매 대상 없음\" },\n {\"kind\": \"consume\",\n \"id\": \"event:9\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"휴식·취미 활동, 구매 대상 없음\" }\n ]\n}",
+      "thinking_usage": {
+        "id": "1d16037ed15a4936935100ccad79bcc4",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2727,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 705,
+        "cached_tokens_details": {
+          "device": 705,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 107.10568593500648,
+        "response_sent_to_client_ts": 1789843567.873603
+      },
+      "answer_usage": {
+        "id": "e253b1b507d947169b5193e2288f3dd9",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4776,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 534,
+        "cached_tokens": 2743,
+        "cached_tokens_details": {
+          "device": 2743,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 61.389157850062475,
+        "response_sent_to_client_ts": 1789843629.2750676
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 168.513
+    },
+    {
+      "aid": "AGT_11440680_F_20대_003",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 33001,
+      "attempt_key": "e6105404c39f3407b05e2532cf0777e1331b5fa75dfb6b7af149283667caae0c",
+      "raw": "{\n \"actions\": [\n {\n \"kind\": \"acquire_wallet\",\n \"id\": \"acquire:synthetic_unit\",\n \"offer_id\": \"synthetic_unit\",\n \"units\": 1,\n \"reason\": \"P014 할인 상품권 1단위로 9,000원 지불해 10,000원어치 잔액 확보 (식료품 구매 시 할인 적용 위해)\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:4\",\n \"candidate_id\": \"quote:groceries\",\n \"cash_payment\": 0,\n \"wallet_spend\": { \"P014\": 5000 },\n \"reason\": \"쌀 5,000원에 P014 상품권 일부 사용 (정책 대상 가맹점, 지역 내 할인 혜택)\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:7\",\n \"candidate_id\": \"quote:home_delivery\",\n \"cash_payment\": 13000,\n \"wallet_spend\": {},\n \"reason\": \"배달 식사 현금 결제 (eligible_wallets 없음)\"\n }\n ,\n {\n \"kind\": \"consume\",\n \"id\": \"event:0\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:1\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:2\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:3\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:5\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:6\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:8\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n },\n {\n \"kind\": \"consume\",\n \"id\": \"event:9\",\n \"candidate_id\": null,\n \"cash_payment\": 0,\n \"wallet_spend\": {},\n \"reason\": \"무료 활동\"\n }\n ]\n}",
+      "thinking_usage": {
+        "id": "d498ef48dd5c452486006388f6c3f7a7",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2626,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 676,
+        "cached_tokens_details": {
+          "device": 676,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 101.75073709292337,
+        "response_sent_to_client_ts": 1789843723.114148
+      },
+      "answer_usage": {
+        "id": "e189ac2b10c347398c7f09a80184f07d",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4677,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 587,
+        "cached_tokens": 3229,
+        "cached_tokens_details": {
+          "device": 3229,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 57.03529694897588,
+        "response_sent_to_client_ts": 1789843780.1610906
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 158.803
+    },
+    {
+      "aid": "AGT_11620565_F_70대이상_001",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 32001,
+      "attempt_key": "5a58eb2ee46e6c2f6d58244d44cdce7a8f5d6c7b5eeb96d8c9d95db817ed75d0",
+      "raw": "{\n\t\"actions\": [\n\t{\"kind\": \"acquire_wallet\", \"id\": \"acquire:synthetic_unit\", \"offer_id\": \"synthetic_unit\", \"units\": 1, \"reason\": \"마스크 구매 전 P014 지갑 1단위(10,000원어치) 확보를 위해 9,000원 현금 결제 필요\"},\n\t{\"kind\": \"consume\", \"id\": \"event:3\", \"candidate_id\": \"quote:home_online_goods\", \"cash_payment\": 12000, \"wallet_spend\": {}, \"reason\": \"세탁 세제 구매 검토 시점에서 온라인 채널로 확정 결제 (P014 미적용)\"},\n\t{\"kind\": \"consume\", \"id\": \"event:6\", \"candidate_id\": \"quote:health_goods\", \"cash_payment\": 0, \"wallet_spend\": {\"P014\": 2500}, \"reason\": \"P014 지갑 보유로 일회용 마스크 2,500원 전액 카드 결제 (사회적 거리두기 대비 필요한 건강 용품)\"},\n\t{\"kind\": \"consume\", \"id\": \"event:0\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"집에서 하루 준비 시 구매 없음\"},\n\t{\"kind\": \"consume\", \"id\": \"event:1\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"집에서 식사 시 구매 없음\"},\n\t{\"kind\": \"consume\", \"id\": \"event:2\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"집안 정리 시 구매 없음\"},\n\t{\"kind\": \"consume\", \"id\": \"event:4\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"집에서 식사 시 구매 없음\"},\n\t{\"kind\": \"consume\", \"id\": \"event:5\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"무료 산책 활동으로 구매 없음\"},\n\t{\"kind\": \"consume\", \"id\": \"event:7\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"집에서 식사 시 구매 없음\"},\n\t{\"kind\": \"consume\", \"id\": \"event:8\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"집에서 휴식·취미 활동으로 구매 없음\"},\n\t{\"kind\": \"consume\", \"id\": \"event:9\", \"candidate_id\": null, \"cash_payment\": 0, \"wallet_spend\": {}, \"reason\": \"취침 준비 시 구매 없음\"}\n\t]\n}",
+      "thinking_usage": {
+        "id": "804667b92bbe464188a660c28ec6a415",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2626,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 676,
+        "cached_tokens_details": {
+          "device": 676,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 121.22827823401894,
+        "response_sent_to_client_ts": 1789843835.70566
+      },
+      "answer_usage": {
+        "id": "6d11e5f4be384b97a2928410627819f3",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4675,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 612,
+        "cached_tokens": 3372,
+        "cached_tokens_details": {
+          "device": 3372,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 54.095013927086256,
+        "response_sent_to_client_ts": 1789843889.8125386
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 175.342
+    },
+    {
+      "aid": "AGT_11440680_F_20대_003",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 32001,
+      "attempt_key": "d6dfbaa7c047a53c35828bc48351e5978cb14a7613e32753291c28611b4f7bec",
+      "raw": "{\n\"actions\": [\n{\n\"kind\": \"acquire_wallet\",\n\"id\": \"acquire:synthetic_unit\",\n\"offer_id\": \"synthetic_unit\",\n\"units\": 1,\n\"reason\": \"P014 할인 상품권 1단위 확보, 9000원 현금 결제로 1만원어치 선불 잔액 생성\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:0\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"구매 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:1\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"구매 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:2\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"구매 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:3\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"무료 활동, 구매 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:4\",\n\"candidate_id\": \"quote:groceries\",\n\"cash_payment\": 0,\n\"wallet_spend\": {\"P014\": 1},\n\"reason\": \"P014 할인 상품권(쌀 구매 시) 활용해 5000원 결제\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:5\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"구매 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:6\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"구매 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:7\",\n\"candidate_id\": \"quote:home_delivery\",\n\"cash_payment\": 13000,\n\"wallet_spend\": {},\n\"reason\": \"eligible_wallets 없어 현금 결제로 배달 식사 주문\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:8\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"구매 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:9\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"구매 없음\"\n}\n]\n}",
+      "thinking_usage": {
+        "id": "f060750851ef46e1a8a0d6378cff319d",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2626,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 676,
+        "cached_tokens_details": {
+          "device": 676,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 113.73363037896343,
+        "response_sent_to_client_ts": 1789844266.17669
+      },
+      "answer_usage": {
+        "id": "048fc8dd83174e4588ded6014c15e48e",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4673,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 547,
+        "cached_tokens": 3132,
+        "cached_tokens_details": {
+          "device": 3132,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 56.230790694011375,
+        "response_sent_to_client_ts": 1789844322.4203317
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Funding differs from consumption"
+      ],
+      "elapsed_seconds": 169.984
+    },
+    {
+      "aid": "AGT_11320670_F_60대_002",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 33001,
+      "attempt_key": "7442b89e193becc3db37f49162f18f1220e664100ecbcc4602a83ea0df7401da",
+      "raw": "{\n\t\"actions\": [\n\t{\n\t\"kind\": \"acquire_wallet\",\n\t\"id\": \"acquire:synthetic_unit\",\n\t\"offer_id\": \"synthetic_unit\",\n\t\"units\": 50,\n\t\"reason\": \"월 구매 한도 내에서 P014 상품권을 10% 할인 구매 가능, 절약형 소비 성향 반영\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:7\",\n\t\"candidate_id\": \"quote:home_delivery\",\n\t\"cash_payment\": 13000,\n\t\"wallet_spend\": {},\n\t\"reason\": \"배달 식사 구매 필수, eligible_wallets 미포함으로 현금 결제만 가능\"\n\t}\n\t, {\n\t\"kind\": \"consume\",\n\t\"id\": \"event:1\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"식사 후보 없음, 현금 결제 불필요\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:2\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"집안 정리 후보 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:3\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"무료 산책 활동으로 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:4\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"도서관 이용 무료 활동\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:5\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"식사 후보 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:6\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"휴식·취미 활동은 구매 없이 진행\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:8\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"취침 준비 활동으로 구매 없음\"\n\t}]\n}",
+      "thinking_usage": {
+        "id": "9ea942545dc649f687a2f71491678d11",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2465,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 467,
+        "cached_tokens_details": {
+          "device": 467,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 133.8225166319171,
+        "response_sent_to_client_ts": 1789844828.880836
+      },
+      "answer_usage": {
+        "id": "acda51bf33c545eeb12c18150671c0ef",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4514,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 528,
+        "cached_tokens": 3197,
+        "cached_tokens_details": {
+          "device": 3197,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 34.76371930993628,
+        "response_sent_to_client_ts": 1789844863.6584833
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 168.606
+    },
+    {
+      "aid": "AGT_11680521_M_30대_002",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 32001,
+      "attempt_key": "14fd55446580e0d342ca72386143d273b7bc28f9395daedc910bf79a2504ae37",
+      "raw": "{\n\t\"actions\": [\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:2\",\n\t\"candidate_id\": \"quote:home_delivery\",\n\t\"cash_payment\": 13000,\n\t\"wallet_spend\": {},\n\t\"reason\": \"12:30 집 식사 배달 검토 시 평소 115,175원 평일 소비 구조 내에서 식사 지출(60%) 반영\"\n\t},\n\t{\n\t\"kind\": \"acquire_wallet\",\n\t\"id\": \"acquire:synthetic_unit\",\n\t\"offer_id\": \"synthetic_unit\",\n\t\"units\": 5,\n\t\"reason\": \"45만 캐시로 50만원 P014 할인상품권 5단 취득 (월 한도 500,000원 내 잔여 한도 활용)\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:0\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"07:00 집 준비 활동은 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:1\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"09:00 재택 업무는 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:3\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"15:00 무료 산책 활동은 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:4\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"17:00 집안 정리 활동은 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:5\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"19:00 집 식사는 현금 외 결제 수단 미지원(eligible_wallets 없음) 및 지출 최소화 원칙\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:6\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"20:00 휴식 활동은 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:7\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"22:30 취침 준비는 구매 없음\"\n\t}\n\t]\n}",
+      "thinking_usage": {
+        "id": "feac1108a1794ae886e53596c79de5e3",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2432,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 676,
+        "cached_tokens_details": {
+          "device": 676,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 117.39584857504815,
+        "response_sent_to_client_ts": 1789844981.0605304
+      },
+      "answer_usage": {
+        "id": "2c78b5074a6c4f37a64d23d5fe3120ba",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4480,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 600,
+        "cached_tokens": 2988,
+        "cached_tokens_details": {
+          "device": 2988,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 55.36672917101532,
+        "response_sent_to_client_ts": 1789845036.4386938
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 172.78
+    },
+    {
+      "aid": "AGT_11290685_M_10대_001",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 32001,
+      "attempt_key": "c3ffdd43befbd9d39d10a979cdbd338aaa44618e06490c28b99a91ed7cd177c4",
+      "raw": "{\n\t\"actions\": [\n\t{\n\t\"kind\": \"acquire_wallet\",\n\t\"id\": \"acquire:synthetic_unit\",\n\t\"offer_id\": \"synthetic_unit\",\n\t\"units\": 1,\n\t\"reason\": \"event:4의 식사 후보에 P014 지갑 사용 가능성을 확인하기 위해 단위 취득\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:3\",\n\t\"candidate_id\": \"quote:home_online_goods\",\n\t\"cash_payment\": 12000,\n\t\"wallet_spend\": {},\n\t\"reason\": \"온라인 물품 구매 검토 활동을 구매 전환. eligible_wallets 없어 현금 전액 결제\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:4\",\n\t\"candidate_id\": \"quote:meal_dine_in\",\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {\"P014\": 10000},\n\t\"reason\": \"P014 지갑으로 이벤트 식사 결제. 미리 취득한 지갑 face 사용\"\n\t}\n\t,\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:0\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"구매 후보 없음, 준비 활동 수행\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:1\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"구매 후보 없음, 집 식사 활동 수행\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:2\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"구매 후보 없음, 휴식·취미 활동 수행\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:5\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"구매 후보 없음, 휴식·취미 활동 수행\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:6\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"도서관 이용, 후보 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:7\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"집안 정리, 후보 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:8\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"집 식사, 후보 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:9\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"취침 준비, 후보 없음\"\n\t}\n\t]\n}",
+      "thinking_usage": {
+        "id": "0e1ba373d5504bf3834494ba2fc8fff8",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2551,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 676,
+        "cached_tokens_details": {
+          "device": 676,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 136.81026078003924,
+        "response_sent_to_client_ts": 1789845385.9079802
+      },
+      "answer_usage": {
+        "id": "5576e54c4d0348b8ab79518e2d83b23d",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4598,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 673,
+        "cached_tokens": 3456,
+        "cached_tokens_details": {
+          "device": 3456,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 38.920620188931935,
+        "response_sent_to_client_ts": 1789845424.8408325
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 175.749
+    },
+    {
+      "aid": "AGT_11320670_F_60대_002",
+      "case": "grant",
+      "arm": "on",
+      "date": "2020-05-14",
+      "replicate": 33001,
+      "attempt_key": "3e5762dc58f432438a2c0ac35f981e1458d6aa22d74724a9c2a4c0819c86bb06",
+      "raw": "{\n\"actions\": [\n{\n\"kind\": \"consume\",\n\"id\": \"event:0\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"집 준비는 구매 필요 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:1\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"집에서의 식사로 식재료 재고 활용\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:2\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"집안 정리는 소비 없음\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:3\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"무료 산책 활동\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:4\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"도서관 이용은 무료 서비스\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:5\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"휴식·취미 활동은 내부 소비\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:6\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"식사는 개인 재고 활용\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:7\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"무료 야외 여가 활동\"\n},\n{\n\"kind\": \"consume\",\n\"id\": \"event:9\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"휴식 활동은 지출 없음\"\n}\n,\n{\n\"kind\": \"consume\",\n\"id\": \"event:8\",\n\"candidate_id\": null,\n\"cash_payment\": 0,\n\"wallet_spend\": {},\n\"reason\": \"집안 정리는 무료 활동\"\n}\n]\n}",
+      "thinking_usage": {
+        "id": "2f9495e4b54c454d92fa593b3b2676a5",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2456,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 471,
+        "cached_tokens_details": {
+          "device": 471,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 160.962860774016,
+        "response_sent_to_client_ts": 1789845726.0317428
+      },
+      "answer_usage": {
+        "id": "2315ab1210524d50be7054a6a40c3efb",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4507,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 461,
+        "cached_tokens": 4504,
+        "cached_tokens_details": {
+          "device": 4504,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 27.956806757953018,
+        "response_sent_to_client_ts": 1789845753.9997747
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 188.937
+    },
+    {
+      "aid": "AGT_11710532_M_50대_001",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 33001,
+      "attempt_key": "aedfd73f2fb8a1f27afccbf1574011b82345f82d56f3c580fbb2bb2ed48ad1df",
+      "raw": "{\n\t\"actions\": [\n\t{\n\t\"kind\": \"acquire_wallet\",\n\t\"id\": \"acquire:synthetic_unit\",\n\t\"offer_id\": \"synthetic_unit\",\n\t\"units\": 1,\n\t\"reason\": \"P014 정책 월 구매 한도 내에서 500,000원어치(45만 현금) 구매 가능, 이벤트 8에서의 식료품 구매 시 할인 적용 가능\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:2\",\n\t\"candidate_id\": \"quote:home_delivery\",\n\t\"cash_payment\": 13000,\n\t\"wallet_spend\": {},\n\t\"reason\": \"배달 식사 13,000원 구매 시 현금 전액 결제, 정책 할인 대상 아님\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:6\",\n\t\"candidate_id\": \"quote:home_online_goods\",\n\t\"cash_payment\": 12000,\n\t\"wallet_spend\": {},\n\t\"reason\": \"세탁 세제 12,000원 구매 시 현금 전액 결제, 정책 할인 대상 아님\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:8\",\n\t\"candidate_id\": \"quote:groceries\",\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {\n\t\"P014\": 5000\n\t},\n\t\"reason\": \"쌀 5,000원 구매 시 P014 지갑 1단위로 부분 결제, 정책 적용 지역(거여2동) 및 월 한도 내\"\n\t}\n\t,{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:0\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"하루 준비 활동은 구매 없이 진행\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:1\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"아침 식사는 구매 없이 준비 완료\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:3\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"원격 업무 시 별도 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:4\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"휴식 활동 시 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:5\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"점심 식사는 가정 내 조리로 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:7\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"무료 산책 활동은 구매 없음\"\n\t},\n\t{\n\t\"kind\": \"consume\",\n\t\"id\": \"event:9\",\n\t\"candidate_id\": null,\n\t\"cash_payment\": 0,\n\t\"wallet_spend\": {},\n\t\"reason\": \"저녁 식사는 가정 내 조리로 구매 없음\"\n\t}\n\t]\n}",
+      "thinking_usage": {
+        "id": "5b26b726b34d4fffa7e732af5ae084b8",
+        "finish_reason": {
+          "type": "length",
+          "length": 2048
+        },
+        "prompt_tokens": 2730,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 2048,
+        "cached_tokens": 676,
+        "cached_tokens_details": {
+          "device": 676,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 153.81831461098045,
+        "response_sent_to_client_ts": 1789845764.6646185
+      },
+      "answer_usage": {
+        "id": "738b0bcb0a454e84b690e37bb5561e85",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 4779,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 739,
+        "cached_tokens": 3225,
+        "cached_tokens_details": {
+          "device": 3225,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 61.93669553392101,
+        "response_sent_to_client_ts": 1789845826.6140473
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Chronological event roster"
+      ],
+      "elapsed_seconds": 215.774
+    }
+  ]
+}

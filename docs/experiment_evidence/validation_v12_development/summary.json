@@ -1,0 +1,19 @@
+{
+  "macro_claim": false,
+  "first_response_only_protocol": false,
+  "variants": {
+    "v19_evidence": {
+      "responses": 16,
+      "valid": 15,
+      "complete_unique_matrix": true,
+      "valid_rate": 0.9375,
+      "protocol_format_gate": false,
+      "all_pass": false,
+      "semantic_flags": {},
+      "mean_generated_tokens": 4564.5,
+      "errors": {
+        "time": 1
+      }
+    }
+  }
+}

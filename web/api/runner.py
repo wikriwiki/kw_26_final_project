@@ -7,6 +7,7 @@ import shlex
 import signal
 import subprocess
 import tempfile
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -21,8 +22,34 @@ def utc_now() -> str:
 def pid_exists(pid: int | None) -> bool:
     if not pid or pid <= 0:
         return False
+    if sys.platform == "win32":
+        # Windows os.kill(pid, 0) calls TerminateProcess; it is not a probe.
+        import ctypes
+        from ctypes import wintypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+        kernel.OpenProcess.restype = wintypes.HANDLE
+        kernel.GetExitCodeProcess.argtypes = [wintypes.HANDLE, ctypes.POINTER(wintypes.DWORD)]
+        kernel.GetExitCodeProcess.restype = wintypes.BOOL
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        handle = kernel.OpenProcess(0x1000, False, pid)  # QUERY_LIMITED_INFORMATION
+        if not handle:
+            # ERROR_INVALID_PARAMETER means the PID does not exist. Keep the
+            # lock on access errors rather than risk starting a second run.
+            return ctypes.get_last_error() != 87
+        try:
+            code = wintypes.DWORD()
+            if not kernel.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return True
+            return code.value == 259  # STILL_ACTIVE
+        finally:
+            kernel.CloseHandle(handle)
     try:
         os.kill(pid, 0)
+    except PermissionError:
+        return True
     except (OSError, ProcessLookupError):
         return False
     return True
@@ -145,7 +172,7 @@ class Runner:
                 command = json.loads(raw_json)
             except json.JSONDecodeError as exc:
                 raise StoreError(500, "SIM_RUN_COMMAND_JSON이 유효한 JSON이 아닙니다", str(exc)) from exc
-            if isinstance(command, list) and all(isinstance(item, str) and item for item in command):
+            if isinstance(command, list) and command and all(isinstance(item, str) and item for item in command):
                 return command
             raise StoreError(500, "SIM_RUN_COMMAND_JSON은 문자열 배열이어야 합니다")
         raw = os.environ.get("SIM_RUN_COMMAND")
@@ -193,6 +220,14 @@ class Runner:
         pid = payload.get("pid")
         if not pid or not pid_exists(pid):
             return self.lock.release(force=True)
+        if sys.platform == "win32":
+            # SIGINT also becomes TerminateProcess on Windows. Until there is
+            # an explicit cooperative stop protocol, retain ownership and fail.
+            raise StoreError(
+                409,
+                "Windows에서는 웹 콘솔의 정상 중단을 지원하지 않습니다. "
+                "해당 실행을 운영 도구에서 정상 종료한 뒤 lock을 해제해 주세요.",
+            )
         try:
             # SIGINT is a graceful request. The console never sends SIGKILL,
             # kills by name, or touches a process it does not own.
@@ -202,4 +237,3 @@ class Runner:
         updated = {**payload, "state": "stop_requested", "stop_requested_at": utc_now()}
         self.lock._atomic_write(updated)
         return {"accepted": True, "lock": updated, "unknown": []}
-

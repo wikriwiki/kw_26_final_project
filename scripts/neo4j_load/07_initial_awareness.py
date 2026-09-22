@@ -11,6 +11,7 @@ KNOWS_POI 엣지(source/since/affinity)만으로 사전 인지를 표현. 별도
 from __future__ import annotations
 
 import math
+import os
 import random
 import sys
 from collections import defaultdict
@@ -24,6 +25,11 @@ SEED = 42
 N_HOME = 40
 N_WORK = 30
 N_LANDMARK = 10
+# 카테고리별 최소 인지. 거리순 상위만 뽑으면 동네에 많은 업종(식당·카페·편의점)이
+# 자리를 다 차지해 드물지만 존재하는 업종을 아무도 모르게 된다. 실제로 가전·가구는
+# 전체 POI 의 1.4% 라 상위 40개 중 0.6개꼴로만 들어왔다(실측 1인당 0.7개).
+# 사람은 자주 가지 않는 업종이라도 생활권에 뭐가 있는지는 안다 — 그 최소선을 보장한다.
+N_PER_CAT = int(os.environ.get("EXP_KNOWS_PER_CAT", "3"))
 DAY_ZERO = "2026-05-01"  # POC sim start
 
 # 서울 핫스팟 랜드마크 (전체 agent 공통 인지)
@@ -50,6 +56,19 @@ def haversine_km(lon1, lat1, lon2, lat2):
     return 2 * R * math.asin(math.sqrt(a))
 
 
+def _add_per_category(poi_ids: set, ranked: list, k: int) -> None:
+    """거리순 정렬된 풀에서 카테고리마다 가까운 k 개를 보장한다."""
+    if k <= 0:
+        return
+    seen = defaultdict(int)
+    for p in ranked:
+        c = p.get("kdi")
+        if not c or seen[c] >= k:
+            continue
+        seen[c] += 1
+        poi_ids.add(p["id"])
+
+
 def main():
     rng = random.Random(SEED)
 
@@ -57,8 +76,9 @@ def main():
         # 1. 모든 commerce POI를 동별로 그룹화 + 좌표
         print("[fetch] commerce POI by dong ...")
         dong_pois = defaultdict(list)
-        for r in s.run("MATCH (p:POI {type:'commerce'}) RETURN p.id AS id, p.dong_code AS d, p.lon AS lon, p.lat AS lat"):
-            dong_pois[r["d"]].append({"id": r["id"], "lon": r["lon"], "lat": r["lat"]})
+        for r in s.run("MATCH (p:POI {type:'commerce'}) RETURN p.id AS id, p.dong_code AS d, p.lon AS lon, p.lat AS lat, p.sangsaeng_kdi AS kdi"):
+            dong_pois[r["d"]].append({"id": r["id"], "lon": r["lon"], "lat": r["lat"],
+                                      "kdi": r["kdi"]})
         print(f"  dongs: {len(dong_pois)}, total commerce POIs: {sum(len(v) for v in dong_pois.values())}")
 
         # 2. 랜드마크 POI: 각 랜드마크 동에서 인기 commerce POI 1개씩 샘플링
@@ -90,21 +110,23 @@ def main():
             # 거주 동
             if a["home_dong"] and a["home_lon"] is not None:
                 pool = dong_pois.get(a["home_dong"]) or []
-                pool_sorted = sorted(
+                ranked = sorted(
                     pool,
                     key=lambda p: haversine_km(p["lon"], p["lat"], a["home_lon"], a["home_lat"])
-                )[:N_HOME]
-                for p in pool_sorted:
+                )
+                for p in ranked[:N_HOME]:
                     poi_ids.add(p["id"])
+                _add_per_category(poi_ids, ranked, N_PER_CAT)
             # 직장 동
             if a["work_dong"] and a["work_lon"] is not None:
                 pool = dong_pois.get(a["work_dong"]) or []
-                pool_sorted = sorted(
+                ranked = sorted(
                     pool,
                     key=lambda p: haversine_km(p["lon"], p["lat"], a["work_lon"], a["work_lat"])
-                )[:N_WORK]
-                for p in pool_sorted:
+                )
+                for p in ranked[:N_WORK]:
                     poi_ids.add(p["id"])
+                _add_per_category(poi_ids, ranked, N_PER_CAT)
             # 랜드마크 (공통)
             for lm in landmarks:
                 poi_ids.add(lm)

@@ -55,7 +55,7 @@ def test_decile_grant_has_priority_and_exclusion_is_honored():
     assert plan_writer._grant_for_single_policy("하", excluded, spend_decile=10) == 0
 
 
-def test_policy_prompt_keeps_consumption_autonomous_but_states_payment_priority():
+def test_policy_prompt_keeps_consumption_and_payment_autonomous():
     policy = _p010()
     row = {
         "id": policy["id"],
@@ -83,12 +83,12 @@ def test_policy_prompt_keeps_consumption_autonomous_but_states_payment_priority(
     )
     text = facts + "\n" + status
 
-    assert "소비 7분위" in text
+    assert "대상(소비 규모 기준)" in text
     assert "지급액 150,000원" in text
     assert "정책지갑 잔액 120,000원" in text
     assert "소비 필요·시점·총액·POI" in text
-    assert "정책지갑을 자기자금보다 먼저 결제" in text
-    assert "소비 자체를 새로 만들라는 뜻이 아니다" in text
+    assert "결제 건마다 본인이 정한다" in text
+    assert "소비 자체를 새로 만들라는 뜻은 아니다" in text
     for directed in (
         "무조건 이득",
         "남기면 손해",
@@ -126,8 +126,8 @@ def test_policy_prompt_shows_differential_amount_for_low_spending_decile():
         state={},
     )
 
-    assert "소비 1분위" in first and "지급액 400,000원" in first
-    assert "소비 2분위" in second and "지급액 300,000원" in second
+    assert "대상(소비 규모 기준)" in first and "지급액 400,000원" in first
+    assert "대상(소비 규모 기준)" in second and "지급액 300,000원" in second
 
 
 def test_timing_report_separates_llm_review_and_cache_metrics():
