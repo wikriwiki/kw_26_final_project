@@ -36,9 +36,11 @@ def _teacher():
     return {"picks": [
         {"order": 1, "poi_id": "C_MEAL", "actual_spent": 11000,
          "actual_satisfaction": 0.28, "policy_spend": {},
+         "would_buy_anyway": True, "extra_spent": 0,
          "pick_reason": "최근 방문 경험과 점심 일정", "pick_factor": "known"},
         {"order": 2, "poi_id": "C_CAFE", "actual_spent": 5000,
          "actual_satisfaction": 0.82, "policy_spend": {},
+         "would_buy_anyway": False, "extra_spent": 5000,
          "pick_reason": "휴식 장소까지 가까운 거리", "pick_factor": "distance"},
     ]}
 
@@ -364,6 +366,22 @@ def test_process_one_passes_context_only_when_enabled_and_preserves_accounting(
     )
     call_kwargs = []
     written = []
+    committed = []
+    tx = object()
+
+    @contextmanager
+    def transaction(*args):
+        yield tx
+
+    def save_result(transaction, result):
+        assert transaction is tx
+        committed.append(copy.deepcopy(result))
+        return result
+
+    monkeypatch.setattr(sim.agent_day_store, "load_completed", lambda *a: None)
+    monkeypatch.setattr(sim.agent_day_store, "transaction", transaction)
+    monkeypatch.setattr(sim.agent_day_store, "save_result", save_result)
+    monkeypatch.setattr(sim, "night_finalize_yesterday", lambda *a, **k: 2)
     monkeypatch.setattr(sim, "build_dawn_context", lambda *args: ctx)
     monkeypatch.setattr(sim, "call_stage1", lambda *a, **k: (
         _stage1(), {"tokens_in": 100, "tokens_out": 40, "attempt": 0},
@@ -377,6 +395,7 @@ def test_process_one_passes_context_only_when_enabled_and_preserves_accounting(
         return s2.Stage2Output.model_validate(_teacher()), {}, meta
 
     def write_plan(*args, **kwargs):
+        assert kwargs["transaction"] is tx
         written.append(copy.deepcopy(args[2]))
         return "plan", len(args[2])
 
@@ -387,7 +406,8 @@ def test_process_one_passes_context_only_when_enabled_and_preserves_accounting(
     })
     result = sim.process_one("A_TEST", date(2026, 5, 5), 0)
 
-    assert result["status"] == "ok"
+    assert result["status"] == "ok", result
+    assert committed == [result]
     assert sum(ev["actual_spent"] or 0 for ev in written[0]) == 16000
     assert [ev["actual_satisfaction"] for ev in written[0]] == [None, 0.28, 0.82, None]
     assert result["tokens_in"] == 250

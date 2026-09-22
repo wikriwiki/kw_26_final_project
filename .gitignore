@@ -118,3 +118,10 @@ id_rsa*
 
 # 정답지 원문 (저작권·용량)
 docs/references/
+
+# Generated local presentation and browser artifacts
+.pptx-work/
+web/ui/test-results/
+output/*.pptx
+output/sim/visualization/sim_standalone*.html
+output/sim/visualization/sim_standalone*.zip
