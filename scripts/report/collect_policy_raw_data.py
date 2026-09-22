@@ -169,7 +169,7 @@ PLAN = [
      'docs': P013_DOCS, 'env': [], 'missing': [],
      'note': '2020년 1차 전 국민 지급. 새 돈이 지갑에 들어오는 기전이라 총액이 늘어야 한다.'},
     {'folder': '지역사랑상품권_P014', 'scoring': 'LOCAL_VOUCHER',
-     'rounds': 'stage3 · stage5 (2026-09-16~18)',
+     'rounds': 'stage3 · stage5(n=500) · stage6(자치구 적격 반영, n=500) — 2026-09-16~18',
      'docs': P014_DOCS, 'env': [], 'missing': [],
      'note': '할인 구매 상품권. 새 돈이 아니라 가격 할인이므로 총액이 아니라 '
              '**어디서 쓰는가**가 움직여야 한다.'},
@@ -280,6 +280,118 @@ def locate_cell(desc, pages):
     return r[0] if isinstance(r, tuple) else r
 
 
+# 파일마다 본문에 반드시 있어야 하는 말. --check 는 sha256 만 보므로, 이름은
+# 맞는데 내용이 딴 문서인 경우를 잡지 못한다. 그것을 잡는 목록이다.
+CONTENT_EXPECT = {
+    '민생회복소비쿠폰_P010': {
+        '정답지_한국은행_이슈노트_2026-13.pdf': ['소비쿠폰', 'MPC'],
+        '정책원문_민생회복소비쿠폰_지급시작_행안부_20250705.pdf': ['민생회복', '소비쿠폰'],
+        '집행결과_민생회복소비쿠폰_최종집계_20251205.pdf': ['민생회복', '소비쿠폰'],
+        '대조표_BOK_이슈노트_전체지표.md': ['민생회복 소비쿠폰', '이슈노트'],
+    },
+    '상생소비지원금_P012': {
+        '정책원문_상생소비지원금_시행방안_배포용.pdf': ['상생소비지원금'],
+        '정답지_KDI_상생소비지원금_효과분석_2022.pdf': ['상생소비지원금', '캐시백'],
+        '정답지_KDI_효과분석_추출텍스트.txt': ['상생소비지원금'],
+    },
+    '긴급재난지원금_P013': {
+        '정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf': ['긴급재난지원금', 'KDI'],
+        '정책원문_긴급재난지원금_신청및지급방안_행안부_20200429.hwp':
+            ['긴급재난지원금', '신청 및 지급 방안'],
+    },
+    '지역사랑상품권_P014': {
+        '정책원문_지역사랑상품권_발행지원사업_종합지침_20210122.pdf': ['지역사랑상품권'],
+        '정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf': ['지역화폐'],
+    },
+    '업종형소비쿠폰_P015': {
+        '정책원문_2020년_하반기_경제정책방향.pdf': ['하반기 경제정책방향', '소비쿠폰'],
+        '정책원문_하반기경제정책방향_보도자료_20200601.hwp': ['하반기 경제정책방향'],
+    },
+    '사회적거리두기_DISTANCING2020': {
+        '정답지_서울연구원_요약_발행처웹.txt': ['서울', '매출'],
+        '정책원문_중대본회의_보도자료_20201127.hwp': ['중앙재난안전대책본부'],
+    },
+}
+
+# 폴더 안의 시뮬 정의가 그 정책이 맞는지
+POLICY_NAME_EXPECT = {
+    '민생회복소비쿠폰_P010': ('시뮬정의_P010.json', '민생회복'),
+    '상생소비지원금_P012': ('시뮬정의_P012.json', '상생소비'),
+    '긴급재난지원금_P013': ('시뮬정의_P013.json', '재난지원금'),
+    '지역사랑상품권_P014': ('시뮬정의_P014.json', '상품권'),
+    '업종형소비쿠폰_P015': ('시뮬정의_P015.json', '소비쿠폰'),
+}
+
+
+def hwp_text(p):
+    """HWP 는 OLE 다. `PrvText` 스트림이 문서 앞머리의 평문이라 신원 확인에 쓴다.
+
+    본문(BodyText)은 표·그림이 많으면 거의 안 뽑힌다. 그것을 근거로 '내용이
+    어긋난다'고 적으면 멀쩡한 문서를 의심하게 된다 — 실제로 한 번 그랬다.
+    """
+    try:
+        import olefile
+    except ImportError:
+        return None
+    try:
+        ole = olefile.OleFileIO(str(p))
+    except Exception:
+        return None
+    if not ole.exists('PrvText'):
+        return ''
+    return re.sub(r'\s+', ' ', ole.openstream('PrvText').read().decode('utf-16le', 'ignore'))
+
+
+def doc_text(p):
+    """신원 확인용 본문. 못 읽으면 None, 스캔본이면 빈 문자열."""
+    p = Path(p)
+    suf = p.suffix.lower()
+    if suf == '.hwp':
+        return hwp_text(p)
+    if suf in ('.txt', '.md', '.json', '.csv'):
+        return io.open(p, encoding='utf-8', errors='replace').read()
+    if suf != '.pdf':
+        return ''
+    pages = source_pages(p)
+    return ' '.join(pages[:12]) if pages else ('' if pages == [] else None)
+
+
+def audit():
+    """이름이 주장하는 문서가 맞는지, 시뮬 정의가 그 정책인지 본다."""
+    bad, seen = [], 0
+    for folder, files in CONTENT_EXPECT.items():
+        d = OUT / folder
+        if not d.exists():
+            bad.append('%s: 폴더가 없다' % folder)
+            continue
+        for name, words in files.items():
+            p = d / name
+            if not p.exists():
+                bad.append('%s / %s: 파일이 없다' % (folder, name))
+                continue
+            seen += 1
+            t = doc_text(p)
+            if t is None:
+                bad.append('%s / %s: 판독기가 없어 확인하지 못했다' % (folder, name))
+                continue
+            if not t.strip():
+                continue  # 스캔본. 별도 출처로 대조한다
+            miss = [w for w in words if w not in t]
+            if miss:
+                bad.append('%s / %s: 본문에 %s 가 없다' % (folder, name, miss))
+    for folder, (name, word) in POLICY_NAME_EXPECT.items():
+        p = OUT / folder / name
+        if not p.exists():
+            bad.append('%s / %s: 없다' % (folder, name))
+            continue
+        seen += 1
+        j = json.loads(io.open(p, encoding='utf-8').read())
+        got = str(j.get('name') or j.get('title') or '')
+        if word not in got:
+            bad.append('%s / %s: 정책 이름이 %r 이라 폴더와 안 맞는다' % (folder, name, got))
+    return seen, bad
+
+
 def sha256(p):
     return hashlib.sha256(Path(p).read_bytes()).hexdigest()
 
@@ -304,6 +416,21 @@ def write(path, text):
 
 # 원문과 우리 지표의 범위가 같지 않은 곳. 대조할 때 이것을 모르면 잘못 읽는다.
 CAVEATS = {
+    'P010': [
+        '이슈노트는 **8주 소진 궤적**을 따라가고 우리 관측창은 14일이다. '
+        'EXP-001 이 MPC 를 ≈1.0 으로 적은 것은 관측창이 짧아 상한에 걸린 값이라는 뜻이고, '
+        '실측 0.21 과 같은 눈금이 아니다 — `docs/EXP001_결과분석.md` 가 그렇게 적어 두었다.',
+    ],
+    'P012': [
+        '원문의 관측 구간은 **한 달**(2021년 10월)이고 우리 정책 구간은 이틀이다. '
+        '부호는 견줄 수 있어도 크기를 같은 눈금으로 견줄 수 없다.',
+    ],
+    'LOCAL_VOUCHER': [
+        '**시뮬이 도는 정책은 서울사랑상품권이고, 정답지는 전국 지역화폐 연구다.** '
+        '원문은 지자체 단위 패널로 동네슈퍼에서만 유의한 매출 증대를 찾았다 — '
+        '대상 지역과 분석 단위가 같지 않다.',
+        '원문은 연 단위 지역 패널이고 우리 창은 이틀이다. 크기는 견줄 수 없다.',
+    ],
     'DISTANCING_2020': [
         '`DS-1` 의 **−14.1% 는 원문에서 \'한식\' 업종의 값**이다(매출 감소가 가장 컸던 업종). '
         '우리 지표는 식사 전체를 잰다 — **범위가 같지 않다.** 원문의 전체 점포 평균은 −6.2% 다.',
@@ -317,6 +444,8 @@ CAVEATS = {
         '돈을 넣어 주는 지갑이다. 기전이 다르다 — 할인 대 지급.',
     ],
     'EMERGENCY_2020': [
+        '원문은 **19~33주**의 합성대조 이중차분이고 우리 창은 이틀(2020-05-14~15)이다. '
+        '부호는 견줄 수 있어도 크기를 같은 눈금으로 견줄 수 없다.',
         '`EM-2`(+11.1%p)와 `EM-3`(+7.3%)의 값이 **정답지 본문에서 확인되지 않는다.** '
         'p4 의 11.1 은 효과가 아니라 지원금 **규모(11.1~15.3조원)** 다. '
         '보고서에 쓰기 전에 출처를 다시 확인해야 한다.',
@@ -620,7 +749,16 @@ def _human(n):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--check', action='store_true')
+    ap.add_argument('--audit', action='store_true',
+                    help='문서를 열어 이름이 주장하는 내용이 실제로 있는지 본다')
     args = ap.parse_args()
+    if args.audit:
+        seen, bad = audit()
+        print('문서 %d건을 열어 확인했다.' % seen)
+        for x in bad:
+            print('  - ' + x)
+        print('\n이름과 내용이 어긋나는 문서 없음' if not bad else '\n문제 %d건' % len(bad))
+        return 1 if bad else 0
     report, problems = build(args.check)
     for e, rows in report:
         print('%-34s 문서 %d개%s' % (e['folder'], len(rows),
