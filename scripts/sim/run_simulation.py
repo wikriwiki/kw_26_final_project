@@ -27,6 +27,7 @@ CLI:
   LLM_MODE        : qwen32b | qwen14b | qwen9b | exaone (기본 qwen32b)
   SGLANG_BASE_URL : LLM 서버 URL (기본 http://localhost:30000/v1, vLLM 8000 폴백)
   NEO4J_POOL_SIZE : Neo4j 드라이버 connection pool 크기 (기본 100, workers 의 2~3배 권장)
+  SIM_FAST_MODE   : off (기본) | record | shadow — 경량 판단 기록만; 기존 결과 유지
 """
 from __future__ import annotations
 
@@ -406,12 +407,18 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         timing["t_s1"] = round(time.time() - _t, 3)
 
         # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출.
-        # active_policies/grant_remaining은 호출부 호환 인자(정책 정보는 persona로 전달됨).
+        # 기존 프롬프트는 persona의 정책 요약, opt-in 기록은 원본 정책·잔액도 보존.
         _t = time.time()
+        decision_kwargs = {}
+        if os.environ.get("SIM_FAST_MODE", "off").strip().lower() != "off":
+            # Existing Dawn data includes the memory/emotion/social evidence
+            # required for routing, without additional DB reads.
+            decision_kwargs["decision_context"] = ctx
         s2, _cands, m2 = call_stage2(
             aid, s1, ctx.persona, today, state=ctx.state,
             active_policies=ctx.policy,
             grant_remaining=grant_avail_today,
+            **decision_kwargs,
         )
         timing["t_s2"] = round(time.time() - _t, 3)
 
@@ -684,6 +691,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "dawn_timing": dict(ctx.dawn_timing),
                 "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
                 "s2_timing": m2.get("s2_timing"),
+                **({"acceleration": m2["acceleration"]} if "acceleration" in m2 else {}),
                 # Stage 2 fallback 카운트 (사후 분석용)
                 "review_lookup_count": m2.get("review_lookup_count", 0),
                 "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),

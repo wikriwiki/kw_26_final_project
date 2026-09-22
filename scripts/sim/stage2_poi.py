@@ -647,14 +647,16 @@ def call_stage2(
     max_retry: int = 2,
     verbose: bool = False,
     state: dict | None = None,
-    # 정책 정보는 persona["policy_budget_summary"]로 build_stage2_prompt에 전달됨 — 아래 두 인자는 호출부 호환용(미사용)
-    active_policies: list[dict] | None = None,  # noqa: ARG001
-    grant_remaining: dict[str, int] | None = None,  # noqa: ARG001
+    # 기존 프롬프트는 persona 요약 사용; 원본 정책·잔액은 경량 판단 기록에 보존.
+    active_policies: list[dict] | None = None,
+    grant_remaining: dict[str, int] | None = None,
+    decision_context: DawnContext | None = None,
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
 
     today: 오늘 날짜. desire 계산의 days_since_visit 산출에 사용.
     state: State 노드 dict (balance 등) — 가격대 선택의 예산 근거로 프롬프트에 노출.
+    decision_context: opt-in 기록용 Dawn 상태. 경량 결과는 실제 결정에 반영하지 않음.
     """
     total_started = time.perf_counter()
     timing: dict[str, object] = {
@@ -805,6 +807,57 @@ def call_stage2(
             "items": {"type": "string", "enum": all_pids},
         }
     timing["t_schema_build"] = time.perf_counter() - started
+
+    # Opt-in capture uses the exact pre-decision candidates and prompt. It may
+    # observe a small model in shadow mode, but never replaces the teacher pick.
+    # Deep copies keep logging/shadow failures or mutations out of simulation state.
+    capture = None
+    capture_error = None
+    fast_mode = os.environ.get("SIM_FAST_MODE", "off").strip().lower()
+    if fast_mode != "off":
+        started = time.perf_counter()
+        try:
+            import copy
+            from fast_decision.runtime import start_capture
+
+            capture = start_capture(
+                aid=aid, today=today,
+                stage1=stage1.model_copy(deep=True),
+                persona=copy.deepcopy(persona), state=copy.deepcopy(state),
+                candidates=copy.deepcopy(cands_by_order),
+                system_prompt=SYSTEM_S2, user_prompt=user_block,
+                recent_poi_ids=set(recent_poi_ids),
+                active_policies=copy.deepcopy(active_policies),
+                grant_remaining=copy.deepcopy(grant_remaining),
+                context=copy.deepcopy(decision_context),
+            )
+            if capture is None:
+                capture_error = {"mode": fast_mode, "status": "capture_unavailable",
+                                 "applied": False, "teacher_preserved": True}
+        except Exception as exc:
+            capture_error = {"mode": fast_mode, "status": "capture_error",
+                             "error_type": type(exc).__name__, "teacher_preserved": True}
+        timing["t_fast_capture"] = time.perf_counter() - started
+
+    def finish_capture(output: Stage2Output, meta: dict) -> dict:
+        if capture is not None:
+            started = time.perf_counter()
+            try:
+                import copy
+
+                meta["acceleration"] = capture.finish(
+                    output.model_copy(deep=True), copy.deepcopy(meta),
+                )
+            except Exception as exc:
+                meta["acceleration"] = {
+                    "mode": fast_mode, "status": "capture_error",
+                    "error_type": type(exc).__name__, "teacher_preserved": True,
+                }
+            timing["t_fast_finish"] = time.perf_counter() - started
+            meta["s2_timing"] = timing_snapshot()
+        elif capture_error is not None:
+            meta["acceleration"] = capture_error
+        return meta
 
     last_err = None
     review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
@@ -957,6 +1010,7 @@ def call_stage2(
                 i: (cs[0].get("unit_anchor") if cs else None)
                 for i, cs in cands_by_order.items()
             }
+            spend_imputed = 0
             durable_by_order = {
                 i: bool(cs[0].get("durable_anchor")) if cs else False
                 for i, cs in cands_by_order.items()
@@ -965,11 +1019,14 @@ def call_stage2(
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
                     pb, pf = price_by_poi.get(pick.poi_id) or (None, 1.0)
+                    previous_spend = pick.actual_spent
                     _ensure_positive_spend(
                         pick, cat, daily_wd, price_factor=pf,
                         base_won=anchor_by_order.get(pick.order), band=pb,
                         durable=bool(durable_by_order.get(pick.order)),
                     )
+                    if pick.actual_spent != previous_spend:
+                        spend_imputed += 1
             elapsed = time.perf_counter() - started
             timing["t_postprocess"] += elapsed
             attempt_timing["t_postprocess"] = elapsed
@@ -989,6 +1046,7 @@ def call_stage2(
                 "hallucinations_dropped": hallucinations_dropped,
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
+                "spend_imputed": spend_imputed,
                 "price_by_poi": price_by_poi,
                 "coupon_by_poi": coupon_by_poi,
                 "review_lookup_count": len(review_lookup_used),
@@ -998,7 +1056,7 @@ def call_stage2(
                 "s2_timing": timing_snapshot(),
                 **fb_stats,
             }
-            return parsed, cands_by_order, meta
+            return parsed, cands_by_order, finish_capture(parsed, meta)
         except Exception as e:
             stage_key = {
                 "llm": "t_llm",
@@ -1031,13 +1089,14 @@ def call_stage2(
     # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
     fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
     if fallback.picks:
-        return fallback, cands_by_order, {
+        meta = {
             "fallback_only": True,
             "price_by_poi": price_by_poi,
             "coupon_by_poi": coupon_by_poi,
             "last_err": str(last_err)[:200],
             "s2_timing": timing_snapshot(),
         }
+        return fallback, cands_by_order, finish_capture(fallback, meta)
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
 
 
