@@ -64,6 +64,16 @@ def facts(row: dict) -> list[str]:
 
 def status(pid: str, row: dict, persona: dict, state: dict,
            today=None) -> str:
+    """개인별 한 줄 — 업종 이름만이 아니라 **본인에게 걸리는 한도**까지 적는다.
+
+    업종 이름만 적으면 1인 누적 한도가 있는 정책에서 모델이 제약을 못 본다.
+    한도는 정책 JSON 의 sectors 에서 읽는다 — 특정 정책을 하드코딩하지 않는다.
+    """
     sectors = row.get("sectors") or {}
-    names = ", ".join(sectors) if sectors else "없음"
-    return f"- {pid}: 적용 업종 — {names}"
+    if not sectors:
+        return f"- {pid}: 적용 업종 — 없음"
+    parts = []
+    for name, spec in sectors.items():
+        cap = int((spec or {}).get("cap") or 0)
+        parts.append(f"{name}(1인 누적 {cap:,}원 한도)" if cap > 0 else name)
+    return f"- {pid}: 적용 업종 — {', '.join(parts)}"

@@ -12,19 +12,33 @@ def cell_with(profile):
 
 def test_it_picks_the_largest_service_share():
     got, share = chosen_errand(cell_with('마트 50%, 건강 27%, 교육 5%'))
-    assert got == 'health_goods' and share == 27
+    assert got == 'groceries' and share == 50
 
 
-def test_a_citizen_with_no_service_share_gets_no_errand():
+def test_a_citizen_with_no_outside_share_gets_no_errand():
     """부여된 비중이 0인데 볼일을 만들면 그건 지어낸 것이다."""
-    assert chosen_errand(cell_with('마트 60%, 식사 40%')) == (None, 0)
+    assert chosen_errand(cell_with('주거 60%, 통신 40%')) == (None, 0)
 
 
 def test_only_home_impossible_activities_are_candidates():
-    """집에서 끝낼 수 있는 것을 고르면 하루가 밖에 나갈 이유가 여전히 없다."""
-    assert set(SERVICE) == {'hair', 'health_goods', 'leisure_service', 'education_service'}
+    """집에서 끝낼 수 있는 것을 고르면 하루가 밖에 나갈 이유가 여전히 없다.
+
+    2026-09-22: 후보를 넷에서 열로 넓혔다. 처음의 넷은 내가 쓴 제한이었고 데이터가
+    요구한 것이 아니었다 — 예순 중 여덟이 그 때문에 볼일을 못 받았다. 넓힌 뒤에도
+    조건은 하나뿐이다: 집에서 끝낼 수 있는 활동은 후보가 될 수 없다.
+    """
+    assert set(SERVICE) == {'hair', 'health_goods', 'leisure_service', 'education_service',
+                            'meal_dine_in', 'groceries', 'convenience', 'cafe_dine_in',
+                            'other_service', 'bar'}
     for a in SERVICE:
         assert not a.startswith('home_')
+        assert 'delivery' not in a and 'online' not in a
+
+
+def test_forcing_a_category_is_recorded_as_assigned_not_observed():
+    """전원 지정판은 규칙이 아니라 가정이다. 출처가 그렇게 말해야 한다."""
+    import add_outside_need as m
+    assert m.chosen_errand(cell_with('마트 80%'), 'meal_dine_in') == ('meal_dine_in', 0)
 
 
 def test_the_choice_does_not_depend_on_any_answer_key_category():
