@@ -1,0 +1,62 @@
+{
+  "scoring_table_key": "P012",
+  "mechanism": "cashback",
+  "answer_key": "기획재정부·KDI 「상생소비지원금 사업의 효과 분석」(2022.9)",
+  "indicators": [
+    {
+      "id": "P012-1",
+      "expect": "+",
+      "scale": "short",
+      "metric": "elig_spend_paired",
+      "desc": "적립업종 지출 개인 내 쌍체차 (실측 +20.82%)"
+    },
+    {
+      "id": "P012-2",
+      "expect": "0",
+      "scale": "main",
+      "metric": "excl_spend_paired",
+      "desc": "제외업종 무반응 (실측 +2.85%, 유의하지 않음) — 방어선 지표"
+    },
+    {
+      "id": "P012-3",
+      "expect": "+",
+      "scale": "short",
+      "metric": "threshold_reach_rate",
+      "desc": "문턱 도달자 비율 > 0"
+    },
+    {
+      "id": "P012-4",
+      "expect": "+",
+      "scale": "short",
+      "metric": "cashback_per_capita",
+      "desc": "1인 평균 캐시백 > 0 (실측 47,880원)"
+    },
+    {
+      "id": "P012-5",
+      "expect": "rank",
+      "scale": "main",
+      "metric": "sector_rank",
+      "rank": [
+        "가전·가구",
+        "이·미용"
+      ],
+      "desc": "가전·가구 증가율 > 이·미용 증가율 (실측 +36.23% vs +2.87%)"
+    },
+    {
+      "id": "P012-6",
+      "expect": "+",
+      "scale": "main",
+      "metric": "cap_reach_rate",
+      "desc": "한도 10만원 도달 비율 > 0 (실측 21.0%)"
+    }
+  ],
+  "window_stage2": {
+    "start": "2021-10-21",
+    "days": 6,
+    "day0": "2021-10-20",
+    "policy": "P012",
+    "off": "2021-10-21:2021-10-22",
+    "on": "2021-10-25:2021-10-26",
+    "note": "무정책·정책 양쪽 모두 평일만. 1단계에서 무정책 쪽에만 주말이 들어가 요일 효과(주말/평일 소비비 1.47배)가 정책 효과를 덮었다. 요일을 정확히 맞추려면 9~10일 런이 필요해 비용이 두 배가 되므로, 주말을 양쪽에서 빼는 것으로 주 교란만 제거한다."
+  }
+}

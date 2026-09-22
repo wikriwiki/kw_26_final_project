@@ -1,0 +1,28 @@
+{
+  "scoring_table_key": "P010",
+  "mechanism": "wallet",
+  "answer_key": "한국은행 이슈노트 2026-13",
+  "indicators": [
+    {
+      "id": "P010-1",
+      "expect": "+",
+      "scale": "main",
+      "metric": "mpc_amount",
+      "desc": "한계소비성향 > 0 (실측 0.21)"
+    },
+    {
+      "id": "P010-2",
+      "expect": "+",
+      "scale": "short",
+      "metric": "coupon_elig_spend_paired",
+      "desc": "쿠폰 사용처 지출 — 개인 내 쌍체차"
+    },
+    {
+      "id": "P010-3",
+      "expect": "+",
+      "scale": "short",
+      "metric": "total_spend_paired",
+      "desc": "정책 기간 총지출 — 지갑이 생기므로 총액이 늘어야 한다"
+    }
+  ]
+}
