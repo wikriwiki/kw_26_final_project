@@ -1,0 +1,3231 @@
+{
+  "bundle": {
+    "schema": "dasol.report.v2",
+    "meta": {
+      "run_id": "EXP7500",
+      "run_root": "C:\\Users\\srdyh\\gpu_exp_data\\20260802\\out_EXP7500",
+      "generated_from": "events.jsonl + metrics/day_*.jsonl",
+      "metric": "amt",
+      "policy_id": "P010",
+      "policy_name": "민생회복 소비쿠폰 1차",
+      "policy_type": "grant",
+      "policy_effective_from": "2025-07-21",
+      "policy_effective_until": "2025-11-30",
+      "policy_from_used": "2025-07-21",
+      "requested_start": "2025-07-14",
+      "requested_days": 8,
+      "days": [
+        "2025-07-14",
+        "2025-07-15",
+        "2025-07-16",
+        "2025-07-17",
+        "2025-07-18",
+        "2025-07-19",
+        "2025-07-20",
+        "2025-07-21"
+      ],
+      "day_count": 8,
+      "event_rows": 304073,
+      "event_keys": [
+        "amt",
+        "day",
+        "day_type",
+        "dong",
+        "elig",
+        "ex",
+        "l1",
+        "sp",
+        "sub",
+        "wba"
+      ],
+      "poi_summary": {
+        "poi_total": 543924,
+        "poi_eligible": 0
+      },
+      "summary_present": true
+    },
+    "period": {
+      "policy_from": "2025-07-21",
+      "pre": [
+        "2025-07-14",
+        "2025-07-15",
+        "2025-07-16",
+        "2025-07-17",
+        "2025-07-18",
+        "2025-07-19",
+        "2025-07-20"
+      ],
+      "post": [
+        "2025-07-21"
+      ],
+      "usable": true,
+      "reason": null
+    },
+    "targets": {
+      "source": "events.jsonl 의 정책 지급 실적",
+      "categories": [
+        "건강",
+        "식사",
+        "마트",
+        "쇼핑",
+        "교육",
+        "편의점",
+        "미용",
+        "여가",
+        "카페",
+        "디저트",
+        "여행사",
+        "주점",
+        "통신",
+        "기타",
+        "사업서비스"
+      ],
+      "declared": [],
+      "unmatched": []
+    },
+    "control_categories": [
+      "PC방",
+      "갤러리",
+      "기술서비스",
+      "기타상품",
+      "기타식사",
+      "노래방",
+      "당구",
+      "디자인",
+      "디저트·베이커리",
+      "레스토랑",
+      "레저",
+      "문구",
+      "반려동물",
+      "사진",
+      "생활용품",
+      "세탁",
+      "쇼핑몰",
+      "수리",
+      "시설관리",
+      "식단",
+      "식료품",
+      "식물·꽃",
+      "식비",
+      "식수",
+      "식점",
+      "식탁",
+      "여가/카페",
+      "오락용품",
+      "욕탕·신체관리",
+      "유원지·오락",
+      "의류",
+      "일반주점",
+      "차량정비",
+      "청소",
+      "카파",
+      "헬스장",
+      "화장품",
+      "힐링"
+    ],
+    "totals": {
+      "events": 304073.0,
+      "amt": 1744776088.0,
+      "policy_paid": 31394384.0,
+      "self_paid": 1713381704.0,
+      "extra": 74954700.0,
+      "eligible": 300847.0,
+      "wba": 36078.0
+    },
+    "daily": [
+      {
+        "day": "2025-07-14",
+        "phase": "pre",
+        "events": 30499,
+        "amt": 225177695.0,
+        "policy_paid": 0.0,
+        "self_paid": 225177695.0,
+        "extra": 4399900.0,
+        "eligible_events": 30219,
+        "would_buy_anyway": 2828,
+        "avg_ticket": 7383.12,
+        "agents": 7500,
+        "per_capita": 30023.69,
+        "avg_satisfaction": 0.6318
+      },
+      {
+        "day": "2025-07-15",
+        "phase": "pre",
+        "events": 31525,
+        "amt": 230975118.0,
+        "policy_paid": 0.0,
+        "self_paid": 230975118.0,
+        "extra": 3249600.0,
+        "eligible_events": 31206,
+        "would_buy_anyway": 2316,
+        "avg_ticket": 7326.73,
+        "agents": 7500,
+        "per_capita": 30796.68,
+        "avg_satisfaction": 0.631
+      },
+      {
+        "day": "2025-07-16",
+        "phase": "pre",
+        "events": 34542,
+        "amt": 234936296.0,
+        "policy_paid": 0.0,
+        "self_paid": 234936296.0,
+        "extra": 4656100.0,
+        "eligible_events": 34202,
+        "would_buy_anyway": 2894,
+        "avg_ticket": 6801.47,
+        "agents": 7500,
+        "per_capita": 31324.84,
+        "avg_satisfaction": 0.644
+      },
+      {
+        "day": "2025-07-17",
+        "phase": "pre",
+        "events": 37201,
+        "amt": 226051458.0,
+        "policy_paid": 0.0,
+        "self_paid": 226051458.0,
+        "extra": 5965200.0,
+        "eligible_events": 36832,
+        "would_buy_anyway": 3334,
+        "avg_ticket": 6076.49,
+        "agents": 7500,
+        "per_capita": 30140.19,
+        "avg_satisfaction": 0.6449
+      },
+      {
+        "day": "2025-07-18",
+        "phase": "pre",
+        "events": 36600,
+        "amt": 201038359.0,
+        "policy_paid": 0.0,
+        "self_paid": 201038359.0,
+        "extra": 7310900.0,
+        "eligible_events": 36220,
+        "would_buy_anyway": 4292,
+        "avg_ticket": 5492.85,
+        "agents": 7500,
+        "per_capita": 26805.11,
+        "avg_satisfaction": 0.6445
+      },
+      {
+        "day": "2025-07-19",
+        "phase": "pre",
+        "events": 45960,
+        "amt": 191301143.0,
+        "policy_paid": 0.0,
+        "self_paid": 191301143.0,
+        "extra": 13692500.0,
+        "eligible_events": 45365,
+        "would_buy_anyway": 4807,
+        "avg_ticket": 4162.34,
+        "agents": 7500,
+        "per_capita": 25506.82,
+        "avg_satisfaction": 0.6289
+      },
+      {
+        "day": "2025-07-20",
+        "phase": "pre",
+        "events": 45260,
+        "amt": 179566679.0,
+        "policy_paid": 0.0,
+        "self_paid": 179566679.0,
+        "extra": 14028900.0,
+        "eligible_events": 44680,
+        "would_buy_anyway": 5066,
+        "avg_ticket": 3967.45,
+        "agents": 7500,
+        "per_capita": 23942.22,
+        "avg_satisfaction": 0.6296
+      },
+      {
+        "day": "2025-07-21",
+        "phase": "post",
+        "events": 42486,
+        "amt": 255729340.0,
+        "policy_paid": 31394384.0,
+        "self_paid": 224334956.0,
+        "extra": 21651600.0,
+        "eligible_events": 42123,
+        "would_buy_anyway": 10541,
+        "avg_ticket": 6019.14,
+        "agents": 7500,
+        "per_capita": 34097.25,
+        "avg_satisfaction": 0.64
+      }
+    ],
+    "categories": [
+      {
+        "l1": "식사",
+        "targeted": true,
+        "amt": 523612355.0,
+        "events": 93537,
+        "policy_paid": 6832084.0,
+        "self_paid": 516780271.0,
+        "extra": 11056500.0,
+        "share": 30.0103,
+        "pre_daily_amt": 66858865.71,
+        "post_daily_amt": 55600295.0,
+        "delta_daily_amt": -11258570.71,
+        "growth_pct": -16.8393,
+        "avg_ticket": 5597.92,
+        "policy_share_pct": 1.3048
+      },
+      {
+        "l1": "마트",
+        "targeted": true,
+        "amt": 249496467.0,
+        "events": 26401,
+        "policy_paid": 5683599.0,
+        "self_paid": 243812868.0,
+        "extra": 8141700.0,
+        "share": 14.2996,
+        "pre_daily_amt": 29854025.14,
+        "post_daily_amt": 40518291.0,
+        "delta_daily_amt": 10664265.86,
+        "growth_pct": 35.7214,
+        "avg_ticket": 9450.27,
+        "policy_share_pct": 2.278
+      },
+      {
+        "l1": "건강",
+        "targeted": true,
+        "amt": 247790493.0,
+        "events": 43522,
+        "policy_paid": 8098998.0,
+        "self_paid": 239691495.0,
+        "extra": 8711200.0,
+        "share": 14.2019,
+        "pre_daily_amt": 27612270.86,
+        "post_daily_amt": 54504597.0,
+        "delta_daily_amt": 26892326.14,
+        "growth_pct": 97.3927,
+        "avg_ticket": 5693.45,
+        "policy_share_pct": 3.2685
+      },
+      {
+        "l1": "쇼핑",
+        "targeted": true,
+        "amt": 169786065.0,
+        "events": 13123,
+        "policy_paid": 3445344.0,
+        "self_paid": 166340721.0,
+        "extra": 22195700.0,
+        "share": 9.7311,
+        "pre_daily_amt": 19434105.43,
+        "post_daily_amt": 33747327.0,
+        "delta_daily_amt": 14313221.57,
+        "growth_pct": 73.65,
+        "avg_ticket": 12938.05,
+        "policy_share_pct": 2.0292
+      },
+      {
+        "l1": "카페",
+        "targeted": true,
+        "amt": 148422739.0,
+        "events": 45041,
+        "policy_paid": 615439.0,
+        "self_paid": 147807300.0,
+        "extra": 1271600.0,
+        "share": 8.5067,
+        "pre_daily_amt": 18340966.29,
+        "post_daily_amt": 20035975.0,
+        "delta_daily_amt": 1695008.71,
+        "growth_pct": 9.2417,
+        "avg_ticket": 3295.28,
+        "policy_share_pct": 0.4147
+      },
+      {
+        "l1": "여가",
+        "targeted": true,
+        "amt": 136967375.0,
+        "events": 23218,
+        "policy_paid": 905945.0,
+        "self_paid": 136061430.0,
+        "extra": 14784800.0,
+        "share": 7.8501,
+        "pre_daily_amt": 18280627.29,
+        "post_daily_amt": 9002984.0,
+        "delta_daily_amt": -9277643.29,
+        "growth_pct": -50.7512,
+        "avg_ticket": 5899.19,
+        "policy_share_pct": 0.6614
+      },
+      {
+        "l1": "편의점",
+        "targeted": true,
+        "amt": 115398891.0,
+        "events": 43620,
+        "policy_paid": 1298209.0,
+        "self_paid": 114100682.0,
+        "extra": 369500.0,
+        "share": 6.614,
+        "pre_daily_amt": 14470509.43,
+        "post_daily_amt": 14105325.0,
+        "delta_daily_amt": -365184.43,
+        "growth_pct": -2.5236,
+        "avg_ticket": 2645.55,
+        "policy_share_pct": 1.125
+      },
+      {
+        "l1": "교육",
+        "targeted": true,
+        "amt": 109168041.0,
+        "events": 9401,
+        "policy_paid": 3238968.0,
+        "self_paid": 105929073.0,
+        "extra": 4585500.0,
+        "share": 6.2569,
+        "pre_daily_amt": 12807816.29,
+        "post_daily_amt": 19513327.0,
+        "delta_daily_amt": 6705510.71,
+        "growth_pct": 52.3548,
+        "avg_ticket": 11612.39,
+        "policy_share_pct": 2.967
+      },
+      {
+        "l1": "미용",
+        "targeted": true,
+        "amt": 33541299.0,
+        "events": 3601,
+        "policy_paid": 1087378.0,
+        "self_paid": 32453921.0,
+        "extra": 3174500.0,
+        "share": 1.9224,
+        "pre_daily_amt": 3779656.71,
+        "post_daily_amt": 7083702.0,
+        "delta_daily_amt": 3304045.29,
+        "growth_pct": 87.4165,
+        "avg_ticket": 9314.44,
+        "policy_share_pct": 3.2419
+      },
+      {
+        "l1": "디저트",
+        "targeted": true,
+        "amt": 5444923.0,
+        "events": 1861,
+        "policy_paid": 102674.0,
+        "self_paid": 5342249.0,
+        "extra": 225400.0,
+        "share": 0.3121,
+        "pre_daily_amt": 624808.86,
+        "post_daily_amt": 1071261.0,
+        "delta_daily_amt": 446452.14,
+        "growth_pct": 71.4542,
+        "avg_ticket": 2925.8,
+        "policy_share_pct": 1.8857
+      },
+      {
+        "l1": "주점",
+        "targeted": true,
+        "amt": 1894000.0,
+        "events": 176,
+        "policy_paid": 26710.0,
+        "self_paid": 1867290.0,
+        "extra": 251000.0,
+        "share": 0.1086,
+        "pre_daily_amt": 252942.43,
+        "post_daily_amt": 123403.0,
+        "delta_daily_amt": -129539.43,
+        "growth_pct": -51.213,
+        "avg_ticket": 10761.36,
+        "policy_share_pct": 1.4102
+      },
+      {
+        "l1": "기타",
+        "targeted": true,
+        "amt": 1348309.0,
+        "events": 336,
+        "policy_paid": 8730.0,
+        "self_paid": 1339579.0,
+        "extra": 30300.0,
+        "share": 0.0773,
+        "pre_daily_amt": 182027.29,
+        "post_daily_amt": 74118.0,
+        "delta_daily_amt": -107909.29,
+        "growth_pct": -59.2819,
+        "avg_ticket": 4012.82,
+        "policy_share_pct": 0.6475
+      },
+      {
+        "l1": "헬스장",
+        "targeted": false,
+        "amt": 682157.0,
+        "events": 68,
+        "policy_paid": 0.0,
+        "self_paid": 682157.0,
+        "extra": 7000.0,
+        "share": 0.0391,
+        "pre_daily_amt": 91599.71,
+        "post_daily_amt": 40959.0,
+        "delta_daily_amt": -50640.71,
+        "growth_pct": -55.2848,
+        "avg_ticket": 10031.72,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "여행사",
+        "targeted": true,
+        "amt": 283081.0,
+        "events": 30,
+        "policy_paid": 39913.0,
+        "self_paid": 243168.0,
+        "extra": 50000.0,
+        "share": 0.0162,
+        "pre_daily_amt": 28353.43,
+        "post_daily_amt": 84607.0,
+        "delta_daily_amt": 56253.57,
+        "growth_pct": 198.4013,
+        "avg_ticket": 9436.03,
+        "policy_share_pct": 14.0995
+      },
+      {
+        "l1": "식물·꽃",
+        "targeted": false,
+        "amt": 130842.0,
+        "events": 20,
+        "policy_paid": 0.0,
+        "self_paid": 130842.0,
+        "extra": 20000.0,
+        "share": 0.0075,
+        "pre_daily_amt": 14506.29,
+        "post_daily_amt": 29298.0,
+        "delta_daily_amt": 14791.71,
+        "growth_pct": 101.9676,
+        "avg_ticket": 6542.1,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "차량정비",
+        "targeted": false,
+        "amt": 111930.0,
+        "events": 8,
+        "policy_paid": 0.0,
+        "self_paid": 111930.0,
+        "extra": 0.0,
+        "share": 0.0064,
+        "pre_daily_amt": 15990.0,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -15990.0,
+        "growth_pct": -100.0,
+        "avg_ticket": 13991.25,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "의류",
+        "targeted": false,
+        "amt": 100859.0,
+        "events": 5,
+        "policy_paid": 0.0,
+        "self_paid": 100859.0,
+        "extra": 35000.0,
+        "share": 0.0058,
+        "pre_daily_amt": 14408.43,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -14408.43,
+        "growth_pct": -100.0,
+        "avg_ticket": 20171.8,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "세탁",
+        "targeted": false,
+        "amt": 76720.0,
+        "events": 15,
+        "policy_paid": 0.0,
+        "self_paid": 76720.0,
+        "extra": 0.0,
+        "share": 0.0044,
+        "pre_daily_amt": 8892.0,
+        "post_daily_amt": 14476.0,
+        "delta_daily_amt": 5584.0,
+        "growth_pct": 62.798,
+        "avg_ticket": 5114.67,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "식료품",
+        "targeted": false,
+        "amt": 63596.0,
+        "events": 6,
+        "policy_paid": 0.0,
+        "self_paid": 63596.0,
+        "extra": 0.0,
+        "share": 0.0036,
+        "pre_daily_amt": 2829.57,
+        "post_daily_amt": 43789.0,
+        "delta_daily_amt": 40959.43,
+        "growth_pct": 1447.5488,
+        "avg_ticket": 10599.33,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "사진",
+        "targeted": false,
+        "amt": 54528.0,
+        "events": 10,
+        "policy_paid": 0.0,
+        "self_paid": 54528.0,
+        "extra": 0.0,
+        "share": 0.0031,
+        "pre_daily_amt": 6295.71,
+        "post_daily_amt": 10458.0,
+        "delta_daily_amt": 4162.29,
+        "growth_pct": 66.113,
+        "avg_ticket": 5452.8,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "당구",
+        "targeted": false,
+        "amt": 52067.0,
+        "events": 4,
+        "policy_paid": 0.0,
+        "self_paid": 52067.0,
+        "extra": 0.0,
+        "share": 0.003,
+        "pre_daily_amt": 1954.71,
+        "post_daily_amt": 38384.0,
+        "delta_daily_amt": 36429.29,
+        "growth_pct": 1863.6629,
+        "avg_ticket": 13016.75,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "기술서비스",
+        "targeted": false,
+        "amt": 44153.0,
+        "events": 4,
+        "policy_paid": 0.0,
+        "self_paid": 44153.0,
+        "extra": 0.0,
+        "share": 0.0025,
+        "pre_daily_amt": 3673.29,
+        "post_daily_amt": 18440.0,
+        "delta_daily_amt": 14766.71,
+        "growth_pct": 402.0029,
+        "avg_ticket": 11038.25,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "식비",
+        "targeted": false,
+        "amt": 39921.0,
+        "events": 7,
+        "policy_paid": 0.0,
+        "self_paid": 39921.0,
+        "extra": 0.0,
+        "share": 0.0023,
+        "pre_daily_amt": 5703.0,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -5703.0,
+        "growth_pct": -100.0,
+        "avg_ticket": 5703.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "통신",
+        "targeted": true,
+        "amt": 23431.0,
+        "events": 5,
+        "policy_paid": 8872.0,
+        "self_paid": 14559.0,
+        "extra": 35000.0,
+        "share": 0.0013,
+        "pre_daily_amt": 1618.86,
+        "post_daily_amt": 12099.0,
+        "delta_daily_amt": 10480.14,
+        "growth_pct": 647.3791,
+        "avg_ticket": 4686.2,
+        "policy_share_pct": 37.8644
+      },
+      {
+        "l1": "화장품",
+        "targeted": false,
+        "amt": 22915.0,
+        "events": 3,
+        "policy_paid": 0.0,
+        "self_paid": 22915.0,
+        "extra": 0.0,
+        "share": 0.0013,
+        "pre_daily_amt": 2393.57,
+        "post_daily_amt": 6160.0,
+        "delta_daily_amt": 3766.43,
+        "growth_pct": 157.356,
+        "avg_ticket": 7638.33,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "문구",
+        "targeted": false,
+        "amt": 22016.0,
+        "events": 10,
+        "policy_paid": 0.0,
+        "self_paid": 22016.0,
+        "extra": 0.0,
+        "share": 0.0013,
+        "pre_daily_amt": 2855.43,
+        "post_daily_amt": 2028.0,
+        "delta_daily_amt": -827.43,
+        "growth_pct": -28.9774,
+        "avg_ticket": 2201.6,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "기타식사",
+        "targeted": false,
+        "amt": 19728.0,
+        "events": 4,
+        "policy_paid": 0.0,
+        "self_paid": 19728.0,
+        "extra": 0.0,
+        "share": 0.0011,
+        "pre_daily_amt": 1738.29,
+        "post_daily_amt": 7560.0,
+        "delta_daily_amt": 5821.71,
+        "growth_pct": 334.9112,
+        "avg_ticket": 4932.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "일반주점",
+        "targeted": false,
+        "amt": 18715.0,
+        "events": 2,
+        "policy_paid": 0.0,
+        "self_paid": 18715.0,
+        "extra": 0.0,
+        "share": 0.0011,
+        "pre_daily_amt": 2673.57,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -2673.57,
+        "growth_pct": -100.0,
+        "avg_ticket": 9357.5,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "디자인",
+        "targeted": false,
+        "amt": 17558.0,
+        "events": 6,
+        "policy_paid": 0.0,
+        "self_paid": 17558.0,
+        "extra": 3000.0,
+        "share": 0.001,
+        "pre_daily_amt": 2508.29,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -2508.29,
+        "growth_pct": -100.0,
+        "avg_ticket": 2926.33,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "생활용품",
+        "targeted": false,
+        "amt": 15069.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 15069.0,
+        "extra": 0.0,
+        "share": 0.0009,
+        "pre_daily_amt": 2152.71,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -2152.71,
+        "growth_pct": -100.0,
+        "avg_ticket": 15069.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "쇼핑몰",
+        "targeted": false,
+        "amt": 13689.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 13689.0,
+        "extra": 0.0,
+        "share": 0.0008,
+        "pre_daily_amt": 1955.57,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -1955.57,
+        "growth_pct": -100.0,
+        "avg_ticket": 13689.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "오락용품",
+        "targeted": false,
+        "amt": 10521.0,
+        "events": 3,
+        "policy_paid": 0.0,
+        "self_paid": 10521.0,
+        "extra": 0.0,
+        "share": 0.0006,
+        "pre_daily_amt": 307.86,
+        "post_daily_amt": 8366.0,
+        "delta_daily_amt": 8058.14,
+        "growth_pct": 2617.4942,
+        "avg_ticket": 3507.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "레스토랑",
+        "targeted": false,
+        "amt": 10267.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 10267.0,
+        "extra": 5000.0,
+        "share": 0.0006,
+        "pre_daily_amt": 1466.71,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -1466.71,
+        "growth_pct": -100.0,
+        "avg_ticket": 10267.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "카파",
+        "targeted": false,
+        "amt": 9582.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 9582.0,
+        "extra": 0.0,
+        "share": 0.0005,
+        "pre_daily_amt": 0.0,
+        "post_daily_amt": 9582.0,
+        "delta_daily_amt": 9582.0,
+        "growth_pct": null,
+        "avg_ticket": 9582.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "반려동물",
+        "targeted": false,
+        "amt": 8541.0,
+        "events": 2,
+        "policy_paid": 0.0,
+        "self_paid": 8541.0,
+        "extra": 0.0,
+        "share": 0.0005,
+        "pre_daily_amt": 1220.14,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -1220.14,
+        "growth_pct": -100.0,
+        "avg_ticket": 4270.5,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "기타상품",
+        "targeted": false,
+        "amt": 8463.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 8463.0,
+        "extra": 0.0,
+        "share": 0.0005,
+        "pre_daily_amt": 0.0,
+        "post_daily_amt": 8463.0,
+        "delta_daily_amt": 8463.0,
+        "growth_pct": null,
+        "avg_ticket": 8463.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "시설관리",
+        "targeted": false,
+        "amt": 7477.0,
+        "events": 2,
+        "policy_paid": 0.0,
+        "self_paid": 7477.0,
+        "extra": 0.0,
+        "share": 0.0004,
+        "pre_daily_amt": 1068.14,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -1068.14,
+        "growth_pct": -100.0,
+        "avg_ticket": 3738.5,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "수리",
+        "targeted": false,
+        "amt": 6234.0,
+        "events": 2,
+        "policy_paid": 0.0,
+        "self_paid": 6234.0,
+        "extra": 0.0,
+        "share": 0.0004,
+        "pre_daily_amt": 651.86,
+        "post_daily_amt": 1671.0,
+        "delta_daily_amt": 1019.14,
+        "growth_pct": 156.3445,
+        "avg_ticket": 3117.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "식점",
+        "targeted": false,
+        "amt": 5577.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 5577.0,
+        "extra": 0.0,
+        "share": 0.0003,
+        "pre_daily_amt": 0.0,
+        "post_daily_amt": 5577.0,
+        "delta_daily_amt": 5577.0,
+        "growth_pct": null,
+        "avg_ticket": 5577.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "청소",
+        "targeted": false,
+        "amt": 5138.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 5138.0,
+        "extra": 0.0,
+        "share": 0.0003,
+        "pre_daily_amt": 734.0,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -734.0,
+        "growth_pct": -100.0,
+        "avg_ticket": 5138.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "갤러리",
+        "targeted": false,
+        "amt": 5133.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 5133.0,
+        "extra": 0.0,
+        "share": 0.0003,
+        "pre_daily_amt": 733.29,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -733.29,
+        "growth_pct": -100.0,
+        "avg_ticket": 5133.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "식단",
+        "targeted": false,
+        "amt": 4789.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 4789.0,
+        "extra": 0.0,
+        "share": 0.0003,
+        "pre_daily_amt": 684.14,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -684.14,
+        "growth_pct": -100.0,
+        "avg_ticket": 4789.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "욕탕·신체관리",
+        "targeted": false,
+        "amt": 4563.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 4563.0,
+        "extra": 0.0,
+        "share": 0.0003,
+        "pre_daily_amt": 651.86,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -651.86,
+        "growth_pct": -100.0,
+        "avg_ticket": 4563.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "힐링",
+        "targeted": false,
+        "amt": 4563.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 4563.0,
+        "extra": 0.0,
+        "share": 0.0003,
+        "pre_daily_amt": 651.86,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -651.86,
+        "growth_pct": -100.0,
+        "avg_ticket": 4563.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "PC방",
+        "targeted": false,
+        "amt": 3966.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 3966.0,
+        "extra": 0.0,
+        "share": 0.0002,
+        "pre_daily_amt": 0.0,
+        "post_daily_amt": 3966.0,
+        "delta_daily_amt": 3966.0,
+        "growth_pct": null,
+        "avg_ticket": 3966.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "식탁",
+        "targeted": false,
+        "amt": 3475.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 3475.0,
+        "extra": 0.0,
+        "share": 0.0002,
+        "pre_daily_amt": 496.43,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -496.43,
+        "growth_pct": -100.0,
+        "avg_ticket": 3475.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "여가/카페",
+        "targeted": false,
+        "amt": 3384.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 3384.0,
+        "extra": 0.0,
+        "share": 0.0002,
+        "pre_daily_amt": 483.43,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -483.43,
+        "growth_pct": -100.0,
+        "avg_ticket": 3384.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "사업서비스",
+        "targeted": true,
+        "amt": 2852.0,
+        "events": 1,
+        "policy_paid": 1521.0,
+        "self_paid": 1331.0,
+        "extra": 2000.0,
+        "share": 0.0002,
+        "pre_daily_amt": 0.0,
+        "post_daily_amt": 2852.0,
+        "delta_daily_amt": 2852.0,
+        "growth_pct": null,
+        "avg_ticket": 2852.0,
+        "policy_share_pct": 53.331
+      },
+      {
+        "l1": "식수",
+        "targeted": false,
+        "amt": 2788.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 2788.0,
+        "extra": 0.0,
+        "share": 0.0002,
+        "pre_daily_amt": 398.29,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -398.29,
+        "growth_pct": -100.0,
+        "avg_ticket": 2788.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "디저트·베이커리",
+        "targeted": false,
+        "amt": 2170.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 2170.0,
+        "extra": 0.0,
+        "share": 0.0001,
+        "pre_daily_amt": 310.0,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -310.0,
+        "growth_pct": -100.0,
+        "avg_ticket": 2170.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "노래방",
+        "targeted": false,
+        "amt": 1626.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 1626.0,
+        "extra": 0.0,
+        "share": 0.0001,
+        "pre_daily_amt": 232.29,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -232.29,
+        "growth_pct": -100.0,
+        "avg_ticket": 1626.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "레저",
+        "targeted": false,
+        "amt": 761.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 761.0,
+        "extra": 0.0,
+        "share": 0.0,
+        "pre_daily_amt": 108.71,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -108.71,
+        "growth_pct": -100.0,
+        "avg_ticket": 761.0,
+        "policy_share_pct": 0.0
+      },
+      {
+        "l1": "유원지·오락",
+        "targeted": false,
+        "amt": 286.0,
+        "events": 1,
+        "policy_paid": 0.0,
+        "self_paid": 286.0,
+        "extra": 0.0,
+        "share": 0.0,
+        "pre_daily_amt": 40.86,
+        "post_daily_amt": 0.0,
+        "delta_daily_amt": -40.86,
+        "growth_pct": -100.0,
+        "avg_ticket": 286.0,
+        "policy_share_pct": 0.0
+      }
+    ],
+    "did": {
+      "metric": "amt",
+      "treat_categories": [
+        "건강",
+        "교육",
+        "기타",
+        "디저트",
+        "마트",
+        "미용",
+        "사업서비스",
+        "쇼핑",
+        "식사",
+        "여가",
+        "여행사",
+        "주점",
+        "카페",
+        "통신",
+        "편의점"
+      ],
+      "control_categories": [
+        "PC방",
+        "갤러리",
+        "기술서비스",
+        "기타상품",
+        "기타식사",
+        "노래방",
+        "당구",
+        "디자인",
+        "디저트·베이커리",
+        "레스토랑",
+        "레저",
+        "문구",
+        "반려동물",
+        "사진",
+        "생활용품",
+        "세탁",
+        "쇼핑몰",
+        "수리",
+        "시설관리",
+        "식단",
+        "식료품",
+        "식물·꽃",
+        "식비",
+        "식수",
+        "식점",
+        "식탁",
+        "여가/카페",
+        "오락용품",
+        "욕탕·신체관리",
+        "유원지·오락",
+        "의류",
+        "일반주점",
+        "차량정비",
+        "청소",
+        "카파",
+        "헬스장",
+        "화장품",
+        "힐링"
+      ],
+      "pre_days": 7,
+      "post_days": 1,
+      "treat_pre": 212528594.0,
+      "treat_post": 255480163.0,
+      "control_pre": 192370.0,
+      "control_post": 249177.0,
+      "treat_diff": 42951569.0,
+      "control_diff": 56807.0,
+      "treat_growth": 1.202098,
+      "control_growth": 1.295301,
+      "counterfactual_post": 275288441.37,
+      "did_absolute": -19808278.37,
+      "did_relative": -0.093203,
+      "did_pct_of_counterfactual": -7.1955,
+      "naive_before_after": 42951569.0,
+      "bias_removed": 62759847.37,
+      "reliability": {
+        "control_share_pct": 0.0904,
+        "min_control_share_pct": 5.0,
+        "pre_days": 7,
+        "post_days": 1,
+        "reliable": false,
+        "problems": [
+          "대조군이 사전 거래액의 0.09% 뿐입니다 (최소 5%). 반사실이 소수 거래에 끌려갑니다.",
+          "사후가 1일이라 요일 구성이 사전(7일)과 다릅니다. 요일 효과가 정책 효과와 섞입니다."
+        ]
+      }
+    },
+    "did_by_category": [
+      {
+        "l1": "건강",
+        "targeted": true,
+        "pre_daily": 27612270.86,
+        "post_daily": 54504597.0,
+        "delta": 26892326.14,
+        "growth": 1.973927,
+        "growth_pct": 97.3927,
+        "counterfactual_post": 35766194.39,
+        "did_absolute": 18738402.61,
+        "did_pct": 52.3914,
+        "pre_events": 34140.0,
+        "post_events": 9382.0,
+        "policy_paid": 8098998.0,
+        "self_paid": 239691495.0,
+        "amt": 247790493.0
+      },
+      {
+        "l1": "쇼핑",
+        "targeted": true,
+        "pre_daily": 19434105.43,
+        "post_daily": 33747327.0,
+        "delta": 14313221.57,
+        "growth": 1.7365,
+        "growth_pct": 73.65,
+        "counterfactual_post": 25173010.8,
+        "did_absolute": 8574316.2,
+        "did_pct": 34.0615,
+        "pre_events": 10709.0,
+        "post_events": 2414.0,
+        "policy_paid": 3445344.0,
+        "self_paid": 166340721.0,
+        "amt": 169786065.0
+      },
+      {
+        "l1": "교육",
+        "targeted": true,
+        "pre_daily": 12807816.29,
+        "post_daily": 19513327.0,
+        "delta": 6705510.71,
+        "growth": 1.523548,
+        "growth_pct": 52.3548,
+        "counterfactual_post": 16589973.69,
+        "did_absolute": 2923353.31,
+        "did_pct": 17.6212,
+        "pre_events": 7749.0,
+        "post_events": 1652.0,
+        "policy_paid": 3238968.0,
+        "self_paid": 105929073.0,
+        "amt": 109168041.0
+      },
+      {
+        "l1": "미용",
+        "targeted": true,
+        "pre_daily": 3779656.71,
+        "post_daily": 7083702.0,
+        "delta": 3304045.29,
+        "growth": 1.874165,
+        "growth_pct": 87.4165,
+        "counterfactual_post": 4895792.07,
+        "did_absolute": 2187909.93,
+        "did_pct": 44.6896,
+        "pre_events": 2928.0,
+        "post_events": 673.0,
+        "policy_paid": 1087378.0,
+        "self_paid": 32453921.0,
+        "amt": 33541299.0
+      },
+      {
+        "l1": "마트",
+        "targeted": true,
+        "pre_daily": 29854025.14,
+        "post_daily": 40518291.0,
+        "delta": 10664265.86,
+        "growth": 1.357214,
+        "growth_pct": 35.7214,
+        "counterfactual_post": 38669940.34,
+        "did_absolute": 1848350.66,
+        "did_pct": 4.7798,
+        "pre_events": 22134.0,
+        "post_events": 4267.0,
+        "policy_paid": 5683599.0,
+        "self_paid": 243812868.0,
+        "amt": 249496467.0
+      },
+      {
+        "l1": "디저트",
+        "targeted": true,
+        "pre_daily": 624808.86,
+        "post_daily": 1071261.0,
+        "delta": 446452.14,
+        "growth": 1.714542,
+        "growth_pct": 71.4542,
+        "counterfactual_post": 809315.36,
+        "did_absolute": 261945.64,
+        "did_pct": 32.3663,
+        "pre_events": 1566.0,
+        "post_events": 295.0,
+        "policy_paid": 102674.0,
+        "self_paid": 5342249.0,
+        "amt": 5444923.0
+      },
+      {
+        "l1": "여행사",
+        "targeted": true,
+        "pre_daily": 28353.43,
+        "post_daily": 84607.0,
+        "delta": 56253.57,
+        "growth": 2.984013,
+        "growth_pct": 198.4013,
+        "counterfactual_post": 36726.22,
+        "did_absolute": 47880.78,
+        "did_pct": 130.3722,
+        "pre_events": 21.0,
+        "post_events": 9.0,
+        "policy_paid": 39913.0,
+        "self_paid": 243168.0,
+        "amt": 283081.0
+      },
+      {
+        "l1": "식료품",
+        "targeted": false,
+        "pre_daily": 2829.57,
+        "post_daily": 43789.0,
+        "delta": 40959.43,
+        "growth": 15.475488,
+        "growth_pct": 1447.5488,
+        "counterfactual_post": 3665.15,
+        "did_absolute": 40123.85,
+        "did_pct": 1094.741,
+        "pre_events": 3.0,
+        "post_events": 3.0,
+        "policy_paid": 0.0,
+        "self_paid": 63596.0,
+        "amt": 63596.0
+      },
+      {
+        "l1": "당구",
+        "targeted": false,
+        "pre_daily": 1954.71,
+        "post_daily": 38384.0,
+        "delta": 36429.29,
+        "growth": 19.636629,
+        "growth_pct": 1863.6629,
+        "counterfactual_post": 2531.94,
+        "did_absolute": 35852.06,
+        "did_pct": 1415.99,
+        "pre_events": 1.0,
+        "post_events": 3.0,
+        "policy_paid": 0.0,
+        "self_paid": 52067.0,
+        "amt": 52067.0
+      },
+      {
+        "l1": "기술서비스",
+        "targeted": false,
+        "pre_daily": 3673.29,
+        "post_daily": 18440.0,
+        "delta": 14766.71,
+        "growth": 5.020029,
+        "growth_pct": 402.0029,
+        "counterfactual_post": 4758.01,
+        "did_absolute": 13681.99,
+        "did_pct": 287.557,
+        "pre_events": 3.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 44153.0,
+        "amt": 44153.0
+      },
+      {
+        "l1": "식물·꽃",
+        "targeted": false,
+        "pre_daily": 14506.29,
+        "post_daily": 29298.0,
+        "delta": 14791.71,
+        "growth": 2.019676,
+        "growth_pct": 101.9676,
+        "counterfactual_post": 18790.0,
+        "did_absolute": 10508.0,
+        "did_pct": 55.9233,
+        "pre_events": 17.0,
+        "post_events": 3.0,
+        "policy_paid": 0.0,
+        "self_paid": 130842.0,
+        "amt": 130842.0
+      },
+      {
+        "l1": "통신",
+        "targeted": true,
+        "pre_daily": 1618.86,
+        "post_daily": 12099.0,
+        "delta": 10480.14,
+        "growth": 7.473791,
+        "growth_pct": 647.3791,
+        "counterfactual_post": 2096.91,
+        "did_absolute": 10002.09,
+        "did_pct": 476.9927,
+        "pre_events": 3.0,
+        "post_events": 2.0,
+        "policy_paid": 8872.0,
+        "self_paid": 14559.0,
+        "amt": 23431.0
+      },
+      {
+        "l1": "카파",
+        "targeted": false,
+        "pre_daily": 0.0,
+        "post_daily": 9582.0,
+        "delta": 9582.0,
+        "growth": null,
+        "growth_pct": null,
+        "counterfactual_post": 0.0,
+        "did_absolute": 9582.0,
+        "did_pct": null,
+        "pre_events": 0.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 9582.0,
+        "amt": 9582.0
+      },
+      {
+        "l1": "기타상품",
+        "targeted": false,
+        "pre_daily": 0.0,
+        "post_daily": 8463.0,
+        "delta": 8463.0,
+        "growth": null,
+        "growth_pct": null,
+        "counterfactual_post": 0.0,
+        "did_absolute": 8463.0,
+        "did_pct": null,
+        "pre_events": 0.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 8463.0,
+        "amt": 8463.0
+      },
+      {
+        "l1": "오락용품",
+        "targeted": false,
+        "pre_daily": 307.86,
+        "post_daily": 8366.0,
+        "delta": 8058.14,
+        "growth": 27.174942,
+        "growth_pct": 2617.4942,
+        "counterfactual_post": 398.77,
+        "did_absolute": 7967.23,
+        "did_pct": 1997.9639,
+        "pre_events": 1.0,
+        "post_events": 2.0,
+        "policy_paid": 0.0,
+        "self_paid": 10521.0,
+        "amt": 10521.0
+      },
+      {
+        "l1": "식점",
+        "targeted": false,
+        "pre_daily": 0.0,
+        "post_daily": 5577.0,
+        "delta": 5577.0,
+        "growth": null,
+        "growth_pct": null,
+        "counterfactual_post": 0.0,
+        "did_absolute": 5577.0,
+        "did_pct": null,
+        "pre_events": 0.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 5577.0,
+        "amt": 5577.0
+      },
+      {
+        "l1": "기타식사",
+        "targeted": false,
+        "pre_daily": 1738.29,
+        "post_daily": 7560.0,
+        "delta": 5821.71,
+        "growth": 4.349112,
+        "growth_pct": 334.9112,
+        "counterfactual_post": 2251.6,
+        "did_absolute": 5308.4,
+        "did_pct": 235.7608,
+        "pre_events": 2.0,
+        "post_events": 2.0,
+        "policy_paid": 0.0,
+        "self_paid": 19728.0,
+        "amt": 19728.0
+      },
+      {
+        "l1": "PC방",
+        "targeted": false,
+        "pre_daily": 0.0,
+        "post_daily": 3966.0,
+        "delta": 3966.0,
+        "growth": null,
+        "growth_pct": null,
+        "counterfactual_post": 0.0,
+        "did_absolute": 3966.0,
+        "did_pct": null,
+        "pre_events": 0.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 3966.0,
+        "amt": 3966.0
+      },
+      {
+        "l1": "화장품",
+        "targeted": false,
+        "pre_daily": 2393.57,
+        "post_daily": 6160.0,
+        "delta": 3766.43,
+        "growth": 2.57356,
+        "growth_pct": 157.356,
+        "counterfactual_post": 3100.39,
+        "did_absolute": 3059.61,
+        "did_pct": 98.6844,
+        "pre_events": 2.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 22915.0,
+        "amt": 22915.0
+      },
+      {
+        "l1": "세탁",
+        "targeted": false,
+        "pre_daily": 8892.0,
+        "post_daily": 14476.0,
+        "delta": 5584.0,
+        "growth": 1.62798,
+        "growth_pct": 62.798,
+        "counterfactual_post": 11517.81,
+        "did_absolute": 2958.19,
+        "did_pct": 25.6836,
+        "pre_events": 13.0,
+        "post_events": 2.0,
+        "policy_paid": 0.0,
+        "self_paid": 76720.0,
+        "amt": 76720.0
+      },
+      {
+        "l1": "사업서비스",
+        "targeted": true,
+        "pre_daily": 0.0,
+        "post_daily": 2852.0,
+        "delta": 2852.0,
+        "growth": null,
+        "growth_pct": null,
+        "counterfactual_post": 0.0,
+        "did_absolute": 2852.0,
+        "did_pct": null,
+        "pre_events": 0.0,
+        "post_events": 1.0,
+        "policy_paid": 1521.0,
+        "self_paid": 1331.0,
+        "amt": 2852.0
+      },
+      {
+        "l1": "사진",
+        "targeted": false,
+        "pre_daily": 6295.71,
+        "post_daily": 10458.0,
+        "delta": 4162.29,
+        "growth": 1.66113,
+        "growth_pct": 66.113,
+        "counterfactual_post": 8154.84,
+        "did_absolute": 2303.16,
+        "did_pct": 28.2428,
+        "pre_events": 8.0,
+        "post_events": 2.0,
+        "policy_paid": 0.0,
+        "self_paid": 54528.0,
+        "amt": 54528.0
+      },
+      {
+        "l1": "수리",
+        "targeted": false,
+        "pre_daily": 651.86,
+        "post_daily": 1671.0,
+        "delta": 1019.14,
+        "growth": 2.563445,
+        "growth_pct": 156.3445,
+        "counterfactual_post": 844.35,
+        "did_absolute": 826.65,
+        "did_pct": 97.9035,
+        "pre_events": 1.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 6234.0,
+        "amt": 6234.0
+      },
+      {
+        "l1": "유원지·오락",
+        "targeted": false,
+        "pre_daily": 40.86,
+        "post_daily": 0.0,
+        "delta": -40.86,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 52.92,
+        "did_absolute": -52.92,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 286.0,
+        "amt": 286.0
+      },
+      {
+        "l1": "레저",
+        "targeted": false,
+        "pre_daily": 108.71,
+        "post_daily": 0.0,
+        "delta": -108.71,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 140.82,
+        "did_absolute": -140.82,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 761.0,
+        "amt": 761.0
+      },
+      {
+        "l1": "노래방",
+        "targeted": false,
+        "pre_daily": 232.29,
+        "post_daily": 0.0,
+        "delta": -232.29,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 300.88,
+        "did_absolute": -300.88,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 1626.0,
+        "amt": 1626.0
+      },
+      {
+        "l1": "디저트·베이커리",
+        "targeted": false,
+        "pre_daily": 310.0,
+        "post_daily": 0.0,
+        "delta": -310.0,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 401.54,
+        "did_absolute": -401.54,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 2170.0,
+        "amt": 2170.0
+      },
+      {
+        "l1": "식수",
+        "targeted": false,
+        "pre_daily": 398.29,
+        "post_daily": 0.0,
+        "delta": -398.29,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 515.9,
+        "did_absolute": -515.9,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 2788.0,
+        "amt": 2788.0
+      },
+      {
+        "l1": "여가/카페",
+        "targeted": false,
+        "pre_daily": 483.43,
+        "post_daily": 0.0,
+        "delta": -483.43,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 626.19,
+        "did_absolute": -626.19,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 3384.0,
+        "amt": 3384.0
+      },
+      {
+        "l1": "식탁",
+        "targeted": false,
+        "pre_daily": 496.43,
+        "post_daily": 0.0,
+        "delta": -496.43,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 643.02,
+        "did_absolute": -643.02,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 3475.0,
+        "amt": 3475.0
+      },
+      {
+        "l1": "욕탕·신체관리",
+        "targeted": false,
+        "pre_daily": 651.86,
+        "post_daily": 0.0,
+        "delta": -651.86,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 844.35,
+        "did_absolute": -844.35,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 4563.0,
+        "amt": 4563.0
+      },
+      {
+        "l1": "힐링",
+        "targeted": false,
+        "pre_daily": 651.86,
+        "post_daily": 0.0,
+        "delta": -651.86,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 844.35,
+        "did_absolute": -844.35,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 4563.0,
+        "amt": 4563.0
+      },
+      {
+        "l1": "식단",
+        "targeted": false,
+        "pre_daily": 684.14,
+        "post_daily": 0.0,
+        "delta": -684.14,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 886.17,
+        "did_absolute": -886.17,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 4789.0,
+        "amt": 4789.0
+      },
+      {
+        "l1": "갤러리",
+        "targeted": false,
+        "pre_daily": 733.29,
+        "post_daily": 0.0,
+        "delta": -733.29,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 949.83,
+        "did_absolute": -949.83,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 5133.0,
+        "amt": 5133.0
+      },
+      {
+        "l1": "청소",
+        "targeted": false,
+        "pre_daily": 734.0,
+        "post_daily": 0.0,
+        "delta": -734.0,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 950.75,
+        "did_absolute": -950.75,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 5138.0,
+        "amt": 5138.0
+      },
+      {
+        "l1": "시설관리",
+        "targeted": false,
+        "pre_daily": 1068.14,
+        "post_daily": 0.0,
+        "delta": -1068.14,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 1383.57,
+        "did_absolute": -1383.57,
+        "did_pct": -100.0,
+        "pre_events": 2.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 7477.0,
+        "amt": 7477.0
+      },
+      {
+        "l1": "반려동물",
+        "targeted": false,
+        "pre_daily": 1220.14,
+        "post_daily": 0.0,
+        "delta": -1220.14,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 1580.45,
+        "did_absolute": -1580.45,
+        "did_pct": -100.0,
+        "pre_events": 2.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 8541.0,
+        "amt": 8541.0
+      },
+      {
+        "l1": "문구",
+        "targeted": false,
+        "pre_daily": 2855.43,
+        "post_daily": 2028.0,
+        "delta": -827.43,
+        "growth": 0.710226,
+        "growth_pct": -28.9774,
+        "counterfactual_post": 3698.64,
+        "did_absolute": -1670.64,
+        "did_pct": -45.169,
+        "pre_events": 9.0,
+        "post_events": 1.0,
+        "policy_paid": 0.0,
+        "self_paid": 22016.0,
+        "amt": 22016.0
+      },
+      {
+        "l1": "레스토랑",
+        "targeted": false,
+        "pre_daily": 1466.71,
+        "post_daily": 0.0,
+        "delta": -1466.71,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 1899.84,
+        "did_absolute": -1899.84,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 10267.0,
+        "amt": 10267.0
+      },
+      {
+        "l1": "쇼핑몰",
+        "targeted": false,
+        "pre_daily": 1955.57,
+        "post_daily": 0.0,
+        "delta": -1955.57,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 2533.05,
+        "did_absolute": -2533.05,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 13689.0,
+        "amt": 13689.0
+      },
+      {
+        "l1": "생활용품",
+        "targeted": false,
+        "pre_daily": 2152.71,
+        "post_daily": 0.0,
+        "delta": -2152.71,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 2788.41,
+        "did_absolute": -2788.41,
+        "did_pct": -100.0,
+        "pre_events": 1.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 15069.0,
+        "amt": 15069.0
+      },
+      {
+        "l1": "디자인",
+        "targeted": false,
+        "pre_daily": 2508.29,
+        "post_daily": 0.0,
+        "delta": -2508.29,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 3248.98,
+        "did_absolute": -3248.98,
+        "did_pct": -100.0,
+        "pre_events": 6.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 17558.0,
+        "amt": 17558.0
+      },
+      {
+        "l1": "일반주점",
+        "targeted": false,
+        "pre_daily": 2673.57,
+        "post_daily": 0.0,
+        "delta": -2673.57,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 3463.08,
+        "did_absolute": -3463.08,
+        "did_pct": -100.0,
+        "pre_events": 2.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 18715.0,
+        "amt": 18715.0
+      },
+      {
+        "l1": "식비",
+        "targeted": false,
+        "pre_daily": 5703.0,
+        "post_daily": 0.0,
+        "delta": -5703.0,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 7387.1,
+        "did_absolute": -7387.1,
+        "did_pct": -100.0,
+        "pre_events": 7.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 39921.0,
+        "amt": 39921.0
+      },
+      {
+        "l1": "의류",
+        "targeted": false,
+        "pre_daily": 14408.43,
+        "post_daily": 0.0,
+        "delta": -14408.43,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 18663.25,
+        "did_absolute": -18663.25,
+        "did_pct": -100.0,
+        "pre_events": 5.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 100859.0,
+        "amt": 100859.0
+      },
+      {
+        "l1": "차량정비",
+        "targeted": false,
+        "pre_daily": 15990.0,
+        "post_daily": 0.0,
+        "delta": -15990.0,
+        "growth": 0.0,
+        "growth_pct": -100.0,
+        "counterfactual_post": 20711.86,
+        "did_absolute": -20711.86,
+        "did_pct": -100.0,
+        "pre_events": 8.0,
+        "post_events": 0.0,
+        "policy_paid": 0.0,
+        "self_paid": 111930.0,
+        "amt": 111930.0
+      },
+      {
+        "l1": "헬스장",
+        "targeted": false,
+        "pre_daily": 91599.71,
+        "post_daily": 40959.0,
+        "delta": -50640.71,
+        "growth": 0.447152,
+        "growth_pct": -55.2848,
+        "counterfactual_post": 118649.18,
+        "did_absolute": -77690.18,
+        "did_pct": -65.4789,
+        "pre_events": 61.0,
+        "post_events": 7.0,
+        "policy_paid": 0.0,
+        "self_paid": 682157.0,
+        "amt": 682157.0
+      },
+      {
+        "l1": "기타",
+        "targeted": true,
+        "pre_daily": 182027.29,
+        "post_daily": 74118.0,
+        "delta": -107909.29,
+        "growth": 0.407181,
+        "growth_pct": -59.2819,
+        "counterfactual_post": 235780.07,
+        "did_absolute": -161662.07,
+        "did_pct": -68.5648,
+        "pre_events": 320.0,
+        "post_events": 16.0,
+        "policy_paid": 8730.0,
+        "self_paid": 1339579.0,
+        "amt": 1348309.0
+      },
+      {
+        "l1": "주점",
+        "targeted": true,
+        "pre_daily": 252942.43,
+        "post_daily": 123403.0,
+        "delta": -129539.43,
+        "growth": 0.48787,
+        "growth_pct": -51.213,
+        "counterfactual_post": 327636.51,
+        "did_absolute": -204233.51,
+        "did_pct": -62.3354,
+        "pre_events": 165.0,
+        "post_events": 11.0,
+        "policy_paid": 26710.0,
+        "self_paid": 1867290.0,
+        "amt": 1894000.0
+      },
+      {
+        "l1": "카페",
+        "targeted": true,
+        "pre_daily": 18340966.29,
+        "post_daily": 20035975.0,
+        "delta": 1695008.71,
+        "growth": 1.092417,
+        "growth_pct": 9.2417,
+        "counterfactual_post": 23757066.88,
+        "did_absolute": -3721091.88,
+        "did_pct": -15.6631,
+        "pre_events": 38954.0,
+        "post_events": 6087.0,
+        "policy_paid": 615439.0,
+        "self_paid": 147807300.0,
+        "amt": 148422739.0
+      },
+      {
+        "l1": "편의점",
+        "targeted": true,
+        "pre_daily": 14470509.43,
+        "post_daily": 14105325.0,
+        "delta": -365184.43,
+        "growth": 0.974764,
+        "growth_pct": -2.5236,
+        "counterfactual_post": 18743661.32,
+        "did_absolute": -4638336.32,
+        "did_pct": -24.7462,
+        "pre_events": 37848.0,
+        "post_events": 5772.0,
+        "policy_paid": 1298209.0,
+        "self_paid": 114100682.0,
+        "amt": 115398891.0
+      },
+      {
+        "l1": "여가",
+        "targeted": true,
+        "pre_daily": 18280627.29,
+        "post_daily": 9002984.0,
+        "delta": -9277643.29,
+        "growth": 0.492488,
+        "growth_pct": -50.7512,
+        "counterfactual_post": 23678909.73,
+        "did_absolute": -14675925.73,
+        "did_pct": -61.9789,
+        "pre_events": 21836.0,
+        "post_events": 1382.0,
+        "policy_paid": 905945.0,
+        "self_paid": 136061430.0,
+        "amt": 136967375.0
+      },
+      {
+        "l1": "식사",
+        "targeted": true,
+        "pre_daily": 66858865.71,
+        "post_daily": 55600295.0,
+        "delta": -11258570.71,
+        "growth": 0.831607,
+        "growth_pct": -16.8393,
+        "counterfactual_post": 86602337.07,
+        "did_absolute": -31002042.07,
+        "did_pct": -35.7982,
+        "pre_events": 83046.0,
+        "post_events": 10491.0,
+        "policy_paid": 6832084.0,
+        "self_paid": 516780271.0,
+        "amt": 523612355.0
+      }
+    ],
+    "event_study": {
+      "available": true,
+      "reason": null,
+      "baseline_log_gap": 7.075071,
+      "points": [
+        {
+          "day": "2025-07-14",
+          "rel_day": -7,
+          "treat": 225063642.0,
+          "control": 114053.0,
+          "log_gap": 7.587475,
+          "normalized_gap": 0.512404
+        },
+        {
+          "day": "2025-07-15",
+          "rel_day": -6,
+          "treat": 230827726.0,
+          "control": 147392.0,
+          "log_gap": 7.356331,
+          "normalized_gap": 0.28126
+        },
+        {
+          "day": "2025-07-16",
+          "rel_day": -5,
+          "treat": 234798621.0,
+          "control": 137675.0,
+          "log_gap": 7.441588,
+          "normalized_gap": 0.366517
+        },
+        {
+          "day": "2025-07-17",
+          "rel_day": -4,
+          "treat": 225914532.0,
+          "control": 136926.0,
+          "log_gap": 7.408471,
+          "normalized_gap": 0.3334
+        },
+        {
+          "day": "2025-07-18",
+          "rel_day": -3,
+          "treat": 200827848.0,
+          "control": 210511.0,
+          "log_gap": 6.860665,
+          "normalized_gap": -0.214406
+        },
+        {
+          "day": "2025-07-19",
+          "rel_day": -2,
+          "treat": 191045377.0,
+          "control": 255766.0,
+          "log_gap": 6.616003,
+          "normalized_gap": -0.459068
+        },
+        {
+          "day": "2025-07-20",
+          "rel_day": -1,
+          "treat": 179222412.0,
+          "control": 344267.0,
+          "log_gap": 6.254965,
+          "normalized_gap": -0.820106
+        },
+        {
+          "day": "2025-07-21",
+          "rel_day": 0,
+          "treat": 255480163.0,
+          "control": 249177.0,
+          "log_gap": 6.932737,
+          "normalized_gap": -0.142334
+        }
+      ]
+    },
+    "overlay": {
+      "available": true,
+      "reason": null,
+      "window_days": 1,
+      "note": "사전 7일 중 마지막 1일과 사후 1일 중 처음 1일을 같은 길이로 잘라 겹쳤습니다. 길이를 맞추지 않으면 두 곡선의 면적을 비교할 수 없습니다.",
+      "overall": {
+        "labels": [
+          "1일차"
+        ],
+        "pre_days": [
+          "2025-07-20"
+        ],
+        "post_days": [
+          "2025-07-21"
+        ],
+        "pre": [
+          179566679.0
+        ],
+        "post": [
+          255729340.0
+        ],
+        "delta": [
+          76162661.0
+        ]
+      },
+      "by_category": {
+        "식사": {
+          "pre": [
+            45246517.0
+          ],
+          "post": [
+            55600295.0
+          ],
+          "delta": [
+            10353778.0
+          ]
+        },
+        "마트": {
+          "pre": [
+            24013397.0
+          ],
+          "post": [
+            40518291.0
+          ],
+          "delta": [
+            16504894.0
+          ]
+        },
+        "건강": {
+          "pre": [
+            15430162.0
+          ],
+          "post": [
+            54504597.0
+          ],
+          "delta": [
+            39074435.0
+          ]
+        },
+        "쇼핑": {
+          "pre": [
+            27498544.0
+          ],
+          "post": [
+            33747327.0
+          ],
+          "delta": [
+            6248783.0
+          ]
+        },
+        "카페": {
+          "pre": [
+            12452316.0
+          ],
+          "post": [
+            20035975.0
+          ],
+          "delta": [
+            7583659.0
+          ]
+        },
+        "여가": {
+          "pre": [
+            30248294.0
+          ],
+          "post": [
+            9002984.0
+          ],
+          "delta": [
+            -21245310.0
+          ]
+        },
+        "편의점": {
+          "pre": [
+            5848165.0
+          ],
+          "post": [
+            14105325.0
+          ],
+          "delta": [
+            8257160.0
+          ]
+        },
+        "교육": {
+          "pre": [
+            13205630.0
+          ],
+          "post": [
+            19513327.0
+          ],
+          "delta": [
+            6307697.0
+          ]
+        },
+        "미용": {
+          "pre": [
+            3929797.0
+          ],
+          "post": [
+            7083702.0
+          ],
+          "delta": [
+            3153905.0
+          ]
+        },
+        "디저트": {
+          "pre": [
+            1008230.0
+          ],
+          "post": [
+            1071261.0
+          ],
+          "delta": [
+            63031.0
+          ]
+        },
+        "주점": {
+          "pre": [
+            197988.0
+          ],
+          "post": [
+            123403.0
+          ],
+          "delta": [
+            -74585.0
+          ]
+        },
+        "기타": {
+          "pre": [
+            90603.0
+          ],
+          "post": [
+            74118.0
+          ],
+          "delta": [
+            -16485.0
+          ]
+        },
+        "헬스장": {
+          "pre": [
+            126515.0
+          ],
+          "post": [
+            40959.0
+          ],
+          "delta": [
+            -85556.0
+          ]
+        },
+        "여행사": {
+          "pre": [
+            52769.0
+          ],
+          "post": [
+            84607.0
+          ],
+          "delta": [
+            31838.0
+          ]
+        },
+        "식물·꽃": {
+          "pre": [
+            50066.0
+          ],
+          "post": [
+            29298.0
+          ],
+          "delta": [
+            -20768.0
+          ]
+        },
+        "차량정비": {
+          "pre": [
+            1799.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -1799.0
+          ]
+        },
+        "의류": {
+          "pre": [
+            71486.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -71486.0
+          ]
+        },
+        "세탁": {
+          "pre": [
+            25441.0
+          ],
+          "post": [
+            14476.0
+          ],
+          "delta": [
+            -10965.0
+          ]
+        },
+        "식료품": {
+          "pre": [
+            6261.0
+          ],
+          "post": [
+            43789.0
+          ],
+          "delta": [
+            37528.0
+          ]
+        },
+        "사진": {
+          "pre": [
+            12814.0
+          ],
+          "post": [
+            10458.0
+          ],
+          "delta": [
+            -2356.0
+          ]
+        },
+        "당구": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            38384.0
+          ],
+          "delta": [
+            38384.0
+          ]
+        },
+        "기술서비스": {
+          "pre": [
+            2535.0
+          ],
+          "post": [
+            18440.0
+          ],
+          "delta": [
+            15905.0
+          ]
+        },
+        "식비": {
+          "pre": [
+            13809.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -13809.0
+          ]
+        },
+        "통신": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            12099.0
+          ],
+          "delta": [
+            12099.0
+          ]
+        },
+        "화장품": {
+          "pre": [
+            3066.0
+          ],
+          "post": [
+            6160.0
+          ],
+          "delta": [
+            3094.0
+          ]
+        },
+        "문구": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            2028.0
+          ],
+          "delta": [
+            2028.0
+          ]
+        },
+        "기타식사": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            7560.0
+          ],
+          "delta": [
+            7560.0
+          ]
+        },
+        "일반주점": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "디자인": {
+          "pre": [
+            860.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -860.0
+          ]
+        },
+        "생활용품": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "쇼핑몰": {
+          "pre": [
+            13689.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -13689.0
+          ]
+        },
+        "오락용품": {
+          "pre": [
+            2155.0
+          ],
+          "post": [
+            8366.0
+          ],
+          "delta": [
+            6211.0
+          ]
+        },
+        "레스토랑": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "카파": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            9582.0
+          ],
+          "delta": [
+            9582.0
+          ]
+        },
+        "반려동물": {
+          "pre": [
+            2028.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -2028.0
+          ]
+        },
+        "기타상품": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            8463.0
+          ],
+          "delta": [
+            8463.0
+          ]
+        },
+        "시설관리": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "수리": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            1671.0
+          ],
+          "delta": [
+            1671.0
+          ]
+        },
+        "식점": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            5577.0
+          ],
+          "delta": [
+            5577.0
+          ]
+        },
+        "청소": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "갤러리": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "식단": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "욕탕·신체관리": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "힐링": {
+          "pre": [
+            4563.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -4563.0
+          ]
+        },
+        "PC방": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            3966.0
+          ],
+          "delta": [
+            3966.0
+          ]
+        },
+        "식탁": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "여가/카페": {
+          "pre": [
+            3384.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -3384.0
+          ]
+        },
+        "사업서비스": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            2852.0
+          ],
+          "delta": [
+            2852.0
+          ]
+        },
+        "식수": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "디저트·베이커리": {
+          "pre": [
+            2170.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -2170.0
+          ]
+        },
+        "노래방": {
+          "pre": [
+            1626.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            -1626.0
+          ]
+        },
+        "레저": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        },
+        "유원지·오락": {
+          "pre": [
+            0.0
+          ],
+          "post": [
+            0.0
+          ],
+          "delta": [
+            0.0
+          ]
+        }
+      }
+    },
+    "deciles": {
+      "available": true,
+      "reason": null,
+      "items": [
+        {
+          "decile": 1,
+          "agents_pre": 3885,
+          "agents_post": 555,
+          "grant_total": 222000000.0,
+          "policy_spend_total": 1407195.0,
+          "per_capita_pre": 67251.64,
+          "per_capita_post": 75922.26,
+          "per_capita_delta": 8670.62,
+          "per_capita_growth_pct": 12.8928,
+          "treated": true
+        },
+        {
+          "decile": 2,
+          "agents_pre": 6902,
+          "agents_post": 986,
+          "grant_total": 295800000.0,
+          "policy_spend_total": 2953231.0,
+          "per_capita_pre": 88347.38,
+          "per_capita_post": 97197.15,
+          "per_capita_delta": 8849.77,
+          "per_capita_growth_pct": 10.017,
+          "treated": true
+        },
+        {
+          "decile": 3,
+          "agents_pre": 4417,
+          "agents_post": 631,
+          "grant_total": 94650000.0,
+          "policy_spend_total": 1692355.0,
+          "per_capita_pre": 76902.96,
+          "per_capita_post": 85349.84,
+          "per_capita_delta": 8446.89,
+          "per_capita_growth_pct": 10.9838,
+          "treated": true
+        },
+        {
+          "decile": 4,
+          "agents_pre": 4802,
+          "agents_post": 686,
+          "grant_total": 102900000.0,
+          "policy_spend_total": 2103612.0,
+          "per_capita_pre": 84231.35,
+          "per_capita_post": 91425.44,
+          "per_capita_delta": 7194.09,
+          "per_capita_growth_pct": 8.5409,
+          "treated": true
+        },
+        {
+          "decile": 5,
+          "agents_pre": 5025,
+          "agents_post": 718,
+          "grant_total": 107700000.0,
+          "policy_spend_total": 2037715.0,
+          "per_capita_pre": 89951.97,
+          "per_capita_post": 97536.35,
+          "per_capita_delta": 7584.38,
+          "per_capita_growth_pct": 8.4316,
+          "treated": true
+        },
+        {
+          "decile": 6,
+          "agents_pre": 5215,
+          "agents_post": 745,
+          "grant_total": 111750000.0,
+          "policy_spend_total": 2666325.0,
+          "per_capita_pre": 99037.99,
+          "per_capita_post": 109033.27,
+          "per_capita_delta": 9995.28,
+          "per_capita_growth_pct": 10.0924,
+          "treated": true
+        },
+        {
+          "decile": 7,
+          "agents_pre": 5368,
+          "agents_post": 767,
+          "grant_total": 115050000.0,
+          "policy_spend_total": 2819785.0,
+          "per_capita_pre": 112328.46,
+          "per_capita_post": 123284.28,
+          "per_capita_delta": 10955.82,
+          "per_capita_growth_pct": 9.7534,
+          "treated": true
+        },
+        {
+          "decile": 8,
+          "agents_pre": 5667,
+          "agents_post": 810,
+          "grant_total": 121500000.0,
+          "policy_spend_total": 3527402.0,
+          "per_capita_pre": 129249.23,
+          "per_capita_post": 140034.86,
+          "per_capita_delta": 10785.63,
+          "per_capita_growth_pct": 8.3448,
+          "treated": true
+        },
+        {
+          "decile": 9,
+          "agents_pre": 5577,
+          "agents_post": 796,
+          "grant_total": 119400000.0,
+          "policy_spend_total": 4093584.0,
+          "per_capita_pre": 157364.91,
+          "per_capita_post": 155857.73,
+          "per_capita_delta": -1507.18,
+          "per_capita_growth_pct": -0.9578,
+          "treated": true
+        },
+        {
+          "decile": 10,
+          "agents_pre": 5591,
+          "agents_post": 799,
+          "grant_total": 119850000.0,
+          "policy_spend_total": 8093180.0,
+          "per_capita_pre": 233573.58,
+          "per_capita_post": 98892.0,
+          "per_capita_delta": -134681.57,
+          "per_capita_growth_pct": -57.6613,
+          "treated": true
+        }
+      ]
+    },
+    "daytype": {
+      "weekday": {
+        "events": 212853.0,
+        "amt": 1373908266.0,
+        "policy_paid": 31394384.0,
+        "self_paid": 1342513882.0,
+        "extra": 47233300.0,
+        "eligible": 210802.0,
+        "wba": 26205.0
+      },
+      "weekend": {
+        "events": 91220.0,
+        "amt": 370867822.0,
+        "policy_paid": 0.0,
+        "self_paid": 370867822.0,
+        "extra": 27721400.0,
+        "eligible": 90045.0,
+        "wba": 9873.0
+      }
+    },
+    "districts": {},
+    "policy_paid_by_policy_id": {
+      "P010": 31394384.0
+    },
+    "mix": {
+      "policy_paid": 31394384.0,
+      "self_paid": 1713381704.0,
+      "extra": 74954700.0,
+      "amt": 1744776088.0,
+      "leverage": 55.5761,
+      "deadweight_events": 36078,
+      "deadweight_share_pct": 11.8649
+    },
+    "metrics_available": true,
+    "metrics_reason": null,
+    "unknown": [
+      "districts",
+      "per_capita"
+    ]
+  },
+  "consistency": {
+    "checks": [
+      {
+        "id": "daily_sum_amt",
+        "label": "일자별 소비금액의 합이 전체 총계와 같다",
+        "status": "pass",
+        "expected": 1744776088.0,
+        "actual": 1744776088.0,
+        "diff": 0.0,
+        "tolerance": 1752.776088,
+        "note": null
+      },
+      {
+        "id": "daily_sum_events",
+        "label": "일자별 이벤트 수의 합이 전체 이벤트 수와 같다",
+        "status": "pass",
+        "expected": 304073.0,
+        "actual": 304073.0,
+        "diff": 0.0,
+        "tolerance": 0.804073,
+        "note": null
+      },
+      {
+        "id": "daily_sum_policy",
+        "label": "일자별 정책지급액의 합이 전체 정책지급액과 같다",
+        "status": "pass",
+        "expected": 31394384.0,
+        "actual": 31394384.0,
+        "diff": 0.0,
+        "tolerance": 39.394384,
+        "note": null
+      },
+      {
+        "id": "category_sum_amt",
+        "label": "업종별 소비금액의 합이 전체 총계와 같다",
+        "status": "pass",
+        "expected": 1744776088.0,
+        "actual": 1744776088.0,
+        "diff": 0.0,
+        "tolerance": 1797.776088,
+        "note": null
+      },
+      {
+        "id": "category_share_100",
+        "label": "업종별 구성비의 합이 100%다",
+        "status": "pass",
+        "expected": 100.0,
+        "actual": 100.0002,
+        "diff": 0.0002,
+        "tolerance": 0.0101,
+        "note": null
+      },
+      {
+        "id": "mix_components",
+        "label": "정책지급액 + 자기부담액 = 총 소비금액",
+        "status": "pass",
+        "expected": 1744776088.0,
+        "actual": 1744776088.0,
+        "diff": 0.0,
+        "tolerance": 1752.776088,
+        "note": null
+      },
+      {
+        "id": "policy_id_sum",
+        "label": "정책 ID별 지급액의 합이 전체 정책지급액과 같다",
+        "status": "pass",
+        "expected": 31394384.0,
+        "actual": 31394384.0,
+        "diff": 0.0,
+        "tolerance": 32.394384,
+        "note": null
+      },
+      {
+        "id": "policy_le_amount",
+        "label": "어떤 업종에서도 정책지급액이 소비금액을 넘지 않는다",
+        "status": "pass",
+        "expected": 0,
+        "actual": 0,
+        "diff": 0,
+        "tolerance": 0,
+        "note": null
+      },
+      {
+        "id": "period_partition",
+        "label": "사전기간과 사후기간이 전체 일자를 겹침 없이 정확히 나눈다",
+        "status": "pass",
+        "expected": 8,
+        "actual": 8,
+        "diff": 0,
+        "tolerance": 0,
+        "note": "사전 7일 · 사후 1일 · 중복 0일"
+      },
+      {
+        "id": "did_counterfactual",
+        "label": "반사실값 = 처치군 사전 × 대조군 성장률",
+        "status": "pass",
+        "expected": 275288441.37,
+        "actual": 275288500.3368,
+        "diff": 58.966794,
+        "tolerance": 276.288441,
+        "note": null
+      },
+      {
+        "id": "did_identity",
+        "label": "DID = 처치군 사후 − 반사실값",
+        "status": "pass",
+        "expected": -19808278.37,
+        "actual": -19808278.37,
+        "diff": -0.0,
+        "tolerance": 20.808278,
+        "note": null
+      },
+      {
+        "id": "did_bias",
+        "label": "단순 전후비교 − DID = 제거된 시장추세",
+        "status": "pass",
+        "expected": 62759847.37,
+        "actual": 62759847.37,
+        "diff": 0.0,
+        "tolerance": 63.759847,
+        "note": null
+      },
+      {
+        "id": "did_category_sum",
+        "label": "정책 대상 업종별 DID 의 합 = 처치군 전체 DID",
+        "status": "pass",
+        "expected": -19808278.37,
+        "actual": -19808278.36,
+        "diff": 0.01,
+        "tolerance": 72.808278,
+        "note": "같은 대조군 성장률로 반사실을 만들었으므로 두 값은 반드시 같아야 한다."
+      },
+      {
+        "id": "did_relative",
+        "label": "상대 DID = 처치군 성장률 − 대조군 성장률",
+        "status": "pass",
+        "expected": -0.0932,
+        "actual": -0.0932,
+        "diff": 0.0,
+        "tolerance": 1e-05,
+        "note": null
+      },
+      {
+        "id": "category_did_alignment",
+        "label": "업종 비교표와 DID 표가 같은 사전 일평균을 쓴다",
+        "status": "pass",
+        "expected": 0,
+        "actual": 0,
+        "diff": 0,
+        "tolerance": 0,
+        "note": null
+      },
+      {
+        "id": "overlay_window",
+        "label": "겹쳐보기의 전/후 구간이 같은 길이이고 각각 올바른 기간에서 나왔다",
+        "status": "pass",
+        "expected": 1,
+        "actual": 1,
+        "diff": 0,
+        "tolerance": 0,
+        "note": "2025-07-20~2025-07-20 vs 2025-07-21~2025-07-21"
+      },
+      {
+        "id": "overlay_pre_total",
+        "label": "겹쳐보기 사전 곡선의 합이 해당 일자의 원장 합계와 같다",
+        "status": "pass",
+        "expected": 179566679.0,
+        "actual": 179566679.0,
+        "diff": 0.0,
+        "tolerance": 180.566679,
+        "note": null
+      },
+      {
+        "id": "overlay_post_total",
+        "label": "겹쳐보기 사후 곡선의 합이 해당 일자의 원장 합계와 같다",
+        "status": "pass",
+        "expected": 255729340.0,
+        "actual": 255729340.0,
+        "diff": 0.0,
+        "tolerance": 256.72934,
+        "note": null
+      },
+      {
+        "id": "overlay_category_total",
+        "label": "겹쳐보기 업종별 사후 곡선의 합이 전체 사후 곡선의 합과 같다",
+        "status": "pass",
+        "expected": 255729340.0,
+        "actual": 255729340.0,
+        "diff": 0.0,
+        "tolerance": 361.72934,
+        "note": null
+      },
+      {
+        "id": "event_study_points",
+        "label": "이벤트 스터디의 관측 일수가 분석 일수와 같다",
+        "status": "pass",
+        "expected": 8.0,
+        "actual": 8.0,
+        "diff": 0.0,
+        "tolerance": 8e-06,
+        "note": null
+      },
+      {
+        "id": "decile_treated_present",
+        "label": "지급을 받은 분위가 한 개 이상 존재한다",
+        "status": "pass",
+        "expected": ">=1",
+        "actual": 10,
+        "diff": null,
+        "tolerance": 0,
+        "note": "지급 분위가 하나도 없으면 정책이 배선되지 않았다는 뜻이다."
+      }
+    ],
+    "counts": {
+      "pass": 21,
+      "fail": 0,
+      "skip": 0,
+      "total": 21
+    },
+    "consistent": true,
+    "verdict": "모든 항등식이 일치합니다.",
+    "failed_ids": [],
+    "skipped_ids": []
+  },
+  "narration": {
+    "llm": {
+      "provider": "none",
+      "configured": false,
+      "model": "",
+      "reason": "해설 LLM 이 설정되지 않았습니다. .env 에 GEMINI_API_KEY 를 넣으면 켜집니다. 지금은 보고서가 계산 결과만으로 생성되며 해설 문장은 결정론적 서술로 대체됩니다.",
+      "env_files": [],
+      "expects": {
+        "gemini": [
+          "GEMINI_API_KEY",
+          "GEMINI_MODEL(선택)"
+        ],
+        "openai": [
+          "REPORT_LLM_BASE_URL",
+          "REPORT_LLM_MODEL",
+          "REPORT_LLM_API_KEY(선택)"
+        ]
+      },
+      "key_present": {
+        "GEMINI_API_KEY": false,
+        "REPORT_LLM_BASE_URL": false,
+        "REPORT_LLM_API_KEY": false
+      },
+      "unknown": []
+    },
+    "used_llm": false,
+    "sections": {
+      "overview": {
+        "text": "EXP7500 실행의 8일 구간을 분석했습니다. 정책 P010의 시행일은 2025-07-21이며, 사전 7일과 사후 1일로 나누어 비교했습니다. 아래의 모든 수치는 run snapshot 의 events.jsonl 과 metrics 파일에서 직접 집계한 값입니다.",
+        "source": "deterministic",
+        "model": null,
+        "guard": null
+      },
+      "did": {
+        "text": "정책 대상 업종과 비대상 업종을 각각 처치군과 대조군으로 두고, 대조군의 사전 대비 사후 성장률을 처치군에 적용해 반사실값을 만들었습니다. 실제 사후값과 반사실값의 차이가 이중차분 추정치입니다. 단순 전후비교에는 시장 전체의 추세가 섞여 있으므로 두 값을 함께 보아야 합니다.",
+        "source": "deterministic",
+        "model": null,
+        "guard": null
+      },
+      "categories": {
+        "text": "업종별로 사전 일평균과 사후 일평균을 비교했습니다. 증감률만으로는 시장 전체의 변화와 정책 효과를 구분할 수 없으므로, 같은 표의 이중차분 열을 함께 확인해야 합니다.",
+        "source": "deterministic",
+        "model": null,
+        "guard": null
+      },
+      "overlay": {
+        "text": "시행 전 구간과 시행 후 구간을 같은 길이로 잘라 하나의 축에 겹쳤습니다. 두 곡선 사이의 면적이 소비가 달라진 크기이며, 색은 방향을 나타냅니다.",
+        "source": "deterministic",
+        "model": null,
+        "guard": null
+      },
+      "consistency": {
+        "text": "섹션 사이의 항등식 21건을 다시 계산해 대조했습니다. 모든 항등식이 일치합니다.",
+        "source": "deterministic",
+        "model": null,
+        "guard": null
+      }
+    },
+    "guard_rejected": [],
+    "errors": []
+  },
+  "provenance": "DASOL 생성 기록 · run=EXP7500 · policy=P010 · snapshot=run-files · 분석=timeseries, overlay, categories, did, did_by_category, deciles, structure · 인터뷰=제외 · 검증된 원본 파일=19개"
+}

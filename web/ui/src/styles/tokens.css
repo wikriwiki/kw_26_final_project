@@ -1,0 +1,107 @@
+/* ==========================================================================
+   디자인 토큰 — docs/DESIGN_SPEC_WEB_CONSOLE.md §2~§5 를 그대로 옮긴 것.
+   컴포넌트에서 raw hex 를 쓰지 않는다. 반드시 이 변수만 참조한다.
+   ========================================================================== */
+
+:root {
+  color-scheme: light;
+
+  /* --- §2 색 (라이트 기본, 본문 AAA) --------------------------------------- */
+  --bg: #f8fafc;             /* 페이지 배경 */
+  --surface: #ffffff;        /* 카드·패널 */
+  --surface-sunken: #f1f5f9; /* 표 헤더, 입력 배경 */
+  --fg: #0f172a;             /* 본문 — bg 대비 17.1:1 */
+  --fg-muted: #475569;       /* 보조 — bg 대비 7.2:1 */
+  --fg-subtle: #64748b;      /* 5.2:1. 본문·캡션 금지. 비활성 텍스트 전용 */
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --primary: #1e3a5f;        /* 네이비 */
+  --primary-hover: #16304f;
+  --on-primary: #ffffff;
+  --ring: #2563eb;           /* 포커스 링 */
+
+  /* 상태 — 반드시 아이콘/텍스트와 함께 쓴다 (색만으로 의미 전달 금지) */
+  --ok: #166534;
+  --warn: #854d0e;
+  --danger: #991b1b;
+  --info: #1e40af;
+  --ok-bg: #f0fdf4;
+  --warn-bg: #fefce8;
+  --danger-bg: #fef2f2;
+  --info-bg: #eff6ff;
+  --ok-border: #bbf7d0;
+  --warn-border: #fef08a;
+  --danger-border: #fecaca;
+  --info-border: #bfdbfe;
+
+  /* 데이터 막대 — 단색만. 두 계열 이상 쓰지 않는다 */
+  --bar: #1e3a5f;
+  --bar-alt: #1e40af;
+  --bar-track: #e2e8f0;
+
+  /* 모달·드로어 스크림 */
+  --scrim: rgba(15, 23, 42, 0.44);
+
+  /* --- §3 타이포 ----------------------------------------------------------- */
+  --font-sans: Inter, "Pretendard", "Noto Sans KR", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  --fs-caption: 12px;  /* 캡션·레이블 전용. 본문 금지 */
+  --fs-sm: 13px;
+  --fs-md: 14px;
+  --fs-body: 16px;     /* 본문 기본 */
+  --fs-lg: 20px;
+  --fs-xl: 24px;
+  --fs-2xl: 32px;
+
+  --lh-body: 1.6;
+  --lh-tight: 1.35;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+
+  /* --- §4 형태 ------------------------------------------------------------- */
+  --radius: 6px;        /* 카드·입력·버튼 */
+  --radius-badge: 4px;  /* 뱃지 */
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --hairline: 1px solid var(--border);
+
+  /* --- §5 간격 (4/8 리듬) --------------------------------------------------- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 24px;
+  --sp-6: 32px;
+  --sp-7: 48px;
+
+  /* --- §6 레이아웃 ---------------------------------------------------------- */
+  --page-max: 1440px;
+  --rail-w: 56px;
+  --drawer-w: 240px;
+  --nav-space: var(--rail-w); /* 본문이 사이드바에 내주는 폭. 확장 시 --drawer-w */
+  --hit: 44px;                /* 최소 클릭 영역 */
+
+  /* --- §7 모션 -------------------------------------------------------------- */
+  --dur: 200ms;
+  --dur-fast: 150ms;
+  /* 진입 곡선은 motion.css 의 --ease-out 하나로 모은다.
+     곡선이 두 벌이면 같은 화면 안에서 리듬이 미묘하게 어긋난다 (§7 motion-consistency) */
+  --ease: var(--ease-out);
+}
+
+/* 확장 상태에서 본문이 내주는 폭. 1024px 이상에서만 push 한다 */
+@media (min-width: 1024px) {
+  :root[data-nav="expanded"] {
+    --nav-space: var(--drawer-w);
+  }
+}
+
+/* §7 — 감속 모션 선호 시 모든 전환을 즉시 끝낸다 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur: 0ms;
+    --dur-fast: 0ms;
+  }
+}
