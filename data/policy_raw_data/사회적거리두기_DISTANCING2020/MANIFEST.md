@@ -7,6 +7,7 @@
 | 파일 | 원본 | 크기 | sha256 |
 |---|---|---:|---|
 | `거리두기_단계표_2020-2021.json` | `data/experiments/covid_support_2021/distancing_schedule.json` | 12.1KB | `5abc0d0c95496814fd1936fb203eeff5bac943bedcde9bb4603a612b07f45d4b` |
+| `정답지_서울연구원_요약_발행처웹.txt` | [www.si.re.kr](https://www.si.re.kr/bbs/view.do?key=2024100154&pstSn=2104190001) | 6.8KB | `51ceb859eed15b1f044fb870d0482e32ef0404e0b4e1a6a3de03e20f9da2eeb2` |
 | `정답지_서울연구원_코로나19_서울_경제적손실_2021.pdf` | [www.si.re.kr](https://www.si.re.kr/node/64651) | 9.7MB | `fd186587f51aab93531272f38d52cc5c7a77991d24997a862553a24eaf702d09` |
 | `정책원문_중대본회의_보도자료_20201127.hwp` | [www.korea.kr](https://www.korea.kr/briefing/pressReleaseView.do?newsId=156423736) | 356.0KB | `86d71b936c4e22b84790fb900c1352de8030958d36f9e75795340d5770bfb698` |
 | `환경자료/distancing_0823.html` | `data\experiments\covid_support_2021\sources\distancing_0823.html` | 162.2KB | `85ede3ace2418676e1d9d84d3768e8b5569d71e30ef4ab35d432ff92b2c162b0` |

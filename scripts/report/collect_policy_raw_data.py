@@ -40,13 +40,6 @@ COVID = ROOT / 'data/experiments/covid_support_2021'
 SOURCES = OUT / '_sources.json'
 
 # (저장소 안의 원본 경로, 폴더 안에서의 이름, 한 줄 설명)
-P010_DOCS = [
-    ('한국은행_이슈노트.pdf', '정답지_한국은행_이슈노트_2026-13.pdf',
-     '한국은행 이슈노트 2026-13 — 소비쿠폰의 한계소비성향을 잰 글. 우리가 맞히려는 정답지'),
-    ('data/neo4j_load/policies/P010.json', '시뮬정의_P010.json',
-     '시뮬레이터에 실린 정책 정의. **동결이다** — 이 정책의 프롬프트도 JSON 도 고치지 않는다'),
-]
-
 P012_DOCS = [
     ('docs/references/1._상생소비지원금_시행방안(최종)_배포용.pdf',
      '정책원문_상생소비지원금_시행방안_배포용.pdf',
@@ -88,15 +81,6 @@ DISTANCING_ENV = [
 
 # 내려받은 문서 — (폴더 안 이름, 출처 URL, 설명).
 FETCHED = {
-    '민생회복소비쿠폰_P010': [
-        ('정책원문_민생회복소비쿠폰_지급시작_행안부_20250705.pdf',
-         'https://www.mois.go.kr/frt/bbs/type010/commonSelectBoardArticle.do'
-         '?bbsId=BBSMSTR_000000000008&nttId=118705',
-         '행정안전부 2025-07-05 보도자료 — 지급 대상·금액·사용처의 규칙 원문'),
-        ('집행결과_민생회복소비쿠폰_최종집계_20251205.pdf',
-         'https://www.korea.kr/briefing/pressReleaseView.do?newsId=156733265',
-         '정책브리핑 2025-12-05 — 실제로 얼마가 누구에게 갔는지의 집행 결과'),
-    ],
     '긴급재난지원금_P013': [
         ('정책원문_긴급재난지원금_신청및지급방안_행안부_20200429.hwp',
          'https://www.mois.go.kr/frt/bbs/type010/commonSelectBoardArticle.do'
@@ -123,6 +107,10 @@ FETCHED = {
          '위 대책의 보도자료 — 요약본'),
     ],
     '사회적거리두기_DISTANCING2020': [
+        ('정답지_서울연구원_요약_발행처웹.txt',
+         'https://www.si.re.kr/bbs/view.do?key=2024100154&pstSn=2104190001',
+         '발행처가 웹에 실은 요약 본문 — PDF 가 스캔본이라 대조가 안 되므로 같이 둔다. '
+         '대조지표 수치 넷이 여기서 확인된다'),
         ('정답지_서울연구원_코로나19_서울_경제적손실_2021.pdf',
          'https://www.si.re.kr/node/64651',
          '서울연구원 정책리포트 322호(2021.4), 신한카드 서울 패널 — '
@@ -132,19 +120,9 @@ FETCHED = {
          '중앙재난안전대책본부 2020-11-27 — 채점 구간(11/24~25)에 시행 중이던 '
          '수도권 2단계 조치를 담은 공식 문서'),
     ],
-    '사적모임제한_GATHERING2020': [
-        ('정책원문_중대본회의_보도자료_20201127.hwp',
-         'https://www.korea.kr/briefing/pressReleaseView.do?newsId=156423736',
-         '중앙재난안전대책본부 2020-11-27 — 모임·행사 인원 제한이 들어 있는 문서'),
-    ],
 }
 
 PLAN = [
-    {'folder': '민생회복소비쿠폰_P010', 'scoring': 'P010',
-     'rounds': 'EXP-001 · P010 라운드 (프롬프트 동결)',
-     'docs': P010_DOCS, 'env': [], 'missing': [],
-     'note': '2025년 전 국민 소비쿠폰. 지갑이 생기므로 총액이 늘어야 하는 기전이다. '
-             '**이 정책의 프롬프트와 JSON 은 동결이다.**'},
     {'folder': '상생소비지원금_P012', 'scoring': 'P012',
      'rounds': 'v30(중단) · v43(취소) · v44(완료)',
      'docs': P012_DOCS, 'env': [], 'missing': [],
@@ -172,16 +150,91 @@ PLAN = [
                   '11-27 회의 문서로 대신했다 — 같은 조치가 시행 중이던 문서다')],
      'note': '2020년 11월 수도권 2단계. 정책 JSON 이 아니라 사회 배경이고 '
              'environment(covid_2021) 가 규제를 실어 온다.'},
-    {'folder': '사적모임제한_GATHERING2020', 'scoring': 'GATHERING_2020',
-     'rounds': '아직 돌리지 않았다 — 지표만 등록돼 있다',
-     'docs': [], 'env': [],
-     'missing': [('정답지 원문',
-                  '김다미·김용규(2023) 정보통신정책연구 30(3) 35-54, '
-                  'DOI 10.37793/ITPR.30.3.2. 유료 DB(KISS)에만 있어 내려받지 못했다 — '
-                  'https://kiss.kstudy.com/Detail/Ar?key=4045482')],
-     'note': '인원 제한. **방어선 정책이다** — 논문이 총지출·이동에 유의한 반응을 '
-             '찾지 못했으므로 우리 시뮬도 움직이지 않아야 맞는 것이다.'},
 ]
+
+
+# 정책마다 (정답지 파일 이름, 그 원문에서 지표 수치를 찾을 때 쓸 말)
+ANSWER_SOURCE = {
+    'P012': ['정답지_KDI_상생소비지원금_효과분석_2022.pdf'],
+    'EMERGENCY_2020': ['정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf'],
+    'LOCAL_VOUCHER': ['정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf'],
+    # PDF 가 스캔본이라 본문이 안 뽑힌다. 발행처가 웹에 실은 요약을 같이 둔다.
+    'DISTANCING_2020': ['정답지_서울연구원_코로나19_서울_경제적손실_2021.pdf',
+                        '정답지_서울연구원_요약_발행처웹.txt'],
+}
+
+
+def source_pages(path):
+    """정답지 한 건의 쪽별 본문. 스캔본 PDF 면 빈 문자열이 나온다 — 그것도 사실이다."""
+    path = Path(path)
+    if path.suffix.lower() == '.txt':
+        raw = io.open(path, encoding='utf-8').read()
+        # 우리가 붙인 머리말(출처·주석)은 원문이 아니다. 구분선 뒤만 대조한다.
+        body = raw.split('=' * 70, 1)[-1]
+        return [re.sub(r'\s+', ' ', body).strip()]
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        try:
+            from PyPDF2 import PdfReader
+        except ImportError:
+            return None
+    try:
+        r = PdfReader(str(path))
+    except Exception:
+        return None
+    return [re.sub(r'\s+', ' ', (pg.extract_text() or '')) for pg in r.pages]
+
+
+def all_source_pages(folder, key):
+    """정답지가 여럿이면 합친다. 어느 파일의 몇 쪽인지는 라벨로 남긴다."""
+    out = []
+    for name in ANSWER_SOURCE.get(key) or []:
+        p = OUT / folder / name
+        if not p.exists():
+            continue
+        pages = source_pages(p)
+        if pages is None:
+            return None
+        tag = '요약' if p.suffix.lower() == '.txt' else 'p'
+        out += [('%s%d' % (tag, i + 1) if tag == 'p' else tag, t)
+                for i, t in enumerate(pages)]
+    return out or None
+
+
+def locate(desc, pages):
+    """지표 설명의 '(실측 …)' 안 숫자가 원문 몇 쪽에 있는지 찾는다.
+
+    찾지 못한 것을 '틀렸다'고 적지 않는다 — 그림 안의 값은 본문으로 뽑히지 않는다.
+    적는 것은 **본문에서 확인됐는가**까지다.
+    """
+    m = re.search(r'\(실측\s*([^)]*)\)', str(desc or ''))
+    if not m:
+        return '—', []
+    nums = re.findall(r'\d+\.\d+|\d{1,3}(?:,\d{3})+', m.group(1))
+    if not nums:
+        return '—', []
+    if pages is None:
+        return '확인 못함 (판독기 없음)', []
+    if not any(t.strip() for _, t in pages):
+        return '**대조 불가** — 스캔본이라 본문이 안 뽑힌다', []
+    found, quotes = [], []
+    for n in nums:
+        hits = [(lab, t) for lab, t in pages if n in t]
+        if not hits:
+            found.append('%s **본문에 없음**' % n)
+            continue
+        lab, text = hits[0]
+        found.append('%s %s' % (n, lab))
+        # 숫자만 맞춰 보면 오독한다 — 같은 숫자가 다른 뜻으로 쓰인 쪽이 있다.
+        j = text.find(n)
+        quotes.append('%s (%s) …%s…' % (n, lab, text[max(0, j - 26):j + len(n) + 26]))
+    return ' · '.join(found), quotes
+
+
+def locate_cell(desc, pages):
+    r = locate(desc, pages)
+    return r[0] if isinstance(r, tuple) else r
 
 
 def sha256(p):
@@ -206,19 +259,54 @@ def write(path, text):
     io.open(path, 'w', encoding='utf-8', newline='\n').write(text)
 
 
-def indicators_md(scoring, key):
+# 원문과 우리 지표의 범위가 같지 않은 곳. 대조할 때 이것을 모르면 잘못 읽는다.
+CAVEATS = {
+    'DISTANCING_2020': [
+        '`DS-1` 의 **−14.1% 는 원문에서 \'한식\' 업종의 값**이다(매출 감소가 가장 컸던 업종). '
+        '우리 지표는 식사 전체를 잰다 — **범위가 같지 않다.** 원문의 전체 점포 평균은 −6.2% 다.',
+        '원문의 창은 2020년 1~40주 누적이고 우리 창은 이틀(11/24~25)이다. '
+        '부호는 견줄 수 있어도 **크기를 같은 눈금으로 견줄 수 없다** '
+        '(`audit_2026_09_20`: 대상·기간·결과·분모·대조군이 맞을 때만 배수를 비교한다).',
+    ],
+    'EMERGENCY_2020': [
+        '`EM-2`(+11.1%p)와 `EM-3`(+7.3%)의 값이 **정답지 본문에서 확인되지 않는다.** '
+        'p4 의 11.1 은 효과가 아니라 지원금 **규모(11.1~15.3조원)** 다. '
+        '보고서에 쓰기 전에 출처를 다시 확인해야 한다.',
+        '`EM-4` 의 대면서비스 값은 원문에서 **3.6%p**(대면서비스업)이고, '
+        '채점표의 \'+3%p\' 는 음식업 3.0%p 와 같다. 순위 판정은 어느 쪽이든 바뀌지 않는다.',
+    ],
+}
+
+
+def indicators_md(scoring, key, folder):
+    """우리가 정답지 원문에서 뽑은 대조지표. 그 수치가 원문 어디에 있는지까지 적는다."""
     b = scoring.get(key) or {}
     lines = []
     if b.get('answer_key'):
         lines += ['**정답지 출처** — %s' % b['answer_key'], '']
     inds = b.get('indicators') or []
-    if inds:
-        lines += ['| 지표 | 기대 | 무엇을 재는가 |', '|---|---|---|']
-        for i in inds:
-            lines.append('| `%s` | %s | %s |' % (
-                i.get('id', '?'), i.get('expect', '?'),
-                str(i.get('desc', '')).replace('|', '·')))
-        lines.append('')
+    if not inds:
+        return lines
+    pages = all_source_pages(folder, key)
+    lines += ['| 지표 | 기대 | 무엇을 재는가 | 정답지 수치 | 원문 확인 |',
+              '|---|---|---|---|---|']
+    ev = []
+    for i in inds:
+        what, truth = split_desc(i.get('desc'))
+        mark, quotes = locate(i.get('desc'), pages)
+        lines.append('| `%s` | %s | %s | %s | %s |' % (
+            i.get('id', '?'), i.get('expect', '?'), what.replace('|', '·'),
+            truth.replace('|', '·'), mark))
+        ev += ['- `%s` %s' % (i.get('id', '?'), q) for q in quotes]
+    if ev:
+        lines += ['', '<details><summary>원문에서 그 숫자가 놓인 자리</summary>', ''] + ev + [
+            '', '</details>']
+    for c in (CAVEATS.get(key) or []):
+        lines += ['', '> ⚠️ ' + c]
+    lines += ['',
+              '> **원문 확인** 은 그 숫자가 정답지 PDF 본문 몇 쪽에 있는지다. '
+              "'본문에 없음' 은 틀렸다는 뜻이 아니라 **그림 안의 값이거나 다른 출처에서 왔다**는 "
+              '뜻이므로, 보고서에 쓰기 전에 원문을 눈으로 확인해야 한다.', '']
     return lines
 
 
@@ -400,8 +488,8 @@ def eval_md(e, scoring, rows):
     lines = ['# %s — 평가 항목' % e['folder'].split('_')[0], '',
              e['note'], '',
              '**실험 라운드** — %s' % e['rounds'], '', '---', '']
-    lines += ['## 우리가 채점하는 항목', '']
-    lines += indicators_md(scoring, e['scoring'])
+    lines += ['## 대조지표 — 정답지 원문에서 뽑은 것', '']
+    lines += indicators_md(scoring, e['scoring'], e['folder'])
     lines += ['## 지금까지 잰 것', '']
     lines += results_md(scoring, e['scoring'])
     lines += ['---', '', '## 이 폴더의 문서', '', '| 파일 | 무엇인가 |', '|---|---|']
@@ -442,11 +530,13 @@ def index_md(report):
              '**결과가 어땠는지**(정답지)를 각각 원문으로 둔다.', '',
              '```',
              'data/policy_raw_data/<정책명>_<PXXX>/',
-             '    평가항목.md      채점 항목과 실측값 · 이 폴더의 요약',
+             '    평가항목.md      대조지표(정답지 수치 + 원문 위치) · 시뮬 값 · 판정',
              '    <문서들>        실제 파일 (PDF·xlsx·csv)',
              '    환경자료/        시뮬이 배경으로 쓰는 자료 (있는 경우)',
              '    MANIFEST.md     어느 파일이 어디서 왔는지 + sha256',
              '```', '',
+             '**지금 돌리고 있는 정책 5개다.** 각 폴더에 정책 원문·정답지 원문·'
+             '그 원문에서 뽑은 대조지표가 있다.', '',
              '| 폴더 | 실험 라운드 | 정책원문 | 정답지 원문 | 문서 |',
              '|---|---|---|---|---:|']
     for e, rows in report:
@@ -462,8 +552,9 @@ def index_md(report):
     lines += ['', '## 읽는 규칙', '',
               '- **출처를 남겼다.** 각 폴더의 `MANIFEST.md` 에 원본 경로 또는 URL 과 sha256 이 있다',
               '- **실측값은 프롬프트에 들어가지 않는다.** 방향도 크기도 모델에게 주지 않는다',
-              '- **없는 것은 없다고 적었다.** 홀드아웃(P015)의 정답지는 봉인이고,',
-              '  사적모임 제한의 정답지는 유료 DB 에만 있다 — 각 폴더 맨 아래를 볼 것',
+              '- **대조지표마다 원문 어디에서 나왔는지 적었다.** 못 찾은 것은 못 찾았다고 적혀 있다',
+              '- **없는 것은 없다고 적었다.** 홀드아웃(P015)의 정답지는 설계상 봉인이다 —',
+              '  이 폴더에 넣지 않는 것이 규칙이고, 각 폴더 맨 아래에 사정을 적어 두었다',
               '- 다시 만들려면 `python scripts/report/collect_policy_raw_data.py`,',
               '  사본이 원본과 같은지 보려면 `--check`']
     return '\n'.join(lines) + '\n'
