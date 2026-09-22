@@ -37,6 +37,15 @@ ANONYMOUS = os.environ.get("EXP_POLICY_ANONYMOUS", "0") == "1"
 _LEGACY_LABEL: dict[str, str] = {
     "voucher": "바우처", "discount": "할인", "subsidy": "환급/쿠폰",
     "grant": "지원금", "cashback": "캐시백",
+    # 아래 넷이 빠져 있어 한글 문장 한가운데에 영문 코드가 그대로 나갔다 —
+    # 모델은 "[price_discount] 서울사랑상품권" 을 읽고 있었다. 라벨은 _LABEL 에
+    # 이미 있던 것을 그대로 가져온다(제도가 무엇인지만 말하고 방향은 말하지 않는다).
+    # grant·cashback 은 손대지 않는다 — P010 은 동결이고 그 렌더가 바뀌면 안 된다.
+    "price_discount": "할인 구매 상품권",
+    "sector_voucher": "업종 한정 할인권",
+    "hours_limit": "영업시간 제한",
+    "gathering_limit": "사적모임 인원 제한",
+    "facility": "시설",
 }
 
 # 기전 라벨 — 정책 이름이 아니라 '무엇을 하는 제도인가'. 익명 모드 전용.
