@@ -1,0 +1,42 @@
+{
+ "id": "validation_v17_power_v25",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "209402964cbf9147f4c42294f28d0a372b4ce461ee6ef707fec19e225aa428c8",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "v25_power",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  69001,
+  69002,
+  69003,
+  69004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "The same comparison as v16 with four seeds instead of one. v16 was void because every interval crossed zero on 74 cells and about twenty purchases per arm; four seeds quadruple the purchase denominator and make the block bootstrap usable, which is what the cell-only interval was missing.",
+ "primary": "The seventeen answer-key indicators, pooled across four seed blocks and scored with the two-stage bootstrap that resamples blocks before cells.",
+ "limitations": [
+  "Still twelve people. More seeds raise precision for these twelve, not generalisation.",
+  "Gate-blocked cells are repaired by the loop and the matrix stays incomplete by construction; the exclusion count is reported per seed.",
+  "Three repair rounds, not four - the fourth removed only four cells in v14 and costs as much as the third.",
+  "An indicator that finally excludes zero still says only that this cohort moved, not that the published magnitude was reproduced."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair carried over from v16 (experiments/v17/prompt_v17.md). No new candidate is introduced.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

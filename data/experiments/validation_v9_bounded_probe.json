@@ -1,0 +1,20 @@
+{
+  "id":"validation_v9_bounded_probe",
+  "model":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256":"d8944c1467db387ebf118d3f396a09bf6f1b7bcbb108340a84321a543f4912e5",
+  "candidates":[
+    {"id":"v11_budget1024","prompt":"v11","structured":true,"thinking_tokens":1024},
+    {"id":"v11_budget2048","prompt":"v11","structured":true,"thinking_tokens":2048}
+  ],
+  "seeds":[9101],
+  "sampling":{"temperature":1.0,"top_p":0.95,"presence_penalty":1.5},
+  "answer_tokens":2200,
+  "workers":4,
+  "timeout_seconds":900,
+  "order_seed":20260920,
+  "phase":"Four known synthetic development cases x two deliberation budgets. Explicit two-call protocol, not first-response-only and not automatic repair.",
+  "primary":"Every strict schedule and factual constraint passes. Preserve both native requests/responses. Deliberation stops at the registered budget or natural closing token; final JSON truncation remains failure.",
+  "selection":"Only passing protocols advance; cost uses total tokens across both calls. No selection by policy effects. New persona confirmation remains untouched.",
+  "infrastructure":"Uses native generate API and local tokenizer chat template. Does not restart server or enable arbitrary custom logit processor execution.",
+  "prohibitions":"No empirical effect targets or policy-specific desired direction. P010 immutable. P015 not run."
+}

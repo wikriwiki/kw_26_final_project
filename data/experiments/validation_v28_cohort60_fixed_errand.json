@@ -1,0 +1,38 @@
+{
+ "id": "validation_v28_cohort60_fixed_errand",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "c6d39fc808b66516f4509ad7813981caf698145b1490fb9a9ab8c3641a433c2f",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "v25_fixed",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  70001
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "The errand becomes an appointment. As an optional need the model did it ten times in a hundred; as a work duty the same model turns up ninety-two times in a hundred. daily_resource_contract refuses a mandatory need outright, so this uses the object work already uses - required_activities with a time, a place and evidence in the citizen's own text. All 480 cells got one and all sampled grammars build.",
+ "primary": "Paired per-citizen composition distance against the v18 v25 arm, resampling citizens. Success is a 95% interval that excludes zero on the closer side. The same test on v34 gave -0.0198 [-0.0855, +0.0405], so a difference under about 0.06 cannot be told apart at this roster size.",
+ "limitations": [
+  "The scenario fixes that an errand exists, its category, its hour and its place. It does not fix what is bought, how much, or whether the policy changes it - that is what DS-1 measures.",
+  "The hour is chosen mechanically outside every fixed duty with the citizen's own commute as clearance, so workers get an evening slot and non-workers an afternoon one. That is a systematic difference between the two groups, not a random one.",
+  "An appointment the model cannot keep becomes a contract failure rather than a skipped need, so the valid rate is a cancellation criterion rather than a background number."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair carried from v16/v17 (experiments/v18/prompt_v18.md). No new candidate.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

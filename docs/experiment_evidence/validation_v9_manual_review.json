@@ -1,0 +1,19 @@
+{
+  "scope": "Interim source review; does not replace complete matrix",
+  "variant": "v11_budget2048",
+  "aid": "AGT_11620565_F_70대이상_001",
+  "case": "cashback",
+  "arm": "off",
+  "replicate": 10001,
+  "context_sha256": "d4afa0e11640a8349220658abd7c81d2cd9712cbc2eb2b1b8d8eefcb2835da9f",
+  "event": {
+    "time": "11:30",
+    "anchor": "residence",
+    "category": "집",
+    "intent": "약 복용 및 건강 점검",
+    "reasoning": "건강 소비 비중 25%로 일일 습관 유지",
+    "trigger": "policy"
+  },
+  "finding": "과거 건강 지출 비중을 매일의 약 복용 습관으로 전환했다. 입력에는 복용약·진단이 없다. 생활 선택과 주어진 의료 사실의 날조는 구분한다.",
+  "disposition": "Do not promote this exact candidate based solely on format."
+}

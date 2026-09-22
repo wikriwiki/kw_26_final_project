@@ -1,0 +1,173 @@
+"""Freeze a hypothetical quote experiment on previously generated citizen plans.
+
+All prices, shop participation and payment eligibility below are explicit scenario
+assumptions. This provider is NOT a reconstruction of historical merchant rules.
+It never reads a desired policy effect, nor uses a daily spending anchor as price.
+"""
+import argparse
+import copy
+import hashlib
+import json
+from pathlib import Path
+from activity_purchase_bridge import prepare_case
+from resource_feasibility import check as feasibility_check
+from action_plan_contract import catalog
+from validate_prompt_v3 import atomic
+
+# Identical items/prices in every arm and district. They are NOT observed prices.
+BOOK = {
+    'home_delivery': ('배달 식사 한 끼, 배송비 포함', 13000),
+    'office_delivery': ('배달 식사 한 끼, 배송비 포함', 13000),
+    'home_online_goods': ('세탁 세제 한 통, 배송비 포함', 12000),
+    'meal_dine_in': ('음식점 식사 한 끼', 10000),
+    'meal_takeaway': ('포장 식사 한 끼', 9000),
+    'cafe_dine_in': ('매장 커피 한 잔', 4000),
+    'cafe_takeaway': ('포장 커피 한 잔', 4000),
+    'dessert': ('빵 한 개', 3500),
+    'groceries': ('쌀 1kg 한 봉지', 5000),
+    'convenience': ('생수 500ml 한 병', 1000),
+    'shopping': ('면 양말 한 켤레', 4000),
+    'hair': ('성인 기본 커트 1회', 20000),
+    'health_goods': ('일회용 마스크 5매 한 묶음', 2500),
+    'leisure_service': ('영화 관람권 한 장', 12000),
+    'education_service': ('자율학습 공간 1시간 이용권', 3000),
+    'bar': ('주점 주류 한 잔', 6000),
+    'other_service': ('복사 10장 서비스', 1000),
+}
+
+
+def base_quote(activity,anchor,cell,persona,*,price_factor=1):
+    """Conditional menu quote, before opening-hour checks; shared with planning."""
+    if price_factor not in {0.5,1,2}:raise ValueError('Unregistered price factor')
+    spec=catalog(cell)[activity];channel=spec['purchase_channel']
+    if anchor not in spec['anchors']:raise ValueError('Quote anchor not allowed for activity')
+    if activity not in BOOK or channel is None:raise ValueError('No registered hypothetical price for activity')
+    description,price=BOOK[activity];eligible=[]
+    zone=anchor.removeprefix('zone:');home=str(persona['home_dong_code'])
+    if channel=='offline' and activity!='bar' and cell['arm']=='on':
+        if cell['case']=='grant' and zone[:2]==home[:2]:eligible=list(cell['synthetic_state']['grant_remaining'])
+        if cell['case']=='local_voucher' and zone[:5]==home[:5]:eligible=['P014']
+    return {'id':'quote:'+activity,'description':description,'price_won':int(price*price_factor),
+        'channel':channel,'eligible_wallets':eligible,
+        'price_provenance':'Hypothetical fixed item quote, not observed merchant or historical price.',
+        'eligibility_provenance':'Synthetic participating independent shop; grant within home city, prepaid within home district; offline only. Not certified historical eligibility.'}
+
+
+def preview_for(cell,persona):
+    candidates=[];acceptance={}
+    for aid,spec in catalog(cell).items():
+        if spec['purchase_channel'] is None:continue
+        quotes=[base_quote(aid,a,cell,persona) for a in spec['anchors']]
+        q=quotes[0]
+        candidates.append({'activity_id':aid,'candidate_id':q['id'],'description':q['description'],
+                           'price_won':q['price_won'],'channel':q['channel']})
+        for wallet in sorted({w for q in quotes for w in q['eligible_wallets']}):
+            anchors=tuple(a for a,q in zip(spec['anchors'],quotes) if wallet in q['eligible_wallets'])
+            acceptance.setdefault((wallet,anchors),[]).append(aid)
+    on=cell['arm']=='on';state=cell['synthetic_state']
+    return {'scope':'가상 상품 후보 개요. 관측 가격·실제 가맹점 자격이 아니다. 실제 구매 단계에도 같은 품목·수량·가격을 제공한다.',
+        'availability':'아래 가격은 해당 활동이 가능한 때의 조건이다. 사회 배경의 휴업·영업시간·이동 제약은 그대로 적용한다.',
+        'choice':'목록에 있다는 것은 구매 의무나 필요가 있다는 뜻이 아니다. 구매 검토 뒤 미구매도 가능하다. 목록 밖 품목·수량은 이 실험에서 선택할 수 없다.',
+        'cash_won':state['balance'],
+        'wallet_balances_won':copy.deepcopy(state['grant_remaining']) if on and cell['case']=='grant' else {},
+        'offers':{'synthetic_unit':{'wallet_id':'P014','unit_face':10000,'unit_cash_cost':9000,'max_units':50}} if on and cell['case']=='local_voucher' else {},
+        'candidates':candidates,
+        'wallet_acceptance':[{'wallet_id':w,'anchors':list(anchors),'activity_ids':ids} for (w,anchors),ids in acceptance.items()],
+        'settlement':'선불 제안은 하루 내내 유효하고 일중 현금 유입은 없다고 가정한다. 취득은 소비가 아니며 현금이 필요하다.'}
+
+
+def render_preview(preview):
+    return '\n\n## 오늘의 구매 후보 개요\n'+json.dumps(preview,ensure_ascii=False,indent=2)
+
+
+def build_case(row, cell, persona, *, price_factor=1,max_shift_minutes=10,static_offers=False):
+    if not row.get('eligible'): raise ValueError('Failed schedule must not be omitted or zero-filled')
+    if price_factor not in {0.5, 1, 2}: raise ValueError('Unregistered price factor')
+    cell = copy.deepcopy(cell)
+    if 'purchase_preview' in cell:
+        if price_factor!=1 or cell['purchase_preview']!=preview_for(cell,persona) or render_preview(cell['purchase_preview']) not in cell['user']:
+            raise ValueError('Purchase quotes differ from preview supplied before planning')
+    # Planner-specific output instructions do not belong in a purchase request.
+    cell['user'] = cell['user'].split('\n\n## 오늘\n')[0]
+    state = cell['synthetic_state']; mechanism = cell['case']; arm = cell['arm']
+    lots = {}; offers = {}
+    if arm == 'on' and mechanism == 'grant':
+        lots = {pid: [{'face': value, 'own_basis': 0}] for pid, value in state['grant_remaining'].items()}
+    if arm == 'on' and mechanism == 'local_voucher':
+        offers = {'synthetic_unit': {'wallet_id': 'P014', 'unit_face': 10000,
+                  'unit_cash_cost': 9000, 'max_units': 50}}
+    specs = catalog(cell); quotes = {}
+    for index, event in enumerate(row['execution_plan']['events']):
+        aid = event['activity_id']; spec = specs[aid]; channel = spec['purchase_channel']
+        if channel is None: continue
+        if aid not in BOOK: raise ValueError('No registered hypothetical price for activity')
+        # A closed establishment has no quote, not a paid substitute elsewhere.
+        closed = (aid == 'bar' and '집합금지:' in cell['user']) or (
+            aid in {'meal_dine_in','cafe_dine_in'} and event['time'] >= '22:00'
+            and '매장 취식 22:00까지' in cell['user'])
+        if closed:
+            quotes[str(index)] = []; continue
+        quotes[str(index)] = [base_quote(aid,event['anchor'],cell,persona,price_factor=price_factor)]
+    case, audit = prepare_case(raw_plan=row['raw'], cell=cell, quotes_by_event=quotes,
+        cash=state['balance'], wallet_lots=lots, offers=offers,max_shift_minutes=max_shift_minutes)
+    if audit['schedule_report']['execution_plan']!=row['execution_plan']:
+        raise ValueError('Purchase bridge changed the recorded planner execution')
+    if static_offers:case['execution_assumptions']={'offers_available_before_any_purchase':True,'intraday_income':0}
+    case.update(id=row['attempt_key'], date=cell['date'])
+    case['scenario_assumptions'] = [
+        '이 실험의 후보는 가상의 독립 가맹점 상품이다. 가격은 관측값이 아니며 같은 품목 가격은 모든 조건에서 같다.',
+        'eligible_wallets는 이 합성 거래에서 확정해 제공한 사용 자격이다. 실제 역사적 가맹점 자격을 주장하지 않는다.',
+        '선불 잔액 취득 단위는 실험에서 1만원, 기존 월 구매는 없음으로 가정한다. 실제 판매 단위의 검증값이 아니다.',
+        '주어진 제도가 있다면 참여 자격을 만족한다고 가정한다. 나이 세부값·본인 카드 이력은 실제로 관측되지 않았다.',
+        '식재료·생활용품 재고와 현재 질병은 제공되지 않았다. 구매 검토만으로 부족·질병·구매 확정을 새 사실로 만들지 않는다.',
+        '오늘의 후보 구매 여부를 고른다. 없는 상품·추가 수량·외상·차입은 선택할 수 없다.']
+    if 'daily_conditions' in cell:
+        from daily_resource_contract import validate
+        validate(cell['daily_conditions'])
+        case['daily_conditions']=copy.deepcopy(cell['daily_conditions'])
+        case['scenario_assumptions'][4]='daily_conditions에 명시한 자원·필요·도착 조건은 해당 합성 시나리오의 선행 상태다. 그 밖의 재고·질병·필요는 미관측이다. 실제 자원 사용은 구매 및 도착 이후만 가능하며 선택한 일정은 이 결제 단계에서 변경하지 않는다.'
+    return case, audit
+
+
+def main():
+    ap = argparse.ArgumentParser(); ap.add_argument('--run', type=Path, required=True)
+    ap.add_argument('--static-offers',action='store_true')
+    ap.add_argument('--replicate',type=int,help='Explicit repeat; all original repeats must be complete and eligible')
+    ap.add_argument('--out', type=Path, required=True); args = ap.parse_args()
+    if args.out.exists(): raise ValueError('Refusing overwrite')
+    frozen = json.loads((args.run/'frozen_inputs.json').read_bytes())
+    rows = [json.loads(line) for line in (args.run/'responses.jsonl').read_bytes().splitlines()]
+    config=json.loads((args.run/'manifest.json').read_bytes())['config']
+    if args.replicate is not None:
+        from planner_run_selection import select_replicate
+        rows=select_replicate(rows,frozen['cells'],config,args.replicate)
+    max_shift=config['max_shift_minutes']
+    cells = {(c['aid'],c['case'],c['arm']): c for c in frozen['cells']}
+    people = {p['id']: p for p in frozen['personas']}
+    expected = set(cells); seen = set(); prepared = []
+    for row in sorted(rows, key=lambda r: (r['aid'],r['case'],r['arm'])):
+        key = (row['aid'],row['case'],row['arm'])
+        if key in seen or key not in expected: raise ValueError('Source must have one frozen plan per cell')
+        seen.add(key); case, audit = build_case(row, cells[key], people[row['aid']],max_shift_minutes=max_shift,static_offers=args.static_offers)
+        entry = {k: row[k] for k in ['aid','case','arm','date','attempt_key']} | {'transaction_case': case, 'bridge_audit': audit}
+        # Necessary physical bound, attached at the plan->purchase seam. This records an
+        # impossible schedule; it never repairs the plan, shifts a time, or drops the row.
+        if 'daily_conditions' in case: entry['resource_feasibility'] = feasibility_check(case)
+        prepared.append(entry)
+    if seen != expected: raise ValueError('Incomplete source matrix')
+    provenance = {name: hashlib.sha256((args.run/name).read_bytes()).hexdigest() for name in ['frozen_inputs.json','responses.jsonl','manifest.json']}
+    checked=[c for c in prepared if 'resource_feasibility' in c]
+    impossible=[c for c in checked if c['resource_feasibility']['impossible_even_with_all_candidates']]
+    result={'cells': prepared, 'quote_book': BOOK, 'source_sha256': provenance,
+        'resource_feasibility_summary': {'checked': len(checked), 'proven_impossible': len(impossible),
+            'cells': [{k: c[k] for k in ['aid','case','arm','date']} | {'shortfalls': c['resource_feasibility']['shortfalls']} for c in impossible],
+            'rule': 'Necessary physical bound only. Impossible plans stay in the file with their original schedule; the purchase runner excludes them before any model call.'},
+        'provider_sha256': hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        'planner_time_protocol':{'max_shift_minutes':max_shift,'recorded_execution_equality_required':True},
+        'scope': 'Development end-to-end purchase probe with hypothetical prices/eligibility and explicitly linked frozen plans; no actual market or empirical effect validation.'}
+    if args.replicate is not None:result['planner_selection']={'replicate':args.replicate,'variant':config['candidates'][0]['id'],'whole_original_matrix_required':True}
+    atomic(args.out,result)
+    print(json.dumps({'cells':len(prepared),'sha256':hashlib.sha256(args.out.read_bytes()).hexdigest()}))
+
+
+if __name__ == '__main__': main()

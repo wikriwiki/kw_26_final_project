@@ -1,0 +1,30 @@
+{
+  "status": "Qualified conditional execution candidate; frozen for linked pilot, not proven realistic policy demand",
+  "temporal": {
+    "development": 96,
+    "stress": 32,
+    "all_execution_valid": true,
+    "all_raw_sequences_reviewed": true,
+    "coverage": "Final home activity >=18:00 is declared and grammar-enforced, not learned-behavior evidence",
+    "archive_sha256": "a62bd0363b15c049770c6f7c4bc2bbe6319d67c95b9333a820c2b29e07849048",
+    "limitations": [
+      "Unobserved work mode allows remote work and late office visits",
+      "Some18:00/18:30home_sleep",
+      "Finite activities and start times do not establish full duration/routing or demand"
+    ]
+  },
+  "purchase": {
+    "conditions": 96,
+    "valid": 96,
+    "deterministic_unique_zero": 31,
+    "model_choices_reviewed": 65,
+    "request_prefixes_audited": 65,
+    "forbidden_bookkeeping_fields": [],
+    "archive_sha256": "c9d722ebb8d66f313cdbc8f8e68e750ccb1e7650ae5ab54cc748e8a6c7cc6ab7",
+    "limitations": [
+      "Unused prepaid acquisitions including50units remain; financial feasibility is not evidence of optimal asset demand",
+      "Fixed old plans and hypothetical limited catalog do not validate total daily spending"
+    ]
+  },
+  "selection": "No policy aggregate contrast inspected for this selection. Freeze candidate and report all linked mechanism results, including inconvenient signs."
+}

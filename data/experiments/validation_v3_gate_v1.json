@@ -1,0 +1,28 @@
+{
+  "id": "validation_v3_gate_v1",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "78961fc28d0f27915a58b2db58c22d3fdc888f3e4be4bbfc6d56dbf054e29000",
+  "prompt_module": "v25",
+  "candidates": [{"id": "v25_daily_conditions", "thinking_tokens": 512}],
+  "seeds": [58001],
+  "answer_tokens": 2048,
+  "max_shift_minutes": 0,
+  "temporal_clock_step": 30,
+  "sampling": {"temperature": 0.2, "top_p": 0.95, "presence_penalty": 0.0},
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20260920,
+  "phase": "One fresh complete repeat of frozen v25 on the same 96 known day conditions, run with the plan->purchase resource gate active for the first time. Known development cohort, not a new holdout.",
+  "primary": "All 96 cells run once with frozen prompt/source/contracts. Preserve every failure. The gate decides whether each plan reaches a purchase call; its exclusions are reported, never repaired. A complete eligible matrix is the pass condition for reading per-mechanism on/off differences at all.",
+  "limitations": [
+    "Prompts are unchanged from the previous round. This run tests the pipeline, not a new prompt candidate.",
+    "Explicit synthetic work/school schedules, not observed historical roles.",
+    "Only detergent inventory and optional laundry need tracked; no whole household demand claim.",
+    "One day, 12 citizens, 1 replicate. No population significance and no empirical policy-effect claim.",
+    "A new seed draws new plans; this is not a re-scoring of the previous run's rows."
+  ],
+  "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+  "selection": "No prompt selection or target fitting in this run. No gate on spending amount, laundry completion, desired policy sign or effect size.",
+  "last_start_not_before": "18:00",
+  "allow_zone_commitments": true
+}

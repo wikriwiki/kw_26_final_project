@@ -1,0 +1,70 @@
+{
+  "scope": "Typed action protocol: representational hallucinations impossible by construction, independent factual/choice checks still required. Not prompt-only or macro validation.",
+  "macro_claim": false,
+  "variants": {
+    "v22_direct": {
+      "responses": 32,
+      "complete": true,
+      "raw_valid": 31,
+      "valid": 31,
+      "eligible": 30,
+      "all_pass": false,
+      "adjusted_responses": 0,
+      "mean_generated_tokens": 332.65625
+    },
+    "v22_bounded1024": {
+      "responses": 32,
+      "complete": true,
+      "raw_valid": 31,
+      "valid": 31,
+      "eligible": 31,
+      "all_pass": false,
+      "adjusted_responses": 0,
+      "mean_generated_tokens": 1285.15625
+    }
+  },
+  "raw_archive_sha256": "a84809d2c8c800b8622f05cb89d80c1985843fa302b825d23ed9a931490bd01a",
+  "decision": "Neither mode promoted from this trial.",
+  "failure_rows": [
+    {
+      "variant": "v22_direct",
+      "aid": "SYNTH_GROUND_stay_home",
+      "case": "stay_home",
+      "arm": "off",
+      "replicate": 25001,
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"07:00\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"07:30\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"08:00\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"09:30\",\n\t\"activity_id\": \"home_online_goods\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"11:00\",\n\t\"activity_id\": \"walk\",\n\t\"anchor\": \"zone:11680521\"\n\t},\n\t{\n\t\"time\": \"11:25\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"13:00\",\n\t\"activity_id\": \"home_chores\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"14:30\",\n\t\"activity_id\": \"home_sleep\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}",
+      "errors": [],
+      "factual_errors": [
+        "outside_prohibited"
+      ],
+      "attempt_key": "acdc4cb7d9af442b7951dba6402c9580ac54dc9a911d78965e5cd52448c90910"
+    },
+    {
+      "variant": "v22_bounded1024",
+      "aid": "SYNTH_GROUND_work_conflict",
+      "case": "work_conflict",
+      "arm": "off",
+      "replicate": 25001,
+      "raw": "{\n\t\"events\": [\n\t{\"time\": \"07:00\", \"activity_id\": \"home_prepare\", \"anchor\": \"residence\"},\n\t{\"time\": \"07:40\", \"activity_id\": \"home_meal\", \"anchor\": \"residence\"},\n\t{\"time\": \"08:20\", \"activity_id\": \"office_work\", \"anchor\": \"workplace\"},\n\t{\"time\": \"17:00\", \"activity_id\": \"office_break\", \"anchor\": \"workplace\"},\n\t{\"time\": \"17:40\", \"activity_id\": \"home_chores\", \"anchor\": \"residence\"},\n\t{\"time\": \"19:00\", \"activity_id\": \"home_leisure\", \"anchor\": \"residence\"},\n\t{\"time\": \"21:00\", \"activity_id\": \"home_sleep\", \"anchor\": \"residence\"}\n]\n}",
+      "errors": [
+        "missing_commitment"
+      ],
+      "factual_errors": [],
+      "attempt_key": "58651fd5eed10beba2438f615ea883b633bb60a7972f429183be18c7897f1b7d"
+    },
+    {
+      "variant": "v22_direct",
+      "aid": "SYNTH_GROUND_work_conflict",
+      "case": "work_conflict",
+      "arm": "off",
+      "replicate": 25001,
+      "raw": "{\n\t\"events\": [\n\t{\n\t\"time\": \"09:00\",\n\t\"activity_id\": \"home_online_goods\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"09:20\",\n\t\"activity_id\": \"home_prepare\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"10:00\",\n\t\"activity_id\": \"office_work\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"12:00\",\n\t\"activity_id\": \"office_meal\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"13:00\",\n\t\"activity_id\": \"office_break\",\n\t\"anchor\": \"workplace\"\n\t},\n\t{\n\t\"time\": \"17:00\",\n\t\"activity_id\": \"home_meal\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"18:00\",\n\t\"activity_id\": \"home_leisure\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"19:00\",\n\t\"activity_id\": \"walk\",\n\t\"anchor\": \"zone:11680521\"\n\t},\n\t{\n\t\"time\": \"20:00\",\n\t\"activity_id\": \"home_chores\",\n\t\"anchor\": \"residence\"\n\t},\n\t{\n\t\"time\": \"21:00\",\n\t\"activity_id\": \"home_sleep\",\n\t\"anchor\": \"residence\"\n\t}\n\t]\n}",
+      "errors": [
+        "missing_commitment"
+      ],
+      "factual_errors": [],
+      "attempt_key": "dfd410b422b09d94f7bcbea372524df3777e638702287e1e8a7f349307a077f3"
+    }
+  ],
+  "interpretation": "Direct mode ignores one explicit stay-home condition. Both modes violate one exact office-start representation. The 08:20 office_work interval could contain 09:00 under another interval interpretation; do not describe that case as proved absence from work. It fails the prospectively registered exact-start contract. V17 separates arrival/preparation/start and uses 2048 deliberation tokens."
+}

@@ -1,0 +1,61 @@
+{
+  "scope": "Offline revalidation and atomic day commits of96 already generated v4 choices across8 separate paths; no new model calls, no multiday or restart claim.",
+  "snapshots": [
+    {
+      "case": "cashback",
+      "arm": "off",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\cashback\\off\\2021-10-25.json",
+      "sha256": "92df9dab32aee129b908f29a58ae17046e1cd6c82b19d0f3641818d05fd630a9"
+    },
+    {
+      "case": "cashback",
+      "arm": "on",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\cashback\\on\\2021-10-25.json",
+      "sha256": "36e98289df6e477b5a4068cf20da4ff4c95939ad2eed1a8d977d19892bc64c13"
+    },
+    {
+      "case": "distancing",
+      "arm": "off",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\distancing\\off\\2020-11-24.json",
+      "sha256": "c3f048d2d4869918183d48fc69558091197ad81b7a4f4b8291c8f860edeeb57e"
+    },
+    {
+      "case": "distancing",
+      "arm": "on",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\distancing\\on\\2020-11-24.json",
+      "sha256": "c50180e36de997296a067d41a0780c13e0593ba2c4c091e0984f77abd0d734e7"
+    },
+    {
+      "case": "grant",
+      "arm": "off",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\grant\\off\\2020-05-14.json",
+      "sha256": "9df44a3d59823c529471062db19bb0744c5ba0443870307d1cecfc9eceb93810"
+    },
+    {
+      "case": "grant",
+      "arm": "on",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\grant\\on\\2020-05-14.json",
+      "sha256": "cb4911e04db68b986624891c4521da6d0f08d03ef52dabaedcdd35960f0b33ba"
+    },
+    {
+      "case": "local_voucher",
+      "arm": "off",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\local_voucher\\off\\2020-09-23.json",
+      "sha256": "b233497b53d3d364f34eb61cebfc0b5d8dd5ed906d7fcecd3113e5ff194eef85"
+    },
+    {
+      "case": "local_voucher",
+      "arm": "on",
+      "citizens": 12,
+      "path": "G:\\내 드라이브\\Kw\\final_project\\output\\validation_purchase_v5\\checkpoints\\local_voucher\\on\\2020-09-23.json",
+      "sha256": "950050acd6bb24b74c5714028c7c0dcf65794de9a9f9b317fb34e052e1637069"
+    }
+  ]
+}

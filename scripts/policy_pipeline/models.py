@@ -46,6 +46,7 @@ class PolicyDocument(BaseModel):
 class PolicyType(str, Enum):
     SUBSIDY = "subsidy"        # 보조금/지원금/쿠폰
     COUPON = "coupon"
+    CASHBACK = "cashback"      # 사후 캐시백 (상생소비지원금 — 지갑 없음, 가격 유인/기대효과)
     DISCOUNT = "discount"
     TAX_RELIEF = "tax_relief"
     LOAN = "loan"

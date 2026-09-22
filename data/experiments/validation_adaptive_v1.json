@@ -1,0 +1,31 @@
+{
+  "id": "validation_adaptive_v1",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "3e1e47be4899c61b56ee04e772cda3e3277b5486a53bb61d0332ef67b096aacd",
+  "seeds": [
+    40001,
+    41001
+  ],
+  "initial_thinking_tokens": 512,
+  "repair_thinking_tokens": 2048,
+  "answer_tokens": 2048,
+  "max_shift_minutes": 10,
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 4,
+  "timeout_seconds": 900,
+  "order_seed": 20261006,
+  "phase": "16 known development contexts x two seeds. v23 system with provided presence interval displayed in structured input. First512 reasoning, at most one explicit2048 correction only on execution/factual failure.",
+  "primary": "All32 final supplied-fact/execution checks pass. First pass, raw validity, corrections, failures, generated token costs separately reported. Review every action sequence and early day endings. No policy effect or optimality claim.",
+  "selection": "No expected policy direction or outcome size in request. Correction feedback is original raw plan plus input constraints only. Successful first responses never regenerated. No further retry after one unsuccessful correction.",
+  "limitations": [
+    "Known development citizens and mechanisms.",
+    "Timing projection still limited10min and changes recorded.",
+    "Presence check uses supplied commitments only, not inferred work hours.",
+    "No whole-day consumption coverage or general human behavior proof.",
+    "Comparison to older runs is descriptive because seeds/input representation/contract differ."
+  ]
+}

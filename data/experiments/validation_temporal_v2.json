@@ -1,0 +1,38 @@
+{
+  "id": "validation_temporal_v2",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "3e1e47be4899c61b56ee04e772cda3e3277b5486a53bb61d0332ef67b096aacd",
+  "prompt_module": "v24",
+  "candidates": [
+    {
+      "id": "v24_finite_clock",
+      "thinking_tokens": 512
+    }
+  ],
+  "seeds": [
+    40001,
+    41001
+  ],
+  "answer_tokens": 2048,
+  "max_shift_minutes": 0,
+  "temporal_clock_step": 30,
+  "sampling": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 4,
+  "timeout_seconds": 900,
+  "order_seed": 20261009,
+  "phase": "Same16 inputs, seeds, finite-clock grammar, temperature and budgets as temporal_v1; only universal day-organization instruction differs.",
+  "primary": "Complete32 raw/final execution plus independent factual checks, zero request failures, mean tokens<=1300. Manual whole-day review and preregistered diagnostic count of last activity before18:00, premature sleep, and unsupported repeated work-location switching. Diagnostics do not establish true daily demand.",
+  "limitations": [
+    "Known development only. No new-policy or untouched-person validation.",
+    "30minute grid plus supplied fixed times changes action space; exact-time preferences not estimated.",
+    "Only supplied adjacent home/work commute bounds, not full routing.",
+    "Evaluation-only closure choices remain selectable and must be followed from input facts.",
+    "No historical effect or whole-day consumption claim."
+  ],
+  "preflight": "Three finite-clock unit checks; two actual XGrammar tests after grammar factoring passed in1.864sec, versus102.135sec before factoring. Existing no-grammar defaults retained.",
+  "selection": "Promote for expanded development only if all32 execution/facts pass and early-ending count is no worse than matched v23. No policy effect contrast or target is used. Clock and facts criteria fixed before model calls."
+}

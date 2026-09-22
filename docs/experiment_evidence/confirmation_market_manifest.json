@@ -1,0 +1,54 @@
+{
+  "prepared_at": "2026-09-19T16:22:12.551560+00:00",
+  "source_inputs_sha256": "f189664bd4f6571137cce563a161a2317d15a08a268b627956e78d3ea7691fed",
+  "script_sha256": "4b38a2d0969cdc920fab2668bdbdcf25cb64b0dbe92c6ec4a947e3180f41af0a",
+  "query_sha256": "645b071bbd41883738bbe8c3d9aad66aec166d95eedf85b7be46c072f15706d0",
+  "limit_per_group": 8,
+  "reference_inputs": {
+    "files": {
+      "hub_catalog.json": {
+        "sha256": "a7709c7953bd736010f33d55c0a41551a2bfaa3349b22a3bf6cd0453d3e0d371",
+        "bytes": 99329,
+        "entries": 421
+      },
+      "dong_centroids.json": {
+        "sha256": "c70491280bf700c964e22626270ad3a544cdd9dc64a3fc387719a455a0dca0e9",
+        "bytes": 19560,
+        "entries": 373
+      },
+      "hub_signature.json": {
+        "sha256": "3d7626d6a720861da09dc0569b16c14f4e56d5041ff97af5a5cc32301f529595",
+        "bytes": 8199,
+        "entries": 40
+      },
+      "dong_context.json": {
+        "sha256": "0c8bf98bb7b999736d0179e7512c9ebccb91cb55e0b3507ec584a52813239668",
+        "bytes": 92681,
+        "entries": 421
+      },
+      "unit_price.json": {
+        "sha256": "af6f7809d759f85cc88cbbf0aec613d04f2c8cfb8409ded44bd758324616eb6a",
+        "bytes": 9788,
+        "entries": 426
+      }
+    },
+    "limitations": [
+      "No empirical absolute category transaction prices; historical module would use hardcoded won values. Do not label those as observed prices.",
+      "No observed individual POI menu prices. Hash price bands are synthetic, not observed shop prices."
+    ],
+    "absolute_category_prices_available": false
+  },
+  "counts": {
+    "groups": 6384,
+    "empty_groups": 194,
+    "candidates": 48586,
+    "missing_distance": 0,
+    "missing_industry_code": 1475
+  },
+  "scope": "Shared read-only Day0 market. No historical Agent memory/KNOWS_POI/Plan/State reads. No policy markers or price outcomes. Same candidate catalogue for on/off.",
+  "limitations": [
+    "POI availability is from current database, not a reconstructed historical market.",
+    "Empty categories are explicit; do not replace them with an arbitrary category or charge for a free activity.",
+    "No individual shop menu prices supplied. Separate receipt references are not per-item prices."
+  ]
+}

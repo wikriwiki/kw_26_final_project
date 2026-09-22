@@ -663,7 +663,7 @@ export function ReportScreen() {
         <section className="section">
           <div className="section__head">
             <h2 className="section__title">보고서 본문</h2>
-            
+
           </div>
           {doc?.status === 'loading' ? <SkeletonText lines={6} /> : null}
           {doc?.status === 'error' ? (

@@ -1,0 +1,24 @@
+{
+  "id": "validation_v6_relative_development",
+  "complete_unique_matrix": true,
+  "macro_claim": false,
+  "variants": {
+    "v14_relative": {
+      "responses": 96,
+      "strict_valid": 74,
+      "strict_valid_rate": 0.7708333333333334,
+      "request_failures": 0,
+      "error_counts": {
+        "day_overflow": 22
+      },
+      "semantic_screen_event_counts": {},
+      "format_gate": false,
+      "factual_review_required": false,
+      "mean_completion_tokens": 780.4791666666666,
+      "finish_reasons": {
+        "stop": 96
+      }
+    }
+  },
+  "representation": "relative gaps exactly decoded to absolute times; no hidden timing edits, retries, or choice changes"
+}

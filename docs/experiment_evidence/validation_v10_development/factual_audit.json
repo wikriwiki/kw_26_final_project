@@ -1,0 +1,344 @@
+{
+  "scope": "Machine checks only. Full manual factual review required before promotion.",
+  "results": [
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "working_appliance",
+      "failures": [
+        "output_contract"
+      ]
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "working_appliance",
+      "failures": [
+        "output_contract"
+      ]
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "empty_memory",
+      "failures": [
+        "output_contract"
+      ]
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "work_conflict",
+      "failures": [
+        "output_contract",
+        "absent_policy",
+        "missed_office_start"
+      ]
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "stay_home",
+      "failures": [
+        "output_contract",
+        "outside_prohibited"
+      ]
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "work_conflict",
+      "failures": [
+        "absent_policy"
+      ]
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "fixed_appointment",
+      "failures": [
+        "missed_appointment"
+      ]
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "work_conflict",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "work_conflict",
+      "failures": [
+        "missed_office_start"
+      ]
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "working_appliance",
+      "failures": [
+        "absent_policy"
+      ]
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "fixed_appointment",
+      "failures": [
+        "missed_appointment"
+      ]
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 11001,
+      "case": "health_history",
+      "failures": [
+        "output_contract"
+      ]
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "household",
+      "failures": [
+        "output_contract"
+      ]
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 11001,
+      "case": "work_conflict",
+      "failures": [
+        "output_contract",
+        "absent_policy"
+      ]
+    },
+    {
+      "variant": "v16_grounding",
+      "replicate": 12001,
+      "case": "stay_home",
+      "failures": [
+        "output_contract",
+        "outside_prohibited"
+      ]
+    },
+    {
+      "variant": "v17_grounding",
+      "replicate": 12001,
+      "case": "work_conflict",
+      "failures": [
+        "output_contract",
+        "absent_policy",
+        "missed_office_start"
+      ]
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 11001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v11_grounding_control",
+      "replicate": 12001,
+      "case": "working_appliance",
+      "failures": []
+    }
+  ],
+  "variants": {
+    "v11_grounding_control": {
+      "checks": 16,
+      "passed": 15
+    },
+    "v16_grounding": {
+      "checks": 16,
+      "passed": 10
+    },
+    "v17_grounding": {
+      "checks": 16,
+      "passed": 8
+    }
+  }
+}

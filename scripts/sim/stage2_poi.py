@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import sys
@@ -39,6 +40,7 @@ from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 from poi_price import poi_price, price_icon, unit_price_anchor, band_factor  # noqa: E402
 from coupon_eligibility import is_coupon_eligible  # noqa: E402
+from sangsaeng_eligibility import is_sangsaeng_eligible  # noqa: E402
 from poi_review_lookup import lookup_reviews_batch, format_review_block  # noqa: E402
 
 
@@ -56,6 +58,10 @@ class Stage2Pick(BaseModel):
     # actual_spent 중 정책 지원금에서 사용한 금액 — {"P009": 5000} 형태.
     # 평소 잔액으로 쓴 부분 = actual_spent - sum(policy_spend.values())
     policy_spend: dict[str, float] | None = None
+    # 이 지출이 지원금이 없었어도 했을 것인지(true) / 지원금이 있어서 비로소 한 것인지(false).
+    # 참고3 ④의 서베이 문항 형태(품목별 0/1)를 그대로 옮긴 것. 금액 가중평균이 MPC가 된다.
+    would_buy_anyway: bool | None = None
+    extra_spent: int | None = None
     pick_reason: str | None = None
     pick_factor: str | None = None  # known | distance | satisfaction | rumor | appointment | random
 
@@ -82,6 +88,7 @@ def _ensure_positive_spend(
     price_factor: float = 1.0,
     base_won: int | None = None,
     band: int | None = None,
+    durable: bool = False,
 ) -> None:
     """LLM이 actual_spent 누락 / 0 / 음수로 출력했을 때 fallback 부여.
 
@@ -99,8 +106,10 @@ def _ensure_positive_spend(
     else:
         base = _SPEND_FALLBACK_BY_L1.get((category or "기타"), 10000)
         base = int(base * (price_factor or 1.0))
-    if daily_wd and daily_wd > 0:
+    if daily_wd and daily_wd > 0 and not durable:
         # daily_wd가 매우 작은 경우 비율 보정 (예: 절약형 페르소나)
+        # 내구재는 예외 — 냉장고는 하루 예산의 0.4배로 살 수 있는 물건이 아니다.
+        # 이 클램프를 그대로 두면 내구재 앵커를 넣어도 4만원 페르소나는 1.6만원이 된다.
         base = min(base, int(daily_wd * 0.4))
     pick.actual_spent = max(1000, base)
 
@@ -264,24 +273,70 @@ def fetch_candidates_for_events(
             # unit_anchor: 이 동네×업종 평균 결제단가(실측 기반) — 프롬프트 스케일 앵커.
             started = time.perf_counter()
             anchor_won = unit_price_anchor(dong_code, l1)
+            # [내구재 앵커] 이 사람이 이 업종에서 미뤄 둔 물건이 있으면 그 시세를 쓴다.
+            # 동네x업종 평균단가(쇼핑 ~5만원)만 보면 90만원짜리 냉장고가 나올 수 없다.
+            # 7차 실측: 내구재 채널은 작동했으나 건당 16,863원에 그쳤다.
+            # 대기 목록이 있는 사람에게만 붙으므로 가전 결제가 '드물고 큰' 형태가 된다.
+            _dur_anchor = None
+            try:
+                from durables import anchor_for as _dur_anchor_for
+                _dur_anchor = _dur_anchor_for(
+                    persona.get("id"), persona.get("life_stage"),
+                    persona.get("age_group"), sub_cat)
+            except Exception:
+                _dur_anchor = None
+            if _dur_anchor:
+                anchor_won = _dur_anchor
             # 사용처 제한 지원금(쿠폰) 잔액 보유 여부 — run_simulation이 persona에 세팅
             # 정책 사용 가능 여부는 후보 정보로만 제공한다. 후보 정렬 가점은 결과를
             # 사전 유도하므로 기본 0이며, 별도 민감도 실험에서만 명시적으로 켠다.
             coupon_active = bool(persona.get("coupon_poi_restricted"))
+            # 적격 판정은 정책이 정한 룰로 한다. 룰이 없으면 기존 쿠폰 룰(P010)로
+            # 떨어진다 — 정책마다 여기에 분기를 더하면 1:1 결합이 되살아난다.
+            _mk = persona.get("poi_eligible_marker") or "[쿠폰]"
+            # 장소 조건이 있는 정책(지역화폐 — 사는 곳 자치구 안에서만)을 위해
+            # 이 후보군이 거주 자치구 안인지 계산해 넣는다. 후보는 이 dong_code
+            # (또는 그 자치구) 로 조회한 것이므로 추가 조회가 필요하지 않다.
+            # 이것이 반영되지 않아 구 밖 가게에도 사용 표시가 붙었다(2026-09-18).
+            _home_gu = str(persona.get("home_dong_code") or "")[:5]
+            _same_gu = (bool(_home_gu)
+                        and str(dong_code or "")[:5] == _home_gu)
+            _rules = None
+            _spec = persona.get("poi_eligibility_spec")
+            if _spec:
+                try:
+                    from eligibility import Rules as _ERules
+                    _rules = _ERules(_spec)
+                except Exception:
+                    _rules = None
             coupon_boost = (
                 coupon_active
                 and os.environ.get("POLICY_POI_SORT_BOOST", "0") == "1"
             )
+            # 상생 캐시백 활성 시 적립업종에 [적립] 사실 표시 (정렬 가점 아님 — 표시만)
+            sangsaeng_active = bool(persona.get("sangsaeng_active"))
             for c in cands or []:
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
+                c["durable_anchor"] = bool(_dur_anchor)
                 # 쿠폰 사용처 판정 — DB 백필값(p.coupon_eligible) 우선, 없으면 룰 fallback
-                el = c.get("coupon_eligible")
-                if el is None:
-                    el = is_coupon_eligible(c.get("name"), sub_cat, l1)[0]
+                if _rules is not None:
+                    el = _rules.eligible(c.get("name"), sub_cat, l1,
+                                         c.get("upjong_l3"), _same_gu)[0]
+                else:
+                    el = c.get("coupon_eligible")
+                    if el is None:
+                        el = is_coupon_eligible(c.get("name"), sub_cat, l1)[0]
                 c["coupon_eligible"] = bool(el)
-                # 프롬프트 마커: 쿠폰 활성 시에만 표기 (평시 토큰 0)
-                c["coupon_tag"] = "[쿠폰]" if (coupon_active and c["coupon_eligible"]) else ""
+                # 프롬프트 마커: 정책이 정한 표시. 활성 시에만 표기 (평시 토큰 0)
+                c["coupon_tag"] = _mk if (coupon_active and c["coupon_eligible"]) else ""
+                # 상생 적립 판정 — DB 백필값(p.sangsaeng_eligible) 우선, 없으면 룰 fallback
+                sel = c.get("sangsaeng_eligible")
+                if sel is None:
+                    sel = is_sangsaeng_eligible(c.get("name"), sub_cat, l1)[0]
+                c["sangsaeng_eligible"] = bool(sel)
+                # 프롬프트 마커: 캐시백 활성 시 적립업종만 표기 (평시 토큰 0)
+                c["sangsaeng_tag"] = "[적립]" if (sangsaeng_active and c["sangsaeng_eligible"]) else ""
             tm["t_enrich"] += time.perf_counter() - started
 
             # desire 점수 계산 + 정렬 (분할·할당 전에 1회) — 쿠폰가능 매장 가점(매력도 재산출)
@@ -371,11 +426,50 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
 [지원금(grant) 회계와 제약]
 - 지원금은 개인 잔액과 분리된 정책 지갑이다. 지원금으로 결제한 금액은 개인 잔액에서 차감되지 않고 정책 지갑에서 차감된다.
 - 소비 필요·POI·actual_spent는 정책지갑 잔액만으로 만들지 말고 페르소나의 필요와 상황에 따라 정한다.
-- 선택한 거래가 지원금 사용 가능 매장이면 정책지갑을 자기자금보다 먼저 결제한다. `policy_spend`에는 예상 결제액을 기록하되 최종값은 시스템이 사용처·거래액·잔액 범위에서 우선 정산한다.
-- `sum(policy_spend) ≤ actual_spent`이고, 정책별 잔액을 넘을 수 없다.
+- **결제 하나하나를 무엇으로 낼지는 이 사람이 정한다.** 쓸 수 있는 매장이라고 자동으로 이 지갑에서
+  나가지 않는다. `policy_spend`에 적은 금액이 실제로 이 지갑에서 나간 돈이다.
+- 판단의 근거는 **남은 금액이 내 씀씀이로 며칠치인가** 하나다(정책 지갑 정보에 적혀 있다).
+  여러 주치가 되는 금액이면 아껴 둘 이유가 없다 — 쓸 수 있는 자리에서 자기 돈을 먼저 낼 까닭이
+  없으니 대체로 이 지갑으로 낸다. 반대로 며칠치에 그치는 금액이면 자리마다 다 얹으면 금방 사라진다.
+  기한이 가을 끝까지로 남아 있으니 서둘러 없앨 이유가 없어, 꼭 필요한 결제에서만 꺼내 쓰게 된다.
+- **결제 금액이 작다는 것은 건너뛸 이유가 되지 않는다.** 이 지갑은 큰 결제를 위해 아껴 두는
+  상품권이 아니라 끼니·장보기·약값처럼 매일 하는 결제에 그대로 얹혀 나가는 돈이다.
+  "소액이니 평소 쓰던 카드로"라는 습관을 이유로 이 지갑을 건너뛰지 않는다.
+- 왜 그렇게 냈는지는 `pick_reason`에 자연스럽게 적는다.
+- 한 결제에서 일부만 이 지갑으로 낼 수도 있다. `sum(policy_spend) ≤ actual_spent`이고, 정책별
+  잔액을 넘을 수 없다.
+
+**지원금으로 결제한 건마다 `would_buy_anyway` (true/false)**
+이 지갑으로 낸 결제 하나하나에 대해, **지원금이 없었어도 이 지출을 했을지**를 판단해 적는다.
+- `true`  — 지원금이 없었어도 내 돈으로 어차피 했을 지출이다.
+- `false` — 지원금이 있어서 비로소 하게 된 지출이다. 없었으면 오늘 하지 않았을 것이다.
+판단의 기준은 **그 지출이 원래 예정돼 있었는지**다. 없으면 안 되어서 어차피 했을 지출이면
+결제수단만 바뀐 것이므로 `true`다. 반대로 오늘 이 돈이 있어서 비로소 하기로 한 것이면 `false`다.
+업종으로 정해지는 것이 아니다 — 같은 병원 진료도 원래 가려던 날이면 `true`, 이 돈이 생겨
+앞당긴 것이면 `false`다. 같은 외식도 늘 하던 끼니면 `true`, 안 하려던 것을 하게 된 것이면
+`false`다. 이 사람의 평소 지출 습관에 그 지출이 들어 있었는지를 보고 건별로 정한다.
+위 '평소 업종별 지출 구성'과 견주어 본다. 오늘 지출이 그 구성 안에서 늘 하던 만큼이면
+어차피 했을 지출(`true`)이고, 평소 그 업종에 거의 쓰지 않던 사람이 오늘 쓴 것이거나 평소보다
+훨씬 큰 금액이면 이 돈이 있어서 하게 된 지출(`false`)이다.
+이 판단은 품목의 종류만으로 정하지 않는다. **같은 품목도 사람에 따라 다르다.** 평소 필요한 것을
+그때그때 사 오던 사람이면 오늘 결제도 대부분 어차피 했을 지출이고, 쓸 돈이 빠듯해 미뤄둔 것이
+쌓여 있던 사람이면 그중 상당수가 이 돈이 아니었으면 오늘 하지 않았을 지출이다. 이 사람의 형편과
+평소 씀씀이를 보고 건별로 정한다.
+지원금으로 결제하지 않은 건에는 이 필드가 무의미하다(생략).
 - 사용처 제한 정책은 후보에 `[쿠폰]` 표시가 있는 매장에서만 사용할 수 있다. 표시가 없는 매장은 개인 잔액으로만 결제한다.
 - 정책 존재만으로 소비 필요, 소비액, POI 선택을 미리 정하지 않는다. 페르소나의 필요·습관·자산·일정과 후보 특성을 함께 고려해 판단한다.
 - 모든 commerce 이벤트에 양의 actual_spent를 반드시 부여 (0원·음수 금지).
+
+**그 결제에서 `extra_spent` (원)**
+같은 결제 안에도 평소 쓰던 만큼이 있고, 이 돈이 있어서 더 쓴 만큼이 있다. `extra_spent`는
+그 결제 금액 중 **정책지갑이 없었다면 쓰지 않았을 금액**이다.
+- 원래 하려던 지출을 결제수단만 바꾼 것이면 `0`이다.
+- 늘 가던 곳인데 오늘은 이 돈이 있어 평소보다 좋은 것을 고르거나 양을 늘렸다면,
+  **그 늘어난 금액만** 적는다(결제액 전부가 아니다).
+- 이 돈이 없었으면 오늘 아예 하지 않았을 지출이면 결제 금액 전부를 적는다.
+`0 ≤ extra_spent ≤ actual_spent`. `would_buy_anyway`가 `false`면 대개 결제액 전부이고,
+`true`여도 평소보다 더 쓴 것이 있으면 `0`이 아니다.
+
 
 **만족도 설정 (actual_satisfaction)**
 - 0.0 ~ 1.0 범위의 실수입니다.
@@ -394,18 +488,20 @@ SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구�
     "order": 0,
     "poi_id": "C_xxxxxx",
     "actual_spent": 12000,
-    "policy_spend": null,
+    "policy_spend": {"P009": 12000},
+    "would_buy_anyway": true,
+    "extra_spent": 2000,
     "actual_satisfaction": 0.71,
-    "pick_reason": "단골 한식집. 어제 sat 0.72로 만족도 높음. 직장 0.05km. 평소 한식 즐겨 찾는 성향.",
+    "pick_reason": "단골 한식집. 어제 sat 0.72로 만족도 높음. 직장 0.05km. 평소 한식 즐겨 찾는 성향. [쿠폰] 매장이고 남은 지원금이 몇 주치라 굳이 자기 돈 쓸 것 없이 정책지갑으로 계산.",
     "pick_factor": "satisfaction"
   },
   {
     "order": 2,
     "poi_id": "C_yyyyyy",
     "actual_spent": 25000,
-    "policy_spend": {"P009": 15000},
+    "policy_spend": null,
     "actual_satisfaction": 0.68,
-    "pick_reason": "오늘 카페 휴식 의도와 가까운 후보가 맞았고, 사용 가능한 P009 정책지갑에서 15,000원을 결제하기로 선택.",
+    "pick_reason": "오늘 카페 휴식 의도와 가까운 후보가 맞음. 계산할 때는 습관대로 늘 쓰던 카드를 먼저 꺼내 지원금은 그대로 뒀다.",
     "pick_factor": "satisfaction"
   }
 ],
@@ -430,7 +526,13 @@ def _format_event_with_candidates(
         return ""
     # 동네×업종 평균 결제단가(실측 카드 데이터 기반) — actual_spent 스케일 앵커
     anchor = cands[0].get("unit_anchor")
-    anchor_s = f" | 동네 평균단가 ~{anchor:,}원" if anchor else ""
+    # 내구재 앵커는 동네 평균이 아니라 그 물건의 시세다 — 라벨을 구분한다.
+    if anchor and cands[0].get("durable_anchor"):
+        anchor_s = f" | 바꾸려는 물건 시세 ~{anchor:,}원"
+    elif anchor:
+        anchor_s = f" | 동네 평균단가 ~{anchor:,}원"
+    else:
+        anchor_s = ""
     lines = [
         f"### 이벤트 {i} | {ev.time} | {ev.anchor} | "
         f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}{anchor_s}"
@@ -448,10 +550,11 @@ def _format_event_with_candidates(
         visit_s = f"({visit_count}회)" if visit_count > 0 else ""
         price_s = price_icon(c.get("price_band"))
         coupon_s = c.get("coupon_tag") or ""
+        sangsaeng_s = c.get("sangsaeng_tag") or ""
 
         lines.append(
             f"  {known_mark}{recent_mark} {c['poi_id']} | {c.get('name') or '(이름없음)'} | "
-            f"{km_s} | {price_s} | {sat_s} {visit_s}{coupon_s}"
+            f"{km_s} | {price_s} | {sat_s} {visit_s}{coupon_s}{sangsaeng_s}"
         )
     return "\n".join(lines)
 
@@ -476,7 +579,30 @@ def build_stage2_prompt(
         balance = (state or {}).get("balance")
         if balance is not None:
             budget_info += f" / 현재 잔액: {int(balance):,}원"
-        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}")
+        # 평소 업종별 지출 구성(BDC 실측) — would_buy_anyway 판정의 근거.
+        # 오늘 지출이 이 사람의 평소 패턴 안이었는지 밖이었는지를 볼 수 있어야 한다.
+        # Stage1 과 같은 줄을 쓴다 — 어휘가 갈리면 두 단계가 다른 기준으로 움직인다.
+        _cat = ""
+        try:
+            from bdc_category_map import line as _fold_line
+            _b = _fold_line(persona.get("cat_ratio_wd"))
+            if _b:
+                _cat = "\n" + _b
+        except Exception:
+            _cat = ""
+        # 집안 내구재 상태 — Stage1 이 '냉장고 교체'를 계획했을 때 Stage2 가
+        # actual_spent 를 그 물건의 시세로 잡을 수 있어야 한다. 동네 평균단가
+        # 앵커(쇼핑 ~5만원)만 보면 90만원짜리 냉장고가 나올 수 없다.
+        _dur = ""
+        try:
+            from durables import format_block as _durfmt
+            _dur = _durfmt(persona.get("id") or "", persona.get("life_stage"),
+                           persona.get("age_group"))
+            if _dur:
+                _dur = "\n" + _dur
+        except Exception:
+            _dur = ""
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}{_dur}")
         # 활성 정책 (grant 위주, LLM이 policy_spend 책정 시 참조)
         policy_budget = persona.get("policy_budget_summary") or ""
         if policy_budget:
@@ -605,8 +731,8 @@ def call_stage2(
         with driver_session() as s:
             rows = s.run(
                 "MATCH (a:Agent {id:$aid})-[:REMEMBERS]->(m:Memory {type:'visited'})-[:ABOUT_POI]->(p:POI) "
-                "WHERE m.day >= date($since) RETURN p.id AS pid",
-                aid=aid, since=three_days_ago
+                "WHERE m.day >= date($since) AND m.day < date($today) RETURN p.id AS pid",
+                aid=aid, since=three_days_ago, today=today.isoformat()
             )
             recent_poi_ids = {r["pid"] for r in rows}
     except Exception:
@@ -651,9 +777,18 @@ def call_stage2(
                                     "actual_spent": {"type": "number", "minimum": 0},
                                     "actual_satisfaction": {"type": "number", "minimum": 0, "maximum": 1},
                                     "policy_spend": {"type": ["object", "null"]},
+                                    "would_buy_anyway": {"type": ["boolean", "null"]},
+                                    "extra_spent": {"type": ["integer", "null"], "minimum": 0},
                                     "pick_reason": {"type": ["string", "null"]},
                                     "pick_factor": {"type": ["string", "null"]},
                                 },
+                                # policy_spend·would_buy_anyway를 필수로 둔다. 선택 필드였을 때 모델이 대부분 생략했고
+                                # (측정: 40만 tier가 5일 중 4일 쿠폰 0건), 생략은 곧 "미사용"으로 처리돼
+                                # 결제 판단이 이뤄지지 않았다. null을 허용하므로 "안 쓴다"도 표현 가능하며,
+                                # 다만 건별로 명시적으로 답해야 한다.
+                                # [되돌림] policy_spend를 필수로 두니 모델이 건별로 판단은 하되
+                                # 사용 수준이 0.42로 뛰어 전체 소진이 7.3%/일(목표 2.73)로 과속했고
+                                # MPC도 0.174→0.085로 무너졌다. 선택 필드로 되돌린다.
                                 "required": ["order", "poi_id", "actual_satisfaction", "actual_spent"],
                                 "additionalProperties": False,
                             },
@@ -779,7 +914,7 @@ def call_stage2(
             hallucinations = 0          # 보정 (해당 order의 cands에 없지만 cands는 존재)
             hallucinations_dropped = 0  # 드롭 (해당 order에 cands 자체 없음)
             order_mismatch = 0          # LLM이 다른 order의 POI를 가져옴 (보정 카운트에 포함)
-            rng = _random.Random(hash(aid))
+            rng = _random.Random(int.from_bytes(hashlib.sha256(aid.encode("utf-8")).digest()[:8], "big"))
             # 전체 cands flat — order 추적용 (어느 다른 order에 속하는지 진단)
             poi_to_orders: dict[str, list[int]] = {}
             for ord_i, cs in cands_by_order.items():
@@ -822,6 +957,10 @@ def call_stage2(
                 i: (cs[0].get("unit_anchor") if cs else None)
                 for i, cs in cands_by_order.items()
             }
+            durable_by_order = {
+                i: bool(cs[0].get("durable_anchor")) if cs else False
+                for i, cs in cands_by_order.items()
+            }
             for pick in parsed.picks:
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
@@ -829,6 +968,7 @@ def call_stage2(
                     _ensure_positive_spend(
                         pick, cat, daily_wd, price_factor=pf,
                         base_won=anchor_by_order.get(pick.order), band=pb,
+                        durable=bool(durable_by_order.get(pick.order)),
                     )
             elapsed = time.perf_counter() - started
             timing["t_postprocess"] += elapsed
@@ -909,7 +1049,7 @@ def _fill_missing_picks(
     import random as _random
     picked_orders = {p.order for p in stage2.picks}
     new_picks = list(stage2.picks)
-    rng = _random.Random(hash(aid) if aid else 42)
+    rng = _random.Random(int.from_bytes(hashlib.sha256(aid.encode("utf-8")).digest()[:8], "big") if aid else 42)
     for i, ev in enumerate(stage1_events):
         if i in picked_orders:
             continue
@@ -1003,6 +1143,9 @@ def merge_to_final_events(
             "coupon_eligible": (coupon_by_poi or {}).get(poi_id) if poi_id else None,
             # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
             "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
+            # 지원금 결제건의 "없었어도 했을 지출인가"(참고3 ④ 문항 형태). MPC 산출 입력.
+            "would_buy_anyway": (pick_obj.would_buy_anyway if pick_obj else None),
+            "extra_spent": (pick_obj.extra_spent if pick_obj else None),
             # ───── 사고과정 흔적 (인터뷰용) ─────
             "reasoning": ev.reasoning,                 # Stage 1: 왜 이 의도·카테고리·anchor
             "trigger": ev.trigger,                     # Stage 1: appointment/rumor/policy/...

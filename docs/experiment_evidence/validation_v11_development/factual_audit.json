@@ -1,0 +1,116 @@
+{
+  "scope": "Machine checks only. Full manual factual review required before promotion.",
+  "results": [
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "work_conflict",
+      "failures": [
+        "absent_policy",
+        "missed_office_start"
+      ]
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "fixed_appointment",
+      "failures": [
+        "output_contract",
+        "missing_events",
+        "missed_appointment"
+      ]
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "work_conflict",
+      "failures": [
+        "absent_policy"
+      ]
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 13001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v18_evidence",
+      "replicate": 14001,
+      "case": "empty_memory",
+      "failures": []
+    }
+  ],
+  "variants": {
+    "v18_evidence": {
+      "checks": 16,
+      "passed": 13
+    }
+  }
+}

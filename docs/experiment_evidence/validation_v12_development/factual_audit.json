@@ -1,0 +1,111 @@
+{
+  "scope": "Machine checks only. Full manual factual review required before promotion.",
+  "results": [
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "closed_cafes",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "fixed_appointment",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "stay_home",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "household",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "health_history",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "work_conflict",
+      "failures": [
+        "absent_policy"
+      ]
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "work_conflict",
+      "failures": [
+        "output_contract"
+      ]
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "working_appliance",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 16001,
+      "case": "empty_memory",
+      "failures": []
+    },
+    {
+      "variant": "v19_evidence",
+      "replicate": 15001,
+      "case": "empty_memory",
+      "failures": []
+    }
+  ],
+  "variants": {
+    "v19_evidence": {
+      "checks": 16,
+      "passed": 14
+    }
+  }
+}

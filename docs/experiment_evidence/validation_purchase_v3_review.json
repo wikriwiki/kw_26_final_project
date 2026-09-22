@@ -1,0 +1,75 @@
+{
+  "scope": "Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v3_bounded1024": {
+      "responses": 32,
+      "complete": true,
+      "valid": 31,
+      "all_pass": false,
+      "deterministic_no_purchase": 14
+    }
+  },
+  "raw_archive_sha256": "3a32705ec0a13a0ad1de702f9db2d2cb3c52e91aa2c7493c0c8f0fbab69d9662",
+  "decision": "31/32 with14 deterministic unique zeros; model17/18. Failed raw choice read: zero acquisition plus positive redemption of unowned wallet. Not promoted. Other choices not fully manually reviewed.",
+  "policy_contrasts_used_for_selection": false,
+  "failure_rows": [
+    {
+      "aid": "AGT_11620565_F_70대이상_001",
+      "case": "local_voucher",
+      "arm": "on",
+      "date": "2020-09-23",
+      "replicate": 43001,
+      "attempt_key": "93d772cd0bead1e2c37c036fd09bdd106af86e18e5acaf6772353491dfe00b18",
+      "transaction_protocol": "v3",
+      "decision_source": "model",
+      "raw": "{\n\t\"acquisition_units\": {\n\t\"synthetic_unit\": 0\n\t},\n\t\"purchases\": [\n\t{\n\t\"id\": \"event:0\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:1\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:2\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:3\",\n\t\"candidate_id\": \"quote:home_online_goods\",\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:4\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:5\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:6\",\n\t\"candidate_id\": \"quote:health_goods\",\n\t\"wallet_spend\": {\n\t\"P014\": 2500\n\t}\n\t},\n\t{\n\t\"id\": \"event:7\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:8\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t},\n\t{\n\t\"id\": \"event:9\",\n\t\"candidate_id\": null,\n\t\"wallet_spend\": {}\n\t}\n\t]\n}",
+      "thinking_usage": {
+        "id": "020ebb005d154b69a973faff3f7bda4f",
+        "finish_reason": {
+          "type": "length",
+          "length": 1024
+        },
+        "prompt_tokens": 2677,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 1024,
+        "cached_tokens": 5,
+        "cached_tokens_details": {
+          "device": 5,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 74.54115843295585,
+        "response_sent_to_client_ts": 1789845532.8515384
+      },
+      "answer_usage": {
+        "id": "0b65f33f54e74b78b281310a5a03db09",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 3704,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 318,
+        "cached_tokens": 3701,
+        "cached_tokens_details": {
+          "device": 3701,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 20.59148738498334,
+        "response_sent_to_client_ts": 1789845553.5676413
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Unavailable or ineligible wallet"
+      ],
+      "elapsed_seconds": 95.266
+    }
+  ]
+}
