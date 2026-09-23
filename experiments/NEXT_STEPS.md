@@ -1,6 +1,6 @@
 # 다음에 무엇을 하는가 — 명령까지 적는다
 
-**2026-09-24 02:45** · 이 문서는 **진행 중인 계산이 끝났을 때** 할 일이다
+**2026-09-24 03:00 갱신** · 이 문서는 **진행 중인 계산이 끝났을 때** 할 일이다
 
 ---
 
@@ -8,24 +8,35 @@
 
 ```
 본런   /data/run_p013_ruler.sh   arm A(v5·n=700·12일) → arm B(같은 것 한 번 더)
-       arm A 09시 무렵 · 두 팔 18:30 무렵
-탐침   /data/run_case_trend_probe.sh   후보 2 · 48 호출 · 02:55 무렵
+       arm A 09:30 무렵 · 두 팔 19시 무렵
+복제   /data/run_case_trend_replicate.sh   후보 2 · 96 호출 · 03:40 무렵
 ```
 
-## ① 후보 2 탐침이 끝나면
+## 끝난 것
+
+```
+후보 1 (범위의 산술)  탐침 48호출 → **기각**  양측 p=0.549 · 방향도 흐림
+후보 2 파일럿         탐침 48호출 → 관문 불통과
+                     소비성향 감소 11 : 증가 4 · 양측 p=0.118 · 단측 0.059
+```
+
+## ① 후보 2 **복제**가 끝나면
 
 ```bash
 scp -i ~/.ssh/outofmemory.pem -P 10022 \
-    outofmemory@123.37.28.167:/data/ct_probe/responses.jsonl output/ct_probe.jsonl
+    outofmemory@123.37.28.167:/data/ct_replicate/responses.jsonl output/ct_replicate.jsonl
 py scripts/sim/scope_fact_probe.py --frozen /dev/null --out output \
-    --responses output/ct_probe.jsonl
+    --responses output/ct_replicate.jsonl
 ```
 
-판정은 **쌍별 부호 검정**이다. `changed` 는 보지 않는다.
+**등록한 판정은 단측이다** — 방향(소비성향 감소)을 파일럿에서 고정했다.
+화면에 양측·단측이 나란히 찍히므로 **단측 칸을 본다.**
+
+**파일럿의 15쌍을 합치지 않는다.** 합치면 유의해질 때까지 표본을 늘린 것이 된다.
 
 ```
-어느 지표든 p < 0.05      → 라운드 자격 있음. ②로
-전부 p >= 0.05           → 기각. ③으로
+소비성향 단측 p < 0.05   → 라운드 자격 있음. ②로
+그 밖                   → 후보 2 도 기각. ③으로
 ```
 
 기각이면 `experiments/case_trend/` 에 결과 문서를 쓰고 `SELECTED_PROMPT.md` 의
@@ -40,6 +51,9 @@ ssh ... 'setsid nohup bash /data/run_case_trend_round.sh > /data/ct_round_nohup.
 ```
 
 런너가 탐침 판정을 **다시 확인**하고 안 갈렸으면 스스로 멈춘다.
+다만 런너의 관문은 `/data/ct_probe`(파일럿)를 읽는다. **복제로 판정했다면
+그 경로를 `/data/ct_replicate` 로 바꿔서 건다** — 안 그러면 파일럿(불통과)을
+보고 스스로 멈춘다.
 판정 출력이 **반증(시점 위약)부터** 찍는다 — 거기서 깨지면 거리두기에서
 좋아졌더라도 채택하지 않는다.
 
