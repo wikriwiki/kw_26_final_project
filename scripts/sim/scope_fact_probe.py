@@ -44,14 +44,19 @@ from pathlib import Path
 # 어긋나고 무엇을 쟀는지 흐려진다. 코드는 하나만 둔다.
 #
 #   line    끼울 문장 (코드 렌더와 **바이트가 같아야 한다**)
-#   tail    끼울 자리 표식 — 이 문장 **앞**에 넣는다
+#   tail    끼울 자리 표식
 #   case    동결 맥락의 어느 셀을 쓰는가
+#   mode    끼우는 방식. 블록마다 글의 모양이 다르다
+#             'pipe'         정책 줄 — ` | ` 로 이어진다. 표식 **앞**에 칸을 하나 넣는다
+#             'bullet_after' 환경 블록 — `- ` 로 시작하는 줄 목록. 표식 줄 **다음 줄**에
+#                            새 항목을 넣는다
 CANDIDATES = {
     'scope_fact': {
         'line': ("문턱은 적립업종 지출만 센다 — 제외업종(대형마트·백화점·온라인 등)에서 "
                  "줄여도 문턱은 가까워지지 않고, 거기서 쓴 돈이 환급을 깎지도 않는다"),
         'tail': "못 넘기면 이번 달 혜택은 사라짐",
         'case': 'cashback',
+        'mode': 'pipe',
         'why': '제외업종에서 줄여도 문턱은 가까워지지 않는다 — 제도 산식의 성질',
     },
 }
@@ -69,15 +74,32 @@ EXCLUDED_SUBS = {
 }
 
 
-def insert(user: str, line: str, tail: str) -> str:
-    """표식 문장 **앞**에 한 줄을 끼운다. 넣을 자리가 없으면 그대로 둔다.
+def insert(user: str, line: str, tail: str, mode: str = 'pipe') -> str:
+    """맥락에 한 줄을 끼운다. **넣을 자리가 없으면 그대로 둔다.**
 
     그대로 두는 것이 중요하다 — 억지로 끼우면 앞뒤가 안 맞는 맥락이 되고,
     그러면 그 줄이 아니라 **어색한 글**에 대한 반응을 재게 된다.
+
+        pipe          ` | ` 로 이어진 정책 줄. 표식 앞에 칸을 하나 넣는다
+        bullet_after  `- ` 줄 목록인 환경 블록. 표식이 든 줄 **다음**에 항목을 넣는다
     """
-    if line in user or tail not in user:
+    if line in user:
         return user
-    return user.replace(" | " + tail, " | " + line + " | " + tail, 1)
+    if mode == 'pipe':
+        if tail not in user:
+            return user
+        return user.replace(" | " + tail, " | " + line + " | " + tail, 1)
+    if mode == 'bullet_after':
+        out = []
+        done = False
+        for ln in user.split(chr(10)):
+            out.append(ln)
+            if not done and tail in ln and ln.lstrip().startswith('-'):
+                indent = ln[:len(ln) - len(ln.lstrip())]
+                out.append('%s- %s' % (indent, line))
+                done = True
+        return chr(10).join(out) if done else user
+    raise ValueError('모르는 끼우기 방식: %r' % mode)
 
 
 def add_scope(user: str) -> str:
@@ -95,7 +117,8 @@ def build(frozen: dict, case: str = 'cashback', arm: str = 'on',
         if c.get('case') != case or c.get('arm') != arm:
             continue
         base = c['user']
-        withline = insert(base, spec['line'], spec['tail'])
+        withline = insert(base, spec['line'], spec['tail'],
+                          spec.get('mode', 'pipe'))
         if withline == base:
             continue                     # 문턱 줄이 없는 셀 — 이 가설과 무관하다
         for side, text in (('off', base), ('on', withline)):

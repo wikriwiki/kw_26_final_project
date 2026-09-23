@@ -210,3 +210,36 @@ def test_the_insert_is_inert_when_there_is_no_place_for_it():
     once = pr.insert('a | 끝', 'X', '끝')
     assert once == 'a | X | 끝'
     assert pr.insert(once, 'X', '끝') == once, '두 번 끼우면 안 된다'
+
+
+def test_bullet_after_inserts_into_the_environment_block():
+    """환경 블록은 `- ` 줄 목록이라 파이프 방식으로는 못 끼운다(후보 2 용)."""
+    pr = _probe_mod()
+    ctx = ('## 사회 배경 — 오늘의 세상\n'
+           '감염병 유행 중인 서울\n'
+           '- 서울 신규 확진 112명 (2020-11-23 기준, 최근 7일 평균 110명)\n'
+           '- 식당 매장 취식은 21시까지, 이후 포장·배달만 가능\n'
+           '\n## 페르소나\n')
+    got = pr.insert(ctx, '2주 전 7일 평균은 42명 — 지금은 그 2.6배',
+                    '최근 7일 평균', mode='bullet_after')
+    lines = got.split('\n')
+    i = [k for k, l in enumerate(lines) if '최근 7일 평균' in l][0]
+    assert lines[i + 1] == '- 2주 전 7일 평균은 42명 — 지금은 그 2.6배'
+    assert lines[i + 2].startswith('- 식당'), '뒤 항목이 밀려나면 안 된다'
+    assert pr.insert(got, '2주 전 7일 평균은 42명 — 지금은 그 2.6배',
+                     '최근 7일 평균', mode='bullet_after') == got
+
+
+def test_bullet_after_is_inert_without_a_marker_line():
+    pr = _probe_mod()
+    assert pr.insert('표식 없음', 'X', '없는표식', mode='bullet_after') == '표식 없음'
+    # 표식이 있어도 `- ` 줄이 아니면 넣지 않는다 — 머리말에 끼우면 글이 망가진다
+    assert pr.insert('최근 7일 평균 어쩌고', 'X', '최근 7일 평균',
+                     mode='bullet_after') == '최근 7일 평균 어쩌고'
+
+
+def test_an_unknown_insert_mode_fails_loudly():
+    """조용히 그대로 두면 **안 끼운 채로 A/B 를 돌리게 된다.**"""
+    pr = _probe_mod()
+    with pytest.raises(ValueError):
+        pr.insert('a | 끝', 'X', '끝', mode='엉뚱한방식')
