@@ -261,3 +261,44 @@ def test_an_unknown_insert_mode_fails_loudly():
     pr = _probe_mod()
     with pytest.raises(ValueError):
         pr.insert('a | 끝', 'X', '끝', mode='엉뚱한방식')
+
+
+# ------------------------------------------------- 판정은 `changed` 가 아니라 부호 검정
+def test_the_sign_test_is_not_fooled_by_one_big_mover():
+    """평균만 보면 한쪽으로 크게 튄 한 사람이 전체를 끌고 간다."""
+    pr = _probe_mod()
+    pairs = {('a%d' % i, 1): {'off': {'x': 0}, 'on': {'x': -1}} for i in range(5)}
+    pairs[('big', 1)] = {'off': {'x': 0}, 'on': {'x': 100}}   # 한 명이 크게 늘었다
+    t = pr.sign_test(pairs, 'x')
+    assert t['mean'] > 0, '평균은 한 사람에 끌려 양수다'
+    assert t['hit'] == 1 and t['miss'] == 5, '부호는 다섯 대 하나로 반대쪽이다'
+
+
+def test_ties_are_reported_not_hidden():
+    """동점을 분모에 넣으면 p 가 실제보다 좋아 보인다. 빼되 **몇인지 알린다.**"""
+    pr = _probe_mod()
+    pairs = {('t%d' % i, 1): {'off': {'x': 0}, 'on': {'x': 0}} for i in range(20)}
+    pairs[('u', 1)] = {'off': {'x': 0}, 'on': {'x': 1}}
+    t = pr.sign_test(pairs, 'x')
+    assert t['tie'] == 20 and t['n'] == 1
+    assert t['p'] == 1.0, '한 쌍으로는 아무것도 못 가른다'
+
+
+def test_a_clean_split_is_detected():
+    """전부 한쪽이면 갈려야 한다 — 검정이 늘 '구별 안 됨' 을 내면 쓸모가 없다."""
+    pr = _probe_mod()
+    pairs = {('a%d' % i, 1): {'off': {'x': 0}, 'on': {'x': 1}} for i in range(10)}
+    t = pr.sign_test(pairs, 'x')
+    assert t['hit'] == 10 and t['miss'] == 0
+    assert t['p'] < 0.01, t
+
+
+def test_pairs_keep_the_seed_so_both_seeds_survive():
+    """시드를 키에서 빼면 뒤 시드가 앞 시드를 덮어 쌍이 절반으로 준다."""
+    pr = _probe_mod()
+    rows = []
+    for seed in (1, 2):
+        for side in ('off', 'on'):
+            rows.append({'aid': 'A', 'seed': seed, 'side': side,
+                         'raw': '{"daily_propensity": 0.%d, "category": "식사"}' % seed})
+    assert pr.compare(rows)['paired'] == 2, '시드 둘이 각각 한 쌍이어야 한다'

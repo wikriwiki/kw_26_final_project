@@ -18,7 +18,13 @@
 
 ## 읽는 것
 
-    changed        계획이 조금이라도 달라진 시민 수 — **0 이면 후보를 버린다**
+    **쌍별 부호 검정이 판정이다.** `changed` 는 관문이 못 된다 —
+    temperature 0.7 에서는 프롬프트가 한 글자만 달라져도 토큰 경로가 갈리므로
+    **의미 없는 줄을 끼워도 계획이 달라진다.** 그것을 영가설 대조로 확인했다.
+
+    sign           같은 시민의 off/on 을 맞대 기대 방향 쌍이 몇인지 센다.
+                   동전 던지기면 절반이다 — 양측 이항 p 로 읽는다
+    changed        계획이 조금이라도 달라진 시민 수 — **참고로만 둔다**
     propensity     최상위 소비성향 delta. 총액 스칼라가 움직이는지
     excluded_ev    제외업종 이벤트 수 delta. 줄이기를 멈추는지가 이 가설의 핵심
     eligible_ev    적립업종 이벤트 수 delta. 함께 보지 않으면 그냥 다 늘었는지 모른다
@@ -185,9 +191,10 @@ def compare(rows: list[dict]) -> dict:
         p = parse(r.get('raw'))
         if p is None:
             continue
-        by.setdefault(r['aid'], {})[r['side']] = p
-    paired = {a: v for a, v in by.items() if 'off' in v and 'on' in v}
-    changed = [a for a, v in paired.items() if v['off']['sha'] != v['on']['sha']]
+        # 시드까지 키에 넣는다 — 시드별로 나눠 부르지 않아도 24쌍이 온전히 남는다.
+        by.setdefault((r['aid'], r.get('seed')), {})[r['side']] = p
+    paired = {k: v for k, v in by.items() if 'off' in v and 'on' in v}
+    changed = [k for k, v in paired.items() if v['off']['sha'] != v['on']['sha']]
 
     def d(key):
         vals = [v['on'][key] - v['off'][key] for v in paired.values()
@@ -195,9 +202,37 @@ def compare(rows: list[dict]) -> dict:
         return (sum(vals) / len(vals), len(vals)) if vals else (None, 0)
 
     return {'paired': len(paired), 'changed': len(changed),
-            'changed_aids': sorted(changed),
+            'changed_aids': sorted(str(k) for k in changed),
             'd_propensity': d('propensity'), 'd_excluded': d('excluded_ev'),
-            'd_events': d('n_events')}
+            'd_events': d('n_events'),
+            'sign_excluded': sign_test(paired, 'excluded_ev'),
+            'sign_propensity': sign_test(paired, 'propensity'),
+            'sign_events': sign_test(paired, 'n_events')}
+
+
+def sign_test(pairs, key, want_up=True):
+    """같은 시민의 off/on 차이가 **기대 방향인 쌍이 몇인가.**
+
+    평균만 보면 한쪽으로 크게 튄 한 사람이 전체를 끌고 간다. 쌍마다 부호만
+    세면 그 영향이 빠진다. 동점(둘 다 0)은 빼고 센다 — 제외업종처럼 애초에
+    아무도 안 가는 지표는 동점이 대부분이고, 그것을 분모에 넣으면 p 가
+    실제보다 좋아 보인다. **동점 수를 함께 돌려주는 이유다.**
+    """
+    import math
+    d = [(v['on'][key] - v['off'][key]) for v in pairs.values()
+         if v['on'].get(key) is not None and v['off'].get(key) is not None]
+    up = sum(1 for x in d if x > 0)
+    dn = sum(1 for x in d if x < 0)
+    tie = sum(1 for x in d if x == 0)
+    n = up + dn
+    if n:
+        k = max(up, dn)
+        p = min(1.0, 2 * sum(math.comb(n, i) for i in range(k, n + 1)) / (2 ** n))
+    else:
+        p = 1.0
+    return {'hit': up if want_up else dn, 'miss': dn if want_up else up,
+            'tie': tie, 'n': n, 'p': p,
+            'mean': (sum(d) / len(d)) if d else None}
 
 
 def main() -> int:
@@ -217,12 +252,17 @@ def main() -> int:
         rows = [json.loads(ln) for ln in io.open(a.responses, encoding='utf-8')
                 if ln.strip()]
         s = compare(rows)
-        print('쌍 %d · **계획이 달라진 시민 %d명**' % (s['paired'], s['changed']))
-        for k, lbl in (('d_propensity', '소비성향'), ('d_excluded', '제외업종 이벤트'),
-                       ('d_events', '전체 이벤트')):
-            v, n = s[k]
-            print('  %-14s delta %s (n=%d)'
-                  % (lbl, ('%+.4f' % v) if v is not None else '—', n))
+        print('쌍 %d · 계획이 달라진 시민 %d명 (참고 — 관문이 못 된다)'
+              % (s['paired'], s['changed']))
+        print()
+        print('쌍별 부호 검정 — **이것이 판정이다**')
+        for k, lbl in (('sign_excluded', '제외업종 이벤트'),
+                       ('sign_propensity', '소비성향'), ('sign_events', '전체 이벤트')):
+            t = s[k]
+            print('  %-14s 기대방향 %d · 반대 %d · 동점 %d   평균 %s   양측 p=%.3f  %s'
+                  % (lbl, t['hit'], t['miss'], t['tie'],
+                     ('%+.4f' % t['mean']) if t['mean'] is not None else '—',
+                     t['p'], '**갈린다**' if t['p'] < 0.05 else '동전 던지기와 구별 안 됨'))
         io.open(out / 'summary.json', 'w', encoding='utf-8', newline='\n').write(
             json.dumps(s, ensure_ascii=False, indent=1))
         print()
