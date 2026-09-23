@@ -194,7 +194,21 @@ def test_every_registered_candidate_matches_what_the_code_renders():
     끼우고 본런이 B 를 끼운 채 같은 실험이라고 적게 된다.
     """
     pr = _probe_mod()
-    renders = {'cashback': render('1'), 'sector_voucher': _sv('1')}
+    import os as _os
+    from datetime import date as _date
+    from environments import build_environment as _env
+    _old = _os.environ.get('EXP_CASE_TREND')
+    _os.environ['EXP_CASE_TREND'] = '1'
+    try:
+        env_txt = chr(10).join(
+            _env('covid_2021', _date(2020, 11, 24)).get('facts') or [])
+    finally:
+        if _old is None:
+            _os.environ.pop('EXP_CASE_TREND', None)
+        else:
+            _os.environ['EXP_CASE_TREND'] = _old
+    renders = {'cashback': render('1'), 'sector_voucher': _sv('1'),
+               'environment': env_txt}
     for name, spec in pr.CANDIDATES.items():
         for key in ('line', 'tail', 'case', 'why'):
             assert spec.get(key), '%s 후보에 %s 가 없다' % (name, key)

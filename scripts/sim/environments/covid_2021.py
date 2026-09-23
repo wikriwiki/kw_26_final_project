@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -199,6 +200,25 @@ def build(day: date) -> dict:
         avg = round(sum(recent) / len(recent))
         facts.append(
             f"서울 신규 확진 {last_n:,}명 ({last_d.isoformat()} 기준, 최근 {len(recent)}일 평균 {avg:,}명)")
+        # [EXP_CASE_TREND] 기준을 같이 준다. **수준만으로는 해석할 수 없다.**
+        #
+        # "110명" 이 많은지 적은지 이 줄만으로는 모른다. 실제 사람은 "지난주보다
+        # 훨씬 늘었다" 를 알고 움직였다. 같은 원자료에서 2주 전 7일 평균을 세어
+        # 배수를 적는다 — 새 자료를 끌어오지 않는다.
+        #
+        # **방향을 말하지 않는다.** '나가지 마라'도 '덜 써라'도 없다. 환경
+        # 렌더러의 기존 약속 그대로 상태만 제시한다.
+        #
+        # 넛지인지 가르는 반증 조건을 미리 등록했다 — 정책이 없는 시점 위약에서
+        # 소비가 움직이면 이 줄은 상태가 아니라 방향을 주입한 것이다
+        # (experiments/case_trend/design_note.md).
+        if os.environ.get("EXP_CASE_TREND", "0") == "1":
+            then = [n for d, n in hist if d < day - timedelta(days=14)][-7:]
+            if len(then) >= 7 and sum(then) > 0:
+                base = round(sum(then) / len(then))
+                if base > 0:
+                    facts.append(
+                        f"2주 전 7일 평균은 {base:,}명 — 지금은 그 {avg / base:.1f}배")
 
     # 값이 비었을 때 "그대로"인지 "해제"인지는 원자료가 dine_in_cutoff_note 로 구분한다.
     # 위드코로나(11/1)처럼 해제된 구간에서 이전 22:00 을 이어받으면 없는 규제를 말하게 된다.
