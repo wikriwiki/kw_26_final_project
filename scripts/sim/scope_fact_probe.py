@@ -39,9 +39,26 @@ from pathlib import Path
 # 코드가 켜질 때 붙는 문구 그대로. 여기서 손으로 고치면 탐침과 본런이 달라진다 —
 # 한 곳에서 읽어 오는 것이 옳지만, 탐침은 서버의 맥락 파일만 쓰므로 문구를
 # 복사하고 그 일치를 시험으로 못 박는다(tests/unit/sim/test_scope_fact.py).
-SCOPE_LINE = ("문턱은 적립업종 지출만 센다 — 제외업종(대형마트·백화점·온라인 등)에서 "
-              "줄여도 문턱은 가까워지지 않고, 거기서 쓴 돈이 환급을 깎지도 않는다")
-TAIL = "못 넘기면 이번 달 혜택은 사라짐"
+#
+# **후보를 자료로 적는다.** 다음 후보마다 스크립트를 복사하면 복사본끼리 문구가
+# 어긋나고 무엇을 쟀는지 흐려진다. 코드는 하나만 둔다.
+#
+#   line    끼울 문장 (코드 렌더와 **바이트가 같아야 한다**)
+#   tail    끼울 자리 표식 — 이 문장 **앞**에 넣는다
+#   case    동결 맥락의 어느 셀을 쓰는가
+CANDIDATES = {
+    'scope_fact': {
+        'line': ("문턱은 적립업종 지출만 센다 — 제외업종(대형마트·백화점·온라인 등)에서 "
+                 "줄여도 문턱은 가까워지지 않고, 거기서 쓴 돈이 환급을 깎지도 않는다"),
+        'tail': "못 넘기면 이번 달 혜택은 사라짐",
+        'case': 'cashback',
+        'why': '제외업종에서 줄여도 문턱은 가까워지지 않는다 — 제도 산식의 성질',
+    },
+}
+
+# 기존 이름은 그대로 둔다 — 시험과 런너가 쓴다.
+SCOPE_LINE = CANDIDATES['scope_fact']['line']
+TAIL = CANDIDATES['scope_fact']['tail']
 
 # 상생 제외업종 — 계획의 sub_category 로 세기 위한 목록.
 # sangsaeng_eligibility 의 제외 기준을 세분류 이름으로 옮긴 것이다.
@@ -52,27 +69,37 @@ EXCLUDED_SUBS = {
 }
 
 
+def insert(user: str, line: str, tail: str) -> str:
+    """표식 문장 **앞**에 한 줄을 끼운다. 넣을 자리가 없으면 그대로 둔다.
+
+    그대로 두는 것이 중요하다 — 억지로 끼우면 앞뒤가 안 맞는 맥락이 되고,
+    그러면 그 줄이 아니라 **어색한 글**에 대한 반응을 재게 된다.
+    """
+    if line in user or tail not in user:
+        return user
+    return user.replace(" | " + tail, " | " + line + " | " + tail, 1)
+
+
 def add_scope(user: str) -> str:
-    """캐시백 문턱 줄에 범위 문구를 끼운다. 넣을 자리가 없으면 그대로 둔다."""
-    if SCOPE_LINE in user:
-        return user
-    if TAIL not in user:
-        return user
-    return user.replace(" | " + TAIL, " | " + SCOPE_LINE + " | " + TAIL, 1)
+    """기존 이름 — `scope_fact` 후보를 끼운다."""
+    return insert(user, SCOPE_LINE, TAIL)
 
 
-def build(frozen: dict, case: str = 'cashback', arm: str = 'on') -> list[dict]:
+def build(frozen: dict, case: str = 'cashback', arm: str = 'on',
+          candidate: str = 'scope_fact') -> list[dict]:
     """같은 시민의 off/on 한 쌍씩. 바뀌는 것은 그 한 줄뿐이다."""
+    spec = CANDIDATES[candidate]
+    case = spec.get('case') or case
     out = []
     for c in frozen.get('cells') or []:
         if c.get('case') != case or c.get('arm') != arm:
             continue
         base = c['user']
-        withline = add_scope(base)
+        withline = insert(base, spec['line'], spec['tail'])
         if withline == base:
             continue                     # 문턱 줄이 없는 셀 — 이 가설과 무관하다
         for side, text in (('off', base), ('on', withline)):
-            out.append({'aid': c['aid'], 'case': case, 'side': side,
+            out.append({'aid': c['aid'], 'case': case, 'candidate': candidate, 'side': side,
                         'date': c.get('date'), 'zones': c.get('zones'),
                         'user': text})
     return out
@@ -132,6 +159,9 @@ def main() -> int:
     ap.add_argument('--out', required=True)
     ap.add_argument('--responses', default='',
                     help='이미 받은 응답 jsonl 이 있으면 그것을 읽어 요약만 한다')
+    ap.add_argument('--candidate', default='scope_fact',
+                    choices=sorted(CANDIDATES),
+                    help='어느 후보를 끼울 것인가. 후보는 CANDIDATES 에 자료로 적는다')
     a = ap.parse_args()
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -154,9 +184,10 @@ def main() -> int:
         return 0
 
     frozen = json.loads(Path(a.frozen).read_text(encoding='utf-8'))
-    cells = build(frozen)
+    cells = build(frozen, candidate=a.candidate)
     io.open(out / 'cells.json', 'w', encoding='utf-8', newline='\n').write(
         json.dumps({'cells': cells}, ensure_ascii=False, indent=1))
+    print('후보 %s — %s' % (a.candidate, CANDIDATES[a.candidate]['why']))
     print('시민 %d · 칸 %d (한 시민당 off/on 두 칸)'
           % (len({c['aid'] for c in cells}), len(cells)))
     print('wrote', out / 'cells.json')

@@ -175,3 +175,38 @@ def test_the_probe_only_adds_the_one_line():
     assert pr.SCOPE_LINE in got
     assert pr.add_scope(got) == got, '두 번 넣으면 안 된다'
     assert pr.add_scope('문턱 줄이 없는 맥락') == '문턱 줄이 없는 맥락'
+
+
+# ----------------------------------------------- 후보 레지스트리가 코드와 어긋나지 않는가
+def _probe_mod():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'probe_reg', ROOT / 'scripts/sim/scope_fact_probe.py')
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def test_every_registered_candidate_matches_what_the_code_renders():
+    """후보를 자료로 적었으니 **자료가 코드와 어긋나는지** 기계가 본다.
+
+    후보가 늘어날 때마다 사람이 대조하면 언젠가 빠뜨린다. 그러면 탐침이 A 를
+    끼우고 본런이 B 를 끼운 채 같은 실험이라고 적게 된다.
+    """
+    pr = _probe_mod()
+    renders = {'cashback': render('1'), 'sector_voucher': _sv('1')}
+    for name, spec in pr.CANDIDATES.items():
+        for key in ('line', 'tail', 'case', 'why'):
+            assert spec.get(key), '%s 후보에 %s 가 없다' % (name, key)
+        hit = [k for k, t in renders.items() if spec['line'] in t]
+        assert hit, ('후보 %r 의 문장이 어느 렌더에도 없다 — 탐침과 본런이 다른 것을 잰다\n%s'
+                     % (name, spec['line']))
+
+
+def test_the_insert_is_inert_when_there_is_no_place_for_it():
+    """억지로 끼우면 그 줄이 아니라 **어색한 글**에 대한 반응을 재게 된다."""
+    pr = _probe_mod()
+    assert pr.insert('표식이 없는 맥락', 'X', '없는표식') == '표식이 없는 맥락'
+    once = pr.insert('a | 끝', 'X', '끝')
+    assert once == 'a | X | 끝'
+    assert pr.insert(once, 'X', '끝') == once, '두 번 끼우면 안 된다'
