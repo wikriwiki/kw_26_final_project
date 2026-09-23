@@ -91,6 +91,51 @@ SHARE_BASE = float(os.environ.get("EXP_SHARE_BASE")
 # online_share 가 없을 때(None)와 같은 결과가 나온다. 즉 **모르면 안 움직인다.**
 KEEP_MEAN = float(os.environ.get("EXP_KEEP_MEAN", "0.80"))
 SHARE_FLOOR = float(os.environ.get("EXP_SHARE_FLOOR", "0.05"))
+
+# [계획이 총액에 닿게 한다] experiments/error_budget/diagnosis_05.md
+# 정책은 **계획 금액**으로 닿고 있었다 — P012 라운드2 런에서 정책 전/후 쌍을 맞대면
+# Stage2 계획액이 69,839 -> 76,652 (**+9.76%**, 286:214, p=0.0015) 로 움직인다.
+# 소비성향 스칼라는 +0.34%(p=0.712) 로 꿈쩍도 안 한다. 그런데 총액은 +2.37% 밖에
+# 안 움직인다 — `max(앵커, 계획)` 에서 계획이 이기는 경우가 23.7% 뿐이라
+# 반응의 4분의 3 이 앵커에 먹히기 때문이다(0.237 x 9.76% = 2.31% ~ 관측 +2.37%).
+#
+#   현재   total = max(anchor, planned)
+#   고침   total = anchor x clamp(planned / 그 사람의 기준 계획액) x SCALE
+#
+# **수준·계층은 앵커가, 변동은 계획이.** 기준선을 `REF x anchor` 로 잡으면 앵커가
+# **약분돼 사라진다**(anchor x plan/(REF x anchor) = plan/REF) — 처음에 그렇게 짰다가
+# 시험에 걸렸다. 기준선은 반드시 **그 사람 자신의 과거 계획액**이어야 한다.
+#
+# 앵커를 지키는 이유: BDC 소비분위에 묶인 값이고 이 시뮬의 실증 근거가 거기 걸려
+# 있다. LLM 계획액의 계층 상관은 r=0.53 뿐이라 수준을 섞으면 계층이 무너진다
+# (측정: 레벨 블렌드 w=0.9 에서 앵커 순위상관이 0.86 -> 0.29).
+#
+# 클램프는 **정답지를 안 보고** 정했다 — 앵커와의 순위상관을 현행의 90% 이상
+# 지키는 가장 넓은 구간이 [0.5, 2.0] 이다(92% 보존, 전달 +5.41%).
+EXP_PLAN_DRIVES_TOTAL = os.environ.get("EXP_PLAN_DRIVES_TOTAL", "0") == "1"
+PLAN_BASELINE_FILE = os.environ.get("EXP_PLAN_BASELINE_FILE", "")
+PLAN_CLAMP_LO = float(os.environ.get("EXP_PLAN_CLAMP_LO", "0.5"))
+PLAN_CLAMP_HI = float(os.environ.get("EXP_PLAN_CLAMP_HI", "2.0"))
+PLAN_SCALE = float(os.environ.get("EXP_PLAN_SCALE", "0.88144"))
+_PLAN_BASELINE: dict | None = None
+
+
+def _plan_baseline() -> dict:
+    """{에이전트: 기준 계획액}. 한 번만 읽는다. 없으면 빈 dict — 그러면 현행 그대로다."""
+    global _PLAN_BASELINE
+    if _PLAN_BASELINE is None:
+        _PLAN_BASELINE = {}
+        if PLAN_BASELINE_FILE and os.path.exists(PLAN_BASELINE_FILE):
+            import json as _json
+            try:
+                with open(PLAN_BASELINE_FILE, encoding="utf-8") as fh:
+                    _PLAN_BASELINE = {
+                        str(k): float(v) for k, v in _json.load(fh).items()
+                        if isinstance(v, (int, float)) and float(v) > 0
+                    }
+            except (OSError, ValueError):
+                _PLAN_BASELINE = {}
+    return _PLAN_BASELINE
 # 1층까지 여는 전환 — 수준이 +40.7% 오르므로 기본은 꺼 둔다(위 주석).
 EXP_ANCHOR_BEFORE_MAX = os.environ.get("EXP_ANCHOR_BEFORE_MAX", "0") == "1"
 
@@ -570,6 +615,8 @@ def apply_consumption_model(
     spending_level: int | None = None,
     # 캐시백형 정책(지갑 없음) 활성 여부. 소비성향 밴드 확장에만 쓴다.
     cashback_active: bool = False,
+    # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
+    aid: str | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
@@ -826,7 +873,14 @@ def apply_consumption_model(
     # 앵커보다 낮게 잡으므로(구조적 저평가) 앵커가 그대로 유지되고, **특별한 날에만** 계획이
     # 총액을 끌어올린다. MPC 등 검증 대상 값이 입력으로 들어가지 않으므로 순환이 아니다 —
     # 증가분은 전적으로 에이전트 자신의 이벤트 계획에서 나온다.
-    personal_total = max(_anchor_total, int(round(planned_total)))
+    _pbase = _plan_baseline().get(str(aid or "")) if EXP_PLAN_DRIVES_TOTAL else None
+    if _pbase and _anchor_total > 0:
+        # 계층·수준은 앵커가 잡고, **그 사람 자신의 평소 계획 대비 오늘의 변동**만
+        # 총액에 실린다. 정책 반응이 계획액에 실려 있으므로 이 경로로 통과한다.
+        _pr = max(PLAN_CLAMP_LO, min(PLAN_CLAMP_HI, planned_total / _pbase))
+        personal_total = int(round(_anchor_total * _pr * PLAN_SCALE))
+    else:
+        personal_total = max(_anchor_total, int(round(planned_total)))
     # [온라인 채널] 하루 지출이 전부 동네 가게 계산대에서 나가지는 않는다. 집에서 주문해 배송으로
     # 받는 지출은 POI 방문 없이 자기 돈으로 나가고, 소비쿠폰은 온라인 결제에 쓸 수 없다
     # (P010 사용처 조건). 이 채널이 없으면 하루 지출 전액이 가맹점으로 흘러 1인당 가맹점 지출이

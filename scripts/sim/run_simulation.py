@@ -492,6 +492,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 spending_level=ctx.persona.get("spend_decile"),
                 # 캐시백형은 지갑이 없어 총액을 끌어올릴 경로가 소비성향뿐이다.
                 cashback_active=bool(ctx.persona.get("sangsaeng_active")),
+                # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
+                aid=aid,
             )
         else:
             # legacy는 총소비액을 건드리지 않되 결제수단은 동일한 우선 정산을 적용한다.
