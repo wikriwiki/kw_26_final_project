@@ -59,6 +59,7 @@ import agent_day_store
 from evidence_integrity import money
 from experience_provenance import source_fingerprint, execution_fingerprint, atomic_json
 from environments import build_environment  # noqa: E402
+from mechanisms import poi_restriction  # noqa: E402
 
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
 _SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
@@ -370,15 +371,26 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
 
         # 사용처 제한 정책(민생회복 소비쿠폰류, poi_restricted=true) 감지
-        # → 쿠폰 잔액이 있으면 Stage2에 [쿠폰] 사실 표시 + 정책사용 하드검증.
+        # → Stage2 에 사실 표시 + 정책사용 하드검증.
         # 후보 정렬 가점은 POLICY_POI_SORT_BOOST=1인 별도 민감도 실험에서만 활성화한다.
-        restricted_pids = {
-            p["id"] for p in (ctx.policy or [])
-            if p.get("poi_restricted") and grant_avail_today.get(p["id"], 0) > 0
-        }
+        #
+        # 지갑형은 잔액이 있어야 사용처 제한이 의미가 있다. 지갑이 없는 기전
+        # (sector_voucher·price_discount)은 잔액 개념 자체가 없으므로 발효 중이면
+        # 표시한다. 이 조건이 빠져 있어 "[환급] 표시 POI 에서만 사용"이라고 해놓고
+        # 실제로는 아무 POI 에도 표시가 안 붙었다 — 에이전트에게는 자격 있는 가게가
+        # 하나도 없는 셈이라, 위약에서 대상 업종이 오히려 -10.5% 로 줄었다.
+        #
+        # 이 고침은 fc91872 에 있었는데 병합(c47a904)이 조용히 되돌려 놓았다.
+        # 같은 일이 또 일어나지 않도록 판정을 기전 레지스트리로 옮기고
+        # tests/unit/sim/test_poi_restriction_wiring.py 로 못 박는다.
+        restricted_pids, _elig_spec, _elig_marker = poi_restriction(
+            ctx.policy, grant_avail_today)
         ctx.persona["coupon_poi_restricted"] = bool(restricted_pids)
+        ctx.persona["poi_eligibility_spec"] = _elig_spec
+        ctx.persona["poi_eligible_marker"] = _elig_marker or "[쿠폰]"
         if restricted_pids and ctx.persona.get("policy_budget_summary"):
-            ctx.persona["policy_budget_summary"] += " (사용처 제한: [쿠폰] 표시 매장에서만 사용 가능)"
+            _mk = _elig_marker or "[쿠폰]"
+            ctx.persona["policy_budget_summary"] += f" (사용처 제한: {_mk} 표시 매장에서만 사용 가능)"
 
         # 상생 캐시백(cashback) 활성 여부 — Stage2에 적립업종 [적립] 사실 표시용.
         # 지갑·사용처 하드제한이 아니라 '적립 인정 업종' 표시일 뿐(POLICY_POI_SORT_BOOST=0 유지).

@@ -142,6 +142,66 @@ def has_wallet(ptypes) -> bool:
     return bool(set(ptypes) & _WALLET_TYPES)
 
 
+def poi_restriction(policies, balances=None):
+    """오늘 사용처가 제한되는 정책과, 그 판정 룰·표시 문구.
+
+    **켜지는 조건이 기전마다 다르다.**
+
+        지갑형(grant·subsidy·voucher)   잔액이 있어야 쓸 수 있다 → 잔액 > 0 일 때만
+        결제시점형(그 밖의 전부)        지갑이 없다 → 정책이 발효 중이면 그 자리에서 걸린다
+
+    이 구분이 빠져 있으면 **지갑 없는 정책은 사용처 표시가 영영 꺼진다.** 조건이
+    "poi_restricted 이고 지갑 잔액 > 0" 하나였을 때 `sector_voucher`·
+    `price_discount` 는 잔액이 영원히 0 이라 통째로 빠졌다. 에이전트에게는 자격
+    있는 가게가 **하나도 없는 셈**이고, 그러면 그 업종을 피할 이유가 된다 —
+    위약 런에서 대상 업종이 기대와 반대로 −10.5% 로 줄었다(`fc91872`).
+
+    판정 룰과 표시 문구는 **정책이 선언한 것**을 쓴다. 여기에 정책별 분기를
+    더하면 배관에서 1:1 결합이 되살아난다. 그래프에서 읽은 행은 선언이
+    `mech_params`(JSON 문자열) 안에 들어 있으므로 양쪽을 다 본다 —
+    이 한 줄이 없으면 DB 경로에서만 조용히 None 이 된다.
+
+    여러 정책이 동시에 걸리면 **먼저 선언한 것**을 쓴다. 지금까지의 모든 런은
+    사용처 제한 정책이 한 번에 하나였다.
+
+    돌려주는 것
+        ids     오늘 걸리는 정책 id 집합
+        spec    적격 판정 규칙. 없으면 None — 호출부가 기존 쿠폰 룰로 떨어진다
+        marker  후보 옆에 붙일 표시. 없으면 None — 호출부 기본값
+    """
+    import json as _json
+    bal = balances or {}
+    ids: set[str] = set()
+    spec = None
+    marker = None
+    for p in (policies or []):
+        if not p.get("poi_restricted"):
+            continue
+        pid = str(p.get("id") or "")
+        if has_wallet([p.get("type")]):
+            try:
+                if int(bal.get(pid, 0) or 0) <= 0:
+                    continue
+            except (TypeError, ValueError):
+                continue
+        ids.add(pid)
+        if spec is None:
+            # 선언은 JSON 그대로 올 수도, mech_params 안에 실려 올 수도 있다.
+            got = p.get("eligibility")
+            if got is None:
+                raw = p.get("mech_params")
+                try:
+                    mp = _json.loads(raw) if isinstance(raw, str) else (raw or {})
+                except (TypeError, ValueError):
+                    mp = {}
+                got = mp.get("eligibility")
+            if got:
+                spec = got
+        if marker is None and p.get("eligible_marker"):
+            marker = p["eligible_marker"]
+    return ids, spec, marker
+
+
 def principle(ptypes) -> str:
     """활성 기전들에 맞는 판단 원칙. 지갑이 하나라도 있으면 지갑 원칙이 우선한다.
 
