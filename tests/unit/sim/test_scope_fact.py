@@ -210,6 +210,10 @@ def test_every_registered_candidate_matches_what_the_code_renders():
     renders = {'cashback': render('1'), 'sector_voucher': _sv('1'),
                'environment': env_txt}
     for name, spec in pr.CANDIDATES.items():
+        if spec.get('is_null'):
+            # 영가설 줄은 코드 렌더에 **없어야** 한다 — 있으면 진짜 후보가 된다
+            assert not any(spec['line'] in t for t in renders.values()),                 '영가설 줄이 렌더에 들어가 있다: %s' % name
+            continue
         for key in ('line', 'tail', 'case', 'why'):
             assert spec.get(key), '%s 후보에 %s 가 없다' % (name, key)
         hit = [k for k, t in renders.items() if spec['line'] in t]
