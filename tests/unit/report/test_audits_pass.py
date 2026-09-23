@@ -181,3 +181,29 @@ def test_the_miss_classifier_separates_power_from_direction():
     assert n_power > n_sign, (
         '표본 문제가 방향 문제보다 많아야 한다 — 지금 %d 대 %d' % (n_power, n_sign))
     assert n_sign <= 1, '방향이 틀린 자리가 늘었다: %d개' % n_sign
+
+
+def test_the_rounds_page_marks_unreadable_cells():
+    """런 이동보다 작은 차이를 **흐리게 죽이지 않으면** "가까워졌으니 이겼다" 로
+    읽힌다. 이 저장소가 세 번 데인 자리다.
+    """
+    m = _load('rounds', 'scripts/report/build_rounds_page.py')
+    rc, out = _run(m, ['build_rounds_page.py'])
+    assert rc == 0, out
+    import io as _io
+    html = _io.open(ROOT / 'output/report/rounds.html', encoding='utf-8').read()
+    assert 'class="row dead"' in html, '죽인 칸이 하나도 없다'
+    assert html.count('class="row dead"') == 3, '라운드마다 한 칸씩 죽어야 한다'
+    # 등록한 합격선과 결과가 그림 옆에 있어야 한다
+    assert '등록한 합격선' in html and '결과' in html
+    for rnd in m.ROUNDS:
+        assert rnd['reg'] in html and rnd['got'] in html, rnd['name']
+
+
+def test_the_rounds_page_never_claims_an_unmeasured_run_shift():
+    """재 본 적 없는 지표에 런 이동을 적으면 없는 근거를 만드는 것이다."""
+    m = _load('rounds2', 'scripts/report/build_rounds_page.py')
+    assert set(m.RUN_SHIFT) == {'DS-1', 'DS-2', 'P012-1'}
+    assert set(m.READABLE) == set(m.RUN_SHIFT)
+    assert m.READABLE['DS-1'] is True
+    assert m.READABLE['DS-2'] is False and m.READABLE['P012-1'] is False

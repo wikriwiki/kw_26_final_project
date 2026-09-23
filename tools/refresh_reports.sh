@@ -64,10 +64,11 @@ run "③ 부호 적중 — 전 정책" scripts/report/sign_scoreboard.py
 run "④ 빗나간 이유 — 프롬프트가 고칠 자리는 어디인가" scripts/report/why_it_misses.py
 run "⑤ 프롬프트가 읽히는 자리" scripts/report/steerability_map.py
 run "⑥ 정답지와의 거리 페이지" scripts/report/build_convergence_page.py
+run "⑦ 후보 대결 기록 페이지" scripts/report/build_rounds_page.py
 
 say "끝"
 if [ $fail -ne 0 ]; then
   echo "  **하나 이상 실패했다 — 위 출력을 볼 것.**"
   exit 1
 fi
-echo "  output/report/convergence.html 를 아티팩트로 다시 올리면 팀이 보는 것도 갱신된다."
+echo "  output/report/{convergence,rounds}.html 를 아티팩트로 다시 올리면 팀이 보는 것도 갱신된다."
