@@ -44,16 +44,33 @@ B = json.loads(io.open(Path(__file__).with_name("_split_patch_blocks.json"),
 def patch_consumption(root: Path, check: bool) -> str:
     p = root / "scripts/sim/consumption.py"
     s = io.open(p, encoding="utf-8").read()
-    if "EXP_SPLIT_ANCHOR" in s:
+    if "EXP_PLAN_DRIVES_TOTAL" in s:
         return "consumption.py      이미 심겨 있다"
-    if B["CONST_ANCHOR"] not in s or B["BRANCH_OLD"] not in s:
-        raise SystemExit(f"[실패] {p}: 닻을 못 찾았다 — 세대가 다르다")
+    for k in ("CONST_ANCHOR", "BRANCH_OLD", "SIG_OLD"):
+        if B[k] not in s:
+            raise SystemExit(f"[실패] {p}: 닻 {k} 을 못 찾았다 — 세대가 다르다")
     if check:
-        return "consumption.py      닻 둘 다 있다 (심으면 됨)"
+        return "consumption.py      닻 셋 다 있다 (심으면 됨)"
     s = s.replace(B["CONST_ANCHOR"], B["CONST_ANCHOR"] + B["CONST_ADD"], 1)
+    s = s.replace(B["SIG_OLD"], B["SIG_NEW"], 1)
     s = s.replace(B["BRANCH_OLD"], B["BRANCH_NEW"], 1)
-    io.open(p, "w", encoding="utf-8", newline="\n").write(s)
+    io.open(p, "w", encoding="utf-8", newline=chr(10)).write(s)
     return "consumption.py      심었다"
+
+
+def patch_runner(root: Path, check: bool) -> str:
+    """호출부에 aid 를 넘긴다 — 기준선을 찾으려면 누구인지 알아야 한다."""
+    p = root / "scripts/sim/run_simulation.py"
+    s = io.open(p, encoding="utf-8").read()
+    if "aid=aid," in s:
+        return "run_simulation.py   이미 심겨 있다"
+    if B["CALL_OLD"] not in s:
+        raise SystemExit(f"[실패] {p}: 호출부 닻을 못 찾았다 — 세대가 다르다")
+    if check:
+        return "run_simulation.py   닻 있다 (심으면 됨)"
+    io.open(p, "w", encoding="utf-8", newline=chr(10)).write(
+        s.replace(B["CALL_OLD"], B["CALL_NEW"], 1))
+    return "run_simulation.py   심었다"
 
 
 def patch_score(root: Path, check: bool) -> str:
@@ -125,7 +142,7 @@ def main() -> int:
     root = Path(a.root)
     if not (root / "scripts/sim/consumption.py").exists():
         raise SystemExit(f"[실패] 저장소가 아니다: {root}")
-    fns = (patch_consumption, patch_score, patch_prompts, patch_table)
+    fns = (patch_consumption, patch_runner, patch_score, patch_prompts, patch_table)
     # 닻 확인을 **먼저 전부** 돌린다 — 반쯤 심긴 저장소를 만들지 않기 위해서.
     if not a.check:
         for fn in fns:
