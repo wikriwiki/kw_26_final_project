@@ -1,0 +1,144 @@
+"""캐시백 문턱의 **범위**를 계산된 사실로 알려 주는 한 줄 (EXP_SCOPE_FACT).
+
+### 왜 만들었나
+
+`why_it_misses.py` 로 갈라 보니 v5 가 방향을 틀린 자리는 구조적으로 불가능한
+하나뿐이고, 남은 진짜 결함은 **동등성 밴드를 넘은 둘**이었다.
+
+    P012-2  제외업종 무반응이 기대인데 -13.9%   밴드 251% 초과
+    PL-2    위약에서 대상 아닌 업종 -4.4%       같은 모양
+
+둘 다 같은 모양이다 — **한 업종이 오르면 다른 업종이 내려간다.** 문턱은
+적립업종 지출만 세므로(`spent_elig`), 제외업종에서 줄여도 문턱은 한 푼도
+가까워지지 않는다. 제도의 정의에서 바로 나오는 사실인데 모델이 스스로
+세우지 못하는 것으로 보인다.
+
+### 왜 서술이 아니라 계산인가
+
+P010 역진의 벽에서 확인했다 — **서술 프롬프트는 무효였고 모델은 계산된
+사실에만 반응했다.** 그래서 "제외업종을 줄이지 마라" 같은 지시가 아니라
+문턱 산식의 성질을 적는다.
+
+### 무엇을 하면 안 되는가
+
+    · 방향 지시 금지      "제외업종을 늘려라" 는 정답을 주는 것이다
+    · 정답지 수치 금지    실측 +2.85% 같은 값은 들어가면 안 된다
+    · 측정 공식 금지      순효과·밴드·MPC 산식을 입력으로 쓰면 순환이다
+"""
+from pathlib import Path
+import os
+import sys
+
+import pytest
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'scripts' / 'sim'))
+
+import dawn_context as dc   # noqa: E402
+
+ROW = {'threshold_ratio': 1.03, 'rate': 0.10, 'cap': 100000}
+PERSONA = {'daily_wd': 40000, 'daily_we': 55000}
+STATE = {'sangsaeng_month_spent': 900000}
+
+
+def render(flag):
+    old = os.environ.get('EXP_SCOPE_FACT')
+    os.environ['EXP_SCOPE_FACT'] = flag
+    try:
+        from datetime import date
+        return dc._format_cashback_status('P012', ROW, PERSONA, STATE, date(2021, 10, 21))
+    finally:
+        if old is None:
+            os.environ.pop('EXP_SCOPE_FACT', None)
+        else:
+            os.environ['EXP_SCOPE_FACT'] = old
+
+
+def test_off_by_default_so_past_runs_are_reproducible():
+    """기본은 꺼짐이다. 켜지 않은 런은 한 글자도 달라지면 안 된다."""
+    assert '문턱은 적립업종 지출만 센다' not in render('0')
+
+
+def test_on_adds_exactly_one_arithmetic_fact():
+    t = render('1')
+    assert '문턱은 적립업종 지출만 센다' in t
+    assert '제외업종' in t and '가까워지지 않' in t
+
+
+def test_it_only_adds_and_changes_nothing_else():
+    """있던 사실이 바뀌면 이 후보가 무엇을 한 건지 알 수 없게 된다."""
+    off, on = render('0'), render('1')
+    head_off = off.split(' | ')
+    head_on = on.split(' | ')
+    assert len(head_on) == len(head_off) + 1, (head_off, head_on)
+    # 새로 붙은 칸 하나를 빼면 나머지는 바이트가 같아야 한다
+    added = [x for x in head_on if x not in head_off]
+    assert len(added) == 1, added
+    assert [x for x in head_on if x != added[0]] == head_off
+
+
+@pytest.mark.parametrize('bad', [
+    '2.85', '+2.85%', '20.82', '늘려', '늘려라', '줄이지 마', '쓰라', '써라',
+    '많이', '더 써', '밴드', '순효과', 'MPC',
+])
+def test_it_does_not_leak_a_direction_or_an_answer(bad):
+    assert bad not in render('1'), '정답이나 방향이 샌다: %r' % bad
+
+
+def test_the_claim_is_true_of_the_mechanism():
+    """적는 사실이 실제로 맞는가 — 문턱이 적립업종만 세는가.
+
+    맞지 않으면 이 줄은 거짓을 주입하는 것이다. 렌더러가 문턱까지 남은 거리를
+    `sangsaeng_month_spent`(적립업종 한정 누적)로만 계산하는지 본다.
+    """
+    st_more_elig = dict(STATE, sangsaeng_month_spent=STATE['sangsaeng_month_spent'] + 200000)
+    from datetime import date
+    a = dc._format_cashback_status('P012', ROW, PERSONA, STATE, date(2021, 10, 21))
+    b = dc._format_cashback_status('P012', ROW, PERSONA, st_more_elig, date(2021, 10, 21))
+    assert a != b, '적립업종 누적이 늘었는데 문턱 표시가 그대로다'
+    # 적립업종과 무관한 키를 넣어도 문턱 표시는 그대로여야 한다
+    st_noise = dict(STATE, month_spent_total=99999999, excluded_spent=500000)
+    c = dc._format_cashback_status('P012', ROW, PERSONA, st_noise, date(2021, 10, 21))
+    assert c == a, '적립업종이 아닌 지출이 문턱 계산에 섞여 들어간다'
+
+
+# ---------------------------------------------------------- 업종 한정 할인권 쪽
+def _sv(flag, pid='P090'):
+    import json as _json
+    from mechanisms import sector_voucher
+    old = os.environ.get('EXP_SCOPE_FACT')
+    os.environ['EXP_SCOPE_FACT'] = flag
+    try:
+        row = _json.load(open(ROOT / ('data/neo4j_load/policies/%s.json' % pid),
+                              encoding='utf-8'))
+        return sector_voucher.status(pid, row, {}, {})
+    finally:
+        if old is None:
+            os.environ.pop('EXP_SCOPE_FACT', None)
+        else:
+            os.environ['EXP_SCOPE_FACT'] = old
+
+
+def test_sector_voucher_is_unchanged_by_default():
+    assert '혜택은 위 업종에서만' not in _sv('0')
+
+
+def test_sector_voucher_gets_the_same_arithmetic_fact():
+    """같은 가설이므로 **같은 스위치**로 켜진다. 기전마다 다른 플래그면 A/B 가 흐려진다."""
+    t = _sv('1')
+    assert '혜택은 위 업종에서만' in t and '늘지 않' in t
+    assert _sv('1').startswith(_sv('0')), '있던 사실이 바뀌었다'
+
+
+@pytest.mark.parametrize('pid', ['P090', 'P015', 'P016'])
+@pytest.mark.parametrize('bad', ['늘려', '써라', '더 써', '많이', '+25.4', '11.6', '6.957'])
+def test_sector_voucher_leaks_neither_direction_nor_answer(pid, bad):
+    assert bad not in _sv('1', pid)
+
+
+def test_one_switch_covers_both_mechanisms():
+    """캐시백과 업종한정이 같은 가설을 시험한다 — 스위치가 갈리면 뭘 쟀는지 흐려진다."""
+    on_cash, off_cash = render('1'), render('0')
+    on_sv, off_sv = _sv('1'), _sv('0')
+    assert on_cash != off_cash and on_sv != off_sv
+    assert render('0') == off_cash and _sv('0') == off_sv
