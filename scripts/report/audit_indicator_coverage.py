@@ -43,6 +43,14 @@ NEEDS_ELIG = {'elig_spend_paired', 'coupon_elig_spend_paired',
               'elig_spend_pre', 'elig_spend_post', 'excl_spend_paired',
               'elig_spend_share'}
 
+# DB 백필값(상생 기준)이 **그 정책의 옳은 자인** 곳. 이유를 적어야 통과한다 —
+# 이유 없는 면제를 허용하면 EM-2 같은 결함이 다시 조용히 지나간다.
+ELIG_OK_WITH_DB = {
+    'P012': '상생소비지원금 자신이다 — 백필값이 곧 이 정책의 적격 정의다',
+    'PLACEBO_TIMING': 'PT-2 가 재는 "적립업종" 이 상생 정의다. 정책이 없는 창에서 '
+                      '그 업종 지출이 무변인지 보는 것이므로 상생 기준이 맞다',
+}
+
 # 그래프에서 읽은 실제 이름. 바뀌면 여기도 바꿔야 한다 —
 #   MATCH (c:Category) RETURN DISTINCT c.parent, c.name
 #   MATCH (p:POI) RETURN DISTINCT p.sangsaeng_kdi
@@ -57,8 +65,11 @@ SUB = set('''PC방 가구 가전·통신 건강보조식품 건자재 고용서�
 청과 청소 치과 치킨 카페 컨설팅 통신 편의점 피부관리 피자 학원 한식 한의원 헬스장 호프 화장품
 회계·세무'''.split())
 
+# **위약도 점검한다.** 채점되고 부호 적중표에도 세는데 이 목록에서 빠져 있었다 —
+# 위약이 깨지면 진짜 정책의 성적을 믿을 근거가 사라지므로 오히려 더 봐야 한다.
 POLICIES = ['P010', 'P012', 'EMERGENCY_2020', 'LOCAL_VOUCHER', 'SECTOR_VOUCHER_2020',
-            'DISTANCING_2020', 'GATHERING_2020', 'P016']
+            'DISTANCING_2020', 'GATHERING_2020', 'P016',
+            'PLACEBO_FAKE', 'PLACEBO_TIMING']
 
 
 def load_scorer():
@@ -125,14 +136,18 @@ def main():
         has_file = bool(blk.get('policy_file'))
         has_win = any(k.startswith('window') for k in blk)
         why = []
-        if wants_elig and not has_file:
+        ok_db = ELIG_OK_WITH_DB.get(key)
+        if wants_elig and not has_file and not ok_db:
             why.append('**적격 지표가 있는데 policy_file 이 없다 — 상생 기준으로 떨어진다**')
         if not has_win:
             why.append('**채점 창이 등록돼 있지 않다**')
         if not a.quiet:
+            mark = ('있음' if has_file
+                    else ('DB가 옳음' if ok_db and wants_elig
+                          else ('필요없음' if not wants_elig else '**없음**')))
             print('%-20s %-10s %-10s %s'
-                  % (key, ('있음' if has_file else ('필요없음' if not wants_elig else '**없음**')),
-                     '있음' if has_win else '**없음**', ' · '.join(why) or 'OK'))
+                  % (key, mark, '있음' if has_win else '**없음**',
+                     ' · '.join(why) or ('OK — ' + ok_db if ok_db and wants_elig else 'OK')))
         for w in why:
             notready.append((key, w))
 
