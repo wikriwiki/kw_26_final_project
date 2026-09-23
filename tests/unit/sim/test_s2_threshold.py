@@ -96,3 +96,40 @@ def test_상태줄이_없으면_아무것도_안_붙는다():
     i = src.index("if EXP_S2_THRESHOLD:")
     assert "if _ss:" in src[i:i + 400], "빈 상태줄 가드가 없다"
     _load(None)
+
+
+def test_탐침과_코드가_같은_문구를_넣는다():
+    """탐침은 돌고 있는 코드를 못 고쳐 **문자열을 끼워 넣는다.**
+
+    그래서 끼우는 문구가 코드가 넣는 문구와 **글자 하나까지 같아야 한다.**
+    어긋나면 탐침이 잰 것과 본런이 쓰는 것이 달라진다 — 앞선 탐침들에서도
+    같은 이유로 문구 일치를 시험으로 못 박았다.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "s2p", Path(__file__).resolve().parents[3] / "scripts/sim/s2_threshold_probe.py")
+    probe = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(probe)
+
+    line = STATUS
+    NL = chr(10)
+    probe_tail = NL + "적립 정책 상태: " + line.lstrip("- ") + (
+        NL + "  (돌아오는 돈은 다음 달이므로 오늘 쓸 수 있는 돈이 는 것은 아니다."
+        " 어차피 할 지출로 문턱이 저절로 넘어가는 사람도, 넘길 일이 없어"
+        " 신경 쓰지 않는 사람도 있다.)")
+
+    src = (Path(__file__).resolve().parents[3] / "scripts/sim/stage2_poi.py").read_text(
+        encoding="utf-8")
+    i = src.index("if EXP_S2_THRESHOLD:")
+    blk = src[i:i + 900]
+    # 코드가 만드는 문구를 그대로 재현한다
+    code_tail = NL + "적립 정책 상태: " + line.lstrip("- ") + (
+        NL + "  (돌아오는 돈은 다음 달이므로 오늘 쓸 수 있는 돈이 는 것은 아니다."
+        " 어차피 할 지출로 문턱이 저절로 넘어가는 사람도, 넘길 일이 없어"
+        " 신경 쓰지 않는 사람도 있다.)")
+    assert probe_tail == code_tail
+    # 코드 블록에 그 문장들이 실제로 들어 있는지 (오타로 갈리는 것을 막는다)
+    for frag in ("적립 정책 상태: ", "돌아오는 돈은 다음 달이므로",
+                 "신경 쓰지 않는 사람도 있다."):
+        assert frag in blk, f"코드 블록에 '{frag}' 가 없다 — 탐침과 갈린다"
+    assert probe.ANCHOR_RE.search("평소 1일 소비규모(스케일 참고, 총액 아님): 평일 1원 / 주말 2원")
