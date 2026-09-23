@@ -39,6 +39,7 @@ TPL = ROOT / 'output/report/convergence_tpl.html'
 OUT = ROOT / 'output/report/convergence.html'
 
 DOM = 36.0          # 축 범위 ±36% — 가장 큰 실측(+20.8)과 구간 끝(-35)을 담는다
+Z = 1.959964 + 0.841621     # 양측 5% + 검정력 80%. power_to_detect_truth 와 같은 값
 EXPECT_TXT = {'+': '증가', '-': '감소', '0': '무반응', 'rank': '순위'}
 
 # 아직 런이 없는 정책 — 빼면 "다른 정책은 어떤가" 에 답이 없다. 왜 없는지 적는다.
@@ -108,6 +109,31 @@ def collect():
     return rows
 
 
+def need_n(r):
+    """**지금 보이는 효과를 0 과 가르려면 몇 명이 필요한가.**
+
+    구간이 0 을 지나는 칸에 "표본이 문제" 라고만 적으면 얼마나 모자란지 모른다.
+    붓스트랩 구간을 표준편차로 되돌려 필요 n 을 역산한다 —
+    `power_to_detect_truth.py` 와 같은 식이다.
+
+        se = (hi - lo) / 3.92 · sd = se x sqrt(n) · need = ((1.96+0.84) x sd / d)^2
+
+    d 는 **지금 관측된 효과**다. 정답지 값이 아니라 우리가 보고 있는 값을 0 과
+    가르는 힘을 묻는 것이다 — "이만큼 더 보면 이 부호를 단정할 수 있다".
+
+    어림이다. 구간은 붓스트랩이고 정규 근사로 sd 를 되돌린 값이다. 그래도
+    **몇 배가 모자란지는 자릿수로 읽을 수 있다.**
+    """
+    ci, n, pct = r.get('ci_pct'), r.get('n'), r.get('pct')
+    if not (ci and n and n > 1 and isinstance(pct, (int, float)) and pct):
+        return None
+    sd = (ci[1] - ci[0]) / 3.919928 * (n ** 0.5)
+    d = abs(pct)
+    if d <= 0:
+        return None
+    return int(round((Z * sd / d) ** 2))
+
+
 def _x(v):
     return 50.0 + max(-DOM, min(DOM, v)) / DOM * 50.0
 
@@ -162,6 +188,11 @@ def _nums(r):
         out.append('<span class="n">n={}</span>'.format(r['n']))
     if r['dir_ok'] is not None:
         out.append('<span class="memo">방향 {}</span>'.format('일치' if r['dir_ok'] else '반대'))
+    if r['crosses'] and r['expect'] in ('+', '-'):
+        k = need_n(r)
+        if k and r['n']:
+            out.append('<span class="need">n&asymp;{:,} 이면 갈린다 (지금의 {:.1f}배)</span>'
+                       .format(k, k / r['n']))
     if r['note'] and r['pct'] is None:
         out.append('<span class="memo">{}</span>'.format(r['note']))
     return ''.join(out)

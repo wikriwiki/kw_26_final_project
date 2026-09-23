@@ -3,15 +3,18 @@
 <style>
 :root{
   --ground:#f6f7f9; --surface:#ffffff; --ink:#12161c; --muted:#69727e; --line:#dde2e8;
-  --tru:#b4531f; --sim:#2f6f8f; --ok:#2f6f4f; --no:#a33a2a; --sus:#7a6a3a; --ci:#ccd6de;
+  --tru:#b4531f; --sim:#2f6f8f; --ok:#2f6f4f; --no:#a33a2a; --sus:#7a6a3a;
+  --wait:#5b6472; --ci:#ccd6de;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --ground:#0f1217; --surface:#161a21; --ink:#e7eaef; --muted:#98a2ae; --line:#272d36;
-  --tru:#e08a4e; --sim:#6fb2d2; --ok:#6fb58c; --no:#e0796a; --sus:#c4ae6a; --ci:#2e3844;
+  --tru:#e08a4e; --sim:#6fb2d2; --ok:#6fb58c; --no:#e0796a; --sus:#c4ae6a;
+  --wait:#8b95a3; --ci:#2e3844;
 }}
 :root[data-theme="dark"]{
   --ground:#0f1217; --surface:#161a21; --ink:#e7eaef; --muted:#98a2ae; --line:#272d36;
-  --tru:#e08a4e; --sim:#6fb2d2; --ok:#6fb58c; --no:#e0796a; --sus:#c4ae6a; --ci:#2e3844;
+  --tru:#e08a4e; --sim:#6fb2d2; --ok:#6fb58c; --no:#e0796a; --sus:#c4ae6a;
+  --wait:#8b95a3; --ci:#2e3844;
 }
 body{
   background:var(--ground); color:var(--ink);
@@ -19,11 +22,22 @@ body{
   line-height:1.6; margin:0;
   padding-block:40px 64px; padding-left:16px; padding-right:16px;
 }
-.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+.wrap{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
 h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:balance}
-.sub{color:var(--muted);margin:0;max-width:62ch;font-size:.92rem}
+.sub{color:var(--muted);margin:0;max-width:64ch;font-size:.92rem}
+.tally{display:flex;flex-wrap:wrap;gap:10px}
+.stat{
+  background:var(--surface);border:1px solid var(--line);border-radius:9px;
+  padding:10px 14px;min-width:132px;flex:1 1 132px;
+}
+.stat .v{
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:1.35rem;font-weight:500;
+  font-variant-numeric:tabular-nums;display:block;line-height:1.2;
+}
+.stat .k{font-size:.74rem;color:var(--muted);display:block;margin-top:2px}
+.stat.hi .v{color:var(--ok)}
 .legend{
-  display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:.8rem;color:var(--muted);
+  display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:.79rem;color:var(--muted);
   border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding-block:10px;
 }
 .key{display:inline-flex;align-items:center;gap:7px}
@@ -31,41 +45,49 @@ h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:ba
 .dot.t{background:var(--tru)}
 .dot.s{background:var(--sim)}
 .dot.c{background:var(--ci);border-radius:2px;width:24px;height:6px}
-.pol{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 18px 16px}
-.pol h3{margin:0 0 14px;font-size:.92rem;font-weight:600;letter-spacing:.02em}
-.rows{display:flex;flex-direction:column;gap:20px}
-.meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:7px}
-.id{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.8rem;font-weight:500}
-.desc{color:var(--muted);font-size:.79rem;flex:1 1 22ch;min-width:0}
-.tag{font-size:.69rem;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.pol{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px}
+.pol h3{margin:0 0 4px;font-size:.92rem;font-weight:600;letter-spacing:.02em}
+.pol .runline{margin:0 0 14px;font-size:.73rem;color:var(--muted);
+  font-family:"IBM Plex Mono",ui-monospace,monospace}
+.rows{display:flex;flex-direction:column;gap:17px}
+.meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:7px;margin-bottom:6px}
+.id{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.79rem;font-weight:500;min-width:4.5em}
+.exp{font-size:.71rem;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:0 7px}
+.desc{color:var(--muted);font-size:.78rem;flex:1 1 22ch;min-width:0}
+.tag{font-size:.68rem;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
 .tag.ok{color:var(--ok)}
 .tag.no{color:var(--no)}
 .tag.sus{color:var(--sus)}
-.track{position:relative;height:22px;border-radius:4px;background:var(--ground);border:1px solid var(--line)}
+.tag.wait{color:var(--wait)}
+.track{position:relative;height:20px;border-radius:4px;background:var(--ground);border:1px solid var(--line)}
+.track.empty{opacity:.45}
 .zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
-.ci{position:absolute;top:9px;height:4px;background:var(--ci);border-radius:2px}
+.ci{position:absolute;top:8px;height:4px;background:var(--ci);border-radius:2px}
 .mk{position:absolute;width:3px;border-radius:2px;transform:translateX(-1.5px)}
-.mk.sim{background:var(--sim);top:4px;height:14px}
-.mk.tru{background:var(--tru);top:2px;height:18px}
+.mk.sim{background:var(--sim);top:3px;height:14px}
+.mk.tru{background:var(--tru);top:1px;height:18px}
 .nums{
-  display:flex;flex-wrap:wrap;gap:14px;margin-top:7px;
-  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.75rem;
+  display:flex;flex-wrap:wrap;gap:13px;margin-top:6px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.74rem;
   font-variant-numeric:tabular-nums;
 }
 .nums .tru{color:var(--tru)}
 .nums .sim{color:var(--sim)}
-.nums .gap,.nums .n{color:var(--muted)}
+.nums .gap,.nums .n,.nums .ciTxt,.nums .memo{color:var(--muted)}
+.nums .memo{font-family:inherit}
+.nums .need{color:var(--sim);font-weight:500}
 .note{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
 .note h3{margin:0 0 10px;font-size:.92rem;font-weight:600}
-.note p{margin:0 0 9px;font-size:.85rem;color:var(--muted);max-width:64ch}
+.note p{margin:0 0 9px;font-size:.85rem;color:var(--muted);max-width:66ch}
 .note p:last-child{margin-bottom:0}
 .note b{color:var(--ink);font-weight:600}
 </style>
 <div class="wrap">
   <h1>정답지와의 거리</h1>
-  <p class="sub">현행 프롬프트 v5 가 각 정책의 실측값에서 얼마나 떨어져 있는가.
-  가로축은 변화율이고 가운데 선이 0 이다. 굵은 주황이 실측, 파랑이 시뮬,
-  옅은 막대가 시뮬의 95% 구간이다.</p>
+  <p class="sub">현행 프롬프트 v5 가 정책 열 개의 검증지표 서른여섯 개에서 실측과
+  얼마나 떨어져 있는가. 가로축은 변화율, 가운데 선이 0 이다. 주황이 실측,
+  파랑이 시뮬, 옅은 막대가 시뮬의 95% 구간이다.</p>
+  <div class="tally"><div class="stat"><span class="v">36</span><span class="k">검증지표 전체</span></div><div class="stat"><span class="v">26</span><span class="k">값이 나온 지표</span></div><div class="stat hi"><span class="v">9 / 9</span><span class="k">방향 일치 (판정 가능한 것)</span></div><div class="stat"><span class="v">10</span><span class="k">구간이 0 을 지남</span></div><div class="stat"><span class="v">7</span><span class="k">실측 수치가 붙은 것</span></div></div>
   <div class="legend">
     <span class="key"><span class="dot t"></span>실측(정답지)</span>
     <span class="key"><span class="dot s"></span>시뮬 v5</span>
@@ -80,7 +102,7 @@ h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:ba
   </div></section>
   <section class="pol"><h3>상생소비 P012</h3>
     <p class="runline">result_r2_v5</p><div class="rows">
-    <div class="row"><div class="meta"><span class="id">P012-1</span><span class="exp">증가</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">적립업종 지출 개인 내 쌍체차 (실측 +20.82%)</span></div><div class="track"><span class="ci" style="left:47.12%;width:12.36%"></span><span class="zero"></span><span class="mk sim" style="left:52.64%"></span><span class="mk tru" style="left:78.92%"></span></div><div class="nums"><span class="tru">실측 +20.8</span><span class="sim">시뮬 +1.9</span><span class="gap">차 18.9%p</span><span class="ciTxt">구간 [-2, +7]</span><span class="n">n=497</span><span class="memo">방향 일치</span></div></div>
+    <div class="row"><div class="meta"><span class="id">P012-1</span><span class="exp">증가</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">적립업종 지출 개인 내 쌍체차 (실측 +20.82%)</span></div><div class="track"><span class="ci" style="left:47.12%;width:12.36%"></span><span class="zero"></span><span class="mk sim" style="left:52.64%"></span><span class="mk tru" style="left:78.92%"></span></div><div class="nums"><span class="tru">실측 +20.8</span><span class="sim">시뮬 +1.9</span><span class="gap">차 18.9%p</span><span class="ciTxt">구간 [-2, +7]</span><span class="n">n=497</span><span class="memo">방향 일치</span><span class="need">n&asymp;5,573 이면 갈린다 (지금의 11.2배)</span></div></div>
     <div class="row"><div class="meta"><span class="id">P012-2</span><span class="exp">무반응</span><span class="tag no">빗나감</span><span class="desc">제외업종 무반응 (실측 +2.85%, 유의하지 않음) — 방어선 지표</span></div><div class="track"><span class="ci" style="left:1.21%;width:61.66%"></span><span class="zero"></span><span class="mk sim" style="left:30.69%"></span><span class="mk tru" style="left:53.96%"></span></div><div class="nums"><span class="tru">실측 +2.9</span><span class="sim">시뮬 -13.9</span><span class="gap">차 16.8%p</span><span class="ciTxt">구간 [-35, +9]</span><span class="n">n=23</span></div></div>
     <div class="row"><div class="meta"><span class="id">P012-3</span><span class="exp">증가</span><span class="tag ok">적중</span><span class="desc">문턱 도달자 비율 > 0</span></div><div class="track empty"><span class="zero"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 증가</span><span class="n">n=500</span></div></div>
     <div class="row"><div class="meta"><span class="id">P012-4</span><span class="exp">증가</span><span class="tag ok">적중</span><span class="desc">1인 평균 캐시백 > 0 (실측 47,880원)</span></div><div class="track empty"><span class="zero"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 증가</span><span class="n">n=500</span></div></div>
@@ -90,13 +112,13 @@ h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:ba
   <section class="pol"><h3>지역상품권 P014</h3>
     <p class="runline">result_stage6_district_n500_2026_09_18</p><div class="rows">
     <div class="row"><div class="meta"><span class="id">LV-1</span><span class="exp">무반응</span><span class="tag ok">적중</span><span class="desc">소비지출 규모 무반응 (실측 영향 미미) — 방어선 지표</span></div><div class="track"><span class="ci" style="left:50.62%;width:7.74%"></span><span class="zero"></span><span class="mk sim" style="left:54.44%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 무반응</span><span class="sim">시뮬 +3.2</span><span class="ciTxt">구간 [+0, +6]</span><span class="n">n=495</span></div></div>
-    <div class="row"><div class="meta"><span class="id">LV-2</span><span class="exp">증가</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">거주 행정동 소비 비중 증가 — 구매처가 동네상권으로 이동</span></div><div class="track"><span class="ci" style="left:46.99%;width:6.57%"></span><span class="zero"></span><span class="mk sim" style="left:50.42%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 증가</span><span class="sim">시뮬 +0.3</span><span class="ciTxt">구간 [-2, +3]</span><span class="n">n=495</span><span class="memo">방향 일치</span></div></div>
-    <div class="row"><div class="meta"><span class="id">LV-3</span><span class="exp">감소</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">타 자치구 소비 비중 감소 — 역외 소비 단기 차단</span></div><div class="track"><span class="ci" style="left:12.48%;width:48.01%"></span><span class="zero"></span><span class="mk sim" style="left:36.11%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 감소</span><span class="sim">시뮬 -10.0</span><span class="ciTxt">구간 [-27, +8]</span><span class="n">n=495</span><span class="memo">방향 일치</span></div></div>
+    <div class="row"><div class="meta"><span class="id">LV-2</span><span class="exp">증가</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">거주 행정동 소비 비중 증가 — 구매처가 동네상권으로 이동</span></div><div class="track"><span class="ci" style="left:46.99%;width:6.57%"></span><span class="zero"></span><span class="mk sim" style="left:50.42%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 증가</span><span class="sim">시뮬 +0.3</span><span class="ciTxt">구간 [-2, +3]</span><span class="n">n=495</span><span class="memo">방향 일치</span><span class="need">n&asymp;62,826 이면 갈린다 (지금의 126.9배)</span></div></div>
+    <div class="row"><div class="meta"><span class="id">LV-3</span><span class="exp">감소</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">타 자치구 소비 비중 감소 — 역외 소비 단기 차단</span></div><div class="track"><span class="ci" style="left:12.48%;width:48.01%"></span><span class="zero"></span><span class="mk sim" style="left:36.11%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 감소</span><span class="sim">시뮬 -10.0</span><span class="ciTxt">구간 [-27, +8]</span><span class="n">n=495</span><span class="memo">방향 일치</span><span class="need">n&asymp;3,021 이면 갈린다 (지금의 6.1배)</span></div></div>
   </div></section>
   <section class="pol"><h3>거리두기</h3>
     <p class="runline">result_stage5_n500_2026_09_17</p><div class="rows">
     <div class="row"><div class="meta"><span class="id">DS-1</span><span class="exp">감소</span><span class="tag ok">적중</span><span class="desc">음식점 지출 감소 (실측 −14.1%)</span></div><div class="track"><span class="ci" style="left:28.92%;width:15.35%"></span><span class="zero"></span><span class="mk sim" style="left:36.53%"></span><span class="mk tru" style="left:30.42%"></span></div><div class="nums"><span class="tru">실측 -14.1</span><span class="sim">시뮬 -9.7</span><span class="gap">차 4.4%p</span><span class="ciTxt">구간 [-15, -4]</span><span class="n">n=493</span><span class="memo">방향 일치</span></div></div>
-    <div class="row"><div class="meta"><span class="id">DS-2</span><span class="exp">증가</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">소매업 지출 증가 (실측 +4.2%) — 같은 정책 안에서 부호가 갈리는 지점</span></div><div class="track"><span class="ci" style="left:37.67%;width:37.24%"></span><span class="zero"></span><span class="mk sim" style="left:57.08%"></span><span class="mk tru" style="left:55.83%"></span></div><div class="nums"><span class="tru">실측 +4.2</span><span class="sim">시뮬 +5.1</span><span class="gap">차 0.9%p</span><span class="ciTxt">구간 [-9, +18]</span><span class="n">n=481</span><span class="memo">방향 일치</span></div></div>
+    <div class="row"><div class="meta"><span class="id">DS-2</span><span class="exp">증가</span><span class="tag sus">구간이 0 을 지남</span><span class="desc">소매업 지출 증가 (실측 +4.2%) — 같은 정책 안에서 부호가 갈리는 지점</span></div><div class="track"><span class="ci" style="left:37.67%;width:37.24%"></span><span class="zero"></span><span class="mk sim" style="left:57.08%"></span><span class="mk tru" style="left:55.83%"></span></div><div class="nums"><span class="tru">실측 +4.2</span><span class="sim">시뮬 +5.1</span><span class="gap">차 0.9%p</span><span class="ciTxt">구간 [-9, +18]</span><span class="n">n=481</span><span class="memo">방향 일치</span><span class="need">n&asymp;6,791 이면 갈린다 (지금의 14.1배)</span></div></div>
     <div class="row"><div class="meta"><span class="id">DS-3</span><span class="exp">순위</span><span class="tag ok">적중</span><span class="desc">소매 > 음식점 — '제약이면 다 줄어든다'로 수렴한 프롬프트를 잡는다</span></div><div class="track empty"><span class="zero"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 순위</span></div></div>
     <div class="row"><div class="meta"><span class="id">DS-4</span><span class="exp">감소</span><span class="tag ok">적중</span><span class="desc">카페 지출 감소 — 2단계에서 시간 무관 매장 이용 금지</span></div><div class="track"><span class="ci" style="left:16.25%;width:29.29%"></span><span class="zero"></span><span class="mk sim" style="left:30.97%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 감소</span><span class="sim">시뮬 -13.7</span><span class="ciTxt">구간 [-24, -3]</span><span class="n">n=311</span><span class="memo">방향 일치</span></div></div>
   </div></section>
@@ -111,7 +133,7 @@ h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:ba
   </div></section>
   <section class="pol"><h3>위약(가짜 정책)</h3>
     <p class="runline">result_2026_09_16_fixed_plumbing</p><div class="rows">
-    <div class="row"><div class="meta"><span class="id">PL-1</span><span class="exp">증가</span><span class="tag sus">못 셈</span><span class="desc">마트 지출 증가 — 가짜 정책의 대상 업종. 기전을 처리하면 오른다</span></div><div class="track"><span class="ci" style="left:42.53%;width:17.67%"></span><span class="zero"></span><span class="mk sim" style="left:51.25%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 증가</span><span class="sim">시뮬 +0.9</span><span class="ciTxt">구간 [-5, +7]</span><span class="n">n=197</span><span class="memo">방향 일치</span></div></div>
+    <div class="row"><div class="meta"><span class="id">PL-1</span><span class="exp">증가</span><span class="tag sus">못 셈</span><span class="desc">마트 지출 증가 — 가짜 정책의 대상 업종. 기전을 처리하면 오른다</span></div><div class="track"><span class="ci" style="left:42.53%;width:17.67%"></span><span class="zero"></span><span class="mk sim" style="left:51.25%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 증가</span><span class="sim">시뮬 +0.9</span><span class="ciTxt">구간 [-5, +7]</span><span class="n">n=197</span><span class="memo">방향 일치</span><span class="need">n&asymp;20,117 이면 갈린다 (지금의 102.1배)</span></div></div>
     <div class="row"><div class="meta"><span class="id">PL-2</span><span class="exp">무반응</span><span class="tag sus">못 셈</span><span class="desc">대상 아닌 업종은 무반응 — 위약이 아무 데나 효과를 만들지 않는지</span></div><div class="track"><span class="ci" style="left:31.02%;width:25.17%"></span><span class="zero"></span><span class="mk sim" style="left:43.89%"></span></div><div class="nums"><span class="memo">실측 수치 없음 · 기대 무반응</span><span class="sim">시뮬 -4.4</span><span class="ciTxt">구간 [-14, +4]</span><span class="n">n=194</span></div></div>
   </div></section>
   <section class="pol"><h3>위약(시점 엇갈림)</h3>
@@ -139,15 +161,20 @@ h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:ba
     <div class="row"><div class="meta"><span class="id">C3</span><span class="exp">증가</span><span class="tag wait">아직 안 쟀다</span><span class="desc">전체 마트 매출 중 대상 POI 매출 비중 증가 (실측 +1.9%p)</span></div><div class="track empty"><span class="zero"></span></div><div class="nums"><span class="tru">실측 +1.9</span><span class="memo">사전등록·런너 준비 완료 — GPU 대기 중</span></div></div>
   </div></section>
   <div class="note">
-    <h3>이 그림이 말하지 않는 것</h3>
-    <p><b>크기 수렴은 지금 어느 정책에서도 잴 수 없다.</b> 원문 창이 주 단위인데
-    우리 창은 이틀이고, 대상·분모·대조군이 호환되지 않는다. 실측과 시뮬의 차이를
-    정확도로 읽으면 안 된다 — 부호와 순위만 채점한다.</p>
-    <p><b>여기 있는 여섯은 실측 수치가 붙은 지표뿐이다.</b> 전체 26개 중 나머지는
-    원문이 방향만 말하거나 백분율이 공개되어 있지 않다.</p>
-    <p><b>구간이 0 을 지나면 부호도 단정할 수 없다.</b> 여섯 중 넷이 그렇고,
-    그 넷은 점추정이 전부 기대 방향이다 — 프롬프트가 아니라 표본의 문제다.</p>
-    <p><b>EM-2 는 못 센다.</b> 적격 판정이 다른 정책(상생소비지원금) 기준이었다.
-    2026-09-24 에 고쳤고, 돌고 있는 라운드가 고친 자로 다시 잰다.</p>
+    <h3>읽는 법</h3>
+    <p><b>적중보다 방향을 본다.</b> 크기 수렴은 지금 어느 정책에서도 잴 수 없다 —
+    원문 창이 주 단위인데 우리 창은 이틀이고, 대상·분모·대조군이 호환되지 않는다.
+    실측과 시뮬의 차이를 정확도로 읽으면 안 된다.</p>
+    <p><b>구간이 0 을 지나면 부호를 단정할 수 없다.</b> 점추정이 기대 방향이어도
+    그렇게 찍힌다 — 프롬프트가 아니라 표본의 문제다. 그런 칸에는
+    <b>지금 보이는 효과를 0 과 가르는 데 필요한 표본</b>을 함께 적었다.
+    거리두기는 프롬프트를 한 글자도 고치지 않고 표본을 200에서 500으로 올린
+    것만으로 부호 적중이 1/4에서 3/4이 됐다.</p>
+    <p><b>실측에 숫자가 붙은 지표는 일곱뿐이다.</b> 나머지는 원문이 방향만 말하거나
+    백분율이 공개되어 있지 않다. 그런 지표는 시뮬 값과 구간만 싣고 기대 방향과
+    맞는지로 읽는다.</p>
+    <p><b>위약은 기댓값이 서로 다르다.</b> 가짜 정책은 기전에 맞게 반응해야 적중이고
+    (무반응이면 제도를 처리한 게 아니라 답을 외운 것이다), 시점 엇갈림은 아무 일도
+    없어야 적중이다.</p>
   </div>
 </div>
