@@ -1,0 +1,117 @@
+<title>후보 대결 기록</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#f6f7f9; --surface:#ffffff; --ink:#12161c; --muted:#69727e; --line:#dde2e8;
+  --tru:#b4531f; --a:#2f6f8f; --b:#7a4f9c; --dead:#a8b0ba;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0f1217; --surface:#161a21; --ink:#e7eaef; --muted:#98a2ae; --line:#272d36;
+  --tru:#e08a4e; --a:#6fb2d2; --b:#b28fd0; --dead:#4a5462;
+}}
+:root[data-theme="dark"]{
+  --ground:#0f1217; --surface:#161a21; --ink:#e7eaef; --muted:#98a2ae; --line:#272d36;
+  --tru:#e08a4e; --a:#6fb2d2; --b:#b28fd0; --dead:#4a5462;
+}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  line-height:1.6; margin:0;
+  padding-block:40px 64px; padding-left:16px; padding-right:16px;
+}
+.wrap{max-width:900px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
+h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:0;max-width:64ch;font-size:.92rem}
+.legend{
+  display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:.79rem;color:var(--muted);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding-block:10px;
+}
+.key{display:inline-flex;align-items:center;gap:7px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.t{background:var(--tru)}
+.dot.a{background:var(--a)}
+.dot.b{background:var(--b)}
+.rnd{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px 14px}
+.rnd h3{margin:0 0 8px;font-size:.95rem;font-weight:600}
+.rnd h3 em{font-style:normal;color:var(--muted);font-weight:400;font-size:.82rem;margin-left:6px}
+.reg,.got{margin:0 0 6px;font-size:.82rem;color:var(--muted);max-width:70ch}
+.got{margin-bottom:14px}
+.reg b,.got b{color:var(--ink);font-weight:600;margin-right:4px}
+.rows{display:flex;flex-direction:column;gap:16px}
+.row.dead{opacity:.5}
+.meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:6px}
+.id{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.79rem;font-weight:500;min-width:4.5em}
+.desc{color:var(--muted);font-size:.78rem;flex:1 1 22ch;min-width:0}
+.track{position:relative;height:20px;border-radius:4px;background:var(--ground);border:1px solid var(--line)}
+.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+.mk{position:absolute;width:3px;border-radius:2px;transform:translateX(-1.5px)}
+.mk.a{background:var(--a);top:3px;height:14px}
+.mk.b{background:var(--b);top:3px;height:14px}
+.mk.tru{background:var(--tru);top:1px;height:18px}
+.nums{
+  display:flex;flex-wrap:wrap;gap:13px;margin-top:6px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.74rem;
+  font-variant-numeric:tabular-nums;
+}
+.nums .tru{color:var(--tru)}
+.nums .a{color:var(--a)}
+.nums .b{color:var(--b)}
+.nums .memo{color:var(--muted);font-family:inherit}
+.nums .shift{color:var(--muted);font-family:inherit}
+.nums .shift.dead{color:var(--dead);text-decoration:line-through}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.note h3{margin:0 0 10px;font-size:.92rem;font-weight:600}
+.note p{margin:0 0 9px;font-size:.85rem;color:var(--muted);max-width:66ch}
+.note p:last-child{margin-bottom:0}
+.note b{color:var(--ink);font-weight:600}
+</style>
+<div class="wrap">
+  <h1>후보 대결 기록</h1>
+  <p class="sub">v5 를 이기려 한 후보들이 어느 라운드에서 무엇을 냈는가. 가로축은
+  변화율, 가운데 선이 0 이다. 주황이 실측이고 두 색이 두 팔이다. 라운드마다
+  <b>등록한 합격선</b>과 <b>결과</b>를 함께 싣는다 — 수치만 남기면 그때 무엇을
+  약속했는지가 사라진다.</p>
+  <div class="legend">
+    <span class="key"><span class="dot t"></span>실측(정답지)</span>
+    <span class="key"><span class="dot a"></span>대조군</span>
+    <span class="key"><span class="dot b"></span>도전자</span>
+    <span class="key">축 범위 &plusmn;30%</span>
+  </div>
+  <section class="rnd"><h3>v50 · 거리두기 <em>v5 대 v45</em></h3>
+    <p class="reg"><b>등록한 합격선</b> DS-1 과 DS-2 가 **둘 다** v45 쪽이면 v45. 아니면 v5 유지.</p>
+    <p class="got"><b>결과</b> 갈렸다 — DS-1 은 v45(이동 0.9%p > 런 0.5%p), DS-2 는 v5. **v5 유지.**</p><div class="rows">
+    <div class="row"><div class="meta"><span class="id">DS-1</span><span class="desc">음식점 지출 감소 (실측 −14.1%)</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:38.00%"></span><span class="mk b" style="left:36.50%"></span><span class="mk tru" style="left:26.50%"></span></div><div class="nums"><span class="tru">실측 -14.1</span><span class="a">v5 -7.2</span><span class="b">v45 -8.1</span><span class="memo">두 팔 차 0.9%p</span><span class="shift">런 이동 0.2·0.5%p</span></div></div>
+    <div class="row dead"><div class="meta"><span class="id">DS-2</span><span class="desc">소매업 지출 증가 (실측 +4.2%) — 같은 정책 안에서 부호가 갈리는 지점</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:50.67%"></span><span class="mk b" style="left:38.17%"></span><span class="mk tru" style="left:57.00%"></span></div><div class="nums"><span class="tru">실측 +4.2</span><span class="a">v5 +0.4</span><span class="b">v45 -7.1</span><span class="memo">두 팔 차 7.5%p</span><span class="shift dead">런 이동 13.1·2.7%p — 읽지 않는다</span></div></div>
+    <div class="row"><div class="meta"><span class="id">DS-3</span><span class="desc">소매 > 음식점 — '제약이면 다 줄어든다'로 수렴한 프롬프트를 잡는다</span></div><div class="track"><span class="zero"></span></div><div class="nums"><span class="a">v5 순위 적중</span><span class="b">v45 순위 적중</span></div></div>
+    <div class="row"><div class="meta"><span class="id">DS-4</span><span class="desc">카페 지출 감소 — 2단계에서 시간 무관 매장 이용 금지</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:35.50%"></span><span class="mk b" style="left:23.67%"></span></div><div class="nums"><span class="a">v5 -8.7</span><span class="b">v45 -15.8</span><span class="memo">두 팔 차 7.1%p</span></div></div>
+  </div></section>
+  <section class="rnd"><h3>라운드2 · P012 <em>v5 대 v45</em></h3>
+    <p class="reg"><b>등록한 합격선</b> P012-1 에서 실측(+20.82%)에 더 가까운 쪽.</p>
+    <p class="got"><b>결과</b> v5 가 가깝다(|차| 18.9 대 20.2). 그러나 그 차이 1.3%p 가 같은 프롬프트의 런 이동 8.2%p 안이다. **v5 유지 — 증거는 약하다.**</p><div class="rows">
+    <div class="row dead"><div class="meta"><span class="id">P012-1</span><span class="desc">적립업종 지출 개인 내 쌍체차 (실측 +20.82%)</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:53.17%"></span><span class="mk b" style="left:51.00%"></span><span class="mk tru" style="left:84.70%"></span></div><div class="nums"><span class="tru">실측 +20.8</span><span class="a">v5 +1.9</span><span class="b">v45 +0.6</span><span class="memo">두 팔 차 1.3%p</span><span class="shift dead">런 이동 8.2%p* — 읽지 않는다</span></div></div>
+    <div class="row"><div class="meta"><span class="id">P012-2</span><span class="desc">제외업종 무반응 (실측 +2.85%, 유의하지 않음) — 방어선 지표</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:26.83%"></span><span class="mk b" style="left:32.17%"></span><span class="mk tru" style="left:54.75%"></span></div><div class="nums"><span class="tru">실측 +2.9</span><span class="a">v5 -13.9</span><span class="b">v45 -10.7</span><span class="memo">두 팔 차 3.2%p</span></div></div>
+    <div class="row"><div class="meta"><span class="id">P012-3</span><span class="desc">문턱 도달자 비율 > 0</span></div><div class="track"><span class="zero"></span></div><div class="nums"><span class="a">v5 순위 적중</span><span class="b">v45 순위 적중</span></div></div>
+    <div class="row"><div class="meta"><span class="id">P012-4</span><span class="desc">1인 평균 캐시백 > 0 (실측 47,880원)</span></div><div class="track"><span class="zero"></span></div><div class="nums"><span class="a">v5 순위 적중</span><span class="b">v45 순위 적중</span></div></div>
+    <div class="row"><div class="meta"><span class="id">P012-6</span><span class="desc">한도 10만원 도달 비율 > 0 (실측 21.0%)</span></div><div class="track"><span class="zero"></span><span class="mk tru" style="left:85.00%"></span></div><div class="nums"><span class="tru">실측 +21.0</span><span class="a">v5 순위 빗나감</span><span class="b">v45 순위 빗나감</span></div></div>
+  </div></section>
+  <section class="rnd"><h3>라운드3 · 거리두기 <em>v5 대 v51</em></h3>
+    <p class="reg"><b>등록한 합격선</b> DS-1 이 0.5%p 넘게 가까워지고 **DS-3 순위가 유지**되면 v51.</p>
+    <p class="got"><b>결과</b> DS-1 은 0.3%p 멀어졌고 DS-3 순위를 잃었다. **두 조건 다 불충족 — v5 유지.** v51 은 소매·카페까지 전부 아래로 밀었다(소매 -15.1%) — DS-3 이 잡으려고 등록해 둔 실패 모양 그 자체다.</p><div class="rows">
+    <div class="row"><div class="meta"><span class="id">DS-1</span><span class="desc">음식점 지출 감소 (실측 −14.1%)</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:37.17%"></span><span class="mk b" style="left:37.67%"></span><span class="mk tru" style="left:26.50%"></span></div><div class="nums"><span class="tru">실측 -14.1</span><span class="a">v5 -7.7</span><span class="b">v51 -7.4</span><span class="memo">두 팔 차 0.3%p</span><span class="shift">런 이동 0.2·0.5%p</span></div></div>
+    <div class="row dead"><div class="meta"><span class="id">DS-2</span><span class="desc">소매업 지출 증가 (실측 +4.2%) — 같은 정책 안에서 부호가 갈리는 지점</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:55.17%"></span><span class="mk b" style="left:24.83%"></span><span class="mk tru" style="left:57.00%"></span></div><div class="nums"><span class="tru">실측 +4.2</span><span class="a">v5 +3.1</span><span class="b">v51 -15.1</span><span class="memo">두 팔 차 18.2%p</span><span class="shift dead">런 이동 13.1·2.7%p — 읽지 않는다</span></div></div>
+    <div class="row"><div class="meta"><span class="id">DS-3</span><span class="desc">소매 > 음식점 — '제약이면 다 줄어든다'로 수렴한 프롬프트를 잡는다</span></div><div class="track"><span class="zero"></span></div><div class="nums"><span class="a">v5 순위 적중</span><span class="b">v51 순위 빗나감</span></div></div>
+    <div class="row"><div class="meta"><span class="id">DS-4</span><span class="desc">카페 지출 감소 — 2단계에서 시간 무관 매장 이용 금지</span></div><div class="track"><span class="zero"></span><span class="mk a" style="left:30.50%"></span><span class="mk b" style="left:7.33%"></span></div><div class="nums"><span class="a">v5 -11.7</span><span class="b">v51 -25.6</span><span class="memo">두 팔 차 13.9%p</span></div></div>
+  </div></section>
+  <div class="note">
+    <h3>왜 흐린 칸이 있는가</h3>
+    <p><b>같은 프롬프트를 두 번 돌리면 값이 움직인다.</b> 그 이동보다 작은 차이는
+    후보의 성질이 아니라 런의 성질이다. 그런 칸은 흐리게 죽이고 런 이동에 줄을
+    그었다 — 숫자만 나란히 놓으면 "가까워졌으니 이겼다" 로 읽게 되고,
+    이 저장소가 세 번 데인 자리다.</p>
+    <p><b>DS-1 만 읽는다.</b> 두 번 재서 0.2%p·0.5%p 로 둘 다 작았다. DS-2 는
+    13.1%p·2.7%p 로 한 수로 적을 수 없고, P012-1 의 8.2%p 는 표본이 200에서
+    500으로 함께 바뀌어 섞여 있다.</p>
+    <p><b>세 라운드 모두 v5 가 남았다.</b> 그리고 세 번 다 관문(형식 계약)에서는
+    도전자가 이겼다 — 관문 성적이 정답지 성적으로 옮겨지지 않는다.</p>
+  </div>
+</div>
