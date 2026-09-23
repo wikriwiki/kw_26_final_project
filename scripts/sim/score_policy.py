@@ -83,8 +83,16 @@ def apply_policy_eligibility(rows: list[dict], policy_file: str | None) -> str:
     채점하면서 이 값을 그대로 쓰면 엉뚱한 업종 집합을 재게 된다 — 8대 소비쿠폰
     홀드아웃에서 HO-3 이 base 0.9872 로 천장에 붙어 무효가 된 원인이 이것이다.
 
-    정책 JSON 에 `eligibility` 명세가 있을 때만 다시 계산하고, 없으면 DB 값을
-    그대로 둔다 — P012·P010 은 명세가 없으므로 앞서 낸 수치가 그대로 유지된다.
+    명세가 없는 정책은 둘로 갈린다.
+
+      사용처 제한이 **있는** 정책(P010·P013 같은 쿠폰형 지갑)
+          런타임이 실제로 쓴 함수(`is_coupon_eligible`)로 다시 계산한다.
+          그래프에 `p.coupon_eligible` 이 **한 개도 없어서**(확인: 0/543,924)
+          stage2 는 매번 이 함수로 즉석 판정했다. 그런데 채점은 상생 백필값을
+          그대로 썼다 — **모델이 본 자와 채점하는 자가 달랐다.**
+
+      사용처 제한이 **없는** 정책(P012 상생소비지원금)
+          DB 백필값이 곧 그 정책의 기준이므로 그대로 둔다.
     """
     if not policy_file:
         return "DB 백필값(상생 기준)"
@@ -94,7 +102,22 @@ def apply_policy_eligibility(rows: list[dict], policy_file: str | None) -> str:
     pol = json.loads(fp.read_text(encoding="utf-8"))
     spec = pol.get("eligibility")
     if not spec:
-        return "DB 백필값(상생 기준) — 정책에 적격 명세 없음"
+        if pol.get("poi_restricted"):
+            # 런타임과 **같은 함수**를 쓴다. 규칙을 정규식으로 옮겨 적는 방법도
+            # 있었지만 범용 평가기는 업종코드가 있으면 세분류 제외를 건너뛰므로
+            # (POI 의 95.5% 가 코드를 갖고 있다) 옮겨 적은 것이 원본과 달라진다.
+            # 같은 함수를 부르면 어긋날 자리가 없다.
+            import sys as _sys
+            _here = str(Path(__file__).resolve().parent)
+            if _here not in _sys.path:
+                _sys.path.insert(0, _here)
+            from coupon_eligibility import is_coupon_eligible
+            for r in rows:
+                r["elig"] = bool(is_coupon_eligible(
+                    r.get("pname"), r.get("sub"), r.get("l1"))[0])
+            return (f"{pol.get('id')} 쿠폰 사용처 룰(is_coupon_eligible)"
+                    " — 런타임과 같은 함수")
+        return "DB 백필값(상생 기준) — 사용처 제한이 없는 정책"
     from eligibility import Rules
     rules = Rules(spec)
     for r in rows:

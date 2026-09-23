@@ -64,6 +64,13 @@ PLACEBOS = [
      '확정 런'),
 ]
 
+# **다른 자로 잰 것은 세지 않는다.** (채점표 키, 결과 블록, 지표) → 이유.
+# 지우지 않고 남겨 두는 이유: 왜 빠졌는지 표에서 바로 보여야 한다.
+SUSPECT = {
+    ('EMERGENCY_2020', 'result_stage3_dow_2026_09_16', 'EM-2'):
+        '적격 판정이 상생 기준이었다 — 긴급재난의 사용가능업종이 아니다',
+}
+
 EXPECT_TXT = {'+': '증가', '-': '감소', '0': '무반응', 'rank': '순위', 'info': '참고'}
 
 
@@ -71,8 +78,12 @@ def read(sc, key, block):
     return ((sc.get(key) or {}).get(block) or {})
 
 
-def line(iid, expect, desc, v):
-    """한 지표 한 줄. `hit` 가 없으면 못 잰 것이다 — 빈칸으로 두고 세지 않는다."""
+def line(iid, expect, desc, v, suspect=None):
+    """한 지표 한 줄. `hit` 가 없으면 못 잰 것이다 — 빈칸으로 두고 세지 않는다.
+
+    `suspect` 가 있으면 **다른 자로 잰 것**이라 적중/빗나감을 세지 않는다.
+    지우지 않고 물음표로 남긴다 — 왜 빠졌는지 표에서 바로 보여야 한다.
+    """
     if not isinstance(v, dict):
         return None, '%-7s %-5s %-46s %s' % (iid, EXPECT_TXT.get(expect, expect),
                                              desc[:46], '— 이 런에 없다')
@@ -80,6 +91,9 @@ def line(iid, expect, desc, v):
     got = v.get('note') or v.get('got') or ''
     if isinstance(v.get('pct'), (int, float)):
         got = '%+.1f%%' % v['pct'] + (('  ' + str(got)) if got else '')
+    if suspect:
+        return None, '%-7s %-5s %-46s %s  %s   <- **못 셈: %s**' % (
+            iid, EXPECT_TXT.get(expect, expect), desc[:46], '?', str(got)[:24], suspect)
     mark = {True: 'O', False: 'X'}.get(hit, '·')
     return hit, '%-7s %-5s %-46s %s  %s' % (iid, EXPECT_TXT.get(expect, expect),
                                             desc[:46], mark, str(got)[:40])
@@ -99,7 +113,8 @@ def section(sc, title, rows, tally):
             expect = ind.get('expect')
             if expect == 'info':
                 continue
-            hit, txt = line(ind['id'], expect, ind.get('desc') or '', v.get(ind['id']))
+            hit, txt = line(ind['id'], expect, ind.get('desc') or '',
+                            v.get(ind['id']), SUSPECT.get((key, block, ind['id'])))
             print('    ' + txt)
             if hit is True:
                 tally['hit'] += 1
@@ -143,6 +158,11 @@ def main() -> int:
     print('  · 위약을 빼고 세면 "다 오른다" 고 답하는 프롬프트가 만점을 받는다.')
     print('  · 가짜정책 PL-1 은 **반응해야** 적중이다(lookahead 검정). 무반응이 정답이 아니다.')
     print('  · 이 표는 v5 만 읽는다. 후보 비교는 각 라운드의 사전등록이 한다.')
+    if SUSPECT:
+        print()
+        print('못 센 것 — 다른 자로 쟀다')
+        for (k, b, i), why in SUSPECT.items():
+            print('  %-20s %-34s %-7s %s' % (k, b, i, why))
     return 0
 
 

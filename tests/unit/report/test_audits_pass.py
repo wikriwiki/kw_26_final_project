@@ -146,3 +146,19 @@ def test_the_sign_scoreboard_counts_placebos_by_their_own_expectation():
     pt1 = [r for r in out.splitlines() if 'PT-1' in r.split()]
     assert pt1 and '무반응' in pt1[0], 'PT-1 은 무반응이 적중이다\n' + str(pt1)
     assert '위약' in out and '실제 정책' in out
+
+
+def test_a_reading_taken_with_the_wrong_ruler_is_not_counted():
+    """다른 정책의 자로 잰 값이 적중으로 세어지면 성적이 부풀려진다.
+
+    P013 의 EM-2 가 그랬다 — 적격 판정이 상생소비지원금 기준이었다. 지우지 않고
+    물음표로 남기되 **분모에서 뺀다.**
+    """
+    m = _load('sboard2', 'scripts/report/sign_scoreboard.py')
+    assert ('EMERGENCY_2020', 'result_stage3_dow_2026_09_16', 'EM-2') in m.SUSPECT
+    rc, out = _run(m, ['sign_scoreboard.py'])
+    assert rc == 0, out
+    row = [r for r in out.splitlines() if 'EM-2' in r.split()][0]
+    assert '못 셈' in row, row
+    assert ' O ' not in row and ' X ' not in row, '적중/빗나감 표식이 남아 있다: ' + row
+    assert '못 센 것' in out, '왜 빠졌는지 표 아래에 적혀 있어야 한다'
