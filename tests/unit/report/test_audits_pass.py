@@ -162,3 +162,22 @@ def test_a_reading_taken_with_the_wrong_ruler_is_not_counted():
     assert '못 셈' in row, row
     assert ' O ' not in row and ' X ' not in row, '적중/빗나감 표식이 남아 있다: ' + row
     assert '못 센 것' in out, '왜 빠졌는지 표 아래에 적혀 있어야 한다'
+
+
+def test_the_miss_classifier_separates_power_from_direction():
+    """X 를 뭉뚱그리면 '프롬프트를 고쳐야겠다' 로 잘못 읽는다.
+
+    v5 의 빗나감은 대부분 **점추정이 기대 방향인데 구간이 0 을 지나는** 것이다.
+    그 자리에서 후보를 가르면 잡음을 프롬프트의 성질로 적게 된다.
+    """
+    m = _load('why', 'scripts/report/why_it_misses.py')
+    rc, out = _run(m, ['why_it_misses.py'])
+    assert rc == 0, out
+    assert '부호가 반대' in out and '유의하지 않다' in out
+    # 지금 상태를 못 박는다 — 바뀌면 이 시험이 먼저 말한다
+    import re
+    n_sign = int(re.search(r'부호가 반대\)\s+(\d+)개', out).group(1))
+    n_power = int(re.search(r'유의하지 않다\)\s+(\d+)개', out).group(1))
+    assert n_power > n_sign, (
+        '표본 문제가 방향 문제보다 많아야 한다 — 지금 %d 대 %d' % (n_power, n_sign))
+    assert n_sign <= 1, '방향이 틀린 자리가 늘었다: %d개' % n_sign
