@@ -142,3 +142,36 @@ def test_one_switch_covers_both_mechanisms():
     on_sv, off_sv = _sv('1'), _sv('0')
     assert on_cash != off_cash and on_sv != off_sv
     assert render('0') == off_cash and _sv('0') == off_sv
+
+
+# ------------------------------------------------- 탐침이 본런과 같은 문구를 쓰는가
+def test_the_probe_inserts_exactly_what_the_code_renders():
+    """탐침의 문구가 코드와 다르면 **다른 것을 재고 같은 것이라 적게 된다.**
+
+    탐침은 서버의 동결 맥락(텍스트)만 쓰므로 문구를 복사해 둔다. 그 복사가
+    코드와 어긋나지 않는지 여기서 못 박는다.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'probe', ROOT / 'scripts/sim/scope_fact_probe.py')
+    pr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pr)
+    rendered = render('1')
+    assert pr.SCOPE_LINE in rendered, (
+        '탐침이 끼우는 문구가 코드 렌더에 없다\n탐침: %s\n렌더: %s'
+        % (pr.SCOPE_LINE, rendered))
+    assert pr.TAIL in render('0'), '끼울 자리 표식이 렌더에 없다'
+
+
+def test_the_probe_only_adds_the_one_line():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        'probe2', ROOT / 'scripts/sim/scope_fact_probe.py')
+    pr = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(pr)
+    base = '- P012: 적립업종 이번달 누적 1원 | 못 넘기면 이번 달 혜택은 사라짐'
+    got = pr.add_scope(base)
+    assert got.count('못 넘기면') == 1
+    assert pr.SCOPE_LINE in got
+    assert pr.add_scope(got) == got, '두 번 넣으면 안 된다'
+    assert pr.add_scope('문턱 줄이 없는 맥락') == '문턱 줄이 없는 맥락'
