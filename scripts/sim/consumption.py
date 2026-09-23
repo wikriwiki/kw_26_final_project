@@ -91,6 +91,8 @@ SHARE_BASE = float(os.environ.get("EXP_SHARE_BASE")
 # online_share 가 없을 때(None)와 같은 결과가 나온다. 즉 **모르면 안 움직인다.**
 KEEP_MEAN = float(os.environ.get("EXP_KEEP_MEAN", "0.80"))
 SHARE_FLOOR = float(os.environ.get("EXP_SHARE_FLOOR", "0.05"))
+# 1층까지 여는 전환 — 수준이 +40.7% 오르므로 기본은 꺼 둔다(위 주석).
+EXP_ANCHOR_BEFORE_MAX = os.environ.get("EXP_ANCHOR_BEFORE_MAX", "0") == "1"
 
 # [폐기 2026-07-30] 소비수준별 '쿠폰 불가 업종' 지출 비중 표(BDC_OFFSITE_BY_LEVEL)는
 # 업종 분류가 시뮬의 실제 사용처 판정(coupon_eligibility.py — 상호명 기준)과 어긋나 폐기했다.
@@ -846,7 +848,22 @@ def apply_consumption_model(
     # 매출이 필요한데 확보되지 않았다(b069_sales는 지수값). 그 한계를 보고서에 명시할 것.
     if EXP_SPLIT_ANCHOR:
         # 수준 교정을 앵커에서 직접 걷어내고, 남은 몫은 행동으로 둔다.
-        personal_total = int(round(personal_total / max(1e-6, ANCHOR_OVERSTATE)))
+        #
+        # **나누는 자리가 둘이고, 둘은 다른 실험이다.**
+        #  · 여기(max 뒤) — 어느 항이 이기는지가 안 변하므로 기준 런이 현행과
+        #    **항등**이다. 2층만 연다. 이것이 기본값이다.
+        #  · BEFORE_MAX(max 앞) — 앵커가 작아져 계획이 이기기 시작한다.
+        #    라이브 3,090건 기준 계획이 이기는 비율 0.7% → **63.9%**. 1층이
+        #    열리지만 수준이 +40.7% 오르고, 그러면 참 앵커(서울 개인카드
+        #    실적으로 잡은 52,462원/일)를 41% 넘어선다. 즉 이 전환은 계획
+        #    단가 자체를 다시 보지 않고는 채택할 수 없다. 재려고만 열어 둔다.
+        if EXP_ANCHOR_BEFORE_MAX:
+            personal_total = max(
+                int(round(_anchor_total / max(1e-6, ANCHOR_OVERSTATE))),
+                int(round(planned_total)),
+            )
+        else:
+            personal_total = int(round(personal_total / max(1e-6, ANCHOR_OVERSTATE)))
         _keep = None
         if online_share is not None:
             try:
