@@ -81,3 +81,32 @@ def test_the_leak_check_does_not_flag_the_policys_own_terms():
     got = m.answer_numbers(block, pol)
     assert '20%' not in got, '정책이 선언한 할인율을 누설로 잡는다'
     assert '6.957%' in got, '정답지 수치를 놓친다'
+
+
+def test_the_steerability_map_agrees_with_the_registered_verdicts():
+    """조종 가능성 표가 **이미 등록된 판정과 어긋나지 않는지** 본다.
+
+    표가 "여기서 프롬프트가 읽힌다" 라고 한 자리에서 라운드는 "못 읽는다" 고
+    판정했다면 둘 중 하나가 틀린 것이다. 문턱을 만지작거리다 등록된 판정과
+    멀어지는 것을 막는다.
+
+        DS-1    v50 이 읽었다        후보차 0.9%p > 런 이동 0.5%p
+        DS-2    v50 이 안 읽었다     후보차 7.4%p < 런 이동 13.1%p
+        P012-1  라운드2 가 안 읽었다  후보차 1.3%p < 런 이동 8.2%p
+    """
+    m = _load('smap', 'scripts/report/steerability_map.py')
+    rc, out = _run(m, ['steerability_map.py'])
+    assert rc == 0, out
+    def row(iid):
+        # 정책 이름에 공백이 있어 열 번호로 못 집는다 — 토큰으로 찾는다
+        hits = [r for r in out.splitlines()
+                if iid in r.split() and not r.startswith('*')]   # 각주는 뺀다
+        assert len(hits) == 1, '%s 줄을 하나로 못 집었다: %d개' % (iid, len(hits))
+        return hits[0]
+
+    line = {k: row(k) for k in ('DS-1', 'DS-2', 'P012-1')}
+    assert '읽힌다' in line['DS-1'], 'DS-1 은 v50 이 읽은 자리다\n' + line['DS-1']
+    assert '막는다' in line['DS-2'], 'DS-2 는 런 이동에 묻혔다\n' + line['DS-2']
+    assert '막는다' in line['P012-1'], 'P012-1 은 라운드2 가 못 읽었다\n' + line['P012-1']
+    # 도달 관문이 열려 있어야 나머지 판정이 의미가 있다
+    assert '전 정책 통과' in out
