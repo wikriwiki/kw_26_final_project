@@ -52,10 +52,15 @@ RUN_SHIFT = {'DS-1': 0.5, 'DS-2': 13.1}
 
 # 라운드마다 (채점 파일 접두사, 비교할 두 팔, 주 지표)
 ROUNDS = [
-    ('v50', 'score_v50_', ('v5', 'v45'), ['DS-1', 'DS-2'], '거리두기'),
-    ('round2', 'score_r2_', ('v5', 'v45'), ['P012-1', 'P012-4'], 'P012'),
-    ('round3', 'score_r3_', ('v5', 'v51'), ['DS-1'], '거리두기'),
+    ('v50', 'score_v50_', ('v5', 'v45'), ['DS-1', 'DS-2'], '거리두기', ['DS-3']),
+    ('round2', 'score_r2_', ('v5', 'v45'), ['P012-1', 'P012-4'], 'P012', ['P012-5']),
+    ('round3', 'score_r3_', ('v5', 'v51'), ['DS-1'], '거리두기', ['DS-3']),
 ]
+
+# 순위 지표는 각 라운드의 사전등록이 **부 지표**로 걸어 둔 것이다.
+#   라운드3: "DS-1 에서 … 그리고 **DS-3 순위가 유지된다**"
+# 이것을 안 적으면 등록된 조건 하나가 기록에서 빠진다. 적용하면 도전자의
+# 문턱이 **높아지기만** 한다 — 느슨해지는 쪽이 아니므로 사후 완화가 아니다.
 
 
 def load(d, prefix, arm):
@@ -75,7 +80,7 @@ def pct(r):
     return None
 
 
-def judge(name, rows_a, rows_b, arms, metrics, policy):
+def judge(name, rows_a, rows_b, arms, metrics, policy, ranks=()):
     """한 라운드의 등록된 판정. 승자와 근거를 돌려준다."""
     a_name, b_name = arms
     closer, readable, detail = {}, {}, []
@@ -98,17 +103,29 @@ def judge(name, rows_a, rows_b, arms, metrics, policy):
                 else ('  이동 %.1f%%p ≤ 런 %.1f%%p → **근거로 쓰지 않는다**' % (moved, shift))
         detail.append('  %-8s 실측 %+.1f%% · %s %+.1f%% · %s %+.1f%% → %s (|차| %.1f → %.1f)%s'
                       % (k, t, a_name, x, b_name, y, who, da, db, tag))
+    # 부 지표(순위) — 등록된 조건이므로 기록에 남긴다
+    rank_lost = []
+    for k in (ranks or ()):
+        ha = (rows_a.get(k) or {}).get('hit')
+        hb = (rows_b.get(k) or {}).get('hit')
+        mark = {True: '적중', False: '빗나감', None: '관측부족'}
+        detail.append('  %-8s 순위 — %s %s · %s %s%s'
+                      % (k, a_name, mark.get(ha), b_name, mark.get(hb),
+                         '   **도전자가 잃었다**' if (ha is True and hb is not True) else ''))
+        if ha is True and hb is not True:
+            rank_lost.append(k)
+
     # **등록된 규칙 그대로 — 나열된 지표가 전부 도전자 쪽이어야 한다.**
     # '읽히는 지표만 세자' 로 바꾸면 규칙이 사후에 느슨해진다. 실제로 그렇게 짰다가
     # v50 의 결론(갈렸다 → v5 유지)이 v45 로 뒤집혔다.
     got = [k for k in metrics if closer.get(k)]
-    if got and all(closer[k] == b_name for k in got):
+    if got and all(closer[k] == b_name for k in got) and not rank_lost:
         winner = b_name
     else:
-        winner = a_name          # 갈리거나 값이 없으면 대조군 유지
+        winner = a_name          # 갈리거나·값이 없거나·순위를 잃으면 대조군 유지
     # 읽을 수 있었던 지표는 따로 적는다 — 판정을 바꾸지는 않고, 증거의 무게를 보인다
     usable = [k for k in metrics if closer.get(k) and readable.get(k) is not False]
-    return winner, detail, usable
+    return winner, detail, usable, rank_lost
 
 
 def main():
@@ -119,7 +136,7 @@ def main():
     print('# 거시 라인 현행 결정 — 세 라운드를 함께 읽는다')
     print()
     wins, done = {}, []
-    for name, prefix, arms, metrics, policy in ROUNDS:
+    for name, prefix, arms, metrics, policy, ranks in ROUNDS:
         # v50 은 /data/v50_answerkey, 라운드2·3 은 각자의 폴더에 있다
         for base in (Path(a.dir), Path(a.dir) / 'v50_answerkey',
                      Path(a.dir) / 'answerkey_round2', Path(a.dir) / 'answerkey_round3'):
@@ -132,10 +149,13 @@ def main():
             print('  아직 채점 파일이 없다.')
             print()
             continue
-        winner, detail, usable = judge(name, ra, rb, arms, metrics, policy)
+        winner, detail, usable, rank_lost = judge(
+            name, ra, rb, arms, metrics, policy, ranks)
         for ln in detail:
             print(ln)
-        print('  → **%s**  (읽을 수 있었던 지표: %s)' % (winner, ', '.join(usable) or '없음'))
+        why = ' · 도전자가 등록된 순위를 잃었다(%s)' % ', '.join(rank_lost) if rank_lost else ''
+        print('  → **%s**  (읽을 수 있었던 지표: %s)%s'
+              % (winner, ', '.join(usable) or '없음', why))
         print()
         done.append(name)
         if winner != arms[0]:

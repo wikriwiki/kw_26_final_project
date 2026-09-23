@@ -1,0 +1,103 @@
+{
+ "policy": "P012",
+ "label": "r2_v5",
+ "off": "2021-10-21:2021-10-22",
+ "on": "2021-10-25:2021-10-26",
+ "hits": 2,
+ "scored": 5,
+ "results": [
+  {
+   "id": "P012-1",
+   "expect": "+",
+   "scale": "short",
+   "metric": "elig_spend_paired",
+   "desc": "적립업종 지출 개인 내 쌍체차 (실측 +20.82%)",
+   "got": "0",
+   "hit": false,
+   "mean": 623.8430583501006,
+   "base": 32464.07444668008,
+   "ci": [
+    -674.2756539235412,
+    2215.8762575452715
+   ],
+   "n": 497,
+   "split_agree": true
+  },
+  {
+   "id": "P012-2",
+   "expect": "0",
+   "scale": "main",
+   "metric": "excl_spend_paired",
+   "desc": "제외업종 무반응 (실측 +2.85%, 유의하지 않음) — 방어선 지표",
+   "got": "≠0",
+   "hit": false,
+   "mean": -1172.5217391304348,
+   "base": 8406.065217391304,
+   "ci": [
+    -2952.913043478261,
+    778.9130434782609
+   ],
+   "n": 23,
+   "split_agree": true
+  },
+  {
+   "id": "P012-3",
+   "expect": "+",
+   "scale": "short",
+   "metric": "threshold_reach_rate",
+   "desc": "문턱 도달자 비율 > 0",
+   "got": "+",
+   "hit": true,
+   "mean": 0.168,
+   "ci": [
+    0.134,
+    0.202
+   ],
+   "n": 500
+  },
+  {
+   "id": "P012-4",
+   "expect": "+",
+   "scale": "short",
+   "metric": "cashback_per_capita",
+   "desc": "1인 평균 캐시백 > 0 (실측 47,880원)",
+   "got": "+",
+   "hit": true,
+   "mean": 1311.2613000114281,
+   "ci": [
+    903.2922106171424,
+    1753.2728747657136
+   ],
+   "n": 500
+  },
+  {
+   "id": "P012-6",
+   "expect": "+",
+   "scale": "main",
+   "metric": "cap_reach_rate",
+   "desc": "한도 10만원 도달 비율 > 0 (실측 21.0%)",
+   "got": "0",
+   "hit": false,
+   "mean": 0.0,
+   "ci": [
+    0.0,
+    0.0
+   ],
+   "n": 500
+  },
+  {
+   "id": "P012-5",
+   "expect": "rank",
+   "scale": "main",
+   "metric": "sector_rank",
+   "rank": [
+    "가전·가구",
+    "이·미용"
+   ],
+   "desc": "가전·가구 증가율 > 이·미용 증가율 (실측 +36.23% vs +2.87%)",
+   "got": "관측부족",
+   "hit": null
+  }
+ ],
+ "diagnostics": []
+}
