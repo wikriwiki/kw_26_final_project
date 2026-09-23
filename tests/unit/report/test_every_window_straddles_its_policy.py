@@ -81,7 +81,12 @@ def policy_of(key, blk):
 
 
 def windows(blk):
-    """(창 키, off 날짜들, on 날짜들). 사전형·산문형 둘 다 읽는다."""
+    """(창 키, off 날짜들, on 날짜들, 규칙 시행일). 사전형·산문형 둘 다 읽는다.
+
+    `rule_date` 는 :Policy 노드가 없는 **환경 규칙**용이다(사적모임 인원 제한).
+    정책 파일이 없다고 면제하면 그 창은 아무도 안 본다 — 대신 규칙 시행일에
+    대고 같은 검사를 한다.
+    """
     out = []
     for wk, v in blk.items():
         if not wk.startswith('window'):
@@ -96,8 +101,9 @@ def windows(blk):
             m_on = re.search(r'(?<!무)정책\s*(\d{4}-\d{2}-\d{2}):(\d{4}-\d{2}-\d{2})', t)
             off = list(m_off.groups()) if m_off else []
             on = list(m_on.groups()) if m_on else []
+        rule = (v.get('rule_date') if isinstance(v, dict) else None)
         if off and on:
-            out.append((wk, off, on))
+            out.append((wk, off, on, rule))
     return out
 
 
@@ -108,8 +114,9 @@ def all_cases():
         if not isinstance(blk, dict) or 'indicators' not in blk:
             continue
         pol = policy_of(key, blk)
-        for wk, off, on in windows(blk):
-            cases.append(pytest.param(key, wk, off, on, pol, id='%s/%s' % (key, wk)))
+        for wk, off, on, rule in windows(blk):
+            cases.append(pytest.param(key, wk, off, on, pol, rule,
+                                      id='%s/%s' % (key, wk)))
     return cases
 
 
@@ -121,15 +128,25 @@ def test_there_are_windows_to_check():
     assert len(CASES) >= 8, '창을 %d개밖에 못 읽었다 — 파서를 확인할 것' % len(CASES)
 
 
-@pytest.mark.parametrize('key,wk,off,on,pol', CASES)
-def test_the_window_straddles_the_policy_start(key, wk, off, on, pol):
+@pytest.mark.parametrize('key,wk,off,on,pol,rule', CASES)
+def test_the_window_straddles_the_policy_start(key, wk, off, on, pol, rule):
     why = EXEMPT.get((key, wk))
     if why:
         assert len(why) > 10, '면제에는 이유가 있어야 한다: %s/%s' % (key, wk)
         pytest.skip('면제 — ' + why)
     if (key, wk) in KNOWN_BAD:
         pytest.xfail('이미 기록된 결함 — ' + KNOWN_BAD[(key, wk)])
-    assert pol, '%s/%s 의 정책 파일을 못 찾았다 — 면제든 정책이든 하나는 있어야 한다' % (key, wk)
+    if rule and not pol:
+        # 환경 규칙 — 시행일 하나만 있다. 끝나는 날은 검사하지 않는다.
+        for d in off:
+            assert d < rule, (
+                '%s/%s: 무정책 창 %s 가 규칙 시행일 %s 이후다' % (key, wk, d, rule))
+        for d in on:
+            assert d >= rule, (
+                '%s/%s: 정책 창 %s 가 규칙 시행일 %s 이전이다' % (key, wk, d, rule))
+        return
+    assert pol, ('%s/%s 의 정책 파일도 rule_date 도 없다 — 무엇에 대고 재는지 적어야 한다'
+                 % (key, wk))
     start, end = pol['effective_from'], pol['effective_until']
     for d in off:
         assert d < start, (

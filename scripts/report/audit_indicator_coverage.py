@@ -7,11 +7,17 @@
 분류에 아예 없어서였다. `P016` 은 지표 넷 중 셋이 미구현인 채로 큐에 들어가 있었다 —
 그대로 돌았으면 몇 시간을 버리고 아무 값도 못 얻었다.
 
-세 가지를 본다.
+다섯 가지를 본다. 앞 셋은 **계산 가능한가**, 뒤 둘은 **잴 준비가 됐는가** 다.
 
     ① metric 이름을 채점기가 아는가        metric_values 가 None 을 주지 않는가
     ② 업종 이름이 실제로 있는가            sector_spend:X · sector_share:X 의 X
     ③ 순위 대상이 실제 업종인가            rank: [A, B] 의 A·B
+    ④ 적격 판정에 쓸 정책 파일이 있는가     `elig` 를 쓰는 지표가 있는 정책만
+    ⑤ 채점 창이 등록돼 있는가              없으면 돌릴 때 즉석에서 정하게 된다
+
+④ 가 없으면 DB 백필값(상생 기준)으로 떨어진다 — **다른 정책의 자로 재게 된다.**
+긴급재난 EM-2 가 그렇게 여드레를 갔고, P010-2 도 같은 자리에 있었다.
+⑤ 는 창 오류가 두 번 난 자리다(P016 시행일 오인 · P090 창 이동).
 
 `expect: info` 는 채점 대상이 아니므로 통과로 본다 — 다만 그 이유가 채점표에
 적혀 있어야 한다.
@@ -30,6 +36,12 @@ SCORING = ROOT / 'data/experiments/scoring_table.json'
 
 # 캐시백 전용 경로로 처리되는 지표 (score_policy.main 안에 분기가 있다)
 SPECIAL = {'threshold_reach_rate', 'cashback_per_capita', 'cap_reach_rate'}
+
+# 적격 판정(`elig`)을 쓰는 지표. 이런 지표가 있으면 정책 파일이 있어야 한다 —
+# 없으면 채점기가 DB 백필값(상생 기준)으로 떨어져 다른 정책의 자로 잰다.
+NEEDS_ELIG = {'elig_spend_paired', 'coupon_elig_spend_paired',
+              'elig_spend_pre', 'elig_spend_post', 'excl_spend_paired',
+              'elig_spend_share'}
 
 # 그래프에서 읽은 실제 이름. 바뀌면 여기도 바꿔야 한다 —
 #   MATCH (c:Category) RETURN DISTINCT c.parent, c.name
@@ -100,11 +112,38 @@ def main():
                 print('%-20s %-7s %-5s %-44s %s' % (key, iid, expect, name, how))
             if not ok:
                 bad.append((key, iid, name, how))
+    # ④⑤ 정책 단위 점검 — 지표가 계산돼도 잴 준비가 안 됐을 수 있다
+    notready: list[tuple[str, str]] = []
+    if not a.quiet:
+        print()
+        print('%-20s %-10s %-10s %s' % ('정책', '정책파일', '채점창', '판정'))
+        print('-' * 92)
+    for key in POLICIES:
+        blk = d.get(key) or {}
+        inds = blk.get('indicators') or []
+        wants_elig = any((i.get('metric') in NEEDS_ELIG) for i in inds)
+        has_file = bool(blk.get('policy_file'))
+        has_win = any(k.startswith('window') for k in blk)
+        why = []
+        if wants_elig and not has_file:
+            why.append('**적격 지표가 있는데 policy_file 이 없다 — 상생 기준으로 떨어진다**')
+        if not has_win:
+            why.append('**채점 창이 등록돼 있지 않다**')
+        if not a.quiet:
+            print('%-20s %-10s %-10s %s'
+                  % (key, ('있음' if has_file else ('필요없음' if not wants_elig else '**없음**')),
+                     '있음' if has_win else '**없음**', ' · '.join(why) or 'OK'))
+        for w in why:
+            notready.append((key, w))
+
     print()
     print('지표 %d개 중 채점 불가 %d개' % (total, len(bad)))
     for k, i, n, h in bad:
         print('  %-20s %-7s %-30s %s' % (k, i, n, h))
-    return 1 if bad else 0
+    print('정책 %d개 중 잴 준비가 안 된 곳 %d건' % (len(POLICIES), len(notready)))
+    for k, w in notready:
+        print('  %-20s %s' % (k, w))
+    return 1 if (bad or notready) else 0
 
 
 if __name__ == '__main__':
