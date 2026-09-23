@@ -110,3 +110,39 @@ def test_the_steerability_map_agrees_with_the_registered_verdicts():
     assert '막는다' in line['P012-1'], 'P012-1 은 라운드2 가 못 읽었다\n' + line['P012-1']
     # 도달 관문이 열려 있어야 나머지 판정이 의미가 있다
     assert '전 정책 통과' in out
+
+
+def test_the_p015_transcription_matches_what_was_registered():
+    """P015 의 등록된 판정을 기계가 셀 수 있게 옮겨 적었다 — **숫자가 같아야 한다.**
+
+    원문 블록이 사람이 읽는 형식이라 표에서 통째로 빠져 있었다. 옮겨 적으면서
+    다시 채점하면 유리한 쪽으로 흐른다. 원문의 '3/6 … HO-3 은 무효라 실질 3/5'
+    가 그대로 나오는지 못 박는다.
+    """
+    import io as _io
+    import json as _json
+    sc = _json.loads(_io.open(ROOT / 'data/experiments/scoring_table.json',
+                              encoding='utf-8').read())
+    blk = sc['SECTOR_VOUCHER_2020']
+    h = blk['result_policy_2026_09_17_hits']
+    hits = [k for k, v in h.items() if isinstance(v, dict) and v.get('hit') is True]
+    miss = [k for k, v in h.items() if isinstance(v, dict) and v.get('hit') is False]
+    null = [k for k, v in h.items() if isinstance(v, dict) and v.get('hit') is None]
+    assert sorted(hits) == ['HO-1', 'HO-5', 'HO-6'], hits
+    assert len(hits) == 3 and len(hits) + len(miss) == 5, (hits, miss)
+    assert null == ['HO-3'], null
+    # 원문이 그렇게 적어 두었는지도 같이 본다
+    assert 'HO-1·HO-5·HO-6 적중' in blk['result_policy_2026_09_17']['단일 런 채점']
+    assert '실질 3/5' in blk['result_policy_2026_09_17']['단일 런 채점']
+
+
+def test_the_sign_scoreboard_counts_placebos_by_their_own_expectation():
+    """위약을 '무반응이 정답' 으로 뭉뚱그리면 lookahead 검정이 뒤집힌다."""
+    m = _load('sboard', 'scripts/report/sign_scoreboard.py')
+    rc, out = _run(m, ['sign_scoreboard.py'])
+    assert rc == 0, out
+    pl1 = [r for r in out.splitlines() if 'PL-1' in r.split()]
+    assert pl1 and '증가' in pl1[0], 'PL-1 은 반응해야 적중이다(기댓값 +)\n' + str(pl1)
+    pt1 = [r for r in out.splitlines() if 'PT-1' in r.split()]
+    assert pt1 and '무반응' in pt1[0], 'PT-1 은 무반응이 적중이다\n' + str(pt1)
+    assert '위약' in out and '실제 정책' in out
