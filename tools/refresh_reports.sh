@@ -33,6 +33,13 @@ if [ "${1:-}" = "--fetch" ]; then
     N=$(basename "$SRC")
     if scp -q -i "$KEY" -P "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
           "$HOST:$SRC" "output/rounds/$N" 2>/dev/null; then
+      # 건너뛰기 표식은 채점 결과가 아니다 — 받아 두면 읽기로 오해된다.
+      # (B 팔을 건너뛰려고 score_ruler_b.json 자리에 표식을 둔 적이 있다.)
+      if grep -q '"SKIPPED"' "output/rounds/$N" 2>/dev/null; then
+        rm -f "output/rounds/$N"
+        echo "  ·  $N  건너뛰기 표식이라 버린다 (채점 결과 아님)"
+        continue
+      fi
       echo "  <- $N"
     else
       echo "  ·  $N  아직 없음"
