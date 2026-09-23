@@ -64,6 +64,34 @@ ONLINE_SHARE_CAP = float(os.environ.get("EXP_ONLINE_SHARE_CAP", "0.85"))
 # BOK 실측과 무관한 값이며, 앵커 과대와 비사용처 미분리를 함께 보정한다.
 ELIGIBLE_SHARE_SEOUL = float(os.environ.get("EXP_ELIGIBLE_SHARE", "0.2535"))
 
+# [한 상수가 두 일을 한다 — 가르는 길] experiments/error_budget/diagnosis_04.md
+# 위 0.2535 는 '앵커 과대'(정책과 무관한 수준 교정)와 '비사용처 분리'(정책이
+# 움직여야 할 행동)를 **함께** 하고 있다. 묶여 있으므로 뒤쪽을 행동으로 풀면
+# 앞쪽 교정이 깨지고, 그래서 상수일 수밖에 없었다 — 정책이 닿지 못한 이유다.
+#
+#   현재   offline = anchor x 0.2535
+#   분리   offline = (anchor / OVERSTATE) x share      share0 = 0.2535 x OVERSTATE
+#
+# 기준값에서 두 식은 **항등**이다. 수준을 건드리지 않고 레버만 생긴다.
+# OVERSTATE 2.40 은 코드 주석의 교차검증을 라이브 2,977건으로 재현한 값이다
+# (총액 평균 125,915원/일 → 서울 환산 연 432조 대 개인카드 실적 약 180조).
+#
+# share 는 Stage1 의 online_share 로 움직이되 **수준이 아니라 편차만** 받는다.
+# 예시 숫자로 쏠리는 것이 이미 측정돼 있으므로(daily_propensity 가 0.68 에 54%),
+# 기준 런에서 잰 평균 KEEP_MEAN 으로 나눠 쏠림을 지운다. KEEP_MEAN 은 **무정책
+# 기준 런에서 한 번 재고 얼린다** — 팔마다 다시 재면 정책이 만든 이동이
+# 정규화로 지워져 아무것도 안 한 것과 같아진다.
+EXP_SPLIT_ANCHOR = os.environ.get("EXP_SPLIT_ANCHOR", "0") == "1"
+ANCHOR_OVERSTATE = float(os.environ.get("EXP_ANCHOR_OVERSTATE", "2.40"))
+# 기본값은 **유도한다** — 0.608 처럼 적어 두면 0.608/2.40 = 0.2533 이라 현행
+# 0.2535 와 0.07% 어긋난다. 곱을 그대로 쓰면 기준 런이 현행과 정확히 항등이다.
+SHARE_BASE = float(os.environ.get("EXP_SHARE_BASE")
+                   or ELIGIBLE_SHARE_SEOUL * ANCHOR_OVERSTATE)
+# 기준 런의 mean(1 - online_share). 측정 전에는 1.0 — 그러면 편차 보정이 항등이 되어
+# online_share 가 없을 때(None)와 같은 결과가 나온다. 즉 **모르면 안 움직인다.**
+KEEP_MEAN = float(os.environ.get("EXP_KEEP_MEAN", "0.80"))
+SHARE_FLOOR = float(os.environ.get("EXP_SHARE_FLOOR", "0.05"))
+
 # [폐기 2026-07-30] 소비수준별 '쿠폰 불가 업종' 지출 비중 표(BDC_OFFSITE_BY_LEVEL)는
 # 업종 분류가 시뮬의 실제 사용처 판정(coupon_eligibility.py — 상호명 기준)과 어긋나 폐기했다.
 # 상세 사유는 apply_consumption_model 안의 '기본 비활성' 주석 참조. 되살리려면 먼저
@@ -816,9 +844,24 @@ def apply_consumption_model(
     #   두 경로가 30,000원대로 수렴한다.
     # 이 값은 '앵커 과대'와 '비사용처 미분리'를 함께 보정한다. 둘을 분리하려면 BDC 동별 절대
     # 매출이 필요한데 확보되지 않았다(b069_sales는 지수값). 그 한계를 보고서에 명시할 것.
-    _off = 1.0 - ELIGIBLE_SHARE_SEOUL
+    if EXP_SPLIT_ANCHOR:
+        # 수준 교정을 앵커에서 직접 걷어내고, 남은 몫은 행동으로 둔다.
+        personal_total = int(round(personal_total / max(1e-6, ANCHOR_OVERSTATE)))
+        _keep = None
+        if online_share is not None:
+            try:
+                _keep = 1.0 - max(0.0, min(1.0, float(online_share)))
+            except (TypeError, ValueError):
+                _keep = None
+        # 편차만 받는다. online_share 가 없으면 배수 1.0 — 기준값 그대로다.
+        _mult = (_keep / KEEP_MEAN) if (_keep is not None and KEEP_MEAN > 0) else 1.0
+        _share = max(SHARE_FLOOR, min(1.0, SHARE_BASE * _mult))
+        _off = 1.0 - _share
+        _online_src = "split_behavioral" if _keep is not None else "split_base"
+    else:
+        _off = 1.0 - ELIGIBLE_SHARE_SEOUL
+        _online_src = "seoul_smallbiz"
     _online_rate = max(0.0, min(ONLINE_SHARE_CAP, _off))
-    _online_src = "seoul_smallbiz"
     # [이전 경로 폐기 기록]
     #  · 소비수준별 BDC 업종 비중 표: 업종 분류가 사용처 판정 규칙(상호명 기준)과 어긋나 폐기.
     #    '할인점/슈퍼마켓'(14.45%)은 동네 슈퍼가 대부분 사용 가능인데 전부 불가로 넣었었다.

@@ -43,6 +43,7 @@ from . import v47  # noqa: E402  (v46 with a closing residence event in the exam
 from . import v48  # noqa: E402  (v45 with only the closing example event)
 from . import v49  # noqa: E402  (v45 with only the time-gap rule sentence)
 from . import v51  # noqa: E402  (v45 with the work-anchor boundary at the work_dong line)
+from . import v5online  # noqa: E402  (v5 + 배송 몫 한 항목 — diagnosis_04)
 from . import v52  # noqa: E402  (v45 with the reasoning requirement widened to evening events)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
@@ -72,6 +73,7 @@ _VARIANTS: dict[str, ModuleType] = {
     "v49": v49,
     "v51": v51,
     "v52": v52,
+    "v5online": v5online,
 }
 DEFAULT = "p010"
 
