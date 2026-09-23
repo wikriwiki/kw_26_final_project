@@ -1,85 +1,98 @@
 # 다음에 무엇을 하는가 — 명령까지 적는다
 
-**2026-09-24 06:00 갱신** · 이 문서는 **진행 중인 계산이 끝났을 때** 할 일이다
+**2026-09-24 06:00 갱신** · 2층 가르기는 **중단됐다.** 그 뒤의 계획이다
 
 ---
 
-## 판이 바뀌었다 — 먼저 이것부터 읽어라
+## 먼저 읽을 것 — 판이 두 번 바뀌었다
 
 ```
 experiments/error_budget/diagnosis_03.md   우리 에이전트에게는 제외업종이 없다
 experiments/error_budget/diagnosis_04.md   한 상수가 두 일을 한다 — 가르는 수리안
-experiments/split_anchor/prereg.md         사전등록 (결과 보기 전 커밋됨)
+experiments/split_anchor/calib_02.md       **중단** — 레버가 질문을 안 듣는다
 ```
 
-**오차의 77%가 프롬프트 밖에 있다.** 정답지가 재라는 제외업종(백화점·대형마트·
-온라인)을 소비 모델이 측정 전에 통째로 지우고, 적립업종은 총액이 상수라 못 큰다.
-그래서 프롬프트 후보를 더 만드는 대신 **회계 2층을 가른다.**
+**결론**: 회계 분리도 맞고 눈금 이동도 맞는데, **그 레버를 움직일 값을 모델이
+안 준다.** 질문 범위를 3배 넓혀도 답이 0.1448 → 0.1427 이고 27%는 집합 논리에
+어긋났다. 세 층 모두 정책이 닿지 않는다 — P012 오차 35.67%p 의 최종 사유다.
 
 ## 지금 돌고 있는 것
 
 ```
-본런   p013_ruler arm A (v5·n=700·12일)   11:30 무렵 · 이어서 arm B
-탐침   /data/online_calib                 배송 몫 교정 96호출 (사전등록 단계 가)
+본런  p013_ruler arm A (v5·n=700·12일)  6/12일 · 12:30 무렵 종료
+      arm B 는 표식으로 건너뛴다 (experiments/split_anchor/arm_b_skipped.md)
 ```
 
-## ① 교정 탐침이 끝나면 — 중단 조건이 먼저다
+## ① arm A 가 끝나면 — EM-2 를 채운다
 
 ```bash
 ssh -i outofmemory.pem -p 10022 outofmemory@123.37.28.167 \
-  'tail -20 /data/online_calib/probe.log; cat /data/online_calib/calibration.json'
+  'cd /data/repo && source /data/venv/bin/activate && \
+   NEO4J_PASSWORD=exp001pass python scripts/sim/score_policy.py \
+     --policy EMERGENCY_2020 --off <창> --on <창> \
+     --label ruler_a --json-out /data/p013_ruler/score_ruler_a.json --per-agent'
 ```
 
+러너가 죽었으므로 **채점을 사람이 돌려야 한다**(표식으로 B 팔을 막을 때 러너
+프로세스는 안 건드렸지만, 러너는 A 팔 채점까지는 스스로 한다 — 로그에
+`[ruler_a] 채점` 이 찍혔는지 먼저 보라. 찍혔으면 이 단계는 건너뛴다).
+
+그다음 `score_to_block.py` → `READINGS` 갱신 → EM-2 의 SUSPECT 해제 →
+`bash tools/refresh_reports.sh`.
+
+**EM-2 에는 자체 잡음대가 없다**(B 팔을 건너뛰었으므로). P012-1 의 런 간 이동
+8.2%p 를 보수적 대용으로 쓰고 **보고서에 그렇게 밝힌다.**
+
+## ② 그다음 GPU 로 무엇을 할까 — 아직 정하지 않았다
+
+정할 때 쓸 숫자는 이것이다.
+
 ```
-응답률 < 90%      → **중단.** 안 오는 필드로는 회계를 못 돌린다.
-                    v5online 의 블록 위치를 고쳐 다시 탐침 (본런 금지)
-분산 ~ 0          → 레버가 죽었다. 수리를 접고 "이 모델로는 상생 기전을
-                    표현할 수 없다"를 결론으로 보고한다 — 그것도 답이다
-통과              → keep_mean 을 적어 두고 ② 로
+잰 지표 4개 · 총 오차 29.52%p
+  P012-1  18.92%p   **구조적으로 못 줄인다** (calib_02)
+  EM-3     5.30%p
+  DS-1     4.40%p
+  DS-2     0.90%p
+못 잰 지표 6개 — 실측은 있는데 시뮬이 값을 못 낸다 (사용자가 "우리 문제" 라 한 것)
+  EM-2    arm A 가 낸다 ← ①
+  P012-2  눈금은 옮겼다. 값을 내려면 P012 런이 필요하다 (그래프가 비워졌다)
+  P012-5  가전·가구 vs 이·미용 순위. P012 런 필요
+  P012-6  월 한도 10만원 도달률. **우리 창이 이틀이라 구조적 불가** — 30일 창 필요
+  EM-4    원문 19~33주 · 우리 이틀
+  DS-6    hub_type 자료가 그래프에 없다
 ```
 
-## ② 항등 관문 — arm A/B 가 끝나 GPU 가 비면
+후보 둘.
 
-`consumption.py` 를 올린 **뒤에** 돌린다(지금은 본런 중이라 안 올렸다).
-
-```bash
-scp -i outofmemory.pem -P 10022 scripts/sim/consumption.py \
-    outofmemory@123.37.28.167:/data/validation_v3/repo/scripts/sim/
-# v5(= online_share 없음) + SPLIT=1 로 하루만. 현행과 ±1% 안이어야 한다.
-EXP_SPLIT_ANCHOR=1 SIM_PROMPT_VARIANT=v5 python scripts/sim/run_simulation.py \
-    --start 2021-10-01 --days 1 --limit 200 --workers 48
+```
+가  P012 런 (v5 · SPLIT 끄고 · 9일 · N=500 · 약 7.5h)
+    P012-2(새 눈금 n=500, 옛 눈금은 23명) · P012-5 를 채운다.
+    **다만 현행 회계에서 online_spent 는 오프라인의 고정 배수라
+    P012-2 는 총지출 변화와 같은 수가 나온다** — 값은 생기지만 독립 정보가 아니다.
+    그 점을 함께 적을 것.
+나  아직 한 번도 안 잰 정책 (P016 농할·사적모임)
+    지표가 통째로 비어 있다. 채우면 "모든 정책에 검증지표" 에 가까워진다
 ```
 
-벗어나면 **본런을 돌리지 않는다.** 수준을 건드린 것이므로 정책 효과와 섞인다.
-
-## ③ 본런 — P012 · v5online + 가른 회계
-
-```bash
-EXP_SPLIT_ANCHOR=1 EXP_KEEP_MEAN=<탐침에서 잰 값> \
-SIM_PROMPT_VARIANT=v5online python scripts/sim/run_simulation.py ...
-```
-
-끝나면 채점 → `score_to_block.py` 로 옮겨 적기 → `bash tools/refresh_reports.sh`.
-
-**판정은 총 오차로 한다.** P012-1 만 좋아지고 P012-2 가 그만큼 나빠지면 기각이다
-(사전등록에 적어 두었다).
+**고르기 전에 검출력부터 센다** — 표본으로 못 닿는 지표에 GPU 를 쓰지 않는다
+(DS-2 약 10,000명 · LV-2 약 75,000명이 필요했던 전례).
 
 ## 끝난 것
 
 ```
 후보 1 (범위의 산술)   탐침 48호출 → 기각  양측 p=0.549
-후보 2 (기준 배수)     파일럿 단측 0.059 → **복제 단측 0.094 → 기각**
-                       등록 기준은 "새 48쌍만으로 0.05". 합치지 않는다.
-                       라운드 자격 없음 — 19시간 세 팔 라운드를 돌리지 않는다
-눈금 이동              P012-2 를 st.online_spent 로. 옛 읽기는 SUSPECT
+후보 2 (기준 배수)     파일럿 0.059 → **복제 0.094 → 기각** (합치지 않는다)
+2층 가르기             교정 탐침에서 **중단** — 레버 입력이 안 온다
+                       코드는 꺼진 채로 남겼다(EXP_SPLIT_ANCHOR, 기준 런과 항등)
+눈금 이동              P012-2 → st.online_spent. 라이브에서 700쌍 산출 확인
                        **총 오차 46.27 → 29.52%p 는 진전이 아니다**(ruler_move_01.md)
 ```
 
-## 함정 — 두 번 당했다
+## 함정 — 세 번 당했다
 
 ```
 · 라운드 러너의 관문이 파일럿 경로를 읽는다. 복제로 판정했다면 경로를 바꿔 건다
-· 서버 /data/repo 와 /data/validation_v3/repo 는 다른 세대다. run_simulation.py 를
-  레포에서 덮어쓰지 않는다 (tools 디렉터리는 validation 쪽에 없어서 새로 만들었다)
+· 서버 저장소가 둘이고 **세대가 다르다**. 덮지 말고 tools/patch_split_anchor.py 로 심는다
 · 탐침을 둘 동시에 돌리면 둘 다 느려진다. 본런과는 워커 4로 나눠 쓴다
+· 건너뛰기 표식을 --fetch 가 받아 온다 → "SKIPPED" 가드를 넣었다 (실제로 한 번 받았다)
 ```
