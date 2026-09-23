@@ -52,6 +52,10 @@ from pathlib import Path
 #   line    끼울 문장 (코드 렌더와 **바이트가 같아야 한다**)
 #   tail    끼울 자리 표식
 #   case    동결 맥락의 어느 셀을 쓰는가
+#   expect  지표별 **기대 방향**. {'propensity': 'down', ...}
+#           적지 않으면 전부 'up' 으로 찍히는데, 그러면 "소비성향이 내려가야
+#           한다" 는 후보에서 표가 정반대로 읽힌다. 양측 p 는 같아서 판정은
+#           안 바뀌지만 **이름이 틀리면 사람이 틀리게 읽는다.** 실제로 그랬다.
 #   mode    끼우는 방식. 블록마다 글의 모양이 다르다
 #             'pipe'         정책 줄 — ` | ` 로 이어진다. 표식 **앞**에 칸을 하나 넣는다
 #             'bullet_after' 환경 블록 — `- ` 로 시작하는 줄 목록. 표식 줄 **다음 줄**에
@@ -63,6 +67,7 @@ CANDIDATES = {
         'tail': "못 넘기면 이번 달 혜택은 사라짐",
         'case': 'cashback',
         'mode': 'pipe',
+        'expect': {'excluded_ev': 'up', 'propensity': 'up', 'n_events': 'up'},
         'why': '제외업종에서 줄여도 문턱은 가까워지지 않는다 — 제도 산식의 성질',
     },
     # **영가설 대조.** 같은 자리에 같은 길이로 끼우되 **행동과 무관한** 사실이다.
@@ -87,6 +92,8 @@ CANDIDATES = {
         'tail': '최근 7일 평균',
         'mode': 'bullet_after',
         'case': 'distancing',
+        # 제약에 더 반응한다는 가설이므로 **소비성향은 내려가야** 한다.
+        'expect': {'propensity': 'down', 'excluded_ev': 'down', 'n_events': 'down'},
         'why': '수준만 주고 기준을 안 주면 해석할 수 없다 — 같은 원자료에서 센 배수',
     },
 }
@@ -185,7 +192,8 @@ def parse(raw: str) -> dict | None:
 def compare(rows: list[dict]) -> dict:
     """시민별로 off/on 을 맞대고 요약한다."""
     by = {}
-    for r in rows:
+    _rows = list(rows)
+    for r in _rows:
         if r.get('error'):
             continue
         p = parse(r.get('raw'))
@@ -205,9 +213,20 @@ def compare(rows: list[dict]) -> dict:
             'changed_aids': sorted(str(k) for k in changed),
             'd_propensity': d('propensity'), 'd_excluded': d('excluded_ev'),
             'd_events': d('n_events'),
-            'sign_excluded': sign_test(paired, 'excluded_ev'),
-            'sign_propensity': sign_test(paired, 'propensity'),
-            'sign_events': sign_test(paired, 'n_events')}
+            'sign_excluded': sign_test(paired, 'excluded_ev', _up(_rows, 'excluded_ev')),
+            'sign_propensity': sign_test(paired, 'propensity', _up(_rows, 'propensity')),
+            'sign_events': sign_test(paired, 'n_events', _up(_rows, 'n_events'))}
+
+
+def _up(rows, key) -> bool:
+    """이 응답들이 속한 후보의 **기대 방향**. 모르면 'up' 으로 둔다.
+
+    응답 줄에 후보 이름이 실려 있다(build 가 넣는다). 없으면 옛 자료이므로
+    기존 동작(증가 기대)을 유지한다 — 다시 세었을 때 수가 달라지면 안 된다.
+    """
+    name = next((r.get('candidate') for r in rows if r.get('candidate')), None)
+    spec = CANDIDATES.get(name or '', {})
+    return (spec.get('expect') or {}).get(key, 'up') != 'down'
 
 
 def sign_test(pairs, key, want_up=True):
@@ -231,7 +250,7 @@ def sign_test(pairs, key, want_up=True):
     else:
         p = 1.0
     return {'hit': up if want_up else dn, 'miss': dn if want_up else up,
-            'tie': tie, 'n': n, 'p': p,
+            'tie': tie, 'n': n, 'p': p, 'dir': '증가' if want_up else '감소',
             'mean': (sum(d) / len(d)) if d else None}
 
 
@@ -259,8 +278,8 @@ def main() -> int:
         for k, lbl in (('sign_excluded', '제외업종 이벤트'),
                        ('sign_propensity', '소비성향'), ('sign_events', '전체 이벤트')):
             t = s[k]
-            print('  %-14s 기대방향 %d · 반대 %d · 동점 %d   평균 %s   양측 p=%.3f  %s'
-                  % (lbl, t['hit'], t['miss'], t['tie'],
+            print('  %-14s 기대방향(%s) %d · 반대 %d · 동점 %d   평균 %s   양측 p=%.3f  %s'
+                  % (lbl, t.get('dir', '?'), t['hit'], t['miss'], t['tie'],
                      ('%+.4f' % t['mean']) if t['mean'] is not None else '—',
                      t['p'], '**갈린다**' if t['p'] < 0.05 else '동전 던지기와 구별 안 됨'))
         io.open(out / 'summary.json', 'w', encoding='utf-8', newline='\n').write(

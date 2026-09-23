@@ -329,3 +329,32 @@ def test_the_round_gate_would_pass_a_clean_split():
     pairs = {('a%d' % i, 1): {'off': {'n_events': 0}, 'on': {'n_events': 1}}
              for i in range(10)}
     assert pr.sign_test(pairs, 'n_events')['p'] < 0.05
+
+
+def test_each_candidate_carries_its_own_expected_direction():
+    """"소비성향이 내려가야 한다" 는 후보를 '증가 기대' 로 찍으면 표가 정반대로
+    읽힌다. 양측 p 는 같아 판정은 안 바뀌지만 **사람이 틀리게 읽는다.**
+    실제로 후보 2 에서 그랬다.
+    """
+    pr = _probe_mod()
+    assert pr.CANDIDATES['case_trend_2020_11_24']['expect']['propensity'] == 'down'
+    assert pr.CANDIDATES['scope_fact']['expect']['propensity'] == 'up'
+
+    def rows(name, d):
+        return [{'aid': 'A', 'seed': 1, 'side': s, 'candidate': name,
+                 'raw': '{"daily_propensity": %s}' % v}
+                for s, v in (('off', 0.5), ('on', 0.5 + d))]
+
+    down = pr.compare(rows('case_trend_2020_11_24', -0.1))['sign_propensity']
+    up = pr.compare(rows('scope_fact', -0.1))['sign_propensity']
+    assert down['hit'] == 1 and down['dir'] == '감소'
+    assert up['hit'] == 0 and up['dir'] == '증가'
+
+
+def test_old_responses_without_a_candidate_keep_the_old_reading():
+    """후보 이름이 없는 옛 자료를 다시 세었을 때 수가 달라지면 안 된다."""
+    pr = _probe_mod()
+    rows = [{'aid': 'A', 'seed': 1, 'side': s, 'raw': '{"daily_propensity": %s}' % v}
+            for s, v in (('off', 0.5), ('on', 0.6))]
+    t = pr.compare(rows)['sign_propensity']
+    assert t['dir'] == '증가' and t['hit'] == 1
