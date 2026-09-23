@@ -123,4 +123,6 @@ python -u scripts/sim/run_simulation.py --start $ST --days $DY --limit $N \
 say "[$TAG] 채점 — 그래프가 비워지기 전에 지금 한다"
 python scripts/sim/score_policy.py --policy P012 --off $OFF --on $ON \
     --label "$TAG" --json-out "$OUT/score_$TAG.json" --per-agent 2>&1 | tail -24 | tee -a $LOG
+say "--- 1차 질문: 정책이 켜지면 배송 몫이 달라지는가 (사전등록 2)"
+python scripts/report/online_share_policy_response.py "$OUT/$TAG/metrics"     --off $OFF --on $ON 2>&1 | tee -a $LOG
 say "=== SPLIT_P012_DONE ==="
