@@ -358,3 +358,38 @@ def test_old_responses_without_a_candidate_keep_the_old_reading():
             for s, v in (('off', 0.5), ('on', 0.6))]
     t = pr.compare(rows)['sign_propensity']
     assert t['dir'] == '증가' and t['hit'] == 1
+
+
+def test_one_sided_p_is_half_of_two_sided_for_a_clean_split():
+    """복제가 쓰는 단측 p. 방향을 미리 정했을 때만 쓴다."""
+    pr = _probe_mod()
+    pairs = {('a%d' % i, 1): {'off': {'x': 0}, 'on': {'x': 1}} for i in range(8)}
+    t = pr.sign_test(pairs, 'x')
+    assert t['hit'] == 8 and t['miss'] == 0
+    assert abs(t['p'] - 2 * t['p_one']) < 1e-12, (t['p'], t['p_one'])
+
+
+def test_one_sided_p_does_not_reward_the_wrong_direction():
+    """기대와 반대로 쏠렸는데 단측 p 가 작아지면 검정이 아니다."""
+    pr = _probe_mod()
+    pairs = {('a%d' % i, 1): {'off': {'x': 0}, 'on': {'x': -1}} for i in range(8)}
+    t = pr.sign_test(pairs, 'x')          # 기대는 증가인데 전부 감소
+    assert t['hit'] == 0
+    assert t['p_one'] > 0.9, t['p_one']
+
+
+def test_the_pilot_sits_just_above_the_line():
+    """후보 2 파일럿의 단측 p 가 0.05 바로 위라는 것을 못 박는다.
+
+    이 수가 바뀌면 "복제가 필요했다" 는 판단의 근거가 달라진다.
+    """
+    import io as _io
+    import json as _json
+    pr = _probe_mod()
+    path = ROOT / 'output/ct_probe.jsonl'
+    if not path.exists():
+        pytest.skip('파일럿 응답이 저장소에 없다')
+    rows = [_json.loads(l) for l in _io.open(path, encoding='utf-8') if l.strip()]
+    t = pr.compare(rows)['sign_propensity']
+    assert t['dir'] == '감소' and t['hit'] == 11 and t['miss'] == 4
+    assert 0.05 < t['p_one'] < 0.07, t['p_one']

@@ -23,7 +23,10 @@
     **의미 없는 줄을 끼워도 계획이 달라진다.** 그것을 영가설 대조로 확인했다.
 
     sign           같은 시민의 off/on 을 맞대 기대 방향 쌍이 몇인지 센다.
-                   동전 던지기면 절반이다 — 양측 이항 p 로 읽는다
+                   동전 던지기면 절반이다.
+                   **양측**은 방향을 미리 정하지 않은 파일럿이 쓴다.
+                   **단측**은 파일럿에서 방향을 고정한 뒤 도는 복제가 쓴다 —
+                   방향을 결과를 보고 정하면 단측을 쓰면 안 된다.
     changed        계획이 조금이라도 달라진 시민 수 — **참고로만 둔다**
     propensity     최상위 소비성향 delta. 총액 스칼라가 움직이는지
     excluded_ev    제외업종 이벤트 수 delta. 줄이기를 멈추는지가 이 가설의 핵심
@@ -244,13 +247,19 @@ def sign_test(pairs, key, want_up=True):
     dn = sum(1 for x in d if x < 0)
     tie = sum(1 for x in d if x == 0)
     n = up + dn
+    hit = up if want_up else dn
     if n:
         k = max(up, dn)
         p = min(1.0, 2 * sum(math.comb(n, i) for i in range(k, n + 1)) / (2 ** n))
+        # 단측 — **방향을 미리 정해 둔 복제 검정이 쓰는 값.** 기대 방향 쪽으로
+        # 이만큼 이상 치우칠 확률이다. 방향을 결과를 보고 정하면 이 값은
+        # 쓰면 안 된다(그래서 파일럿에는 양측을 쓴다).
+        p1 = min(1.0, sum(math.comb(n, i) for i in range(hit, n + 1)) / (2 ** n))
     else:
-        p = 1.0
-    return {'hit': up if want_up else dn, 'miss': dn if want_up else up,
-            'tie': tie, 'n': n, 'p': p, 'dir': '증가' if want_up else '감소',
+        p = p1 = 1.0
+    return {'hit': hit, 'miss': dn if want_up else up,
+            'tie': tie, 'n': n, 'p': p, 'p_one': p1,
+            'dir': '증가' if want_up else '감소',
             'mean': (sum(d) / len(d)) if d else None}
 
 
@@ -278,10 +287,13 @@ def main() -> int:
         for k, lbl in (('sign_excluded', '제외업종 이벤트'),
                        ('sign_propensity', '소비성향'), ('sign_events', '전체 이벤트')):
             t = s[k]
-            print('  %-14s 기대방향(%s) %d · 반대 %d · 동점 %d   평균 %s   양측 p=%.3f  %s'
+            print('  %-14s 기대방향(%s) %d · 반대 %d · 동점 %d   평균 %s'
                   % (lbl, t.get('dir', '?'), t['hit'], t['miss'], t['tie'],
-                     ('%+.4f' % t['mean']) if t['mean'] is not None else '—',
-                     t['p'], '**갈린다**' if t['p'] < 0.05 else '동전 던지기와 구별 안 됨'))
+                     ('%+.4f' % t['mean']) if t['mean'] is not None else '—'))
+            print('  %-14s 양측 p=%.3f %-14s 단측 p=%.3f %s'
+                  % ('', t['p'], '**갈린다**' if t['p'] < 0.05 else '구별 안 됨',
+                     t['p_one'],
+                     '**갈린다**' if t['p_one'] < 0.05 else '구별 안 됨'))
         io.open(out / 'summary.json', 'w', encoding='utf-8', newline='\n').write(
             json.dumps(s, ensure_ascii=False, indent=1))
         print()
