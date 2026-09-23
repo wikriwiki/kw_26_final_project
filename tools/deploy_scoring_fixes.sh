@@ -47,7 +47,9 @@ scripts/report/audit_policy_delivery.py
 
 # ------------------------------------------------------- ① 돌고 있는 런이 없는가
 say "돌고 있는 런이 있는지 본다"
-RUNNING=$($SSH 'pgrep -c -f "scripts/sim/run_simulation.py" || true' 2>/dev/null | tr -d '\r')
+# 대괄호 한 글자로 **자기 자신을 세지 않게** 한다. 이것이 없으면 확인하러 보낸
+# 명령줄 자체가 패턴에 걸려 런이 없는데도 1개로 나온다.
+RUNNING=$($SSH 'pgrep -c -f "[r]un_simulation" || true' 2>/dev/null | tr -dc 0-9)
 echo "  run_simulation 프로세스 ${RUNNING:-?}개"
 if [ "${RUNNING:-0}" != "0" ]; then
   echo "  **런이 돌고 있다 — 채점 기준을 바꾸지 않는다. 끝나고 다시.**"

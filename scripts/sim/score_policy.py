@@ -359,6 +359,10 @@ def main() -> int:
     ap.add_argument("--on", required=True, help="정책 구간 YYYY-MM-DD:YYYY-MM-DD")
     ap.add_argument("--label", default="", help="후보 프롬프트 이름 등")
     ap.add_argument("--json-out", default="")
+    ap.add_argument("--per-agent", action="store_true",
+                    help="지표별 에이전트 단위 off/on 값을 <json-out>.agents.jsonl 로 남긴다. "
+                         "런 간 이동이 어디서 오는지는 총합만 보면 알 수 없다 — "
+                         "같은 프롬프트·같은 에이전트인데 값이 움직이면 그 자국이 여기 남는다.")
     ap.add_argument("--elig-policy", default="",
                     help="적격 판정에 쓸 정책 JSON 경로. 생략하면 채점표의 policy_file"
                          " 을 쓰고, 그것도 없으면 DB 백필값(상생 기준)을 그대로 둔다.")
@@ -389,6 +393,7 @@ def main() -> int:
     print("=" * 78)
 
     results = []
+    per_agent: list[dict] = []
     ranks: dict[str, float] = {}
     for ind in spec["indicators"]:
         name, expect = ind["metric"], ind["expect"]
@@ -425,6 +430,11 @@ def main() -> int:
             results.append({**ind, "got": "미구현", "hit": None})
             print(f"  {ind['id']:<8} {ind['desc'][:44]:<46} 미구현")
             continue
+        if a.per_agent:
+            # 쌍이 맞는 에이전트만 — 채점이 쓰는 것과 같은 집합이다
+            for _aid in sorted(set(off) & set(on)):
+                per_agent.append({"id": ind["id"], "metric": name, "aid": _aid,
+                                  "off": off[_aid], "on": on[_aid]})
         d = paired(off, on)
         if len(d) < 3:
             results.append({**ind, "got": "관측부족", "hit": None})
@@ -535,6 +545,12 @@ def main() -> int:
              "diagnostics": diagnostics},
             ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"  → {a.json_out}")
+        if a.per_agent:
+            side = Path(a.json_out).with_suffix("").as_posix() + ".agents.jsonl"
+            with open(side, "w", encoding="utf-8") as fh:
+                for row in per_agent:
+                    fh.write(json.dumps(row, ensure_ascii=False) + chr(10))
+            print(f"  → {side}  ({len(per_agent)}행 · 지표 {len({r['id'] for r in per_agent})}개)")
     return 0
 
 
