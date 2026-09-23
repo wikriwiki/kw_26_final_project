@@ -302,3 +302,30 @@ def test_pairs_keep_the_seed_so_both_seeds_survive():
             rows.append({'aid': 'A', 'seed': seed, 'side': side,
                          'raw': '{"daily_propensity": 0.%d, "category": "식사"}' % seed})
     assert pr.compare(rows)['paired'] == 2, '시드 둘이 각각 한 쌍이어야 한다'
+
+
+# --------------------------------------------- 라운드 관문이 실제로 거부하는가
+def test_the_round_gate_rejects_a_rejected_candidate():
+    """관문은 안 쓰일 때 조용히 망가져 있다가 정작 필요한 순간에 통과시킨다.
+
+    기각된 후보 1 의 실제 자료(최소 p=0.503)를 넣어 **거부하는지** 본다.
+    라운드 런너가 쓰는 것과 같은 식이다 — 어느 지표든 p<0.05 면 통과.
+    """
+    import json as _json
+    import io as _io
+    pr = _probe_mod()
+    path = ROOT / 'output/scope_probe/responses.jsonl'
+    if not path.exists():
+        pytest.skip('탐침 응답이 저장소에 없다')
+    rows = [_json.loads(l) for l in _io.open(path, encoding='utf-8') if l.strip()]
+    s = pr.compare(rows)
+    best = min(s[k]['p'] for k in ('sign_propensity', 'sign_events', 'sign_excluded'))
+    assert best >= 0.05, '기각된 후보인데 관문이 통과시킨다 (최소 p=%.3f)' % best
+
+
+def test_the_round_gate_would_pass_a_clean_split():
+    """늘 거부하기만 하면 관문이 아니라 벽이다."""
+    pr = _probe_mod()
+    pairs = {('a%d' % i, 1): {'off': {'n_events': 0}, 'on': {'n_events': 1}}
+             for i in range(10)}
+    assert pr.sign_test(pairs, 'n_events')['p'] < 0.05
