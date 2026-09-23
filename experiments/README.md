@@ -147,8 +147,9 @@ vN/graph_vN.md     정책별 결과 그래프와 수치표
 ## 지금 상태를 한 장으로 보려면
 
 ```
-bash tools/refresh_reports.sh          보고 여섯을 같은 자료로 다시 만든다
+bash tools/refresh_reports.sh          보고 일곱을 같은 자료로 다시 만든다
 output/report/convergence.html         정책 10개 · 지표 36개의 실측 대 시뮬 그림
+output/report/rounds.html              후보 대결 — 라운드별 두 팔·합격선·런 이동
 ```
 
 여섯이 같은 채점표와 같은 런 고르기를 쓰므로 서로 어긋날 수 없다. 앞의 둘은
@@ -161,6 +162,7 @@ output/report/convergence.html         정책 10개 · 지표 36개의 실측 �
 ④ 빗나간 이유(방향·표본·폭)                     scripts/report/why_it_misses.py
 ⑤ 프롬프트가 읽히는 자리                        scripts/report/steerability_map.py
 ⑥ 정답지와의 거리 페이지                        scripts/report/build_convergence_page.py
+⑦ 후보 대결 기록 페이지                        scripts/report/build_rounds_page.py
 ```
 
 ## 후보를 라운드에 걸기 전에 — 탐침

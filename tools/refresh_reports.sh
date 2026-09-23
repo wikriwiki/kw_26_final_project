@@ -29,7 +29,7 @@ if [ "${1:-}" = "--fetch" ]; then
     "/data/p013_ruler/score_ruler_b.json" \
     "/data/scope_round/score_scope_off.json" \
     "/data/scope_round/score_scope_on.json" \
-    "/data/p016/score_p016_v5.json" ; do
+    "/data/p016/score_p016_v5.json"     "/data/ct_round/score_trend_off.json"     "/data/ct_round/score_trend_on.json"     "/data/ct_round/score_null_on.json" ; do
     N=$(basename "$SRC")
     if scp -q -i "$KEY" -P "$PORT" -o StrictHostKeyChecking=no -o ConnectTimeout=20 \
           "$HOST:$SRC" "output/rounds/$N" 2>/dev/null; then
