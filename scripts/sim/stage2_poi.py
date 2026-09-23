@@ -387,6 +387,10 @@ def _guess_sub_from_l1(l1: str) -> str | None:
 # =========================================================
 # 프롬프트 빌더
 # =========================================================
+# 적립 문턱을 Stage2 의 금액 판단 자리로 보낼지 — experiments/plan_channel/s2_threshold.md
+EXP_S2_THRESHOLD = os.environ.get("EXP_S2_THRESHOLD", "0") == "1"
+
+
 SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구체적인 방문 장소(POI)를 결정하고,
 소비 금액과 만족도를 설정하는 Daily Planner Stage 2입니다.
 
@@ -575,6 +579,19 @@ def build_stage2_prompt(
         lifestyle = (persona.get("lifestyle") or "").strip()
         income = persona.get("income") or ""
         budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        # [적립 문턱을 금액 판단 자리로 보낸다] experiments/plan_channel/s2_threshold.md
+        # 금액(actual_spent)은 **여기서** 정해지는데 문턱 정보는 Stage1 에만 있었다.
+        # 새 사실이 아니라 Stage1 이 이미 받은 그 줄을 그대로 옮긴다 — 방향도
+        # 목표 수치도 붙이지 않는다. 받아들이는 방식은 형편에 달렸다고만 적는다.
+        if EXP_S2_THRESHOLD:
+            _ss = (persona.get("sangsaeng_status_line") or "").strip().lstrip("- ")
+            if _ss:
+                budget_info += (
+                    "\n적립 정책 상태: " + _ss +
+                    "\n  (돌아오는 돈은 다음 달이므로 오늘 쓸 수 있는 돈이 는 것은 아니다."
+                    " 어차피 할 지출로 문턱이 저절로 넘어가는 사람도, 넘길 일이 없어"
+                    " 신경 쓰지 않는 사람도 있다.)"
+                )
         # 가용 자산 — 가격대(₩~₩₩₩) 선택의 예산 근거
         balance = (state or {}).get("balance")
         if balance is not None:

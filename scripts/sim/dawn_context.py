@@ -849,7 +849,15 @@ def _format_policy_status(
             )
         elif ptype == "cashback":
             # 상생소비지원금 — 정책지갑 없음. 개인별 실적 문턱·근접도만 고지(§4.5 ②).
-            lines.append(_format_cashback_status(pid, r, p, st, today))
+            _cb = _format_cashback_status(pid, r, p, st, today)
+            lines.append(_cb)
+            # Stage2 도 쓸 수 있게 남긴다 — **금액을 정하는 것은 Stage2 인데**
+            # 문턱 정보가 Stage1 에만 있었다(experiments/plan_channel/s2_threshold.md).
+            # 새 사실을 만드는 것이 아니라 이미 만든 사실을 한 곳 더 보낸다.
+            try:
+                p["sangsaeng_status_line"] = _cb
+            except TypeError:
+                pass
         elif ptype == "subsidy":
             cap = int(r.get("cap") or 0)
             spent = int(used.get(pid, 0) or 0)
