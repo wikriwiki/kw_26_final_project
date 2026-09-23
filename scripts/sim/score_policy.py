@@ -65,7 +65,7 @@ def fetch(days: list[str]) -> list[dict]:
     OPTIONAL MATCH (p)-[:IN_CATEGORY]->(c:Category)
     OPTIONAL MATCH (a)-[:LIVES_AT]->(h:POI)
     RETURN a.id AS aid, toString(pl.day) AS d, coalesce(i.actual_spent, 0) AS amt,
-           coalesce(i.time,'') AS t,
+           coalesce(i.time,'') AS t, coalesce(i.anchor,'') AS anchor,
            coalesce(p.sangsaeng_eligible,false) AS elig,
            p.sangsaeng_kdi AS kdi, c.parent AS l1, c.name AS sub,
            p.name AS pname, p.upjong_l3 AS upjong_l3,
@@ -171,6 +171,61 @@ def per_agent_share(rows: list[dict], keep) -> dict[str, float]:
     return {a: hit[a] / t for a, t in tot.items() if t > 0}
 
 
+def per_agent_share_within(rows: list[dict], keep, within) -> dict[str, float]:
+    """에이전트별 '해당 조건 지출이 **지정한 분모 안에서** 차지하는 몫'.
+
+    `per_agent_share` 는 분모가 총지출이다. 그런데 "전체 마트 매출 중 농축산물
+    매출 비중" 처럼 **더 좁은 분모**를 쓰는 지표가 있다. 총지출을 분모로 쓰면
+    다른 업종이 움직이기만 해도 값이 흔들려 정책 효과와 섞인다.
+    """
+    tot: dict[str, int] = defaultdict(int)
+    hit: dict[str, int] = defaultdict(int)
+    for r in rows:
+        if not within(r):
+            continue
+        tot[r["aid"]] += r["amt"]
+        if keep(r):
+            hit[r["aid"]] += r["amt"]
+    return {a: hit[a] / t for a, t in tot.items() if t > 0}
+
+
+def per_agent_home_hours(rows: list[dict], days: list[str]) -> dict[str, float]:
+    """에이전트별 '하루 평균 거주지 체류 시간(시간)'.
+
+    계획은 시각이 붙은 이벤트 열이므로, 한 이벤트의 체류는 **다음 이벤트까지의
+    간격**으로 본다. 마지막 이벤트는 자정까지로 둔다. 앵커가 residence 인
+    구간만 더한다.
+
+    구글 이동성의 residential 과 같은 양은 아니다 — 그쪽은 기기 위치 기반이고
+    이쪽은 계획된 일정이다. 방향(늘었나 줄었나)만 견준다.
+    """
+    byday: dict[str, dict[str, list[tuple[int, str]]]] = defaultdict(lambda: defaultdict(list))
+    for r in rows:
+        mm = _minute(r.get("t"))
+        if mm is None:
+            continue
+        byday[r["aid"]][r["d"]].append((mm, str(r.get("anchor") or "")))
+    out = {}
+    for aid, days_map in byday.items():
+        tot = 0.0
+        for d in days:
+            ev = sorted(days_map.get(d, []))
+            for k, (mm, a) in enumerate(ev):
+                end = ev[k + 1][0] if k + 1 < len(ev) else 24 * 60
+                if a == "residence":
+                    tot += max(0, end - mm)
+        out[aid] = tot / 60.0 / len(days)
+    return out
+
+
+def _minute(t) -> int | None:
+    try:
+        h, m = str(t).split(":")[:2]
+        return int(h) * 60 + int(m)
+    except (ValueError, IndexError):
+        return None
+
+
 def _hour(t: str) -> int | None:
     try:
         return int(str(t).split(":")[0])
@@ -225,9 +280,20 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
         # 실패했다). 몫으로 보면 총액 제약이 약분되어 "어디에 쓰는가" 만 남는다.
         f = _sector_filter(name.split(":", 1)[1])
         return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
+    if name.startswith("sector_share_within:"):
+        # `sector_share_within:<대상>/<분모>` — 분모를 좁힌 몫.
+        # 예: sector_share_within:청과|정육|슈퍼마켓|식료품/마트
+        arg = name.split(":", 1)[1]
+        tgt, _, den = arg.partition("/")
+        f = _sector_filter(tgt)
+        w = _sector_filter(den) if den else (lambda x: True)
+        return (per_agent_share_within(off_rows, f, w),
+                per_agent_share_within(on_rows, f, w))
     if name == "elig_spend_share":
         f = lambda x: bool(x["elig"])                # noqa: E731
         return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
+    if name == "home_hours":
+        return both(per_agent_home_hours)
     if name == "late_night_share":
         f = lambda x: ((_hour(x["t"]) or 0) >= 21)   # noqa: E731
         return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
@@ -327,6 +393,11 @@ def main() -> int:
     for ind in spec["indicators"]:
         name, expect = ind["metric"], ind["expect"]
         if expect == "rank":
+            continue
+        if expect == "info":
+            # 채점에 쓰지 않기로 등록된 지표다. '미구현' 으로 찍으면 결함처럼 보인다.
+            results.append({**ind, "got": "채점 대상 아님", "hit": None})
+            print(f"  {ind['id']:<8} {ind['desc'][:44]:<46} 채점 대상 아님(등록)")
             continue
         if name in ("threshold_reach_rate", "cashback_per_capita", "cap_reach_rate"):
             cb = fetch_cashback(on_days[-1], 0.10, 100_000, 0.268)
