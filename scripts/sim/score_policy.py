@@ -130,6 +130,53 @@ def apply_policy_eligibility(rows: list[dict], policy_file: str | None) -> str:
     return f"{pol.get('id')} 적격 규칙({spec.get('mode')})"
 
 
+_ONLINE_CACHE: dict[str, dict[str, int]] | None = None
+
+
+def fetch_online() -> dict[str, dict[str, int]]:
+    """State 의 `online_spent` 를 {aid: {day: 금액}} 으로. 한 번만 읽고 캐시한다.
+
+    **왜 원장이 아니라 State 인가.** 정답지가 말하는 제외업종은 백화점·대형마트·
+    온라인이다. 우리 그래프에 그 POI 는 337개(전체의 0.06%)뿐이고 온라인 채널은
+    아예 없다 — 소비 모델이 그 뭉치를 POI 원장에 넣기 **전에** 걷어내
+    `st.online_spent` 에 적기 때문이다(consumption.py 의 online_planned).
+
+    그래서 원장의 '비적격' 으로 제외업종을 재면 새어 나온 잔여물만 잡힌다
+    (측정: 전체 지출의 1.35%, 84행 — experiments/error_budget/diagnosis_03.md).
+    자를 뭉치가 실제로 적히는 곳으로 옮긴다. 답을 바꾸는 게 아니라 눈금을 옮긴다.
+    """
+    global _ONLINE_CACHE
+    if _ONLINE_CACHE is not None:
+        return _ONLINE_CACHE
+    q = """
+    MATCH (a:Agent)-[:HAS_STATE]->(st:State)
+    WHERE st.online_spent IS NOT NULL
+    RETURN a.id AS aid, toString(st.day) AS d, toInteger(st.online_spent) AS amt
+    """
+    acc: dict[str, dict[str, int]] = defaultdict(dict)
+    with driver_session() as s:
+        for r in s.run(q):
+            acc[r["aid"]][r["d"]] = int(r["amt"] or 0)
+    _ONLINE_CACHE = dict(acc)
+    return _ONLINE_CACHE
+
+
+def per_agent_online(aids, days: list[str]) -> dict[str, float]:
+    """에이전트별 배송 지출의 하루 평균. 안 쓴 날은 0원으로 센다."""
+    # 빈 입력이면 DB 를 건드리지 않는다 — 채점 가능성만 확인하는 시험이
+    # Neo4j 없이도 돌아야 한다.
+    if not days or not aids:
+        return {}
+    src = fetch_online()
+    out = {}
+    for aid in aids:
+        byday = src.get(aid)
+        if byday is None:
+            continue
+        out[aid] = sum(byday.get(d, 0) for d in days) / len(days)
+    return out
+
+
 def fetch_cashback(last_day: str, rate: float, cap: int, ratio: float) -> dict:
     """정책 구간 마지막 날 State 로 캐시백 실적을 계산한다.
 
@@ -294,6 +341,11 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
         return both(lambda r, d: per_agent_daily(r, d, lambda x: x["elig"]))
     if name == "excl_spend_paired":
         return both(lambda r, d: per_agent_daily(r, d, lambda x: not x["elig"]))
+    if name == "online_spend_paired":
+        # 제외업종(백화점·대형마트·온라인)을 **뭉치가 실제로 적히는 곳**에서 잰다.
+        # 쌍을 맞추려면 양쪽 창에 모두 나타난 에이전트여야 하므로 원장에서 id 를 딴다.
+        _aids = {r["aid"] for r in off_rows} & {r["aid"] for r in on_rows}
+        return (per_agent_online(_aids, off_days), per_agent_online(_aids, on_days))
     if name.startswith("sector_spend:"):
         f = _sector_filter(name.split(":", 1)[1])
         return both(lambda r, d, f=f: per_agent_daily(r, d, f))
