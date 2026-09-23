@@ -55,12 +55,21 @@ def call(job):
 jobs = [(c, s) for c in cells for s in SEEDS]
 random.Random(20260924).shuffle(jobs)
 # 본런이 48 워커로 돌고 있다. 탐침은 4 로 눌러 방해를 줄인다.
-with ThreadPoolExecutor(max_workers=4) as pool:
-    rows = list(pool.map(call, jobs))
-with open(OUT + '/responses.jsonl', 'w', encoding='utf-8') as fh:
-    for r in rows:
+# **오는 대로 쓴다.** 전부 끝나야 쓰면 중간 진척이 안 보이고, 죽으면 다 잃는다.
+# 실제로 한 번 잃었다(8분치). 부분 파일은 .part 로 두고 끝에 이름을 바꾼다 —
+# 그래야 읽는 쪽이 "다 됐는지" 를 파일 이름으로 안다.
+part = OUT + '/responses.jsonl.part'
+done = 0
+with open(part, 'w', encoding='utf-8') as fh, ThreadPoolExecutor(max_workers=4) as pool:
+    for r in pool.map(call, jobs):
         r = dict(r); r.pop('user', None)
-        fh.write(json.dumps(r, ensure_ascii=False) + '\n')
+        fh.write(json.dumps(r, ensure_ascii=False) + chr(10))
+        fh.flush()
+        done += 1
+        if done % 8 == 0:
+            print('  ... %d/%d' % (done, len(jobs)), flush=True)
+os.replace(part, OUT + '/responses.jsonl')
+rows = [json.loads(l) for l in open(OUT + '/responses.jsonl', encoding='utf-8') if l.strip()]
 print('응답 %d · 오류 %d' % (len(rows), sum(1 for r in rows if r.get('error'))))
 PYEOF
 
