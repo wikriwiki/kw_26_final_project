@@ -1,6 +1,6 @@
 # 실험 기록 — 에이전트 시뮬레이션이 실제 정책 효과를 맞히게 만드는 중
 
-**갱신 2026-09-22**
+**갱신 2026-09-24**
 
 ---
 
@@ -129,7 +129,11 @@ vN/graph_vN.md     정책별 결과 그래프와 수치표
 
 | 문서 | 무엇이 들어 있나 |
 |---|---|
-| [OPTIMAL_PROMPT_STATUS.md](OPTIMAL_PROMPT_STATUS.md) | **먼저 읽을 것 — 지금 최적 프롬프트가 무엇이고 무엇을 알고 무엇을 모르는가** |
+| [SELECTED_PROMPT.md](SELECTED_PROMPT.md) | **먼저 읽을 것 — 정답지 라인의 선택은 v5. 후보 넷이 왜 못 이겼고 수렴까지 표본이 몇 배 모자란가** |
+| [THE_DIRECTION_IS_ALREADY_RIGHT.md](THE_DIRECTION_IS_ALREADY_RIGHT.md) | 빗나감을 이유별로 가른 것 — 방향이 틀린 자리는 구조적 불가 하나뿐이다 |
+| [ONE_PLACE_LEFT.md](ONE_PLACE_LEFT.md) | 관문 다섯(도달·수치·검출·여지·런이동)을 넘은 지표가 몇인가 |
+| [MERGE_REVERTED_A_FIX.md](MERGE_REVERTED_A_FIX.md) | 병합이 고침을 지워 여드레 동안 저장소가 틀려 있던 사건 |
+| [OPTIMAL_PROMPT_STATUS.md](OPTIMAL_PROMPT_STATUS.md) | 관문 라인의 상태 |
 | [PROMPT_FINAL_v45.md](PROMPT_FINAL_v45.md) | 관문 라운드 다섯의 결론. 형식 계약에서 v45 가 최선인 근거 |
 | [SAMPLE_IS_THE_BINDING_CONSTRAINT.md](SAMPLE_IS_THE_BINDING_CONSTRAINT.md) | **병목은 프롬프트가 아니라 표본이다** — 지표 10개 중 8개가 검출 불가 |
 | [WHICH_POLICIES_CAN_CONVERGE.md](WHICH_POLICIES_CAN_CONVERGE.md) | 어느 정책에서 수렴을 잴 수 있는가 — 정답이 숫자로 있기는 한가 |
@@ -140,6 +144,38 @@ vN/graph_vN.md     정책별 결과 그래프와 수치표
 | [THE_PURSE_RUNS_DRY.md](THE_PURSE_RUNS_DRY.md) | 소득 주입이 없어 관측창이 약 26일로 제한되는 문제 |
 | [COUPLING_IS_THE_CEILING.md](COUPLING_IS_THE_CEILING.md) | 프롬프트로 넘을 수 없는 구조적 천장 |
 
+## 지금 상태를 한 장으로 보려면
+
+```
+bash tools/refresh_reports.sh          보고 여섯을 같은 자료로 다시 만든다
+output/report/convergence.html         정책 10개 · 지표 36개의 실측 대 시뮬 그림
+```
+
+여섯이 같은 채점표와 같은 런 고르기를 쓰므로 서로 어긋날 수 없다. 앞의 둘은
+**점검**이다 — 빨간불이면 뒤의 숫자는 믿을 게 못 된다.
+
+```
+① 지표가 채점 가능한가 · 정책이 잴 준비가 됐는가   scripts/report/audit_indicator_coverage.py
+② 정책이 모델에게 닿는가                        scripts/report/audit_policy_delivery.py
+③ 부호 적중 — 전 정책                          scripts/report/sign_scoreboard.py
+④ 빗나간 이유(방향·표본·폭)                     scripts/report/why_it_misses.py
+⑤ 프롬프트가 읽히는 자리                        scripts/report/steerability_map.py
+⑥ 정답지와의 거리 페이지                        scripts/report/build_convergence_page.py
+```
+
+## 후보를 라운드에 걸기 전에 — 탐침
+
+전체 라운드는 12일 × 200명 × 두 팔이다. **무력한 후보를 그렇게 태우지 않는다.**
+동결된 맥락에서 그 한 줄만 넣고 빼 같은 시민을 두 번 부른다(48 호출).
+
+```
+scripts/sim/scope_fact_probe.py    후보를 CANDIDATES 에 자료로 등록해 돌린다
+```
+
+**판정은 쌍별 부호 검정이다.** "계획이 달라졌나"(changed)는 관문이 못 된다 —
+temperature 0.7 에서는 아무 줄이나 끼워도 토큰 경로가 갈려 계획이 달라진다.
+동점 수를 반드시 함께 읽는다(24쌍이 사실 11쌍일 수 있다).
+
 ## 지키는 규칙
 
 - **사전등록을 실행 전에 커밋한다.** 커밋 시각이 증거다
@@ -147,3 +183,7 @@ vN/graph_vN.md     정책별 결과 그래프와 수치표
 - **정답지의 수치·방향을 프롬프트에 넣지 않는다.** 단위 테스트가 고정한다
 - **홀드아웃(P015)은 한 번만 쓴다.** 이미 썼으므로 다시 열지 않는다
 - **못 잰 것은 '못 쟀다'고 적는다.** 검출력 부족과 "효과가 없다"는 다른 말이다
+- **읽을 런은 가장 큰 표본으로 고른다.** 규칙이 정책마다 다르면 유리한 런을 고르게 된다
+- **채점 창은 정책 시행일을 사이에 두어야 한다.** 전수 시험이 지킨다
+  (`tests/unit/report/test_every_window_straddles_its_policy.py`)
+- **다른 자로 잰 값은 세지 않는다.** 지우지 않고 '못 셈' 으로 남겨 이유를 보인다
