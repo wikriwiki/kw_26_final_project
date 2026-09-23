@@ -1,0 +1,99 @@
+<title>정답지와의 거리</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --ground:#f6f7f9; --surface:#ffffff; --ink:#12161c; --muted:#69727e; --line:#dde2e8;
+  --tru:#b4531f; --sim:#2f6f8f; --ok:#2f6f4f; --no:#a33a2a; --sus:#7a6a3a; --ci:#ccd6de;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --ground:#0f1217; --surface:#161a21; --ink:#e7eaef; --muted:#98a2ae; --line:#272d36;
+  --tru:#e08a4e; --sim:#6fb2d2; --ok:#6fb58c; --no:#e0796a; --sus:#c4ae6a; --ci:#2e3844;
+}}
+:root[data-theme="dark"]{
+  --ground:#0f1217; --surface:#161a21; --ink:#e7eaef; --muted:#98a2ae; --line:#272d36;
+  --tru:#e08a4e; --sim:#6fb2d2; --ok:#6fb58c; --no:#e0796a; --sus:#c4ae6a; --ci:#2e3844;
+}
+body{
+  background:var(--ground); color:var(--ink);
+  font-family:"IBM Plex Sans KR",system-ui,-apple-system,"Malgun Gothic",sans-serif;
+  line-height:1.6; margin:0;
+  padding-block:40px 64px; padding-left:16px; padding-right:16px;
+}
+.wrap{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:26px}
+h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:0;max-width:62ch;font-size:.92rem}
+.legend{
+  display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:.8rem;color:var(--muted);
+  border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding-block:10px;
+}
+.key{display:inline-flex;align-items:center;gap:7px}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.dot.t{background:var(--tru)}
+.dot.s{background:var(--sim)}
+.dot.c{background:var(--ci);border-radius:2px;width:24px;height:6px}
+.pol{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 18px 16px}
+.pol h3{margin:0 0 14px;font-size:.92rem;font-weight:600;letter-spacing:.02em}
+.rows{display:flex;flex-direction:column;gap:20px}
+.meta{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:7px}
+.id{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.8rem;font-weight:500}
+.desc{color:var(--muted);font-size:.79rem;flex:1 1 22ch;min-width:0}
+.tag{font-size:.69rem;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}
+.tag.ok{color:var(--ok)}
+.tag.no{color:var(--no)}
+.tag.sus{color:var(--sus)}
+.track{position:relative;height:22px;border-radius:4px;background:var(--ground);border:1px solid var(--line)}
+.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}
+.ci{position:absolute;top:9px;height:4px;background:var(--ci);border-radius:2px}
+.mk{position:absolute;width:3px;border-radius:2px;transform:translateX(-1.5px)}
+.mk.sim{background:var(--sim);top:4px;height:14px}
+.mk.tru{background:var(--tru);top:2px;height:18px}
+.nums{
+  display:flex;flex-wrap:wrap;gap:14px;margin-top:7px;
+  font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.75rem;
+  font-variant-numeric:tabular-nums;
+}
+.nums .tru{color:var(--tru)}
+.nums .sim{color:var(--sim)}
+.nums .gap,.nums .n{color:var(--muted)}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.note h3{margin:0 0 10px;font-size:.92rem;font-weight:600}
+.note p{margin:0 0 9px;font-size:.85rem;color:var(--muted);max-width:64ch}
+.note p:last-child{margin-bottom:0}
+.note b{color:var(--ink);font-weight:600}
+</style>
+<div class="wrap">
+  <h1>정답지와의 거리</h1>
+  <p class="sub">현행 프롬프트 v5 가 각 정책의 실측값에서 얼마나 떨어져 있는가.
+  가로축은 변화율이고 가운데 선이 0 이다. 굵은 주황이 실측, 파랑이 시뮬,
+  옅은 막대가 시뮬의 95% 구간이다.</p>
+  <div class="legend">
+    <span class="key"><span class="dot t"></span>실측(정답지)</span>
+    <span class="key"><span class="dot s"></span>시뮬 v5</span>
+    <span class="key"><span class="dot c"></span>시뮬 95% 구간</span>
+    <span class="key">축 범위 &plusmn;36%</span>
+  </div>
+  <section class="pol"><h3>긴급재난 P013</h3><div class="rows">
+    <div class="row"><div class="meta"><span class="id">EM-2</span><span class="tag sus">못 셈</span><span class="desc">사용가능업종 순효과 — 지급 후 − 지급 전 (실측 +11.1%p: 지급 전 −4.0% → 지급 후 +7.1%)</span></div><div class="track"><span class="ci" style="left:55.45%;width:25.42%"></span><span class="zero"></span><span class="mk sim" style="left:68.19%"></span><span class="mk tru" style="left:65.42%"></span></div><div class="nums"><span class="tru">실측 +11.1</span><span class="sim">시뮬 +13.1</span><span class="gap">차 2.0%p</span><span class="n">n=200</span></div></div>
+    <div class="row"><div class="meta"><span class="id">EM-3</span><span class="tag ok">적중</span><span class="desc">전체 카드매출 증가 (실측 +7.3%)</span></div><div class="track"><span class="ci" style="left:54.94%;width:24.88%"></span><span class="zero"></span><span class="mk sim" style="left:67.50%"></span><span class="mk tru" style="left:60.14%"></span></div><div class="nums"><span class="tru">실측 +7.3</span><span class="sim">시뮬 +12.6</span><span class="gap">차 5.3%p</span><span class="n">n=200</span></div></div>
+  </div></section>
+  <section class="pol"><h3>상생소비 P012</h3><div class="rows">
+    <div class="row"><div class="meta"><span class="id">P012-1</span><span class="tag no">빗나감</span><span class="desc">적립업종 지출 개인 내 쌍체차 (실측 +20.82%)</span></div><div class="track"><span class="ci" style="left:47.12%;width:12.36%"></span><span class="zero"></span><span class="mk sim" style="left:52.64%"></span><span class="mk tru" style="left:78.92%"></span></div><div class="nums"><span class="tru">실측 +20.8</span><span class="sim">시뮬 +1.9</span><span class="gap">차 18.9%p</span><span class="n">n=497</span></div></div>
+    <div class="row"><div class="meta"><span class="id">P012-2</span><span class="tag no">빗나감</span><span class="desc">제외업종 무반응 (실측 +2.85%, 유의하지 않음) — 방어선 지표</span></div><div class="track"><span class="ci" style="left:1.21%;width:61.66%"></span><span class="zero"></span><span class="mk sim" style="left:30.69%"></span><span class="mk tru" style="left:53.96%"></span></div><div class="nums"><span class="tru">실측 +2.9</span><span class="sim">시뮬 -13.9</span><span class="gap">차 16.8%p</span><span class="n">n=23</span></div></div>
+  </div></section>
+  <section class="pol"><h3>거리두기</h3><div class="rows">
+    <div class="row"><div class="meta"><span class="id">DS-1</span><span class="tag no">빗나감</span><span class="desc">음식점 지출 감소 (실측 −14.1%)</span></div><div class="track"><span class="ci" style="left:27.92%;width:22.65%"></span><span class="zero"></span><span class="mk sim" style="left:39.31%"></span><span class="mk tru" style="left:30.42%"></span></div><div class="nums"><span class="tru">실측 -14.1</span><span class="sim">시뮬 -7.7</span><span class="gap">차 6.4%p</span><span class="n">n=197</span></div></div>
+    <div class="row"><div class="meta"><span class="id">DS-2</span><span class="tag no">빗나감</span><span class="desc">소매업 지출 증가 (실측 +4.2%) — 같은 정책 안에서 부호가 갈리는 지점</span></div><div class="track"><span class="ci" style="left:26.79%;width:54.52%"></span><span class="zero"></span><span class="mk sim" style="left:54.31%"></span><span class="mk tru" style="left:55.83%"></span></div><div class="nums"><span class="tru">실측 +4.2</span><span class="sim">시뮬 +3.1</span><span class="gap">차 1.1%p</span><span class="n">n=194</span></div></div>
+  </div></section>
+  <div class="note">
+    <h3>이 그림이 말하지 않는 것</h3>
+    <p><b>크기 수렴은 지금 어느 정책에서도 잴 수 없다.</b> 원문 창이 주 단위인데
+    우리 창은 이틀이고, 대상·분모·대조군이 호환되지 않는다. 실측과 시뮬의 차이를
+    정확도로 읽으면 안 된다 — 부호와 순위만 채점한다.</p>
+    <p><b>여기 있는 여섯은 실측 수치가 붙은 지표뿐이다.</b> 전체 26개 중 나머지는
+    원문이 방향만 말하거나 백분율이 공개되어 있지 않다.</p>
+    <p><b>구간이 0 을 지나면 부호도 단정할 수 없다.</b> 여섯 중 넷이 그렇고,
+    그 넷은 점추정이 전부 기대 방향이다 — 프롬프트가 아니라 표본의 문제다.</p>
+    <p><b>EM-2 는 못 센다.</b> 적격 판정이 다른 정책(상생소비지원금) 기준이었다.
+    2026-09-24 에 고쳤고, 돌고 있는 라운드가 고친 자로 다시 잰다.</p>
+  </div>
+</div>
