@@ -21,8 +21,10 @@ say "호출 시작"
 import json, os, sys
 from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
-sys.path.insert(0, 'scripts/sim')
-from stage2_poi import SYSTEM_S2
+# stage2_poi 를 import 하면 dawn_context -> neo4j 로 끌려가는데
+# 이 venv 에는 neo4j 가 없다(실제로 여기서 한 번 죽었다).
+# 빌드 단계가 떨군 파일을 읽는다.
+SYSTEM_S2 = open('/data/s2_probe/system_s2.txt', encoding='utf-8').read()
 
 OUT = '/data/s2_probe'
 MODEL = 'LGAI-EXAONE/EXAONE-4.5-33B-AWQ'

@@ -143,6 +143,10 @@ def build(n: int, out: Path, day: str) -> None:
         cells.append({"aid": r["aid"], "side": "on", "user": on})
     io.open(out / "cells.json", "w", encoding="utf-8", newline="\n").write(
         json.dumps({"cells": cells}, ensure_ascii=False, indent=1))
+    # SYSTEM 프롬프트를 파일로 떨군다 — 호출하는 쪽 venv 에는 neo4j 가 없어서
+    # stage2_poi 를 import 할 수 없다(실제로 여기서 한 번 죽었다).
+    io.open(out / "system_s2.txt", "w", encoding="utf-8",
+            newline=chr(10)).write(S2.SYSTEM_S2)
     n_on = sum(1 for c in cells if c["side"] == "on")
     print("시민 %d · 칸 %d (off %d / on %d)"
           % (len({c["aid"] for c in cells}), len(cells), len(cells) - n_on, n_on))
