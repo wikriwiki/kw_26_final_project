@@ -115,7 +115,8 @@ def report(rows: list) -> int:
         if p is None:
             continue
         key = (r.get("aid"), r.get("case"), r.get("date"), r.get("seed"))
-        by.setdefault(key, {})[r.get("variant")] = p
+        # 기존 탐침 러너는 `arm` 으로 적는다. `variant` 도 받아 둔다.
+        by.setdefault(key, {})[r.get("arm") or r.get("variant")] = p
 
     pairs = [(v["v5"], v["v5self"]) for v in by.values()
              if "v5" in v and "v5self" in v]

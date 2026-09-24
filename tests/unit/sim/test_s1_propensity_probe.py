@@ -100,20 +100,27 @@ def test_유효표본이_커지면_같은_비율도_유의해진다():
 
 # ---------------------------------------------------------------- 쌍 맞추기
 
-def test_쌍은_사람_상황_날짜_시드로_맞춘다():
+def _rows(key="arm"):
+    out = []
+    for case, a, b in (("c1", 0.60, 0.70), ("c2", 0.50, 0.55)):
+        for name, v in (("v5", a), ("v5self", b)):
+            out.append({"aid": "x", "case": case, "date": "d", "seed": 1,
+                        key: name, "raw": '{"daily_propensity": %s}' % v})
+    return out
+
+
+def test_쌍은_사람_상황_날짜_시드로_맞춘다(capsys):
     """aid 만으로 맞추면 같은 사람의 다른 칸이 뭉개진다 — 전에 24칸이 5쌍이 됐다."""
-    rows = [
-        {"aid": "a", "case": "c1", "date": "d", "seed": 1, "variant": "v5",
-         "raw": '{"daily_propensity": 0.60}'},
-        {"aid": "a", "case": "c1", "date": "d", "seed": 1, "variant": "v5self",
-         "raw": '{"daily_propensity": 0.70}'},
-        {"aid": "a", "case": "c2", "date": "d", "seed": 1, "variant": "v5",
-         "raw": '{"daily_propensity": 0.50}'},
-        {"aid": "a", "case": "c2", "date": "d", "seed": 1, "variant": "v5self",
-         "raw": '{"daily_propensity": 0.55}'},
-    ]
-    by = {}
-    for r in rows:
-        by.setdefault((r["aid"], r["case"], r["date"], r["seed"]), {})[r["variant"]] = \
-            P.parse_propensity(r["raw"])
-    assert len(by) == 2, "같은 사람의 두 상황이 따로 세져야 한다"
+    P.report(_rows())
+    assert "쌍 2" in capsys.readouterr().out
+
+
+def test_러너가_쓰는_arm_키를_읽는다(capsys):
+    """기존 러너는 `arm` 으로 적는다. 여기서 어긋나면 쌍이 0이 되고 탐침이 헛돈다."""
+    P.report(_rows("arm"))
+    assert "쌍 2" in capsys.readouterr().out
+
+
+def test_variant_키도_받는다(capsys):
+    P.report(_rows("variant"))
+    assert "쌍 2" in capsys.readouterr().out
