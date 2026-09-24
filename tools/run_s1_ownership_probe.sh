@@ -7,14 +7,14 @@ set -uo pipefail
 cd /data/repo
 export PYTHONHASHSEED=0 PYTHONIOENCODING=utf-8 PYTHONPATH=/data/repo
 export LLM_BASE_URL=http://localhost:8000/v1
-export PROBE_OUT PROBE_N PROBE_SEEDS PROBE_VARIANT PROBE_WORKERS
+export PROBE_OUT PROBE_N PROBE_SEEDS PROBE_VARIANT PROBE_WORKERS PROBE_THR_FRACS PROBE_DAY
 OUT=${PROBE_OUT:-/data/s1_own_probe}
 LOG=$OUT/probe.log
 mkdir -p $OUT
 say(){ echo "[$(date +%F' '%H:%M:%S)] $*" | tee -a $LOG; }
 
 say "정책이 켜진 맥락 합성 — 런타임 함수로 렌더"
-/data/venv/bin/python scripts/sim/s1_ownership_probe.py --build --out $OUT --n ${PROBE_N:-48} \
+/data/venv/bin/python scripts/sim/s1_ownership_probe.py --build --out $OUT --n ${PROBE_N:-48} --day ${PROBE_DAY:-2021-10-21} \
   --policy /data/repo/data/neo4j_load/policies/P012.json \
   --frozen /data/validation_v3/pilot_registered/frozen_inputs.json 2>&1 | tee -a $LOG
 

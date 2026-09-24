@@ -90,7 +90,13 @@ def build(n: int, out: Path, day: str, pol_path: Path, frozen: Path) -> None:
         # 개인 문턱 상태 — 규제를 갈라 깐다(문턱 아래가 정책이 무는 곳).
         persona = {"daily_wd": 45000, "daily_we": 60000}
         anchor = DC._sangsaeng_monthly_anchor(persona)
-        f = (0.55, 0.70, 0.85, 1.05)[len(out_cells) % 4]
+        # 문턱 대비 위치. 기본은 넓게 깔지만, **마감이 가까운 한계 구간**만
+        # 보고 싶을 때가 있다 — 시점 채널(후보 4)이 무는 자리가 거기다.
+        # PROBE_THR_FRACS 로 바꾼다. 실측 분포는 0.93 근처에 98%가 몰린다
+        # (experiments/error_budget/diagnosis_06.md).
+        _fr = [float(x) for x in
+               os.environ.get("PROBE_THR_FRACS", "0.55,0.70,0.85,1.05").split(",")]
+        f = _fr[len(out_cells) % len(_fr)]
         stn = {"sangsaeng_month_spent": int(anchor * rule["threshold_ratio"] * f)}
         mine = DC._format_cashback_status(pol["id"], rule, persona, stn, today)
         u = user.replace(NO_FACTS, facts, 1).replace(NO_MINE, mine, 1)
@@ -164,7 +170,9 @@ def report(rows: list[dict]) -> int:
         # 시드도 키에 넣는다 — 같은 칸을 여러 시드로 돌려 쌍을 늘린다.
         key = (r["aid"], r.get("case"), r.get("date"), r.get("seed"))
         per.setdefault(key, {})[r["arm"]] = measure(ev)
-    pairs = {k: (d["v5"], d["v5own"]) for k, d in per.items() if "v5" in d and "v5own" in d}
+    import os as _os
+    _alt = _os.environ.get("PROBE_VARIANT", "v5own")
+    pairs = {k: (d["v5"], d[_alt]) for k, d in per.items() if "v5" in d and _alt in d}
     print("응답 %d · 파싱 실패 %d · 쌍 %d" % (len(rows), bad, len(pairs)))
     if not pairs:
         print("  **쌍이 없다**")
@@ -175,7 +183,7 @@ def report(rows: list[dict]) -> int:
         up, dn, tie, p = sign(P)
         ma, mb = st.mean([x for x, _ in P]), st.mean([y for _, y in P])
         print()
-        print("  %-22s v5 %.2f -> v5own %.2f  (%+.1f%%)"
+        print("  %-22s v5 %.2f -> alt %.2f  (%+.1f%%)"
               % (label, ma, mb, (mb - ma) / ma * 100 if ma else 0))
         print("  %-22s   늘 %d : 줄 %d : 동점 %d · 양측 p=%.4f %s"
               % ("", up, dn, tie, p, "**다르다**" if p < 0.05 else ""))
