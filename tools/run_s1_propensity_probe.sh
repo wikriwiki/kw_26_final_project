@@ -25,11 +25,26 @@ if ! mkdir "$LOCKDIR" 2>/dev/null; then
 fi
 trap 'rmdir "$LOCKDIR" 2>/dev/null' EXIT
 
-say "맥락 합성 — 런타임 함수로 렌더 (칸 ${PROBE_N:-80})"
-/data/venv/bin/python scripts/sim/s1_propensity_probe.py --build --out $OUT \
-  --n ${PROBE_N:-80} --day ${PROBE_DAY:-2021-10-21} \
+# 그래프에서 새로 만든다. 고정 셀(frozen_inputs.json)은 고유 에이전트가 **12명**뿐이라
+# 사람 단위 지표를 판정할 수 없다 — 그래서 첫 시도를 중단했다
+# (experiments/plan_channel/v5self_probe_aborted.md).
+say "맥락 생성 — 층화표본 ${PROBE_N:-120}명, 런타임과 같은 렌더"
+export NEO4J_URI=${NEO4J_URI:-bolt://localhost:7687}
+export NEO4J_USER=${NEO4J_USER:-neo4j} NEO4J_PASSWORD=${NEO4J_PASSWORD:-exp001pass}
+/data/venv/bin/python scripts/sim/make_probe_cells.py --out $OUT \
+  --n ${PROBE_N:-120} --day ${PROBE_CELL_DAY:-2021-10-03} \
   --policy /data/repo/data/neo4j_load/policies/P012.json \
-  --frozen /data/validation_v3/pilot_registered/frozen_inputs.json 2>&1 | tee -a $LOG
+  --policy-day ${PROBE_DAY:-2021-10-21} \
+  --thr-fracs ${PROBE_THR_FRACS:-0.55,0.70,0.85,1.05} 2>&1 | tee -a $LOG
+
+# 사람 수가 등록한 선(85명) 아래면 돌리지 않는다. 돌려 봤자 r 을 못 믿는다.
+NP=$(/data/venv/bin/python -c "
+import json; print(len({c['aid'] for c in json.load(open('$OUT/cells.json',encoding='utf-8'))['cells']}))")
+say "고유 에이전트 ${NP}명"
+if [ "${NP:-0}" -lt 85 ]; then
+  say "거부: 등록한 선(85명) 아래다. 표본을 키우기 전에는 돌리지 않는다"
+  exit 1
+fi
 
 say "SYSTEM 두 판 덤프 — 길이 차이가 곧 후보의 크기다"
 /data/venv/bin/python - <<'PYEOF' 2>&1 | tee -a $LOG
