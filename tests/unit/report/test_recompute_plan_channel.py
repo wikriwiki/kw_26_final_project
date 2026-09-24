@@ -233,6 +233,122 @@ def test_한계를_올리면_읽을_수_있다(tmp_path, monkeypatch, capsys):
     assert "현행" in capsys.readouterr().out
 
 
+# ---------------------------------------------------------------- 표류
+
+def test_평평하면_표류가_0이다():
+    g, r2, _ = R.drift_per_day([("d%d" % i, 100.0) for i in range(6)])
+    assert g == pytest.approx(0.0)
+
+
+def test_내려가면_표류가_음수고_직선이다():
+    g, r2, (h1, h2) = R.drift_per_day([("d%d" % i, 100.0 - i) for i in range(6)])
+    assert g == pytest.approx(-1 / 97.5, rel=1e-6)
+    assert r2 == pytest.approx(1.0)
+    assert h1 == pytest.approx(h2), "진짜 직선이면 앞뒤 기울기가 같다"
+
+
+def test_점이_모자라면_표류를_재지_않는다():
+    assert R.drift_per_day([("a", 1.0), ("b", 2.0)])[0] == 0.0
+
+
+def test_예열은_직선이_아니라고_말한다():
+    """**이 시험이 오늘 잡은 함정이다.** P013 실제 값 그대로.
+
+    첫 3일 +7.1% 오르고 그 뒤 8일 +0.2% 로 평평하다. 전 구간에 직선을 맞추면
+    하루 +1.285% 가 나오고, 7일치를 덜면 고침의 +8.99% 가 −0.36% 로 지워진다.
+    없는 표류로 있는 효과를 지우는 것이다.
+    """
+    ys = [123108, 124841, 129216, 131906, 131855, 132884, 132396]
+    g, r2, (h1, h2) = R.drift_per_day([("d%d" % i, float(y)) for i, y in enumerate(ys)])
+    assert g == pytest.approx(0.01285, abs=1e-4), "하루 +1.285% — 관측된 그 값"
+    assert abs(h1) > 3 * abs(h2), "앞절반이 뒤절반의 12배다 — 예열이다"
+
+
+def test_예열_뒤만_주면_평평하다고_말한다():
+    ys = [131906, 131855, 132884, 132396, 132202, 131471, 132179]
+    g, r2, (h1, h2) = R.drift_per_day([("d%d" % i, float(y)) for i, y in enumerate(ys)])
+    assert abs(g) < 0.002, "예열을 빼면 하루 0.2% 미만이어야 한다"
+
+
+def test_표류를_정책창에서_재려_하면_거부한다(tmp_path, monkeypatch, capsys):
+    """**이걸 허용하면 정책 효과를 표류로 덜어낸다.** 자기 자신을 빼는 꼴이다."""
+    for day in ("2021-10-04", "2021-10-13", "2021-10-28"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    monkeypatch.setattr(sys, "argv", _argv(
+        tmp_path, ["--trend-days", "2021-10-04,2021-10-28"]))
+    assert R.main() == 2
+    assert "정책 창이 섞였다" in capsys.readouterr().out
+
+
+def test_하강_표류를_덜면_효과가_드러난다(tmp_path, monkeypatch, capsys):
+    """정책 전 내리막이 있으면, 제자리인 ON 은 사실 정책이 밀어 올린 것이다."""
+    for i, day in enumerate(("2021-10-04", "2021-10-05", "2021-10-06",
+                             "2021-10-07", "2021-10-08")):
+        rows = []
+        for x in "abcd":
+            r = _agent(x, 500_000)
+            for f in ("cm_today_total_incl_online", "cm_personal_total", "cm_today_total"):
+                r[f] = int(r[f] * (1 - 0.01 * i))      # 하루 −1%
+            rows.append(r)
+        _write(tmp_path, day, rows)
+    for day in ("2021-10-13", "2021-10-28"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--metrics", str(tmp_path), "--baseline", "2021-10-04,2021-10-05",
+        "--off", "2021-10-13", "--on", "2021-10-28", "--boot", "10",
+        "--trend-days", "2021-10-04,2021-10-05,2021-10-06,2021-10-07,2021-10-08"])
+    assert R.main() == 0
+    out = capsys.readouterr().out
+    assert "표류" in out
+    assert "직선이 아니다" not in out, "곧은 −1%/일 이면 적용돼야 한다"
+    # OFF 와 ON 이 같은 수인데(변화 0%) 표류가 음수였으니 덜면 양수가 된다
+    assert "를 덜면:" in out
+    body = out.split("를 덜면:")[1]
+    assert "현행" in body and "+" in body.split("고침")[0]
+
+
+def test_예열이_섞인_표류는_적용하지_않는다(tmp_path, monkeypatch, capsys):
+    """본런에 걸기 전에 **도구가 스스로 멈춰야** 한다."""
+    # 실제 P013 예열 모양 그대로 — 앞이 가파르고 뒤가 평평하다
+    ramp = [0.933, 0.946, 0.979, 0.999, 0.999, 1.007, 1.003]
+    for mul, day in zip(ramp, ("2021-10-04", "2021-10-05", "2021-10-06",
+                               "2021-10-07", "2021-10-08", "2021-10-11",
+                               "2021-10-12")):
+        rows = []
+        for x in "abcd":
+            r = _agent(x, 500_000)
+            for f in ("cm_today_total_incl_online", "cm_personal_total", "cm_today_total"):
+                r[f] = int(r[f] * mul)
+            rows.append(r)
+        _write(tmp_path, day, rows)
+    for day in ("2021-10-13", "2021-10-28"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--metrics", str(tmp_path), "--baseline", "2021-10-04,2021-10-05",
+        "--off", "2021-10-13", "--on", "2021-10-28", "--boot", "10",
+        "--trend-days",
+        "2021-10-04,2021-10-05,2021-10-06,2021-10-07,2021-10-08,2021-10-11,2021-10-12"])
+    assert R.main() == 0
+    out = capsys.readouterr().out
+    assert "예열이 섞였다" in out, "이유를 정확히 말해야 다음 수가 정해진다"
+    assert "를 덜면:" not in out, "멈췄으면 보정한 수를 찍으면 안 된다"
+
+
+def test_표류가_없으면_그렇다고_말한다(tmp_path, monkeypatch, capsys):
+    """평평한 계열을 '예열' 이라고 하면 안 된다 — 날짜를 바꿔도 소용없는 경우다."""
+    for day in ("2021-10-04", "2021-10-05", "2021-10-06", "2021-10-07",
+                "2021-10-08", "2021-10-13", "2021-10-28"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--metrics", str(tmp_path), "--baseline", "2021-10-04,2021-10-05",
+        "--off", "2021-10-13", "--on", "2021-10-28", "--boot", "10",
+        "--trend-days", "2021-10-04,2021-10-05,2021-10-06,2021-10-07,2021-10-08"])
+    assert R.main() == 0
+    out = capsys.readouterr().out
+    assert "표류가 없다" in out
+    assert "예열" not in out.split("표류가 없다")[0][-200:]
+
+
 # ---------------------------------------------------------------- 통계
 
 def test_부호검정은_동점을_따로_센다():

@@ -192,6 +192,55 @@ def solve_scale(per: dict, aids: list, off_days: list, base, mode, lo, hi,
     return a / b if b else 1.0
 
 
+def daily_means(per: dict, aids: list, days: list, field: str) -> list:
+    """정책 없는 날들의 하루 평균 — 표류를 재는 재료."""
+    out = []
+    for d in days:
+        v = [per[a][d].get(field) or 0 for a in aids if d in per[a]]
+        if v:
+            out.append((d, st.mean(v)))
+    return out
+
+
+def _slope(ys: list) -> float:
+    xs = list(range(len(ys)))
+    mx, my = st.mean(xs), st.mean(ys)
+    den = sum((x - mx) ** 2 for x in xs)
+    return (sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den) if den else 0.0
+
+
+def drift_per_day(points: list) -> tuple:
+    """(하루당 상대 표류, R², 앞뒤 절반의 기울기). **직선이 아니면 쓰면 안 된다.**
+
+    OFF 와 ON 사이가 14일이면 그 사이에 정책이 아닌 이유로도 수준이 움직인다 —
+    지갑이 줄고, `stage2_poi.py` 가 잔액을 프롬프트에 그대로 넣으므로 그것이 다시
+    소비 판단에 들어간다. 정책 전 날들에서 기울기를 재면 그 몫을 덜어낼 수 있다.
+
+    **그런데 시뮬의 앞 며칠은 표류가 아니라 예열이다.** P013 에서 첫 3일이 +7.1%
+    오르고 그 뒤 8일은 +0.2% 로 평평했는데, 전 구간에 직선을 맞추면 하루 +1.285%
+    (7일에 +9.35%) 가 나온다. 그것을 덜면 고침의 +8.99% 가 −0.36% 로 지워진다.
+    **없는 표류로 있는 효과를 지우는 것이다.**
+
+    그래서 값만 내지 않고 **직선인지**를 함께 낸다. 앞뒤 절반의 기울기가 크게
+    다르면 예열이 섞인 것이고, 호출한 쪽이 적용을 거부해야 한다.
+    """
+    if len(points) < 4:
+        return 0.0, 0.0, (0.0, 0.0)
+    ys = [y for _, y in points]
+    my = st.mean(ys)
+    if my <= 0:
+        return 0.0, 0.0, (0.0, 0.0)
+    b = _slope(ys)
+    xs = list(range(len(ys)))
+    mx = st.mean(xs)
+    pred = [my + b * (x - mx) for x in xs]
+    ss_res = sum((y - p) ** 2 for y, p in zip(ys, pred))
+    ss_tot = sum((y - my) ** 2 for y in ys)
+    r2 = (1 - ss_res / ss_tot) if ss_tot > 0 else 0.0
+    h = len(ys) // 2
+    return b / my, r2, (_slope(ys[:h]) / my, _slope(ys[h:]) / my)
+
+
 def boot_pct(off: list, on: list, n: int, seed: int = 20260924):
     """쌍이 아니다 — 같은 사람의 두 창이므로 **사람 단위로** 함께 재표집한다."""
     rnd = random.Random(seed)
@@ -227,6 +276,8 @@ def main() -> int:
     ap.add_argument("--clamp-hi", type=float, default=2.0)
     ap.add_argument("--scale", default="auto",
                     help="수 또는 auto(무정책 창의 수준이 보존되도록 푼다)")
+    ap.add_argument("--trend-days", default="",
+                    help="정책이 꺼진 날들. 여기서 하루당 표류를 재어 OFF→ON 에서 덜어낸다")
     ap.add_argument("--max-broke", type=float, default=0.10,
                     help="ON 창 마지막 날 잔고 0 비율의 한계. 넘으면 거부한다")
     ap.add_argument("--boot", type=int, default=2000)
@@ -237,6 +288,13 @@ def main() -> int:
         return [x.strip() for x in s.split(",") if x.strip()]
 
     b_days, off_days, on_days = split(a.baseline), split(a.off), split(a.on)
+    trend_days = split(a.trend_days)
+
+    if set(trend_days) & set(on_days):
+        print("거부: 표류를 재는 날에 정책 창이 섞였다 — %s"
+              % sorted(set(trend_days) & set(on_days)))
+        print("  표류는 **정책이 꺼진 날로만** 잰다. 아니면 정책 효과를 표류로 덜어낸다.")
+        return 2
 
     overlap = (set(b_days) & set(off_days)) | (set(b_days) & set(on_days))
     if overlap:
@@ -302,6 +360,47 @@ def main() -> int:
                   % (nm, st.mean(o), st.mean(n), p, ci[0], ci[1], *s))
             rows[nm] = {"off": st.mean(o), "on": st.mean(n), "pct": p,
                         "ci": list(ci), "sign": list(s)}
+
+        if trend_days:
+            pts = daily_means(per, aids, trend_days, field)
+            g, r2, (h1_, h2_) = drift_per_day(pts)
+            gap = (date.fromisoformat(min(on_days))
+                   - date.fromisoformat(min(off_days))).days
+            drift = 100 * ((1 + g) ** gap - 1)
+            print("   표류   정책 전 %d일: %s"
+                  % (len(pts), " ".join("%.0f" % y for _, y in pts)))
+            print("          하루 %+.3f%% · R² %.2f · 앞절반 %+.3f%% / 뒤절반 %+.3f%%"
+                  % (100 * g, r2, 100 * h1_, 100 * h2_))
+            # 세 가지를 갈라 말한다 — 안 덜기로 한 **이유가 다르면 다음 수가 다르다.**
+            #  · 표류가 없다        덜 것이 없다. 날짜를 바꿔도 소용없다
+            #  · 예열이 섞였다      앞 며칠을 빼고 다시 주면 된다
+            #  · 흩어져 있다        기울기를 못 믿는다. 날을 늘려야 한다
+            # 예열 기준은 실제 값에서 잡았다: P013 예열 구간이 앞 2.359% / 뒤 0.193%
+            # 로 12.2배였고 진짜 직선은 1.0배다. 3배로 끊는다.
+            if abs(g) < 5e-4:
+                why = ("표류가 없다 (하루 ±0.05% 미만). **덜 것이 없다.**", None)
+            elif abs(h1_) > 3 * abs(h2_):
+                why = ("직선이 아니다 — **예열이 섞였다.** 덜지 않는다.",
+                       "예열 뒤 날짜만 --trend-days 로 주면 적용된다."
+                       "  (P013 은 첫 3일 +7.1% · 그 뒤 8일 +0.2% 였고,"
+                       " 전 구간에 직선을 맞추면 없는 표류로 있는 효과를 지운다)")
+            elif r2 < 0.5:
+                why = ("흩어져 있다 (R² %.2f) — 기울기를 못 믿는다. 덜지 않는다." % r2,
+                       "정책 전 날을 더 넣어라.")
+            else:
+                why = None
+            bent = why is not None
+            if bent:
+                print("          ** %s" % why[0])
+                if why[1]:
+                    print("             %s" % why[1])
+            else:
+                print("          %d일 뒤 = %+.2f%% 를 덜면:" % (gap, drift))
+                for nm in ("현행", "고침"):
+                    print("            %-6s %+.2f%%" % (nm, rows[nm]["pct"] - drift))
+                    rows[nm]["detrended_pct"] = rows[nm]["pct"] - drift
+            rows["drift"] = {"pct": drift, "per_day": g, "r2": r2,
+                             "halves": [h1_, h2_], "applied": not bent}
         out_rulers[key] = {"field": field, "scale": scale, **rows}
 
     signs = {k: (v["현행"]["pct"] > 0) for k, v in out_rulers.items()}
