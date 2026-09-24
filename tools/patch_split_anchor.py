@@ -89,27 +89,17 @@ def patch_score(root: Path, check: bool) -> str:
 
 
 def patch_prompts(root: Path, check: bool) -> str:
-    """레지스트리 모양이 저장소마다 다르므로 **줄 구조로** 찾는다."""
-    p = root / "scripts/sim/prompts/__init__.py"
-    s = io.open(p, encoding="utf-8").read()
-    if "v5offsite" in s:
-        return "prompts/__init__.py 이미 심겨 있다"
-    lines = s.split("\n")
-    start = next((i for i, l in enumerate(lines) if l.startswith("_VARIANTS")), None)
-    if start is None:
-        raise SystemExit(f"[실패] {p}: _VARIANTS 를 못 찾았다")
-    close = next((i for i in range(start, len(lines)) if lines[i].strip() == "}"), None)
-    last_imp = max((i for i, l in enumerate(lines[:start])
-                    if l.startswith("from . import v")), default=None)
-    if close is None or last_imp is None:
-        raise SystemExit(f"[실패] {p}: 삽입 자리를 못 찾았다")
-    if check:
-        return "prompts/__init__.py 삽입 자리 있다 (심으면 됨)"
-    lines.insert(close, '    "v5offsite": v5offsite,')
-    lines.insert(last_imp + 1,
-                 "from . import v5offsite  # noqa: E402  (질문 범위를 회계와 맞춘 판)")
-    io.open(p, "w", encoding="utf-8", newline="\n").write("\n".join(lines))
-    return "prompts/__init__.py 심었다"
+    """**아무것도 안 한다.** v5offsite 등록을 여기서 뺐다.
+
+    이 단계는 online_share 레버(calib_02 에서 기각)를 위한 것이었다. 그런데
+    패처는 `from . import v5offsite` 를 심으면서 **파일은 안 옮겼다** —
+    v5offsite.py 는 검증 저장소에만 있었다. 그래서 거시 저장소의 prompts 가
+    ImportError 로 죽었고, 그 위에서 돈 관문이 계획 0건으로 실패했다.
+    (관문이 본런을 막아 준 것은 다행이다.)
+
+    죽은 레버를 위해 저장소를 건드릴 이유가 없다. 이 단계는 비운다.
+    """
+    return "prompts/__init__.py 건드리지 않는다 (v5offsite 등록 제거됨)"
 
 
 def patch_table(root: Path, check: bool) -> str:
