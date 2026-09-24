@@ -7,7 +7,7 @@ set -uo pipefail
 cd /data/repo
 export PYTHONHASHSEED=0 PYTHONIOENCODING=utf-8 PYTHONPATH=/data/repo
 export LLM_BASE_URL=http://localhost:8000/v1
-export PROBE_OUT PROBE_N PROBE_SEEDS
+export PROBE_OUT PROBE_N PROBE_SEEDS PROBE_VARIANT PROBE_WORKERS
 OUT=${PROBE_OUT:-/data/s1_own_probe}
 LOG=$OUT/probe.log
 mkdir -p $OUT
@@ -25,8 +25,9 @@ sys.path.insert(0, 'scripts/sim')
 # 레지스트리를 안 고친다 — 본런이 도는 저장소라 건드리지 않는다.
 # 패키지 안의 모듈을 직접 가져온다.
 import importlib
-mods = {n: importlib.import_module('prompts.' + n) for n in ('v5', 'v5own')}
-for name in ('v5', 'v5own'):
+ARMS = ('v5', os.environ.get('PROBE_VARIANT', 'v5own'))
+mods = {n: importlib.import_module('prompts.' + n) for n in ARMS}
+for name in ARMS:
     s = mods[name].SYSTEM_PROMPT
     io.open(os.environ['PROBE_OUT'] + '/system_%s.txt' % name, 'w',
             encoding='utf-8', newline=chr(10)).write(s)
@@ -43,10 +44,11 @@ OUT = os.environ['PROBE_OUT']
 MODEL = 'LGAI-EXAONE/EXAONE-4.5-33B-AWQ'
 BASE = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/')
 SEEDS = [int(x) for x in os.environ.get('PROBE_SEEDS', '5507').split(',')]
+ARMS = ('v5', os.environ.get('PROBE_VARIANT', 'v5own'))
 SYS = {n: open('%s/system_%s.txt' % (OUT, n), encoding='utf-8').read()
-       for n in ('v5', 'v5own')}
+       for n in ARMS}
 cells = json.load(open(OUT + '/cells.json', encoding='utf-8'))['cells']
-jobs = [(c, n, s) for c in cells for n in ('v5', 'v5own') for s in SEEDS]
+jobs = [(c, n, s) for c in cells for n in ARMS for s in SEEDS]
 print('칸 %d · 시드 %s · 호출 %d' % (len(cells), SEEDS, len(jobs)))
 
 def call(job):
@@ -69,7 +71,10 @@ def call(job):
 
 part = OUT + '/responses.jsonl.part'
 done = 0
-with open(part, 'w', encoding='utf-8') as fh, ThreadPoolExecutor(max_workers=4) as pool:
+# 본런과 나눠 쓸 때는 4, GPU 가 비면 올린다. 4 로 두면 GPU 가 놀고 탐침이 병목이다.
+W = int(os.environ.get('PROBE_WORKERS', '4'))
+print('  워커 %d' % W, flush=True)
+with open(part, 'w', encoding='utf-8') as fh, ThreadPoolExecutor(max_workers=W) as pool:
     for r in pool.map(call, jobs):
         fh.write(json.dumps(r, ensure_ascii=False) + chr(10))
         fh.flush()
