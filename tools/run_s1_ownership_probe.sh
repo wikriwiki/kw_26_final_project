@@ -13,7 +13,7 @@ mkdir -p $OUT
 say(){ echo "[$(date +%F' '%H:%M:%S)] $*" | tee -a $LOG; }
 
 say "정책이 켜진 맥락 합성 — 런타임 함수로 렌더"
-/data/venv/bin/python scripts/sim/s1_ownership_probe.py --build --out $OUT --n 24 \
+/data/venv/bin/python scripts/sim/s1_ownership_probe.py --build --out $OUT --n 48 \
   --policy /data/repo/data/neo4j_load/policies/P012.json \
   --frozen /data/validation_v3/pilot_registered/frozen_inputs.json 2>&1 | tee -a $LOG
 
@@ -32,7 +32,7 @@ for name in ('v5', 'v5own'):
     print('  %s %d자' % (name, len(s)))
 PYEOF
 
-say "호출 시작 (24칸 x 2판 = 48)"
+say "호출 시작 (48칸 x 2판 = 96)"
 /data/venv_sgl/bin/python - <<'PYEOF' 2>&1 | tee -a $LOG
 import json, os
 from concurrent.futures import ThreadPoolExecutor
@@ -57,7 +57,8 @@ def call(job):
             'chat_template_kwargs': {'enable_thinking': False}}
     req = Request(BASE + '/chat/completions', data=json.dumps(body).encode(),
                   headers={'Content-Type': 'application/json'})
-    rec = {'aid': cell['aid'], 'arm': name, 'seed': SEED}
+    rec = {'aid': cell['aid'], 'case': cell.get('case'),
+           'date': cell.get('date'), 'arm': name, 'seed': SEED}
     try:
         with urlopen(req, timeout=300) as r:
             rec['raw'] = json.loads(r.read())['choices'][0]['message']['content']

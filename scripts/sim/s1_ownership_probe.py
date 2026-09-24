@@ -94,7 +94,8 @@ def build(n: int, out: Path, day: str, pol_path: Path, frozen: Path) -> None:
         stn = {"sangsaeng_month_spent": int(anchor * rule["threshold_ratio"] * f)}
         mine = DC._format_cashback_status(pol["id"], rule, persona, stn, today)
         u = user.replace(NO_FACTS, facts, 1).replace(NO_MINE, mine, 1)
-        out_cells.append({"aid": c["aid"], "case": c.get("case"), "user": u})
+        out_cells.append({"aid": c["aid"], "case": c.get("case"),
+                          "date": c.get("date"), "user": u})
     io.open(out / "cells.json", "w", encoding="utf-8", newline=chr(10)).write(
         json.dumps({"cells": out_cells}, ensure_ascii=False, indent=1))
     print("정책이 켜진 맥락 %d칸 (합성 — 런타임 함수로 렌더)" % len(out_cells))
@@ -148,7 +149,7 @@ def sign(pairs):
 
 
 def report(rows: list[dict]) -> int:
-    per: dict[str, dict[str, dict]] = {}
+    per: dict[tuple, dict[str, dict]] = {}
     bad = 0
     for r in rows:
         if r.get("error"):
@@ -157,7 +158,11 @@ def report(rows: list[dict]) -> int:
         if ev is None:
             bad += 1
             continue
-        per.setdefault(r["aid"], {})[r["arm"]] = measure(ev)
+        # **aid 만으로 묶으면 안 된다.** 동결 맥락은 같은 시민이 여러 case·날짜로
+        # 들어 있어서, aid 로 묶으면 서로 다른 칸이 덮어써져 쌍이 5개로 줄어든다
+        # (실제로 24칸을 넣고 쌍 5개를 받았다).
+        key = (r["aid"], r.get("case"), r.get("date"))
+        per.setdefault(key, {})[r["arm"]] = measure(ev)
     pairs = {k: (d["v5"], d["v5own"]) for k, d in per.items() if "v5" in d and "v5own" in d}
     print("응답 %d · 파싱 실패 %d · 쌍 %d" % (len(rows), bad, len(pairs)))
     if not pairs:
