@@ -69,7 +69,7 @@ from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
     night_finalize_yesterday, night_create_state,
     apply_grant_to_prev_state, get_grant_amount,
-    _grant_for_single_policy,
+    _grant_for_single_policy, grants_to_apply, as_date,
     aggregate_policy_spend, validate_policy_spend,
 )
 from timing_metrics import (  # noqa: E402
@@ -314,21 +314,25 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         prev_grant_received = _read_state_json(ctx.state, "grant_received")
         income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
         spend_decile = ctx.persona.get("spend_decile")   # 소비 10분위 — grant_key='spend_decile' 정책용
-        grants_applied_today: dict[str, int] = {}
-        for pol in (ctx.policy or []):
-            if pol.get("type") != "grant":
-                continue
-            pid = pol.get("id") or ""
-            if pid in prev_grant_received:
-                # 이미 적용된 grant — skip (resume 멱등 가드)
-                continue
-            eff = pol.get("effective_from", "")
-            if str(today) != eff:
-                continue
-            # 이 정책에서 받을 금액 — grant_remaining 독립 지갑에 적립 (balance 불변)
-            amt = _grant_for_single_policy(income, pol, spend_decile=spend_decile)
-            if amt > 0:
-                grants_applied_today[pid] = amt
+        # 게이트는 plan_writer.grants_to_apply 하나로 모았다 — **예비점검기가 같은
+        # 함수를 부른다.** 인라인이던 시절 `str(today) != eff` 문자열 비교가 타입에
+        # 따라 조용히 어긋났고, 전 분위 280,000원 정책이 한 푼도 지급되지 않은 것을
+        # 몇 달 몰랐다(experiments/plan_channel/P013_evidence_is_weaker.md).
+        grants_applied_today = grants_to_apply(
+            ctx.policy, today, prev_grant_received, income, spend_decile)
+
+        # 시행일인데 0원이면 **그 자리에서 말한다.** 조용히 지나가면 런이 다 끝나고
+        # 원장을 볼 때에야 알게 되고, 그때는 그래프가 이미 덮여 원인을 못 찾는다.
+        # 실제로 그렇게 됐다 — 12일 × 700명을 돌고 한 푼도 안 나간 것을 몇 달 몰랐다.
+        _due = [p for p in (ctx.policy or [])
+                if p.get("type") == "grant"
+                and as_date(p.get("effective_from")) == as_date(today)
+                and (p.get("id") or "") not in prev_grant_received]
+        grant_due_but_zero = ([p.get("id") for p in _due]
+                              if (_due and not grants_applied_today) else None)
+        if grant_due_but_zero:
+            print(f"  !! {aid} {today} 지급일인데 0원 — 정책 {grant_due_but_zero} "
+                  f"(분위={spend_decile!r} 소득={income!r}) — 지갑이 안 열린다", flush=True)
 
         # grant는 balance에 더하지 않는다 — grant_remaining 독립 지갑으로만 관리(회계 분리).
         # windfall 인지는 정책 카드(_format_policy)의 grant_days_since 감쇠가 담당.
@@ -646,6 +650,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "policy_hits": policy_hits,
                 # 정책 사용 트래킹 (옵션 A)
                 "grant_applied_today": sum(grants_applied_today.values()),
+                # 시행일인데 0원이면 정책 id 가 여기 남는다 — 원장만 봐도 잡힌다
+                "grant_due_but_zero": grant_due_but_zero,
                 "grant_expired_today": sum(inactive_grant_remaining.values()),
                 "policy_spend_today": sum(today_policy_spend.values()),
                 "grant_remaining_total": sum(merged_grant_remaining.values()),

@@ -205,6 +205,66 @@ def grant_lookup_key(pol: dict, income: str, spend_decile=None) -> str:
     return income or ""
 
 
+def as_date(v):
+    """문자열·date·Neo4j Date 를 모두 `datetime.date` 로. 못 바꾸면 None.
+
+    **왜 필요한가**: 지급 게이트가 `str(today) != pol["effective_from"]` 로 **문자열
+    비교**를 했다. `effective_from` 이 무엇으로 들어오는지에 따라 조용히 어긋난다 —
+    `toString()` 을 거친 쿼리에서는 맞고, Date 객체가 그대로 오면 **항상 불일치**라
+    `continue` 로 빠져 **지급이 한 번도 일어나지 않는다.**
+
+    실제로 `p013_ruler` 에서 전 분위 280,000원 정책이 **한 푼도 지급되지 않았고**
+    (`grant_applied_today` 모든 날 0), 정적 분석으로는 원인을 못 찾았다. 자료가
+    지워져 재현도 안 된다 — `experiments/plan_channel/P013_evidence_is_weaker.md`.
+    그래서 원인을 특정하는 대신 **비교를 타입에 안전하게** 만든다. 날짜는 날짜로
+    비교하는 것이 어느 경우에나 옳다.
+    """
+    if v is None or v == "":
+        return None
+    if isinstance(v, date):
+        return v
+    to_native = getattr(v, "to_native", None)      # neo4j.time.Date
+    if callable(to_native):
+        try:
+            n = to_native()
+            return n.date() if hasattr(n, "date") else n
+        except Exception:
+            return None
+    try:
+        return date.fromisoformat(str(v)[:10])
+    except (TypeError, ValueError):
+        return None
+
+
+def grants_to_apply(policies, today, prev_received=None, income="",
+                    spend_decile=None) -> dict:
+    """오늘 **새로 지급될** {정책ID: 금액}. 런타임과 예비점검이 같이 쓴다.
+
+    `run_simulation` 안에 인라인으로 있던 세 줄짜리 게이트를 꺼냈다. 인라인이면
+    시험할 수 없고, 시험할 수 없으면 오늘처럼 **지급이 0 인 것을 몇 달 모른다.**
+
+    게이트 셋:
+      · `type == "grant"` 인 정책만
+      · 이미 받은 정책은 건너뛴다 (resume 멱등)
+      · `effective_from` 이 **오늘인 날 하루만** 지급 (1차 지원금은 일시금이다)
+    """
+    prev = prev_received or {}
+    today_d = as_date(today)
+    out: dict = {}
+    for pol in (policies or []):
+        if pol.get("type") != "grant":
+            continue
+        pid = pol.get("id") or ""
+        if pid in prev:
+            continue
+        if as_date(pol.get("effective_from")) != today_d:
+            continue
+        amt = _grant_for_single_policy(income, pol, spend_decile=spend_decile)
+        if amt > 0:
+            out[pid] = amt
+    return out
+
+
 def _grant_for_single_policy(income: str, pol: dict, spend_decile=None) -> int:
     """단일 grant 정책 지급액.
 

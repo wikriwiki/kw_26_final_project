@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -275,6 +275,57 @@ def check_db_wiring(path: Path) -> list[tuple[str, str]]:
     return out
 
 
+def check_disbursement(path: Path) -> list[tuple[str, str]]:
+    """**돈이 실제로 나가는가** — 런타임과 **같은 함수**로 시행일 하루를 돌려 본다.
+
+    이 점검이 없어서 `p013_ruler` 가 전 분위 280,000원짜리 정책으로 12일을 돌고도
+    **한 푼도 지급하지 않았다.** 명세 점검은 다 통과했었다 — tier 도 맞고 금액도
+    있었다. 나가지 않은 것은 **게이트**였고, 명세만 보는 점검은 그걸 못 본다.
+
+    그래서 여기서는 `plan_writer.grants_to_apply` 를 **직접 부른다.** 런타임이
+    부르는 바로 그 함수다. 옮겨 적지 않는다 — 옮겨 적으면 또 갈라진다.
+    """
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from plan_writer import grants_to_apply  # noqa: E402
+
+    pol = json.loads(path.read_text(encoding="utf-8"))
+    if pol.get("type") != "grant":
+        return [(_PASS, "지갑형이 아니다 — 지급 점검 건너뜀")]
+
+    eff = pol.get("effective_from")
+    out: list[tuple[str, str]] = []
+    key = pol.get("grant_key") or "income"
+    # 그래프가 돌려주는 모양을 흉내 낸다 — 날짜가 str 로도 date 로도 올 수 있다.
+    for label, day in (("문자열 날짜", str(eff)), ("date 객체", _as_date_safe(eff))):
+        if day is None:
+            continue
+        got = 0
+        for tier in (["1", "5", "10"] if key == "spend_decile" else ["하", "중", "상"]):
+            kw = {"spend_decile": tier} if key == "spend_decile" else {"income": tier}
+            amt = grants_to_apply([{**pol, "effective_from": eff}], day, {}, **{
+                "income": kw.get("income", ""), "spend_decile": kw.get("spend_decile")})
+            got = max(got, amt.get(pol.get("id"), 0))
+        out.append((_PASS, f"시행일 지급 확인 ({label}): 최대 {got:,}원")
+                   if got > 0 else
+                   (_FAIL, f"**시행일에 0원이 나간다** ({label}) — 지갑이 안 열린다"))
+
+    # 시행일이 아닌 날에는 안 나가야 한다(일시금)
+    d = _as_date_safe(eff)
+    if d is not None:
+        nxt = grants_to_apply([pol], d + timedelta(days=1), {}, "하", 1)
+        out.append((_PASS, "시행일 다음 날은 0원 — 일시금이 맞다") if not nxt
+                   else (_FAIL, f"시행일이 아닌 날에도 지급된다: {nxt}"))
+    return out
+
+
+def _as_date_safe(v):
+    try:
+        from plan_writer import as_date
+        return as_date(v)
+    except Exception:
+        return None
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("paths", nargs="+", type=Path)
@@ -283,6 +334,7 @@ def main() -> None:
     for p in args.paths:
         print(f"\n{'='*64}\n정책 사전점검: {p}\n{'='*64}")
         results = check_policy(p)
+        results += check_disbursement(p)
         results += check_db_wiring(p)
         for grade, msg in results:
             print(f"  {grade} {msg}")
