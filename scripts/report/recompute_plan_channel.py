@@ -276,6 +276,9 @@ def main() -> int:
     ap.add_argument("--clamp-hi", type=float, default=2.0)
     ap.add_argument("--scale", default="auto",
                     help="수 또는 auto(무정책 창의 수준이 보존되도록 푼다)")
+    ap.add_argument("--placebo-on", default="",
+                    help="**정책 전** 가짜 ON 창. OFF→여기 가 곧 정책 아닌 몫이다. "
+                         "ON 과 같은 요일종류로 고른다")
     ap.add_argument("--trend-days", default="",
                     help="정책이 꺼진 날들. 여기서 하루당 표류를 재어 OFF→ON 에서 덜어낸다")
     ap.add_argument("--max-broke", type=float, default=0.10,
@@ -289,6 +292,17 @@ def main() -> int:
 
     b_days, off_days, on_days = split(a.baseline), split(a.off), split(a.on)
     trend_days = split(a.trend_days)
+    placebo_on = split(a.placebo_on)
+
+    if set(placebo_on) & set(on_days):
+        print("거부: 가짜 ON 창에 진짜 ON 날짜가 섞였다 — %s"
+              % sorted(set(placebo_on) & set(on_days)))
+        print("  가짜 ON 은 **정책이 꺼진 날**이어야 한다. 아니면 정책 효과를 뺀다.")
+        return 2
+    if placebo_on and set(placebo_on) & set(off_days):
+        print("거부: 가짜 ON 창이 OFF 창과 겹친다 — %s"
+              % sorted(set(placebo_on) & set(off_days)))
+        return 2
 
     if set(trend_days) & set(on_days):
         print("거부: 표류를 재는 날에 정책 창이 섞였다 — %s"
@@ -303,7 +317,7 @@ def main() -> int:
         return 2
 
     per = load_ledger(a.metrics, a.arm)
-    need = set(b_days) | set(off_days) | set(on_days)
+    need = set(b_days) | set(off_days) | set(on_days) | set(placebo_on)
     aids = sorted(x for x, v in per.items() if need <= set(v))
     base = build_baseline(per, b_days, a.baseline_mode)
 
@@ -360,6 +374,35 @@ def main() -> int:
                   % (nm, st.mean(o), st.mean(n), p, ci[0], ci[1], *s))
             rows[nm] = {"off": st.mean(o), "on": st.mean(n), "pct": p,
                         "ci": list(ci), "sign": list(s)}
+
+        if placebo_on:
+            # **정책이 아닌 몫.** OFF→가짜ON 은 같은 런·같은 사람·정책 없는 두 창이다.
+            # 직선을 가정하지 않으므로 예열이 굽어 있어도 쓸 수 있다 — P013 에서
+            # 인용하던 "+6.36% 정책 반응" 의 +3.70%p 가 이렇게 드러났다.
+            # **두 행 모두에 댄다.** 고침은 계획액을 총액으로 끌어오므로 계획 쪽
+            # 드리프트가 고침에만 실린다 — 현행만 보면 앵커가 가려서 안 보인다.
+            # P013 이 그 자리였다: 현행의 드리프트는 +0.58% 인데 고침은 훨씬 컸다.
+            p_off, p_fix, _, _, _ = window_totals(per, aids, placebo_on, *args)
+            print("   가짜ON  %s -> %s  (정책 아닌 몫 · 정책이 꺼진 두 창)"
+                  % (",".join(off_days), ",".join(placebo_on)))
+            for nm, series in (("현행", p_off), ("고침", p_fix)):
+                # `base` 로 쓰지 않는다 — 바깥의 기준선 dict 을 덮어쓴다(그렇게 해서
+                # 다음 자 반복에서 'list' has no attribute 'get' 로 터졌다).
+                ref = c_off if nm == "현행" else f_off
+                pp = pct(ref, series)
+                s = sign_test(ref, series)
+                real = rows[nm]["pct"]
+                net = (100 * ((1 + real / 100) / (1 + pp / 100) - 1)
+                       if pp > -100 else float("nan"))
+                flag = ""
+                if abs(real) < 1.0:
+                    flag = "  <- 진짜 효과가 0 근처라 뺄 것이 없다"
+                elif abs(pp) > abs(real) * 0.5:
+                    flag = "  <- **절반을 넘는다. 이 비교를 믿지 마라**"
+                print("            %-4s 드리프트 %+7.2f%%  %d:%d:%d   덜면 **%+.2f%%**%s"
+                      % (nm, pp, *s, net, flag))
+                rows[nm]["placebo_pct"] = pp
+                rows[nm]["net_pct"] = net
 
         if trend_days:
             pts = daily_means(per, aids, trend_days, field)

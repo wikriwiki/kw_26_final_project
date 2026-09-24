@@ -349,6 +349,109 @@ def test_표류가_없으면_그렇다고_말한다(tmp_path, monkeypatch, capsy
     assert "예열" not in out.split("표류가 없다")[0][-200:]
 
 
+# ---------------------------------------------------------------- 가짜 ON 창
+
+def test_가짜ON에_진짜ON이_섞이면_거부한다(tmp_path, monkeypatch, capsys):
+    """섞이면 정책 효과를 '정책 아닌 몫' 으로 빼 버린다."""
+    for day in ("2021-10-04", "2021-10-13", "2021-10-28"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    monkeypatch.setattr(sys, "argv", _argv(tmp_path, ["--placebo-on", "2021-10-28"]))
+    assert R.main() == 2
+    assert "진짜 ON 날짜가 섞였다" in capsys.readouterr().out
+
+
+def test_가짜ON이_OFF와_겹치면_거부한다(tmp_path, monkeypatch, capsys):
+    for day in ("2021-10-04", "2021-10-13", "2021-10-28"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    monkeypatch.setattr(sys, "argv", _argv(tmp_path, ["--placebo-on", "2021-10-13"]))
+    assert R.main() == 2
+    assert "OFF 창과 겹친다" in capsys.readouterr().out
+
+
+def test_드리프트를_덜어_낸다(tmp_path, monkeypatch, capsys):
+    """**이 시험이 P013 에서 놓친 것이다.**
+
+    OFF -> 가짜ON 이 +10%(정책 없음), OFF -> 진짜ON 이 +21% 면 정책 몫은
+    1.21/1.10 − 1 = +10% 다. 21% 를 정책 효과로 읽으면 두 배로 부풀린다.
+    """
+    def rows_at(mul):
+        out = []
+        for x in "abcd":
+            r = _agent(x, 500_000)
+            for f in ("cm_today_total_incl_online", "cm_personal_total", "cm_today_total"):
+                r[f] = int(r[f] * mul)
+            out.append(r)
+        return out
+    _write(tmp_path, "2021-10-04", rows_at(1.0))
+    _write(tmp_path, "2021-10-13", rows_at(1.00))   # OFF
+    _write(tmp_path, "2021-10-20", rows_at(1.10))   # 가짜 ON — 정책 전
+    _write(tmp_path, "2021-10-28", rows_at(1.21))   # 진짜 ON
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--metrics", str(tmp_path), "--baseline", "2021-10-04",
+        "--off", "2021-10-13", "--on", "2021-10-28",
+        "--placebo-on", "2021-10-20", "--boot", "10"])
+    assert R.main() == 0
+    out = capsys.readouterr().out
+    assert "정책 아닌 몫" in out
+    assert "+10.00%" in out, "1.21/1.10 − 1 = +10% 가 나와야 한다"
+    # 10 은 21 의 절반(10.5)보다 작다 — 여기서는 경고가 뜨면 안 된다
+    assert "절반을 넘는다" not in out
+
+
+def test_드리프트가_절반을_넘으면_경고한다(tmp_path, monkeypatch, capsys):
+    """P013 이 이 자리였다 — +6.36% 중 +3.70%p(58%)가 정책 전 상승이었다."""
+    def rows_at(mul):
+        out = []
+        for x in "abcd":
+            r = _agent(x, 500_000)
+            for f in ("cm_today_total_incl_online", "cm_personal_total", "cm_today_total"):
+                r[f] = int(r[f] * mul)
+            out.append(r)
+        return out
+    _write(tmp_path, "2021-10-04", rows_at(1.0))
+    _write(tmp_path, "2021-10-13", rows_at(1.000))   # OFF
+    _write(tmp_path, "2021-10-20", rows_at(1.037))   # 가짜 ON — P013 의 +3.70%
+    _write(tmp_path, "2021-10-28", rows_at(1.064))   # 진짜 ON — P013 의 +6.36%
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--metrics", str(tmp_path), "--baseline", "2021-10-04",
+        "--off", "2021-10-13", "--on", "2021-10-28",
+        "--placebo-on", "2021-10-20", "--boot", "10"])
+    assert R.main() == 0
+    out = capsys.readouterr().out
+    assert "절반을 넘는다" in out, "3.70 은 6.40 의 절반을 넘는다 — 경고해야 한다"
+    assert "+2.6" in out or "+2.5" in out, "정책 몫 약 +2.57% 가 나와야 한다"
+
+
+def test_가짜ON이_자를_넘어가도_안_터진다(tmp_path, monkeypatch, capsys):
+    """세 자를 돌기 때문에 지역 변수가 바깥 기준선을 덮으면 두 번째 자에서 터진다.
+
+    실제로 `base` 를 덮어써서 `'list' object has no attribute 'get'` 로 터졌다.
+    세 자가 **모두** 찍히는지로 잡는다.
+    """
+    def rows_at(mul):
+        out = []
+        for x in "abcd":
+            r = _agent(x, 500_000)
+            for f in ("cm_today_total_incl_online", "cm_personal_total", "cm_today_total"):
+                r[f] = int(r[f] * mul)
+            out.append(r)
+        return out
+    _write(tmp_path, "2021-10-04", rows_at(1.0))
+    _write(tmp_path, "2021-10-13", rows_at(1.00))
+    _write(tmp_path, "2021-10-20", rows_at(1.05))
+    _write(tmp_path, "2021-10-28", rows_at(1.15))
+    monkeypatch.setattr(sys, "argv", [
+        "x", "--metrics", str(tmp_path), "--baseline", "2021-10-04",
+        "--off", "2021-10-13", "--on", "2021-10-28",
+        "--placebo-on", "2021-10-20", "--boot", "10"])
+    assert R.main() == 0
+    out = capsys.readouterr().out
+    # **이것이 회귀 관문이다** — 덮어쓰면 두 번째 자에서 터져 이 단정이 깨진다.
+    for key in R.RULERS:
+        assert ("자: %s" % key) in out, "%s 자가 안 찍혔다 — 중간에 터졌다" % key
+    assert out.count("가짜ON") >= len(R.RULERS), "자마다 가짜ON 이 나와야 한다"
+
+
 # ---------------------------------------------------------------- 통계
 
 def test_부호검정은_동점을_따로_센다():
