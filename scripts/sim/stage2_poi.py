@@ -389,6 +389,12 @@ def _guess_sub_from_l1(l1: str) -> str | None:
 # =========================================================
 # 적립 문턱을 Stage2 의 금액 판단 자리로 보낼지 — experiments/plan_channel/s2_threshold.md
 EXP_S2_THRESHOLD = os.environ.get("EXP_S2_THRESHOLD", "0") == "1"
+# Stage1 이 붙인 trigger 를 Stage2 이벤트 줄로 넘길지 —
+# experiments/plan_channel/s2_trigger_candidate.md
+# **reasoning 은 안 넘긴다.** 거기엔 "캐시백까지 받겠다" 같은 문장이 있어
+# 방향을 지시하지 않아도 문장 자체가 미는 힘을 갖는다. trigger 는 에이전트가
+# 고른 분류 낱말 하나(policy·lifestyle·appointment·rumor·mood)라 그 위험이 작다.
+EXP_S2_TRIGGER = os.environ.get("EXP_S2_TRIGGER", "0") == "1"
 
 
 SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구체적인 방문 장소(POI)를 결정하고,
@@ -537,9 +543,16 @@ def _format_event_with_candidates(
         anchor_s = f" | 동네 평균단가 ~{anchor:,}원"
     else:
         anchor_s = ""
+    # Stage1 이 왜 이 이벤트를 넣었는지 — 한 낱말만 넘긴다. 새 사실이 아니라
+    # 이미 적힌 값을 다음 단계로 보내는 것이다(s2_trigger_candidate.md).
+    trig_s = ""
+    if EXP_S2_TRIGGER:
+        _t = str(getattr(ev, "trigger", "") or "")
+        if _t and _t != "none":
+            trig_s = f" | 계기:{_t}"
     lines = [
         f"### 이벤트 {i} | {ev.time} | {ev.anchor} | "
-        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}{anchor_s}"
+        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}{trig_s}{anchor_s}"
     ]
     recent = recent_poi_ids or set()
     for c in cands:
