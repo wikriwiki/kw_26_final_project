@@ -60,7 +60,17 @@ def parse_propensity(raw: str) -> float | None:
 
 
 def centers(aids: list) -> dict:
-    """{aid: 그 사람의 성향 중심값}. 그래프에서 소득계층·평소 지출을 읽는다."""
+    """{aid: 그 사람의 성향 중심값}. 런타임이 쓰는 그 입력으로 계산한다.
+
+    **2026-09-25 고침.** 처음에 `a.income` 을 읽었는데 그 속성은 없다(전부 None).
+    그래서 `propensity_center` 가 120명 모두에게 기본값 0.74 를 돌려주고, 중심값의
+    분산이 0 이라 **r 이 항상 0.000 으로 나왔다.** 후보에 대한 증거가 아니라 계측
+    실패였다. `dawn_context` 가 쓰는 이름은 **`a.p_income_level`** 이다(같은 파일
+    41행: `a.p_income_level AS income`). 성향 기질도 함께 넣는다.
+
+    분산이 0 이면 r 이 뜻을 못 가지므로, 호출한 쪽이 그것을 알 수 있게 값을 그대로
+    돌려준다(판정 쪽에서 고유값을 세어 밝힌다).
+    """
     sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "neo4j_load"))
     from _common import driver_session  # noqa: E402
     from consumption import propensity_center  # noqa: E402
@@ -68,11 +78,12 @@ def centers(aids: list) -> dict:
     out = {}
     with driver_session() as s:
         q = ("MATCH (a:Agent) WHERE a.id IN $ids "
-             "RETURN a.id AS aid, a.income AS inc, a.s_daily_wd AS wd")
+             "RETURN a.id AS aid, a.p_income_level AS inc, a.s_daily_wd AS wd, "
+             "coalesce(a.pr_spending_tendency, a.personality_spending_tendency) AS tend")
         for r in s.run(q, ids=list(aids)):
             try:
                 out[r["aid"]] = float(propensity_center(
-                    r["inc"], None, r["wd"], None))
+                    r["inc"], None, r["wd"], r["tend"]))
             except Exception:
                 continue
     return out
@@ -146,6 +157,15 @@ def report(rows: list) -> int:
 
     print()
     if cen:
+        # **중심값이 안 흩어져 있으면 r 은 뜻이 없다.** 이걸 안 밝혀서 r=0.000 을
+        # 후보의 증거로 읽을 뻔했다(2026-09-25). 고유값을 먼저 찍는다.
+        cv = sorted(set(cen.values()))
+        print("  중심값 고유 %d개 · 표준편차 %.4f  %s"
+              % (len(cv), st.pstdev(list(cen.values())) if len(cen) > 1 else 0.0,
+                 "" if len(cv) > 2 else "<- **흩어지지 않았다. r 을 판정에 쓸 수 없다**"))
+        if len(cv) <= 2:
+            cen = {}
+    if cen:
         for i, name in ((0, "v5"), (1, "v5self")):
             xs, ys = [], []
             for k, v in by.items():
@@ -167,9 +187,10 @@ def report(rows: list) -> int:
     ok_r = (r_new is not None and r_new >= 0.30)
     ok_u = out["v5self"]["uniq"] > out["v5"]["uniq"]
     ok_c = out["v5self"]["uniq"] > 10
-    print("  r >= 0.30                 %s" % ("통과 (%.3f)" % r_new if ok_r
-                                              else "미달 (%s)" % ("없음" if r_new is None
-                                                                 else "%.3f" % r_new)))
+    print("  r >= 0.30                 %s"
+          % ("통과 (%.3f)" % r_new if ok_r else
+             "**못 쟀다** — 중심값이 안 흩어져 있다. 미달로 세지 않는다"
+             if r_new is None else "미달 (%.3f)" % r_new))
     print("  고유값이 v5 보다 는다       %s (%d -> %d)"
           % ("통과" if ok_u else "미달", out["v5"]["uniq"], out["v5self"]["uniq"]))
     print("  고유값 > 10 (받아쓰기 아님)  %s (%d)" % ("통과" if ok_c else "미달",
