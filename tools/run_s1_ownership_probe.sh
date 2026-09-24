@@ -7,19 +7,20 @@ set -uo pipefail
 cd /data/repo
 export PYTHONHASHSEED=0 PYTHONIOENCODING=utf-8 PYTHONPATH=/data/repo
 export LLM_BASE_URL=http://localhost:8000/v1
-OUT=/data/s1_own_probe
+export PROBE_OUT PROBE_N PROBE_SEED
+OUT=${PROBE_OUT:-/data/s1_own_probe}
 LOG=$OUT/probe.log
 mkdir -p $OUT
 say(){ echo "[$(date +%F' '%H:%M:%S)] $*" | tee -a $LOG; }
 
 say "정책이 켜진 맥락 합성 — 런타임 함수로 렌더"
-/data/venv/bin/python scripts/sim/s1_ownership_probe.py --build --out $OUT --n 48 \
+/data/venv/bin/python scripts/sim/s1_ownership_probe.py --build --out $OUT --n ${PROBE_N:-48} \
   --policy /data/repo/data/neo4j_load/policies/P012.json \
   --frozen /data/validation_v3/pilot_registered/frozen_inputs.json 2>&1 | tee -a $LOG
 
 say "SYSTEM 두 판 덤프"
 /data/venv/bin/python - <<'PYEOF' 2>&1 | tee -a $LOG
-import sys, io
+import sys, io, os
 sys.path.insert(0, 'scripts/sim')
 # 레지스트리를 안 고친다 — 본런이 도는 저장소라 건드리지 않는다.
 # 패키지 안의 모듈을 직접 가져온다.
@@ -27,21 +28,21 @@ import importlib
 mods = {n: importlib.import_module('prompts.' + n) for n in ('v5', 'v5own')}
 for name in ('v5', 'v5own'):
     s = mods[name].SYSTEM_PROMPT
-    io.open('/data/s1_own_probe/system_%s.txt' % name, 'w',
+    io.open(os.environ['PROBE_OUT'] + '/system_%s.txt' % name, 'w',
             encoding='utf-8', newline=chr(10)).write(s)
     print('  %s %d자' % (name, len(s)))
 PYEOF
 
-say "호출 시작 (48칸 x 2판 = 96)"
+say "호출 시작 (${PROBE_N:-48}칸 x 2판)"
 /data/venv_sgl/bin/python - <<'PYEOF' 2>&1 | tee -a $LOG
 import json, os
 from concurrent.futures import ThreadPoolExecutor
 from urllib.request import Request, urlopen
 
-OUT = '/data/s1_own_probe'
+OUT = os.environ['PROBE_OUT']
 MODEL = 'LGAI-EXAONE/EXAONE-4.5-33B-AWQ'
 BASE = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/')
-SEED = 5507
+SEED = int(os.environ.get('PROBE_SEED', '5507'))
 SYS = {n: open('%s/system_%s.txt' % (OUT, n), encoding='utf-8').read()
        for n in ('v5', 'v5own')}
 cells = json.load(open(OUT + '/cells.json', encoding='utf-8'))['cells']
