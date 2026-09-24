@@ -61,9 +61,15 @@ print(\"잔고0 %.1f%%\" % (100*sum(1 for b in bal if b<=0)/len(ok)))
 ### (2) 문턱 모양. 크기보다 **먼저** 본다
 
 ```bash
-ssh ... '/data/venv/bin/python /data/repo/scripts/report/threshold_response_shape.py \
-  --metrics /data/p012_28d/28d_v5/metrics --last-day 2021-10-28'
+ssh ... 'cd /data/repo && export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j \
+  NEO4J_PASSWORD=exp001pass && /data/venv/bin/python \
+  scripts/report/threshold_response_shape.py /data/p012_28d/28d_v5/metrics \
+  --off 2021-10-13:2021-10-14 --on 2021-10-27:2021-10-28'
 ```
+
+**날짜는 `시작:끝` 콜론 표기다**(쉼표 아님). metrics_dir 은 위치 인자이고
+`--metrics` 가 아니다. 그래프 자격증명이 필요하다 — 2026-09-24 예행에서 셋 다 틀려
+있었다. **언저리 구간(85~100%)이 가장 커야** 문턱 제도의 모양이다.
 
 이틀치 투영은 **도달 48% · 누적/문턱 중앙 0.975** 였다. 실제가 그 근처면 창이
 살아 있는 것이고 P012-3·4·6 이 처음으로 값을 갖는다.
