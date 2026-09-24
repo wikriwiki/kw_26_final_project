@@ -16,7 +16,15 @@ cd /data/repo
 source /data/venv/bin/activate
 export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j NEO4J_PASSWORD=exp001pass
 export PYTHONIOENCODING=utf-8 PYTHONPATH=/data/repo LLM_BASE_URL=http://localhost:8000/v1
-export EXP_SANGSAENG_BASE_RATIO=0.268 EXP_SEED_SANGSAENG=1 EXP_BALANCE_DAYS=39
+# **EXP_SEED_SANGSAENG=0 이어야 한다.** 08_initial_state 는 적립 누적을
+# `앵커 x 비율 x DAY_ZERO.day` 로 시드한다 — 월중에 시작하는 런이 "이미 그 달에
+# 얼마를 썼다" 를 반영하려는 장치다. 그런데 이 런은 **10-01 에 시작**하므로
+# 10월 누적은 0 이어야 한다. DAY_ZERO=2021-09-30 이면 .day=30 이라 **한 달치를
+# 통째로 시드**하고, plan_writer 는 월 경계에서 리셋하지 않는다
+# (`s.sangsaeng_month_spent = prev + today`, 누적만 한다).
+# 그대로 두면 전원이 시작부터 문턱 언저리/초과가 되어 9일 창과 **반대 방향으로**
+# 설계가 깨진다.
+export EXP_SANGSAENG_BASE_RATIO=0.268 EXP_SEED_SANGSAENG=0 EXP_BALANCE_DAYS=39
 export EXP_DURABLES=1 EXP_CATLINE=fold EXP_POLICY_ANONYMOUS=1 POLICY_POI_SORT_BOOST=0
 # 창이 28일이면 지갑이 마른다 — 소득 주입이 필요하다(기억: 관측 창 한계 약 26일).
 export EXP_DAILY_INCOME=anchor
