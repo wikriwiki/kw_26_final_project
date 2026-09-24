@@ -7,7 +7,7 @@ set -uo pipefail
 cd /data/repo
 export PYTHONHASHSEED=0 PYTHONIOENCODING=utf-8 PYTHONPATH=/data/repo
 export LLM_BASE_URL=http://localhost:8000/v1
-export PROBE_OUT PROBE_N PROBE_SEED
+export PROBE_OUT PROBE_N PROBE_SEEDS
 OUT=${PROBE_OUT:-/data/s1_own_probe}
 LOG=$OUT/probe.log
 mkdir -p $OUT
@@ -42,15 +42,15 @@ from urllib.request import Request, urlopen
 OUT = os.environ['PROBE_OUT']
 MODEL = 'LGAI-EXAONE/EXAONE-4.5-33B-AWQ'
 BASE = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/')
-SEED = int(os.environ.get('PROBE_SEED', '5507'))
+SEEDS = [int(x) for x in os.environ.get('PROBE_SEEDS', '5507').split(',')]
 SYS = {n: open('%s/system_%s.txt' % (OUT, n), encoding='utf-8').read()
        for n in ('v5', 'v5own')}
 cells = json.load(open(OUT + '/cells.json', encoding='utf-8'))['cells']
-jobs = [(c, n) for c in cells for n in ('v5', 'v5own')]
-print('칸 %d · 호출 %d' % (len(cells), len(jobs)))
+jobs = [(c, n, s) for c in cells for n in ('v5', 'v5own') for s in SEEDS]
+print('칸 %d · 시드 %s · 호출 %d' % (len(cells), SEEDS, len(jobs)))
 
 def call(job):
-    cell, name = job
+    cell, name, SEED = job
     body = {'model': MODEL,
             'messages': [{'role': 'system', 'content': SYS[name]},
                          {'role': 'user', 'content': cell['user']}],

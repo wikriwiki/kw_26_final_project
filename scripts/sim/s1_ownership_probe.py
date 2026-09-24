@@ -161,7 +161,8 @@ def report(rows: list[dict]) -> int:
         # **aid 만으로 묶으면 안 된다.** 동결 맥락은 같은 시민이 여러 case·날짜로
         # 들어 있어서, aid 로 묶으면 서로 다른 칸이 덮어써져 쌍이 5개로 줄어든다
         # (실제로 24칸을 넣고 쌍 5개를 받았다).
-        key = (r["aid"], r.get("case"), r.get("date"))
+        # 시드도 키에 넣는다 — 같은 칸을 여러 시드로 돌려 쌍을 늘린다.
+        key = (r["aid"], r.get("case"), r.get("date"), r.get("seed"))
         per.setdefault(key, {})[r["arm"]] = measure(ev)
     pairs = {k: (d["v5"], d["v5own"]) for k, d in per.items() if "v5" in d and "v5own" in d}
     print("응답 %d · 파싱 실패 %d · 쌍 %d" % (len(rows), bad, len(pairs)))
