@@ -136,16 +136,53 @@ def build(n: int, out: Path, day: str) -> None:
 
 
 def picks(raw: str) -> dict[int, float]:
-    """order -> actual_spent."""
-    out: dict[int, float] = {}
+    """pick 의 order -> actual_spent. **정규식으로 못 긁는다.**
+
+    두 가지에 걸렸다.
+      1. `policy_spend: {"P009": 5000}` 처럼 중괄호가 중첩돼 있어
+         `\{[^{}]*\}` 류가 pick 하나를 통째로 못 잡는다
+      2. pick 의 `order` 는 **외출 이벤트만 0부터** 센다. 프롬프트 머리글의
+         "### 이벤트 3" (Stage1 인덱스)과 번호가 다르다 — 실제 응답에서
+         order 0 이 점심(Stage1 인덱스 1)이었다.
+
+    그래서 JSON 을 제대로 파싱하고, 번호는 부르는 쪽에서 옮긴다.
+    """
     if not raw:
-        return out
-    for m in re.finditer(r'\{[^{}]*?"order"\s*:\s*(\d+)[^{}]*?\}', raw):
-        blk = m.group(0)
-        a = re.search(r'"actual_spent"\s*:\s*([0-9]+(?:\.[0-9]+)?)', blk)
-        if a:
-            out[int(m.group(1))] = float(a.group(1))
+        return {}
+    t = raw.strip()
+    a = t.find("{")
+    b = t.rfind("}")
+    if a < 0 or b <= a:
+        # picks 배열만 온 경우
+        a = t.find("[")
+        b = t.rfind("]")
+        if a < 0 or b <= a:
+            return {}
+        try:
+            arr = json.loads(t[a:b + 1])
+        except ValueError:
+            return {}
+        items = arr
+    else:
+        try:
+            obj = json.loads(t[a:b + 1])
+        except ValueError:
+            return {}
+        items = obj.get("picks") if isinstance(obj, dict) else None
+        if items is None:
+            items = obj if isinstance(obj, list) else []
+    out: dict[int, float] = {}
+    for it in items or []:
+        if not isinstance(it, dict):
+            continue
+        o, amt = it.get("order"), it.get("actual_spent")
+        if isinstance(o, int) and isinstance(amt, (int, float)):
+            out[o] = float(amt)
     return out
+
+
+# pick 의 order(외출 0-base) -> 우리가 만든 Stage1 인덱스
+OUTING_TO_STAGE1 = {0: 1, 1: 2, 2: 3}
 
 
 def sign(pairs):
@@ -173,8 +210,12 @@ def report(rows: list[dict]) -> int:
     tagged, other = [], []
     for v in both.values():
         for o, amt in v["off"].items():
-            if o in v["on"]:
-                (tagged if o in POLICY_ORDERS else other).append((amt, v["on"][o]))
+            if o not in v["on"]:
+                continue
+            s1 = OUTING_TO_STAGE1.get(o)
+            if s1 is None:
+                continue
+            (tagged if s1 in POLICY_ORDERS else other).append((amt, v["on"][o]))
     for label, P in (("표시된 이벤트(계기:policy)", tagged), ("표시 없는 이벤트(대조)", other)):
         if not P:
             print()
