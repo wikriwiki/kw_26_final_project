@@ -26,65 +26,62 @@ ON=2021-10-25:2021-10-26
 [ -f "$EXP_PLAN_BASELINE_FILE" ] || { say "기준선 파일이 없다 — 멈춘다"; exit 3; }
 say "기준선 $(python -c "import json;print(len(json.load(open('$EXP_PLAN_BASELINE_FILE'))))")명"
 
-# ------------------------------------------------------------- 배선 관문
-gate () {
-  local TAG=$1 FLAG=$2
-  say "--- 관문 [$TAG] PLAN_DRIVES_TOTAL=$FLAG · v5 · 하루 · 100명"
-  export SIM_PROMPT_VARIANT=v5 SIM_OUTPUT_DIR=$OUT/$TAG EXP_PLAN_DRIVES_TOTAL=$FLAG
-  rm -rf "$OUT/$TAG"; mkdir -p "$OUT/$TAG"
-  python scripts/neo4j_load/97_reset_run_artifacts.py > /dev/null 2>&1
-  DAY_ZERO=$D0 python scripts/neo4j_load/08_initial_state.py > /dev/null 2>&1
-  python -u scripts/sim/run_simulation.py --start $ST --days 1 --limit 100 \
-      --workers 48 --environment covid_2021 2>&1 | stdbuf -oL grep -E "^  Day|TOTAL" | tee -a $LOG
-}
-
-if [ ! -f "$OUT/gate_done" ]; then
-  gate gate_off 0
-  gate gate_on  1
-  say "--- 관문 판정"
-  python - "$OUT" <<'PYEOF' 2>&1 | tee -a $LOG
-import json, glob, sys, statistics as st
-out = sys.argv[1]
-def rows(tag):
-    r = []
-    for f in glob.glob('%s/%s/metrics/*.jsonl' % (out, tag)):
-        for l in open(f, encoding='utf-8'):
-            l = l.strip()
-            if not l:
-                continue
-            try:
-                d = json.loads(l)
-            except Exception:
-                continue
-            if d.get('status') == 'ok':
-                r.append(d)
-    return r
-A, B = rows('gate_off'), rows('gate_on')
-print('  계획  끄고 %d · 켜고 %d' % (len(A), len(B)))
-if not A or not B:
-    print('  **관문 실패** — 계획이 안 나왔다'); sys.exit(3)
-ka = {d['aid']: d for d in A}
-kb = {d['aid']: d for d in B}
-both = [k for k in ka if k in kb]
-diff = sum(1 for k in both
-           if ka[k].get('cm_today_total_incl_online') != kb[k].get('cm_today_total_incl_online'))
-print('  둘 다 있는 사람 %d · 총액이 달라진 사람 %d (%.1f%%)'
-      % (len(both), diff, 100 * diff / max(1, len(both))))
-if diff == 0:
-    print('  **관문 실패** — 경로가 안 걸렸다(플래그나 기준선 파일이 안 닿았다)'); sys.exit(3)
-def med(rs, k):
-    v = [d[k] for d in rs if isinstance(d.get(k), (int, float))]
-    return st.median(v) if v else None
-a, b = med(A, 'cm_today_total_incl_online'), med(B, 'cm_today_total_incl_online')
-d = (b - a) / a * 100
-print('  총액 중앙  끄고 %s · 켜고 %s · 차이 %+.2f%%' % ('{:,}'.format(int(a)), '{:,}'.format(int(b)), d))
-if abs(d) > 25:
-    print('  **관문 실패** — 수준이 25%% 넘게 흔들렸다. 폭주다'); sys.exit(3)
-print('  관문 통과 — 경로가 살아 있고 수준이 폭주하지 않는다')
+# ------------------------------------------------------------- 관문
+# **LLM 관문을 버렸다.** 처음 설계는 하루 x 100명을 두 번 돌려 총액이 달라지는지
+# 봤는데, 에이전트 표본이 `--limit` 에 따라 달라진다는 것을 놓쳤다
+# (fetch_agents 는 소비 10분위 비례 층화표본을 limit 별로 뽑는다).
+# limit=100 표본은 기준선 500명과 **2명**만 겹쳤다. 그런데 관문은
+# "79% 의 총액이 달라졌다 — 통과" 라고 답했다. 그 79% 는 회계가 아니라
+# **런 간 LLM 잡음**이었다. 관문이 재려던 것을 못 재고 통과시킨 것이다.
+#
+# 그래서 관문을 **공짜로 확실한 것**으로 바꾼다.
+#   1 본런이 쓸 표본과 기준선이 겹치는가 (LLM 0회)
+#   2 회계 분기가 실제로 다른 수를 내는가 (LLM 0회, 단위시험과 같은 경로)
+# 산술은 단위시험 15개가 이미 지킨다. 관문이 볼 것은 **닿는가** 뿐이다.
+say "--- 관문 1: 본런 표본과 기준선이 겹치는가"
+python - "$N" "$EXP_PLAN_BASELINE_FILE" <<'PYEOF' 2>&1 | tee -a $LOG
+import json, sys
+sys.path.insert(0, 'scripts/sim')
+import run_simulation as R
+n = int(sys.argv[1])
+bl = set(json.load(open(sys.argv[2], encoding='utf-8')))
+ids = set(R.fetch_agents(limit=n))
+hit = len(ids & bl)
+pct = 100.0 * hit / max(1, len(ids))
+print('  본런 표본 %d명 · 기준선 %d명 · 겹침 %d (%.1f%%)' % (len(ids), len(bl), hit, pct))
+if pct < 95.0:
+    print('  **관문 실패** — 기준선이 표본을 못 덮는다. 고침이 거의 안 걸린다')
+    sys.exit(3)
+print('  관문 1 통과')
 PYEOF
-  [ ${PIPESTATUS[0]:-1} -ne 0 ] && { say "관문에서 멈춘다 — 본런을 돌리지 않는다"; exit 3; }
-  touch "$OUT/gate_done"
-fi
+[ ${PIPESTATUS[0]:-1} -ne 0 ] && { say "관문 1 실패 — 본런을 돌리지 않는다"; exit 3; }
+
+say "--- 관문 2: 회계 분기가 다른 수를 내는가 (LLM 0회)"
+python - <<'PYEOF' 2>&1 | tee -a $LOG
+import importlib, os, sys
+sys.path.insert(0, 'scripts/sim')
+ev = lambda e: [dict(category='식사', poi_id='A', actual_spent=e, policy_spend={},
+                     coupon_eligible=True, actual_satisfaction=.9, price_factor=1)]
+def run(flag, each, aid):
+    os.environ['EXP_PLAN_DRIVES_TOTAL'] = flag
+    import consumption as C
+    importlib.reload(C)
+    return C.apply_consumption_model(ev(each), daily=40000, income_tier='중',
+                                     tendency='보통', balance=5_000_000, aid=aid)
+import json
+aid = sorted(json.load(open(os.environ['EXP_PLAN_BASELINE_FILE'], encoding='utf-8')))[0]
+off = run('0', 30000, aid)
+on = run('1', 30000, aid)
+os.environ['EXP_PLAN_DRIVES_TOTAL'] = '1'
+print('  기준선 보유 에이전트 %s' % aid)
+print('  끄고 %d · 켜고 %d' % (off['personal_total'], on['personal_total']))
+if off['personal_total'] == on['personal_total']:
+    print('  **관문 실패** — 분기가 같은 수를 낸다. 기준선 파일이나 플래그가 안 닿았다')
+    sys.exit(3)
+print('  관문 2 통과 — 경로가 닿는다')
+PYEOF
+[ ${PIPESTATUS[0]:-1} -ne 0 ] && { say "관문 2 실패 — 본런을 돌리지 않는다"; exit 3; }
+
 
 # ------------------------------------------------------------- 본런
 TAG=plan_v5
