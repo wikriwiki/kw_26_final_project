@@ -162,6 +162,19 @@ def window_totals(per: dict, aids: list, days: list, base, mode, lo, hi, scale,
     return cur, fix, clamp_hits, n_cells, missing
 
 
+def broke_rate(per: dict, aids: list, day: str) -> float:
+    """그 날 잔고가 0 인 사람의 비율.
+
+    소득 주입이 없으면 긴 창에서 지갑이 마르고, **파산이 정책 효과로 읽힌다.**
+    실제로 28일 런 하나에서 마지막 날 67%가 0원이 되어 총소비가 −57.70% 로
+    나왔다(평균). 같은 날 중앙값은 오르고 있었다 — 분포 한쪽이 0 으로 쌓인 것이다.
+    `experiments/error_budget/wallet_audit.md`
+    """
+    bal = [per[a][day].get("balance") for a in aids if day in per[a]]
+    bal = [b for b in bal if isinstance(b, (int, float))]
+    return (sum(1 for b in bal if b <= 0) / len(bal)) if bal else 0.0
+
+
 def solve_scale(per: dict, aids: list, off_days: list, base, mode, lo, hi,
                 field: str = "cm_today_total_incl_online") -> float:
     """**무정책 창의 수준이 보존되도록** SCALE 을 푼다 — 정답지를 보지 않는다.
@@ -214,6 +227,8 @@ def main() -> int:
     ap.add_argument("--clamp-hi", type=float, default=2.0)
     ap.add_argument("--scale", default="auto",
                     help="수 또는 auto(무정책 창의 수준이 보존되도록 푼다)")
+    ap.add_argument("--max-broke", type=float, default=0.10,
+                    help="ON 창 마지막 날 잔고 0 비율의 한계. 넘으면 거부한다")
     ap.add_argument("--boot", type=int, default=2000)
     ap.add_argument("--json-out", default="")
     a = ap.parse_args()
@@ -243,6 +258,20 @@ def main() -> int:
     if not aids:
         print("  ** 쓸 에이전트가 없다 — 날짜를 확인하라")
         return 1
+
+    # 지갑 관문 — **수를 내기 전에** 막는다. 사람이 기억할 일로 두면 잊는다.
+    worst_day = max(on_days)
+    broke = broke_rate(per, aids, worst_day)
+    print("  %s 잔고 0 인 사람  %.1f%%" % (worst_day, 100 * broke))
+    if broke > a.max_broke:
+        print()
+        print("거부: 지갑이 말랐다 (%.1f%% > 한계 %.1f%%)." % (100 * broke, 100 * a.max_broke))
+        print("  이 원장에서 총소비를 읽으면 **파산을 정책 효과로 읽는다.**")
+        print("  실제로 28일 런 하나가 67% 파산으로 −57.70% 를 냈다(평균). 같은 날")
+        print("  중앙값은 오르고 있었다 — experiments/error_budget/wallet_audit.md")
+        print("  고치는 법: EXP_DAILY_INCOME=anchor · EXP_BALANCE_DAYS 를 올려 다시 건다.")
+        print("  (그래도 읽어야 하면 --max-broke 로 한계를 올려라. 보고에 적을 것.)")
+        return 3
 
     def pct(x, y):
         return 100 * (st.mean(y) / st.mean(x) - 1) if st.mean(x) else float("nan")
@@ -304,6 +333,7 @@ def main() -> int:
             "off_days": off_days, "on_days": on_days,
             "clamp": [a.clamp_lo, a.clamp_hi], "rulers": out_rulers,
             "clamp_hit_rate": hits / tot, "missing_base_rate": miss / tot,
+            "broke_rate": broke, "broke_day": worst_day,
         }, ensure_ascii=False, indent=1))
         print()
         print("→ %s" % a.json_out)

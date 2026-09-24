@@ -168,6 +168,71 @@ def test_status_가_ok_아니면_뺀다(tmp_path):
     assert list(R.load_ledger(str(tmp_path))) == ["a"]
 
 
+# ---------------------------------------------------------------- 지갑 관문
+
+def test_잔고0_비율을_센다():
+    per = {"a": {"d": {"balance": 0}}, "b": {"d": {"balance": 5}},
+           "c": {"d": {"balance": -3}}, "d": {"d": {"balance": 100}}}
+    assert R.broke_rate(per, ["a", "b", "c", "d"], "d") == 0.5
+
+
+def test_잔고가_없는_칸은_분모에서_뺀다():
+    per = {"a": {"d": {"balance": 0}}, "b": {"d": {}}}
+    assert R.broke_rate(per, ["a", "b"], "d") == 1.0
+
+
+def _write(tmp_path, day, rows):
+    d = tmp_path / "metrics"
+    d.mkdir(exist_ok=True)
+    (d / ("day_%s.jsonl" % day)).write_text(
+        "".join(json.dumps(r) + "\n" for r in rows), encoding="utf-8")
+
+
+def _agent(aid, bal):
+    return {"aid": aid, "status": "ok", "cm_anchor_total": 100_000,
+            "cm_planned_total": 50_000, "cm_today_total": 25_000,
+            "cm_today_total_incl_online": 100_000, "cm_personal_total": 25_000,
+            "balance": bal}
+
+
+def _argv(tmp_path, extra=()):
+    return ["x", "--metrics", str(tmp_path),
+            "--baseline", "2021-10-04", "--off", "2021-10-13",
+            "--on", "2021-10-28", "--boot", "10", *extra]
+
+
+def test_지갑이_마르면_수를_내지_않는다(tmp_path, monkeypatch, capsys):
+    """**가장 중요한 관문.** 이걸 지나치면 파산을 정책 효과로 읽는다."""
+    for day in ("2021-10-04", "2021-10-13"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    _write(tmp_path, "2021-10-28",
+           [_agent("a", 0), _agent("b", 0), _agent("c", 0), _agent("d", 500_000)])
+    monkeypatch.setattr(sys, "argv", _argv(tmp_path))
+    assert R.main() == 3
+    out = capsys.readouterr().out
+    assert "지갑이 말랐다" in out and "75.0%" in out
+    assert "현행" not in out, "거부했으면 수를 찍으면 안 된다"
+
+
+def test_지갑이_멀쩡하면_통과한다(tmp_path, monkeypatch, capsys):
+    for day in ("2021-10-04", "2021-10-13", "2021-10-28"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    monkeypatch.setattr(sys, "argv", _argv(tmp_path))
+    assert R.main() == 0
+    assert "현행" in capsys.readouterr().out
+
+
+def test_한계를_올리면_읽을_수_있다(tmp_path, monkeypatch, capsys):
+    """막되 잠그지는 않는다 — 올려서 읽었으면 보고에 적을 일이다."""
+    for day in ("2021-10-04", "2021-10-13"):
+        _write(tmp_path, day, [_agent(x, 500_000) for x in "abcd"])
+    _write(tmp_path, "2021-10-28",
+           [_agent("a", 0), _agent("b", 0), _agent("c", 0), _agent("d", 500_000)])
+    monkeypatch.setattr(sys, "argv", _argv(tmp_path, ["--max-broke", "0.9"]))
+    assert R.main() == 0
+    assert "현행" in capsys.readouterr().out
+
+
 # ---------------------------------------------------------------- 통계
 
 def test_부호검정은_동점을_따로_센다():
