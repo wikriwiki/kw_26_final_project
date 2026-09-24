@@ -46,6 +46,7 @@ from . import v51  # noqa: E402  (v45 with the work-anchor boundary at the work_
 from . import v5online  # noqa: E402  (v5 + 배송 몫 한 항목 — diagnosis_04)
 from . import v5offsite  # noqa: E402  (질문 범위를 회계와 맞춘 판 — calib_01)
 from . import v5own  # noqa: E402  (후보 2 — 결정이 어디서 일어나는지)
+from . import v5when  # noqa: E402  (후보 4 — 적립형은 때가 달라지는 제도다)
 from . import v52  # noqa: E402  (v45 with the reasoning requirement widened to evening events)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
@@ -78,6 +79,7 @@ _VARIANTS: dict[str, ModuleType] = {
     "v5online": v5online,
     "v5offsite": v5offsite,
     "v5own": v5own,
+    "v5when": v5when,
 }
 DEFAULT = "p010"
 
