@@ -103,6 +103,29 @@ ON 사이가 14일이라 그 사이의 표류를 덜어야 하는데, **예열�
 검증됨: P013 에서 옛 읽기 −0.04% / +0.32% / +9.03% 를 재현한다
 (`plan_channel/recompute_tool_validated.md`).
 
+### (3-b) P012 여섯 지표 — 배관은 확인됐다. **창을 둘로 나눠 읽는다**
+
+2026-09-25 예행에서 **여섯 지표가 모두 수를 냈다**(정책 전 창이라 값은 무의미).
+`score_policy.py --policy P012 --off A:B --on C:D` 하나로 3·4·5·6 이 함께 나온다.
+
+```bash
+# ① 등록된 읽기 — 이틀 창, 요일 맞춤. **이것이 1차다**
+ssh ... 'cd /data/repo && export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j \
+  NEO4J_PASSWORD=exp001pass PYTHONPATH=/data/repo && /data/venv/bin/python \
+  scripts/sim/score_policy.py --policy P012 \
+  --off 2021-10-13:2021-10-14 --on 2021-10-27:2021-10-28 \
+  --json-out /data/p012_28d/score_2day.json'
+
+# ② P012-5 전용 — 넓은 창. 가전·가구가 **하루 4~8명/500명** 뿐이라 이틀로는 잡음이다
+ssh ... '... scripts/sim/score_policy.py --policy P012 \
+  --off 2021-10-04:2021-10-14 --on 2021-10-15:2021-10-28 \
+  --json-out /data/p012_28d/score_wide.json'
+```
+
+**②는 P012-5 만 읽는다.** 나머지는 ①로 읽는다 — 창을 넓히면 정책 초기(효과가
+아직 약한 날)가 섞여 크기가 희석되고, 넓힌 창을 골라 읽으면 눈금 이동이 된다.
+**두 수를 병기하고 어느 창인지 반드시 적는다.**
+
 ### (4) 채점표에 옮기고 오차 예산을 다시 낸다
 
 ```bash
