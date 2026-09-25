@@ -91,7 +91,26 @@ on = '혜택은 위 업종에서만' in line
 print('  EXP_SCOPE_FACT=%s · 그 줄 %s' % (os.environ.get('EXP_SCOPE_FACT'), '붙음' if on else '없음'))
 assert on == (os.environ.get('EXP_SCOPE_FACT') == '1'), '플래그와 렌더가 어긋난다'
 " | tee -a $LOG
+  # !! 2026-09-25 고침 — 97_reset 이 **Policy 도 지운다**(그 파일 47행).
+  # 위에서 적재한 P090 이 여기서 지워진 채 런이 돌았다. 오류도 안 난다.
+  # 같은 버그로 p013_ruler 와 p012_28d 첫 시도를 잃었다.
+  # experiments/plan_channel/P013_evidence_is_weaker.md
   python scripts/neo4j_load/97_reset_run_artifacts.py > /dev/null 2>&1
+  python scripts/neo4j_load/10_load_grant_policy.py \
+      data/neo4j_load/policies/P090.json 2>&1 | tail -2 | tee -a $LOG
+  python - <<'PYEOF' 2>&1 | tee -a $LOG
+import sys
+sys.path.insert(0, "/data/repo/scripts")
+from neo4j_load._common import driver_session
+with driver_session() as s:
+    rows = list(s.run("MATCH (p:Policy) RETURN p.id AS id, "
+                      "count{(p)-[:applied_to]->()} AS na"))
+for r in rows:
+    print("  정책 %s applied_to=%d개 지역" % (r["id"], r["na"]))
+if not rows or any(r["na"] == 0 for r in rows):
+    sys.exit("  ** 거부: 정책이 없거나 어느 지역에도 안 걸렸다")
+PYEOF
+  [ ${PIPESTATUS[0]:-1} -ne 0 ] && { say "[$TAG] 정책 관문 실패 — 그만둔다"; return 1; }
   DAY_ZERO=$D0 python scripts/neo4j_load/08_initial_state.py > /dev/null 2>&1
   python -u scripts/sim/run_simulation.py --start $ST --days $DY --limit $N \
       --workers 48 --environment covid_2021 2>&1 | stdbuf -oL grep -E "^  Day|TOTAL" | tee -a $LOG

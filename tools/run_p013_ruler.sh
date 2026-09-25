@@ -51,7 +51,31 @@ import prompts, hashlib
 p = prompts.get('$VAR').SYSTEM_PROMPT
 print('  프롬프트 %s · %d자 · sha256 %s' % ('$VAR', len(p), hashlib.sha256(p.encode()).hexdigest()[:16]))
 " | tee -a $LOG
+  # !! 2026-09-25 고침 — 순서가 뒤집혀 있었다 !!
+  #
+  # `97_reset_run_artifacts.py` 는 State·Plan 만 지우는 게 아니라 **Policy 도 지운다**
+  # (그 파일 47행). 위에서 적재한 P013 이 여기서 지워진 채 런이 돌았다. 오류도 안 나고
+  # 로그에는 "적재 완료" 가 찍힌다. 그래서 **12일 × 700명이 정책 없이 돌았고**,
+  # 지원금이 한 푼도 안 나갔으며 "정책 반응 +6.36%" 는 예열 드리프트였다.
+  # experiments/plan_channel/P013_evidence_is_weaker.md
+  #
+  # reset 은 팔마다 돌아야 하므로(State 를 비워야 한다) **정책을 그 뒤에 다시 넣는다.**
   python scripts/neo4j_load/97_reset_run_artifacts.py > /dev/null 2>&1
+  python scripts/neo4j_load/10_load_grant_policy.py \
+      data/neo4j_load/policies/P013.json 2>&1 | tail -2 | tee -a $LOG
+  python - <<'PYEOF' 2>&1 | tee -a $LOG
+import sys
+sys.path.insert(0, "/data/repo/scripts")
+from neo4j_load._common import driver_session
+with driver_session() as s:
+    rows = list(s.run("MATCH (p:Policy) RETURN p.id AS id, "
+                      "count{(p)-[:applied_to]->()} AS na"))
+for r in rows:
+    print("  정책 %s applied_to=%d개 지역" % (r["id"], r["na"]))
+if not rows or any(r["na"] == 0 for r in rows):
+    sys.exit("  ** 거부: 정책이 없거나 어느 지역에도 안 걸렸다")
+PYEOF
+  [ ${PIPESTATUS[0]:-1} -ne 0 ] && { say "[$TAG] 정책 관문 실패 — 그만둔다"; return 1; }
   DAY_ZERO=$D0 python scripts/neo4j_load/08_initial_state.py > /dev/null 2>&1
   python -u scripts/sim/run_simulation.py --start $ST --days $DY --limit $N \
       --workers 48 --environment covid_2021 2>&1 | stdbuf -oL grep -E "^  Day|TOTAL" | tee -a $LOG
