@@ -55,6 +55,7 @@ import io
 import json
 import os
 import statistics as st
+from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -79,36 +80,42 @@ def load_rows(mdir: Path):
 def weighted_mpc(rows):
     """Σ(share × 정책결제) / Σ정책결제 — 비율의 평균이 아니다."""
     num = den = 0.0
-    vals, ndays = [], set()
+    vals, ndays, aids = [], set(), set()
     for day, r in rows:
         m, w = r.get("cm_mpc_new_share"), r.get("policy_spend_today") or 0
         if not isinstance(m, (int, float)):
             continue
         vals.append(m)
         ndays.add(day)
+        aids.add(r.get("aid"))
         if w > 0:
             num += m * w
             den += w
     return {
         "mpc": (num / den) if den else None,
-        "denom_won": den, "cells": len(vals), "days": len(ndays),
+        "denom_won": den, "cells": len(vals), "agents": len(aids), "days": len(ndays),
         "plain_mean": st.mean(vals) if vals else None,
         "nonzero_mean": st.mean([v for v in vals if v > 0]) if any(v > 0 for v in vals) else None,
     }
 
 
 def boot_ci(pairs, n=2000, seed=20260925):
-    """칸 단위 재표집 — (share, weight) 쌍을 함께 뽑는다."""
+    """시민 단위 재표집. 같은 시민의 여러 날은 항상 함께 뽑는다."""
     import random
     if not pairs:
         return (None, None)
     rnd = random.Random(seed)
-    k, out = len(pairs), []
+    by_aid = defaultdict(lambda: [0.0, 0.0])
+    for aid, m, w in pairs:
+        by_aid[aid][0] += m * w
+        by_aid[aid][1] += w
+    units = list(by_aid.values())
+    k, out = len(units), []
     for _ in range(n):
         num = den = 0.0
         for _ in range(k):
-            m, w = pairs[rnd.randrange(k)]
-            num += m * w
+            numerator, w = units[rnd.randrange(k)]
+            num += numerator
             den += w
         if den:
             out.append(num / den)
@@ -130,7 +137,7 @@ def main() -> int:
 
     rows = list(load_rows(mdir))
     r = weighted_mpc(rows)
-    pairs = [(x.get("cm_mpc_new_share"), x.get("policy_spend_today") or 0)
+    pairs = [(x.get("aid"), x.get("cm_mpc_new_share"), x.get("policy_spend_today") or 0)
              for _d, x in rows
              if isinstance(x.get("cm_mpc_new_share"), (int, float))
              and (x.get("policy_spend_today") or 0) > 0]
@@ -139,11 +146,12 @@ def main() -> int:
     print("# P010 — 보관 원장에서 채점 (그래프·GPU 없이)")
     print()
     print("  원장   %s" % a.metrics)
-    print("  범위   %d일 · MPC 값이 있는 에이전트-일 %d칸" % (r["days"], r["cells"]))
+    print("  범위   %d일 · 시민 %d명 · MPC 값이 있는 시민-일 %d칸" %
+          (r["days"], r["agents"], r["cells"]))
     print()
     print("## P010-1  MPC (한계소비성향)")
     print("   실측(한국은행)          %.2f" % TRUTH_MPC)
-    print("   시뮬 · 정책결제 가중    **%.4f**   95%% 구간 [%.4f, %.4f]"
+    print("   시뮬 · 정책결제 가중    **%.4f**   시민별 재표집 95%% 구간 [%.4f, %.4f]"
           % (r["mpc"], lo, hi) if r["mpc"] is not None else "   시뮬  없음")
     if r["mpc"] is not None:
         print("   오차                   %.4f" % abs(r["mpc"] - TRUTH_MPC))
@@ -163,9 +171,9 @@ def main() -> int:
     if a.json_out:
         io.open(a.json_out, "w", encoding="utf-8", newline="\n").write(json.dumps({
             "P010-1": {"metric": "mpc_amount", "mean": r["mpc"], "ci": [lo, hi],
-                       "n": r["cells"], "실측": TRUTH_MPC,
+                       "n": r["agents"], "n_cells": r["cells"], "bootstrap_unit": "aid", "실측": TRUTH_MPC,
                        "hit": (r["mpc"] is not None and r["mpc"] > 0),
-                       "note": "정책결제 가중. 원장 cm_mpc_new_share (consumption.py 의 상한·안분 정의)"},
+                       "note": "정책결제 가중 자기보고 신규소비 비율. 원장 cm_mpc_new_share (consumption.py 의 상한·안분 정의); CI는 aid 단위 재표집"},
             "_source": a.metrics, "_days": r["days"],
         }, ensure_ascii=False, indent=1))
         print()

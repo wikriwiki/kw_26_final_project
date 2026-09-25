@@ -15,6 +15,8 @@
 
     대조가능   실측·시뮬이 같은 단위로 있다              -> 오차를 낸다
     단위다름   둘 다 있는데 단위·창이 다르다             -> 값만 병기하고 오차는 비운다
+    정의확인   추정량·기간·모집단·분모 정합 확인이 남았다    -> 값만 병기하고 오차는 비운다
+    동등성검증 실측 크기 대신 등록한 무효과 밴드로 평가한다   -> 기존 CI·판정을 보존한다
     방향만     시뮬은 있는데 정답지에 수치가 없다          -> 부호로만 판정
     없음       시뮬 값이 없다                          -> **메워야 할 자리**
 
@@ -49,10 +51,12 @@ CORE = {"P010": "P010-1", "P012": "P012-1", "EMERGENCY_2020": "EM-3",
 
 # 단위가 실측과 맞지 않는 지표 — 값은 보여 주고 오차는 비운다.
 UNIT_NOTE = {
-    "P010-1": "무차원 비율(MPC)",
-    "P012-4": "실측은 **월** 1인 캐시백, 우리는 창 하루 평균",
+    "P010-1": "자기보고 신규소비 비율. 시민 200명 재표집 CI; 조사·표본·기간 및 원장 출처 확인 필요",
+    "P012-4": "종료일 State의 누적 캐시백 추정액(일평균 아님). 실측의 수급자/전체 분모·월말 범위 확인 필요",
     "P012-3": "정답지가 '> 0' 이라 크기가 없다",
-    "P012-6": "실측은 월 한도 도달률, 우리 창으로는 누적이 모자라다",
+    "P012-6": "비율은 %로 환산해 표시. 월말 관측 범위·분모 일치 여부는 별도 확인 필요",
+    "PT-1": "무효과는 동등성 밴드·CI로 평가. 실측 크기 부재는 단위 불일치가 아님",
+    "PT-2": "무효과는 동등성 밴드·CI로 평가. 실측 크기 부재는 단위 불일치가 아님",
     "LV-1": "실측이 '영향 미미' — 수치가 아니다",
     "DS-6": "상권 유형 자료가 없다(외부 자료 필요)",
 }
@@ -149,12 +153,12 @@ def best_block(pol, iid):
         e = bv.get(iid)
         if not isinstance(e, dict):
             continue
+        if "baseline" in bk:
+            continue          # note 역시 무정책 팔을 정책 효과로 바꾸지 못한다
         if from_note(e) is not None and noted is None:
             noted = (bk, e)
-        if "baseline" in bk:
-            continue          # 무정책 팔 — 정책 결과가 아니다
         if not any(isinstance(e.get(k), (int, float)) for k in ("pct", "mean")) \
-                and not sim_gap(e):
+                and sim_gap(e) is None:
             continue
         if best is None or (e.get("n") or 0) > (best[1].get("n") or 0):
             best = (bk, e)
@@ -204,12 +208,19 @@ def classify(ind, entry, tv, tu, suspect=False):
         return "단위다름", None, shown
     if isinstance(mean, (int, float)):
         shown = "%.4g" % mean
+        if iid in ("P012-3", "P012-6"):
+            shown = "%.2f%%" % (100 * mean)
+        elif iid == "P012-4":
+            shown += "원"
         if suspect:
             return "다른자", None, shown
-        # **무차원 비율끼리는 같은 자다.** MPC 0.216 vs 실측 0.21 은 맞댈 수 있다 —
-        # 다만 그 오차는 %p 가 아니므로 %p 총합에 더하지 않는다(단위가 섞인다).
+        if iid in ("P010-1", "P012-4", "P012-6"):
+            return "정의확인", None, shown
+        if tv is None:
+            return ("동등성검증" if expect == "0" else "방향만"), None, shown
+        # 단위 일치는 필요조건이다. 무차원이라는 이유만으로 같은 추정량은 아니다.
         if tv is not None and tu == "":
-            return "대조가능", abs(mean - tv), shown
+            return "정의확인", None, shown
         return "단위다름", None, shown
     return "없음", None, "-"
 
@@ -263,11 +274,14 @@ def main() -> int:
             rows.append({"policy": pk, "id": iid, "expect": ind.get("expect"),
                          "truth": tv, "truth_unit": tu, "shown": shown,
                          "n": (entry or {}).get("n"), "err": err,
-                         "status": st, "block": bk})
+                         "status": st, "block": bk, "note": note,
+                         "metric": ind.get("metric"),
+                         "ci": (entry or {}).get("ci"),
+                         "registered_hit": (entry or {}).get("hit")})
         print()
 
     print("## 합계 — 지표 %d개" % len(rows))
-    for st in ("대조가능", "단위다름", "다른자", "방향만", "관측부족", "무효", "밴드안", "자료없음", "없음"):
+    for st in ("대조가능", "정의확인", "동등성검증", "단위다름", "다른자", "방향만", "관측부족", "무효", "밴드안", "자료없음", "없음"):
         print("   %-8s %3d개" % (st, tally.get(st, 0)))
     # %p 오차만 더한다. 무차원 비율(MPC)의 오차를 섞으면 총합이 뜻을 잃는다.
     pp = [r["err"] for r in rows
@@ -283,7 +297,9 @@ def main() -> int:
               % (r["policy"], r["id"], r["truth"], r["shown"], r["err"]))
     print()
     print("   '없음' 은 시뮬 값이 아예 없는 자리다 — 메워야 한다.")
-    print("   '단위다름' 은 값이 있으니 창·단위를 맞추면 대조가능으로 넘어간다.")
+    print("   '정의확인' 은 단위뿐 아니라 추정량·기간·분모·출처를 확인해야 한다.")
+    print("   '대조가능' 은 기존 분류다. 단위 일치만으로 외적 타당성이 검증되지는 않는다.")
+    print("   registered_hit 는 기존 등록 시험의 판정이며 실측 크기 일치 판정이 아니다.")
 
     if a.json_out:
         io.open(a.json_out, "w", encoding="utf-8", newline="\n").write(

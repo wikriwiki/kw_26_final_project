@@ -134,12 +134,12 @@ def test_시뮬_값이_없으면_없음():
     assert A.classify(ind, None, 1.0, "%")[0] == "없음"
 
 
-def test_무차원_비율끼리는_맞댈_수_있다():
-    """MPC 0.216 vs 실측 0.21 — 양쪽이 무차원이니 같은 자다."""
+def test_무차원_비율만으로_추정량_일치를_단정하지_않는다():
+    """근접한 숫자도 조사 정의·표본·기간 확인을 대체하지 못한다."""
     ind = {"id": "P010-1", "expect": "+", "desc": "한계소비성향 (실측 0.21)"}
     st, err, shown = A.classify(ind, {"mean": 0.216, "n": 1971}, 0.21, "")
-    assert st == "대조가능"
-    assert err == pytest.approx(0.006, abs=1e-6)
+    assert st == "정의확인"
+    assert err is None
     assert shown == "0.216"
 
 
@@ -152,7 +152,35 @@ def test_무차원_오차는_퍼센트포인트_합에_안_들어간다():
 
 
 def test_실측_단위가_퍼센트면_절대값과_맞대지_않는다():
-    """0.168(비율) 과 실측 21% 는 같은 자가 아니다."""
+    """표시 단위를 환산해도 월말 범위·분모 확인은 남는다."""
     ind = {"id": "P012-6", "expect": "+", "desc": "한도 도달 (실측 21.0%)"}
-    st, err, _ = A.classify(ind, {"mean": 0.0, "n": 500}, 21.0, "%")
-    assert st == "단위다름" and err is None
+    st, err, shown = A.classify(ind, {"mean": 0.0, "n": 500}, 21.0, "%")
+    assert st == "정의확인" and err is None
+    assert shown == "0.00%"
+
+
+def test_기준선_note도_정책_결과가_아니다():
+    pol = {"result_baseline_x": {"X": {"note": "차 +21.5%p"}},
+           "result_policy_x": {"X": {"pct": 2.0, "n": 10}}}
+    assert A.best_block(pol, "X")[0] == "result_policy_x"
+
+
+def test_순위_간격_0도_관측값이다():
+    pol = {"result_x": {"X": {"got": "A +3.1% vs B +3.1%"}}}
+    assert A.best_block(pol, "X") is not None
+
+
+def test_실측_크기_부재는_단위불일치가_아니다():
+    ind = {"id": "P012-3", "expect": "+"}
+    assert A.classify(ind, {"mean": 0.168}, None, None) == ("방향만", None, "16.80%")
+    for iid in ("PT-1", "PT-2"):
+        st, err, _ = A.classify({"id": iid, "expect": "0"},
+                                 {"mean": 2317, "hit": False}, None, None)
+        assert st == "동등성검증" and err is None
+
+
+def test_누적_캐시백은_일평균으로_설명하지_않는다():
+    ind = {"id": "P012-4", "expect": "+"}
+    st, err, shown = A.classify(ind, {"mean": 1311}, 47880, "원")
+    assert (st, err, shown) == ("정의확인", None, "1311원")
+    assert "일평균 아님" in A.UNIT_NOTE["P012-4"]

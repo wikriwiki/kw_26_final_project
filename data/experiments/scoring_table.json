@@ -58,15 +58,18 @@
    "design": "EXP-001 보관 원장(out_FINAL, 28일 × 200명, 2025-07-21~08-17)에서 **그래프 없이** 채점. 표준 채점기는 그래프를 읽는데 그 그래프는 지워졌다. scripts/report/score_p010_from_archive.py",
    "P010-1": {
     "metric": "mpc_amount",
-    "mean": 0.216,
+    "mean": 0.21598342818050267,
     "ci": [
-     0.2002,
-     0.2333
+     0.1983349927789799,
+     0.2339214199811742
     ],
-    "n": 1971,
+    "n": 200,
+    "n_cells": 1971,
+    "bootstrap_unit": "aid",
+    "ci_cell_bootstrap_superseded": [0.2002, 0.2333],
     "실측": 0.21,
     "hit": true,
-    "note": "정책결제 가중 Σ(share×정책결제)/Σ정책결제. 원장의 cm_mpc_new_share 이고 그 값은 consumption.py 의 정의 — extra_spent 에 상한 clamp(0,amt) 를 씌우고 정책결제 비중으로 안분한다. **이벤트에서 Σex/Σsp 를 그냥 나누면 0.7163 이 나온다**(상한·안분 없음). 구간이 실측 0.21 을 포함한다."
+    "note": "정책결제 가중 Σ(share×정책결제)/Σ정책결제. 원장의 cm_mpc_new_share 이고 그 값은 consumption.py 의 정의 — extra_spent 에 상한 clamp(0,amt) 를 씌우고 정책결제 비중으로 안분한다. **이벤트에서 Σex/Σsp 를 그냥 나누면 0.7163 이 나온다**(상한·안분 없음). 200명 시민별 bootstrap CI가 실측 0.21을 포함한다. 수치 근접만으로 조사·기간·모집단의 동등성이나 인과효과를 입증하지 않는다."
    },
    "P010-2": null,
    "P010-3": null,
