@@ -22,7 +22,8 @@ ALLOWED_CHANGES = {"id", "registered_on", "candidates", "temperature", "phase",
                    "predicted", "not_changed"}
 
 
-def prepare(source: Path, config_path: Path, destination: Path) -> dict:
+def prepare(source: Path, config_path: Path, destination: Path,
+            *, allow_new_candidates: bool = False) -> dict:
     old_manifest = json.loads((source / "manifest.json").read_text(encoding="utf-8"))
     old_inputs = json.loads((source / "frozen_inputs.json").read_text(encoding="utf-8"))
     config = json.loads(config_path.read_text(encoding="utf-8"))
@@ -37,13 +38,15 @@ def prepare(source: Path, config_path: Path, destination: Path) -> dict:
            if key not in ALLOWED_CHANGES):
         raise ValueError("new registration changes an unapproved execution setting")
     variants = config["candidates"]
-    if (not variants or len(variants) != len(set(variants))
-            or any(v not in old_inputs["systems"] for v in variants)):
-        raise ValueError("candidates must be a nonempty subset of frozen systems")
+    if not variants or len(variants) != len(set(variants)):
+        raise ValueError("candidates must be nonempty and unique")
+    if not allow_new_candidates and any(v not in old_inputs["systems"] for v in variants):
+        raise ValueError("new candidates require explicit --allow-new-candidates")
 
     from prompts import get  # noqa: E402
-    systems = {v: old_inputs["systems"][v] for v in variants}
-    if any(get(v).SYSTEM_PROMPT != systems[v] for v in variants):
+    systems = {v: get(v).SYSTEM_PROMPT for v in variants}
+    if any(v in old_inputs["systems"] and old_inputs["systems"][v] != systems[v]
+           for v in variants):
         raise ValueError("current candidate text differs from frozen prompt")
     inputs = {**old_inputs, "systems": systems}
     if destination.exists() and any(destination.iterdir()):
@@ -74,8 +77,11 @@ def main() -> None:
     parser.add_argument("--source", type=Path, required=True)
     parser.add_argument("--config", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--allow-new-candidates", action="store_true",
+                        help="freeze newly registered prompt text with the old contexts")
     args = parser.parse_args()
-    print(json.dumps(prepare(args.source, args.config, args.out), ensure_ascii=False))
+    print(json.dumps(prepare(args.source, args.config, args.out,
+                             allow_new_candidates=args.allow_new_candidates), ensure_ascii=False))
 
 
 if __name__ == "__main__":
