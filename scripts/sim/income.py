@@ -23,13 +23,16 @@ shown to Stage 2 and therefore changes behavior.
 
 Later ledger audits found that `anchor` is *not* policy-exogenous: the anchor uses
 the day's LLM propensity and selected POI prices, so a policy can change the
-credited income. `baseline` instead reads a frozen, policy-free per-agent map
-(`EXP_DAILY_INCOME_MAP`). Use the same map in both arms of a paired experiment.
+credited income. `baseline` instead reads a frozen per-agent map
+(`EXP_DAILY_INCOME_MAP`) from either policy-free observations or unchanged
+persona spending anchors. The latter is a synthetic budget, not real wages.
+Use the same map in both arms of a paired experiment.
 """
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -76,14 +79,31 @@ def _baseline_map(path: str) -> tuple[dict[str, int], str]:
     raw = source.read_bytes()
     data = json.loads(raw)
     values = data.get('daily_income_by_aid')
-    if (data.get('schema') != 'baseline_income_v1'
-            or data.get('policy_free_success_rows_verified') is not True
-            or not isinstance(values, dict)
+    schema = data.get('schema')
+    if schema == 'baseline_income_v1':
+        valid_origin = data.get('policy_free_success_rows_verified') is True
+    elif schema == 'fixed_persona_budget_v1':
+        valid_origin = (
+            data.get('source_kind') == 'stable_persona_spending_anchors'
+            and data.get('source_field_stability_verified') is True
+            and data.get('policy_outcome_used') is False
+            and data.get('source_fields') == ['s_daily_wd', 's_daily_we']
+            and data.get('formula') == 'round((5*s_daily_wd + 2*s_daily_we)/7)'
+            and all(isinstance(data.get(key), str)
+                    and re.fullmatch(r'[0-9a-f]{64}', data[key])
+                    for key in ('source_archive_sha256', 'confirmation_archive_sha256',
+                                'source_roster_sha256', 'source_agent_projection_sha256')))
+    else:
+        valid_origin = False
+    if (not valid_origin or not isinstance(values, dict)
             or len(values) != data.get('citizen_count')):
-        raise ValueError('Invalid policy-free baseline income map')
+        raise ValueError('Invalid frozen baseline income map')
     if not values or any(not isinstance(v, int) or isinstance(v, bool) or v <= 0
                          for v in values.values()):
         raise ValueError('Baseline income values must be positive integer won')
+    if (schema == 'fixed_persona_budget_v1'
+            and data.get('total_daily_budget_won') != sum(values.values())):
+        raise ValueError('Frozen persona budget total does not match citizen values')
     return values, hashlib.sha256(raw).hexdigest()
 
 
@@ -128,7 +148,7 @@ def describe(spec):
     if kind == 'flat':
         return '소득 하루 %s원 정액' % format(int(round(value)), ',d')
     if kind == 'baseline':
-        return '정책 전 관측으로 고정한 개인별 하루 예산 보충액'
+        return '정책과 독립적으로 고정한 개인별 하루 예산 보충액'
     if value == 1.0:
         return '소득 하루 = 본인 소비 앵커'
     return '소득 하루 = 본인 소비 앵커 x %g' % value

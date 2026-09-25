@@ -90,3 +90,31 @@ def test_policy_free_baseline_income_is_fixed_across_policy_changed_anchors(tmp_
 def test_baseline_income_requires_map_before_simulation():
     with pytest.raises(ValueError, match='EXP_DAILY_INCOME_MAP'):
         preflight_baseline_income('baseline', None, ['a'])
+
+
+def test_frozen_persona_budget_is_accepted_but_outcome_derived_budget_is_rejected(tmp_path):
+    import json
+    source = tmp_path / 'persona_budget.json'
+    data = {
+        'schema': 'fixed_persona_budget_v1',
+        'source_kind': 'stable_persona_spending_anchors',
+        'source_field_stability_verified': True,
+        'policy_outcome_used': False,
+        'source_fields': ['s_daily_wd', 's_daily_we'],
+        'formula': 'round((5*s_daily_wd + 2*s_daily_we)/7)',
+        'source_archive_sha256': 'a' * 64,
+        'confirmation_archive_sha256': 'b' * 64,
+        'source_roster_sha256': 'c' * 64,
+        'source_agent_projection_sha256': 'd' * 64,
+        'citizen_count': 2,
+        'total_daily_budget_won': 210000,
+        'daily_income_by_aid': {'a': 90000, 'b': 120000},
+    }
+    source.write_text(json.dumps(data), encoding='utf-8')
+    assert preflight_baseline_income('baseline', source, ['a', 'b'])['citizens'] == 2
+    assert daily_income(None, 'baseline', aid='a', baseline_map_path=source) == 90000
+    data['policy_outcome_used'] = True
+    tampered = tmp_path / 'tampered_budget.json'
+    tampered.write_text(json.dumps(data), encoding='utf-8')
+    with pytest.raises(ValueError, match='Invalid frozen'):
+        preflight_baseline_income('baseline', tampered, ['a', 'b'])
