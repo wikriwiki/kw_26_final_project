@@ -26,6 +26,27 @@ def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
 
 
+def source_hashes(root=ROOT):
+    """The exact source inventory frozen with a prompt pilot."""
+    return {
+        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
+        for base in (root / "scripts/sim", root / "data/experiments/covid_support_2021",
+                     root / "data/neo4j_load/policies")
+        for path in sorted(base.rglob("*"))
+        if path.is_file() and path.suffix in {".py", ".json"}
+    }
+
+
+def verify_frozen_sources(manifest, inputs, root=ROOT):
+    """Refuse a run when code or candidate text changed after freezing."""
+    expected = manifest.get("source_hashes")
+    if not isinstance(expected, dict) or not expected or source_hashes(root) != expected:
+        raise ValueError("source inventory changed after freezing")
+    systems = inputs.get("systems") or {}
+    if manifest.get("system_hashes") != {v: digest(s) for v, s in systems.items()}:
+        raise ValueError("candidate text changed after freezing")
+
+
 def atomic(path, value):
     path = Path(path)
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -228,14 +249,16 @@ def main():
             raise SystemExit("preregistration changed after freezing")
         if manifest["script_sha256"] != hashlib.sha256(Path(__file__).read_bytes()).hexdigest():
             raise SystemExit("runner changed after freezing")
+        try:
+            verify_frozen_sources(manifest, inputs)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     else:
         inputs=prepare(config); atomic(frozen, inputs)
         atomic(out/"manifest.json", {"config":config,"config_sha256":digest(config),"inputs_sha256":digest(inputs),
                                    "script_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                                    "system_hashes":{v:digest(s) for v,s in inputs["systems"].items()},
-                                   "source_hashes":{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
-                                                    for base in [ROOT/"scripts/sim",ROOT/"data/experiments/covid_support_2021",ROOT/"data/neo4j_load/policies"]
-                                                    for p in sorted(base.rglob("*")) if p.is_file() and p.suffix in {".py",".json"}}})
+                                   "source_hashes":source_hashes()})
     if args.prepare_only:
         print(f"Frozen {len(inputs['cells'])} contexts. No LLM calls."); return
     base=os.environ.get("LLM_BASE_URL","http://localhost:8000/v1").rstrip("/")

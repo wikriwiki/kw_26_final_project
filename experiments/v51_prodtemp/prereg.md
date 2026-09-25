@@ -16,3 +16,7 @@ v51을 **다음 기술 점검 후보**로 올리는 필요조건은 양쪽 384�
 통과해도 이는 **12명의 알려진 개발 사례에 대한 Stage1 형식**만 뜻한다. Stage2의 무보정 장소 선택·실현 거래·정책 원장과 ON/OFF 효과의 방향·대략적 크기는 후속 독립 관문이다. P015는 이미 사용되어 재실험하지 않는다. 이 파일과 공통 프롬프트에는 정책별 실측 효과의 부호·수치를 넣지 않는다.
 
 준비 후 `PYTHONHASHSEED=0 python scripts/sim/validate_prompt_v3.py --config data/experiments/validation_v51_prodtemp_20260926.json --out <동결 출력 폴더>`로 실행한다. 준비된 로컬 폴더 `output/validation_v51_prodtemp_frozen_v3_20260926`의 설정 digest는 `9f102eb05e39869938719e977b342c386fe6ab62f3c072a1dff762f14cbed5fb`, 동결 입력 digest는 `12bf485e9028de59fa41c65d552f9cb3851fb1cecc900c919c77d328d0ee6469`다. 실행 전에 이 둘과 실제 서빙 모델, 코드 지문을 다시 확인한다.
+
+## 2026-09-26 실행 전 소스 지문 보정
+
+모델 호출 전에 v3 동결본을 검사하니 설정·96개 컨텍스트·v45/v51 프롬프트 본문·실행 스크립트 지문은 그대로였지만, 동결 뒤 `scripts/sim/income.py` 한 파일의 지문이 바뀌었다. 원래 v3 동결본을 보존하고 중간 v4 동결본을 만들었다. 이어 실행기가 매니페스트의 **전체 소스·프롬프트 지문을 실제 호출 전에 강제 확인**하도록 보강했으므로, 보강된 실행기로 최종 **v5 동결본** `output/validation_v51_prodtemp_frozen_v5_20260926`을 만들었다. 설정 digest `9f102eb05e39869938719e977b342c386fe6ab62f3c072a1dff762f14cbed5fb`와 입력 digest `12bf485e9028de59fa41c65d552f9cb3851fb1cecc900c919c77d328d0ee6469`는 v3~v5 모두 동일하다. 실제 실행은 **v5 폴더**를 쓰며, 코드가 다시 바뀌면 호출을 거부한다. 세 동결본 모두 아직 `responses.jsonl`이 없어 결과를 본 뒤 입력이나 기준을 바꾼 일이 아니다.

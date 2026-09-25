@@ -13,7 +13,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/sim"))
-from validate_prompt_v3 import atomic, digest  # noqa: E402
+from validate_prompt_v3 import atomic, digest, source_hashes  # noqa: E402
 
 SAME_CONTEXT = ("model", "sample_n", "replicate_seeds", "cases", "arms",
                 "max_tokens", "initial_state", "cashback_seed", "design")
@@ -50,20 +50,13 @@ def prepare(source: Path, config_path: Path, destination: Path) -> dict:
         raise FileExistsError(f"destination is not empty: {destination}")
     destination.mkdir(parents=True, exist_ok=True)
 
-    source_hashes = {
-        path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-        for base in (ROOT / "scripts/sim", ROOT / "data/experiments/covid_support_2021",
-                     ROOT / "data/neo4j_load/policies")
-        for path in sorted(base.rglob("*"))
-        if path.is_file() and path.suffix in {".py", ".json"}
-    }
     manifest = {
         "config": config,
         "config_sha256": digest(config),
         "inputs_sha256": digest(inputs),
         "script_sha256": hashlib.sha256((ROOT / "scripts/sim/validate_prompt_v3.py").read_bytes()).hexdigest(),
         "system_hashes": {v: digest(s) for v, s in systems.items()},
-        "source_hashes": source_hashes,
+        "source_hashes": source_hashes(),
         "frozen_from": {
             "manifest_sha256": hashlib.sha256((source / "manifest.json").read_bytes()).hexdigest(),
             "inputs_sha256": hashlib.sha256((source / "frozen_inputs.json").read_bytes()).hexdigest(),
