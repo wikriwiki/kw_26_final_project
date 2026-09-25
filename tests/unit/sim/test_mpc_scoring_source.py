@@ -39,8 +39,26 @@ def test_mpc는_해당_on일의_원장만_사용한다(tmp_path):
     assert score['mean'] == pytest.approx(0.75)
     assert score['n'] == 2 and score['n_cells'] == 2
     assert score['unit'] == 'ratio' and score['bootstrap_unit'] == 'aid'
+    assert not score['measurement_complete']  # 구 원장에는 최종 결제 귀속 증거가 없다
     with pytest.raises(ValueError, match='관측일 누락'):
         score_mpc_from_metrics(tmp_path, ["2025-07-22", "2025-07-23"])
+
+
+def test_최종_결제와_응답의_전액_대조가_될때만_mpc_측정완전(tmp_path):
+    rows = [
+        {'aid': 'a', 'status': 'ok', 'cm_mpc_new_share': 0.2,
+         'policy_spend_today': 100, 'cm_mpc_paid_won': 100,
+         'cm_mpc_unresolved_won': 0, 'cm_mpc_coverage': 1},
+        {'aid': 'b', 'status': 'ok', 'cm_mpc_new_share': 0.4,
+         'policy_spend_today': 100, 'cm_mpc_paid_won': 100,
+         'cm_mpc_unresolved_won': 0, 'cm_mpc_coverage': 1},
+    ]
+    (tmp_path / 'day_2025-07-22.jsonl').write_text(
+        ''.join(json.dumps(r) + '\n' for r in rows), encoding='utf-8')
+    score = score_mpc_from_metrics(tmp_path, ['2025-07-22'])
+    assert score['measurement_complete']
+    assert score['measurement_coverage'] == 1
+    assert score['mean'] == pytest.approx(0.3)
 
 
 def test_mpc_원장_인자_없이_채점하면_명시적_오류():

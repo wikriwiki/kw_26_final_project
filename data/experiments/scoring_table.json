@@ -37,7 +37,12 @@
     "expect": "+",
     "scale": "main",
     "metric": "mpc_amount",
-    "desc": "한계소비성향 > 0 (실측 0.21)"
+    "desc": "한계소비성향 > 0 (실측 0.21)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf, 본문 29~32항·참고 3",
+     "comparison": "definition_pending",
+     "reason": "BOK 0.21은 전국 신청자 1차 조사에서 사용·사용계획을 9품목 이분 응답으로 분류한 비율이다. 옛 시뮬 0.216은 서울 시민 28일 전체(등록 ON 이틀은 0.121)의 계획 단계 비율을 최종 결제액으로 가중했고 결제 귀속률도 98.52%다."
+    }
    },
    {
     "id": "P010-2",
@@ -65,11 +70,19 @@
     ],
     "n": 200,
     "n_cells": 1971,
+    "positive_payment_cells": 1940,
+    "attributed_payment_cells": 1906,
+    "payment_attribution_coverage": 0.9851872518875313,
+    "settled_ledger_alignment_verified": false,
+    "historical_hit_only": true,
+    "registered_on_window_mpc": 0.12092266675081322,
+    "registered_on_window_payment_coverage": 0.9665250689037654,
+    "survey_overlap_only_mpc": 0.2476838346549662,
     "bootstrap_unit": "aid",
     "ci_cell_bootstrap_superseded": [0.2002, 0.2333],
     "실측": 0.21,
     "hit": true,
-    "note": "정책결제 가중 Σ(share×정책결제)/Σ정책결제. 원장의 cm_mpc_new_share 이고 그 값은 consumption.py 의 정의 — extra_spent 에 상한 clamp(0,amt) 를 씌우고 정책결제 비중으로 안분한다. **이벤트에서 Σex/Σsp 를 그냥 나누면 0.7163 이 나온다**(상한·안분 없음). 200명 시민별 bootstrap CI가 실측 0.21을 포함한다. 수치 근접만으로 조사·기간·모집단의 동등성이나 인과효과를 입증하지 않는다."
+    "note": "옛 28일 전체 진단값. 정책결제 가중 Σ(share×정책결제)/Σ정책결제이며, 당시 consumption.py 의 계획 단계 extra_spent 산식이다. 이벤트에서 Σex/Σsp 를 그냥 나누면 0.7163 이 나온다(상한·안분 없음). 시민 200명 bootstrap CI가 실측 0.21을 포함하지만 이 28일 평균은 등록 ON 창(7/22~23)의 0.120923과 다르고, 옛 분자·분모는 최종 거래별로 대조되지 않았다. BOK 조사·기간·모집단의 동등성이나 인과효과를 입증하지 않는다."
    },
    "P010-2": null,
    "P010-3": null,

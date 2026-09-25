@@ -82,6 +82,7 @@ from consumption import (  # noqa: E402
     apply_consumption_model,
     filter_active_grant_balances,
     settle_policy_spend_priority,
+    settled_mpc_measure,
 )
 
 
@@ -530,6 +531,21 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             events, policy_remaining=grant_avail_today, restricted_pids=restricted_pids,
         )
 
+        # 소비 모델의 정산 뒤에도 validator가 정책결제액을 줄일 수 있다.
+        # MPC의 분모·분자는 이 최종 결제 원장에서 같은 거래로 다시 계산한다.
+        commerce_events = [e for e in events
+                           if e.get("category") not in {"집", "직장"} and e.get("poi_id")]
+        stage2_amounts = cm_meta.pop("mpc_stage2_amounts", None)
+        if stage2_amounts is None:
+            stage2_amounts = [max(0.0, float(e.get("actual_spent") or 0))
+                              for e in commerce_events]
+        mpc = settled_mpc_measure(commerce_events, stage2_amounts)
+        cm_meta.update({"mpc_new_share": mpc["share"],
+                        "mpc_lower": mpc["lower"], "mpc_upper": mpc["upper"],
+                        "mpc_paid_won": mpc["paid_won"],
+                        "mpc_unresolved_won": mpc["unresolved_won"],
+                        "mpc_coverage": mpc["coverage"]})
+
         # 오늘 거래별 policy_spend 집계 → 정책별 오늘 사용액
         today_policy_spend = aggregate_policy_spend(events)
 
@@ -683,6 +699,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "cm_grant_choice_share_mean": cm_meta.get("grant_choice_share_mean"),
                 "cm_grant_posture": cm_meta.get("grant_posture"),
                 "cm_mpc_new_share": cm_meta.get("mpc_new_share"),
+                "cm_mpc_lower": cm_meta.get("mpc_lower"),
+                "cm_mpc_upper": cm_meta.get("mpc_upper"),
+                "cm_mpc_paid_won": cm_meta.get("mpc_paid_won"),
+                "cm_mpc_unresolved_won": cm_meta.get("mpc_unresolved_won"),
+                "cm_mpc_coverage": cm_meta.get("mpc_coverage"),
                 "spend_decile": ctx.persona.get("spend_decile"),
                 "cm_mpc_new_share_effective": cm_meta.get("mpc_new_share_effective"),
                 "cm_grant_extra_rate": cm_meta.get("grant_extra_rate"),

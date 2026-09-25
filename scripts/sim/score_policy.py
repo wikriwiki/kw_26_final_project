@@ -450,6 +450,17 @@ def score_mpc_from_metrics(metrics_dir: Path, on_days: list[str]) -> dict:
     r = weighted_mpc(rows)
     if r["mpc"] is None:
         raise ValueError("정책결제액이 없어서 MPC를 계산할 수 없다")
+    paid_rows = [x for _day, x in rows if (x.get("policy_spend_today") or 0) > 0]
+    total_paid = sum(x["policy_spend_today"] for x in paid_rows)
+    attributed_paid = sum(x["policy_spend_today"] for x in paid_rows
+                          if isinstance(x.get("cm_mpc_new_share"), (int, float)))
+    ledger_aligned = all(
+        x.get("cm_mpc_paid_won") == x["policy_spend_today"]
+        and x.get("cm_mpc_unresolved_won") == 0
+        and x.get("cm_mpc_coverage") == 1
+        for x in paid_rows
+    )
+    measurement_complete = (attributed_paid == total_paid and ledger_aligned)
     pairs = [(x.get("aid"), x["cm_mpc_new_share"], x.get("policy_spend_today") or 0)
              for _day, x in rows
              if isinstance(x.get("cm_mpc_new_share"), (int, float))
@@ -459,8 +470,14 @@ def score_mpc_from_metrics(metrics_dir: Path, on_days: list[str]) -> dict:
     lo, hi = boot_ci(pairs)
     return {"mean": r["mpc"], "ci": [lo, hi], "n": r["agents"],
             "n_cells": r["cells"], "denom_won": r["denom_won"],
+            "total_policy_paid_won": total_paid,
+            "attributed_policy_paid_won": attributed_paid,
+            "measurement_coverage": attributed_paid / total_paid,
+            "ledger_aligned": ledger_aligned,
+            "measurement_complete": measurement_complete,
             "unit": "ratio", "source": str(metrics_dir),
-            "bootstrap_unit": "aid", "measure": "reported_new_spend_share"}
+            "bootstrap_unit": "aid", "measure": "settled_reported_new_spend_share"
+            if ledger_aligned else "legacy_reported_new_spend_share"}
 
 
 # =========================================================
@@ -577,11 +594,13 @@ def main() -> int:
                 print(f"MPC 채점 중단: {exc}", file=sys.stderr)
                 return 2
             got = sign_of(*mpc["ci"])
-            hit = (got == expect)
+            hit = (got == expect) if mpc["measurement_complete"] else None
             results.append({**ind, **mpc, "got": got, "hit": hit})
             print(f"  {ind['id']:<8} 자기보고 신규소비 비율 "
                   f"{mpc['mean']:.4f} CI[{mpc['ci'][0]:.4f},{mpc['ci'][1]:.4f}] "
-                  f"시민 {mpc['n']}명 · 시민-일 {mpc['n_cells']}칸")
+                  f"시민 {mpc['n']}명 · 시민-일 {mpc['n_cells']}칸 "
+                  f"결제귀속 {mpc['measurement_coverage']:.1%} "
+                  f"{'완전' if mpc['measurement_complete'] else '미검증'}")
             continue
         if name in ("threshold_reach_rate", "cashback_per_capita", "cap_reach_rate"):
             cb = fetch_cashback(on_days[-1], 0.10, 100_000, 0.268)

@@ -346,7 +346,7 @@ def main() -> int:
             lines.append("| " + " | ".join(str(v).replace("|", "/").replace("\n", " ")
                                           for v in values) + " |")
         lines += ["", "상태별 개수: " + ", ".join(f"{k} {v}" for k, v in tally.items()) + ".",
-                  "", "KDI P012 원문 정의는 [P012_EMPIRICAL_ALIGNMENT_20260926.md](P012_EMPIRICAL_ALIGNMENT_20260926.md)에서 확인할 수 있다."]
+                  "", "원문과 시뮬 출력의 정의 대조: [P010](P010_EMPIRICAL_ALIGNMENT_20260926.md), [P012](P012_EMPIRICAL_ALIGNMENT_20260926.md)."]
         Path(a.md_out).write_text("\n".join(lines) + "\n", encoding="utf-8")
         print("→ %s" % a.md_out)
     return 0

@@ -592,6 +592,56 @@ def settle_policy_spend_priority(
     return allocation
 
 
+def settled_mpc_measure(events: list[dict], stage2_amounts: list[float]) -> dict:
+    """최종 정책결제 원장에 자기보고 신규소비 몫을 적용한다.
+
+    계획한 거래가 잔액 제약으로 줄었다면 어느 부분이 취소됐는지 알 수 없다.
+    그 정책결제액은 임의로 분류하지 않고 0~1 경계에 남긴다.
+    """
+    # 이벤트-원금 행 수가 어긋나면 zip()이 뒤 거래를 조용히 버리지 않게 전액 미분류.
+    if len(events) != len(stage2_amounts):
+        stage2_amounts = [0.0] * len(events)
+    total_paid = known_paid = known_new = 0.0
+    for event, stage2_amount in zip(events, stage2_amounts):
+        ps = event.get("policy_spend") or {}
+        if not isinstance(ps, dict):
+            continue
+        try:
+            paid = sum(max(0.0, float(v or 0)) for v in ps.values())
+        except (TypeError, ValueError):
+            continue
+        if paid <= 0:
+            continue
+        total_paid += paid
+        actual = float(event.get("actual_spent") or 0)
+        desired = float(event.get("desired_spent") or 0)
+        if (stage2_amount <= 0 or actual <= 0 or actual != desired
+                or paid > actual):
+            continue
+        extra = event.get("extra_spent")
+        if extra is None:
+            anyway = event.get("would_buy_anyway")
+            if not isinstance(anyway, bool):
+                continue
+            new_share = 0.0 if anyway else 1.0
+        else:
+            try:
+                new_share = max(0.0, min(1.0, float(extra) / stage2_amount))
+            except (TypeError, ValueError):
+                continue
+        known_paid += paid
+        known_new += paid * new_share
+    unresolved = max(0.0, total_paid - known_paid)
+    if total_paid <= 0:
+        return {"share": None, "lower": None, "upper": None,
+                "paid_won": 0, "unresolved_won": 0, "coverage": None}
+    return {"share": round(known_new / total_paid, 4) if unresolved == 0 else None,
+            "lower": round(known_new / total_paid, 4),
+            "upper": round((known_new + unresolved) / total_paid, 4),
+            "paid_won": round(total_paid), "unresolved_won": round(unresolved),
+            "coverage": round(known_paid / total_paid, 6)}
+
+
 def apply_consumption_model(
     events: list[dict],
     *,
@@ -967,34 +1017,8 @@ def apply_consumption_model(
         substituted = min(intended_grant_today, eligible_base)
     # 굳은 현금 중 오늘 더 쓰는 데 돌리는 비율은 본인 판단(grant_extra_spend).
     # 값이 없으면 굳은 돈을 그냥 남겨 두는 것으로 본다(추가 소비 없음).
-    # [MPC 산출 — 참고3 ⑤와 같은 형태] 지원금으로 결제한 건마다 '없었어도 했을 지출인가'를
-    # 0/1로 받아, 결제금액으로 가중평균한 것이 그날의 신규 소비 유발 비중 m이다.
-    #   m = Σ(그 건의 지원금 결제액 × 신규여부) / Σ(지원금 결제액)
-    # 스칼라 하나(grant_kept_share)로 물으면 LLM이 계층 구분 없이 같은 값을 답한다(R84~R86
-    # 측정). 건별 0/1은 각 지출을 실제로 들여다보게 하므로 형편 차이가 값에 남는다.
-    # **이 값은 측정 전용이다.** 아래 소비 총액 계산에 들어가지 않는다(순환 방지).
-    # BOK도 자기보고 서베이로 같은 값을 얻었고 그 한계를 34항에 명시했다 — 도구와 한계가 같다.
-    # MPC = Σ(정책지갑 결제분 중 신규 소비) / Σ(정책지갑 결제액).
-    # 신규분은 건별 참/거짓이 아니라 **금액**(extra_spent)으로 받는다. 같은 결제 안에서도
-    # '평소 쓰던 만큼'과 '이 돈이 있어 더 쓴 만큼'이 섞이는데, 참/거짓으로 받으면 후자가
-    # 통째로 0으로 버려져 생필품·외식 비중이 높은 우리 구성에서 체계적으로 과소 측정된다.
-    # extra_spent는 결제 전체 기준이므로 정책 결제 비중만큼 안분한다.
-    _mpc_new: float | None = None
-    if _choice_shares:
-        _w_tot = 0.0; _w_new = 0.0
-        for _i, _e in enumerate(commerce):
-            _amt = max(0.0, float(_base_spends[_i]))
-            _c = _amt * max(0.0, min(1.0, _choice_shares[_i]))
-            if _c <= 0: continue
-            _ex = _e.get("extra_spent")
-            if _ex is None:
-                _wba = _e.get("would_buy_anyway")
-                if _wba is None: continue
-                _ex = 0.0 if _wba else _amt
-            _ex = max(0.0, min(_amt, float(_ex)))
-            _w_tot += _c
-            _w_new += _ex * (_c / _amt if _amt > 0 else 0.0)
-        if _w_tot > 0: _mpc_new = _w_new / _w_tot
+    # MPC는 최종 거래·정책결제가 확정된 뒤에만 측정한다. 여기의 선택 비율과
+    # _base_spends는 계획 단계이므로 최종 원장의 분모로 섞어 쓰지 않는다.
 
     # ─────────────────────────────────────────────────────────────────────────
     # [폐기 — 순환 구조] 예전에는 여기서 MPC(또는 grant_kept_share)를 받아
@@ -1099,6 +1123,7 @@ def apply_consumption_model(
         if event["actual_spent"] < desired:
             event["expected_satisfaction"] = event.get("actual_satisfaction")
             event["actual_satisfaction"] = None
+    mpc_measure = settled_mpc_measure(commerce, weights)
     normal_budget = spend_today(p, daily)
     allocated_total = int(allocation["total"])
     payment_coverage = (
@@ -1131,7 +1156,15 @@ def apply_consumption_model(
         # 참고3 ⑤ 형태로 산출한 그날의 신규 소비 유발 비중(= MPC). None이면 판단 누락.
         # 사후 측정값. 소비 생성에 쓰이지 않는다(순환 방지). 보고서의 MPC는 이 값을
         # 지원금 결제액으로 가중해 집계한 것이다.
-        "mpc_new_share": (round(_mpc_new, 4) if _mpc_new is not None else None),
+        "mpc_new_share": mpc_measure["share"],
+        "mpc_lower": mpc_measure["lower"],
+        "mpc_upper": mpc_measure["upper"],
+        "mpc_paid_won": mpc_measure["paid_won"],
+        "mpc_unresolved_won": mpc_measure["unresolved_won"],
+        "mpc_coverage": mpc_measure["coverage"],
+        # 후단 사용처/잔액 검증에서 정책결제가 바뀔 수 있다. 실행기에서 최종
+        # 영수증 기준 MPC를 다시 계산할 때 Stage2 최초 금액을 사용한다.
+        "mpc_stage2_amounts": weights,
         "additional_from_grant": additional_from_grant,
         "personal_total": personal_total,
         "anchor_total": _anchor_total,
