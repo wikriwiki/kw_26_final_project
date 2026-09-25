@@ -26,6 +26,10 @@ _spec = importlib.util.spec_from_file_location(
     'all_indicators_table', ROOT / 'scripts/report/all_indicators_table.py')
 _indicators = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_indicators)
+_sign_spec = importlib.util.spec_from_file_location(
+    'sign_scoreboard', ROOT / 'scripts/report/sign_scoreboard.py')
+_sign = importlib.util.module_from_spec(_sign_spec)
+_sign_spec.loader.exec_module(_sign)
 
 # 과거 블록의 기본 프롬프트는 v5다. 이름 끝에 후보 접미사가 있으면 그대로 표시한다.
 # 이 보관된 결과는 새 후보의 정책별 ON/OFF 유효성 검증을 대신하지 않는다.
@@ -128,6 +132,7 @@ def indicator_rows(block, inds):
         iid = i.get('id')
         val = block.get(iid)
         audit = i.get('empirical_audit') or {}
+        source_gap = not _sign.direction_comparison_audited(i)
         comparable = (_indicators.direct_comparison_audited(i)
                       and i.get('expect') != 'rank'
                       and audit.get('reported_unit') == '%')
@@ -150,7 +155,8 @@ def indicator_rows(block, inds):
             'sim_text': shown,
             'sim': None if invalid else sim_pct(val),
             'ci': None if invalid else ((val or {}).get('ci') if isinstance(val, dict) else None),
-            'hit': None if invalid else ((val or {}).get('hit') if isinstance(val, dict) else None),
+            'hit': None if invalid or source_gap else ((val or {}).get('hit') if isinstance(val, dict) else None),
+            'internal_hit': (val or {}).get('hit') if isinstance(val, dict) and not invalid else None,
             'note': note,
             'measured': isinstance(val, dict),
         })
@@ -191,7 +197,7 @@ def draw(rows):
 
 
 def table(rows):
-    L = ['| 지표 | 무엇을 재나 | 기대 | 실측 | 시뮬 | 95% 구간 | 차이 | 점추정 부호 | 등록판정 |',
+    L = ['| 지표 | 무엇을 재나 | 내부 기대 | 실측 | 시뮬 | 95% 구간 | 차이 | 내부 기대 부호 | 외부 판정 |',
          '|---|---|:-:|---:|---:|---|---:|:-:|---|']
     for r in rows:
         ci = '—'
@@ -206,6 +212,12 @@ def table(rows):
         # '부호 불일치'로 적으면 사실과 다르다 — 갈라서 적는다.
         verdict = {True: '등록 적중', False: '등록 미적중'}.get(
             r['hit'], '안 잼' if not r['measured'] else '—')
+        if r['audit_status'] == 'not_observed':
+            verdict = '원문 미관측·내부가설'
+        elif r['audit_status'] == 'different_estimand':
+            verdict = '추정량 불일치·내부판정'
+        elif r['hit'] is None and r.get('internal_hit') in (True, False):
+            verdict = '원문 방향 미감사·내부판정'
         if r['hit'] in (True, False) and not r['comparable']:
             verdict += '·외부 미검증'
         sign = '—'
@@ -228,7 +240,7 @@ def build():
     L = ['# 라운드별 결과 — 지표와 검증 가능성', '',
          '**자동 생성.** `python scripts/report/build_results_overview.py`', '',
          '실측과 시뮬레이션의 대상·결과·기간·분모·대조군이 일치한다고 명시적으로 확인된 지표에만 '
-         '같은 눈금의 막대와 크기 차이를 표시한다. 등록판정은 실험 내부의 부호 판정이다.', '',
+         '같은 눈금의 막대와 크기 차이를 표시한다. 내부 등록판정은 원문 방향 대응 감사 전에는 외부 실측 적중이 아니다.', '',
          '> 이 표는 보관된 역사적 런을 보여 준다. 후보 접미사가 없는 블록은 `v5`로 표시하고, '
          '이름 끝에 후보가 있는 블록은 그 후보로 표시한다. 정책별 새 ON/OFF 검증 결과로 해석하지 않는다.', '',
          '> 수치는 전부 `data/experiments/scoring_table.json` 에서 온다. 손으로 적지 않는다.', '']
@@ -248,7 +260,7 @@ def build():
             scored = sum(1 for r in rows if r['hit'] in (True, False))
             summary.append((pid, name, rn, prompt_of(rn),
                             '부호 %d/%d' % (hits, scored) if scored else '—'))
-    L += ['## 한눈에', '', '| 정책 | 라운드 | 프롬프트 | 부호 적중 |', '|---|---|:-:|---|']
+    L += ['## 한눈에', '', '| 정책 | 라운드 | 프롬프트 | 원문 대조 가능한 부호 적중 |', '|---|---|:-:|---|']
     for pid, name, rn, pr, res in summary:
         L.append('| %s %s | `%s` | `%s` | %s |' % (pid, name, rn, pr, res))
     L += ['', '---', '']

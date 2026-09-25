@@ -223,6 +223,17 @@ def test_삼중차분_로그계수를_짧은_전후_증가율과_비교하지_�
     assert (st, err, shown) == ("다른자", None, "+1.90%")
 
 
+def test_P014_원문_미관측_위치비중을_외부_방향으로_채점하지_않는다():
+    table = json.loads((ROOT / 'data/experiments/scoring_table.json').read_text(encoding='utf-8'))
+    for iid in ('LV-1', 'LV-2', 'LV-3'):
+        ind = next(i for i in table['LOCAL_VOUCHER']['indicators'] if i['id'] == iid)
+        assert ind['empirical_audit']['source'].endswith('쪽')
+        entry = table['LOCAL_VOUCHER']['result_stage6_district_n500_2026_09_18'][iid]
+        st, err, _ = A.classify(ind, entry, None, '')
+        assert err is None
+        assert st == ('다른자' if iid == 'LV-1' else '실측없음')
+
+
 def test_P012_실측_원문_계수를_퍼센트_오차에_더하지_않는다():
     table = json.loads((ROOT / 'data/experiments/scoring_table.json').read_text(encoding='utf-8'))
     ind = next(i for i in table['P012']['indicators'] if i['id'] == 'P012-1')

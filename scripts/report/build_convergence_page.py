@@ -22,8 +22,8 @@
 점추정이 기대 방향인데 구간이 0 을 지나는 것은 프롬프트가 아니라 표본의
 문제이고, 둘을 같은 'X' 로 묶으면 그 구분이 사라진다.
 
-`sign_scoreboard.SUSPECT` 에 든 읽기는 **'못 셈'** 으로 칠하고 세지 않는다 —
-다른 자로 잰 값이 그림에서만 적중으로 보이면 안 된다.
+원문 방향 추정량 대응 감사가 없거나 `sign_scoreboard.SUSPECT` 에 든 읽기는
+**'외부 대조 불가'** 로 칠하고 세지 않는다.
 """
 from __future__ import annotations
 
@@ -84,7 +84,7 @@ def collect():
             ci_pct = None
             if isinstance(ci, list) and len(ci) == 2 and isinstance(base, (int, float)) and base:
                 ci_pct = [100.0 * ci[0] / base, 100.0 * ci[1] / base]
-            sus = (key, block, iid) in sb.SUSPECT
+            sus = bool(sb.exclusion_reason(key, block, ind))
             # 방향 일치 — 점추정 부호가 기대와 같은가. 동등성·순위는 해당 없음.
             dirn = None
             if expect in ('+', '-') and isinstance(pct, (int, float)):
@@ -166,7 +166,7 @@ def _tag(r):
     if r['state'] == 'pending':
         return ('아직 안 쟀다', 'wait')
     if r['suspect']:
-        return ('못 셈', 'sus')
+        return ('외부 대조 불가', 'sus')
     if r['state'] == 'nodata':
         return ('이 런에 없음', 'wait')
     # 동등성 지표(기대 '무반응')는 **구간이 0 을 지나는 것이 바라는 바**다.
@@ -236,7 +236,7 @@ def render(rows):
         ('%d' % len(rows), '검증지표 전체', ''),
         ('%d' % len(m), '값이 나온 지표', ''),
         ('%d / %d' % (sum(1 for r in judged if r['dir_ok']), len(judged)),
-         '방향 일치 (판정 가능한 것)', ' hi'),
+         '외부 방향 대응 감사 완료', ' hi'),
         ('%d' % sum(1 for r in m if r['crosses']), '구간이 0 을 지남', ''),
         ('%d' % sum(1 for r in m if r['truth'] is not None), '실측 수치가 붙은 것', ''),
         ('%d' % sum(1 for r in m if r.get('comparable') and r['pct'] is not None),

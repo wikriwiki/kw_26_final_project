@@ -21,7 +21,8 @@ def test_정의가_다른_지표의_크기차와_동일눈금_그래프를_막�
     table = "\n".join(overview.table(rows))
     assert "직접 같은 눈금으로 비교할 수" in chart
     assert "차이 +" not in chart
-    assert "등록 적중·외부 미검증" in table
+    assert "추정량 불일치·내부판정" in table
+    assert rows[0]['hit'] is None and rows[0]['internal_hit'] is True
     assert "-1.0%p" not in table
 
 
@@ -56,7 +57,29 @@ def test_비율이_아닌_원장_평균도_값을_숨기지_않는다():
     table = "\n".join(overview.table(rows))
     assert "평균 0.216 (단위 확인)" in table
     assert "[+0.18, +0.24]" in table
-    assert "등록 적중·외부 미검증" in table
+    assert "원문 방향 미감사·내부판정" in table
+
+
+def test_원문에_없는_지역상품권_기전은_실측_적중이_아니다():
+    indicators = [{"id": "LV-2", "expect": "+", "desc": "거주 동 소비 비중 증가",
+                   "empirical_audit": {"comparison": "not_observed"}}]
+    rows = overview.indicator_rows({"LV-2": {"pct": 2.5, "hit": True}}, indicators)
+    assert rows[0]['hit'] is None
+    assert rows[0]['internal_hit'] is True
+    assert "원문 미관측·내부가설" in "\n".join(overview.table(rows))
+
+
+def test_방향_대응을_별도_감사하면_내부_부호를_외부에_쓸_수_있다():
+    audit = {"sign_comparison": "matched_direction", "reported_direction": "+"}
+    audit.update({f: 'reviewed' for f in (
+        'source', 'reported_estimand', 'simulation_estimand',
+        'reported_window', 'simulation_window', 'reported_population',
+        'simulation_population', 'reported_denominator', 'simulation_denominator')})
+    indicators = [{"id": "X", "expect": "+", "desc": "업종 매출 증가",
+                   "empirical_audit": audit}]
+    rows = overview.indicator_rows({"X": {"pct": 2.5, "hit": True}}, indicators)
+    assert rows[0]['hit'] is True
+    assert rows[0]['comparable'] is False  # sign alignment is not magnitude alignment
 
 
 def test_무효_과거값은_부호_일치로_세지_않는다():

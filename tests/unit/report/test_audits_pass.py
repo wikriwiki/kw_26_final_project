@@ -164,6 +164,31 @@ def test_a_reading_taken_with_the_wrong_ruler_is_not_counted():
     assert '못 센 것' in out, '왜 빠졌는지 표 아래에 적혀 있어야 한다'
 
 
+def test_P014_internal_mechanism_hypotheses_do_not_enter_empirical_hit_rate():
+    m = _load('p014_scoreboard', 'scripts/report/sign_scoreboard.py')
+    rc, out = _run(m, ['sign_scoreboard.py'])
+    assert rc == 0
+    for iid in ('LV-1', 'LV-2', 'LV-3'):
+        row = next(r for r in out.splitlines() if iid in r.split())
+        assert '못 셈' in row and ' O ' not in row and ' X ' not in row
+
+
+def test_external_direction_needs_an_explicit_source_alignment_gate():
+    m = _load('sign_gate', 'scripts/report/sign_scoreboard.py')
+    key, block = 'P012', 'result_r2_v5'
+    assert m.exclusion_reason(key, block, {'id': 'NEW', 'expect': '+'})
+    assert m.exclusion_reason(key, block, {'id': 'NEW', 'empirical_audit': {
+        'comparison': 'different_estimand'}})
+    claim = {'id': 'NEW', 'expect': '+', 'empirical_audit': {
+        'sign_comparison': 'matched_direction', 'reported_direction': '+'}}
+    assert m.exclusion_reason(key, block, claim)
+    claim['empirical_audit'].update({f: 'reviewed' for f in (
+        'source', 'reported_estimand', 'simulation_estimand',
+        'reported_window', 'simulation_window', 'reported_population',
+        'simulation_population', 'reported_denominator', 'simulation_denominator')})
+    assert m.exclusion_reason(key, block, claim) is None
+
+
 def test_the_miss_classifier_separates_power_from_direction():
     """X 를 뭉뚱그리면 '프롬프트를 고쳐야겠다' 로 잘못 읽는다.
 
@@ -178,9 +203,10 @@ def test_the_miss_classifier_separates_power_from_direction():
     import re
     n_sign = int(re.search(r'부호가 반대\)\s+(\d+)개', out).group(1))
     n_power = int(re.search(r'유의하지 않다\)\s+(\d+)개', out).group(1))
-    assert n_power > n_sign, (
-        '표본 문제가 방향 문제보다 많아야 한다 — 지금 %d 대 %d' % (n_power, n_sign))
-    assert n_sign <= 1, '방향이 틀린 자리가 늘었다: %d개' % n_sign
+    # 원문에 없는 P014 방향 가설을 제외하면 예전의 "표본 병목 우세"라는
+    # 해석도 더는 성립하지 않는다. 남은 표본 병목 수를 정직하게 기록한다.
+    assert n_power == 0, '원문 대조 불가 지표가 다시 표본 병목으로 들어왔다'
+    assert n_sign == 0, '실측 대응 감사 없는 내부 가설을 외부 실패로 세었다'
 
 
 def test_the_rounds_page_marks_unreadable_cells():

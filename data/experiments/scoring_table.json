@@ -965,21 +965,38 @@
     "expect": "0",
     "scale": "short",
     "metric": "total_spend_paired",
-    "desc": "소비지출 규모 무반응 (실측 영향 미미) — 방어선 지표"
+    "desc": "시민 총지출 무반응 — 내부 방어선 가설 (원문 실측과 다른 추정량)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/지역사랑상품권_P014/정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf, 표 VI-4, PDF 75쪽/인쇄 58쪽",
+     "comparison": "different_estimand",
+     "source_estimand": "지자체×연도×업종 패널의 지역화폐 발행액에 따른 가맹 소상공인 업종 매출 로그 삼중차분 계수",
+     "simulation_estimand": "서울 합성 시민의 짧은 ON/OFF 기간 총지출 차이",
+     "reason": "원문의 가맹 소상공인 업종 매출 계수가 유의하지 않다는 결과는 시민 총지출의 효과 0이나 동등성을 입증하지 않는다. ±10% 내부 밴드는 원문에서 나온 실측 허용 오차가 아니다."
+    }
    },
    {
     "id": "LV-2",
     "expect": "+",
     "scale": "short",
     "metric": "home_dong_spend_share",
-    "desc": "거주 행정동 소비 비중 증가 — 구매처가 동네상권으로 이동"
+    "desc": "거주 행정동 소비 비중 증가 — 내부 장소 이동 가설",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/지역사랑상품권_P014/정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf, 방법 PDF 71쪽/인쇄 54쪽 및 업종별 표 VI-6 PDF 79쪽/인쇄 62쪽",
+     "comparison": "not_observed",
+     "reason": "원문은 업종별 가맹점 매출 효과를 추정한다. 거주 행정동에서 쓴 시민 소비의 비중이나 그 변화는 추정하지 않는다. 기전 가설을 실측 부호로 채점할 수 없다."
+    }
    },
    {
     "id": "LV-3",
     "expect": "-",
     "scale": "short",
     "metric": "out_district_spend_share",
-    "desc": "타 자치구 소비 비중 감소 — 역외 소비 단기 차단"
+    "desc": "타 자치구 소비 비중 감소 — 내부 역외 이동 가설",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/지역사랑상품권_P014/정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf, 방법 PDF 71쪽/인쇄 54쪽 및 업종별 표 VI-6 PDF 79쪽/인쇄 62쪽",
+     "comparison": "not_observed",
+     "reason": "원문은 시민의 타 자치구 소비 비중이나 역외 유출 변화량을 추정하지 않는다. 지역 내 소비 유도는 논의된 기전이지 이 지표의 관측값이 아니다."
+    }
    }
   ],
   "window_stage2": {

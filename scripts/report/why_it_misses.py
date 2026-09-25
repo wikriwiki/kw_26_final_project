@@ -40,7 +40,7 @@ def load_readings():
         'sb', ROOT / 'scripts/report/sign_scoreboard.py')
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
-    return m.READINGS, m.PLACEBOS, m.SUSPECT
+    return m.READINGS, m.PLACEBOS, m.exclusion_reason
 
 
 def classify(expect, v):
@@ -85,7 +85,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.parse_args()
     sc = json.loads(io.open(SCORING, encoding='utf-8').read())
-    readings, placebos, suspect = load_readings()
+    readings, placebos, exclusion_reason = load_readings()
 
     print('# v5 가 빗나간 이유 — 프롬프트가 고칠 수 있는 자리는 어디인가')
     print()
@@ -98,7 +98,7 @@ def main() -> int:
             expect, iid = ind.get('expect'), ind['id']
             if expect in ('info', 'rank'):
                 continue
-            if (key, block, iid) in suspect:
+            if exclusion_reason(key, block, ind):
                 continue
             v = res.get(iid)
             if not isinstance(v, dict):

@@ -132,7 +132,7 @@ def collect():
             iid, expect = ind['id'], ind.get('expect')
             desc = ind.get('desc') or ''
             v = res.get(iid) if isinstance(res.get(iid), dict) else {}
-            sus = (key, block, iid) in sb.SUSPECT
+            sus = bool(sb.exclusion_reason(key, block, ind))
             row = {'policy': name, 'id': iid, 'expect': expect, 'run': block,
                    'desc': desc[:70], 'scale': SCALE_NOTE.get(iid, ''),
                    'suspect': sus, 'kind': None, 'truth': None, 'sim': None,
@@ -140,8 +140,9 @@ def collect():
             audit = ind.get('empirical_audit') or {}
             direct = indicators.direct_comparison_audited(ind)
             direct = direct and audit['reported_unit'] == ('%p' if expect == 'rank' else '%')
-            if audit.get('comparison') in ('different_estimand', 'unverified_source'):
+            if audit.get('comparison') in ('different_estimand', 'not_observed', 'unverified_source'):
                 row.update(kind=('추정량불일치' if audit['comparison'] == 'different_estimand'
+                                 else '실측없음' if audit['comparison'] == 'not_observed'
                                  else '원문미확인'),
                            truth=audit.get('reported_value'),
                            sim=v.get('pct') if isinstance(v.get('pct'), (int, float)) else None,

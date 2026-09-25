@@ -202,6 +202,10 @@ def classify(ind, entry, tv, tu, suspect=False):
     iid, expect = ind["id"], ind.get("expect")
     audit_status = (ind.get("empirical_audit") or {}).get("comparison")
     suspect = suspect or audit_status == "different_estimand"
+    not_observed = audit_status == "not_observed"
+    excluded_status = ("원문미확인" if audit_status == "unverified_source"
+                       else "정의확인" if audit_status == "definition_pending"
+                       else "다른자")
     direct = direct_comparison_audited(ind)
     if direct and expect != "rank":
         audit = ind["empirical_audit"]
@@ -221,8 +225,10 @@ def classify(ind, entry, tv, tu, suspect=False):
         if kind != "값":
             return kind, None, "-"
         shown = "%+.2f%s" % (v, u)
+        if not_observed:
+            return "실측없음", None, shown
         if suspect:
-            return "다른자", None, shown
+            return excluded_status, None, shown
         if tv is None:
             return "방향만", None, shown
         if u != tu:
@@ -236,8 +242,10 @@ def classify(ind, entry, tv, tu, suspect=False):
         shown = "간격 %+.1f%%p" % g if g is not None else "-"
         if g is None:
             return "없음", None, "-"
+        if not_observed:
+            return "실측없음", None, shown
         if suspect:
-            return "다른자", None, shown
+            return excluded_status, None, shown
         if tg is None:
             return "방향만", None, shown
         if direct and (ind["empirical_audit"]["reported_unit"] != "%p"):
@@ -248,8 +256,10 @@ def classify(ind, entry, tv, tu, suspect=False):
         shown = "%+.2f%%" % pct
         if audit_status == "unverified_source":
             return "원문미확인", None, shown
+        if not_observed:
+            return "실측없음", None, shown
         if suspect:
-            return "다른자", None, shown
+            return excluded_status, None, shown
         if tv is None:
             return "방향만", None, shown
         if tu == "%":
@@ -261,8 +271,10 @@ def classify(ind, entry, tv, tu, suspect=False):
             shown = "%.2f%%" % (100 * mean)
         elif iid == "P012-4":
             shown += "원"
+        if not_observed:
+            return "실측없음", None, shown
         if suspect:
-            return "다른자", None, shown
+            return excluded_status, None, shown
         if audit_status == "unverified_source":
             return "원문미확인", None, shown
         if iid in ("P010-1", "P012-4", "P012-6"):
@@ -324,13 +336,15 @@ def main() -> int:
                     tshow = "%+.4g log-point" % tv
                 else:
                     tshow = "%+.4g%s" % (tv, tu)
-            if audit.get("comparison") == "unverified_source":
+            if audit.get("comparison") in (None, "unverified_source"):
                 tshow = "출처미확인(" + tshow + ")"
-            sus = (pk, bk, iid) in SUSPECT
+            sus = bool(_m.exclusion_reason(pk, bk, ind))
             st, err, shown = classify(ind, entry, tv, tu, sus)
+            if sus and not audit and (pk, bk, iid) not in SUSPECT and entry is not None:
+                st, err = "원문미확인", None
             tally[st] = tally.get(st, 0) + 1
             note = audit.get("reason") \
-                or (SUSPECT.get((pk, bk, iid)) if sus else None) \
+                or (_m.exclusion_reason(pk, bk, ind) if sus else None) \
                 or UNIT_NOTE.get(iid) or (bk[:30] if bk else "채점된 런이 없다")
             print("   %-8s %-5s %11s %13s %7s %9s  %s%s"
                   % (("★" if CORE.get(pk) == iid else " ") + iid,
@@ -347,11 +361,12 @@ def main() -> int:
                          "status": st, "block": bk, "note": note,
                          "metric": ind.get("metric"),
                          "ci": (entry or {}).get("ci"),
-                         "registered_hit": (entry or {}).get("hit")})
+                         "registered_hit": None if sus else (entry or {}).get("hit"),
+                         "internal_registered_hit": (entry or {}).get("hit")})
         print()
 
     print("## 합계 — 지표 %d개" % len(rows))
-    for st in ("대조가능", "원문미확인", "정의확인", "동등성검증", "단위다름", "다른자", "방향만", "관측부족", "무효", "밴드안", "자료없음", "없음"):
+    for st in ("대조가능", "원문미확인", "정의확인", "동등성검증", "단위다름", "다른자", "실측없음", "방향만", "관측부족", "무효", "밴드안", "자료없음", "없음"):
         print("   %-8s %3d개" % (st, tally.get(st, 0)))
     # %p 오차만 더한다. 무차원 비율(MPC)의 오차를 섞으면 총합이 뜻을 잃는다.
     pp = [r["err"] for r in rows

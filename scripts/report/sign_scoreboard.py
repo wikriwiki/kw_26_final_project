@@ -1,4 +1,4 @@
-"""**현행 프롬프트 v5 가 정답지에 얼마나 수렴했는가** — 전 정책 한 장.
+"""**현행 프롬프트 v5 의 외부 실측 방향 검증 가능성** — 전 정책 한 장.
 
     python scripts/report/sign_scoreboard.py
 
@@ -8,8 +8,8 @@
 이틀이고, 대상·분모·대조군이 호환되지 않는다(`audit_2026_09_20`). 지표 25개 중
 백분율이 붙은 것이 절반이 안 되고, 붙은 것도 우리 base 에 그대로 곱할 수 없다.
 
-**그래서 채점은 부호로 한다.** 이 표가 그 채점의 전부이며, "정답에 수렴한다" 는
-말이 지금 뜻할 수 있는 것의 전부다.
+부호도 원문 관측 지표와 시뮬 추정량의 방향 대응을 감사한 뒤에만 채점한다.
+감사가 없는 과거 내부 기대값은 보이되 외부 실측 적중률에 넣지 않는다.
 
 ## 위약을 같이 센다
 
@@ -47,6 +47,7 @@ from __future__ import annotations
 import argparse
 import io
 import json
+import math
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -97,6 +98,41 @@ SUSPECT = {
 EXPECT_TXT = {'+': '증가', '-': '감소', '0': '무반응', 'rank': '순위', 'info': '참고'}
 
 
+def direction_comparison_audited(ind):
+    """A declared sign match is reviewable only with source and both estimands."""
+    audit = ind.get('empirical_audit') or {}
+    fields = ('source', 'reported_estimand', 'simulation_estimand',
+              'reported_window', 'simulation_window',
+              'reported_population', 'simulation_population',
+              'reported_denominator', 'simulation_denominator')
+    if not all(isinstance(audit.get(f), str) and audit[f].strip() for f in fields):
+        return False
+    if audit.get('comparison') == 'matched_estimand':
+        k = 'reported_gap' if ind.get('expect') == 'rank' else 'reported_value'
+        v = audit.get(k)
+        return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+    if audit.get('sign_comparison') != 'matched_direction':
+        return False
+    if audit.get('reported_direction') != ind.get('expect'):
+        return False
+    if ind.get('expect') == '0' and not isinstance(audit.get('equivalence_band'), (int, float)):
+        return False
+    return True
+
+
+def exclusion_reason(key, block, ind):
+    """Historical ruler defects and source-audited non-comparability share one gate."""
+    audit = ind.get('empirical_audit') or {}
+    historical = SUSPECT.get((key, block, ind['id']))
+    if historical:
+        return historical
+    if key in {row[0] for row in READINGS}:
+        if direction_comparison_audited(ind):
+            return None
+        return audit.get('reason') or '원문 관측 지표와 방향 추정량의 대응 감사 없음 — 내부 등록 가설'
+    return None
+
+
 def read(sc, key, block):
     return ((sc.get(key) or {}).get(block) or {})
 
@@ -137,7 +173,7 @@ def section(sc, title, rows, tally):
             if expect == 'info':
                 continue
             hit, txt = line(ind['id'], expect, ind.get('desc') or '',
-                            v.get(ind['id']), SUSPECT.get((key, block, ind['id'])))
+                            v.get(ind['id']), exclusion_reason(key, block, ind))
             print('    ' + txt)
             if hit is True:
                 tally['hit'] += 1
@@ -153,37 +189,42 @@ def main() -> int:
     ap.parse_args()
     sc = json.loads(io.open(SCORING, encoding='utf-8').read())
 
-    print('# 현행 프롬프트 v5 의 부호 적중 — 전 정책')
+    print('# 현행 프롬프트 v5 의 외부 실측 부호 검증 가능성 — 전 정책')
     print()
-    print('크기 수렴은 지금 어느 정책에서도 잴 수 없다. 채점은 부호로 한다.')
+    print('외부 방향은 원문 관측 지표와 방향 추정량의 대응이 감사된 때만 채점한다.')
     print()
 
     real = {'hit': 0, 'miss': 0, 'none': 0}
     fake = {'hit': 0, 'miss': 0, 'none': 0}
-    section(sc, '## 실제 정책 — 정답지가 말하는 방향을 맞혔는가', READINGS, real)
+    section(sc, '## 실제 정책 — 원문과 방향 대조 가능한가', READINGS, real)
     section(sc, '## 위약 — 지표마다 등록된 기댓값이 다르다 (가짜정책은 반응, 시점엇갈림은 무반응)',
             PLACEBOS, fake)
 
     print('## 합계')
-    for nm, t in (('실제 정책', real), ('위약', fake)):
+    for nm, t in (('실제 정책', real), ('위약(내부 음성대조)', fake)):
         d = t['hit'] + t['miss']
         pct = ('%.0f%%' % (100 * t['hit'] / d)) if d else '—'
         print('  %-8s 적중 %2d · 빗나감 %2d · 못 잼 %2d   →  %s'
               % (nm, t['hit'], t['miss'], t['none'], pct))
-    d = real['hit'] + real['miss'] + fake['hit'] + fake['miss']
-    tot = real['hit'] + fake['hit']
-    print('  %-8s 적중 %2d / %2d   →  %s'
-          % ('전체', tot, d, ('%.0f%%' % (100 * tot / d)) if d else '—'))
     print()
     print('읽는 법')
+    print('  · 외부 실측 방향 0/0은 실패나 성공이 아니라 검증 설계가 아직 준비되지 않았다는 뜻이다.')
+    print('  · 위약은 내부 음성대조로 외부 실측 적중률에 합산하지 않는다.')
     print('  · 못 잰 지표(·)는 분모에서 뺀다. 관측이 모자라거나 그 런에 없던 지표다.')
     print('  · 런이 서로 다른 날·다른 n 이다. 정책 간 적중률을 **서로 비교하지 않는다.**')
     print('  · 위약을 빼고 세면 "다 오른다" 고 답하는 프롬프트가 만점을 받는다.')
     print('  · 가짜정책 PL-1 은 **반응해야** 적중이다(lookahead 검정). 무반응이 정답이 아니다.')
     print('  · 이 표는 v5 만 읽는다. 후보 비교는 각 라운드의 사전등록이 한다.')
-    if SUSPECT:
+    audited_out = [(k, b, ind['id'], exclusion_reason(k, b, ind))
+                   for k, _n, b, _w in READINGS
+                   for ind in (sc.get(k, {}).get('indicators') or [])
+                   if exclusion_reason(k, b, ind)
+                   and (k, b, ind['id']) not in SUSPECT]
+    if SUSPECT or audited_out:
         print()
-        print('못 센 것 — 다른 자로 쟀다')
+        print('못 센 것 — 추정량 불일치·원문 미관측·방향 대응 미감사')
+        for k, b, i, why in audited_out:
+            print('  %-20s %-34s %-7s %s' % (k, b, i, why))
         for (k, b, i), why in SUSPECT.items():
             print('  %-20s %-34s %-7s %s' % (k, b, i, why))
     return 0
