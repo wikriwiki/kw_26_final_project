@@ -201,8 +201,8 @@ def test_the_miss_classifier_separates_power_from_direction():
     assert '부호가 반대' in out and '유의하지 않다' in out
     # 지금 상태를 못 박는다 — 바뀌면 이 시험이 먼저 말한다
     import re
-    n_sign = int(re.search(r'부호가 반대\)\s+(\d+)개', out).group(1))
-    n_power = int(re.search(r'유의하지 않다\)\s+(\d+)개', out).group(1))
+    n_sign = int(re.search(r'점추정 부호가 반대\s+(\d+)개', out).group(1))
+    n_power = int(re.search(r'부호는 맞는데 유의하지 않다\s+(\d+)개', out).group(1))
     # 원문에 없는 P014 방향 가설을 제외하면 예전의 "표본 병목 우세"라는
     # 해석도 더는 성립하지 않는다. 남은 표본 병목 수를 정직하게 기록한다.
     assert n_power == 0, '원문 대조 불가 지표가 다시 표본 병목으로 들어왔다'
