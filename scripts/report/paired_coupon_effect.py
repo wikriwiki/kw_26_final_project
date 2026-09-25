@@ -23,7 +23,13 @@ POST_DAYS = dates("2025-07-22", "2025-07-23")
 
 
 def score_coupon(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
-                 draws: int = 2000, expected_issued_won: int) -> dict:
+                 draws: int = 2000, expected_amount_by_aid: dict[str, int]) -> dict:
+    if (not isinstance(expected_amount_by_aid, dict)
+            or set(expected_amount_by_aid) != set(roster)
+            or any(isinstance(value, bool) or not isinstance(value, int) or value <= 0
+                   for value in expected_amount_by_aid.values())):
+        raise ValueError("complete positive per-citizen entitlement map required")
+    expected_issued_won = sum(expected_amount_by_aid.values())
     if isinstance(expected_issued_won, bool) or not isinstance(expected_issued_won, int) \
             or expected_issued_won <= 0:
         raise ValueError("independently expected issued grant must be positive")
@@ -31,6 +37,10 @@ def score_coupon(on_rows: list[dict], off_rows: list[dict], *, roster: list[str]
                   expected_recipients=len(roster),
                   expected_issued_won=expected_issued_won)
     post = score(on_rows, off_rows, effect_days=POST_DAYS, **common)
+    final_receipts = {row["aid"]: row["grant_received_cumulative"]
+                      for row in on_rows if row["day"] == ALL_DAYS[-1]}
+    if final_receipts != expected_amount_by_aid:
+        raise ValueError("citizen grant receipts differ from frozen entitlements")
     pre = score(on_rows, off_rows, effect_days=PRE_DAYS, **common)
     return {
         "policy_id": "P010", "ledger_start": ALL_DAYS[0], "ledger_end": ALL_DAYS[-1],
@@ -78,8 +88,8 @@ def main() -> int:
     parser.add_argument("--on", type=Path, required=True)
     parser.add_argument("--off", type=Path, required=True)
     parser.add_argument("--roster", type=Path, required=True)
-    parser.add_argument("--expected-issued-won", type=int, required=True,
-                        help="Independent frozen sum of P010 entitlements for roster")
+    parser.add_argument("--entitlements", type=Path, required=True,
+                        help="Frozen per-citizen P010 grant entitlements")
     parser.add_argument("--draws", type=int, default=2000)
     parser.add_argument("--json-out", type=Path, required=True)
     args = parser.parse_args()
@@ -93,10 +103,35 @@ def main() -> int:
     policy_sha = hashlib.sha256(POLICY_FILE.read_bytes()).hexdigest()
     if provenance["policy_file_sha256"] != policy_sha:
         raise ValueError("paired ledgers were not exported with frozen P010 policy")
+    entitlement_bytes = args.entitlements.read_bytes()
+    entitlements = json.loads(entitlement_bytes)
+    amounts = entitlements.get("amount_by_aid")
+    roster_sha = hashlib.sha256(json.dumps(sorted(roster), ensure_ascii=False).encode(
+        "utf-8")).hexdigest()
+    if (entitlements.get("schema") != "grant_entitlements_v1"
+            or entitlements.get("policy_id") != "P010"
+            or entitlements.get("effective_day") != "2025-07-21"
+            or entitlements.get("policy_file_sha256") != policy_sha
+            or not isinstance(entitlements.get("source_archive_sha256"), str)
+            or len(entitlements["source_archive_sha256"]) != 64
+            or any(char not in "0123456789abcdef" for char in
+                   entitlements["source_archive_sha256"])
+            or not str(entitlements.get("source_agent_member") or "").endswith(
+                "_agent.jsonl.gz")
+            or entitlements.get("roster_sha256") != roster_sha
+            or entitlements.get("citizen_count") != len(roster)
+            or entitlements.get("recipient_count") != len(roster)
+            or not isinstance(amounts, dict)
+            or entitlements.get("expected_issued_won") != sum(
+                amount for amount in amounts.values() if isinstance(amount, int)
+                and not isinstance(amount, bool))):
+        raise ValueError("frozen P010 entitlement manifest is inconsistent")
     result = score_coupon(read_jsonl(args.on), read_jsonl(args.off), roster=roster,
                           draws=args.draws,
-                          expected_issued_won=args.expected_issued_won)
+                          expected_amount_by_aid=amounts)
     result["provenance"] = provenance
+    result["provenance"]["entitlements_sha256"] = hashlib.sha256(
+        entitlement_bytes).hexdigest()
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     partial = args.json_out.with_name(args.json_out.name + f".tmp.{os.getpid()}")
     try:

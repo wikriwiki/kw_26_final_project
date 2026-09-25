@@ -22,12 +22,16 @@
 
 `export_policy_daily_ledger.py`는 시행 전 정책 팔의 `experience_policy_ids=[]`와 정책 활동 0을 요구하고, 시행일부터 P010 노출을 요구한다. 양팔의 정상 metrics·Stage2 생성 품질·모든 시민·날짜 State 및 정책 지급·사용·잔액을 검증한다. `paired_coupon_effect.py`는 원장 매니페스트의 시민 집합·실행 지문·범용 프롬프트 SHA·정책 원본 SHA가 일치하는지 재검사하며, 정책 팔과 무정책 팔의 실행 ID는 달라야 한다. 등록 지표 P010-2는 실제 쿠폰 적격 매장 오프라인 결제액, P010-3은 오프라인 실제 결제액과 State 온라인 지출의 합이다. 두 지표 모두 원화 차이, 무정책 팔 대비 상대 변화, 시민 단위 재표집 구간을 출력한다. `P010-1` 설문 MPC를 이 지출 효과로 대체하지 않는다.
 
-P012 진단 런의 완전한 서버 밖 백업과 그래프 원장 추출을 마치기 전에는 A100 그래프를 초기화하거나 P010 새 팔을 시작하지 않는다. 본 런 전에 시민·시드·프롬프트 후보·정책과 무관한 동일 예산 보충 맵을 두 팔에 고정한다. P010 정책 원본의 10분위별 지급액과 시민 목록으로 예상 지급총액을 **결과를 보기 전에 독립 계산**하여 채점기에 전달한다. 정확한 예상 지급총액·시민 목록·예산 맵이 아직 동결되지 않았으므로 아래 명령은 준비된 계측 절차이며 실행 완료 증거가 아니다. 후보별 ON/OFF 팔을 모두 돌려야 프롬프트 간 효과를 비교할 수 있다.
+P012 진단 런의 완전한 서버 밖 백업과 그래프 원장 추출을 마치기 전에는 A100 그래프를 초기화하거나 P010 새 팔을 시작하지 않는다. 본 런 전에 시민·시드·프롬프트 후보·정책과 무관한 동일 예산 보충 맵을 두 팔에 고정한다. 후보별 ON/OFF 팔을 모두 돌려야 프롬프트 간 효과를 비교할 수 있다.
+
+예상 지급액은 **결과를 보기 전에** 서버 밖에 있던 P012 10월 18일 Agent 속성 사본에서 동결했다. 이 사본의 `spending_level_wd`와 원본 `P010.json`의 지급표를 실행기와 같은 `grants_to_apply` 함수에 넣었다. `data/experiments/p010_roster_20260926.json`은 500명이고 기존 정책 전 예산 보충 맵의 시민 집합과 일치한다. `data/experiments/p010_entitlements_20260926.json`은 1분위 37명×40만원, 2분위 66명×30만원, 나머지 397명×15만원으로 **수령자 500명·예상 지급총액 94,150,000원** 및 시민별 지급액을 기록한다. 이 두 파일의 SHA256은 각각 `999a35547abaccd3bcb4c5a249c3331face78574ee1f2eae0f44b71f12743a5e`, `757f3ea6d9a6024f225a11812678dce6ee7c72c82ef91b441a973bb5402099dd`이다. 출처 아카이브·정책·시민 목록 SHA256도 지급 파일 안에 기록한다. 이것은 모델의 정책 지급 회계를 검사할 입력이며 실측 소비 효과나 목표 응답값이 아니다. 원천 Agent 속성도 이후 바뀌면 같은 런으로 취급하지 않는다.
+
+두 팔에 사용할 일별 예산 보충 맵은 아직 P010에 맞게 확정되지 않았다. 2021년 P012 정책 전 맵을 그대로 전용하면 2025년 생활 배경의 실측 소득이 되는 것은 아니므로, 선택과 민감도 범위를 별도로 사전등록해야 한다. 아래 명령은 계측 절차이며 새 P010 런의 실행 완료 증거가 아니다.
 
 ```text
-python scripts/report/export_policy_daily_ledger.py --arm on --policy-id P010 --policy-file data/neo4j_load/policies/P010.json --roster roster.json --start 2025-07-12 --end 2025-07-23 --metrics-dir <ON>/metrics --out p010_on.jsonl
-python scripts/report/export_policy_daily_ledger.py --arm off --policy-id P010 --policy-file data/neo4j_load/policies/P010.json --roster roster.json --start 2025-07-12 --end 2025-07-23 --metrics-dir <OFF>/metrics --out p010_off.jsonl
-python scripts/report/paired_coupon_effect.py --on p010_on.jsonl --off p010_off.jsonl --roster roster.json --expected-issued-won <사전 동결 지급총액> --json-out p010_paired.json
+python scripts/report/export_policy_daily_ledger.py --arm on --policy-id P010 --policy-file data/neo4j_load/policies/P010.json --roster data/experiments/p010_roster_20260926.json --start 2025-07-12 --end 2025-07-23 --metrics-dir <ON>/metrics --out p010_on.jsonl
+python scripts/report/export_policy_daily_ledger.py --arm off --policy-id P010 --policy-file data/neo4j_load/policies/P010.json --roster data/experiments/p010_roster_20260926.json --start 2025-07-12 --end 2025-07-23 --metrics-dir <OFF>/metrics --out p010_off.jsonl
+python scripts/report/paired_coupon_effect.py --on p010_on.jsonl --off p010_off.jsonl --roster data/experiments/p010_roster_20260926.json --entitlements data/experiments/p010_entitlements_20260926.json --json-out p010_paired.json
 ```
 
 이 값은 서울 합성 시민의 실현 지출에 대한 같은 날짜 ON/OFF 차이이며 한국은행 전국 신청자의 사용·계획 자기보고 신규소비 비율과 다른 추정량이다. 따라서 P010-2/3의 방향과 내부 효과 크기는 평가할 수 있어도, 이것만으로 BOK 0.21과의 직접 크기 적중을 주장하지 않는다.
