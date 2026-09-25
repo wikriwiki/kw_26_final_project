@@ -182,12 +182,8 @@ def _materially_changed(reg: dict) -> bool:
     return any(_effective(reg, k) != _effective(prev, k) for k in keys)
 
 
-def build(day: date) -> dict:
-    """그날의 사회 배경. 규제 구간을 못 찾으면 {} 를 돌려 섹션을 생략한다."""
-    reg = _regime_for(day)
-    if reg is None:
-        return {}
-
+def disease_facts(day: date) -> list[str]:
+    """Facts about infections shared by restricted and unrestricted arms."""
     facts: list[str] = []
 
     # 확진 추이 — 당일보다 앞선 관측만
@@ -219,6 +215,16 @@ def build(day: date) -> dict:
                 if base > 0:
                     facts.append(
                         f"2주 전 7일 평균은 {base:,}명 — 지금은 그 {avg / base:.1f}배")
+    return facts
+
+
+def build(day: date) -> dict:
+    """그날의 사회 배경. 규제 구간을 못 찾으면 {} 를 돌려 섹션을 생략한다."""
+    reg = _regime_for(day)
+    if reg is None:
+        return {}
+
+    facts = disease_facts(day)
 
     # 값이 비었을 때 "그대로"인지 "해제"인지는 원자료가 dine_in_cutoff_note 로 구분한다.
     # 위드코로나(11/1)처럼 해제된 구간에서 이전 22:00 을 이어받으면 없는 규제를 말하게 된다.
