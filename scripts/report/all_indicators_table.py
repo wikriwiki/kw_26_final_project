@@ -269,7 +269,7 @@ def main() -> int:
             if ind.get("expect") == "rank":
                 tg = audit.get("reported_gap")
                 if tg is not None:
-                    tshow = "간격 %+.4g %s" % (tg, audit["reported_unit"])
+                    tshow = "간격 %+.1f%s" % (tg, audit["reported_unit"])
                 else:
                     tg = truth_gap(ind.get("desc"), (entry or {}).get("실측"))
                     tshow = "간격 %+.1f%%p" % tg if tg is not None else "없음"
@@ -346,7 +346,7 @@ def main() -> int:
             lines.append("| " + " | ".join(str(v).replace("|", "/").replace("\n", " ")
                                           for v in values) + " |")
         lines += ["", "상태별 개수: " + ", ".join(f"{k} {v}" for k, v in tally.items()) + ".",
-                  "", "원문과 시뮬 출력의 정의 대조: [P010](P010_EMPIRICAL_ALIGNMENT_20260926.md), [P012](P012_EMPIRICAL_ALIGNMENT_20260926.md)."]
+                  "", "원문과 시뮬 출력의 정의 대조: [P010](P010_EMPIRICAL_ALIGNMENT_20260926.md), [P012](P012_EMPIRICAL_ALIGNMENT_20260926.md), [P016](P016_EMPIRICAL_ALIGNMENT_20260926.md)."]
         Path(a.md_out).write_text("\n".join(lines) + "\n", encoding="utf-8")
         print("→ %s" % a.md_out)
     return 0

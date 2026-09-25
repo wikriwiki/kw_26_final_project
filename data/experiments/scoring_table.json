@@ -2048,7 +2048,14 @@
     "expect": "+",
     "scale": "short",
     "metric": "sector_spend:청과|정육|슈퍼마켓|식료품",
-    "desc": "대상 POI(청과·정육·슈퍼마켓·식료품) 총판매액 증가 (실측 +6.957%)"
+    "desc": "대상 POI(청과·정육·슈퍼마켓·식료품) 총판매액 증가 (실측 +6.957%)",
+    "empirical_audit": {
+     "comparison": "different_estimand",
+     "reported_value": 6.957,
+     "reported_unit": "%",
+     "source_estimand": "5개 대형유통업체의 농축산물 상품별 2020년 사업기간 판매액을 2018~2019년과 비교한 로그모형 DID 효과",
+     "reason": "원문은 5개 대형유통업체·농축산물 상품·2018~2019년 대조 DID다. 현재 시뮬 지표는 서울 청과·정육·슈퍼마켓·식료품 POI의 모든 상품 매출을 시행 직전/직후 이틀 비교한다."
+    }
    },
    {
     "id": "C2",
@@ -2059,14 +2066,26 @@
      "청과|정육|슈퍼마켓|식료품",
      "마트"
     ],
-    "desc": "대상 POI 증가율 > 전체 마트 관련 POI 증가율 (실측 +11.6% vs +4.6%)"
+    "desc": "대상 POI 증가율 > 전체 마트 관련 POI 증가율 (실측 +11.6% vs +4.6%)",
+    "empirical_audit": {
+     "comparison": "different_estimand",
+     "reported_gap": 7.0,
+     "reported_unit": "%p",
+     "reason": "원문 두 수는 대형마트의 사업기간 전체 매출과 그 안의 농축산물 상품 매출에 대한 기술통계다. 시뮬은 서울의 다른 POI 집합·상품 혼합·시행 직후 이틀을 비교한다."
+    }
    },
    {
     "id": "C3",
     "expect": "+",
     "scale": "short",
     "metric": "sector_share_within:청과|정육|슈퍼마켓|식료품/마트",
-    "desc": "전체 마트 매출 중 대상 POI 매출 비중 증가 (실측 +1.9%p)"
+    "desc": "전체 마트 매출 중 대상 POI 매출 비중 증가 (실측 +1.9%p)",
+    "empirical_audit": {
+     "comparison": "different_estimand",
+     "reported_value": 1.9,
+     "reported_unit": "%p",
+     "reason": "원문은 대형마트 내부의 농축산물 상품 매출 비중 변화다. 시뮬의 대상 POI/전체 마트 POI 매출 비중과 상품 분모·지역·기간이 다르다."
+    }
    },
    {
     "id": "E1",

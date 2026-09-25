@@ -26,6 +26,7 @@
 from __future__ import annotations
 
 import os
+import json
 
 PTYPE = "sector_voucher"
 
@@ -74,10 +75,20 @@ def status(pid: str, row: dict, persona: dict, state: dict,
     sectors = row.get("sectors") or {}
     if not sectors:
         return f"- {pid}: 적용 업종 — 없음"
+    raw_used = (state or {}).get("policy_used") or {}
+    try:
+        used = json.loads(raw_used) if isinstance(raw_used, str) else dict(raw_used)
+        used_amount = max(0, int(used.get(pid, 0) or 0))
+    except (ValueError, TypeError):
+        used_amount = 0
     parts = []
     for name, spec in sectors.items():
         cap = int((spec or {}).get("cap") or 0)
-        parts.append(f"{name}(1인 누적 {cap:,}원 한도)" if cap > 0 else name)
+        if cap > 0 and (spec or {}).get("mode") == "rate" and len(sectors) == 1:
+            parts.append(f"{name}(1인 할인 한도 {cap:,}원, 남은 할인 "
+                         f"{max(0, cap - used_amount):,}원)")
+        else:
+            parts.append(f"{name}(1인 누적 {cap:,}원 한도)" if cap > 0 else name)
     line = f"- {pid}: 적용 업종 — {', '.join(parts)}"
     # [EXP_SCOPE_FACT] 범위의 산술 한 줄. **행동 방향이 아니라 계산이다.**
     #

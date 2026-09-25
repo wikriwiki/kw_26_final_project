@@ -140,7 +140,7 @@
    "expect": "rank",
    "truth": 36.23,
    "truth_unit": "%",
-   "truth_display": "간격 +0.3336 log-point",
+   "truth_display": "간격 +0.3log-point",
    "shown": "-",
    "n": null,
    "err": null,
@@ -647,7 +647,7 @@
    "err": null,
    "status": "없음",
    "block": null,
-   "note": "채점된 런이 없다",
+   "note": "원문은 5개 대형유통업체·농축산물 상품·2018~2019년 대조 DID다. 현재 시뮬 지표는 서울 청과·정육·슈퍼마켓·식료품 POI의 모든 상품 매출을 시행 직전/직후 이틀 비교한다.",
    "metric": "sector_spend:청과|정육|슈퍼마켓|식료품",
    "ci": null,
    "registered_hit": null
@@ -664,7 +664,7 @@
    "err": null,
    "status": "없음",
    "block": null,
-   "note": "채점된 런이 없다",
+   "note": "원문 두 수는 대형마트의 사업기간 전체 매출과 그 안의 농축산물 상품 매출에 대한 기술통계다. 시뮬은 서울의 다른 POI 집합·상품 혼합·시행 직후 이틀을 비교한다.",
    "metric": "sector_rank",
    "ci": null,
    "registered_hit": null
@@ -681,7 +681,7 @@
    "err": null,
    "status": "없음",
    "block": null,
-   "note": "채점된 런이 없다",
+   "note": "원문은 대형마트 내부의 농축산물 상품 매출 비중 변화다. 시뮬의 대상 POI/전체 마트 POI 매출 비중과 상품 분모·지역·기간이 다르다.",
    "metric": "sector_share_within:청과|정육|슈퍼마켓|식료품/마트",
    "ci": null,
    "registered_hit": null

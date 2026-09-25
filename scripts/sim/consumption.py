@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import os
 
+from instant_discount import settle_instant_discounts
+
 ANCHOR_PROPENSITY = 0.70   # p0: 지원금 無·평상일에 이 값이면 지출 = daily_wd (BDC 앵커)
 INTERNAL_CATS = {"집", "직장"}   # 머무름 — 소비 대상 아님
 
@@ -665,6 +667,8 @@ def apply_consumption_model(
     spending_level: int | None = None,
     # 캐시백형 정책(지갑 없음) 활성 여부. 소비성향 밴드 확장에만 쓴다.
     cashback_active: bool = False,
+    instant_discount_specs: list[dict] | None = None,
+    discount_used_before: dict[str, int] | None = None,
     # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
     aid: str | None = None,
 ) -> dict:
@@ -1058,7 +1062,12 @@ def apply_consumption_model(
         online_spent = online_planned
         affordability_cap = None
 
-    if own_balance is None:
+    instant_specs = instant_discount_specs or []
+    if instant_specs:
+        # 할인액은 실제 거래액에 따라 달라진다. 원래 계획을 먼저 놓고 아래에서
+        # 할인 후 자기부담을 검사해야 감당 가능한 할인 거래를 미리 잘라내지 않는다.
+        spends = desired_spends
+    elif own_balance is None:
         spends = desired_spends
     else:
         # 정책으로 결제 가능한 거래분을 먼저 보존하고 자기자금 필요분만 잔액에 맞춰
@@ -1082,10 +1091,14 @@ def apply_consumption_model(
         grant_use=grant_use,
         choice_shares=_choice_shares if _choice_mode else None,
     )
+    discount_settlement = settle_instant_discounts(
+        commerce, [int(e.get("actual_spent") or 0) for e in commerce],
+        instant_specs, discount_used_before)
 
     # The final payment choice, not theoretical wallet capacity, must fund purchases.
     # Keep the chosen shares and conservatively shrink the basket when cash is insufficient.
-    cash_required = sum(int(e["actual_spent"]) for e in commerce) - int(allocation["total"])
+    cash_required = (sum(int(e["actual_spent"]) for e in commerce)
+                     - int(allocation["total"]) - discount_settlement["total"])
     affordability_corrected = own_balance is not None and cash_required > own_balance
     if affordability_corrected:
         original = [int(e["actual_spent"]) for e in commerce]
@@ -1104,13 +1117,24 @@ def apply_consumption_model(
         while low < high:
             mid = (low + high + 1) // 2
             candidate = settle_scaled(mid)
-            required = sum(e["actual_spent"] for e in commerce) - candidate["total"]
+            candidate_discount = settle_instant_discounts(
+                commerce, [int(e.get("actual_spent") or 0) for e in commerce],
+                instant_specs, discount_used_before)
+            required = (sum(e["actual_spent"] for e in commerce)
+                        - candidate["total"] - candidate_discount["total"])
             if required <= own_balance:
                 low = mid
             else:
                 high = mid - 1
         allocation = settle_scaled(low)
         total_adj = sum(e["actual_spent"] for e in commerce)
+        discount_settlement = settle_instant_discounts(
+            commerce, [int(e.get("actual_spent") or 0) for e in commerce],
+            instant_specs, discount_used_before)
+
+    if instant_specs:
+        for event, discount in zip(commerce, discount_settlement["by_event"]):
+            event["instant_discount"] = discount
 
     # A generated appraisal of a larger purchase is not an observed appraisal of
     # the reduced purchase. Preserve it as an expectation, not as actual feedback.
@@ -1177,7 +1201,10 @@ def apply_consumption_model(
         "grant_part": allocated_total,
         "normal_budget": normal_budget["total"],
         "available": normal_budget["available"],
-        "affordability_cap": affordability_cap,
+        "affordability_cap": (affordability_cap + discount_settlement["total"]
+                               if affordability_cap is not None else None),
+        "instant_discount_total": discount_settlement["total"],
+        "instant_discount_eligible_gross": discount_settlement["eligible_gross"],
         "selected_policy_liquidity": eligible_policy_liquidity,
         "selected_policy_liquidity_by_pid": capacity["by_pid"],
         "policy_spend_allocated": allocation["by_pid"],

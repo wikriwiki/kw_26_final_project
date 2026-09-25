@@ -84,6 +84,7 @@ from consumption import (  # noqa: E402
     settle_policy_spend_priority,
     settled_mpc_measure,
 )
+from instant_discount import active_rate_discounts, settle_instant_discounts  # noqa: E402
 
 
 # Google Drive 동기화 폴더(G:\)는 file write 충돌 위험 → 로컬 디스크 사용
@@ -463,6 +464,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 })
             elif int(amt) > 0:
                 _unrestricted_wallets[pid] = int(amt)
+        discount_specs = active_rate_discounts(ctx.policy)
+        if discount_specs and grant_avail_today:
+            raise ValueError("동시 지원금·즉시 할인 결제의 중복 적용 규칙이 정의되지 않았다")
+        if discount_specs and os.environ.get("CONSUMPTION_MODEL", "propensity") == "legacy":
+            raise ValueError("즉시 할인 정책에는 할인 후 잔액을 검증하는 propensity 소비모델이 필요하다")
 
         if os.environ.get("CONSUMPTION_MODEL", "propensity") != "legacy":
             _is_weekend = today.weekday() >= 5
@@ -497,6 +503,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 spending_level=ctx.persona.get("spend_decile"),
                 # 캐시백형은 지갑이 없어 총액을 끌어올릴 경로가 소비성향뿐이다.
                 cashback_active=bool(ctx.persona.get("sangsaeng_active")),
+                instant_discount_specs=discount_specs,
+                discount_used_before=prev_used_for_budget,
                 # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
                 aid=aid,
             )
@@ -546,6 +554,14 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                         "mpc_unresolved_won": mpc["unresolved_won"],
                         "mpc_coverage": mpc["coverage"]})
 
+        discount_settlement = settle_instant_discounts(
+            commerce_events,
+            [int(e.get("actual_spent") or 0) for e in commerce_events],
+            discount_specs, prev_used_for_budget)
+        if discount_specs:
+            for event, amount in zip(commerce_events, discount_settlement["by_event"]):
+                event["instant_discount"] = amount
+
         # 오늘 거래별 policy_spend 집계 → 정책별 오늘 사용액
         today_policy_spend = aggregate_policy_spend(events)
 
@@ -556,6 +572,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             active_policies=ctx.policy,
             policy_used=prev_policy_used,
         )
+        for pid in discount_settlement["by_pid"]:
+            updated_policy_used[pid] = discount_settlement["used_after"][pid]
 
         # grant_remaining = 어제 잔여 + 오늘 받음 − 오늘 사용 (음수 방지)
         merged_grant_remaining: dict[str, int] = dict(grant_avail_today)
@@ -612,6 +630,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 grant_received=merged_grant_received,
                 grant_remaining=merged_grant_remaining,
                 today_policy_spent=sum(today_policy_spend.values()),
+                today_instant_discount=discount_settlement["total"],
                 grant_carry=int((cm_meta or {}).get("grant_carry_out") or 0),
                 grant_plan_days=int((cm_meta or {}).get("grant_plan_days_effective") or 0),
                 # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
@@ -670,6 +689,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "grant_due_but_zero": grant_due_but_zero,
                 "grant_expired_today": sum(inactive_grant_remaining.values()),
                 "policy_spend_today": sum(today_policy_spend.values()),
+                "instant_discount_today": discount_settlement["total"],
+                "instant_discount_by_pid": discount_settlement["by_pid"],
+                "instant_discount_eligible_gross": discount_settlement["eligible_gross"],
                 "grant_remaining_total": sum(merged_grant_remaining.values()),
                 "policy_spend_corrected": policy_spend_corrected,
                 "cm_propensity": cm_meta.get("propensity"),
