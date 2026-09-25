@@ -5,7 +5,7 @@ import sys
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / 'scripts/sim'))
-from income import daily_income, describe, parse  # noqa: E402
+from income import daily_income, describe, parse, preflight_baseline_income  # noqa: E402
 
 
 @pytest.mark.parametrize('spec', [None, '', '0', 'off', 'none', 'NO', 'False', '  '])
@@ -65,3 +65,28 @@ def test_the_run_log_says_whether_income_was_on():
 def test_rounding_is_to_whole_won():
     v = daily_income(33333, 'anchor:1.5')
     assert isinstance(v, int) and v == 50000
+
+
+def test_policy_free_baseline_income_is_fixed_across_policy_changed_anchors(tmp_path):
+    import json
+    source = tmp_path / 'baseline.json'
+    source.write_text(json.dumps({
+        'schema': 'baseline_income_v1',
+        'policy_free_success_rows_verified': True,
+        'citizen_count': 2,
+        'daily_income_by_aid': {'a': 90000, 'b': 120000},
+    }), encoding='utf-8')
+    assert parse('baseline') == ('baseline', 1.0)
+    assert '고정' in describe('baseline')
+    info = preflight_baseline_income('baseline', source, ['a', 'b'])
+    assert info['citizens'] == 2 and len(info['map_sha256']) == 64
+    assert preflight_baseline_income('baseline', source, ['a'])['citizens'] == 1
+    assert daily_income(70000, 'baseline', aid='a', baseline_map_path=source) == 90000
+    assert daily_income(150000, 'baseline', aid='a', baseline_map_path=source) == 90000
+    with pytest.raises(ValueError, match='missing=1'):
+        preflight_baseline_income('baseline', source, ['a', 'c'])
+
+
+def test_baseline_income_requires_map_before_simulation():
+    with pytest.raises(ValueError, match='EXP_DAILY_INCOME_MAP'):
+        preflight_baseline_income('baseline', None, ['a'])

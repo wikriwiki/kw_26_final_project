@@ -96,3 +96,58 @@ def test_completed_empty_night_reuses_verified_marker(output, monkeypatch):
     assert runner.run_day(['A'],DAY,0,workers=1)['ok'] == 1
     monkeypatch.setattr(night_interaction, 'select_interaction_pairs', lambda *args,**kwargs: pytest.fail('completed night repeated'))
     assert runner.run_day(['A'],DAY,0,workers=1)['ok'] == 1
+    canonical = (output/'metrics'/f'day_{DAY}.jsonl').read_text(encoding='utf-8').splitlines()
+    assert len(canonical) == 1 and json.loads(canonical[0])['aid'] == 'A'
+    attempts = sorted((output/'metrics'/'attempts').glob(f'day_{DAY}_*.jsonl'))
+    assert len(attempts) == 2
+    assert len(attempts[-1].read_text(encoding='utf-8').splitlines()) == 2
+
+
+def test_failed_day_resume_keeps_attempt_and_publishes_one_success(output, monkeypatch):
+    import neo4j_load._common as common
+    import night_interaction
+    calls = []
+    def process(aid, *args):
+        calls.append(aid)
+        return {'aid': aid, 'status': 'error' if len(calls) == 1 else 'ok'}
+    @contextmanager
+    def session(): yield Session()
+    monkeypatch.setattr(common, 'driver_session', session)
+    monkeypatch.setattr(runner, 'process_one', process)
+    monkeypatch.setattr(runner, '_write_timing_diagnostics', lambda *args: {})
+    monkeypatch.setattr(night_interaction, 'select_interaction_pairs', lambda *args, **kwargs: [])
+    with pytest.raises(RuntimeError, match='incomplete agent day'):
+        runner.run_day(['A'], DAY, 0, workers=1)
+    assert runner.run_day(['A'], DAY, 0, workers=1)['ok'] == 1
+    canonical = (output/'metrics'/f'day_{DAY}.jsonl').read_text(encoding='utf-8').splitlines()
+    assert [json.loads(line)['status'] for line in canonical] == ['ok']
+    raw = next((output/'metrics'/'attempts').glob(f'day_{DAY}_*.jsonl'))
+    assert [json.loads(line)['status'] for line in raw.read_text(encoding='utf-8').splitlines()] == ['error', 'ok']
+
+
+def test_resume_rejects_changed_baseline_income_map(output, monkeypatch):
+    import neo4j_load._common as common
+    import night_interaction
+    from income import _baseline_map
+    map_path = output/'baseline.json'
+    def write_map(amount):
+        map_path.write_text(json.dumps({
+            'schema': 'baseline_income_v1',
+            'policy_free_success_rows_verified': True,
+            'citizen_count': 1,
+            'daily_income_by_aid': {'A': amount},
+        }), encoding='utf-8')
+    write_map(100)
+    monkeypatch.setenv('EXP_DAILY_INCOME', 'baseline')
+    monkeypatch.setenv('EXP_DAILY_INCOME_MAP', str(map_path))
+    @contextmanager
+    def session(): yield Session()
+    monkeypatch.setattr(common, 'driver_session', session)
+    monkeypatch.setattr(runner, 'process_one', lambda aid, *args: {'aid': aid, 'status': 'ok'})
+    monkeypatch.setattr(runner, '_write_timing_diagnostics', lambda *args: {})
+    monkeypatch.setattr(night_interaction, 'select_interaction_pairs', lambda *args, **kwargs: [])
+    assert runner.run_day(['A'], DAY, 0, workers=1)['ok'] == 1
+    write_map(200)
+    _baseline_map.cache_clear()  # a resumed process starts with a fresh cache
+    with pytest.raises(ValueError, match='cohort or execution settings changed'):
+        runner.run_day(['A'], DAY, 0, workers=1)

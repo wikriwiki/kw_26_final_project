@@ -622,7 +622,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             )
             from income import daily_income as _daily_income
             _today_income = _daily_income((cm_meta or {}).get("anchor_total"),
-                                          os.environ.get("EXP_DAILY_INCOME"))
+                                          os.environ.get("EXP_DAILY_INCOME"),
+                                          aid=aid,
+                                          baseline_map_path=os.environ.get("EXP_DAILY_INCOME_MAP"))
             state = night_create_state(
                 aid, today,
                 policy_used=updated_policy_used,
@@ -869,6 +871,8 @@ def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None
             OUT_DIR / "timing" / f"slow_{day_str}.json",
             OUT_DIR / "summary.json",
         ]
+        candidates.extend(sorted((METRICS_DIR / "attempts").glob(
+            f"day_{day_str}_*.jsonl")))
         for src in candidates:
             if not src.exists():
                 continue
@@ -911,6 +915,12 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     cohort = {"run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
               "day": day_str, "agent_ids": sorted(agents),
               "execution_fingerprint": execution_fingerprint()}
+    from income import preflight_baseline_income
+    income_map = preflight_baseline_income(
+        os.environ.get("EXP_DAILY_INCOME"),
+        os.environ.get("EXP_DAILY_INCOME_MAP"), agents)
+    if income_map:
+        cohort["baseline_income_map_sha256"] = income_map["map_sha256"]
     cohort_path = OUT_DIR / f"cohort_{day_str}.json"
     if cohort_path.exists() and json.loads(cohort_path.read_text(encoding="utf-8")) != cohort:
         raise ValueError("cohort or execution settings changed; refusing to resume")
@@ -928,6 +938,7 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     # 메트릭 jsonl append 모드
     lock = Lock()
     fail_list: list[dict] = []
+    completed_rows: dict[str, dict] = {}
     ok_count = 0
     err_count = 0
     t_start = time.time()
@@ -961,6 +972,7 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                 if res["status"] == "ok":
                     ok_count += 1
                     done_aids.add(res["aid"])
+                    completed_rows[res["aid"]] = res
                 else:
                     err_count += 1
                     fail_list.append(res)
@@ -988,6 +1000,24 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
 
     if err_count or done_aids != set(agents):
         raise RuntimeError(f"incomplete agent day {day_str}: {err_count} failed; resume this day before advancing")
+
+    # A resumed day appends attempts to the raw metrics file. Preserve that raw
+    # evidence, then publish exactly one committed result per citizen at the
+    # path consumed by reports. Never canonicalize an incomplete day.
+    attempts_dir = METRICS_DIR / "attempts"
+    attempts_dir.mkdir(parents=True, exist_ok=True)
+    raw_snapshot = attempts_dir / f"day_{day_str}_{time.time_ns()}.jsonl"
+    shutil.copy2(metrics_path, raw_snapshot)
+    canonical_tmp = metrics_path.with_name(metrics_path.name + f".tmp.{os.getpid()}")
+    try:
+        with canonical_tmp.open("w", encoding="utf-8") as fp:
+            for aid in sorted(agents):
+                fp.write(json.dumps(completed_rows[aid], ensure_ascii=False) + "\n")
+            fp.flush()
+            os.fsync(fp.fileno())
+        canonical_tmp.replace(metrics_path)
+    finally:
+        canonical_tmp.unlink(missing_ok=True)
 
     agent_elapsed = time.time() - t_start
     print(
@@ -1090,6 +1120,13 @@ def main():
 
     start = date.fromisoformat(args.start)
     agents = fetch_agents(limit=args.limit, gu_only=args.gu)
+    from income import preflight_baseline_income
+    income_map = preflight_baseline_income(
+        os.environ.get("EXP_DAILY_INCOME"),
+        os.environ.get("EXP_DAILY_INCOME_MAP"), agents)
+    if income_map:
+        print(f"[예산] 정책 전 고정 보충액 {income_map['citizens']}명 "
+              f"map_sha256={income_map['map_sha256']}")
     print(f"=== 시뮬 시작 ===")
     print(f"  agents: {len(agents)}, days: {args.days}, start: {start}, workers: {args.workers}")
     print(f"  output: {OUT_DIR}")
