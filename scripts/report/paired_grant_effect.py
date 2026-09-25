@@ -1,0 +1,190 @@
+"""Score a completed, matched policy/no-policy grant experiment from daily ledgers.
+
+The outcome is an *indirect spending proxy*: this simulator does not record the
+payment instrument needed to reproduce an external card-sales estimand. Neither
+the empirical target nor a policy-specific result is used in this calculation.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import random
+from datetime import date, timedelta
+from pathlib import Path
+
+
+MONEY = ("offline_spent", "online_spent", "grant_received_cumulative",
+         "grant_remaining", "grant_spent_today")
+
+
+def dates(start: str, end: str) -> list[str]:
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    if first > last:
+        raise ValueError("start exceeds end")
+    return [(first + timedelta(days=i)).isoformat()
+            for i in range((last - first).days + 1)]
+
+
+def roster_file(path: Path) -> list[str]:
+    raw = json.loads(path.read_text(encoding="utf-8"))
+    ids = list(raw) if isinstance(raw, (list, dict)) else []
+    if not ids or any(not isinstance(aid, str) or not aid for aid in ids):
+        raise ValueError("roster must be a nonempty JSON list or object keyed by aid")
+    if len(ids) != len(set(ids)):
+        raise ValueError("duplicate citizen in roster")
+    return ids
+
+
+def read_jsonl(path: Path) -> list[dict]:
+    with path.open(encoding="utf-8") as stream:
+        return [json.loads(line) for line in stream if line.strip()]
+
+
+def _money(row: dict, field: str) -> int:
+    value = row.get(field)
+    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+        raise ValueError(f"{field} must be a nonnegative integer: {row.get('aid')} {row.get('day')}")
+    return value
+
+
+def _index(rows: list[dict], roster: list[str], days: list[str], arm: str,
+           policy_id: str) -> dict[tuple[str, str], dict]:
+    expected = {(aid, day) for aid in roster for day in days}
+    got: dict[tuple[str, str], dict] = {}
+    for row in rows:
+        if row.get("arm") != arm or row.get("policy_id") != policy_id:
+            raise ValueError(f"wrong arm or policy in {arm} ledger")
+        key = (row.get("aid"), row.get("day"))
+        if key in got:
+            raise ValueError(f"duplicate citizen-day in {arm}: {key}")
+        got[key] = row
+    if set(got) != expected:
+        raise ValueError(f"incomplete or extra citizen-day matrix in {arm}: "
+                         f"missing={len(expected - set(got))}, extra={len(set(got) - expected)}")
+    for row in got.values():
+        for field in MONEY:
+            _money(row, field)
+        eligible = row.get("eligible_offline_spent")
+        if (isinstance(eligible, bool) or not isinstance(eligible, int)
+                or eligible < 0 or eligible > row["offline_spent"]):
+            raise ValueError("invalid eligible offline spend")
+        if row["grant_spent_today"] > row["offline_spent"]:
+            raise ValueError("grant payment exceeds offline gross")
+        if row["grant_spent_today"] > eligible:
+            raise ValueError("grant payment exceeds eligible gross")
+    return got
+
+
+def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
+          days: list[str], policy_id: str, draws: int = 2000,
+          seed: int = 20260926,
+          expected_recipients: int | None = None,
+          expected_issued_won: int | None = None) -> dict:
+    if not roster or not days or len(set(roster)) != len(roster) or len(set(days)) != len(days):
+        raise ValueError("nonempty unique roster and days required")
+    if draws < 0:
+        raise ValueError("draws must be nonnegative")
+    on = _index(on_rows, roster, days, "on", policy_id)
+    off = _index(off_rows, roster, days, "off", policy_id)
+    per_citizen = []
+    for aid in roster:
+        received, spent = 0, 0
+        values = {key: 0 for key in ("on_total", "off_total", "on_offline",
+                                     "off_offline", "on_eligible", "off_eligible")}
+        for day in days:
+            p, c = on[(aid, day)], off[(aid, day)]
+            if any(c[field] != 0 for field in
+                   ("grant_received_cumulative", "grant_remaining", "grant_spent_today")):
+                raise ValueError(f"policy funding leaked into control: {aid} {day}")
+            new_received = p["grant_received_cumulative"]
+            if new_received < received:
+                raise ValueError(f"grant receipt decreased: {aid} {day}")
+            received = new_received
+            spent += p["grant_spent_today"]
+            if received - spent != p["grant_remaining"]:
+                raise ValueError(f"grant wallet does not reconcile: {aid} {day}")
+            values["on_offline"] += p["offline_spent"]
+            values["off_offline"] += c["offline_spent"]
+            values["on_total"] += p["offline_spent"] + p["online_spent"]
+            values["off_total"] += c["offline_spent"] + c["online_spent"]
+            values["on_eligible"] += p["eligible_offline_spent"]
+            values["off_eligible"] += c["eligible_offline_spent"]
+        values.update(aid=aid, received=received, spent=spent,
+                      remaining=on[(aid, days[-1])]["grant_remaining"])
+        per_citizen.append(values)
+    issued = sum(row["received"] for row in per_citizen)
+    if issued <= 0:
+        raise ValueError("no grant was delivered in treatment")
+    recipients = sum(row["received"] > 0 for row in per_citizen)
+    if expected_recipients is not None and recipients != expected_recipients:
+        raise ValueError(f"grant recipient count mismatch: {recipients} != {expected_recipients}")
+    if expected_issued_won is not None and issued != expected_issued_won:
+        raise ValueError(f"grant issued amount mismatch: {issued} != {expected_issued_won}")
+    summed = {key: sum(row[key] for row in per_citizen)
+              for key in ("on_total", "off_total", "on_offline", "off_offline",
+                          "on_eligible", "off_eligible", "received", "spent", "remaining")}
+    def contrast(rows: list[dict], field: str) -> float:
+        numerator = sum(r["on_" + field] - r["off_" + field] for r in rows)
+        denominator = sum(r["received"] for r in rows)
+        return numerator / denominator if denominator else float("nan")
+    ratio = contrast(per_citizen, "total")
+    rng = random.Random(seed)
+    boot = []
+    for _ in range(draws):
+        sample = rng.choices(per_citizen, k=len(per_citizen))
+        value = contrast(sample, "total")
+        if value == value:  # a resample can contain no recipients
+            boot.append(value)
+    boot.sort()
+    interval = ([boot[int(0.025 * (len(boot) - 1))],
+                 boot[int(0.975 * (len(boot) - 1))]] if boot else None)
+    return {
+        "policy_id": policy_id, "citizens": len(roster), "days": len(days),
+        "grant_recipients": recipients,
+        "complete_matrix": True, "funding_reconciled": True,
+        "recorded_total_spend_on_won": summed["on_total"],
+        "recorded_total_spend_off_won": summed["off_total"],
+        "recorded_total_spend_difference_won": summed["on_total"] - summed["off_total"],
+        "grant_issued_won": issued, "grant_spent_won": summed["spent"],
+        "grant_remaining_won": summed["remaining"],
+        "incremental_recorded_spend_per_grant_won": ratio,
+        "citizen_bootstrap_95_interval": interval,
+        "bootstrap_valid_draws": len(boot),
+        "offline_difference_won": summed["on_offline"] - summed["off_offline"],
+        "offline_effect_per_grant_won": contrast(per_citizen, "offline"),
+        "eligible_offline_difference_won": summed["on_eligible"] - summed["off_eligible"],
+        "eligible_offline_effect_per_grant_won": contrast(per_citizen, "eligible"),
+        "comparison": "indirect_proxy",
+        "scope": "Within-run matched-citizen spending proxy. Payment instrument, population "
+                 "and external counterfactual are not aligned; do not subtract from an "
+                 "empirical card-sales estimate as a direct accuracy error.",
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--on", type=Path, required=True)
+    parser.add_argument("--off", type=Path, required=True)
+    parser.add_argument("--roster", type=Path, required=True)
+    parser.add_argument("--start", required=True)
+    parser.add_argument("--end", required=True)
+    parser.add_argument("--policy-id", required=True)
+    parser.add_argument("--expected-recipients", type=int)
+    parser.add_argument("--expected-issued-won", type=int)
+    parser.add_argument("--draws", type=int, default=2000)
+    parser.add_argument("--json-out", type=Path, required=True)
+    args = parser.parse_args()
+    result = score(read_jsonl(args.on), read_jsonl(args.off),
+                   roster=roster_file(args.roster), days=dates(args.start, args.end),
+                   policy_id=args.policy_id, draws=args.draws,
+                   expected_recipients=args.expected_recipients,
+                   expected_issued_won=args.expected_issued_won)
+    args.json_out.parent.mkdir(parents=True, exist_ok=True)
+    args.json_out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                             encoding="utf-8")
+    print(args.json_out)
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

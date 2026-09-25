@@ -17,9 +17,23 @@
 
 ## 실행·보존 관문
 
-- 두 팔에서 시민 ID 집합·각 시민의 42개 날짜 `State`가 완전하고 중복이 없어야 한다. 매일 정상 완료 행 수가 시민 수와 일치해야 한다. 실패일은 같은 날 재개하되 최종 지표에는 시민·날짜당 한 행만 넣는다.
+- 두 팔에서 시민 ID 집합·각 시민의 42개 날짜 `State`가 완전하고 중복이 없어야 한다. 매일 정상 완료 행 수가 시민 수와 일치해야 한다. 실패일은 같은 날 재개하되 최종 지표에는 시민·날짜당 한 행만 넣는다. 관측 종료 6월 21일은 정책의 8월 31일 소멸일 전이므로, 이 창의 지급액은 `누적 사용액 + 마지막 잔액`과 일치해야 한다.
 - 지급 팔에는 P013만 전달되고 `grant_due_but_zero`가 0건이어야 하며, 무정책 팔은 Policy 0개, 정책 노출·수령·결제 0원이어야 한다. 정책 팔의 `Σgrant_received = Σpolicy_spend + Σgrant_remaining + Σexpired` 회계를 시민별로 감사한다. 지급액이 0이거나 지출 원장 커버리지가 부족하면 규모 비율을 내지 않는다.
 - 일별 그래프 추출에서 오프라인 `actual_spent`와 State 총지출·온라인액의 정합을 확인한다. 양팔의 원장·정책 정의·프롬프트·환경·소득 보충 맵·시민 목록·실행 변수·코드 커밋을 각각 매니페스트와 SHA256으로 보존하고 서버 밖으로 복사한 뒤 다음 팔로 전환한다.
 - 불확실성은 시민 단위로 쌍체 부트스트랩하고, 총지출 차액과 지급액 대비 비율의 95% 구간을 보고한다. 분모가 고정 지급액이므로 시민 재표집마다 분자·분모를 함께 재계산한다. 결과를 본 뒤 관측 기간·적격 업종 묶음·시민을 바꾸어 성공 사례를 고르지 않는다.
 
 기술 관문을 먼저 짧은 별도 프로브에서 확인한다. 프로브는 외부 규모 점수에 합치지 않는다. 본 실험의 기준 프롬프트는 v5로 고정하고, 이후 정책 불문 후보 프롬프트는 같은 팔·지표 정의와 독립 검증 정책에서 비교한다. 현재 P012 런은 여전히 실행 중이며 이 P013 실험은 시작하지 않았다.
+
+## 두 팔 완료 후 계측 명령
+
+`scripts/report/export_policy_daily_ledger.py`는 각 팔의 **완료된** Neo4j 그래프와 `metrics`에서 시민·날짜별 실현 지출, 온라인 지출, 적격 오프라인 지출, 정책별 수령·사용·잔액을 읽기 전용으로 내보낸다. `roster.json`은 두 팔에서 같은 시민 ID 목록으로 동결하고, `--policy-file`에는 지급일만 수정한 P013 사본의 저장소 상대경로를 양팔 모두 지정한다. 정책 팔을 내보내어 서버 밖에 복사·해시 확인한 뒤 그래프를 초기화하고 무정책 팔을 실행한다.
+
+```text
+python scripts/report/export_policy_daily_ledger.py --arm on --policy-id P013 --policy-file <P013 사본> --roster roster.json --start 2020-05-11 --end 2020-06-21 --metrics-dir <정책 팔>/metrics --out p013_on_daily.jsonl
+python scripts/report/export_policy_daily_ledger.py --arm off --policy-id P013 --policy-file <같은 P013 사본> --roster roster.json --start 2020-05-11 --end 2020-06-21 --metrics-dir <무정책 팔>/metrics --out p013_off_daily.jsonl
+python scripts/report/paired_grant_effect.py --on p013_on_daily.jsonl --off p013_off_daily.jsonl --roster roster.json --start 2020-05-11 --end 2020-06-21 --policy-id P013 --expected-recipients 500 --expected-issued-won 140000000 --json-out p013_grant_effect.json
+```
+
+계측기는 어느 팔에서든 시민·날짜 누락, 중복, 실패 metrics, 무정책 팔의 정책 결제, 정책 지갑 회계 불일치가 있으면 점수 파일을 만들지 않는다. 부트스트랩 구간은 한 번의 런 안에서 시민 표본을 재추출한 불확실성이다. 모델 실행 간 변동까지 포함한 구간이라고 주장하지 않는다.
+
+구현 검증: A100의 완료된 P012 2021-10-16 데이터를 **읽기 전용**으로 조회했을 때 새 거래 조회식은 500명 원장의 `INCLUDES` **5,592행·총 16,831,594원**을 반환했고, 이미 서버 밖에 보존한 같은 날 그래프 추출의 행 수·금액과 일치했다. State/거래 조회식 모두 Neo4j `EXPLAIN`을 통과했다. 이는 조회식의 중복·누락을 그 날짜에서 점검한 것이며, 아직 실행하지 않은 P013의 정책 결제나 외부 효과를 검증한 결과는 아니다.
