@@ -45,6 +45,26 @@ def test_recipient_denominator_and_paired_spending_are_distinct():
     assert result["metrics"]["threshold_reach_share"]["value"] == 0.5
 
 
+def test_external_monthly_reference_is_descriptive_only():
+    on, off = fixture_rows()
+    result = paired.score(on, off, roster=["a", "b"], month="2021-10",
+                          policy_id="P012", draws=0)
+    reference = {"policy_id": "P012", "month": "2021-10",
+                 "source": "table 3-1", "population": "national recipients",
+                 "recipient_count": 8102000,
+                 "cashback_total_won": 387500000000,
+                 "capped_recipient_count": 1691000}
+    comparison = paired.compare_reference(result, reference)
+    assert comparison["recipient_average"]["external_won"] == pytest.approx(47827.7, rel=1e-5)
+    assert comparison["recipient_average"]["simulated_over_external"] == pytest.approx(
+        207 / (387500000000 / 8102000))
+    assert comparison["cap_share"]["percentage_point_difference"] == pytest.approx(
+        -100 * 1691000 / 8102000)
+    assert "no direct effect accuracy score" in comparison["comparison_status"]
+    with pytest.raises(ValueError, match="month differs"):
+        paired.compare_reference(result, {**reference, "month": "2021-11"})
+
+
 def test_missing_day_or_control_cashback_cannot_score():
     on, off = fixture_rows()
     with pytest.raises(ValueError, match="incomplete citizen-day"):

@@ -148,6 +148,41 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
     }
 
 
+def compare_reference(result: dict, reference: dict) -> dict:
+    """Describe scale against a recipient-level external table, without an effect score."""
+    if (reference.get("policy_id") != result["policy_id"]
+            or reference.get("month") != result["month"]):
+        raise ValueError("external reference policy or month differs from simulated month")
+    recipients = reference.get("recipient_count")
+    cashback_total = reference.get("cashback_total_won")
+    capped = reference.get("capped_recipient_count")
+    if (any(isinstance(v, bool) or not isinstance(v, int) for v in
+            (recipients, cashback_total, capped))
+            or recipients <= 0 or cashback_total <= 0 or not 0 <= capped <= recipients):
+        raise ValueError("invalid external recipient counts or cashback total")
+    external_mean = cashback_total / recipients
+    external_cap_share = capped / recipients
+    simulated_mean = result["metrics"]["cashback_per_recipient_won"]["value"]
+    simulated_cap_share = result["metrics"]["cap_share_recipients"]["value"]
+    return {
+        "source": reference.get("source"),
+        "external_population": reference.get("population"),
+        "comparison_status": "approximate_population_reference; no direct effect accuracy score",
+        "recipient_average": {
+            "external_won": external_mean,
+            "simulated_won": simulated_mean,
+            "simulated_over_external": (simulated_mean / external_mean
+                                        if simulated_mean is not None else None),
+        },
+        "cap_share": {
+            "external": external_cap_share,
+            "simulated": simulated_cap_share,
+            "percentage_point_difference": (100 * (simulated_cap_share - external_cap_share)
+                                            if simulated_cap_share is not None else None),
+        },
+    }
+
+
 def verify_manifests(on_path: Path, off_path: Path, roster: list[str], month: str) -> None:
     expected_roster_sha = hashlib.sha256(
         json.dumps(sorted(roster), ensure_ascii=False).encode("utf-8")).hexdigest()
@@ -182,12 +217,20 @@ def main() -> int:
     parser.add_argument("--month", required=True)
     parser.add_argument("--policy-id", required=True)
     parser.add_argument("--draws", type=int, default=2000)
+    parser.add_argument("--reference", type=Path,
+                        help="Separate, read-only external recipient table for descriptive scale")
     parser.add_argument("--json-out", type=Path, required=True)
     args = parser.parse_args()
     roster = roster_file(args.roster)
     verify_manifests(args.on, args.off, roster, args.month)
     result = score(read_jsonl(args.on), read_jsonl(args.off), roster=roster,
                    month=args.month, policy_id=args.policy_id, draws=args.draws)
+    if args.reference:
+        source_bytes = args.reference.read_bytes()
+        result["empirical_scale_reference"] = compare_reference(
+            result, json.loads(source_bytes))
+        result["empirical_scale_reference"]["source_sha256"] = hashlib.sha256(
+            source_bytes).hexdigest()
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     partial = args.json_out.with_name(args.json_out.name + f".tmp.{os.getpid()}")
     try:
