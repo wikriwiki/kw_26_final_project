@@ -16,6 +16,8 @@
     "stage2_missing_decision_evidence_agents": 0,
     "stage2_missing_picks_filled": 124,
     "stage2_hallucinations_corrected": 409,
+    "stage2_spend_amount_fallbacks": null,
+    "stage2_spend_amount_observed_agents": 0,
     "stage2_generated_tokens_all_attempts": 11760998
   },
   "per_day": [
@@ -34,6 +36,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 1,
       "stage2_hallucinations_corrected": 15,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 360022,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -53,6 +57,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 8,
       "stage2_hallucinations_corrected": 27,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 743711,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -72,6 +78,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 6,
       "stage2_hallucinations_corrected": 24,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 923234,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -91,6 +99,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 6,
       "stage2_hallucinations_corrected": 19,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 554788,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -110,6 +120,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 2,
       "stage2_hallucinations_corrected": 29,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 567261,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -129,6 +141,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 12,
       "stage2_hallucinations_corrected": 21,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 615147,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -148,6 +162,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 10,
       "stage2_hallucinations_corrected": 28,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 597526,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -167,6 +183,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 9,
       "stage2_hallucinations_corrected": 20,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 629767,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -186,6 +204,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 6,
       "stage2_hallucinations_corrected": 27,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 1116995,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -205,6 +225,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 4,
       "stage2_hallucinations_corrected": 34,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 1127093,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -224,6 +246,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 12,
       "stage2_hallucinations_corrected": 20,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 619624,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -243,6 +267,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 5,
       "stage2_hallucinations_corrected": 16,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 621501,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -262,6 +288,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 11,
       "stage2_hallucinations_corrected": 19,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 610719,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -281,6 +309,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 5,
       "stage2_hallucinations_corrected": 29,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 630023,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -300,6 +330,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 15,
       "stage2_hallucinations_corrected": 37,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 822334,
       "expected_count_met": true,
       "roster_matches_first_day": true
@@ -319,6 +351,8 @@
       "stage2_missing_decision_evidence_agents": 0,
       "stage2_missing_picks_filled": 12,
       "stage2_hallucinations_corrected": 44,
+      "stage2_spend_amount_fallbacks": null,
+      "stage2_spend_amount_observed_agents": 0,
       "stage2_generated_tokens_all_attempts": 1221253,
       "expected_count_met": true,
       "roster_matches_first_day": true

@@ -111,6 +111,20 @@ def test_length_terminated_valid_json_is_not_accepted_as_complete(monkeypatch):
     assert meta["missing_picks_filled"] == 0
 
 
+def test_model_omitted_spend_is_counted_when_anchor_fills_it(monkeypatch):
+    stage1 = setup_stage2(monkeypatch)
+    omitted_spend = json.dumps({"picks": [{"order": 0, "poi_id": "C_test",
+                                            "actual_spent": 0,
+                                            "actual_satisfaction": 0.7}],
+                                "review_lookup_requests": []})
+    monkeypatch.setattr(stage2, "_llm_call",
+                        lambda *args, **kwargs: response(omitted_spend))
+    result, _, meta = stage2.call_stage2(
+        "a", stage1, {"daily_wd": 30000}, date(2020, 5, 11))
+    assert result.picks[0].actual_spent > 0
+    assert meta["spend_amount_fallbacks"] == 1
+
+
 def test_all_failed_llm_attempts_cannot_be_reported_as_citizen_choice(monkeypatch):
     stage1 = setup_stage2(monkeypatch)
     monkeypatch.delenv("SIM_ALLOW_STAGE2_FALLBACK", raising=False)

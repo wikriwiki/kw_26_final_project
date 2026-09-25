@@ -52,11 +52,22 @@ def test_review_retry_without_final_valid_pick_is_not_a_model_decision():
         "aid": "a", "status": "ok", "s2_timing": {"n_llm_calls": 2,
             "attempts": [{"status": "review_retry"}, {"status": "error"}]},
         "fb_missing_picks_filled": 2, "fb_hallucinations_corrected": 1,
+        "fb_spend_amount_fallbacks": 3,
     }]}, expected_per_day=1)
     assert result["quality_gate_pass"] is False
     assert result["totals"]["stage2_fallback_only_agents"] == 1
     assert result["totals"]["stage2_missing_picks_filled"] == 2
     assert result["totals"]["stage2_hallucinations_corrected"] == 1
+    assert result["totals"]["stage2_spend_amount_fallbacks"] == 3
+
+
+def test_old_metrics_do_not_claim_zero_spend_amount_fallbacks():
+    result = audit.inspect({"2020-05-11": [{
+        "aid": "a", "status": "ok", "s2_timing": {"n_llm_calls": 1,
+            "attempts": [{"status": "ok"}]},
+    }]}, expected_per_day=1)
+    assert result["totals"]["stage2_spend_amount_observed_agents"] == 0
+    assert result["totals"]["stage2_spend_amount_fallbacks"] is None
 
 
 def test_missing_stage2_trace_needs_explicit_skip_marker():

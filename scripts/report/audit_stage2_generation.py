@@ -89,6 +89,11 @@ def inspect(day_rows: dict[str, list[dict]], *, expected_per_day: int | None = N
                                                for r in ok),
             "stage2_hallucinations_corrected": sum(
                 int(r.get("fb_hallucinations_corrected") or 0) for r in ok),
+            "stage2_spend_amount_fallbacks": sum(
+                int(r.get("fb_spend_amount_fallbacks") or 0)
+                for r in ok if "fb_spend_amount_fallbacks" in r),
+            "stage2_spend_amount_observed_agents": sum(
+                "fb_spend_amount_fallbacks" in r for r in ok),
             "stage2_generated_tokens_all_attempts": generated,
             "expected_count_met": expected_per_day is None or len(rows) == expected_per_day,
             "roster_matches_first_day": roster_matches,
@@ -99,7 +104,13 @@ def inspect(day_rows: dict[str, list[dict]], *, expected_per_day: int | None = N
         "stage2_json_parse_errors", "stage2_output_limited_attempts",
         "stage2_fallback_only_agents", "stage2_missing_decision_evidence_agents",
         "stage2_missing_picks_filled", "stage2_hallucinations_corrected",
+        "stage2_spend_amount_fallbacks", "stage2_spend_amount_observed_agents",
         "stage2_generated_tokens_all_attempts")}
+    if totals["stage2_spend_amount_observed_agents"] == 0:
+        totals["stage2_spend_amount_fallbacks"] = None
+    for daily in per_day:
+        if daily["stage2_spend_amount_observed_agents"] == 0:
+            daily["stage2_spend_amount_fallbacks"] = None
     quality_pass = (all(d["expected_count_met"] and d["roster_matches_first_day"]
                         for d in per_day)
                     and totals["agents_error"] == 0 and totals["duplicate_aids"] == 0

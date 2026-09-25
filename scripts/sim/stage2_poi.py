@@ -1015,9 +1015,12 @@ def call_stage2(
                 i: bool(cs[0].get("durable_anchor")) if cs else False
                 for i, cs in cands_by_order.items()
             }
+            spend_amount_fallbacks = 0
             for pick in parsed.picks:
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
+                    if pick.actual_spent is None or pick.actual_spent <= 0:
+                        spend_amount_fallbacks += 1
                     pb, pf = price_by_poi.get(pick.poi_id) or (None, 1.0)
                     _ensure_positive_spend(
                         pick, cat, daily_wd, price_factor=pf,
@@ -1043,6 +1046,7 @@ def call_stage2(
                 "hallucinations_dropped": hallucinations_dropped,
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
+                "spend_amount_fallbacks": spend_amount_fallbacks,
                 "price_by_poi": price_by_poi,
                 "coupon_by_poi": coupon_by_poi,
                 "review_lookup_count": len(review_lookup_used),
