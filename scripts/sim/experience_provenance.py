@@ -17,10 +17,16 @@ def source_fingerprint():
 
 
 def execution_fingerprint():
-    settings = ('LLM_MODE','SIM_ENVIRONMENT','SIM_PROMPT_VARIANT','CONSUMPTION_MODEL',
-                'EXP_PAYMENT_CHOICE','EXP_ELIGIBLE_SHARE','EXP_GRANT_USE',
-                'POLICY_BACKTEST_DETERMINISTIC')
-    return digest({'source':source_fingerprint(), 'settings':{k:os.environ.get(k) for k in settings}})
+    # All EXP_* settings can alter a citizen's state or decisions. A fixed
+    # shortlist silently omitted income, the cashback base ratio and the
+    # plan-to-total switch; a resumed run could then mix two experiments.
+    settings = {k: v for k, v in os.environ.items() if k.startswith('EXP_')}
+    for key in ('LLM_MODE', 'LLM_BASE_URL', 'SIM_ENVIRONMENT',
+                'SIM_PROMPT_VARIANT', 'CONSUMPTION_MODEL',
+                'POLICY_BACKTEST_DETERMINISTIC', 'POLICY_POI_SORT_BOOST',
+                'SIM_ALLOW_STAGE2_FALLBACK', 'PYTHONHASHSEED'):
+        settings[key] = os.environ.get(key)
+    return digest({'source': source_fingerprint(), 'settings': settings})
 
 
 def atomic_json(path, value):

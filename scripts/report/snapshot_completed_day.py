@@ -54,6 +54,10 @@ def verify_finished_metrics(output_dir: Path, day: date,
 
 
 QUERIES = {
+    "agent": """
+        MATCH (a:Agent)-[:HAS_STATE {day: date($day)}]->(:State)
+        RETURN a.id AS aid, properties(a) AS agent
+    """,
     "state": """
         MATCH (a:Agent)-[:HAS_STATE {day: date($day)}]->(s:State)
         RETURN a.id AS aid, $day AS day, properties(s) AS state
@@ -112,6 +116,7 @@ def snapshot(day: date, output_dir: Path, evidence_dir: Path, stem: str,
         metrics_ids = {row["aid"] for row in rows}
         state_ids = exported["state"]["aids"]
         counts.update({
+            "agent": exported["agent"]["count"],
             "state": exported["state"]["count"],
             "state_unique_aids": len(state_ids),
             "state_missing_for_ok": len({r["aid"] for r in rows if r.get("status") == "ok"}

@@ -40,3 +40,17 @@
 ## 2026-09-26 해석 정정 — v5는 범용 프롬프트가 아님
 
 위 원래 사전등록은 v5를 '범용'으로 불렀지만, 렌더된 공통 본문에는 캐시백·문턱·쿠폰·바우처 문구가 남아 있다. [프롬프트 재감사](PROMPT_GENERALITY_AUDIT_20260926.md)에 근거해 **v5 두 팔의 명칭을 역사적 기준선**으로 정정한다. 원래 지정한 v5 문구와 팔 정의는 바꾸지 않는다. 지급액과 한도 지표는 회계·규모 참고로 보고할 수 있으나, 두 팔이 통과해도 '정책 중립 프롬프트가 검증됐다'고 주장하지 않는다. 정책 중립 후보의 팔은 결과를 보고 사후에 v5 팔로 바꾸어 부르지 않고 별도로 등록한다.
+
+## 2026-09-26 월별 원장 계측기
+
+`scripts/report/export_cashback_month.py`는 10월 **31일 × 동결 시민 500명**의 정상 metrics, Stage2 생성 관문, 일별 State와 POI 결제를 함께 확인한다. 적립업종 누적과 월 자기부담액의 일별 증가분이 실제 결제·온라인액과 다르면 출력을 만들지 않는다. 지급률·문턱·월 상한·시행일은 하드코딩한 값이 아닌 **실행에 사용한 정책 JSON 사본**에서 읽고, 개인별 2분기 앵커는 런타임과 같은 입력·`EXP_SANGSAENG_BASE_RATIO`로 재계산한다. Agent에 `sangsaeng_base_daily`가 실제로 있으면 그 값을 우선한다. 현재 A100 완료일의 500명은 이 속성이 0명이라 총지출 앵커 × 고정 비율 경로를 쓴다.
+
+정책 팔과 무정책 팔은 각자 그래프를 초기화하기 **전에** 아래처럼 별도 원장·매니페스트로 내보내고 서버 밖 복사·SHA256 확인을 마친다. 두 팔에 같은 정책 파일 사본·시민 목록·기준 비율을 지정한다. 무정책 팔은 Policy 노드 0개와 정책 활동 0건이어야 한다.
+
+```text
+python scripts/report/export_cashback_month.py --month 2021-10 --arm on --policy-id P012 --policy-file <P012 사본> --base-ratio <동결 비율> --roster roster.json --metrics-dir <정책 팔>/metrics --out p012_on.jsonl
+python scripts/report/export_cashback_month.py --month 2021-10 --arm off --policy-id P012 --policy-file <같은 P012 사본> --base-ratio <동결 비율> --roster roster.json --metrics-dir <무정책 팔>/metrics --out p012_off.jsonl
+python scripts/report/paired_cashback_month.py --on p012_on.jsonl --off p012_off.jsonl --roster roster.json --month 2021-10 --policy-id P012 --json-out p012_paired_month.json
+```
+
+`paired_cashback_month.py`는 두 원장의 SHA256, 정책 파일·실행 지문·소득 맵·시민 목록 일치와 시민·날짜별 완전성을 다시 검사한다. 결과는 적립업종·전체 기록 지출의 쌍체차, 수령자 조건부 월 캐시백 평균, 수령자 중 상한 도달 비율과 시민 단위 재표집 구간이다. 수령자 0명이면 평균·상한 비율은 `null`로 남긴다. 캐시백은 월말 **발생액 추정**이며 다음 달 실제 지급 기록이 아니다. KDI 수령자 통계에는 모집단 차이를 표시하고, 쌍체 지출차를 가구 월별 로그 삼중차분과 직접 빼지 않는다. 기존 `score_policy.py`의 고정 인자 P012 경로는 이 두 팔 본 런 채점에 사용하지 않는다. 이 새 계측기는 합성 31일 단위 시험을 통과했으나 실제 A100 월말 원장에서는 아직 검증 전이다.

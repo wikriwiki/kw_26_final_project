@@ -54,6 +54,7 @@ RETURN
   a.nvidia_career_goals AS nv_career,
   a.nvidia_skills AS nv_skills,
   a.s_daily_wd AS daily_wd,
+  a.sangsaeng_base_daily AS sangsaeng_base_daily,
   a.cat_ratio_wd AS cat_ratio_wd,
   a.cat_ratio_we AS cat_ratio_we,
   a.s_daily_we AS daily_we,
