@@ -192,7 +192,7 @@ v18(60명)에서는 반대로 보였다(v25 0.6966 · v34 0.6695). **그 인상�
 
 | 문서 | 내용 |
 |---|---|
-| `INDICATOR_COMPARISON.md` | 정답지 17개 × 시뮬 값 전수 대조 |
+| `INDICATOR_COMPARISON.md` | 과거 17개 지표의 외부 참고값과 시뮬레이션 대리값 분리 기록. 크기 검증 아님 |
 | `NOISE_AND_POWER.md` | 잡음 바닥과 필요 표본 |
 | `WHY_PROMPTS_CANNOT_MOVE_THIS.md` | 프롬프트가 못 닿는 곳 |
 | `v1` ~ `v20` | 라운드별 사전등록·결과 |

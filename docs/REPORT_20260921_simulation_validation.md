@@ -232,7 +232,7 @@ Neo4j 의 14,560명 중 60명 추출 (기존 12명 제외 · 평일 소비분위
 
 | 문서 | 내용 |
 |---|---|
-| `experiments/INDICATOR_COMPARISON.md` | **정답지 17개 지표 × 시뮬 값 전수 대조표** (그래프 포함) |
+| `experiments/INDICATOR_COMPARISON.md` | 과거 17개 지표의 외부 참고값과 시뮬레이션 대리값 분리 기록. 직접 크기 비교 불가 |
 | `experiments/WHAT_IS_BEING_VALIDATED.md` | 정책 정체·기간·정답지, 검증 세 층의 현황 |
 | `experiments/NOISE_AND_POWER.md` | 잡음 바닥과 필요 표본 계산 |
 | `experiments/ESTIMAND_ALIGNMENT.md` | 17개 지표를 구조로 분류 (비교 가능/불가) |

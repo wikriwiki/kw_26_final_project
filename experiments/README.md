@@ -141,7 +141,7 @@ vN/graph_vN.md     정책별 결과 그래프와 수치표
 | [WHICH_POLICIES_CAN_CONVERGE.md](WHICH_POLICIES_CAN_CONVERGE.md) | 어느 정책에서 수렴을 잴 수 있는가 — 정답이 숫자로 있기는 한가 |
 | [WHAT_IS_BEING_VALIDATED.md](WHAT_IS_BEING_VALIDATED.md) | 어떤 정책으로 무엇을 검증하고 있으며 그 검증이 유효한가 |
 | [GREEDY_SPLITS_THE_RESIDUAL.md](GREEDY_SPLITS_THE_RESIDUAL.md) | 남은 결함이 프롬프트인가 샘플러인가 — 21 대 4 |
-| [INDICATOR_COMPARISON.md](INDICATOR_COMPARISON.md) | 정답지 지표를 하나씩 시뮬 값과 나란히 놓은 것 |
+| [INDICATOR_COMPARISON.md](INDICATOR_COMPARISON.md) | 과거 프로브의 외부 참고값과 시뮬레이션 대리값을 분리해 보존한 것. 크기 적중 판정 아님 |
 | [ESTIMAND_ALIGNMENT.md](ESTIMAND_ALIGNMENT.md) | 어떤 지표가 척도 없이 비교 가능하고 어떤 것이 아닌가 |
 | [THE_PURSE_RUNS_DRY.md](THE_PURSE_RUNS_DRY.md) | 소득 주입이 없어 관측창이 약 26일로 제한되는 문제 |
 | [COUPLING_IS_THE_CEILING.md](COUPLING_IS_THE_CEILING.md) | 프롬프트로 넘을 수 없는 구조적 천장 |
