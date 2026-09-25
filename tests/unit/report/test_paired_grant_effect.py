@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 from pathlib import Path
 
@@ -13,9 +14,11 @@ import paired_grant_effect as effect  # noqa: E402
 import export_policy_daily_ledger as exporter  # noqa: E402
 
 
-def row(aid, day, arm, offline, online, eligible, received=0, spent=0, remaining=0):
+def row(aid, day, arm, offline, online, eligible, received=0, spent=0,
+        remaining=0, self_cumulative=0):
     return {"aid": aid, "day": day, "arm": arm, "policy_id": "P013",
             "offline_spent": offline, "online_spent": online,
+            "self_month_cumulative": self_cumulative,
             "eligible_offline_spent": eligible,
             "grant_received_cumulative": received,
             "grant_spent_today": spent, "grant_remaining": remaining}
@@ -23,14 +26,14 @@ def row(aid, day, arm, offline, online, eligible, received=0, spent=0, remaining
 
 def complete_pair():
     days = ["2020-05-11", "2020-05-12"]
-    on = [row("a", days[0], "on", 130, 20, 110, 100, 40, 60),
-          row("a", days[1], "on", 80, 0, 70, 100, 20, 40),
-          row("b", days[0], "on", 50, 0, 50, 100, 0, 100),
-          row("b", days[1], "on", 40, 0, 40, 100, 0, 100)]
-    off = [row("a", days[0], "off", 100, 10, 90),
-           row("a", days[1], "off", 80, 0, 70),
-           row("b", days[0], "off", 50, 0, 50),
-           row("b", days[1], "off", 40, 0, 40)]
+    on = [row("a", days[0], "on", 130, 20, 110, 100, 40, 60, 110),
+          row("a", days[1], "on", 80, 0, 70, 100, 20, 40, 170),
+          row("b", days[0], "on", 50, 0, 50, 100, 0, 100, 50),
+          row("b", days[1], "on", 40, 0, 40, 100, 0, 100, 90)]
+    off = [row("a", days[0], "off", 100, 10, 90, self_cumulative=110),
+           row("a", days[1], "off", 80, 0, 70, self_cumulative=190),
+           row("b", days[0], "off", 50, 0, 50, self_cumulative=50),
+           row("b", days[1], "off", 40, 0, 40, self_cumulative=90)]
     return on, off, days
 
 
@@ -88,15 +91,23 @@ def test_wallet_mismatch_and_eligible_payment_violation_are_rejected():
                      policy_id="P013", draws=0)
 
 
+def test_monthly_own_spend_must_match_realized_transactions():
+    on, off, days = complete_pair()
+    on[1]["self_month_cumulative"] += 1
+    with pytest.raises(ValueError, match="own-spend monthly ledger mismatch"):
+        effect.score(on, off, roster=["a", "b"], days=days,
+                     policy_id="P013", draws=0)
+
+
 def test_exporter_keeps_zero_spend_citizen_and_fails_on_missing_state(monkeypatch):
     def eligibility(rows, _file):
         for item in rows:
             item["elig"] = item.get("sub") == "식사"
         return "test ruler"
     monkeypatch.setattr(exporter, "apply_policy_eligibility", eligibility)
-    states = [{"aid": "a", "online_spent": 10,
+    states = [{"aid": "a", "online_spent": 10, "self_month_cumulative": 20,
                "grant_received": '{"P013": 100}', "grant_remaining": '{"P013": 60}'},
-              {"aid": "b", "online_spent": 0,
+              {"aid": "b", "online_spent": 0, "self_month_cumulative": 0,
                "grant_received": '{"P013": 100}', "grant_remaining": '{"P013": 100}'}]
     spends = [{"aid": "a", "amt": 50, "sub": "식사",
                "spent_from_policy": '{"P013": 40}'}]
@@ -129,3 +140,112 @@ def test_exporter_checks_day_of_receipt_against_final_state():
     exporter.verify_receipt_deltas(day2, {"a": {"grant_applied_today": 0}}, previous)
     with pytest.raises(ValueError, match="disagrees with State"):
         exporter.verify_receipt_deltas(day1, {"a": {"grant_applied_today": 0}}, {})
+
+
+def test_exporter_self_spend_resets_at_month_boundary():
+    previous = {}
+    may = [{"aid": "a", "day": "2020-05-31", "offline_spent": 100,
+            "grant_spent_today": 40, "online_spent": 10,
+            "self_month_cumulative": 70}]
+    june = [{"aid": "a", "day": "2020-06-01", "offline_spent": 80,
+             "grant_spent_today": 0, "online_spent": 20,
+             "self_month_cumulative": 100}]
+    exporter.verify_self_spend_deltas(may, previous)
+    exporter.verify_self_spend_deltas(june, previous)
+    june[0]["self_month_cumulative"] = 101
+    with pytest.raises(ValueError, match="own-spend ledger disagrees"):
+        exporter.verify_self_spend_deltas(june, {"a": ("2020-05", 70)})
+
+
+def test_exporter_requires_policy_exposure_evidence(tmp_path):
+    path = tmp_path / "day_2020-05-11.jsonl"
+    path.write_text(json.dumps({"aid": "a", "status": "ok"}) + "\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="missing policy exposure"):
+        exporter.verify_metrics(path, ["a"], "on", "P013")
+
+
+def test_exporter_rejects_wrong_policy_graph():
+    policy = {"id": "P013", "type": "grant", "effective_from": "2020-05-11",
+              "effective_until": "2020-08-31", "grant_key": "spend_decile",
+              "decile_grants": {"1": 280000}, "poi_restricted": True}
+    graph = {**policy, "decile_grants": '{"1":280000}'}
+    exporter.verify_graph_policy([{"policy": graph}], "on", policy)
+    with pytest.raises(ValueError, match="control graph contains"):
+        exporter.verify_graph_policy([{"policy": graph}], "off", policy)
+    with pytest.raises(ValueError, match="decile_grants"):
+        exporter.verify_graph_policy([{"policy": {**graph,
+                                                   "decile_grants": '{"1":100000}'}}],
+                                     "on", policy)
+
+
+def test_exporter_writes_audited_ledger_and_manifest(tmp_path, monkeypatch):
+    policy = {"id": "P013", "type": "grant", "effective_from": "2020-05-11",
+              "effective_until": "2020-08-31", "grant_key": "income",
+              "decile_grants": {}, "poi_restricted": False}
+    policy_file = tmp_path / "policy.json"
+    policy_file.write_text(json.dumps(policy), encoding="utf-8")
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir()
+    days = ["2020-05-11", "2020-05-12"]
+    for index, day in enumerate(days):
+        rows = [{"aid": aid, "status": "ok", "experience_policy_ids": ["P013"],
+                 "grant_applied_today": 100 if index == 0 else 0,
+                 "s2_timing": {"n_llm_calls": 1, "attempts": [{"status": "ok"}]}}
+                for aid in ("a", "b")]
+        (metrics_dir / f"day_{day}.jsonl").write_text(
+            "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+        (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
+            "agent_ids": ["a", "b"], "execution_fingerprint": "same-code",
+            "baseline_income_map_sha256": "same-income", "run_id": "on-run"}),
+            encoding="utf-8")
+
+    class Session:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def run(self, query, **_kwargs):
+            if query == exporter.POLICY_QUERY:
+                return [{"policy": {**policy, "decile_grants": "{}"}}]
+            if query == exporter.STATE_QUERY:
+                return [{"aid": aid, "online_spent": 0,
+                         "self_month_cumulative": 0,
+                         "grant_received": '{"P013":100}',
+                         "grant_remaining": '{"P013":100}'} for aid in ("a", "b")]
+            if query == exporter.SPEND_QUERY:
+                return []
+            raise AssertionError("unexpected query")
+
+    monkeypatch.setattr(exporter, "driver_session", lambda: Session())
+    out = tmp_path / "on.jsonl"
+    count = exporter.export(roster=["a", "b"], days=days, arm="on",
+                            policy_id="P013", policy_file=str(policy_file),
+                            metrics_dir=metrics_dir, out=out)
+    assert count == len(out.read_text(encoding="utf-8").splitlines()) == 4
+    manifest = json.loads((tmp_path / "on.jsonl.manifest.json").read_text(encoding="utf-8"))
+    assert manifest["quality_gate_pass"] is True
+    assert manifest["run_id"] == "on-run"
+    assert manifest["output_sha256"] == hashlib.sha256(out.read_bytes()).hexdigest()
+
+
+def test_paired_grant_manifest_rejects_reused_run(tmp_path):
+    roster = ["a"]
+    paths = {}
+    for arm in ("on", "off"):
+        path = tmp_path / f"{arm}.jsonl"
+        path.write_text('{}\n', encoding="utf-8")
+        (tmp_path / f"{arm}.jsonl.manifest.json").write_text(json.dumps({
+            "arm": arm, "policy_id": "P013", "start": "2020-05-11",
+            "end": "2020-05-11", "days": 1, "citizens": 1, "rows": 1,
+            "roster_sha256": hashlib.sha256(json.dumps(roster).encode()).hexdigest(),
+            "output_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "quality_gate_pass": True, "policy_file_sha256": "same-policy",
+            "execution_fingerprint": "same-code",
+            "baseline_income_map_sha256": "same-income", "run_id": "reused-run",
+        }), encoding="utf-8")
+        paths[arm] = path
+    with pytest.raises(ValueError, match="distinct run IDs"):
+        effect.verify_manifests(paths["on"], paths["off"], roster=roster,
+                                days=["2020-05-11"], policy_id="P013")

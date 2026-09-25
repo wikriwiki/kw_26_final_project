@@ -7,13 +7,16 @@ the empirical target nor a policy-specific result is used in this calculation.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import random
 from datetime import date, timedelta
 from pathlib import Path
 
 
-MONEY = ("offline_spent", "online_spent", "grant_received_cumulative",
+MONEY = ("offline_spent", "online_spent", "self_month_cumulative",
+         "grant_received_cumulative",
          "grant_remaining", "grant_spent_today")
 
 
@@ -89,6 +92,7 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
     per_citizen = []
     for aid in roster:
         received, spent = 0, 0
+        previous_self = {"on": ("", 0), "off": ("", 0)}
         values = {key: 0 for key in ("on_total", "off_total", "on_offline",
                                      "off_offline", "on_eligible", "off_eligible")}
         for day in days:
@@ -96,6 +100,15 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
             if any(c[field] != 0 for field in
                    ("grant_received_cumulative", "grant_remaining", "grant_spent_today")):
                 raise ValueError(f"policy funding leaked into control: {aid} {day}")
+            month = day[:7]
+            for arm, row in (("on", p), ("off", c)):
+                old_month, old_amount = previous_self[arm]
+                prior = old_amount if old_month == month else 0
+                own_outflow = (row["offline_spent"] - row["grant_spent_today"]
+                               + row["online_spent"])
+                if row["self_month_cumulative"] - prior != own_outflow:
+                    raise ValueError(f"own-spend monthly ledger mismatch: {aid} {day} {arm}")
+                previous_self[arm] = (month, row["self_month_cumulative"])
             new_received = p["grant_received_cumulative"]
             if new_received < received:
                 raise ValueError(f"grant receipt decreased: {aid} {day}")
@@ -161,6 +174,35 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
     }
 
 
+def verify_manifests(on_path: Path, off_path: Path, *, roster: list[str],
+                     days: list[str], policy_id: str) -> None:
+    expected_roster_sha = hashlib.sha256(
+        json.dumps(sorted(roster), ensure_ascii=False).encode("utf-8")).hexdigest()
+    manifests = []
+    for arm, path in (("on", on_path), ("off", off_path)):
+        manifest = json.loads(path.with_name(path.name + ".manifest.json").read_text(
+            encoding="utf-8"))
+        with path.open("rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        if (manifest.get("arm") != arm or manifest.get("policy_id") != policy_id
+                or manifest.get("start") != days[0] or manifest.get("end") != days[-1]
+                or manifest.get("days") != len(days) or manifest.get("citizens") != len(roster)
+                or manifest.get("rows") != len(roster) * len(days)
+                or manifest.get("roster_sha256") != expected_roster_sha
+                or manifest.get("output_sha256") != digest
+                or manifest.get("quality_gate_pass") is not True):
+            raise ValueError(f"invalid {arm} ledger manifest")
+        manifests.append(manifest)
+    for key in ("policy_file_sha256", "execution_fingerprint",
+                "baseline_income_map_sha256"):
+        if not manifests[0].get(key) or manifests[0][key] != manifests[1].get(key):
+            raise ValueError(f"paired arms differ in {key}")
+    run_ids = [manifest.get("run_id") for manifest in manifests]
+    if (any(not isinstance(run_id, str) or not run_id for run_id in run_ids)
+            or run_ids[0] == run_ids[1]):
+        raise ValueError("paired arms need distinct run IDs")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--on", type=Path, required=True)
@@ -174,14 +216,23 @@ def main() -> int:
     parser.add_argument("--draws", type=int, default=2000)
     parser.add_argument("--json-out", type=Path, required=True)
     args = parser.parse_args()
+    roster = roster_file(args.roster)
+    days = dates(args.start, args.end)
+    verify_manifests(args.on, args.off, roster=roster, days=days,
+                     policy_id=args.policy_id)
     result = score(read_jsonl(args.on), read_jsonl(args.off),
-                   roster=roster_file(args.roster), days=dates(args.start, args.end),
+                   roster=roster, days=days,
                    policy_id=args.policy_id, draws=args.draws,
                    expected_recipients=args.expected_recipients,
                    expected_issued_won=args.expected_issued_won)
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
-    args.json_out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n",
-                             encoding="utf-8")
+    partial = args.json_out.with_name(args.json_out.name + f".tmp.{os.getpid()}")
+    try:
+        partial.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n",
+                           encoding="utf-8")
+        partial.replace(args.json_out)
+    finally:
+        partial.unlink(missing_ok=True)
     print(args.json_out)
     return 0
 

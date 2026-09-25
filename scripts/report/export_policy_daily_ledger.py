@@ -6,6 +6,7 @@ metrics and an explicit frozen citizen roster. Output is written atomically.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -18,12 +19,15 @@ sys.path.insert(0, str(ROOT / "scripts" / "sim"))
 from neo4j_load._common import driver_session  # noqa: E402
 from score_policy import apply_policy_eligibility  # noqa: E402
 from paired_grant_effect import dates, read_jsonl, roster_file  # noqa: E402
+from report.audit_stage2_generation import inspect  # noqa: E402
+from report.export_cashback_month import verify_cohorts  # noqa: E402
 
 
 STATE_QUERY = """
 MATCH (a:Agent)-[:HAS_STATE {day: date($day)}]->(st:State)
 WHERE a.id IN $aids
 RETURN a.id AS aid, st.online_spent AS online_spent,
+       st.month_spent AS self_month_cumulative,
        st.grant_received AS grant_received,
        st.grant_remaining AS grant_remaining
 """
@@ -35,12 +39,34 @@ OPTIONAL MATCH (p)-[:IN_CATEGORY]->(c:Category)
 WITH a, i, p, head(collect(c)) AS c
 OPTIONAL MATCH (a)-[:LIVES_AT]->(h:POI)
 WITH a, i, p, c, head(collect(h)) AS h
-RETURN a.id AS aid, coalesce(i.actual_spent, 0) AS amt,
+RETURN a.id AS aid, i.actual_spent AS amt,
        i.spent_from_policy AS spent_from_policy,
        p.name AS pname, c.name AS sub, c.parent AS l1,
        p.upjong_l3 AS upjong_l3, p.dong_code AS pdong,
        h.dong_code AS hdong
 """
+
+POLICY_QUERY = "MATCH (p:Policy) RETURN properties(p) AS policy"
+
+
+def verify_graph_policy(rows: list[dict], arm: str, policy: dict) -> None:
+    if arm == "off":
+        if rows:
+            raise ValueError("control graph contains a Policy node")
+        return
+    if len(rows) != 1:
+        raise ValueError("treatment graph must contain exactly one Policy")
+    actual = rows[0]["policy"]
+    for key in ("id", "type", "effective_from", "effective_until", "grant_key"):
+        if str(actual.get(key)) != str(policy.get(key)):
+            raise ValueError(f"graph Policy disagrees with frozen file: {key}")
+    if bool(actual.get("poi_restricted")) != bool(policy.get("poi_restricted")):
+        raise ValueError("graph Policy disagrees with frozen file: poi_restricted")
+    grants = actual.get("decile_grants")
+    if isinstance(grants, str):
+        grants = json.loads(grants)
+    if grants != (policy.get("decile_grants") or {}):
+        raise ValueError("graph Policy disagrees with frozen file: decile_grants")
 
 
 def _policy_amount(value: object, policy_id: str) -> int:
@@ -71,7 +97,9 @@ def verify_metrics(path: Path, roster: list[str], arm: str,
         if row.get("status") != "ok":
             raise ValueError(f"non-ok metrics row: {path} {aid}")
         exposed = row.get("experience_policy_ids")
-        if exposed is not None and policy_id is not None:
+        if policy_id is not None:
+            if not isinstance(exposed, list):
+                raise ValueError(f"missing policy exposure evidence: {path} {aid}")
             expected = {policy_id} if arm == "on" else set()
             if set(exposed) != expected:
                 raise ValueError(f"wrong policy exposure: {path} {aid}")
@@ -95,6 +123,19 @@ def verify_receipt_deltas(rows: list[dict], metrics: dict[str, dict],
         if receipt - previous.get(aid, 0) != observed:
             raise ValueError(f"daily grant receipt disagrees with State: {aid} {row['day']}")
         previous[aid] = receipt
+
+
+def verify_self_spend_deltas(rows: list[dict],
+                             previous: dict[str, tuple[str, int]]) -> None:
+    """State.month_spent must equal own offline outflow plus online spending."""
+    for row in rows:
+        aid, month = row["aid"], row["day"][:7]
+        old_month, old_cumulative = previous.get(aid, (month, 0))
+        prior = old_cumulative if old_month == month else 0
+        expected = row["offline_spent"] - row["grant_spent_today"] + row["online_spent"]
+        if row["self_month_cumulative"] - prior != expected:
+            raise ValueError(f"State own-spend ledger disagrees with transactions: {aid} {row['day']}")
+        previous[aid] = (month, row["self_month_cumulative"])
 
 
 def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
@@ -138,9 +179,14 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
         online = state.get("online_spent")
         if isinstance(online, bool) or not isinstance(online, int) or online < 0:
             raise ValueError(f"missing or invalid State.online_spent: {aid} {day}")
+        self_cumulative = state.get("self_month_cumulative")
+        if (isinstance(self_cumulative, bool) or not isinstance(self_cumulative, int)
+                or self_cumulative < 0):
+            raise ValueError(f"missing or invalid State.month_spent: {aid} {day}")
         out.append({
             "aid": aid, "day": day, "arm": arm, "policy_id": policy_id,
             "offline_spent": totals[aid][0], "online_spent": online,
+            "self_month_cumulative": self_cumulative,
             "eligible_offline_spent": totals[aid][1],
             "grant_spent_today": totals[aid][2],
             "grant_received_cumulative": _policy_amount(state.get("grant_received"), policy_id),
@@ -151,6 +197,9 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
 
 def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
            policy_file: str, metrics_dir: Path, out: Path) -> int:
+    if (not roster or len(roster) != len(set(roster)) or not days
+            or dates(days[0], days[-1]) != days):
+        raise ValueError("nonempty unique roster and contiguous days required")
     policy_path = ROOT / policy_file
     if not policy_path.is_file():
         raise ValueError(f"missing policy file: {policy_file}")
@@ -164,11 +213,18 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
     metrics_by_day = {day: verify_metrics(metrics_dir / f"day_{day}.jsonl",
                                           roster, arm, policy_id)
                       for day in days}
+    audit = inspect({day: list(metrics_by_day[day].values()) for day in days},
+                    expected_per_day=len(roster))
+    if not audit["quality_gate_pass"]:
+        raise ValueError(f"Stage2 generation quality gate failed: {audit['totals']}")
+    cohort = verify_cohorts(metrics_dir, days, roster)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + f".tmp.{os.getpid()}")
     previous_receipts: dict[str, int] = {}
+    previous_self_spend: dict[str, tuple[str, int]] = {}
     try:
         with driver_session() as session, tmp.open("w", encoding="utf-8") as stream:
+            verify_graph_policy([dict(r) for r in session.run(POLICY_QUERY)], arm, policy)
             for day in days:
                 states = [dict(r) for r in session.run(STATE_QUERY, day=day, aids=roster)]
                 spends = [dict(r) for r in session.run(SPEND_QUERY, day=day, aids=roster)]
@@ -177,11 +233,32 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
                                       policy_file=policy_file,
                                       restricted=restricted)
                 verify_receipt_deltas(daily, metrics_by_day[day], previous_receipts)
+                verify_self_spend_deltas(daily, previous_self_spend)
                 for row in daily:
                     stream.write(json.dumps(row, ensure_ascii=False) + "\n")
         tmp.replace(out)
     finally:
         tmp.unlink(missing_ok=True)
+    with out.open("rb") as stream:
+        output_sha = hashlib.file_digest(stream, "sha256").hexdigest()
+    manifest = {
+        "arm": arm, "policy_id": policy_id, "start": days[0], "end": days[-1],
+        "policy_file_sha256": hashlib.sha256(policy_path.read_bytes()).hexdigest(),
+        "roster_sha256": hashlib.sha256(
+            json.dumps(sorted(roster), ensure_ascii=False).encode("utf-8")).hexdigest(),
+        "quality_gate_pass": audit["quality_gate_pass"],
+        "generation_totals": audit["totals"], **cohort,
+        "citizens": len(roster), "days": len(days),
+        "rows": len(roster) * len(days), "output_sha256": output_sha,
+    }
+    manifest_path = out.with_name(out.name + ".manifest.json")
+    manifest_tmp = manifest_path.with_name(manifest_path.name + f".tmp.{os.getpid()}")
+    try:
+        manifest_tmp.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
+                                encoding="utf-8")
+        manifest_tmp.replace(manifest_path)
+    finally:
+        manifest_tmp.unlink(missing_ok=True)
     return len(roster) * len(days)
 
 
