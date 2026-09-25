@@ -91,6 +91,17 @@ def sim_pct(val):
     return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
 
+def sim_text(val):
+    """비율 외의 원장 평균도 단위를 추정하지 않고 그대로 보여 준다."""
+    pct = sim_pct(val)
+    if pct is not None:
+        return num(pct)
+    mean = (val or {}).get('mean') if isinstance(val, dict) else None
+    if isinstance(mean, (int, float)) and not isinstance(mean, bool):
+        return '평균 %.4g (단위 확인)' % mean
+    return '—'
+
+
 def bar(value, scale):
     """0 을 가운데 둔 발산형 막대. 왼쪽이 감소, 오른쪽이 증가."""
     if value is None or scale <= 0:
@@ -111,12 +122,19 @@ def indicator_rows(block, inds):
     for i in inds:
         iid = i.get('id')
         val = block.get(iid)
+        audit = i.get('empirical_audit') or {}
         out.append({
             'id': iid,
             'expect': i.get('expect'),
             'what': re.sub(r'\s*\(실측[^)]*\)', '', str(i.get('desc') or '')).strip(' -—'),
             'truth': truth_pct(i.get('desc'), i.get('expect')),
             'truth_text': truth_text(i.get('desc')),
+            # Magnitude comparison requires an explicit, source-checked match of
+            # population, outcome, period, denominator and counterfactual.
+            'comparable': audit.get('comparison') == 'directly_comparable',
+            'audit_status': audit.get('comparison') or '정의 미확인',
+            'audit_reason': audit.get('reason'),
+            'sim_text': sim_text(val),
             'sim': sim_pct(val),
             'ci': (val or {}).get('ci') if isinstance(val, dict) else None,
             'hit': (val or {}).get('hit') if isinstance(val, dict) else None,
@@ -127,9 +145,10 @@ def indicator_rows(block, inds):
 
 
 def draw(rows):
+    rows = [r for r in rows if r['comparable']]
     vals = [abs(v) for r in rows for v in (r['truth'], r['sim']) if v is not None]
     if not vals:
-        return ['```', '이 라운드에서 퍼센트로 견줄 수 있는 지표가 없다.', '```', '']
+        return ['이 라운드에서 **실측과 직접 같은 눈금으로 비교할 수 있다고 확인된 지표는 없다.**', '']
     scale = max(vals)
     L = ['```',
          ' ' * 10 + '←  %-*s0%*s  →' % (WIDTH - 1, '%.0f' % scale, WIDTH - 1, '%.0f' % scale),
@@ -159,20 +178,23 @@ def draw(rows):
 
 
 def table(rows):
-    L = ['| 지표 | 무엇을 재나 | 기대 | 실측 | 시뮬 | 95% 구간 | 차이 | 점추정 부호 | 채점 |',
+    L = ['| 지표 | 무엇을 재나 | 기대 | 실측 | 시뮬 | 95% 구간 | 차이 | 점추정 부호 | 등록판정 |',
          '|---|---|:-:|---:|---:|---|---:|:-:|---|']
     for r in rows:
         ci = '—'
         if isinstance(r['ci'], list) and len(r['ci']) == 2:
-            ci = '[%s, %s]' % (format(r['ci'][0], '+,.0f'), format(r['ci'][1], '+,.0f'))
+            ci = '[%+.4g, %+.4g]' % (r['ci'][0], r['ci'][1])
             if r['ci'][0] <= 0 <= r['ci'][1]:
                 ci += ' **0 포함**'
         gap = ('%+.1f%%p' % (r['sim'] - r['truth'])
-               if (r['sim'] is not None and r['truth'] is not None) else '—')
+               if (r['comparable'] and r['sim'] is not None and r['truth'] is not None)
+               else '—')
         # 채점(hit)은 부호 + 유의성을 함께 본다. 점추정 부호만 맞는 칸을
         # '부호 불일치'로 적으면 사실과 다르다 — 갈라서 적는다.
-        verdict = {True: '적중', False: '미적중'}.get(r['hit'],
-                                                  '안 잼' if not r['measured'] else '—')
+        verdict = {True: '등록 적중', False: '등록 미적중'}.get(
+            r['hit'], '안 잼' if not r['measured'] else '—')
+        if r['hit'] in (True, False) and not r['comparable']:
+            verdict += '·외부 미검증'
         sign = '—'
         if r['sim'] is not None and r['expect'] in ('+', '-'):
             want = 1 if r['expect'] == '+' else -1
@@ -181,18 +203,19 @@ def table(rows):
             sign = '일치' if (r['sim'] >= 0) == (r['truth'] >= 0) else '**반대**'
         L.append('| `%s` | %s | `%s` | %s | %s | %s | %s | %s | %s |' % (
             r['id'], r['what'][:46].replace('|', '·'), r['expect'],
-            (r['truth_text'] or num(r['truth'])).replace('|', '·'),
-            num(r['sim']), ci, gap, sign, verdict))
+            (('출처 미확인: ' if r['audit_status'] == 'unverified_source' else '')
+             + (r['truth_text'] or num(r['truth']))).replace('|', '·'),
+            r['sim_text'], ci, gap, sign, verdict))
     L.append('')
     return L
 
 
 def build():
     sc = json.loads(SCORING.read_text(encoding='utf-8'))
-    L = ['# 라운드별 결과 — 실측과 얼마나 차이 나는가', '',
+    L = ['# 라운드별 결과 — 지표와 검증 가능성', '',
          '**자동 생성.** `python scripts/report/build_results_overview.py`', '',
-         '지표마다 **실측 막대와 시뮬 막대를 같은 눈금에 나란히** 놓았다. '
-         '왼쪽이 감소, 오른쪽이 증가이고, 0 이 가운데다.', '',
+         '실측과 시뮬레이션의 대상·결과·기간·분모·대조군이 일치한다고 명시적으로 확인된 지표에만 '
+         '같은 눈금의 막대와 크기 차이를 표시한다. 등록판정은 실험 내부의 부호 판정이다.', '',
          '> **정답지에 대고 잰 라운드는 전부 프롬프트 `v5` 로 돌았다.** '
          'v40·v42·v45 는 형식 계약 관문 라인에서만 돌았고, '
          'v45 를 정답지에 대고 재는 것은 **v50 이 처음**이다(진행 중).', '',
@@ -243,6 +266,9 @@ def build():
                      if r['note'] and len(str(r['note']).strip()) > 3]
             for r in notes:
                 L.append('- `%s` — %s' % (r['id'], r['note']))
+            for r in rows:
+                if r['audit_reason']:
+                    L.append('- `%s` 실측 대조 — %s' % (r['id'], r['audit_reason']))
             if notes:
                 L.append('')
             did = rb.get('did')
@@ -253,11 +279,10 @@ def build():
         L += ['---', '']
 
     L += ['## 이 표를 읽을 때 주의할 것', '',
-          '- **크기 검증은 아직 성립하지 않았다.** 감사 주석(`audit_2026_09_20`)이 '
-          '대상·기간·결과·분모·대조군이 호환될 때만 배수를 비교하라고 했다. '
-          '채점은 **부호**로 한다',
-          '- **원문 창과 우리 창이 다르다.** 정답지는 한 달~40주를 재고 우리는 이틀을 잰다. '
-          '차이 칸의 %p 는 같은 눈금이 아니다',
+          '- **크기 검증은 아직 성립하지 않았다.** 지표에 `empirical_audit.comparison=directly_comparable`이 '
+          '명시되고 같은 단위로 계산될 때만 크기 차이를 낸다.',
+          '- **원문 창과 우리 창이 다를 수 있다.** 정의 확인 전에는 표의 실측·시뮬 값을 '
+          '서로 빼거나 배수로 읽지 않는다.',
           '- **채점(적중)은 부호와 유의성을 함께 본다.** 점추정 부호가 맞아도 '
           '구간이 0 을 지나면 미적중이다 — 그래서 두 칸을 갈라 적었다',
           '- **구간이 0 을 지나면 부호조차 단정할 수 없다.** 그런 칸을 표시해 두었다',
