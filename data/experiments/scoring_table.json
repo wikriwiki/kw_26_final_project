@@ -53,7 +53,25 @@
     "metric": "total_spend_paired",
     "desc": "정책 기간 총지출 — 지갑이 생기므로 총액이 늘어야 한다"
    }
-  ]
+  ],
+  "result_exp001_archive_2026_09_25": {
+   "design": "EXP-001 보관 원장(out_FINAL, 28일 × 200명, 2025-07-21~08-17)에서 **그래프 없이** 채점. 표준 채점기는 그래프를 읽는데 그 그래프는 지워졌다. scripts/report/score_p010_from_archive.py",
+   "P010-1": {
+    "metric": "mpc_amount",
+    "mean": 0.216,
+    "ci": [
+     0.2002,
+     0.2333
+    ],
+    "n": 1971,
+    "실측": 0.21,
+    "hit": true,
+    "note": "정책결제 가중 Σ(share×정책결제)/Σ정책결제. 원장의 cm_mpc_new_share 이고 그 값은 consumption.py 의 정의 — extra_spent 에 상한 clamp(0,amt) 를 씌우고 정책결제 비중으로 안분한다. **이벤트에서 Σex/Σsp 를 그냥 나누면 0.7163 이 나온다**(상한·안분 없음). 구간이 실측 0.21 을 포함한다."
+   },
+   "P010-2": null,
+   "P010-3": null,
+   "낼 수 없는 이유 — P010-2·P010-3": "둘 다 OFF 창이 필요한 쌍체 지표다. 등록 창은 off 2025-07-15:16 / on 2025-07-22:23 인데 **런이 07-21 에 시작한다** — OFF 가 자료에 없다. 그리고 out_BASE 는 이름이 nopolicy 인데 **정책이 들어 있다**(정책지출 3,300~4,200원/일, 총소비도 FINAL 과 잡음 범위 안, 같은 200명) — 무정책 대조 팔이 없다. 새 런이 필요하다."
+  }
  },
  "P012": {
   "policy_file": "data/neo4j_load/policies/P012.json",

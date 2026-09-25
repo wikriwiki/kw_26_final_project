@@ -203,11 +203,14 @@ def classify(ind, entry, tv, tu, suspect=False):
             return "대조가능", abs(pct - tv), shown
         return "단위다름", None, shown
     if isinstance(mean, (int, float)):
-        # 절대값(원·율)이다. 실측이 %라면 같은 자가 아니다.
         shown = "%.4g" % mean
         if suspect:
             return "다른자", None, shown
-        return ("단위다름" if tv is not None else "단위다름"), None, shown
+        # **무차원 비율끼리는 같은 자다.** MPC 0.216 vs 실측 0.21 은 맞댈 수 있다 —
+        # 다만 그 오차는 %p 가 아니므로 %p 총합에 더하지 않는다(단위가 섞인다).
+        if tv is not None and tu == "":
+            return "대조가능", abs(mean - tv), shown
+        return "단위다름", None, shown
     return "없음", None, "-"
 
 
@@ -253,7 +256,9 @@ def main() -> int:
                   % (("★" if CORE.get(pk) == iid else " ") + iid,
                      str(ind.get("expect")), tshow, shown,
                      str((entry or {}).get("n") or "-"),
-                     ("%.2f%%p" % err) if err is not None else "-",
+                     # 무차원 지표의 오차에 %p 를 붙이면 거짓이 된다
+                     ("-" if err is None else
+                      ("%.2f%%p" % err if tu in ("%", "%p") else "%.4f" % err)),
                      st, "  " + note))
             rows.append({"policy": pk, "id": iid, "expect": ind.get("expect"),
                          "truth": tv, "truth_unit": tu, "shown": shown,
@@ -264,11 +269,18 @@ def main() -> int:
     print("## 합계 — 지표 %d개" % len(rows))
     for st in ("대조가능", "단위다름", "다른자", "방향만", "관측부족", "무효", "밴드안", "자료없음", "없음"):
         print("   %-8s %3d개" % (st, tally.get(st, 0)))
-    errs = [r["err"] for r in rows if r["err"] is not None]
-    if errs:
+    # %p 오차만 더한다. 무차원 비율(MPC)의 오차를 섞으면 총합이 뜻을 잃는다.
+    pp = [r["err"] for r in rows
+          if r["err"] is not None and r.get("truth_unit") in ("%", "%p")]
+    other = [r for r in rows
+             if r["err"] is not None and r.get("truth_unit") not in ("%", "%p")]
+    if pp:
         print()
-        print("   대조가능한 %d개의 오차 합 **%.2f%%p** · 평균 %.2f%%p"
-              % (len(errs), sum(errs), sum(errs) / len(errs)))
+        print("   %%p 로 맞댈 수 있는 %d개의 오차 합 **%.2f%%p** · 평균 %.2f%%p"
+              % (len(pp), sum(pp), sum(pp) / len(pp)))
+    for r in other:
+        print("   %s %s 는 무차원이라 따로 — 실측 %.4g · 시뮬 %s · 오차 **%.4f**"
+              % (r["policy"], r["id"], r["truth"], r["shown"], r["err"]))
     print()
     print("   '없음' 은 시뮬 값이 아예 없는 자리다 — 메워야 한다.")
     print("   '단위다름' 은 값이 있으니 창·단위를 맞추면 대조가능으로 넘어간다.")

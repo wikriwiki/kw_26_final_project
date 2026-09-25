@@ -132,3 +132,27 @@ def test_순위지표는_간격으로_맞댄다():
 def test_시뮬_값이_없으면_없음():
     ind = {"id": "X", "expect": "+", "desc": "(실측 +1%)"}
     assert A.classify(ind, None, 1.0, "%")[0] == "없음"
+
+
+def test_무차원_비율끼리는_맞댈_수_있다():
+    """MPC 0.216 vs 실측 0.21 — 양쪽이 무차원이니 같은 자다."""
+    ind = {"id": "P010-1", "expect": "+", "desc": "한계소비성향 (실측 0.21)"}
+    st, err, shown = A.classify(ind, {"mean": 0.216, "n": 1971}, 0.21, "")
+    assert st == "대조가능"
+    assert err == pytest.approx(0.006, abs=1e-6)
+    assert shown == "0.216"
+
+
+def test_무차원_오차는_퍼센트포인트_합에_안_들어간다():
+    """단위가 섞이면 총합이 뜻을 잃는다. %p 만 더한다."""
+    rows = [{"err": 5.3, "truth_unit": "%"}, {"err": 4.4, "truth_unit": "%"},
+            {"err": 0.006, "truth_unit": ""}]
+    pp = [r["err"] for r in rows if r["truth_unit"] in ("%", "%p")]
+    assert len(pp) == 2 and sum(pp) == pytest.approx(9.7)
+
+
+def test_실측_단위가_퍼센트면_절대값과_맞대지_않는다():
+    """0.168(비율) 과 실측 21% 는 같은 자가 아니다."""
+    ind = {"id": "P012-6", "expect": "+", "desc": "한도 도달 (실측 21.0%)"}
+    st, err, _ = A.classify(ind, {"mean": 0.0, "n": 500}, 21.0, "%")
+    assert st == "단위다름" and err is None
