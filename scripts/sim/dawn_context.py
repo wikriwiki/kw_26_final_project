@@ -1063,6 +1063,16 @@ def _cache_policy(today: date, persona: dict, rows: list[dict]) -> None:
         _POLICY_CACHE.setdefault(key, [dict(x) for x in rows])
 
 
+def monthly_state_for_today(state: dict, today: date) -> dict:
+    """어제의 월 누적을 오늘 프롬프트에 넣기 전에 달 경계를 반영한다."""
+    if today.day != 1:
+        return state
+    current = dict(state)
+    current["month_spent"] = 0
+    current["sangsaeng_month_spent"] = 0
+    return current
+
+
 def build_dawn_context(
     aid: str,
     today: date,
@@ -1088,6 +1098,10 @@ def build_dawn_context(
         started = time.perf_counter()
         state = s.run(STATE_CYPHER, aid=aid, yesterday=yesterday).single()
         state = dict(state) if state else {}
+        # Dawn은 어제 State를 읽는다. 새 달 첫날에는 프롬프트에도 전월 누적을
+        # 이번 달 금액처럼 보이지 않게 한다. Night의 월별 회계 초기화와 짝이다.
+        if today.day == 1 and yesterday.month != today.month:
+            state = monthly_state_for_today(state, today)
         tm["t_state"] = time.perf_counter() - started
 
         started = time.perf_counter()

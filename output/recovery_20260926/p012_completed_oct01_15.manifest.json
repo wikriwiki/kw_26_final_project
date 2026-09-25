@@ -1,0 +1,12 @@
+{
+  "captured_at": "2026-09-26T01:38:36.594848+09:00",
+  "scope": "completed Oct01-Oct15 metrics; read-only State/Plan-spend/Policy graph extraction, not restorable Neo4j dump",
+  "counts": {
+    "state": 7498,
+    "spend": 85532,
+    "policy": 1,
+    "metrics_days": 15
+  },
+  "archive_sha256": "defd15e418a72238db4a18057f539e65cbda118f6f80174f8566adb2c782a982",
+  "bytes": 4356449
+}

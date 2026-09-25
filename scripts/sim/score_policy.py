@@ -210,6 +210,55 @@ def fetch_cashback(last_day: str, rate: float, cap: int, ratio: float) -> dict:
     return out
 
 
+def cashback_metric_sample(cb: dict, name: str) -> tuple[list[float], int]:
+    """지급 통계의 분모를 재현한다. 지급액·상한 비율은 수령자만 분모다."""
+    recipients = [v for v in cb.values() if v["cashback"] > 0]
+    if name == "threshold_reach_rate":
+        return [v["reached"] for v in cb.values()], len(recipients)
+    if name == "cashback_per_capita":
+        return [v["cashback"] for v in recipients], len(recipients)
+    if name == "cap_reach_rate":
+        return [v["capped"] for v in recipients], len(recipients)
+    raise ValueError(f"알 수 없는 캐시백 지표: {name}")
+
+
+def cashback_calendar_aligned(last_day: str, effective_from: str | None) -> bool:
+    """월별 실측과 대조하려면 월말 관측과 월 1일부터의 정책 노출이 필요하다."""
+    if not effective_from:
+        return False
+    end = date.fromisoformat(last_day)
+    start = date.fromisoformat(effective_from)
+    next_day = end + timedelta(days=1)
+    return (next_day.month != end.month and start <= end.replace(day=1))
+
+
+def cashback_month_coverage(last_day: str, aids: list[str]) -> tuple[bool, int]:
+    """월말 State를 가진 시민이 그 달 모든 날짜에 관측됐는지 확인한다."""
+    if not aids:
+        return False, 0
+    end = date.fromisoformat(last_day)
+    first = end.replace(day=1)
+    q = """
+    MATCH (a:Agent)-[:HAS_STATE]->(st:State)
+    WHERE a.id IN $aids AND st.day >= date($first) AND st.day <= date($last)
+    WITH a, count(DISTINCT st.day) AS observed_days
+    RETURN count(a) AS n_observed,
+           sum(CASE WHEN observed_days = $expected_days THEN 1 ELSE 0 END) AS n_complete
+    """
+    with driver_session() as s:
+        row = s.run(q, aids=aids, first=first.isoformat(), last=last_day,
+                    expected_days=end.day).single()
+    n_complete = int(row["n_complete"] or 0) if row else 0
+    return n_complete == len(aids), n_complete
+
+
+def policy_effective_from(policy_id: str) -> str | None:
+    with driver_session() as s:
+        row = s.run("MATCH (p:Policy {id:$id}) RETURN toString(p.effective_from) AS d",
+                    id=policy_id).single()
+    return row["d"] if row else None
+
+
 # =========================================================
 # 지표 — 모두 (에이전트 → 값) 형태로 내서 쌍체차·부트스트랩에 쓴다
 # =========================================================
@@ -505,6 +554,13 @@ def main() -> int:
     results = []
     per_agent: list[dict] = []
     ranks: dict[str, float] = {}
+    cashback_from = (policy_effective_from(a.policy)
+                     if any(i.get("metric") in ("cashback_per_capita", "cap_reach_rate")
+                            for i in spec["indicators"]) else None)
+    if a.policy == "P012" and cashback_from is None:
+        print("P012 채점 중단: 그래프에 정책 시행일이 없다", file=sys.stderr)
+        return 2
+    cashback_coverage: tuple[bool, int] | None = None
     for ind in spec["indicators"]:
         name, expect = ind["metric"], ind["expect"]
         if expect == "rank":
@@ -529,22 +585,39 @@ def main() -> int:
             continue
         if name in ("threshold_reach_rate", "cashback_per_capita", "cap_reach_rate"):
             cb = fetch_cashback(on_days[-1], 0.10, 100_000, 0.268)
-            fld = {"threshold_reach_rate": "reached",
-                   "cashback_per_capita": "cashback",
-                   "cap_reach_rate": "capped"}[name]
-            vals = [v[fld] for v in cb.values()]
+            vals, n_recipients = cashback_metric_sample(cb, name)
             if len(vals) < 3:
-                results.append({**ind, "got": "관측부족", "hit": None})
+                results.append({**ind, "got": "관측부족", "hit": None,
+                                "n_population": len(cb), "n_recipients": n_recipients,
+                                "denominator": "all_agents" if name == "threshold_reach_rate"
+                                               else "cashback_recipients"})
                 print(f"  {ind['id']:<8} {ind['desc'][:44]:<46} 관측부족")
                 continue
             lo, hi = boot_ci(vals)
-            got = sign_of(lo, hi)
-            hit = (got == expect)
+            calendar_aligned = cashback_calendar_aligned(on_days[-1], cashback_from)
+            if calendar_aligned and cashback_coverage is None:
+                cashback_coverage = cashback_month_coverage(on_days[-1], list(cb))
+            coverage_aligned, n_complete = cashback_coverage or (False, 0)
+            aligned = calendar_aligned and coverage_aligned
+            if name in ("cashback_per_capita", "cap_reach_rate") and not aligned:
+                got, hit = "기간불일치", None
+            else:
+                got = sign_of(lo, hi)
+                hit = (got == expect)
             m = sum(vals) / len(vals)
             results.append({**ind, "got": got, "hit": hit, "mean": m,
-                           "ci": [lo, hi], "n": len(vals)})
+                           "ci": [lo, hi], "n": len(vals),
+                           "n_population": len(cb), "n_recipients": n_recipients,
+                           "denominator": "all_agents" if name == "threshold_reach_rate"
+                                          else "cashback_recipients",
+                           "observed_through": on_days[-1],
+                           "policy_effective_from": cashback_from,
+                           "calendar_aligned": calendar_aligned,
+                           "month_coverage_complete": coverage_aligned,
+                           "n_complete_month": n_complete,
+                           "empirical_period_aligned": aligned})
             print(f"  {ind['id']:<8} {ind['desc'][:44]:<46} "
-                  f"기대 {expect} / 실측 {got} {'O' if hit else 'X'}  "
+                  f"기대 {expect} / 실측 {got} {'O' if hit is True else 'X' if hit is False else '-'}  "
                   f"평균 {m:,.3f} CI[{lo:,.3f},{hi:,.3f}] n={len(vals)}")
             continue
 

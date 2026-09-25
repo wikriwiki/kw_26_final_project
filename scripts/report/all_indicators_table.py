@@ -32,6 +32,7 @@
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import io
 import json
 import re
@@ -52,9 +53,9 @@ CORE = {"P010": "P010-1", "P012": "P012-1", "EMERGENCY_2020": "EM-3",
 # 단위가 실측과 맞지 않는 지표 — 값은 보여 주고 오차는 비운다.
 UNIT_NOTE = {
     "P010-1": "자기보고 신규소비 비율. 시민 200명 재표집 CI; 조사·표본·기간 및 원장 출처 확인 필요",
-    "P012-4": "종료일 State의 누적 캐시백 추정액(일평균 아님). 실측의 수급자/전체 분모·월말 범위 확인 필요",
+    "P012-4": "실측 47,880원은 10~11월 수령자 평균. 10월 수령자당 약 47,828원; 옛 시뮬 값은 전체 시민·10월 일부 기간",
     "P012-3": "정답지가 '> 0' 이라 크기가 없다",
-    "P012-6": "비율은 %로 환산해 표시. 월말 관측 범위·분모 일치 여부는 별도 확인 필요",
+    "P012-6": "실측 21.0%는 10~11월 수령자 중 상한 도달률. 10월 표는 약 20.87%; 옛 시뮬 값은 전체 시민·10월 일부 기간",
     "PT-1": "무효과는 동등성 밴드·CI로 평가. 실측 크기 부재는 단위 불일치가 아님",
     "PT-2": "무효과는 동등성 밴드·CI로 평가. 실측 크기 부재는 단위 불일치가 아님",
     "LV-1": "실측이 '영향 미미' — 수치가 아니다",
@@ -168,6 +169,8 @@ def best_block(pol, iid):
 def classify(ind, entry, tv, tu, suspect=False):
     """상태와 (오차, 시뮬표시). suspect 면 오차를 내지 않는다."""
     iid, expect = ind["id"], ind.get("expect")
+    audit_status = (ind.get("empirical_audit") or {}).get("comparison")
+    suspect = suspect or audit_status == "different_estimand"
     # **지표 정의가 스스로 '측정 불가' 라고 말하면 그것이 맞다.**
     # DS-6 의 결과 블록에는 "관측부족" 으로 적혀 있지만, 지표 desc 는 "그래프에
     # hub_type 이 0건" 이라고 한다. 둘은 다르다 — 표본을 늘려 되는 것과 자료를
@@ -193,12 +196,16 @@ def classify(ind, entry, tv, tu, suspect=False):
         shown = "간격 %+.1f%%p" % g if g is not None else "-"
         if g is None:
             return "없음", None, "-"
+        if suspect:
+            return "다른자", None, shown
         if tg is None:
             return "방향만", None, shown
         return "대조가능", abs(g - tg), shown
     pct, mean = entry.get("pct"), entry.get("mean")
     if isinstance(pct, (int, float)):
         shown = "%+.2f%%" % pct
+        if audit_status == "unverified_source":
+            return "원문미확인", None, shown
         if suspect:
             return "다른자", None, shown
         if tv is None:
@@ -214,6 +221,8 @@ def classify(ind, entry, tv, tu, suspect=False):
             shown += "원"
         if suspect:
             return "다른자", None, shown
+        if audit_status == "unverified_source":
+            return "원문미확인", None, shown
         if iid in ("P010-1", "P012-4", "P012-6"):
             return "정의확인", None, shown
         if tv is None:
@@ -228,6 +237,7 @@ def classify(ind, entry, tv, tu, suspect=False):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--json-out", default="")
+    ap.add_argument("--md-out", default="", help="정책별 38개 지표를 Markdown 표로 저장")
     a = ap.parse_args()
     sc = json.loads(SCORING.read_text(encoding="utf-8"))
 
@@ -253,15 +263,32 @@ def main() -> int:
             hit = best_block(pol, iid)
             bk, entry = hit if hit else (None, None)
             tv, tu = truth_of(ind.get("desc"), (entry or {}).get("실측"))
+            audit = ind.get("empirical_audit") or {}
+            if "reported_value" in audit:
+                tv, tu = audit["reported_value"], audit["reported_unit"]
             if ind.get("expect") == "rank":
-                tg = truth_gap(ind.get("desc"), (entry or {}).get("실측"))
-                tshow = "간격 %+.1f%%p" % tg if tg is not None else "없음"
+                tg = audit.get("reported_gap")
+                if tg is not None:
+                    tshow = "간격 %+.4g %s" % (tg, audit["reported_unit"])
+                else:
+                    tg = truth_gap(ind.get("desc"), (entry or {}).get("실측"))
+                    tshow = "간격 %+.1f%%p" % tg if tg is not None else "없음"
             else:
-                tshow = ("%+.4g%s" % (tv, tu)) if tv is not None else "없음"
+                if tv is None:
+                    tshow = "없음"
+                elif tu == "원":
+                    tshow = f"{tv:+,.0f}원"
+                elif tu == "log-point":
+                    tshow = "%+.4g log-point" % tv
+                else:
+                    tshow = "%+.4g%s" % (tv, tu)
+            if audit.get("comparison") == "unverified_source":
+                tshow = "출처미확인(" + tshow + ")"
             sus = (pk, bk, iid) in SUSPECT
             st, err, shown = classify(ind, entry, tv, tu, sus)
             tally[st] = tally.get(st, 0) + 1
-            note = (SUSPECT.get((pk, bk, iid)) if sus else None) \
+            note = audit.get("reason") \
+                or (SUSPECT.get((pk, bk, iid)) if sus else None) \
                 or UNIT_NOTE.get(iid) or (bk[:30] if bk else "채점된 런이 없다")
             print("   %-8s %-5s %11s %13s %7s %9s  %s%s"
                   % (("★" if CORE.get(pk) == iid else " ") + iid,
@@ -272,7 +299,8 @@ def main() -> int:
                       ("%.2f%%p" % err if tu in ("%", "%p") else "%.4f" % err)),
                      st, "  " + note))
             rows.append({"policy": pk, "id": iid, "expect": ind.get("expect"),
-                         "truth": tv, "truth_unit": tu, "shown": shown,
+                         "truth": tv, "truth_unit": tu, "truth_display": tshow,
+                         "shown": shown,
                          "n": (entry or {}).get("n"), "err": err,
                          "status": st, "block": bk, "note": note,
                          "metric": ind.get("metric"),
@@ -281,7 +309,7 @@ def main() -> int:
         print()
 
     print("## 합계 — 지표 %d개" % len(rows))
-    for st in ("대조가능", "정의확인", "동등성검증", "단위다름", "다른자", "방향만", "관측부족", "무효", "밴드안", "자료없음", "없음"):
+    for st in ("대조가능", "원문미확인", "정의확인", "동등성검증", "단위다름", "다른자", "방향만", "관측부족", "무효", "밴드안", "자료없음", "없음"):
         print("   %-8s %3d개" % (st, tally.get(st, 0)))
     # %p 오차만 더한다. 무차원 비율(MPC)의 오차를 섞으면 총합이 뜻을 잃는다.
     pp = [r["err"] for r in rows
@@ -306,6 +334,21 @@ def main() -> int:
             json.dumps({"rows": rows, "tally": tally}, ensure_ascii=False, indent=1))
         print()
         print("→ %s" % a.json_out)
+    if a.md_out:
+        lines = [f"# 정책별 검증지표 비교 현황 ({date.today().isoformat()})", "",
+                 "채점표의 모든 지표를 표시한다. '대조가능'은 단위 기준의 잠정 분류이며 추정량·모집단·기간의 완전한 정합을 보증하지 않는다. 진행 중인 런의 최종 결과는 포함하지 않는다.", "",
+                 "`n`의 단위는 결과마다 다르다. P010은 시민 200명과 반복 시민-일 1,971개다. 등록된 hit는 실측 크기 일치 판정이 아니다.", "",
+                 "| 정책 | 지표 | 실측 | 시뮬 | n | 상태 | 확인 사항 |",
+                 "|---|---|---:|---:|---:|---|---|"]
+        for r in rows:
+            values = [r["policy"], r["id"], r["truth_display"], r["shown"],
+                      str(r["n"]) if r["n"] is not None else "-", r["status"], r["note"]]
+            lines.append("| " + " | ".join(str(v).replace("|", "/").replace("\n", " ")
+                                          for v in values) + " |")
+        lines += ["", "상태별 개수: " + ", ".join(f"{k} {v}" for k, v in tally.items()) + ".",
+                  "", "KDI P012 원문 정의는 [P012_EMPIRICAL_ALIGNMENT_20260926.md](P012_EMPIRICAL_ALIGNMENT_20260926.md)에서 확인할 수 있다."]
+        Path(a.md_out).write_text("\n".join(lines) + "\n", encoding="utf-8")
+        print("→ %s" % a.md_out)
     return 0
 
 

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +13,12 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts/sim"))
-from score_policy import metric_values, score_mpc_from_metrics  # noqa: E402
+import score_policy  # noqa: E402
+from score_policy import (  # noqa: E402
+    cashback_calendar_aligned, cashback_metric_sample, cashback_month_coverage,
+    metric_values,
+    score_mpc_from_metrics,
+)
 
 
 def test_mpc는_영수증_차이로_계산하지_않는다():
@@ -42,6 +48,62 @@ def test_mpc_원장_인자_없이_채점하면_명시적_오류():
         [sys.executable, str(ROOT / 'scripts/sim/score_policy.py'),
          '--policy', 'P010', '--off', '2025-07-15:2025-07-16',
          '--on', '2025-07-22:2025-07-23'],
-        cwd=ROOT, capture_output=True, text=True, encoding='utf-8')
+        cwd=ROOT, capture_output=True, text=True, encoding='utf-8',
+        env={**os.environ, 'PYTHONIOENCODING': 'utf-8'})
     assert result.returncode != 0
     assert '--metrics-dir' in result.stderr
+
+
+def test_캐시백_평균과_상한비율은_수령자를_분모로_쓴다():
+    cb = {
+        'a': {'reached': 1, 'cashback': 100_000, 'capped': 1},
+        'b': {'reached': 1, 'cashback': 10_000, 'capped': 0},
+        'c': {'reached': 0, 'cashback': 0, 'capped': 0},
+        'd': {'reached': 0, 'cashback': 0, 'capped': 0},
+    }
+    amounts, n_recipients = cashback_metric_sample(cb, 'cashback_per_capita')
+    caps, _ = cashback_metric_sample(cb, 'cap_reach_rate')
+    reached, _ = cashback_metric_sample(cb, 'threshold_reach_rate')
+    assert (sum(amounts) / len(amounts), n_recipients) == (55_000, 2)
+    assert sum(caps) / len(caps) == 0.5
+    assert sum(reached) / len(reached) == 0.5
+
+
+def test_캐시백_실측은_온전한_달의_정책노출이_필요하다():
+    assert not cashback_calendar_aligned('2021-10-28', '2021-10-01')
+    assert not cashback_calendar_aligned('2021-10-31', '2021-10-15')
+    assert not cashback_calendar_aligned('2021-10-31', None)
+    assert cashback_calendar_aligned('2021-10-31', '2021-10-01')
+
+
+def test_월말_캐시백_채점은_시민별_한달_관측을_확인한다(monkeypatch):
+    class FakeResult:
+        def __init__(self, complete):
+            self.complete = complete
+
+        def single(self):
+            return {'n_complete': self.complete}
+
+    class FakeSession:
+        complete = 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            pass
+
+        def run(self, query, **kwargs):
+            assert kwargs['first'] == '2021-10-01'
+            assert kwargs['last'] == '2021-10-31'
+            assert kwargs['expected_days'] == 31
+            assert kwargs['aids'] == ['a', 'b']
+            return FakeResult(self.complete)
+
+    session = FakeSession()
+    monkeypatch.setattr(score_policy, 'driver_session', lambda: session)
+    assert cashback_month_coverage('2021-10-31', []) == (False, 0)
+    session.complete = 1
+    assert cashback_month_coverage('2021-10-31', ['a', 'b']) == (False, 1)
+    session.complete = 2
+    assert cashback_month_coverage('2021-10-31', ['a', 'b']) == (True, 2)

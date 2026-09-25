@@ -1,4 +1,4 @@
-"""**실측과 시뮬의 오차를 더한다.** 이것이 줄여야 할 값이다.
+"""실측과 시뮬의 크기 비교를 감사한다.
 
     python scripts/report/error_budget.py
 
@@ -7,7 +7,7 @@
 **실측 수치가 없으면 검증지표가 아니다.** 방향만 말하는 지표는 "맞혔다" 를
 셀 수는 있어도 **오차를 계산할 수 없다.** 그러므로 오차 예산에서 뺀다.
 
-    들어간다   실측이 퍼센트로 있는 것 — 오차 = |시뮬 − 실측| (%p)
+    들어간다   추정량·기간·모집단이 확인되고 실측이 퍼센트로 있는 것 — 오차 = |시뮬 − 실측| (%p)
                실측이 두 수로 있는 순위 — 오차 = |우리 간격 − 실측 간격| (%p)
     빠진다     실측이 없는 것 (방향만 말하거나 백분율 미공개)
                단위가 달라 %p 로 맞댈 수 없는 것 (MPC 0.21 · 월 금액 47,880원)
@@ -18,9 +18,10 @@
 
 ## 오차를 정확도로 오해하지 않기
 
-원문 창은 주·월 단위인데 우리 창은 이틀이다. 그래서 오차에는 **프롬프트로
-없앨 수 없는 하한**이 있다. 그럼에도 오차를 더하는 이유는 **후보 간 비교**다 —
-같은 창·같은 지표에서 오차가 줄면 그만큼은 프롬프트의 것이다.
+원문 창은 주·월 단위인데 우리 창은 이틀인 경우가 많다. 대상·기간·대조 설계가
+다르면 숫자끼리 뺀 값은 오차가 아니다. 원문 감사 결과(2026-09-26) 현재 보관
+결과 중 직접 비교 가능한 크기 지표는 0개다. 적격한 결과가 생길 때까지 총오차를
+0으로 출력하지 않는다.
 
 각 지표의 창 불일치 정도를 `SCALE_NOTE` 에 적어 둔다. 오차가 큰 것이
 프롬프트 탓인지 창 탓인지 그 줄을 보고 가른다.
@@ -49,7 +50,7 @@ SCALE_NOTE = {
     'P012-1': '원문 한 달 · 우리 이틀',
     'P012-2': '원문 한 달 · 우리 이틀 · **2026-09-24 눈금 이동** — st.online_spent 로 재측정 대기',
     'P012-5': '원문 한 달 · 우리 이틀',
-    'P012-6': '월 한도 10만원 · **우리 이틀로는 구조적 불가**',
+    'P012-6': '기존 출력은 전체 시민·10월 일부 기간. 원문은 10~11월 수령자',
     'EM-2': '원문 19~33주 · 우리 이틀',
     'EM-3': '원문 전년 동기 대비 · 우리 같은 해 전후',
     'EM-4': '원문 19~33주 · 우리 이틀',
@@ -61,11 +62,11 @@ SCALE_NOTE = {
     'C3': '같음',
 }
 
-# 단위가 달라 %p 로 맞댈 수 없는 것 — 왜 뺐는지 남긴다.
-UNIT_MISMATCH = {
-    'P010-1': 'MPC 0.21 은 무차원 비율이다. %p 로 더할 수 없다',
-    'P012-4': '47,880원은 **월** 1인 평균 캐시백이다. 우리 창은 이틀이라 환산이 안 된다',
-    'LV-1': '"영향 미미" 는 수치가 아니다',
+# 실측·시뮬 수치는 있지만 정의가 달라 이 결과에서 오차를 낼 수 없다.
+DEFINITION_PENDING = {
+    'P010-1': '자기보고 MPC 0.21의 설문 문항·분모·기간·모집단 계보 확인이 필요하다',
+    'P012-4': '47,880원은 10~11월 캐시백 수령자 평균. 옛 출력은 전체 시민·부분월이다',
+    'P012-6': '21%는 10~11월 수령자 중 상한 도달률. 옛 출력은 전체 시민·부분월이다',
 }
 
 
@@ -87,6 +88,12 @@ def truth_pct(desc):
         return None
     m2 = re.search(r'([+-]?\d+(?:\.\d+)?)\s*%', body)
     return float(m2.group(1)) if m2 else None
+
+
+def truth_won(desc):
+    """`(실측 47,880원)`에서 원 단위 크기만 읽는다."""
+    m = re.search(r'\(실측\s*([\d,]+)\s*원', str(desc or ''))
+    return float(m.group(1).replace(',', '')) if m else None
 
 
 def truth_gap(desc):
@@ -129,8 +136,24 @@ def collect():
                    'desc': desc[:70], 'scale': SCALE_NOTE.get(iid, ''),
                    'suspect': sus, 'kind': None, 'truth': None, 'sim': None,
                    'err': None, 'why': ''}
-            if iid in UNIT_MISMATCH:
-                row.update(kind='단위불일치', why=UNIT_MISMATCH[iid])
+            audit = ind.get('empirical_audit') or {}
+            if audit.get('comparison') in ('different_estimand', 'unverified_source'):
+                row.update(kind=('추정량불일치' if audit['comparison'] == 'different_estimand'
+                                 else '원문미확인'),
+                           truth=audit.get('reported_value'),
+                           sim=v.get('pct') if isinstance(v.get('pct'), (int, float)) else None,
+                           why=audit.get('reason') or '실측 출처·정의 확인 필요')
+                rows.append(row); continue
+            if iid in DEFINITION_PENDING:
+                mean = v.get('mean')
+                row.update(kind='정의확인',
+                           truth=(truth_won(desc) if iid == 'P012-4' else truth_pct(desc)),
+                           sim=(100 * mean if iid == 'P012-6' else mean)
+                               if isinstance(mean, (int, float)) else None,
+                           why=DEFINITION_PENDING[iid])
+                rows.append(row); continue
+            if iid == 'LV-1':
+                row.update(kind='실측없음', why='원문의 "영향 미미"는 크기 수치가 아니다')
                 rows.append(row); continue
             g = truth_gap(desc)
             t = truth_pct(desc)
@@ -158,14 +181,14 @@ def main() -> int:
     a = ap.parse_args()
     rows = collect()
 
-    print('# 실측과의 오차 — 이것이 줄여야 할 값이다')
+    print('# 실측과의 크기 비교 가능성 감사')
     print()
     print('%-14s %-7s %-8s %9s %9s %8s  %s'
           % ('정책', '지표', '종류', '실측', '시뮬', '오차%p', '창 불일치 / 사유'))
     print('-' * 118)
     scored = [r for r in rows if r['err'] is not None]
     unmeasured = [r for r in rows if r['kind'] in ('퍼센트', '순위간격') and r['err'] is None]
-    dropped = [r for r in rows if r['kind'] in ('실측없음', '단위불일치')]
+    dropped = [r for r in rows if r['kind'] in ('실측없음', '정의확인', '추정량불일치', '원문미확인')]
     for r in rows:
         f = lambda x: ('%+.2f' % x) if isinstance(x, (int, float)) else '—'
         print('%-14s %-7s %-8s %9s %9s %8s  %s'
@@ -175,12 +198,15 @@ def main() -> int:
     print()
     tot = sum(r['err'] for r in scored)
     print('## 오차 예산')
-    print('  잰 지표 %d개 · **총 오차 %.2f%%p** · 평균 %.2f%%p'
-          % (len(scored), tot, tot / len(scored) if scored else 0))
-    print('  못 잰 지표 %d개 — 실측은 있는데 시뮬이 값을 못 낸다(우리 문제)' % len(unmeasured))
+    if scored:
+        print('  잰 지표 %d개 · **총 오차 %.2f%%p** · 평균 %.2f%%p'
+              % (len(scored), tot, tot / len(scored)))
+    else:
+        print('  직접 비교 가능한 크기 지표 0개 · 총오차 **정의 불가**')
+    print('  측정·자료 미완료 지표 %d개 — 실측 정의와 시뮬 출력이 모두 갖춰지지 않았다' % len(unmeasured))
     for r in unmeasured:
         print('     %-7s %s' % (r['id'], r['scale'] or r['why']))
-    print('  뺀 지표 %d개 — 실측이 없거나 단위가 다르다' % len(dropped))
+    print('  대조 제외 지표 %d개 — 실측 부재·출처 미확인·정의/추정량 불일치' % len(dropped))
     print()
     print('가장 큰 오차부터')
     for r in sorted(scored, key=lambda x: -x['err'])[:8]:
@@ -188,7 +214,7 @@ def main() -> int:
               % (r['id'], r['err'], r['truth'], r['sim'], r['scale']))
     if a.json_out:
         io.open(a.json_out, 'w', encoding='utf-8', newline='\n').write(
-            json.dumps({'rows': rows, 'total': tot, 'n': len(scored)},
+            json.dumps({'rows': rows, 'total': tot if scored else None, 'n': len(scored)},
                        ensure_ascii=False, indent=1))
         print()
         print('→ %s' % a.json_out)

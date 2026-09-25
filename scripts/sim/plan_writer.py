@@ -524,9 +524,12 @@ WITH a, prev,
      coalesce(prev.energy, 0.8) AS prev_energy,
      coalesce(prev.mood, 0.5) AS prev_mood,
      coalesce(prev.fatigue, 0.3) AS prev_fatigue,
-     coalesce(prev.month_spent, 0) AS prev_month_spent,
-     // 상생 캐시백 실적 문턱용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 0.
-     coalesce(prev.sangsaeng_month_spent, 0) AS prev_sangsaeng_month_spent
+     // 다음 달 첫날에는 전월 실적을 이어받지 않는다. 잔액·정책 인지 등은 계속 유지.
+     CASE WHEN date($today).day = 1 THEN 0
+          ELSE coalesce(prev.month_spent, 0) END AS prev_month_spent,
+     // 상생 캐시백 문턱도 달력 월별. 정책 수치가 아닌 공통 회계 규칙이다.
+     CASE WHEN date($today).day = 1 THEN 0
+          ELSE coalesce(prev.sangsaeng_month_spent, 0) END AS prev_sangsaeng_month_spent
 
 // 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만).
 // ip:POI 조인으로 적립업종(sangsaeng_eligible=true) 지출만 따로 합산.

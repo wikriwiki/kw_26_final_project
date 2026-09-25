@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -183,4 +184,39 @@ def test_누적_캐시백은_일평균으로_설명하지_않는다():
     ind = {"id": "P012-4", "expect": "+"}
     st, err, shown = A.classify(ind, {"mean": 1311}, 47880, "원")
     assert (st, err, shown) == ("정의확인", None, "1311원")
-    assert "일평균 아님" in A.UNIT_NOTE["P012-4"]
+    assert "10~11월 수령자 평균" in A.UNIT_NOTE["P012-4"]
+
+
+def test_삼중차분_로그계수를_짧은_전후_증가율과_비교하지_않는다():
+    ind = {"id": "P012-1", "expect": "+", "empirical_audit": {
+        "comparison": "different_estimand"}}
+    st, err, shown = A.classify(ind, {"pct": 1.9}, 0.2082, "log-point")
+    assert (st, err, shown) == ("다른자", None, "+1.90%")
+
+
+def test_P012_실측_원문_계수를_퍼센트_오차에_더하지_않는다():
+    table = json.loads((ROOT / 'data/experiments/scoring_table.json').read_text(encoding='utf-8'))
+    ind = next(i for i in table['P012']['indicators'] if i['id'] == 'P012-1')
+    audit = ind['empirical_audit']
+    assert audit['reported_value'] == pytest.approx(0.2082)
+    assert audit['reported_unit'] == 'log-point'
+    entry = table['P012']['result_r2_v5']['P012-1']
+    st, err, _ = A.classify(ind, entry, audit['reported_value'], audit['reported_unit'])
+    assert st == '다른자' and err is None
+
+
+def test_원문에서_확인되지_않은_숫자로_크기_적중을_주지_않는다():
+    table = json.loads((ROOT / 'data/experiments/scoring_table.json').read_text(encoding='utf-8'))
+    ind = next(i for i in table['EMERGENCY_2020']['indicators'] if i['id'] == 'EM-3')
+    st, err, shown = A.classify(ind, {'pct': 12.6, 'n': 200}, 7.3, '%')
+    assert (st, err, shown) == ('원문미확인', None, '+12.60%')
+
+
+def test_전년비와_이틀_전후비를_맞대지_않는다():
+    table = json.loads((ROOT / 'data/experiments/scoring_table.json').read_text(encoding='utf-8'))
+    pol = table['DISTANCING_2020']
+    for iid, ref, observed in [('DS-1', -14.1, -9.7), ('DS-2', 4.2, 5.1)]:
+        ind = next(i for i in pol['indicators'] if i['id'] == iid)
+        st, err, shown = A.classify(ind, {'pct': observed, 'n': 500}, ref, '%')
+        assert st == '다른자' and err is None
+        assert shown == f'{observed:+.2f}%'

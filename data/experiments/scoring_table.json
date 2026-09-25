@@ -193,7 +193,15 @@
     "expect": "+",
     "scale": "short",
     "metric": "elig_spend_paired",
-    "desc": "적립업종 지출 개인 내 쌍체차 (실측 +20.82%)"
+    "desc": "적립업종 지출 개인 내 쌍체차 (실측 +20.82%)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf, 표 4-7, PDF 59쪽/인쇄 49쪽",
+     "reported_value": 0.2082,
+     "reported_unit": "log-point",
+     "source_estimand": "2021년 10월 수급×월×2021년 삼중차분 계수, 가구 월별 적립업종 카드결제액 로그",
+     "comparison": "different_estimand",
+     "reason": "시뮬은 시민의 짧은 OFF/ON 원화 지출 변화율이다. KDI 0.2082는 수급/미수급·월·연도 대조를 포함한 가구 월별 로그 지출 삼중차분 계수다."
+    }
    },
    {
     "id": "P012-2",
@@ -201,6 +209,13 @@
     "scale": "main",
     "metric": "online_spend_paired",
     "desc": "제외업종 무반응 (실측 +2.85%, 유의하지 않음) — 방어선 지표",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf, 표 4-7(계속), PDF 61쪽/인쇄 51쪽",
+     "reported_value": 0.0285,
+     "reported_unit": "log-point",
+     "comparison": "different_estimand",
+     "reason": "실측은 가구 월별 제외업종 카드소비의 삼중차분 로그계수다. 옛 시뮬은 주로 온라인 State만 잰 짧은 OFF/ON 변화율로 모집단·업종 집합·추정량이 다르다."
+    },
     "ruler_note": "제외업종(백화점·대형마트·온라인)은 소비 모델이 POI 원장에 넣기 전에 st.online_spent 로 걷어낸다. 원장의 비적격으로 재면 새어 나온 잔여물(전체 지출의 1.35%, 84행)만 잡힌다 — 2026-09-24 눈금 이동, experiments/error_budget/diagnosis_03.md"
    },
    {
@@ -215,7 +230,14 @@
     "expect": "+",
     "scale": "short",
     "metric": "cashback_per_capita",
-    "desc": "1인 평균 캐시백 > 0 (실측 47,880원)"
+    "desc": "1인 평균 캐시백 > 0 (실측 47,880원)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf, 표 3-1, PDF 29쪽/인쇄 19쪽",
+     "reported_window": "2021년 10~11월 합계",
+     "reported_population": "캐시백 수령자 1680만명",
+     "october_recipient_mean_won": 47827.696864971615,
+     "october_basis": "10월 대상 810.2만명, 지급액 3875억원; 월별 표의 반올림된 수치로 계산"
+    }
    },
    {
     "id": "P012-5",
@@ -226,14 +248,28 @@
      "가전·가구",
      "이·미용"
     ],
-    "desc": "가전·가구 증가율 > 이·미용 증가율 (실측 +36.23% vs +2.87%)"
+    "desc": "가전·가구 증가율 > 이·미용 증가율 (실측 +36.23% vs +2.87%)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf, 표 4-7, PDF 59쪽/인쇄 49쪽",
+     "reported_gap": 0.3336,
+     "reported_unit": "log-point",
+     "comparison": "different_estimand",
+     "reason": "KDI 가전·가구 0.3623와 이·미용 0.0287은 가구 월별 로그 지출 삼중차분 계수다. 시뮬의 짧은 OFF/ON 업종 증가율과 같은 크기 추정량은 아니다."
+    }
    },
    {
     "id": "P012-6",
     "expect": "+",
     "scale": "main",
     "metric": "cap_reach_rate",
-    "desc": "한도 10만원 도달 비율 > 0 (실측 21.0%)"
+    "desc": "한도 10만원 도달 비율 > 0 (실측 21.0%)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf, 표 3-1, PDF 29쪽/인쇄 19쪽",
+     "reported_window": "2021년 10~11월 합계",
+     "reported_population": "캐시백 수령자 1680만명",
+     "october_recipient_rate_percent": 20.871389780301158,
+     "october_basis": "10월 한도 수령 169.1만명 / 캐시백 수령 810.2만명; 월별 표의 반올림된 수치로 계산"
+    }
    }
   ],
   "window_stage2": {
@@ -363,14 +399,24 @@
     "expect": "+",
     "scale": "short",
     "metric": "elig_spend_post",
-    "desc": "사용가능업종 순효과 — 지급 후 − 지급 전 (실측 +11.1%p: 지급 전 −4.0% → 지급 후 +7.1%)"
+    "desc": "사용가능업종 순효과 — 지급 후 − 지급 전 (실측 +11.1%p: 지급 전 −4.0% → 지급 후 +7.1%)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/긴급재난지원금_P013/정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf",
+     "comparison": "unverified_source",
+     "reason": "기존 +11.1%p는 인용 KDI PDF에서 확인되지 않았다. 원문의 11.1~15.3은 효과율이 아닌 지원금 규모(조원)다. 지급 전 -4.0%·후 +7.1% 근거도 미확인이다."
+    }
    },
    {
     "id": "EM-3",
     "expect": "+",
     "scale": "short",
     "metric": "total_spend_paired",
-    "desc": "전체 카드매출 증가 (실측 +7.3%)"
+    "desc": "전체 카드매출 증가 (실측 +7.3%)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/긴급재난지원금_P013/정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf",
+     "comparison": "unverified_source",
+     "reason": "기존 대조표의 +7.3%는 인용된 KDI 원문에서 확인되지 않았다. 출처가 검증되기 전에는 크기 오차를 계산할 수 없다."
+    }
    },
    {
     "id": "EM-4",
@@ -624,6 +670,11 @@
     "scale": "short",
     "metric": "sector_spend:식사",
     "desc": "음식점 지출 감소 (실측 −14.1%)",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/사회적거리두기_DISTANCING2020/정답지_서울연구원_요약_발행처웹.txt, 요약",
+     "comparison": "different_estimand",
+     "reason": "원문 -14.1%는 한식 매출의 전년 대비 감소다. 시뮬 -9.7%는 식사 업종의 11월 이틀 OFF/ON 변화율이다. 업종·기간·대조군이 다르다."
+    },
     "stage1_confounded": true,
     "confound_reason": "1단계 창(무정책 일·월 / 정책 화·수)은 주말이 무정책 쪽에만 들어가 절대 부호가 요일 효과에 오염된다. 순위 지표(DS-3)는 교란이 상쇄되므로 그대로 쓴다. 2단계 요일 정합 창에서는 이 표시가 해제된다."
    },
@@ -633,6 +684,11 @@
     "scale": "short",
     "metric": "sector_spend:쇼핑+마트",
     "desc": "소매업 지출 증가 (실측 +4.2%) — 같은 정책 안에서 부호가 갈리는 지점",
+    "empirical_audit": {
+     "source": "data/policy_raw_data/사회적거리두기_DISTANCING2020/정답지_서울연구원_요약_발행처웹.txt, 요약",
+     "comparison": "different_estimand",
+     "reason": "원문 +4.2%는 코로나19 기간 소매업 평균 매출 증가다. 시뮬 +5.1%는 쇼핑+마트 업종의 11월 이틀 OFF/ON 변화율이다. 업종·기간·대조군이 다르다."
+    },
     "stage1_confounded": true,
     "confound_reason": "1단계 창(무정책 일·월 / 정책 화·수)은 주말이 무정책 쪽에만 들어가 절대 부호가 요일 효과에 오염된다. 순위 지표(DS-3)는 교란이 상쇄되므로 그대로 쓴다. 2단계 요일 정합 창에서는 이 표시가 해제된다."
    },
