@@ -699,6 +699,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "instant_discount_today": discount_settlement["total"],
                 "instant_discount_by_pid": discount_settlement["by_pid"],
                 "instant_discount_eligible_gross": discount_settlement["eligible_gross"],
+                "instant_discount_eligible_gross_basis": discount_settlement[
+                    "eligible_gross_basis"],
+                "instant_discount_product_lines_observed": discount_settlement[
+                    "product_lines_observed"],
                 "grant_remaining_total": sum(merged_grant_remaining.values()),
                 "policy_spend_corrected": policy_spend_corrected,
                 "cm_propensity": cm_meta.get("propensity"),

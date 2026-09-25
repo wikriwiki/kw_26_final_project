@@ -73,4 +73,6 @@ def settle_instant_discounts(events: list[dict], amounts: list[int],
               for spec in specs}
     return {"by_event": by_event, "by_pid": by_pid,
             "total": sum(by_pid.values()), "used_after": used,
-            "eligible_gross": eligible_gross}
+            "eligible_gross": eligible_gross,
+            "eligible_gross_basis": ("whole_poi_transaction_proxy" if specs else None),
+            "product_lines_observed": False}

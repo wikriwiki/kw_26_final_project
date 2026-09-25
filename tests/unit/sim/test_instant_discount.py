@@ -31,6 +31,8 @@ def test_적격_매출은_할인전_금액이고_시민부담만_할인된다():
     ]
     result = settle_instant_discounts(events, [20_000, 30_000], specs)
     assert result["eligible_gross"] == 20_000
+    assert result["eligible_gross_basis"] == "whole_poi_transaction_proxy"
+    assert result["product_lines_observed"] is False
     assert result["total"] == 4_000
     assert result["by_event"] == [{"TEST": 4_000}, {}]
     assert sum([20_000, 30_000]) - result["total"] == 46_000
