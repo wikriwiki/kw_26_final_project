@@ -29,4 +29,6 @@
 
 추가 회계 관문: `EXP_DAILY_INCOME=anchor`는 당일 LLM 소비 의향·POI 가격이 포함된 `_anchor_total`을 소득으로 되돌려 정책과 함께 움직인다. P012 두 팔 본 런은 정책 전 관측으로 고정한 개인별 `baseline` 맵을 공통 사용한다(`P012_FULL_MONTH_PREREG_20260926.md`의 사전등록 수정). 이 맵은 외부 실측 소득이 아니라 잔고 안정성용 합성 보충액이며, 다른 정책·환경에 그대로 전용하지 않는다.
 
+추가 출력 관문: 현재 A100 진단 런의 10월 1~16일에는 Stage2가 모두 실패한 뒤 자동 후보로 대체된 시민·날짜가 **500/7,998 정상 metrics 행**이었다. 선택적 리뷰 DB 부재와 1,400토큰 JSON 절단이 주요 원인이다. 정상 응답에도 누락 선택 124개를 자동으로 채우고 후보 밖 선택 409개를 보정했다. 새 쌍체런은 완전 자동 대체를 실패로 처리하고 `audit_stage2_generation.py --strict` 통과를 요구하며, 부분 보정량도 공개한다. 그러므로 현재 진단 런의 정책 반응을 범용 프롬프트 크기 검증으로 승격하지 않는다.
+
 원문 근거: `docs/P012_EMPIRICAL_ALIGNMENT_20260926.md`, [KDI 2020-12-22 보도자료](https://www.kdi.re.kr/share/pressView?bd_no=4018), `data/policy_raw_data/긴급재난지원금_P013/정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf`, `data/policy_raw_data/사회적거리두기_DISTANCING2020/정답지_서울연구원_요약_발행처웹.txt`.

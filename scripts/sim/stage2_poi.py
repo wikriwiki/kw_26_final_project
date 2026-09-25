@@ -839,8 +839,12 @@ def call_stage2(
     last_err = None
     review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
     pre_review_picks: dict[int, str] = {}     # 리뷰 보기 전(1차) 선택 {order: poi_id} — 사고변화 추적
+    prior_output_limited = False
+    total_tokens_in = 0
+    total_tokens_out = 0
     for attempt in range(max_retry + 1):
         temp = 0.7 + 0.1 * attempt
+        token_cap = 3200 if prior_output_limited else 2200
         attempt_started = time.perf_counter()
         attempt_timing: dict[str, float | int | str] = {"attempt": attempt}
         call_kind = "review" if review_lookup_used else ("initial" if attempt == 0 else "retry")
@@ -859,12 +863,15 @@ def call_stage2(
         elapsed = time.perf_counter() - started
         timing["t_retry_prompt"] += elapsed
         attempt_timing["t_retry_prompt"] = elapsed
+        attempt_timing["max_tokens"] = token_cap
         error_stage = "llm"
+        finish = None
+        tokens_out = 0
         try:
             started = time.perf_counter()
             resp = _llm_call(
                 None, SYSTEM_S2, prompt_now,
-                temperature=temp, max_tokens=1400,  # review_lookup_requests 필드 + 추가 컨텍스트
+                temperature=temp, max_tokens=token_cap,
                 response_format=s2_schema,
             )
             elapsed = time.perf_counter() - started
@@ -873,8 +880,13 @@ def call_stage2(
             timing["n_llm_calls"] += 1
             attempt_timing["t_llm"] = elapsed
             raw = resp.choices[0].message.content
+            finish = resp.choices[0].finish_reason
+            attempt_timing["finish_reason"] = finish
             attempt_timing["tokens_in"] = int(getattr(resp.usage, "prompt_tokens", 0) or 0)
-            attempt_timing["tokens_out"] = int(getattr(resp.usage, "completion_tokens", 0) or 0)
+            tokens_out = int(getattr(resp.usage, "completion_tokens", 0) or 0)
+            attempt_timing["tokens_out"] = tokens_out
+            total_tokens_in += attempt_timing["tokens_in"]
+            total_tokens_out += tokens_out
             if verbose:
                 print(f"--- attempt {attempt} (temp={temp}) ---")
                 print(raw[:600])
@@ -911,7 +923,14 @@ def call_stage2(
                 if valid_lookup_ids and attempt < max_retry:
                     error_stage = "review_lookup"
                     started = time.perf_counter()
-                    fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    try:
+                        fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    except Exception as review_error:
+                        # Review is optional. A local SQLite fault is not a
+                        # reason to discard the already valid LLM picks.
+                        fetched = {}
+                        fb_stats["review_lookup_error"] = fb_stats.get("review_lookup_error", 0) + 1
+                        attempt_timing["review_lookup_error_type"] = type(review_error).__name__
                     elapsed = time.perf_counter() - started
                     timing["t_review_lookup"] += elapsed
                     attempt_timing["t_review_lookup"] = elapsed
@@ -1013,8 +1032,8 @@ def call_stage2(
             meta = {
                 "attempt": attempt,
                 "temp": temp,
-                "tokens_in": resp.usage.prompt_tokens,
-                "tokens_out": resp.usage.completion_tokens,
+                "tokens_in": total_tokens_in,
+                "tokens_out": total_tokens_out,
                 "hallucinations_corrected": hallucinations,
                 "hallucinations_dropped": hallucinations_dropped,
                 "order_mismatch": order_mismatch,
@@ -1047,6 +1066,11 @@ def call_stage2(
                     timing[f"t_llm_{call_kind}"] += elapsed
                     timing["n_llm_calls"] += 1
             last_err = e
+            if error_stage in ("json_extract", "json_parse") and (
+                finish == "length" or tokens_out >= token_cap
+            ):
+                prior_output_limited = True
+                attempt_timing["output_limited"] = True
             attempt_timing["status"] = "error"
             attempt_timing["error_stage"] = error_stage
             attempt_timing["error_type"] = type(e).__name__
@@ -1058,16 +1082,23 @@ def call_stage2(
             if verbose:
                 print(f"[attempt {attempt}] failed: {e}")
 
-    # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
-    fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
-    if fallback.picks:
-        return fallback, cands_by_order, {
-            "fallback_only": True,
-            "price_by_poi": price_by_poi,
-            "coupon_by_poi": coupon_by_poi,
-            "last_err": str(last_err)[:200],
-            "s2_timing": timing_snapshot(),
-        }
+    # Full LLM failure cannot be scored as a citizen choice. The old runner
+    # silently used a top-5 POI fallback (106/500 citizens on P012 Oct16),
+    # making a completed day look valid despite having no Stage2 decision.
+    # Preserve that behavior only when explicitly requested for exploration.
+    if os.environ.get("SIM_ALLOW_STAGE2_FALLBACK") == "1":
+        fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events,
+                                       cands_by_order, aid=aid)
+        if fallback.picks:
+            return fallback, cands_by_order, {
+                "fallback_only": True,
+                "price_by_poi": price_by_poi,
+                "coupon_by_poi": coupon_by_poi,
+                "last_err": str(last_err)[:200],
+                "tokens_in": total_tokens_in,
+                "tokens_out": total_tokens_out,
+                "s2_timing": timing_snapshot(),
+            }
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
 
 

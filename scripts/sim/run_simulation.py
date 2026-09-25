@@ -754,6 +754,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "dawn_timing": dict(ctx.dawn_timing),
                 "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
                 "s2_timing": m2.get("s2_timing"),
+                "s2_skipped": bool(m2.get("skipped")),
+                "s2_fallback_only": bool(m2.get("fallback_only")),
+                "review_lookup_errors": m2.get("review_lookup_error", 0),
                 # Stage 2 fallback 카운트 (사후 분석용)
                 "review_lookup_count": m2.get("review_lookup_count", 0),
                 "fb_resolve_dong": m2.get("resolve_dong_placeholder_fallback", 0),
