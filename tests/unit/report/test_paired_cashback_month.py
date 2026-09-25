@@ -21,6 +21,7 @@ def fixture_rows():
                 eligible = (100 if arm == "on" else 80) if aid == "a" else 0
                 target.append({
                     "aid": aid, "day": day, "arm": arm, "policy_id": "P012",
+                    "s2_choice_status": "unrepaired",
                     "month": "2021-10", "offline_spent": eligible,
                     "online_spent": 0, "eligible_spent": eligible,
                     "eligible_cumulative": eligible * index,
@@ -43,6 +44,18 @@ def test_recipient_denominator_and_paired_spending_are_distinct():
     assert result["metrics"]["eligible_difference_per_citizen_won"]["value"] == 310
     assert result["metrics"]["eligible_relative_change"]["value"] == 0.25
     assert result["metrics"]["threshold_reach_share"]["value"] == 0.5
+
+
+def test_cashback_reports_complete_citizen_unrepaired_sensitivity():
+    on, off = fixture_rows()
+    on[0]["s2_choice_status"] = "partial_repair"
+    result = paired.score(on, off, roster=["a", "b"], month="2021-10",
+                          policy_id="P012", draws=0)
+    sensitivity = result["choice_repair_sensitivity"]
+    assert sensitivity["unrepaired_citizens"] == 1
+    assert sensitivity["excluded_citizens"] == 1
+    assert sensitivity["metrics"]["eligible_difference_per_citizen_won"] == 0
+    assert sensitivity["metrics"]["cashback_per_recipient_won"] is None
 
 
 def test_external_monthly_reference_is_descriptive_only():

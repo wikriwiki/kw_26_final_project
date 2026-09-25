@@ -19,6 +19,8 @@ from pathlib import Path
 MONEY = ("offline_spent", "online_spent", "self_month_cumulative",
          "grant_received_cumulative",
          "grant_remaining", "grant_spent_today")
+CLEAN_CHOICES = frozenset(("unrepaired", "not_applicable"))
+VALID_CHOICES = CLEAN_CHOICES | {"partial_repair"}
 
 
 def dates(start: str, end: str) -> list[str]:
@@ -66,6 +68,9 @@ def _index(rows: list[dict], roster: list[str], days: list[str], arm: str,
         raise ValueError(f"incomplete or extra citizen-day matrix in {arm}: "
                          f"missing={len(expected - set(got))}, extra={len(set(got) - expected)}")
     for row in got.values():
+        choice = row.get("s2_choice_status")
+        if not isinstance(choice, str) or choice not in VALID_CHOICES:
+            raise ValueError("missing or invalid Stage2 choice provenance")
         for field in MONEY:
             _money(row, field)
         eligible = row.get("eligible_offline_spent")
@@ -93,11 +98,14 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
     per_citizen = []
     for aid in roster:
         received, spent = 0, 0
+        choice_repaired = False
         previous_self = {"on": ("", 0), "off": ("", 0)}
         values = {key: 0 for key in ("on_total", "off_total", "on_offline",
                                      "off_offline", "on_eligible", "off_eligible")}
         for day in days:
             p, c = on[(aid, day)], off[(aid, day)]
+            choice_repaired |= (p["s2_choice_status"] not in CLEAN_CHOICES or
+                                c["s2_choice_status"] not in CLEAN_CHOICES)
             if any(c[field] != 0 for field in
                    ("grant_received_cumulative", "grant_remaining", "grant_spent_today")):
                 raise ValueError(f"policy funding leaked into control: {aid} {day}")
@@ -124,7 +132,8 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
             values["on_eligible"] += p["eligible_offline_spent"]
             values["off_eligible"] += c["eligible_offline_spent"]
         values.update(aid=aid, received=received, spent=spent,
-                      remaining=on[(aid, days[-1])]["grant_remaining"])
+                      remaining=on[(aid, days[-1])]["grant_remaining"],
+                      choice_repaired=choice_repaired)
         per_citizen.append(values)
     issued = sum(row["received"] for row in per_citizen)
     if issued <= 0:
@@ -142,6 +151,11 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
         denominator = sum(r["received"] for r in rows)
         return numerator / denominator if denominator else float("nan")
     ratio = contrast(per_citizen, "total")
+    clean_citizens = [row for row in per_citizen if not row["choice_repaired"]]
+
+    def clean_contrast(field: str) -> float | None:
+        value = contrast(clean_citizens, field) if clean_citizens else float("nan")
+        return value if math.isfinite(value) else None
     rng = random.Random(seed)
     boot = {field: [] for field in ("total", "offline", "eligible")}
     for _ in range(draws):
@@ -176,6 +190,15 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
         "eligible_offline_difference_won": summed["on_eligible"] - summed["off_eligible"],
         "eligible_offline_effect_per_grant_won": contrast(per_citizen, "eligible"),
         "eligible_offline_citizen_bootstrap_95_interval": interval("eligible"),
+        "choice_repair_sensitivity": {
+            "unrepaired_citizens": len(clean_citizens),
+            "excluded_citizens": len(roster) - len(clean_citizens),
+            "incremental_recorded_spend_per_grant_won": clean_contrast("total"),
+            "eligible_offline_effect_per_grant_won": clean_contrast("eligible"),
+            "scope": "Diagnostic complete-citizen restriction: excludes any citizen "
+                     "with a repaired Stage2 place choice in either arm. Not a "
+                     "population effect or prompt accuracy score.",
+        },
         "comparison": "indirect_proxy",
         "scope": "Within-run matched-citizen spending proxy. Payment instrument, population "
                  "and external counterfactual are not aligned; do not subtract from an "
@@ -236,7 +259,11 @@ def pair_provenance(manifests: list[dict], arms: tuple[str, str]) -> dict:
             "paired_environment_fingerprint"),
         "arms": {arm: {"run_id": manifest["run_id"],
                        "execution_fingerprint": manifest["execution_fingerprint"],
-                       "ledger_sha256": manifest["output_sha256"]}
+                       "ledger_sha256": manifest["output_sha256"],
+                       "unrepaired_choice_trace_pass": manifest.get(
+                           "unrepaired_choice_trace_pass"),
+                       "choice_repaired_citizen_days": (manifest.get(
+                           "generation_totals") or {}).get("stage2_choice_repair_agents")}
                  for arm, manifest in zip(arms, manifests)},
     }
 

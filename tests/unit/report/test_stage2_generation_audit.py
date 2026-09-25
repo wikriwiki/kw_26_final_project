@@ -9,6 +9,15 @@ sys.path.insert(0, str(ROOT / "scripts" / "report"))
 import audit_stage2_generation as audit  # noqa: E402
 
 
+def test_choice_status_distinguishes_model_choice_from_repair_and_skip():
+    ok = {"s2_timing": {"attempts": [{"status": "ok"}]}}
+    assert audit.choice_status(ok) == "unrepaired"
+    assert audit.choice_status({**ok, "fb_missing_picks_filled": 1}) == "partial_repair"
+    assert audit.choice_status({"s2_timing": {"attempts": [{"status": "error"}]}}) == "full_fallback"
+    assert audit.choice_status({"s2_skipped": True}) == "not_applicable"
+    assert audit.choice_status({}) == "missing_evidence"
+
+
 def test_all_failed_stage2_attempts_fail_quality_gate_even_with_ok_metrics():
     rows = {"2020-05-11": [
         {"aid": "a", "status": "ok", "s2_timing": {

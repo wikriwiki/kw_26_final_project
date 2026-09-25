@@ -58,6 +58,7 @@ def test_poi_conflict_or_missing_amount_blocks_export():
 def ledger_row(aid, day, arm, *, restaurant=0, retail=0, unknown=0):
     offline = restaurant + retail + unknown
     return {"aid": aid, "day": day, "arm": arm,
+            "s2_choice_status": "unrepaired",
             "offline_spent": offline, "online_spent": 0,
             "self_month_cumulative": offline,
             "restaurant_won": restaurant, "korean_restaurant_won": restaurant,
@@ -77,12 +78,21 @@ def test_sector_effect_and_unknown_allocation_bounds():
     assert dining["unknown_allocation_difference_bounds_per_citizen_won"] == [-20, -10]
     assert dining["direction_robust_to_unclassified"] == "negative"
     assert result["sectors"]["retail_won"]["direction_robust_to_unclassified"] == "positive"
-    assert result["classification_coverage"]["restricted_unclassified_share"] == pytest.approx(
-        10 / 120)
+    assert result["classification_coverage"]["restricted_unclassified_share"] == pytest.approx(10 / 120)
     assert result["sectors"]["cafe_won"]["relative_change"] is None
     on[0]["self_month_cumulative"] += 1
     with pytest.raises(ValueError, match="monthly State ledger mismatch"):
         paired.score(on, off, roster=["a"], days=[day], draws=0)
+
+
+def test_distancing_reports_no_unrepaired_citizen_when_choice_repaired():
+    day = "2020-11-24"
+    on = [ledger_row("a", day, "restricted", restaurant=80)]
+    off = [ledger_row("a", day, "control", restaurant=100)]
+    off[0]["s2_choice_status"] = "partial_repair"
+    result = paired.score(on, off, roster=["a"], days=[day], draws=0)
+    assert result["choice_repair_sensitivity"]["unrepaired_citizens"] == 0
+    assert result["choice_repair_sensitivity"]["sectors"] is None
 
 
 def test_distancing_manifest_requires_same_apparatus_and_distinct_runs(tmp_path):
@@ -164,6 +174,7 @@ def test_exporter_checks_environment_and_writes_manifest(tmp_path, monkeypatch):
     out = tmp_path / "restricted.jsonl"
     assert exporter.export(roster=["a"], days=[day], arm="restricted",
                            metrics_dir=metrics_dir, mapping_path=mapping_path, out=out) == 1
+    assert json.loads(out.read_text(encoding="utf-8"))["s2_choice_status"] == "unrepaired"
     manifest = json.loads((tmp_path / "restricted.jsonl.manifest.json").read_text(
         encoding="utf-8"))
     assert manifest["environment_id"] == "covid_2021"

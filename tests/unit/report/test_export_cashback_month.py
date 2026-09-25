@@ -130,6 +130,7 @@ def test_complete_month_exports_one_audited_row_per_citizen_day(tmp_path, monkey
     assert rows[-2]["eligible_cumulative"] == 3100
     assert rows[-2]["cashback_accrued_won"] > 0
     assert rows[-1]["cashback_accrued_won"] == 0
+    assert all(row["s2_choice_status"] == "unrepaired" for row in rows)
     manifest = json.loads((tmp_path / "on.jsonl.manifest.json").read_text(encoding="utf-8"))
     assert manifest["rows"] == 62
     assert manifest["quality_gate_pass"] is True
@@ -137,6 +138,7 @@ def test_complete_month_exports_one_audited_row_per_citizen_day(tmp_path, monkey
     assert manifest["baseline_income_map_sha256"] == "same-income-map"
     assert manifest["prompt_variant"] == "v51"
     assert manifest["system_prompt_sha256"] == "a" * 64
+    assert manifest["unrepaired_choice_trace_pass"] is True
     assert not list(tmp_path.glob("*.tmp.*"))
 
 

@@ -16,6 +16,22 @@ from pathlib import Path
 DAY = re.compile(r"day_(\d{4}-\d{2}-\d{2})\.jsonl$")
 
 
+def choice_status(row: dict) -> str:
+    """Classify how the final Stage2 place choice was obtained for one citizen-day."""
+    attempts = (row.get("s2_timing") or {}).get("attempts", [])
+    if row.get("s2_fallback_only") or (attempts and not any(
+            attempt.get("status") == "ok" for attempt in attempts)):
+        return "full_fallback"
+    if (int(row.get("fb_missing_picks_filled") or 0) > 0 or
+            int(row.get("fb_hallucinations_corrected") or 0) > 0):
+        return "partial_repair"
+    if row.get("s2_skipped"):
+        return "not_applicable"
+    if any(attempt.get("status") == "ok" for attempt in attempts):
+        return "unrepaired"
+    return "missing_evidence"
+
+
 def load_sources(metrics_dir: Path | None, archives: list[Path]) -> dict[str, list[dict]]:
     found: dict[str, list[dict]] = {}
 
@@ -63,10 +79,7 @@ def inspect(day_rows: dict[str, list[dict]], *, expected_per_day: int | None = N
                       or (a.get("error_stage") in ("json_parse", "json_extract")
                           and a.get("tokens_out") == legacy_token_cap)
                       for a in attempts)
-        fallback_rows = [r for r in ok if bool(r.get("s2_fallback_only")) or
-                         (bool((r.get("s2_timing") or {}).get("attempts"))
-                          and not any(a.get("status") == "ok"
-                                      for a in r["s2_timing"]["attempts"]))]
+        fallback_rows = [r for r in ok if choice_status(r) == "full_fallback"]
         fallback = len(fallback_rows)
         partial_repair_rows = [r for r in ok if
                                int(r.get("fb_missing_picks_filled") or 0) > 0 or

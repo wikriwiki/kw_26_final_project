@@ -17,6 +17,7 @@ import export_policy_daily_ledger as exporter  # noqa: E402
 def row(aid, day, arm, offline, online, eligible, received=0, spent=0,
         remaining=0, self_cumulative=0):
     return {"aid": aid, "day": day, "arm": arm, "policy_id": "P013",
+            "s2_choice_status": "unrepaired",
             "offline_spent": offline, "online_spent": online,
             "self_month_cumulative": self_cumulative,
             "eligible_offline_spent": eligible,
@@ -53,6 +54,31 @@ def test_paired_incremental_spending_divides_by_once_issued_grant():
     assert result["eligible_offline_citizen_bootstrap_95_interval"][0] <= 0.1
     assert result["eligible_offline_citizen_bootstrap_95_interval"][1] >= 0.1
     assert result["comparison"] == "indirect_proxy"
+
+
+def test_grant_effect_reports_unrepaired_citizen_sensitivity():
+    on, off, days = complete_pair()
+    on[0]["s2_choice_status"] = "partial_repair"
+    result = effect.score(on, off, roster=["a", "b"], days=days,
+                          policy_id="P013", draws=0)
+    sensitivity = result["choice_repair_sensitivity"]
+    assert sensitivity["unrepaired_citizens"] == 1
+    assert sensitivity["excluded_citizens"] == 1
+    assert sensitivity["eligible_offline_effect_per_grant_won"] == 0
+    assert result["eligible_offline_effect_per_grant_won"] == pytest.approx(0.1)
+    on[2]["s2_choice_status"] = "partial_repair"
+    empty = effect.score(on, off, roster=["a", "b"], days=days,
+                         policy_id="P013", draws=0)
+    assert empty["choice_repair_sensitivity"]["unrepaired_citizens"] == 0
+    assert empty["choice_repair_sensitivity"]["eligible_offline_effect_per_grant_won"] is None
+    off[0].pop("s2_choice_status")
+    with pytest.raises(ValueError, match="choice provenance"):
+        effect.score(on, off, roster=["a", "b"], days=days,
+                     policy_id="P013", draws=0)
+    off[0]["s2_choice_status"] = []
+    with pytest.raises(ValueError, match="choice provenance"):
+        effect.score(on, off, roster=["a", "b"], days=days,
+                     policy_id="P013", draws=0)
 
 
 def test_grant_reference_uses_eligible_sector_proxy_without_accuracy_claim():
@@ -261,6 +287,8 @@ def test_exporter_writes_audited_ledger_and_manifest(tmp_path, monkeypatch):
     assert manifest["quality_gate_pass"] is True
     assert manifest["run_id"] == "on-run"
     assert manifest["output_sha256"] == hashlib.sha256(out.read_bytes()).hexdigest()
+    assert all(json.loads(line)["s2_choice_status"] == "unrepaired"
+               for line in out.read_text(encoding="utf-8").splitlines())
 
 
 def test_paired_grant_manifest_rejects_reused_run(tmp_path):

@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT / "scripts" / "sim"))
 from neo4j_load._common import driver_session  # noqa: E402
 from score_policy import apply_policy_eligibility  # noqa: E402
 from paired_grant_effect import dates, read_jsonl, roster_file  # noqa: E402
-from report.audit_stage2_generation import inspect  # noqa: E402
+from report.audit_stage2_generation import choice_status, inspect  # noqa: E402
 from report.export_cashback_month import (verify_cohorts,
                                            verify_metric_provenance)  # noqa: E402
 
@@ -238,6 +238,7 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
                 verify_receipt_deltas(daily, metrics_by_day[day], previous_receipts)
                 verify_self_spend_deltas(daily, previous_self_spend)
                 for row in daily:
+                    row["s2_choice_status"] = choice_status(metrics_by_day[day][row["aid"]])
                     stream.write(json.dumps(row, ensure_ascii=False) + "\n")
         tmp.replace(out)
     finally:
@@ -250,6 +251,7 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
         "roster_sha256": hashlib.sha256(
             json.dumps(sorted(roster), ensure_ascii=False).encode("utf-8")).hexdigest(),
         "quality_gate_pass": audit["quality_gate_pass"],
+        "unrepaired_choice_trace_pass": audit["unrepaired_choice_trace_pass"],
         "generation_totals": audit["totals"], **cohort,
         "citizens": len(roster), "days": len(days),
         "rows": len(roster) * len(days), "output_sha256": output_sha,

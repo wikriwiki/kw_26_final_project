@@ -9,7 +9,8 @@ import random
 from pathlib import Path
 
 from export_distancing_daily_ledger import ENVIRONMENTS, MONEY_FIELDS
-from paired_grant_effect import dates, pair_provenance, read_jsonl, roster_file
+from paired_grant_effect import (CLEAN_CHOICES, VALID_CHOICES, dates,
+                                 pair_provenance, read_jsonl, roster_file)
 
 SECTORS = ("restaurant_won", "korean_restaurant_won", "retail_won", "cafe_won")
 
@@ -27,6 +28,9 @@ def _index(rows: list[dict], *, roster: list[str], days: list[str], arm: str) ->
     if set(found) != expected:
         raise ValueError(f"incomplete citizen-day matrix in {arm}")
     for row in found.values():
+        choice = row.get("s2_choice_status")
+        if not isinstance(choice, str) or choice not in VALID_CHOICES:
+            raise ValueError("missing or invalid Stage2 choice provenance")
         for key in MONEY_FIELDS:
             value = row.get(key)
             if isinstance(value, bool) or not isinstance(value, int) or value < 0:
@@ -61,9 +65,11 @@ def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list
                                          "unclassified_won")}
                 for arm in ("restricted", "control")}
         previous = {arm: ("", 0) for arm in sums}
+        choice_repaired = False
         for day in days:
             for arm, rows in (("restricted", on), ("control", off)):
                 row = rows[(aid, day)]
+                choice_repaired |= row["s2_choice_status"] not in CLEAN_CHOICES
                 old_month, old_value = previous[arm]
                 prior = old_value if old_month == day[:7] else 0
                 if row["self_month_cumulative"] - prior != (row["offline_spent"]
@@ -72,7 +78,7 @@ def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list
                 previous[arm] = (day[:7], row["self_month_cumulative"])
                 for key in sums[arm]:
                     sums[arm][key] += row[key]
-        citizens.append(sums)
+        citizens.append({**sums, "choice_repaired": choice_repaired})
 
     def measure(sample: list[dict], key: str) -> dict:
         treated = sum(row["restricted"][key] for row in sample)
@@ -93,6 +99,7 @@ def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list
         }
 
     results = {key: measure(citizens, key) for key in SECTORS}
+    clean_citizens = [row for row in citizens if not row["choice_repaired"]]
     rng = random.Random(seed)
     boot = {key: [] for key in SECTORS}
     for _ in range(draws):
@@ -111,6 +118,15 @@ def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list
     return {
         "citizens": len(roster), "days": len(days), "complete_paired_matrix": True,
         "sectors": results,
+        "choice_repair_sensitivity": {
+            "unrepaired_citizens": len(clean_citizens),
+            "excluded_citizens": len(roster) - len(clean_citizens),
+            "sectors": {key: measure(clean_citizens, key) for key in SECTORS}
+            if clean_citizens else None,
+            "scope": "Diagnostic complete-citizen restriction: excludes any citizen "
+                     "with a repaired Stage2 place choice in either arm. Not a "
+                     "population effect or prompt accuracy score.",
+        },
         "classification_coverage": {
             "restricted_unclassified_won": unknown_on,
             "control_unclassified_won": unknown_off,

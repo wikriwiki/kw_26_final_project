@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 from neo4j_load._common import driver_session  # noqa: E402
-from report.audit_stage2_generation import inspect  # noqa: E402
+from report.audit_stage2_generation import choice_status, inspect  # noqa: E402
 from report.export_cashback_month import (verify_cohorts,
                                            verify_metric_provenance)  # noqa: E402
 from report.paired_grant_effect import dates, read_jsonl, roster_file  # noqa: E402
@@ -189,6 +189,8 @@ def export(*, roster: list[str], days: list[str], arm: str, metrics_dir: Path,
         if any(row.get("paired_environment_fingerprint") !=
                cohort["paired_environment_fingerprint"] for row in rows):
             raise ValueError(f"metrics paired environment provenance differs from cohort: {day}")
+    choice_by_day = {day: {metric["aid"]: choice_status(metric) for metric in rows}
+                     for day, rows in daily_metrics.items()}
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + f".tmp.{os.getpid()}")
     previous: dict[str, tuple[str, int]] = {}
@@ -201,6 +203,7 @@ def export(*, roster: list[str], days: list[str], arm: str, metrics_dir: Path,
                 spends = [dict(row) for row in session.run(SPEND_QUERY, day=day, aids=roster)]
                 for row in aggregate_day(states, spends, roster=roster, day=day,
                                          arm=arm, mapping=mapping, previous=previous):
+                    row["s2_choice_status"] = choice_by_day[day][row["aid"]]
                     stream.write(json.dumps(row, ensure_ascii=False) + "\n")
         tmp.replace(out)
     finally:
@@ -214,6 +217,7 @@ def export(*, roster: list[str], days: list[str], arm: str, metrics_dir: Path,
             "utf-8")).hexdigest(),
         "mapping_sha256": hashlib.sha256(mapping_bytes).hexdigest(),
         "output_sha256": output_sha, "quality_gate_pass": audit["quality_gate_pass"],
+        "unrepaired_choice_trace_pass": audit["unrepaired_choice_trace_pass"],
         "generation_totals": audit["totals"], **cohort,
     }
     manifest_path = out.with_name(out.name + ".manifest.json")

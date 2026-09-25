@@ -18,7 +18,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts"))
 from neo4j_load._common import driver_session  # noqa: E402
-from report.audit_stage2_generation import inspect, load_sources  # noqa: E402
+from report.audit_stage2_generation import choice_status, inspect, load_sources  # noqa: E402
 from report.paired_grant_effect import roster_file  # noqa: E402
 
 
@@ -227,6 +227,8 @@ def export(*, month: str, arm: str, policy_id: str, policy_file: Path,
                 raise ValueError(f"policy activity in control metrics: {row['aid']} {day}")
     cohort = verify_cohorts(metrics_dir, days, roster)
     verify_metric_provenance(daily_metrics, cohort)
+    choice_by_day = {day: {metric["aid"]: choice_status(metric) for metric in rows}
+                     for day, rows in daily_metrics.items()}
 
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + f".tmp.{os.getpid()}")
@@ -249,6 +251,7 @@ def export(*, month: str, arm: str, policy_id: str, policy_file: Path,
                 spends = [dict(row) for row in session.run(SPEND_QUERY, aids=roster, day=day)]
                 records = aggregate_day(states, spends, roster, day, previous)
                 for row in records:
+                    row["s2_choice_status"] = choice_by_day[day][row["aid"]]
                     anchor, source_name = anchors[row["aid"]]
                     threshold = round(anchor * float(policy["threshold_ratio"]))
                     payout = (min(int(policy["cap_per_agent"]),
@@ -275,6 +278,7 @@ def export(*, month: str, arm: str, policy_id: str, policy_file: Path,
         "roster_sha256": hashlib.sha256(
             json.dumps(sorted(roster), ensure_ascii=False).encode("utf-8")).hexdigest(),
         "quality_gate_pass": audit["quality_gate_pass"],
+        "unrepaired_choice_trace_pass": audit["unrepaired_choice_trace_pass"],
         "generation_totals": audit["totals"],
         **cohort,
         "citizens": len(roster), "days": len(days), "rows": len(roster) * len(days),

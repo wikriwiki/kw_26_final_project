@@ -15,7 +15,8 @@ import random
 from pathlib import Path
 
 from export_cashback_month import month_days
-from paired_grant_effect import pair_provenance, read_jsonl, roster_file
+from paired_grant_effect import (CLEAN_CHOICES, VALID_CHOICES, pair_provenance,
+                                 read_jsonl, roster_file)
 
 
 def _index(rows: list[dict], *, roster: list[str], days: list[str], arm: str,
@@ -33,6 +34,9 @@ def _index(rows: list[dict], *, roster: list[str], days: list[str], arm: str,
         raise ValueError(f"incomplete citizen-day matrix in {arm}: "
                          f"missing={len(expected - set(found))}, extra={len(set(found) - expected)}")
     for row in found.values():
+        choice = row.get("s2_choice_status")
+        if not isinstance(choice, str) or choice not in VALID_CHOICES:
+            raise ValueError("missing or invalid Stage2 choice provenance")
         for field in ("offline_spent", "online_spent", "eligible_spent",
                       "eligible_cumulative", "self_month_cumulative",
                       "anchor_won", "threshold_won"):
@@ -70,10 +74,13 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
     citizens = []
     for aid in roster:
         on_eligible = off_eligible = on_total = off_total = 0
+        choice_repaired = False
         previous = {"on": (0, 0), "off": (0, 0)}
         anchor = threshold = None
         for day in days:
             p, c = on[(aid, day)], off[(aid, day)]
+            choice_repaired |= (p["s2_choice_status"] not in CLEAN_CHOICES or
+                                c["s2_choice_status"] not in CLEAN_CHOICES)
             if (p["anchor_won"], p["threshold_won"]) != (c["anchor_won"], c["threshold_won"]):
                 raise ValueError(f"baseline or threshold changed between arms: {aid}")
             if anchor is None:
@@ -103,7 +110,8 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
                          "off_total": off_total,
                          "cashback": final["cashback_accrued_won"],
                          "capped": final["cashback_cap_reached"],
-                         "threshold_reached": on_eligible >= threshold})
+                         "threshold_reached": on_eligible >= threshold,
+                         "choice_repaired": choice_repaired})
 
     def measures(sample: list[dict]) -> dict[str, float | None]:
         recipients = [r for r in sample if r["cashback"] > 0]
@@ -124,6 +132,7 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
         }
 
     values = measures(citizens)
+    clean_citizens = [row for row in citizens if not row["choice_repaired"]]
     boot = {key: [] for key in values}
     rng = random.Random(seed)
     for _ in range(draws):
@@ -141,6 +150,14 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
                           "citizen_bootstrap_95_interval": _quantile_interval(boot[key]),
                           "valid_draws": len(boot[key])}
                     for key, value in values.items()},
+        "choice_repair_sensitivity": {
+            "unrepaired_citizens": len(clean_citizens),
+            "excluded_citizens": len(roster) - len(clean_citizens),
+            "metrics": measures(clean_citizens) if clean_citizens else None,
+            "scope": "Diagnostic complete-citizen restriction: excludes any citizen "
+                     "with a repaired Stage2 place choice in either arm. Not a "
+                     "population effect or prompt accuracy score.",
+        },
         "comparison": "approximate_population_reference_for_payout; indirect_on_off_for_spending",
         "scope": "Matched synthetic citizens and complete month. External household triple-difference "
                  "and nationwide recipient population are not reproduced; do not subtract those "
