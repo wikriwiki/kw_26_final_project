@@ -93,6 +93,24 @@ def test_length_retry_increases_cap_and_retains_llm_choice(monkeypatch):
     assert (meta["tokens_in"], meta["tokens_out"]) == (200, 2620)
 
 
+def test_length_terminated_valid_json_is_not_accepted_as_complete(monkeypatch):
+    stage1 = setup_stage2(monkeypatch)
+    caps = []
+    def llm(*args, **kwargs):
+        caps.append(kwargs["max_tokens"])
+        if len(caps) == 1:
+            return response('{"picks": [], "review_lookup_requests": []}',
+                            finish="length", out=2200)
+        return response(valid_pick([]), out=420)
+    monkeypatch.setattr(stage2, "_llm_call", llm)
+    result, _, meta = stage2.call_stage2(
+        "a", stage1, {"daily_wd": 30000}, date(2020, 5, 11))
+    assert [p.poi_id for p in result.picks] == ["C_test"]
+    assert caps == [2200, 3200]
+    assert meta["s2_timing"]["attempts"][0]["output_limited"] is True
+    assert meta["missing_picks_filled"] == 0
+
+
 def test_all_failed_llm_attempts_cannot_be_reported_as_citizen_choice(monkeypatch):
     stage1 = setup_stage2(monkeypatch)
     monkeypatch.delenv("SIM_ALLOW_STAGE2_FALLBACK", raising=False)

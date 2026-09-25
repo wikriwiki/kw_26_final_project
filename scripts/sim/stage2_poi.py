@@ -893,6 +893,11 @@ def call_stage2(
 
             error_stage = "json_extract"
             started = time.perf_counter()
+            # A length-terminated response can be syntactically valid while
+            # omitting later events. Do not let the missing-pick filler turn
+            # that partial generation into a successful citizen decision.
+            if finish == "length":
+                raise ValueError("Stage2 output reached the generation limit")
             json_str = _extract_json(raw)
             elapsed = time.perf_counter() - started
             timing["t_json_extract"] += elapsed
