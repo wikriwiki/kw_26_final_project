@@ -123,6 +123,11 @@ def indicator_rows(block, inds):
         iid = i.get('id')
         val = block.get(iid)
         audit = i.get('empirical_audit') or {}
+        note = (val or {}).get('note') if isinstance(val, dict) else None
+        invalid = bool(note and '무효' in str(note))
+        shown = sim_text(val)
+        if invalid:
+            shown = '무효 (과거값 %s)' % shown
         out.append({
             'id': iid,
             'expect': i.get('expect'),
@@ -134,11 +139,11 @@ def indicator_rows(block, inds):
             'comparable': audit.get('comparison') == 'directly_comparable',
             'audit_status': audit.get('comparison') or '정의 미확인',
             'audit_reason': audit.get('reason'),
-            'sim_text': sim_text(val),
-            'sim': sim_pct(val),
-            'ci': (val or {}).get('ci') if isinstance(val, dict) else None,
+            'sim_text': shown,
+            'sim': None if invalid else sim_pct(val),
+            'ci': None if invalid else ((val or {}).get('ci') if isinstance(val, dict) else None),
             'hit': (val or {}).get('hit') if isinstance(val, dict) else None,
-            'note': (val or {}).get('note') if isinstance(val, dict) else None,
+            'note': note,
             'measured': isinstance(val, dict),
         })
     return out

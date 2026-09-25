@@ -42,3 +42,15 @@ def test_비율이_아닌_원장_평균도_값을_숨기지_않는다():
     assert "평균 0.216 (단위 확인)" in table
     assert "[+0.18, +0.24]" in table
     assert "등록 적중·외부 미검증" in table
+
+
+def test_무효_과거값은_부호_일치로_세지_않는다():
+    indicators = [{"id": "X", "expect": "+", "desc": "대상 업종 지출 (실측 +11.1%p)",
+                   "empirical_audit": {"comparison": "different_estimand"}}]
+    rows = overview.indicator_rows(
+        {"X": {"pct": 13.1, "ci": [1, 2], "note": "적격 업종 판정 무효"}}, indicators)
+    table = "\n".join(overview.table(rows))
+    assert rows[0]["sim"] is None
+    assert "무효 (과거값 +13.1%)" in table
+    assert "[+1, +2]" not in table
+    assert "| 일치 |" not in table

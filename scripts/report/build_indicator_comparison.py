@@ -5,8 +5,8 @@ build carry a number and a sign verdict, and the eight it cannot carry the reaso
 cell is empty. An empty cell is a result - it says the probe is not built to answer
 that question, which is different from answering it wrongly.
 
-Magnitudes are shown as a ratio, never as matching won. The catalog sells unit items
-and the studies measure card sales, so only ratios are the same kind of number.
+Magnitudes here are exploratory proxies, not externally comparable estimands. Matching
+units alone does not align the observation window, population, counterfactual, or ruler.
 
     python scripts/report/build_indicator_comparison.py \
         --sim data/experiments/indicators_v25.json --out experiments/INDICATOR_COMPARISON.md
@@ -48,7 +48,7 @@ CANNOT = {
     'P012-4': '캐시백은 **월 적립액**으로 정해진다. 하루 소비로는 정의되지 않는다',
     'P012-5': '카탈로그에 **가전·가구 품목이 없다**. 최고가가 커트 20,000원이다',
     'P012-6': '한도가 **월 10만원**이다. 하루에 도달할 수 없다',
-    'EM-2': '실측은 지급 전(−4.0%)과 지급 후(+7.1%)의 차이인데, **우리 off 팔이 곧 지급 전**이라 견줄 기준선이 없다 (`scoring_table` 에 `not_scorable` 로 기록돼 있다)',
+    'EM-2': 'KDI는 사용가능업종 카드매출의 전년동기 대비 증가율이 지급 후 +11.1%p 변했다고 보고했다. 이 카탈로그의 당일 off/on 비교에는 전년 대조와 동일한 적격 업종 원장이 없다',
     'EM-4': '카탈로그에 **준내구재·대면서비스 구분이 없다**',
     'DS-4': '**무정책 팔의 카페 지출이 0원**이라 변화율이 정의되지 않는다. 카페 후보는 96칸 전부에 있었고 아무도 고르지 않았다',
     'DS-6': '장소에 **상권 유형(발달상권·관광특구) 태그가 없다**. 동 코드만 있다',
@@ -56,7 +56,7 @@ CANNOT = {
 
 POLICY = {
     'P012': ('P012 카드 실적 캐시백', '2021-10-25', '2021 상생소비지원금', '기획재정부·KDI (2022.9)'),
-    'EMERGENCY': ('P013 정책지갑 지급', '2020-05-14', '2020 1차 긴급재난지원금', 'KDI FOCUS'),
+    'EMERGENCY': ('P013 정책지갑 지급', '2020-05-14', '2020 1차 긴급재난지원금', 'KDI 2020-12-22 보도자료'),
     'LOCAL_VOUCHER': ('P014 할인 구매 상품권', '2020-09-23', '지역사랑상품권 할인발행', '조세재정연구원 (2020)'),
     'DISTANCING': ('거리두기 2단계 (정책 아님 · 사회 배경)', '2020-11-24', '수도권 2단계', '서울연구원 (2021.4)'),
 }

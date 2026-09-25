@@ -205,11 +205,17 @@ def test_P012_실측_원문_계수를_퍼센트_오차에_더하지_않는다():
     assert st == '다른자' and err is None
 
 
-def test_원문에서_확인되지_않은_숫자로_크기_적중을_주지_않는다():
+def test_KDI_공식_수치여도_추정량이_다르면_크기_적중을_주지_않는다():
     table = json.loads((ROOT / 'data/experiments/scoring_table.json').read_text(encoding='utf-8'))
-    ind = next(i for i in table['EMERGENCY_2020']['indicators'] if i['id'] == 'EM-3')
-    st, err, shown = A.classify(ind, {'pct': 12.6, 'n': 200}, 7.3, '%')
-    assert (st, err, shown) == ('원문미확인', None, '+12.60%')
+    for iid, observed, reported, unit in [('EM-2', 13.1, 11.1, '%p'),
+                                           ('EM-3', 12.6, 7.3, '%')]:
+        ind = next(i for i in table['EMERGENCY_2020']['indicators'] if i['id'] == iid)
+        audit = ind['empirical_audit']
+        assert audit['source'] == 'https://www.kdi.re.kr/share/pressView?bd_no=4018'
+        assert audit['comparison'] == 'different_estimand'
+        assert (audit['reported_value'], audit['reported_unit']) == (reported, unit)
+        st, err, shown = A.classify(ind, {'pct': observed, 'n': 200}, reported, unit)
+        assert (st, err, shown) == ('다른자', None, f'{observed:+.2f}%')
 
 
 def test_전년비와_이틀_전후비를_맞대지_않는다():

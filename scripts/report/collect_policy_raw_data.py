@@ -511,13 +511,15 @@ CAVEATS = {
         '돈을 넣어 주는 지갑이다. 기전이 다르다 — 할인 대 지급.',
     ],
     'EMERGENCY_2020': [
-        '원문은 **19~33주**의 합성대조 이중차분이고 우리 창은 이틀(2020-05-14~15)이다. '
-        '부호는 견줄 수 있어도 크기를 같은 눈금으로 견줄 수 없다.',
-        '`EM-2`(+11.1%p)와 `EM-3`(+7.3%)의 값이 **정답지 본문에서 확인되지 않는다.** '
-        'p4 의 11.1 은 효과가 아니라 지원금 **규모(11.1~15.3조원)** 다. '
-        '보고서에 쓰기 전에 출처를 다시 확인해야 한다.',
+        '`EM-2`(+11.1%p)와 `EM-3`(+7.3%)는 [KDI 2020-12-22 보도자료]'
+        '(https://www.kdi.re.kr/share/pressView?bd_no=4018)에서 확인했다. 전자는 지원금 사용가능업종의 '
+        '전년동기 대비 카드매출 증가율 변화, 후자는 5월 11일~6월 21일 전체 카드매출의 '
+        '전년동기 대비 증가율이다. 이틀 전후 시뮬 값과 기간·대조 기준이 달라 크기를 차감하지 않는다.',
+        '`EM-2`의 과거 +13.1%는 적격 업종 판정도 잘못되어 외부 채점 무효다. '
+        '보도자료에서 지급 전 −4.0%→후 +7.1% 분해값은 확인되지 않았다. '
+        '별도 KDI FOCUS PDF p4의 11.1~15.3은 효과율이 아니라 지원금 규모(조원)다.',
         '`EM-4` 의 대면서비스 값은 원문에서 **3.6%p**(대면서비스업)이고, '
-        '채점표의 \'+3%p\' 는 음식업 3.0%p 와 같다. 순위 판정은 어느 쪽이든 바뀌지 않는다.',
+        '과거 채점표의 \'+3%p\' 는 음식업 3.0%p 와 같다. 현재 채점표는 3.6%p로 고쳤고, 과거 런의 관측부족 판정은 그대로다.',
     ],
 }
 
@@ -537,7 +539,11 @@ def indicators_md(scoring, key, folder):
     ev = []
     for i in inds:
         what, truth = split_desc(i.get('desc'))
-        mark, quotes = locate(i.get('desc'), pages)
+        audit = i.get('empirical_audit') or {}
+        if str(audit.get('source') or '').startswith('https://www.kdi.re.kr/'):
+            mark, quotes = '[KDI 보도자료](%s)' % audit['source'], []
+        else:
+            mark, quotes = locate(i.get('desc'), pages)
         lines.append('| `%s` | %s | %s | %s | %s |' % (
             i.get('id', '?'), i.get('expect', '?'), what.replace('|', '·'),
             truth.replace('|', '·'), mark))
@@ -548,9 +554,9 @@ def indicators_md(scoring, key, folder):
     for c in (CAVEATS.get(key) or []):
         lines += ['', '> ⚠️ ' + c]
     lines += ['',
-              '> **원문 확인** 은 그 숫자가 정답지 PDF 본문 몇 쪽에 있는지다. '
-              "'본문에 없음' 은 틀렸다는 뜻이 아니라 **그림 안의 값이거나 다른 출처에서 왔다**는 "
-              '뜻이므로, 보고서에 쓰기 전에 원문을 눈으로 확인해야 한다.', '']
+              '> **원문 확인** 은 그 숫자를 확인한 공식 자료나 정답지 PDF 위치다. '
+              "'본문에 없음' 은 해당 PDF에서 찾지 못했다는 뜻이다. "
+              '별도 공식 자료가 있으면 그 출처와 추정량을 따로 기록한다.', '']
     return lines
 
 
@@ -593,8 +599,10 @@ def results_md(scoring, key):
             if not isinstance(val, dict):
                 rows.append('| `%s` | %s | — | — | %s | 안 잼 |' % (ind, what, truth))
                 continue
+            invalid = '무효' in str(val.get('note') or '')
             rows.append('| `%s` | %s | %s | %s | %s | %s |' % (
-                ind, what, _sim(val), _ci(val.get('ci')),
+                ind, what, '무효 (과거값 %s)' % _sim(val) if invalid else _sim(val),
+                '—' if invalid else _ci(val.get('ci')),
                 str(val.get('실측', truth)), _hit(val.get('hit'))))
             if val.get('note'):
                 notes.append('- `%s` — %s' % (ind, str(val['note'])))
