@@ -15,4 +15,4 @@ v51을 **다음 기술 점검 후보**로 올리는 필요조건은 양쪽 384�
 
 통과해도 이는 **12명의 알려진 개발 사례에 대한 Stage1 형식**만 뜻한다. Stage2의 무보정 장소 선택·실현 거래·정책 원장과 ON/OFF 효과의 방향·대략적 크기는 후속 독립 관문이다. P015는 이미 사용되어 재실험하지 않는다. 이 파일과 공통 프롬프트에는 정책별 실측 효과의 부호·수치를 넣지 않는다.
 
-준비 후 `PYTHONHASHSEED=0 python scripts/sim/validate_prompt_v3.py --config data/experiments/validation_v51_prodtemp_20260926.json --out <동결 출력 폴더>`로 실행한다. 준비된 로컬 폴더 `output/validation_v51_prodtemp_frozen_20260926`의 설정 digest는 `9f102eb05e39869938719e977b342c386fe6ab62f3c072a1dff762f14cbed5fb`, 동결 입력 digest는 `12bf485e9028de59fa41c65d552f9cb3851fb1cecc900c919c77d328d0ee6469`다. 실행 전에 이 둘과 실제 서빙 모델, 코드 지문을 다시 확인한다.
+준비 후 `PYTHONHASHSEED=0 python scripts/sim/validate_prompt_v3.py --config data/experiments/validation_v51_prodtemp_20260926.json --out <동결 출력 폴더>`로 실행한다. 준비된 로컬 폴더 `output/validation_v51_prodtemp_frozen_v3_20260926`의 설정 digest는 `9f102eb05e39869938719e977b342c386fe6ab62f3c072a1dff762f14cbed5fb`, 동결 입력 digest는 `12bf485e9028de59fa41c65d552f9cb3851fb1cecc900c919c77d328d0ee6469`다. 실행 전에 이 둘과 실제 서빙 모델, 코드 지문을 다시 확인한다.

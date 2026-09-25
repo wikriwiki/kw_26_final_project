@@ -51,7 +51,7 @@ def prepare(source: Path, config_path: Path, destination: Path) -> dict:
     destination.mkdir(parents=True, exist_ok=True)
 
     source_hashes = {
-        str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest()
+        path.relative_to(ROOT).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
         for base in (ROOT / "scripts/sim", ROOT / "data/experiments/covid_support_2021",
                      ROOT / "data/neo4j_load/policies")
         for path in sorted(base.rglob("*"))
