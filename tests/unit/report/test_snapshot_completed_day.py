@@ -50,3 +50,33 @@ def test_duplicate_or_unrelated_checkpoint_is_rejected(tmp_path):
     checkpoint.write_text('["c"]', encoding="utf-8")
     with pytest.raises(RuntimeError, match="does not match"):
         snapshot.verify_finished_metrics(tmp_path, date(2021, 10, 16), 2)
+
+
+def test_final_day_requires_completed_run_marker(tmp_path):
+    write_day(tmp_path, "2021-10-28", [{"aid": "a", "status": "ok"}])
+    checkpoint = tmp_path / "checkpoints" / "done_2021-10-28.json"
+    checkpoint.parent.mkdir()
+    checkpoint.write_text('["a"]', encoding="utf-8")
+    with pytest.raises(RuntimeError, match="summary missing"):
+        snapshot.verify_finished_metrics(tmp_path, date(2021, 10, 28), 1, final_day=True)
+    summary = {"args": {"start": "2021-10-28", "days": 1},
+               "summary": [{"day": "2021-10-28", "ok": 1}]}
+    path = tmp_path / "summary.json"
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    with pytest.raises(RuntimeError, match="has not completed"):
+        snapshot.verify_finished_metrics(tmp_path, date(2021, 10, 28), 1, final_day=True)
+    summary["completed_at"] = "2026-09-26T04:00:00"
+    path.write_text(json.dumps(summary), encoding="utf-8")
+    _, rows, counts = snapshot.verify_finished_metrics(
+        tmp_path, date(2021, 10, 28), 1, final_day=True)
+    assert len(rows) == counts["checkpoint_done"] == 1
+
+
+def test_script_credentials_are_parsed_without_running_script(tmp_path):
+    path = tmp_path / "runner.sh"
+    path.write_text("export NEO4J_URI='bolt://localhost:7687' "
+                    "NEO4J_USER=reader NEO4J_PASSWORD='test value'\n"
+                    "echo must-not-run\n", encoding="utf-8")
+    assert snapshot.script_credentials(path) == {
+        "NEO4J_URI": "bolt://localhost:7687", "NEO4J_USER": "reader",
+        "NEO4J_PASSWORD": "test value"}

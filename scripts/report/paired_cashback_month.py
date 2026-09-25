@@ -167,6 +167,11 @@ def verify_manifests(on_path: Path, off_path: Path, roster: list[str], month: st
                 "execution_fingerprint", "baseline_income_map_sha256", "citizens", "days"):
         if manifests[0].get(key) != manifests[1].get(key):
             raise ValueError(f"paired arms differ in {key}")
+    run_ids = [manifest.get("run_id") for manifest in manifests]
+    if any(not isinstance(run_id, str) or not run_id for run_id in run_ids):
+        raise ValueError("paired arms have missing run ID")
+    if run_ids[0] == run_ids[1]:
+        raise ValueError("paired arms must have distinct run IDs")
 
 
 def main() -> int:

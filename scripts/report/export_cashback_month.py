@@ -154,22 +154,33 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
     output_dir = metrics_dir.parent
     fingerprints = set()
     income_maps = set()
+    run_ids = set()
     for day in days:
         path = output_dir / f"cohort_{day}.json"
         if not path.is_file():
             raise ValueError(f"missing execution cohort: {path}")
         cohort = json.loads(path.read_text(encoding="utf-8"))
-        if set(cohort.get("agent_ids") or []) != set(roster):
+        agent_ids = cohort.get("agent_ids")
+        if (not isinstance(agent_ids, list) or len(agent_ids) != len(roster)
+                or set(agent_ids) != set(roster)):
             raise ValueError(f"execution cohort differs from frozen roster: {day}")
         fingerprint = cohort.get("execution_fingerprint")
         if not isinstance(fingerprint, str) or not fingerprint:
             raise ValueError(f"execution fingerprint missing: {day}")
         fingerprints.add(fingerprint)
-        income_maps.add(cohort.get("baseline_income_map_sha256"))
-    if len(fingerprints) != 1 or len(income_maps) != 1:
-        raise ValueError("execution fingerprint or income map changed within month")
+        income_map = cohort.get("baseline_income_map_sha256")
+        if not isinstance(income_map, str) or not income_map:
+            raise ValueError(f"frozen baseline income map missing: {day}")
+        income_maps.add(income_map)
+        run_id = cohort.get("run_id")
+        if not isinstance(run_id, str) or not run_id:
+            raise ValueError(f"run ID missing: {day}")
+        run_ids.add(run_id)
+    if len(fingerprints) != 1 or len(income_maps) != 1 or len(run_ids) != 1:
+        raise ValueError("run ID, execution fingerprint or income map changed within month")
     return {"execution_fingerprint": next(iter(fingerprints)),
-            "baseline_income_map_sha256": next(iter(income_maps))}
+            "baseline_income_map_sha256": next(iter(income_maps)),
+            "run_id": next(iter(run_ids))}
 
 
 def export(*, month: str, arm: str, policy_id: str, policy_file: Path,

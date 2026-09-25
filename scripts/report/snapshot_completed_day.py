@@ -1,7 +1,8 @@
 """Copy one finished simulation day off a live Neo4j database without writes.
 
 The archive is evidence for analysis, not a restorable Neo4j backup. Require
-the next day's metrics file so the target day's graph cannot still be written.
+the next day's metrics file, or the completed-run marker for its final day,
+so the target day's graph cannot still be written.
 """
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ import gzip
 import hashlib
 import json
 import os
+import shlex
 import tarfile
 import tempfile
 from collections import Counter
@@ -26,11 +28,41 @@ def runner_environment(pid: int) -> dict[str, str]:
     return result
 
 
+def script_credentials(path: Path) -> dict[str, str]:
+    """Read literal export assignments without executing the runner script."""
+    credentials: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.startswith("export "):
+            continue
+        for token in shlex.split(line.removeprefix("export "), comments=True):
+            key, separator, value = token.partition("=")
+            if separator and key in ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD"):
+                credentials[key] = value
+    return credentials
+
+
+def verify_final_day(output_dir: Path, day: date) -> None:
+    path = output_dir / "summary.json"
+    if not path.is_file():
+        raise RuntimeError("Completed-run summary missing for final-day snapshot")
+    report = json.loads(path.read_text(encoding="utf-8"))
+    args = report.get("args") or {}
+    start = date.fromisoformat(args["start"])
+    days = int(args["days"])
+    if (not report.get("completed_at") or days <= 0
+            or start + timedelta(days=days - 1) != day
+            or len(report.get("summary") or []) != days
+            or report["summary"][-1].get("day") != day.isoformat()):
+        raise RuntimeError("Run has not completed the specified final day")
+
+
 def verify_finished_metrics(output_dir: Path, day: date,
-                            expected: int) -> tuple[Path, list[dict], dict]:
+                            expected: int, final_day: bool = False) -> tuple[Path, list[dict], dict]:
     target = output_dir / "metrics" / f"day_{day.isoformat()}.jsonl"
     next_day = output_dir / "metrics" / f"day_{(day + timedelta(days=1)).isoformat()}.jsonl"
-    if not next_day.is_file():
+    if final_day:
+        verify_final_day(output_dir, day)
+    elif not next_day.is_file():
         raise RuntimeError(f"Next day has not started; refusing a racing snapshot: {next_day}")
     if not target.is_file():
         raise RuntimeError(f"Target metrics file missing: {target}")
@@ -45,8 +77,9 @@ def verify_finished_metrics(output_dir: Path, day: date,
     if not checkpoint.is_file():
         raise RuntimeError(f"Completion checkpoint missing: {checkpoint}")
     done_ids = json.loads(checkpoint.read_text(encoding="utf-8"))
+    ok_ids = {r["aid"] for r in rows if r.get("status") == "ok"}
     if (not isinstance(done_ids, list) or len(done_ids) != len(set(done_ids))
-            or not set(done_ids).issubset(set(ids))):
+            or set(done_ids) != ok_ids):
         raise RuntimeError("Completion checkpoint does not match the target roster")
     return target, rows, {"metrics": len(rows),
                           "metrics_status": dict(Counter(r.get("status") for r in rows)),
@@ -65,7 +98,8 @@ QUERIES = {
     "spend": """
         MATCH (a:Agent)-[:HAS_PLAN {day: date($day)}]->(p:Plan)
               -[i:INCLUDES]->(poi:POI)
-        RETURN a.id AS aid, $day AS day, properties(i) AS spend, poi.id AS poi_id
+        RETURN a.id AS aid, $day AS day, properties(i) AS spend,
+               poi.id AS poi_id, properties(poi) AS poi
     """,
     "policy": """
         MATCH (p:Policy {id:$policy_id})
@@ -88,9 +122,15 @@ def export_query(session, query: str, path: Path, **params) -> tuple[int, set[st
 
 
 def snapshot(day: date, output_dir: Path, evidence_dir: Path, stem: str,
-             policy_id: str, expected: int, runner_pid: int) -> dict:
-    metrics, rows, counts = verify_finished_metrics(output_dir, day, expected)
-    env = runner_environment(runner_pid)
+             policy_id: str, expected: int, runner_pid: int,
+             final_day: bool = False, credentials_script: Path | None = None) -> dict:
+    metrics, rows, counts = verify_finished_metrics(output_dir, day, expected, final_day)
+    try:
+        env = runner_environment(runner_pid)
+    except FileNotFoundError:
+        if not final_day or credentials_script is None:
+            raise
+        env = script_credentials(credentials_script)
     for key in ("NEO4J_URI", "NEO4J_USER", "NEO4J_PASSWORD"):
         if not env.get(key):
             raise RuntimeError(f"Runner has no {key}; cannot read graph")
@@ -167,9 +207,13 @@ def main() -> None:
     parser.add_argument("--policy-id", required=True)
     parser.add_argument("--expected-per-day", type=int, required=True)
     parser.add_argument("--runner-pid", type=int, required=True)
+    parser.add_argument("--final-day", action="store_true")
+    parser.add_argument("--credentials-script", type=Path,
+                        help="Read literal Neo4j assignments if the completed runner exited")
     args = parser.parse_args()
     result = snapshot(args.day, args.output_dir, args.evidence_dir,
-                      args.stem, args.policy_id, args.expected_per_day, args.runner_pid)
+                      args.stem, args.policy_id, args.expected_per_day, args.runner_pid,
+                      args.final_day, args.credentials_script)
     print(json.dumps(result, ensure_ascii=False))
 
 

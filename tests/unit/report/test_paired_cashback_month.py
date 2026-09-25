@@ -82,3 +82,24 @@ def test_manifest_rejects_different_execution_fingerprint(tmp_path):
         paths[arm] = path
     with pytest.raises(ValueError, match="execution_fingerprint"):
         paired.verify_manifests(paths["on"], paths["off"], roster, "2021-10")
+
+
+def test_manifest_requires_independent_arm_run_ids(tmp_path):
+    roster = ["a"]
+    roster_sha = hashlib.sha256(json.dumps(roster, ensure_ascii=False).encode()).hexdigest()
+    paths = {}
+    for arm in ("on", "off"):
+        path = tmp_path / f"{arm}.jsonl"
+        path.write_text('{}\n', encoding="utf-8")
+        (tmp_path / f"{arm}.jsonl.manifest.json").write_text(json.dumps({
+            "arm": arm, "month": "2021-10", "policy_id": "P012",
+            "roster_sha256": roster_sha,
+            "output_sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            "quality_gate_pass": True, "policy_file_sha256": "same-policy",
+            "base_ratio": 0.268, "execution_fingerprint": "same-code",
+            "baseline_income_map_sha256": "same-income", "citizens": 1,
+            "days": 31, "run_id": "reused-run",
+        }), encoding="utf-8")
+        paths[arm] = path
+    with pytest.raises(ValueError, match="distinct run IDs"):
+        paired.verify_manifests(paths["on"], paths["off"], roster, "2021-10")

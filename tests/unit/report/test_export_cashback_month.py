@@ -95,7 +95,8 @@ def test_complete_month_exports_one_audited_row_per_citizen_day(tmp_path, monkey
             "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
         (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
             "agent_ids": ["a", "b"], "execution_fingerprint": "same-code-and-settings",
-            "baseline_income_map_sha256": "same-income-map"}), encoding="utf-8")
+            "baseline_income_map_sha256": "same-income-map", "run_id": "on-run"}),
+            encoding="utf-8")
     path = tmp_path / "policy.json"
     path.write_text(json.dumps(policy()), encoding="utf-8")
 
@@ -139,7 +140,18 @@ def test_cohort_fingerprint_change_blocks_month_export(tmp_path):
     metrics_dir.mkdir()
     for day, fingerprint in (("2021-10-01", "a"), ("2021-10-02", "b")):
         (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
-            "agent_ids": ["citizen"], "execution_fingerprint": fingerprint}),
+            "agent_ids": ["citizen"], "execution_fingerprint": fingerprint,
+            "baseline_income_map_sha256": "same-income-map", "run_id": "same-run"}),
             encoding="utf-8")
     with pytest.raises(ValueError, match="fingerprint"):
         cashback.verify_cohorts(metrics_dir, ["2021-10-01", "2021-10-02"], ["citizen"])
+
+
+def test_missing_run_id_blocks_month_export(tmp_path):
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir()
+    (tmp_path / "cohort_2021-10-01.json").write_text(json.dumps({
+        "agent_ids": ["citizen"], "execution_fingerprint": "same-code",
+        "baseline_income_map_sha256": "same-income-map"}), encoding="utf-8")
+    with pytest.raises(ValueError, match="run ID missing"):
+        cashback.verify_cohorts(metrics_dir, ["2021-10-01"], ["citizen"])
