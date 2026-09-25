@@ -32,12 +32,15 @@ def _mod():
 A = _mod()
 
 
-def _matched_audit():
-    return {"comparison": "matched_estimand", "source": "verified-source",
+def _matched_audit(unit="%", value=7.3, gap=None):
+    audit = {"comparison": "matched_estimand", "source": "verified-source",
             "reported_estimand": "population contrast", "simulation_estimand": "population contrast",
             "reported_window": "same dates", "simulation_window": "same dates",
             "reported_population": "same cohort", "simulation_population": "same cohort",
-            "reported_denominator": "eligible spending", "simulation_denominator": "eligible spending"}
+            "reported_denominator": "eligible spending", "simulation_denominator": "eligible spending",
+            "reported_unit": unit, "simulation_unit": unit}
+    audit["reported_gap" if gap is not None else "reported_value"] = gap if gap is not None else value
+    return audit
 
 
 # ---------------------------------------------------------------- ① 실측 읽기
@@ -140,7 +143,7 @@ def test_다른자로_잰_것은_오차를_내지_않는다():
 
 def test_순위지표는_간격으로_맞댄다():
     ind = {"id": "X", "expect": "rank", "desc": "(실측 +10.8%p vs +3.6%p)",
-           "empirical_audit": _matched_audit()}
+           "empirical_audit": _matched_audit(unit="%p", gap=7.2)}
     st, err, shown = A.classify(ind, {"got": "A +45.8% vs B -22.5%"}, None, None)
     assert st == "대조가능"
     assert err == pytest.approx(abs((45.8 - (-22.5)) - (10.8 - 3.6)), abs=0.01)

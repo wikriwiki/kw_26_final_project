@@ -121,6 +121,7 @@ def sim_gap(v):
 
 def collect():
     sb = _load('sb', 'scripts/report/sign_scoreboard.py')
+    indicators = _load('all_indicators_table', 'scripts/report/all_indicators_table.py')
     sc = json.loads(io.open(SCORING, encoding='utf-8').read())
     rows = []
     # 위약은 정답지가 없으므로 오차 예산에 넣지 않는다 — READINGS 만 본다.
@@ -137,6 +138,8 @@ def collect():
                    'suspect': sus, 'kind': None, 'truth': None, 'sim': None,
                    'err': None, 'why': ''}
             audit = ind.get('empirical_audit') or {}
+            direct = indicators.direct_comparison_audited(ind)
+            direct = direct and audit['reported_unit'] == ('%p' if expect == 'rank' else '%')
             if audit.get('comparison') in ('different_estimand', 'unverified_source'):
                 row.update(kind=('추정량불일치' if audit['comparison'] == 'different_estimand'
                                  else '원문미확인'),
@@ -155,8 +158,8 @@ def collect():
             if iid == 'LV-1':
                 row.update(kind='실측없음', why='원문의 "영향 미미"는 크기 수치가 아니다')
                 rows.append(row); continue
-            g = truth_gap(desc)
-            t = truth_pct(desc)
+            g = audit['reported_gap'] if direct and expect == 'rank' else truth_gap(desc)
+            t = audit['reported_value'] if direct and expect != 'rank' else truth_pct(desc)
             if expect == 'rank' and g is not None:
                 row.update(kind='순위간격', truth=g, sim=sim_gap(v))
             elif t is not None:
@@ -169,6 +172,9 @@ def collect():
                 row['why'] = '다른 자로 쟀다 — 다시 재기 전까지 세지 않는다'
             elif row['sim'] is None:
                 row['why'] = '**실측은 있는데 시뮬이 값을 못 낸다 — 우리 문제다**'
+            elif not direct:
+                row['kind'] = '정의확인'
+                row['why'] = '실측·시뮬 추정량, 기간, 모집단, 분모, 단위와 원문 값의 정합 감사가 없다'
             else:
                 row['err'] = abs(row['sim'] - row['truth'])
             rows.append(row)

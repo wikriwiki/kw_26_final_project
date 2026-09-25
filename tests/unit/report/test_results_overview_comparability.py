@@ -27,10 +27,25 @@ def test_정의가_다른_지표의_크기차와_동일눈금_그래프를_막�
 
 def test_명시적으로_동일추정량인_지표만_크기차를_표시한다():
     indicators = [{"id": "X", "expect": "+", "desc": "대상 지출 (실측 +7.0%)",
-                   "empirical_audit": {"comparison": "directly_comparable"}}]
+                   "empirical_audit": {
+                       "comparison": "matched_estimand", "source": "verified-source",
+                       "reported_estimand": "same effect", "simulation_estimand": "same effect",
+                       "reported_window": "same dates", "simulation_window": "same dates",
+                       "reported_population": "same cohort", "simulation_population": "same cohort",
+                       "reported_denominator": "same spend", "simulation_denominator": "same spend",
+                       "reported_value": 7.0, "reported_unit": "%", "simulation_unit": "%",
+                   }}]
     rows = overview.indicator_rows({"X": {"pct": 6.0, "hit": True}}, indicators)
     assert rows[0]["comparable"] is True
     assert "-1.0%p" in "\n".join(overview.table(rows))
+
+
+def test_옛_한_필드_직접비교_표시는_크기_오차를_허용하지_않는다():
+    indicators = [{"id": "X", "expect": "+", "desc": "대상 지출 (실측 +7.0%)",
+                   "empirical_audit": {"comparison": "directly_comparable"}}]
+    rows = overview.indicator_rows({"X": {"pct": 6.0, "hit": True}}, indicators)
+    assert rows[0]["comparable"] is False
+    assert "-1.0%p" not in "\n".join(overview.table(rows))
 
 
 def test_비율이_아닌_원장_평균도_값을_숨기지_않는다():
@@ -51,6 +66,7 @@ def test_무효_과거값은_부호_일치로_세지_않는다():
         {"X": {"pct": 13.1, "ci": [1, 2], "note": "적격 업종 판정 무효"}}, indicators)
     table = "\n".join(overview.table(rows))
     assert rows[0]["sim"] is None
+    assert rows[0]["hit"] is None
     assert "무효 (과거값 +13.1%)" in table
     assert "[+1, +2]" not in table
     assert "| 일치 |" not in table

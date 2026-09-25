@@ -11,7 +11,7 @@
 공개되어 있지 않다. 그렇다고 빼면 **"다른 정책은 어떤가" 에 답이 없다.**
 다 싣되 칸마다 무엇을 읽을 수 있는지 표시한다.
 
-    실측 수치 있음   실측·시뮬·구간을 함께 그린다
+    실측 수치 있음   실측값은 별도 표기. 정합 감사가 있을 때만 같은 축에 겹친다
     방향만          시뮬 값과 구간을 그리고 기대 방향과 맞는지로 읽는다
     아직 안 쟀다    런이 없는 정책. 왜 없는지 적는다
 
@@ -62,6 +62,7 @@ def collect():
     """전 정책·전 지표. 부호 적중표가 읽는 **같은 런**에서 뽑는다."""
     sb = _load('sb', 'scripts/report/sign_scoreboard.py')
     ptt = _load('ptt', 'scripts/report/power_to_detect_truth.py')
+    comparison = _load('all_indicators_table', 'scripts/report/all_indicators_table.py')
     sc = json.loads(io.open(SCORING, encoding='utf-8').read())
     rows = []
     for key, name, block, _why in list(sb.READINGS) + list(sb.PLACEBOS):
@@ -74,6 +75,11 @@ def collect():
             iid = ind['id']
             v = res.get(iid) if isinstance(res.get(iid), dict) else {}
             t = ptt.truth_pct(ind.get('desc'), expect)
+            audit = ind.get('empirical_audit') or {}
+            comparable = (comparison.direct_comparison_audited(ind)
+                          and expect != 'rank' and audit.get('reported_unit') == '%')
+            if comparable:
+                t = audit['reported_value']
             pct, base, ci = v.get('pct'), v.get('base'), v.get('ci')
             ci_pct = None
             if isinstance(ci, list) and len(ci) == 2 and isinstance(base, (int, float)) and base:
@@ -86,6 +92,7 @@ def collect():
             rows.append({
                 'policy': name, 'run': block, 'id': iid, 'expect': expect,
                 'expect_txt': EXPECT_TXT.get(expect, expect), 'truth': t,
+                'comparable': comparable,
                 'pct': pct if isinstance(pct, (int, float)) else None,
                 'ci_pct': ci_pct, 'n': v.get('n'),
                 'hit': None if sus else v.get('hit'), 'dir_ok': dirn,
@@ -104,6 +111,7 @@ def collect():
                 'truth': _load('ptt2', 'scripts/report/power_to_detect_truth.py')
                          .truth_pct(ind.get('desc'), ind.get('expect')),
                 'pct': None, 'ci_pct': None, 'n': None, 'hit': None, 'dir_ok': None,
+                'comparable': False,
                 'crosses': False, 'suspect': False, 'note': why,
                 'desc': (ind.get('desc') or '')[:78], 'state': 'pending'})
     return rows
@@ -148,7 +156,7 @@ def _bar(r):
                  .format(min(a, b), abs(b - a)))
     p.append('<span class="zero"></span>')
     p.append('<span class="mk sim" style="left:{:.2f}%"></span>'.format(_x(r['pct'])))
-    if r['truth'] is not None:
+    if r['truth'] is not None and r.get('comparable'):
         p.append('<span class="mk tru" style="left:{:.2f}%"></span>'.format(_x(r['truth'])))
     return ''.join(p)
 
@@ -166,9 +174,9 @@ def _tag(r):
     if r['crosses'] and r['expect'] in ('+', '-'):
         return ('구간이 0 을 지남', 'sus')
     if r['hit'] is True:
-        return ('적중', 'ok')
+        return ('등록 판정 일치', 'ok')
     if r['hit'] is False:
-        return ('빗나감', 'no')
+        return ('등록 판정 불일치', 'no')
     return ('관측부족', 'wait')
 
 
@@ -176,17 +184,19 @@ def _nums(r):
     out = []
     if r['truth'] is not None:
         out.append('<span class="tru">실측 {:+.1f}</span>'.format(r['truth']))
+        if not r.get('comparable'):
+            out.append('<span class="memo">직접 크기 비교 불가</span>')
     elif r['state'] != 'pending':
         out.append('<span class="memo">실측 수치 없음 · 기대 {}</span>'.format(r['expect_txt']))
     if r['pct'] is not None:
         out.append('<span class="sim">시뮬 {:+.1f}</span>'.format(r['pct']))
-        if r['truth'] is not None:
+        if r['truth'] is not None and r.get('comparable'):
             out.append('<span class="gap">차 {:.1f}%p</span>'.format(abs(r['pct'] - r['truth'])))
     if r['ci_pct']:
         out.append('<span class="ciTxt">구간 [{:+.0f}, {:+.0f}]</span>'.format(*r['ci_pct']))
     if r['n']:
         out.append('<span class="n">n={}</span>'.format(r['n']))
-    if r['dir_ok'] is not None:
+    if r['dir_ok'] is not None and not r['suspect']:
         out.append('<span class="memo">방향 {}</span>'.format('일치' if r['dir_ok'] else '반대'))
     if r['crosses'] and r['expect'] in ('+', '-'):
         k = need_n(r)
@@ -221,7 +231,7 @@ def render(rows):
         out.append('  </div></section>')
 
     m = [r for r in rows if r['state'] == 'measured']
-    judged = [r for r in m if r['dir_ok'] is not None]
+    judged = [r for r in m if r['dir_ok'] is not None and not r['suspect']]
     tally = [
         ('%d' % len(rows), '검증지표 전체', ''),
         ('%d' % len(m), '값이 나온 지표', ''),
@@ -229,6 +239,8 @@ def render(rows):
          '방향 일치 (판정 가능한 것)', ' hi'),
         ('%d' % sum(1 for r in m if r['crosses']), '구간이 0 을 지남', ''),
         ('%d' % sum(1 for r in m if r['truth'] is not None), '실측 수치가 붙은 것', ''),
+        ('%d' % sum(1 for r in m if r.get('comparable') and r['pct'] is not None),
+         '직접 크기 비교 가능', ''),
     ]
     stat = ''.join('<div class="stat{c}"><span class="v">{v}</span>'
                    '<span class="k">{k}</span></div>'.format(v=v, k=k, c=c)
@@ -247,7 +259,7 @@ def main() -> int:
     html = render(rows)
     io.open(a.out, 'w', encoding='utf-8', newline='\n').write(html)
     m = [r for r in rows if r['state'] == 'measured']
-    judged = [r for r in m if r['dir_ok'] is not None]
+    judged = [r for r in m if r['dir_ok'] is not None and not r['suspect']]
     print('%s · %d bytes' % (a.out, len(html)))
     print('지표 %d개 · 값 있음 %d · 방향 일치 %d/%d · 구간이 0 을 지남 %d'
           % (len(rows), len(m), sum(1 for r in judged if r['dir_ok']), len(judged),

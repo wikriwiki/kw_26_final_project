@@ -35,6 +35,7 @@ import argparse
 from datetime import date
 import io
 import json
+import math
 import re
 from pathlib import Path
 
@@ -131,9 +132,15 @@ def direct_comparison_audited(ind):
     only a machine gate, not proof that the descriptions are correct.
     """
     audit = ind.get("empirical_audit") or {}
+    value_key = "reported_gap" if ind.get("expect") == "rank" else "reported_value"
+    value = audit.get(value_key)
     return (audit.get("comparison") == "matched_estimand"
             and all(isinstance(audit.get(field), str) and audit[field].strip()
-                    for field in DIRECT_AUDIT_FIELDS))
+                    for field in DIRECT_AUDIT_FIELDS)
+            and isinstance(audit.get("reported_unit"), str)
+            and audit.get("reported_unit") == audit.get("simulation_unit")
+            and isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value))
 
 
 def from_note(entry):
@@ -196,6 +203,9 @@ def classify(ind, entry, tv, tu, suspect=False):
     audit_status = (ind.get("empirical_audit") or {}).get("comparison")
     suspect = suspect or audit_status == "different_estimand"
     direct = direct_comparison_audited(ind)
+    if direct and expect != "rank":
+        audit = ind["empirical_audit"]
+        direct = audit["reported_value"] == tv and audit["reported_unit"] == tu
     # **지표 정의가 스스로 '측정 불가' 라고 말하면 그것이 맞다.**
     # DS-6 의 결과 블록에는 "관측부족" 으로 적혀 있지만, 지표 desc 는 "그래프에
     # hub_type 이 0건" 이라고 한다. 둘은 다르다 — 표본을 늘려 되는 것과 자료를
@@ -219,7 +229,10 @@ def classify(ind, entry, tv, tu, suspect=False):
             return "단위다름", None, shown
         return ("대조가능", abs(v - tv), shown) if direct else ("정의확인", None, shown)
     if expect == "rank":
-        g, tg = sim_gap(entry), truth_gap(ind.get("desc"), entry.get("실측"))
+        g = sim_gap(entry)
+        tg = (ind.get("empirical_audit") or {}).get("reported_gap") if direct else None
+        if tg is None:
+            tg = truth_gap(ind.get("desc"), entry.get("실측"))
         shown = "간격 %+.1f%%p" % g if g is not None else "-"
         if g is None:
             return "없음", None, "-"
@@ -227,6 +240,8 @@ def classify(ind, entry, tv, tu, suspect=False):
             return "다른자", None, shown
         if tg is None:
             return "방향만", None, shown
+        if direct and (ind["empirical_audit"]["reported_unit"] != "%p"):
+            return "단위다름", None, shown
         return ("대조가능", abs(g - tg), shown) if direct else ("정의확인", None, shown)
     pct, mean = entry.get("pct"), entry.get("mean")
     if isinstance(pct, (int, float)):

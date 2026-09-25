@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import io
 import json
 import re
@@ -21,12 +22,16 @@ ROOT = Path(__file__).resolve().parents[2]
 SCORING = ROOT / 'data/experiments/scoring_table.json'
 OUT = ROOT / 'experiments/RESULTS.md'
 
-# 정답지에 대고 잰 라운드는 **전부 v5 로 돌았다.** v50 사전등록이 그것을 못 박았다
-# ("정답지에 대고 잰 기록은 전부 v5 다"). v40·v42·v45 는 형식 계약 관문 라인에서만
-# 돌았고, v45 를 정답지에 대고 재는 것은 v50 이 처음이다.
+_spec = importlib.util.spec_from_file_location(
+    'all_indicators_table', ROOT / 'scripts/report/all_indicators_table.py')
+_indicators = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_indicators)
+
+# 과거 블록의 기본 프롬프트는 v5다. 이름 끝에 후보 접미사가 있으면 그대로 표시한다.
+# 이 보관된 결과는 새 후보의 정책별 ON/OFF 유효성 검증을 대신하지 않는다.
 PROMPT_BY_ROUND = {
     'default': 'v5',
-    'note': 'v50 부터 v45 가 정답지에 대고 처음 돌아간다',
+    'note': '명시된 후보 접미사가 없는 역사적 결과 블록은 v5로 기록한다',
 }
 
 
@@ -123,6 +128,9 @@ def indicator_rows(block, inds):
         iid = i.get('id')
         val = block.get(iid)
         audit = i.get('empirical_audit') or {}
+        comparable = (_indicators.direct_comparison_audited(i)
+                      and i.get('expect') != 'rank'
+                      and audit.get('reported_unit') == '%')
         note = (val or {}).get('note') if isinstance(val, dict) else None
         invalid = bool(note and '무효' in str(note))
         shown = sim_text(val)
@@ -132,17 +140,17 @@ def indicator_rows(block, inds):
             'id': iid,
             'expect': i.get('expect'),
             'what': re.sub(r'\s*\(실측[^)]*\)', '', str(i.get('desc') or '')).strip(' -—'),
-            'truth': truth_pct(i.get('desc'), i.get('expect')),
+            'truth': audit['reported_value'] if comparable else truth_pct(i.get('desc'), i.get('expect')),
             'truth_text': truth_text(i.get('desc')),
             # Magnitude comparison requires an explicit, source-checked match of
             # population, outcome, period, denominator and counterfactual.
-            'comparable': audit.get('comparison') == 'directly_comparable',
+            'comparable': comparable,
             'audit_status': audit.get('comparison') or '정의 미확인',
             'audit_reason': audit.get('reason'),
             'sim_text': shown,
             'sim': None if invalid else sim_pct(val),
             'ci': None if invalid else ((val or {}).get('ci') if isinstance(val, dict) else None),
-            'hit': (val or {}).get('hit') if isinstance(val, dict) else None,
+            'hit': None if invalid else ((val or {}).get('hit') if isinstance(val, dict) else None),
             'note': note,
             'measured': isinstance(val, dict),
         })
@@ -221,9 +229,8 @@ def build():
          '**자동 생성.** `python scripts/report/build_results_overview.py`', '',
          '실측과 시뮬레이션의 대상·결과·기간·분모·대조군이 일치한다고 명시적으로 확인된 지표에만 '
          '같은 눈금의 막대와 크기 차이를 표시한다. 등록판정은 실험 내부의 부호 판정이다.', '',
-         '> **정답지에 대고 잰 라운드는 전부 프롬프트 `v5` 로 돌았다.** '
-         'v40·v42·v45 는 형식 계약 관문 라인에서만 돌았고, '
-         'v45 를 정답지에 대고 재는 것은 **v50 이 처음**이다(진행 중).', '',
+         '> 이 표는 보관된 역사적 런을 보여 준다. 후보 접미사가 없는 블록은 `v5`로 표시하고, '
+         '이름 끝에 후보가 있는 블록은 그 후보로 표시한다. 정책별 새 ON/OFF 검증 결과로 해석하지 않는다.', '',
          '> 수치는 전부 `data/experiments/scoring_table.json` 에서 온다. 손으로 적지 않는다.', '']
 
     # 요약표
@@ -284,8 +291,8 @@ def build():
         L += ['---', '']
 
     L += ['## 이 표를 읽을 때 주의할 것', '',
-          '- **크기 검증은 아직 성립하지 않았다.** 지표에 `empirical_audit.comparison=directly_comparable`이 '
-          '명시되고 같은 단위로 계산될 때만 크기 차이를 낸다.',
+          '- **크기 검증은 아직 성립하지 않았다.** 원문 값·출처와 양쪽 추정량·기간·모집단·분모·단위가 '
+          '`empirical_audit.comparison=matched_estimand`로 감사되고 같은 단위일 때만 크기 차이를 낸다.',
           '- **원문 창과 우리 창이 다를 수 있다.** 정의 확인 전에는 표의 실측·시뮬 값을 '
           '서로 빼거나 배수로 읽지 않는다.',
           '- **채점(적중)은 부호와 유의성을 함께 본다.** 점추정 부호가 맞아도 '
