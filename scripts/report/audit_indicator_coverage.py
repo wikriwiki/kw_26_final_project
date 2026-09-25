@@ -108,6 +108,8 @@ def main():
                 how = '순위 OK' if ok else '**순위 대상이 업종이 아니다: %s**' % (miss or ks)
             elif name in SPECIAL:
                 ok, how = True, '캐시백 경로'
+            elif name == 'mpc_amount':
+                ok, how = True, '시민별 MPC 원장 경로 — 실행 시 --metrics-dir 필수'
             elif str(name).startswith(('sector_spend:', 'sector_share:')):
                 ok = name_ok(str(name).split(':', 1)[1])
                 how = '구현됨' if ok else '**업종 이름이 없다**'
@@ -152,12 +154,13 @@ def main():
             notready.append((key, w))
 
     print()
-    print('지표 %d개 중 채점 불가 %d개' % (total, len(bad)))
+    print('지표 %d개 중 정적 계산 경로 없음 %d개' % (total, len(bad)))
     for k, i, n, h in bad:
         print('  %-20s %-7s %-30s %s' % (k, i, n, h))
-    print('정책 %d개 중 잴 준비가 안 된 곳 %d건' % (len(POLICIES), len(notready)))
+    print('정책 %d개 중 정책파일·채점창 설정 누락 %d건' % (len(POLICIES), len(notready)))
     for k, w in notready:
         print('  %-20s %s' % (k, w))
+    print('정적 경로 점검만 통과했다. 실제 출력 존재·실측 추정량 정합·검출력은 별도 확인이 필요하다.')
     return 1 if (bad or notready) else 0
 
 

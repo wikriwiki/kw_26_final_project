@@ -1,11 +1,10 @@
-"""사전등록 채점표로 정책 런을 채점한다 — 부호만 본다.
+"""사전등록 채점표로 정책 런을 채점한다.
 
 `data/experiments/scoring_table.json` 에 등록된 지표만 계산한다. 여기 없는 지표로
 후보 프롬프트를 고르면 실효 자유도가 늘어난다(docs/GENERALIZATION_METHOD.md §2).
 
-**크기가 아니라 부호를 맞춘다.** 하루 총액이 페르소나 앵커에 묶여 있어 실측의
-총소비 −14% 같은 크기는 구조적으로 못 낸다. 크기를 목표로 주면 프롬프트가 그걸
-억지로 짜내고 홀드아웃에서 무너진다.
+기존 등록 적중은 부호 판정이다. 실측 크기와의 대조는 같은 추정량·분모·기간인지
+별도로 확인한 뒤 비교표에서 한다. 등록 적중을 크기 일치로 읽지 않는다.
 
 **불확실성을 함께 낸다.** 런을 여러 번 돌리는 대신(예산상 불가) 한 런 안에서
 에이전트를 복원추출해 부트스트랩 신뢰구간을 내고, 표본을 반으로 갈라 양쪽에서
@@ -334,7 +333,7 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
     def both(fn):
         return fn(off_rows, off_days), fn(on_rows, on_days)
 
-    if name in ("total_spend_paired", "mpc_amount"):
+    if name == "total_spend_paired":
         return both(lambda r, d: per_agent_daily(r, d, lambda x: True))
     if name in ("elig_spend_paired", "coupon_elig_spend_paired",
                 "elig_spend_pre", "elig_spend_post"):
@@ -382,6 +381,37 @@ def metric_values(name: str, off_rows, on_rows, off_days, on_days):
         f = lambda x: (str(x["pdong"] or "")[:5] != str(x["hdong"] or "")[:5])  # noqa: E731
         return (per_agent_share(off_rows, f), per_agent_share(on_rows, f))
     return None, None
+
+
+def score_mpc_from_metrics(metrics_dir: Path, on_days: list[str]) -> dict:
+    """정책 기간의 원장 MPC 비율을 정책결제액으로 가중하고 시민별 CI를 낸다.
+
+    `mpc_amount`는 구매 원장의 총지출 쌍체차(원)가 아니다. 기존 이름은 보존하지만
+    계산 정의를 명시한다. 같은 시민의 여러 날을 독립 표본으로 취급하지 않는다.
+    """
+    from report.score_p010_from_archive import boot_ci, load_rows, weighted_mpc
+
+    if not metrics_dir.is_dir():
+        raise ValueError(f"MPC 원장 디렉터리가 없다: {metrics_dir}")
+    wanted = set(on_days)
+    rows = [(day, r) for day, r in load_rows(metrics_dir) if day in wanted]
+    observed = {day for day, _ in rows}
+    if observed != wanted:
+        raise ValueError(f"MPC 원장 관측일 누락: {sorted(wanted - observed)}")
+    r = weighted_mpc(rows)
+    if r["mpc"] is None:
+        raise ValueError("정책결제액이 없어서 MPC를 계산할 수 없다")
+    pairs = [(x.get("aid"), x["cm_mpc_new_share"], x.get("policy_spend_today") or 0)
+             for _day, x in rows
+             if isinstance(x.get("cm_mpc_new_share"), (int, float))
+             and (x.get("policy_spend_today") or 0) > 0]
+    if any(aid is None for aid, _m, _w in pairs):
+        raise ValueError("MPC 원장에 시민 id가 없다; 시민별 CI를 계산할 수 없다")
+    lo, hi = boot_ci(pairs)
+    return {"mean": r["mpc"], "ci": [lo, hi], "n": r["agents"],
+            "n_cells": r["cells"], "denom_won": r["denom_won"],
+            "unit": "ratio", "source": str(metrics_dir),
+            "bootstrap_unit": "aid", "measure": "reported_new_spend_share"}
 
 
 # =========================================================
@@ -434,6 +464,8 @@ def main() -> int:
     ap.add_argument("--on", required=True, help="정책 구간 YYYY-MM-DD:YYYY-MM-DD")
     ap.add_argument("--label", default="", help="후보 프롬프트 이름 등")
     ap.add_argument("--json-out", default="")
+    ap.add_argument("--metrics-dir", default="",
+                    help="MPC 지표의 시민별 일일 원장(metrics/day_*.jsonl). P010 채점 시 필수")
     ap.add_argument("--per-agent", action="store_true",
                     help="지표별 에이전트 단위 off/on 값을 <json-out>.agents.jsonl 로 남긴다. "
                          "런 간 이동이 어디서 오는지는 총합만 보면 알 수 없다 — "
@@ -449,6 +481,9 @@ def main() -> int:
         print(f"채점표에 {a.policy} 없음. 가능: "
               f"{[k for k in table if not k.startswith('_')]}", file=sys.stderr)
         return 2
+
+    if any(i.get("metric") == "mpc_amount" for i in spec["indicators"]) and not a.metrics_dir:
+        ap.error("MPC 채점에는 --metrics-dir가 필요하다. 총지출 쌍체차로 대체할 수 없다")
 
     off_days, on_days = daterange(a.off), daterange(a.on)
     off_rows, on_rows = fetch(off_days), fetch(on_days)
@@ -478,6 +513,19 @@ def main() -> int:
             # 채점에 쓰지 않기로 등록된 지표다. '미구현' 으로 찍으면 결함처럼 보인다.
             results.append({**ind, "got": "채점 대상 아님", "hit": None})
             print(f"  {ind['id']:<8} {ind['desc'][:44]:<46} 채점 대상 아님(등록)")
+            continue
+        if name == "mpc_amount":
+            try:
+                mpc = score_mpc_from_metrics(Path(a.metrics_dir), on_days)
+            except ValueError as exc:
+                print(f"MPC 채점 중단: {exc}", file=sys.stderr)
+                return 2
+            got = sign_of(*mpc["ci"])
+            hit = (got == expect)
+            results.append({**ind, **mpc, "got": got, "hit": hit})
+            print(f"  {ind['id']:<8} 자기보고 신규소비 비율 "
+                  f"{mpc['mean']:.4f} CI[{mpc['ci'][0]:.4f},{mpc['ci'][1]:.4f}] "
+                  f"시민 {mpc['n']}명 · 시민-일 {mpc['n_cells']}칸")
             continue
         if name in ("threshold_reach_rate", "cashback_per_capita", "cap_reach_rate"):
             cb = fetch_cashback(on_days[-1], 0.10, 100_000, 0.268)
