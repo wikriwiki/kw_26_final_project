@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import random
 from datetime import date, timedelta
@@ -142,17 +143,23 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
         return numerator / denominator if denominator else float("nan")
     ratio = contrast(per_citizen, "total")
     rng = random.Random(seed)
-    boot = []
+    boot = {field: [] for field in ("total", "offline", "eligible")}
     for _ in range(draws):
         sample = rng.choices(per_citizen, k=len(per_citizen))
-        value = contrast(sample, "total")
-        if value == value:  # a resample can contain no recipients
-            boot.append(value)
-    boot.sort()
-    interval = ([boot[int(0.025 * (len(boot) - 1))],
-                 boot[int(0.975 * (len(boot) - 1))]] if boot else None)
+        for field in boot:
+            value = contrast(sample, field)
+            if math.isfinite(value):  # a resample can contain no recipients
+                boot[field].append(value)
+    for values in boot.values():
+        values.sort()
+
+    def interval(field: str) -> list[float] | None:
+        values = boot[field]
+        return ([values[int(0.025 * (len(values) - 1))],
+                 values[int(0.975 * (len(values) - 1))]] if values else None)
     return {
-        "policy_id": policy_id, "citizens": len(roster), "days": len(days),
+        "policy_id": policy_id, "start": days[0], "end": days[-1],
+        "citizens": len(roster), "days": len(days),
         "grant_recipients": recipients,
         "complete_matrix": True, "funding_reconciled": True,
         "recorded_total_spend_on_won": summed["on_total"],
@@ -161,16 +168,53 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
         "grant_issued_won": issued, "grant_spent_won": summed["spent"],
         "grant_remaining_won": summed["remaining"],
         "incremental_recorded_spend_per_grant_won": ratio,
-        "citizen_bootstrap_95_interval": interval,
-        "bootstrap_valid_draws": len(boot),
+        "citizen_bootstrap_95_interval": interval("total"),
+        "bootstrap_valid_draws": len(boot["total"]),
         "offline_difference_won": summed["on_offline"] - summed["off_offline"],
         "offline_effect_per_grant_won": contrast(per_citizen, "offline"),
+        "offline_citizen_bootstrap_95_interval": interval("offline"),
         "eligible_offline_difference_won": summed["on_eligible"] - summed["off_eligible"],
         "eligible_offline_effect_per_grant_won": contrast(per_citizen, "eligible"),
+        "eligible_offline_citizen_bootstrap_95_interval": interval("eligible"),
         "comparison": "indirect_proxy",
         "scope": "Within-run matched-citizen spending proxy. Payment instrument, population "
                  "and external counterfactual are not aligned; do not subtract from an "
                  "empirical card-sales estimate as a direct accuracy error.",
+    }
+
+
+def compare_reference(result: dict, reference: dict) -> dict:
+    """Give a rough sector-matched scale view without declaring estimand equality."""
+    if (reference.get("policy_id") != result.get("policy_id")
+            or reference.get("simulation_start") != result.get("start")
+            or reference.get("simulation_end") != result.get("end")
+            or reference.get("simulation_proxy") != "eligible_offline_effect_per_grant_won"):
+        raise ValueError("grant reference does not match the scored policy, window or proxy")
+    bounds = reference.get("external_ratio_interval")
+    if (not isinstance(bounds, list) or len(bounds) != 2
+            or any(isinstance(value, bool) or not isinstance(value, (int, float))
+                   or not math.isfinite(value) for value in bounds)
+            or not 0 < bounds[0] <= bounds[1]):
+        raise ValueError("invalid external grant-effect range")
+    simulated = result["eligible_offline_effect_per_grant_won"]
+    if not isinstance(simulated, (int, float)) or not math.isfinite(simulated):
+        raise ValueError("missing eligible-offline grant-effect proxy")
+    midpoint = (bounds[0] + bounds[1]) / 2
+    return {
+        "source": reference.get("source"),
+        "source_url": reference.get("source_url"),
+        "external_estimand": reference.get("external_estimand"),
+        "external_population": reference.get("population"),
+        "external_window_note": reference.get("external_window_note"),
+        "comparison_status": "proxy_scale_reference; no direct accuracy score",
+        "external_ratio_interval": bounds,
+        "simulation_proxy": "eligible_offline_effect_per_grant_won",
+        "simulated_ratio": simulated,
+        "simulated_citizen_bootstrap_95_interval": result.get(
+            "eligible_offline_citizen_bootstrap_95_interval"),
+        "same_positive_direction": simulated > 0,
+        "descriptive_overlap_only": bounds[0] <= simulated <= bounds[1],
+        "simulated_over_external_midpoint": simulated / midpoint,
     }
 
 
@@ -214,6 +258,8 @@ def main() -> int:
     parser.add_argument("--expected-recipients", type=int)
     parser.add_argument("--expected-issued-won", type=int)
     parser.add_argument("--draws", type=int, default=2000)
+    parser.add_argument("--reference", type=Path,
+                        help="Separate empirical range for a descriptive eligible-sector proxy")
     parser.add_argument("--json-out", type=Path, required=True)
     args = parser.parse_args()
     roster = roster_file(args.roster)
@@ -225,6 +271,12 @@ def main() -> int:
                    policy_id=args.policy_id, draws=args.draws,
                    expected_recipients=args.expected_recipients,
                    expected_issued_won=args.expected_issued_won)
+    if args.reference:
+        source_bytes = args.reference.read_bytes()
+        result["empirical_scale_reference"] = compare_reference(
+            result, json.loads(source_bytes))
+        result["empirical_scale_reference"]["source_sha256"] = hashlib.sha256(
+            source_bytes).hexdigest()
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     partial = args.json_out.with_name(args.json_out.name + f".tmp.{os.getpid()}")
     try:

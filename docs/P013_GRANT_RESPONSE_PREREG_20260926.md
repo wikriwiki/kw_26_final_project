@@ -13,7 +13,7 @@
 1. 동일 시민 집합, 동일 초기 상태·환경·모델·난수 설정·범용 프롬프트로 **P013 지급 팔**과 **무정책 팔**을 독립 실행한다. 정책 파일은 별도 사본을 만들고 2020-05-11 지급 개시로 맞춘다. 원본 `P013.json`은 보존한다. 2020-05-11~06-21의 **42일**을 고정 관측한다. 전원 동시 지급이라는 모형 단순화와 실제 신청·수령일 분산의 차이를 결과에 명시한다.
 2. 시민별·날짜별 최종 `INCLUDES.actual_spent` 합계를 오프라인 실현 지출로, `State.online_spent`를 온라인 묶음 지출로 추출한다. 둘을 더한 **기록된 총지출 대리값**은 카드 결제수단을 구분하지 못한다. Stage1 의향이나 `cm_today_total_incl_online` 계획값을 실현 매출로 대체하지 않는다. 정책 사용가능업종은 런타임의 `is_coupon_eligible`과 같은 함수로 POI 거래를 다시 분류한다.
 3. 주 지표는 `Σ시민,날짜(지급 팔 총지출 − 무정책 팔 총지출) / Σ시민 지급 팔 grant_received[P013]`이다. 분모는 중복 일별 합산을 피하려고 **최종 State의 누적 수령액을 시민당 한 번만** 센다. 정책 지갑의 결제 사용액은 소비 증가분이 아니므로 분자에 더하지 않는다. 온라인 포함/제외 두 정의를 모두 보고, 음수도 절대값으로 바꾸지 않는다. 보조 지표는 동일한 쌍체차를 적격 오프라인 지출에 적용하고, 지급액 중 실제 사용액·잔여액도 따로 낸다.
-4. 이 비율은 원 단위를 없애 KDI의 26.2~36.1%와 **대략적 규모를 참고**할 수 있지만 같은 추정량은 아니다. KDI는 전국 카드매출의 코로나 요인 조정 효과이고, 모형은 서울 합성 시민의 모든 기록 지출에 대한 정책/무정책 차이다. 카드 결제수단, 실제 수령 분산, 전국 대표성, 코로나 조정식이 일치하기 전에는 `directly_comparable`이나 정확한 %p 오차로 표시하지 않는다. +7.3%와 +11.1%p도 전년 동기 대조 원장이 없으므로 이 런의 외부 크기 채점 대상이 아니다.
+4. KDI의 26.2~36.1%와 대략적 규모를 참고하는 값은 위 3번의 **적격 오프라인 지출 차액/지급액**으로 한정한다. 전체 기록 지출 비율은 모형 내부 주 결과로 따로 둔다. KDI는 전국 카드매출의 코로나 요인 조정 효과이고, 모형은 서울 합성 시민의 기록 지출에 대한 정책/무정책 차이다. 카드 결제수단, 실제 수령 분산, 전국 대표성, 코로나 조정식이 일치하기 전에는 `directly_comparable`이나 정확한 %p 오차로 표시하지 않는다. +7.3%와 +11.1%p도 전년 동기 대조 원장이 없으므로 이 런의 외부 크기 채점 대상이 아니다.
 
 ## 실행·보존 관문
 
@@ -32,7 +32,7 @@
 ```text
 python scripts/report/export_policy_daily_ledger.py --arm on --policy-id P013 --policy-file <P013 사본> --roster roster.json --start 2020-05-11 --end 2020-06-21 --metrics-dir <정책 팔>/metrics --out p013_on_daily.jsonl
 python scripts/report/export_policy_daily_ledger.py --arm off --policy-id P013 --policy-file <같은 P013 사본> --roster roster.json --start 2020-05-11 --end 2020-06-21 --metrics-dir <무정책 팔>/metrics --out p013_off_daily.jsonl
-python scripts/report/paired_grant_effect.py --on p013_on_daily.jsonl --off p013_off_daily.jsonl --roster roster.json --start 2020-05-11 --end 2020-06-21 --policy-id P013 --expected-recipients 500 --expected-issued-won 140000000 --json-out p013_grant_effect.json
+python scripts/report/paired_grant_effect.py --on p013_on_daily.jsonl --off p013_off_daily.jsonl --roster roster.json --start 2020-05-11 --end 2020-06-21 --policy-id P013 --expected-recipients 500 --expected-issued-won 140000000 --reference data/experiments/p013_grant_reference_20260926.json --json-out p013_grant_effect.json
 ```
 
 계측기는 어느 팔에서든 시민·날짜 누락, 중복, 실패 metrics, 무정책 팔의 정책 결제, 정책 지갑 회계 불일치가 있으면 점수 파일을 만들지 않는다. 부트스트랩 구간은 한 번의 런 안에서 시민 표본을 재추출한 불확실성이다. 모델 실행 간 변동까지 포함한 구간이라고 주장하지 않는다.
@@ -45,3 +45,11 @@ python scripts/report/paired_grant_effect.py --on p013_on_daily.jsonl --off p013
 매일 metrics 각 행의 `experience_run_id`·`execution_fingerprint`도 cohort 파일과 직접 대조한다. 동일 시민·날짜의 다른 실행 결과를 섞어도 통과하는 구멍을 막는다.
 
 구현 검증: A100의 완료된 P012 2021-10-16 데이터를 **읽기 전용**으로 조회했을 때 새 거래 조회식은 500명 원장의 `INCLUDES` **5,592행·총 16,831,594원**을 반환했고, 이미 서버 밖에 보존한 같은 날 그래프 추출의 행 수·금액과 일치했다. State/거래 조회식 모두 Neo4j `EXPLAIN`을 통과했다. 이는 조회식의 중복·누락을 그 날짜에서 점검한 것이며, 아직 실행하지 않은 P013의 정책 결제나 외부 효과를 검증한 결과는 아니다.
+
+## 2026-09-26 외부 규모 대조 보완 — 적격 업종과 전체 지출 분리
+
+위 3번의 **전체 기록 지출 차액/지급액**은 모형 내부의 주 결과로 유지한다. 그러나 KDI의 26.2~36.1%는 [원문 보도자료](https://m.kdi.re.kr/share/pressView?bd_no=4018&pg=1&pp=10)와 [정책포럼](https://kdi.re.kr/research/forumView?pub_no=16851)이 설명하는 추가 신용·체크카드 매출/투입재원이며, 특히 **지원금 사용가능업종** 범위다. 따라서 이를 모형 전체 지출 비율에 겹쳐 판정하지 않는다. 규모를 참고할 때는 별도 산출한 **적격 오프라인 지출의 정책/무정책 차액 ÷ 지급액**을 가장 가까운 모형 대리값으로 쓴다. 같은 시민 단위 재표집 95% 구간을 함께 낸다. 비적격 업종·온라인을 포함한 전체 지출 비율과 오프라인 총액 비율도 원래대로 모두 보고한다.
+
+외부 기준 파일 `data/experiments/p013_grant_reference_20260926.json`은 평가 입력으로만 사용하며 프롬프트·정책 카드·실행기에는 주입하지 않는다. 보도자료는 5월 11일~6월 21일을 **전체 카드매출 전년비 +7.3%의 기간**으로 명시하지만 약 4조원/26.2~36.1% 추정의 정확한 종료일은 요약문만으로 확정할 수 없다. 결제수단·모집단·코로나 요인 조정·기간이 완전히 같지 않으므로, 채점 결과의 범위 겹침은 `descriptive_overlap_only`이며 직접 오차나 적중 판정이 아니다. 이 수정은 P013 두 팔을 실행하거나 그 결과를 보기 전에 원문 추정량 정의를 다시 확인해 등록한 것이다.
+
+위에서 v5를 '범용' 기준으로 부른 것은 [공통 본문 감사](PROMPT_GENERALITY_AUDIT_20260926.md)에 따라 역사적 기준선이라는 뜻으로 제한한다. 정책 중립 후보는 별도 두 팔 실험으로 비교해야 하며, v5의 정책 특화 문구를 범용 프롬프트의 유효성 증거로 쓰지 않는다.

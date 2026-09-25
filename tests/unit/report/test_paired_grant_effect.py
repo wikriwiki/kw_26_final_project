@@ -50,7 +50,38 @@ def test_paired_incremental_spending_divides_by_once_issued_grant():
     assert result["offline_effect_per_grant_won"] == pytest.approx(0.15)
     assert result["eligible_offline_effect_per_grant_won"] == pytest.approx(0.1)
     assert result["bootstrap_valid_draws"] == 100
+    assert result["eligible_offline_citizen_bootstrap_95_interval"][0] <= 0.1
+    assert result["eligible_offline_citizen_bootstrap_95_interval"][1] >= 0.1
     assert result["comparison"] == "indirect_proxy"
+
+
+def test_grant_reference_uses_eligible_sector_proxy_without_accuracy_claim():
+    on, off, days = complete_pair()
+    result = effect.score(on, off, roster=["a", "b"], days=days,
+                          policy_id="P013", draws=100)
+    reference = {"policy_id": "P013", "simulation_start": days[0],
+                 "simulation_end": days[-1],
+                 "simulation_proxy": "eligible_offline_effect_per_grant_won",
+                 "external_ratio_interval": [0.262, 0.361]}
+    comparison = effect.compare_reference(result, reference)
+    assert comparison["simulated_ratio"] == pytest.approx(0.1)
+    assert comparison["same_positive_direction"] is True
+    assert comparison["descriptive_overlap_only"] is False
+    assert "no direct accuracy score" in comparison["comparison_status"]
+    with pytest.raises(ValueError, match="does not match"):
+        effect.compare_reference(result, {**reference, "simulation_end": "2020-06-21"})
+
+
+def test_registered_kdi_reference_matches_proxy_contract():
+    reference = json.loads((ROOT / "data/experiments/p013_grant_reference_20260926.json")
+                           .read_text(encoding="utf-8"))
+    result = {"policy_id": "P013", "start": "2020-05-11", "end": "2020-06-21",
+              "eligible_offline_effect_per_grant_won": 0.30,
+              "eligible_offline_citizen_bootstrap_95_interval": [0.25, 0.35]}
+    comparison = effect.compare_reference(result, reference)
+    assert comparison["descriptive_overlap_only"] is True
+    assert comparison["external_ratio_interval"] == [0.262, 0.361]
+    assert comparison["comparison_status"] == "proxy_scale_reference; no direct accuracy score"
 
 
 def test_incomplete_pair_and_control_leak_cannot_be_scored():
