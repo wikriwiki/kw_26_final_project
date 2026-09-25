@@ -63,11 +63,26 @@ def inspect(day_rows: dict[str, list[dict]], *, expected_per_day: int | None = N
                       or (a.get("error_stage") in ("json_parse", "json_extract")
                           and a.get("tokens_out") == legacy_token_cap)
                       for a in attempts)
-        fallback = sum(bool(r.get("s2_fallback_only")) or
-                       (bool((r.get("s2_timing") or {}).get("attempts"))
-                        and not any(a.get("status") == "ok"
-                                    for a in r["s2_timing"]["attempts"]))
-                       for r in ok)
+        fallback_rows = [r for r in ok if bool(r.get("s2_fallback_only")) or
+                         (bool((r.get("s2_timing") or {}).get("attempts"))
+                          and not any(a.get("status") == "ok"
+                                      for a in r["s2_timing"]["attempts"]))]
+        fallback = len(fallback_rows)
+        partial_repair_rows = [r for r in ok if
+                               int(r.get("fb_missing_picks_filled") or 0) > 0 or
+                               int(r.get("fb_hallucinations_corrected") or 0) > 0]
+        repaired_ids = {id(r) for r in fallback_rows + partial_repair_rows}
+
+        def had_limited_output(row: dict) -> bool:
+            return any(bool(a.get("output_limited")) or a.get("finish_reason") == "length"
+                       or (a.get("error_stage") in ("json_parse", "json_extract")
+                           and a.get("tokens_out") == legacy_token_cap)
+                       for a in (row.get("s2_timing") or {}).get("attempts", []))
+
+        def had_review_error(row: dict) -> bool:
+            return any(a.get("error_stage") == "review_lookup"
+                       and a.get("status") == "error"
+                       for a in (row.get("s2_timing") or {}).get("attempts", []))
         missing_decision_evidence = sum(
             not r.get("s2_skipped") and
             not (r.get("s2_timing") or {}).get("attempts")
@@ -84,6 +99,12 @@ def inspect(day_rows: dict[str, list[dict]], *, expected_per_day: int | None = N
             "stage2_json_parse_errors": errors["json_parse"],
             "stage2_output_limited_attempts": limited,
             "stage2_fallback_only_agents": fallback,
+            "stage2_partial_repair_agents": len(partial_repair_rows),
+            "stage2_choice_repair_agents": len(repaired_ids),
+            "stage2_fallback_with_output_limit_agents": sum(
+                had_limited_output(r) for r in fallback_rows),
+            "stage2_fallback_with_review_error_agents": sum(
+                had_review_error(r) for r in fallback_rows),
             "stage2_missing_decision_evidence_agents": missing_decision_evidence,
             "stage2_missing_picks_filled": sum(int(r.get("fb_missing_picks_filled") or 0)
                                                for r in ok),
@@ -102,7 +123,10 @@ def inspect(day_rows: dict[str, list[dict]], *, expected_per_day: int | None = N
         "metrics_rows", "agents_ok", "agents_error", "duplicate_aids",
         "stage2_llm_calls", "stage2_extra_calls", "stage2_review_lookup_errors",
         "stage2_json_parse_errors", "stage2_output_limited_attempts",
-        "stage2_fallback_only_agents", "stage2_missing_decision_evidence_agents",
+        "stage2_fallback_only_agents", "stage2_partial_repair_agents",
+        "stage2_choice_repair_agents", "stage2_fallback_with_output_limit_agents",
+        "stage2_fallback_with_review_error_agents",
+        "stage2_missing_decision_evidence_agents",
         "stage2_missing_picks_filled", "stage2_hallucinations_corrected",
         "stage2_spend_amount_fallbacks", "stage2_spend_amount_observed_agents",
         "stage2_generated_tokens_all_attempts")}
@@ -117,7 +141,10 @@ def inspect(day_rows: dict[str, list[dict]], *, expected_per_day: int | None = N
                     and totals["stage2_fallback_only_agents"] == 0
                     and totals["stage2_missing_decision_evidence_agents"] == 0)
     return {"days": len(per_day), "expected_per_day": expected_per_day,
-            "quality_gate_pass": quality_pass, "totals": totals, "per_day": per_day,
+            "quality_gate_pass": quality_pass,
+            "unrepaired_choice_trace_pass": quality_pass and
+                totals["stage2_choice_repair_agents"] == 0,
+            "totals": totals, "per_day": per_day,
             "interpretation": "Generation completeness only. A clean run does not prove "
                               "empirical effect magnitude or prompt generalization."}
 
@@ -129,17 +156,22 @@ def main() -> int:
     parser.add_argument("--expected-per-day", type=int)
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--strict", action="store_true")
+    parser.add_argument("--require-unrepaired-choices", action="store_true",
+                        help="Fail if any Stage2 POI choice was wholly or partly repaired")
     args = parser.parse_args()
     result = inspect(load_sources(args.metrics_dir, args.archive),
                      expected_per_day=args.expected_per_day)
     print(json.dumps({"quality_gate_pass": result["quality_gate_pass"],
+                      "unrepaired_choice_trace_pass": result["unrepaired_choice_trace_pass"],
                       "days": result["days"], "totals": result["totals"]},
                      ensure_ascii=False, indent=2))
     if args.json_out:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n",
                                  encoding="utf-8")
-    return 1 if args.strict and not result["quality_gate_pass"] else 0
+    return 1 if ((args.strict and not result["quality_gate_pass"])
+                 or (args.require_unrepaired_choices and
+                     not result["unrepaired_choice_trace_pass"])) else 0
 
 
 if __name__ == "__main__":
