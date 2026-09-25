@@ -218,8 +218,31 @@ def compare_reference(result: dict, reference: dict) -> dict:
     }
 
 
+def pair_provenance(manifests: list[dict], arms: tuple[str, str]) -> dict:
+    """Carry verified run and prompt identities into the score artifact."""
+    prompt_variant = manifests[0].get("prompt_variant")
+    system_prompt_sha = manifests[0].get("system_prompt_sha256")
+    if (not isinstance(prompt_variant, str) or not prompt_variant
+            or not isinstance(system_prompt_sha, str) or len(system_prompt_sha) != 64
+            or any(char not in "0123456789abcdef" for char in system_prompt_sha)):
+        raise ValueError("paired ledger manifests need a prompt variant and system prompt hash")
+    return {
+        "prompt_variant": prompt_variant,
+        "system_prompt_sha256": system_prompt_sha,
+        "baseline_income_map_sha256": manifests[0]["baseline_income_map_sha256"],
+        "policy_file_sha256": manifests[0].get("policy_file_sha256"),
+        "mapping_sha256": manifests[0].get("mapping_sha256"),
+        "paired_environment_fingerprint": manifests[0].get(
+            "paired_environment_fingerprint"),
+        "arms": {arm: {"run_id": manifest["run_id"],
+                       "execution_fingerprint": manifest["execution_fingerprint"],
+                       "ledger_sha256": manifest["output_sha256"]}
+                 for arm, manifest in zip(arms, manifests)},
+    }
+
+
 def verify_manifests(on_path: Path, off_path: Path, *, roster: list[str],
-                     days: list[str], policy_id: str) -> None:
+                     days: list[str], policy_id: str) -> dict:
     expected_roster_sha = hashlib.sha256(
         json.dumps(sorted(roster), ensure_ascii=False).encode("utf-8")).hexdigest()
     manifests = []
@@ -238,13 +261,15 @@ def verify_manifests(on_path: Path, off_path: Path, *, roster: list[str],
             raise ValueError(f"invalid {arm} ledger manifest")
         manifests.append(manifest)
     for key in ("policy_file_sha256", "execution_fingerprint",
-                "baseline_income_map_sha256"):
+                "baseline_income_map_sha256", "prompt_variant",
+                "system_prompt_sha256"):
         if not manifests[0].get(key) or manifests[0][key] != manifests[1].get(key):
             raise ValueError(f"paired arms differ in {key}")
     run_ids = [manifest.get("run_id") for manifest in manifests]
     if (any(not isinstance(run_id, str) or not run_id for run_id in run_ids)
             or run_ids[0] == run_ids[1]):
         raise ValueError("paired arms need distinct run IDs")
+    return pair_provenance(manifests, ("on", "off"))
 
 
 def main() -> int:
@@ -264,13 +289,14 @@ def main() -> int:
     args = parser.parse_args()
     roster = roster_file(args.roster)
     days = dates(args.start, args.end)
-    verify_manifests(args.on, args.off, roster=roster, days=days,
-                     policy_id=args.policy_id)
+    provenance = verify_manifests(args.on, args.off, roster=roster, days=days,
+                                  policy_id=args.policy_id)
     result = score(read_jsonl(args.on), read_jsonl(args.off),
                    roster=roster, days=days,
                    policy_id=args.policy_id, draws=args.draws,
                    expected_recipients=args.expected_recipients,
                    expected_issued_won=args.expected_issued_won)
+    result["provenance"] = provenance
     if args.reference:
         source_bytes = args.reference.read_bytes()
         result["empirical_scale_reference"] = compare_reference(

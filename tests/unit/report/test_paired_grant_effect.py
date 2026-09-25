@@ -228,7 +228,8 @@ def test_exporter_writes_audited_ledger_and_manifest(tmp_path, monkeypatch):
             "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
         (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
             "agent_ids": ["a", "b"], "execution_fingerprint": "same-code",
-            "baseline_income_map_sha256": "same-income", "run_id": "on-run"}),
+            "baseline_income_map_sha256": "same-income", "run_id": "on-run",
+            "prompt_variant": "v51", "system_prompt_sha256": "a" * 64}),
             encoding="utf-8")
 
     class Session:
@@ -276,8 +277,17 @@ def test_paired_grant_manifest_rejects_reused_run(tmp_path):
             "quality_gate_pass": True, "policy_file_sha256": "same-policy",
             "execution_fingerprint": "same-code",
             "baseline_income_map_sha256": "same-income", "run_id": "reused-run",
+            "prompt_variant": "v51", "system_prompt_sha256": "a" * 64,
         }), encoding="utf-8")
         paths[arm] = path
     with pytest.raises(ValueError, match="distinct run IDs"):
         effect.verify_manifests(paths["on"], paths["off"], roster=roster,
                                 days=["2020-05-11"], policy_id="P013")
+    off_manifest = tmp_path / "off.jsonl.manifest.json"
+    altered = json.loads(off_manifest.read_text(encoding="utf-8"))
+    altered["run_id"] = "off-run"
+    off_manifest.write_text(json.dumps(altered), encoding="utf-8")
+    provenance = effect.verify_manifests(paths["on"], paths["off"], roster=roster,
+                                         days=["2020-05-11"], policy_id="P013")
+    assert provenance["prompt_variant"] == "v51"
+    assert provenance["arms"]["off"]["run_id"] == "off-run"

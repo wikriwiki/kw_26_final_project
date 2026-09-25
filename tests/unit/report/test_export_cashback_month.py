@@ -97,7 +97,8 @@ def test_complete_month_exports_one_audited_row_per_citizen_day(tmp_path, monkey
             "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
         (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
             "agent_ids": ["a", "b"], "execution_fingerprint": "same-code-and-settings",
-            "baseline_income_map_sha256": "same-income-map", "run_id": "on-run"}),
+            "baseline_income_map_sha256": "same-income-map", "run_id": "on-run",
+            "prompt_variant": "v51", "system_prompt_sha256": "a" * 64}),
             encoding="utf-8")
     path = tmp_path / "policy.json"
     path.write_text(json.dumps(policy()), encoding="utf-8")
@@ -134,6 +135,8 @@ def test_complete_month_exports_one_audited_row_per_citizen_day(tmp_path, monkey
     assert manifest["quality_gate_pass"] is True
     assert manifest["execution_fingerprint"] == "same-code-and-settings"
     assert manifest["baseline_income_map_sha256"] == "same-income-map"
+    assert manifest["prompt_variant"] == "v51"
+    assert manifest["system_prompt_sha256"] == "a" * 64
     assert not list(tmp_path.glob("*.tmp.*"))
 
 
@@ -143,10 +146,25 @@ def test_cohort_fingerprint_change_blocks_month_export(tmp_path):
     for day, fingerprint in (("2021-10-01", "a"), ("2021-10-02", "b")):
         (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
             "agent_ids": ["citizen"], "execution_fingerprint": fingerprint,
-            "baseline_income_map_sha256": "same-income-map", "run_id": "same-run"}),
+            "baseline_income_map_sha256": "same-income-map", "run_id": "same-run",
+            "prompt_variant": "v51", "system_prompt_sha256": "a" * 64}),
             encoding="utf-8")
     with pytest.raises(ValueError, match="fingerprint"):
         cashback.verify_cohorts(metrics_dir, ["2021-10-01", "2021-10-02"], ["citizen"])
+
+
+def test_cohort_prompt_change_blocks_month_export(tmp_path):
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir()
+    days = ["2021-10-01", "2021-10-02"]
+    for day, prompt_sha in zip(days, ("a" * 64, "b" * 64)):
+        (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
+            "agent_ids": ["citizen"], "execution_fingerprint": "same-code",
+            "baseline_income_map_sha256": "same-income-map", "run_id": "same-run",
+            "prompt_variant": "v51", "system_prompt_sha256": prompt_sha}),
+            encoding="utf-8")
+    with pytest.raises(ValueError, match="prompt changed"):
+        cashback.verify_cohorts(metrics_dir, days, ["citizen"])
 
 
 def test_missing_run_id_blocks_month_export(tmp_path):

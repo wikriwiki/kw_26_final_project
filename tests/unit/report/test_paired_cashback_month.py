@@ -98,6 +98,7 @@ def test_manifest_rejects_different_execution_fingerprint(tmp_path):
             "quality_gate_pass": True, "policy_file_sha256": "same-policy",
             "base_ratio": 0.268, "execution_fingerprint": fingerprint,
             "baseline_income_map_sha256": "same-income", "citizens": 2, "days": 31,
+            "prompt_variant": "v51", "system_prompt_sha256": "a" * 64,
         }), encoding="utf-8")
         paths[arm] = path
     with pytest.raises(ValueError, match="execution_fingerprint"):
@@ -119,7 +120,20 @@ def test_manifest_requires_independent_arm_run_ids(tmp_path):
             "base_ratio": 0.268, "execution_fingerprint": "same-code",
             "baseline_income_map_sha256": "same-income", "citizens": 1,
             "days": 31, "run_id": "reused-run",
+            "prompt_variant": "v51", "system_prompt_sha256": "a" * 64,
         }), encoding="utf-8")
         paths[arm] = path
     with pytest.raises(ValueError, match="distinct run IDs"):
+        paired.verify_manifests(paths["on"], paths["off"], roster, "2021-10")
+    off_manifest = tmp_path / "off.jsonl.manifest.json"
+    altered = json.loads(off_manifest.read_text(encoding="utf-8"))
+    altered["run_id"] = "off-run"
+    off_manifest.write_text(json.dumps(altered), encoding="utf-8")
+    provenance = paired.verify_manifests(paths["on"], paths["off"], roster, "2021-10")
+    assert provenance["prompt_variant"] == "v51"
+    assert provenance["system_prompt_sha256"] == "a" * 64
+    assert provenance["arms"]["off"]["run_id"] == "off-run"
+    altered["system_prompt_sha256"] = "b" * 64
+    off_manifest.write_text(json.dumps(altered), encoding="utf-8")
+    with pytest.raises(ValueError, match="system_prompt_sha256"):
         paired.verify_manifests(paths["on"], paths["off"], roster, "2021-10")

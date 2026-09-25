@@ -15,7 +15,7 @@ import random
 from pathlib import Path
 
 from export_cashback_month import month_days
-from paired_grant_effect import read_jsonl, roster_file
+from paired_grant_effect import pair_provenance, read_jsonl, roster_file
 
 
 def _index(rows: list[dict], *, roster: list[str], days: list[str], arm: str,
@@ -183,7 +183,7 @@ def compare_reference(result: dict, reference: dict) -> dict:
     }
 
 
-def verify_manifests(on_path: Path, off_path: Path, roster: list[str], month: str) -> None:
+def verify_manifests(on_path: Path, off_path: Path, roster: list[str], month: str) -> dict:
     expected_roster_sha = hashlib.sha256(
         json.dumps(sorted(roster), ensure_ascii=False).encode("utf-8")).hexdigest()
     manifests = []
@@ -199,14 +199,16 @@ def verify_manifests(on_path: Path, off_path: Path, roster: list[str], month: st
             raise ValueError(f"invalid {arm} ledger manifest")
         manifests.append(manifest)
     for key in ("policy_id", "policy_file_sha256", "base_ratio",
-                "execution_fingerprint", "baseline_income_map_sha256", "citizens", "days"):
-        if manifests[0].get(key) != manifests[1].get(key):
+                "execution_fingerprint", "baseline_income_map_sha256", "citizens", "days",
+                "prompt_variant", "system_prompt_sha256"):
+        if manifests[0].get(key) is None or manifests[0].get(key) != manifests[1].get(key):
             raise ValueError(f"paired arms differ in {key}")
     run_ids = [manifest.get("run_id") for manifest in manifests]
     if any(not isinstance(run_id, str) or not run_id for run_id in run_ids):
         raise ValueError("paired arms have missing run ID")
     if run_ids[0] == run_ids[1]:
         raise ValueError("paired arms must have distinct run IDs")
+    return pair_provenance(manifests, ("on", "off"))
 
 
 def main() -> int:
@@ -222,9 +224,10 @@ def main() -> int:
     parser.add_argument("--json-out", type=Path, required=True)
     args = parser.parse_args()
     roster = roster_file(args.roster)
-    verify_manifests(args.on, args.off, roster, args.month)
+    provenance = verify_manifests(args.on, args.off, roster, args.month)
     result = score(read_jsonl(args.on), read_jsonl(args.off), roster=roster,
                    month=args.month, policy_id=args.policy_id, draws=args.draws)
+    result["provenance"] = provenance
     if args.reference:
         source_bytes = args.reference.read_bytes()
         result["empirical_scale_reference"] = compare_reference(

@@ -64,7 +64,9 @@ from mechanisms import poi_restriction  # noqa: E402
 
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
 _SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
-from stage1_intent import call_stage1, grant_style_to_use  # noqa: E402
+from stage1_intent import call_stage1, grant_style_to_use, SYSTEM_PROMPT as DAWN_SYSTEM_PROMPT  # noqa: E402
+from prompts import active_name as active_prompt_name  # noqa: E402
+_ACTIVE_PROMPT_VARIANT = active_prompt_name()
 from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
 from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
@@ -918,10 +920,15 @@ def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None
 def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> dict:
     if not agents or any(not isinstance(a, str) or not a for a in agents) or len(set(agents)) != len(agents):
         raise ValueError("cohort must contain distinct nonempty agent IDs")
+    if active_prompt_name() != _ACTIVE_PROMPT_VARIANT:
+        raise ValueError("prompt variant changed after the Dawn system prompt was loaded")
     day_str = today.isoformat()
     cohort = {"run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
               "day": day_str, "agent_ids": sorted(agents),
               "environment_id": _SIM_ENV,
+              "prompt_variant": _ACTIVE_PROMPT_VARIANT,
+              "system_prompt_sha256": hashlib.sha256(
+                  DAWN_SYSTEM_PROMPT.encode("utf-8")).hexdigest(),
               "execution_fingerprint": execution_fingerprint(),
               "paired_environment_fingerprint": paired_environment_fingerprint()}
     from income import preflight_baseline_income

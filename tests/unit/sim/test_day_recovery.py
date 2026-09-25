@@ -2,6 +2,7 @@
 from datetime import date
 from pathlib import Path
 from contextlib import contextmanager
+import hashlib
 import json
 import sys
 import pytest
@@ -31,11 +32,22 @@ def test_stale_done_checkpoint_never_skips_database_reconciliation(output, monke
         runner.run_day(['A'], DAY, 0, workers=1)
     assert called == ['A']
     assert evidence.read_text().startswith('previous-corrupt-evidence\n')
+    cohort = json.loads((output/f'cohort_{DAY}.json').read_text(encoding='utf-8'))
+    assert cohort['prompt_variant'] == runner._ACTIVE_PROMPT_VARIANT
+    assert cohort['system_prompt_sha256'] == hashlib.sha256(
+        runner.DAWN_SYSTEM_PROMPT.encode('utf-8')).hexdigest()
 
 @pytest.mark.parametrize('agents', [[], ['A', 'A'], ['']])
 def test_invalid_cohort_rejected_before_execution(output, agents):
     with pytest.raises(ValueError, match='cohort'):
         runner.run_day(agents, DAY, 0, workers=1)
+
+
+def test_prompt_environment_change_after_import_is_rejected(output, monkeypatch):
+    monkeypatch.setattr(runner, 'active_prompt_name', lambda: 'changed-in-process')
+    with pytest.raises(ValueError, match='prompt variant changed'):
+        runner.run_day(['A'], DAY, 0, workers=1)
+    assert not (output/f'cohort_{DAY}.json').exists()
 
 class Result:
     def single(self): return {'n':0}

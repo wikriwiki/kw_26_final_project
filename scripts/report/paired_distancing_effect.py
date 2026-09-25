@@ -9,7 +9,7 @@ import random
 from pathlib import Path
 
 from export_distancing_daily_ledger import ENVIRONMENTS, MONEY_FIELDS
-from paired_grant_effect import dates, read_jsonl, roster_file
+from paired_grant_effect import dates, pair_provenance, read_jsonl, roster_file
 
 SECTORS = ("restaurant_won", "korean_restaurant_won", "retail_won", "cafe_won")
 
@@ -125,7 +125,7 @@ def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list
 
 
 def verify_manifests(restricted_path: Path, control_path: Path, *, roster: list[str],
-                     days: list[str]) -> None:
+                     days: list[str]) -> dict:
     expected_roster_sha = hashlib.sha256(json.dumps(sorted(roster), ensure_ascii=False).encode(
         "utf-8")).hexdigest()
     manifests = []
@@ -144,7 +144,8 @@ def verify_manifests(restricted_path: Path, control_path: Path, *, roster: list[
             raise ValueError(f"invalid {arm} ledger manifest")
         manifests.append(manifest)
     for key in ("mapping_sha256", "paired_environment_fingerprint",
-                "baseline_income_map_sha256"):
+                "baseline_income_map_sha256", "prompt_variant",
+                "system_prompt_sha256"):
         if not manifests[0].get(key) or manifests[0][key] != manifests[1].get(key):
             raise ValueError(f"paired arms differ in {key}")
     full_fingerprints = [item.get("execution_fingerprint") for item in manifests]
@@ -155,6 +156,7 @@ def verify_manifests(restricted_path: Path, control_path: Path, *, roster: list[
     if (any(not isinstance(v, str) or not v for v in run_ids)
             or run_ids[0] == run_ids[1]):
         raise ValueError("paired arms need distinct run IDs")
+    return pair_provenance(manifests, ("restricted", "control"))
 
 
 def main() -> int:
@@ -169,9 +171,11 @@ def main() -> int:
     args = parser.parse_args()
     roster = roster_file(args.roster)
     days = dates(args.start, args.end)
-    verify_manifests(args.restricted, args.control, roster=roster, days=days)
+    provenance = verify_manifests(args.restricted, args.control,
+                                  roster=roster, days=days)
     result = score(read_jsonl(args.restricted), read_jsonl(args.control),
                    roster=roster, days=days, draws=args.draws)
+    result["provenance"] = provenance
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     partial = args.json_out.with_name(args.json_out.name + f".tmp.{os.getpid()}")
     try:

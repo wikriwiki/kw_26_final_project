@@ -155,6 +155,8 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
     fingerprints = set()
     income_maps = set()
     run_ids = set()
+    prompt_variants = set()
+    system_prompt_hashes = set()
     for day in days:
         path = output_dir / f"cohort_{day}.json"
         if not path.is_file():
@@ -176,11 +178,22 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
         if not isinstance(run_id, str) or not run_id:
             raise ValueError(f"run ID missing: {day}")
         run_ids.add(run_id)
-    if len(fingerprints) != 1 or len(income_maps) != 1 or len(run_ids) != 1:
-        raise ValueError("run ID, execution fingerprint or income map changed within month")
+        prompt_variant = cohort.get("prompt_variant")
+        system_prompt_sha = cohort.get("system_prompt_sha256")
+        if (not isinstance(prompt_variant, str) or not prompt_variant
+                or not isinstance(system_prompt_sha, str) or len(system_prompt_sha) != 64
+                or any(char not in "0123456789abcdef" for char in system_prompt_sha)):
+            raise ValueError(f"prompt variant or system prompt hash missing: {day}")
+        prompt_variants.add(prompt_variant)
+        system_prompt_hashes.add(system_prompt_sha)
+    if (len(fingerprints) != 1 or len(income_maps) != 1 or len(run_ids) != 1
+            or len(prompt_variants) != 1 or len(system_prompt_hashes) != 1):
+        raise ValueError("run ID, execution fingerprint, income map or prompt changed within run")
     return {"execution_fingerprint": next(iter(fingerprints)),
             "baseline_income_map_sha256": next(iter(income_maps)),
-            "run_id": next(iter(run_ids))}
+            "run_id": next(iter(run_ids)),
+            "prompt_variant": next(iter(prompt_variants)),
+            "system_prompt_sha256": next(iter(system_prompt_hashes))}
 
 
 def verify_metric_provenance(daily_metrics: dict[str, list[dict]], cohort: dict) -> None:

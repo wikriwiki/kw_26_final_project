@@ -101,11 +101,20 @@ def test_distancing_manifest_requires_same_apparatus_and_distinct_runs(tmp_path)
             "paired_environment_fingerprint": "same-settings",
             "execution_fingerprint": arm + "-settings",
             "baseline_income_map_sha256": "same-income", "run_id": "reused",
+            "prompt_variant": "v51", "system_prompt_sha256": "a" * 64,
         }), encoding="utf-8")
         paths[arm] = path
     with pytest.raises(ValueError, match="distinct run IDs"):
         paired.verify_manifests(paths["restricted"], paths["control"],
                                 roster=roster, days=["2020-11-24"])
+    control_manifest = tmp_path / "control.jsonl.manifest.json"
+    altered = json.loads(control_manifest.read_text(encoding="utf-8"))
+    altered["run_id"] = "control-run"
+    control_manifest.write_text(json.dumps(altered), encoding="utf-8")
+    provenance = paired.verify_manifests(paths["restricted"], paths["control"],
+                                         roster=roster, days=["2020-11-24"])
+    assert provenance["prompt_variant"] == "v51"
+    assert provenance["arms"]["control"]["run_id"] == "control-run"
 
 
 def test_exporter_checks_environment_and_writes_manifest(tmp_path, monkeypatch):
@@ -125,6 +134,7 @@ def test_exporter_checks_environment_and_writes_manifest(tmp_path, monkeypatch):
         "execution_fingerprint": "restricted-settings",
         "paired_environment_fingerprint": "shared-settings",
         "baseline_income_map_sha256": "shared-income", "run_id": "restricted-run",
+        "prompt_variant": "v51", "system_prompt_sha256": "a" * 64,
     }), encoding="utf-8")
     mapping_path = tmp_path / "mapping.json"
     mapping_path.write_text(json.dumps(MAPPING), encoding="utf-8")
