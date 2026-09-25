@@ -15,6 +15,14 @@
 
 서울연구원 원문의 한식 `−14.1%`는 **전년 대비**이고 소매 `+4.2%`는 팬데믹 기간 평균 변화다. 본 실험은 같은 2020년 주간에 제한이 있을 때와 없을 때의 **모형 내부 반사실**이다. 음식점 전체/한식의 범위, 카드 매출/기록 총지출, 연간 기준선/주간 ON·OFF가 모두 맞기 전에는 두 숫자를 빼서 오차나 적중으로 표시하지 않는다. 대신 업종별 부호·상대 순위와 모형 효과의 크기·불확실성을 제시하고, 원문 값은 다른 추정량의 맥락으로 나란히 둔다. 직접 크기 검증에는 2019년 동기간 같은 업종·상권 카드매출 또는 그에 상응하는 반사실 자료와 모형의 결제수단 표기가 추가로 필요하다.
 
-현재 `covid_no_distancing`의 사실 분리는 단위 시험을 통과했지만, 이 7일 두 팔의 A100 실행·원장 내보내기·외부 크기 검증은 **아직 수행하지 않았다**. 실행 전에는 환경을 제외한 코드·설정 일치, 양팔 정책 노드 0개, 동일 시민 명단, 연속 날짜, 원장 해시를 강제하는 전용 내보내기/채점 관문을 구현해야 한다.
+현재 `covid_no_distancing`의 사실 분리는 단위 시험을 통과했지만, 이 7일 두 팔의 A100 실행·외부 크기 검증은 **아직 수행하지 않았다**. `run_simulation.py`는 앞으로 각 metrics와 일별 cohort에 환경 ID, 전체 실행 지문 및 환경 ID만 뺀 쌍체 지문을 기록한다. `export_distancing_daily_ledger.py`는 7일 정상 생성, 정책 노드 0개, 시민·날짜 완전성, metrics와 cohort의 실행 지문·ID 일치, State 월 지출과 거래의 일별 회계를 검사해 원장·SHA256 매니페스트를 만든다. `paired_distancing_effect.py`는 두 팔의 해시·동일 쌍체 지문·고정 소득 맵·업종 매핑과 서로 다른 실행 ID를 다시 검사한다. 이 코드의 합성 시험과 현재 A100 그래프의 세 조회식 Neo4j `EXPLAIN`은 통과했으나, 실제 DS 원장 추출은 아직 검증 전이다.
 
-업종 분류 사전점검: 현재 P012의 2021-10-17 완료 원장에서 `data/neo4j_load/mapping/mapping_upjong_to_sub.json`으로 매장 코드가 해석되지 않는 금액은 계획상 식사 거래의 **19.3%**, 카페 **12.2%**, 쇼핑 **19.5%**였다. 이는 다른 날짜·정책의 진단값이며 DS 결과가 아니다. `INCLUDES.sub_category`의 '한식'은 시민의 **의도**이고 실제 매장 업종이 아니다. 따라서 엄격 지표는 실제 POI 업종코드 또는 Category 관계로 확인된 거래만 쓰고, 미분류 금액과 의도 라벨 기반의 넓은 보조 추정치를 따로 보고한다. 한식 의도 981건을 한식 매장 981건으로 간주하지 않는다.
+업종 분류 사전점검: 현재 P012의 2021-10-17 완료 원장에서 `data/neo4j_load/mapping/mapping_upjong_to_sub.json`으로 매장 코드가 해석되지 않는 금액은 계획상 식사 거래의 **19.3%**, 카페 **12.2%**, 쇼핑 **19.5%**였다. 이는 다른 날짜·정책의 진단값이며 DS 결과가 아니다. `INCLUDES.sub_category`의 '한식'은 시민의 **의도**이고 실제 매장 업종이 아니다. 따라서 지표는 실제 POI 업종코드 또는 Category 관계로 확인된 거래만 쓰고 미분류 금액을 별도로 보고한다. 한식 의도 981건을 한식 매장 981건으로 간주하지 않는다.
+
+같은 10월 17일 그래프를 읽기 전용으로 더 확인하니 **업종코드와 Category 관계가 동시에 있는 거래의 분류 충돌은 0건**이었다. 코드 없는 식사 194건, 카페 47건, 쇼핑 15건 등도 Category 관계에서 실제 업종을 읽을 수 있었다. 새 계측기는 코드와 Category가 충돌하거나 거래 금액이 결측이면 실패하며, 둘 다 없으면 `unclassified_won`으로 명시한다. 업종별 쌍체차의 상·하한은 모든 미분류 지출을 각 업종에 배정할 수 있다고 두고 계산해 부호의 강건성을 표시한다.
+
+```text
+python scripts/report/export_distancing_daily_ledger.py --arm restricted --roster roster.json --start 2020-11-24 --end 2020-11-30 --metrics-dir <제한 팔>/metrics --out ds_restricted.jsonl
+python scripts/report/export_distancing_daily_ledger.py --arm control --roster roster.json --start 2020-11-24 --end 2020-11-30 --metrics-dir <대조 팔>/metrics --out ds_control.jsonl
+python scripts/report/paired_distancing_effect.py --restricted ds_restricted.jsonl --control ds_control.jsonl --roster roster.json --start 2020-11-24 --end 2020-11-30 --json-out ds_paired.json
+```

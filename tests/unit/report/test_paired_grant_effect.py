@@ -189,6 +189,7 @@ def test_exporter_writes_audited_ledger_and_manifest(tmp_path, monkeypatch):
     days = ["2020-05-11", "2020-05-12"]
     for index, day in enumerate(days):
         rows = [{"aid": aid, "status": "ok", "experience_policy_ids": ["P013"],
+                 "execution_fingerprint": "same-code", "experience_run_id": "on-run",
                  "grant_applied_today": 100 if index == 0 else 0,
                  "s2_timing": {"n_llm_calls": 1, "attempts": [{"status": "ok"}]}}
                 for aid in ("a", "b")]

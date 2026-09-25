@@ -183,6 +183,15 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
             "run_id": next(iter(run_ids))}
 
 
+def verify_metric_provenance(daily_metrics: dict[str, list[dict]], cohort: dict) -> None:
+    for day, rows in daily_metrics.items():
+        for row in rows:
+            if (row.get("execution_fingerprint") != cohort["execution_fingerprint"]
+                    or row.get("experience_run_id") != cohort["run_id"]):
+                raise ValueError(f"metrics execution provenance differs from cohort: "
+                                 f"{row.get('aid')} {day}")
+
+
 def export(*, month: str, arm: str, policy_id: str, policy_file: Path,
            base_ratio: float, roster: list[str], metrics_dir: Path, out: Path) -> int:
     if arm not in ("on", "off") or not 0 < base_ratio <= 1:
@@ -204,6 +213,7 @@ def export(*, month: str, arm: str, policy_id: str, policy_file: Path,
                                     ("policy_hits", "grant_applied_today", "policy_spend_today")):
                 raise ValueError(f"policy activity in control metrics: {row['aid']} {day}")
     cohort = verify_cohorts(metrics_dir, days, roster)
+    verify_metric_provenance(daily_metrics, cohort)
 
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + f".tmp.{os.getpid()}")

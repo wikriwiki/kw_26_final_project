@@ -57,7 +57,8 @@ from dawn_context import build_dawn_context  # noqa: E402
 from experience import receipts, observation_window, update_appraisals
 import agent_day_store
 from evidence_integrity import money
-from experience_provenance import source_fingerprint, execution_fingerprint, atomic_json
+from experience_provenance import (source_fingerprint, execution_fingerprint,
+                                   paired_environment_fingerprint, atomic_json)
 from environments import build_environment  # noqa: E402
 from mechanisms import poi_restriction  # noqa: E402
 
@@ -665,10 +666,12 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "experience_version": 2,
                 "source_fingerprint": source_fingerprint(),
                 "execution_fingerprint": execution_fingerprint(),
+                "paired_environment_fingerprint": paired_environment_fingerprint(),
                 "decision_provenance": {"prompt_sha256": m1.get("prompt_sha256"), "model_id": m1.get("model_id")},
                 "experience_run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
                 "experience_group": {k: ctx.persona.get(k) for k in ("income", "job", "life_stage")},
                 "experience_policy_ids": [p["id"] for p in ctx.policy if p.get("id")],
+                "experience_environment_id": _SIM_ENV,
                 "execution_receipts": execution_receipts,
                 "receipt_scope": "all_modeled_offline_commerce_v1",
                 "policy_appraisals": policy_appraisals,
@@ -918,7 +921,9 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     day_str = today.isoformat()
     cohort = {"run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
               "day": day_str, "agent_ids": sorted(agents),
-              "execution_fingerprint": execution_fingerprint()}
+              "environment_id": _SIM_ENV,
+              "execution_fingerprint": execution_fingerprint(),
+              "paired_environment_fingerprint": paired_environment_fingerprint()}
     from income import preflight_baseline_income
     income_map = preflight_baseline_income(
         os.environ.get("EXP_DAILY_INCOME"),

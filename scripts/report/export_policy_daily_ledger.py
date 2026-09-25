@@ -20,7 +20,8 @@ from neo4j_load._common import driver_session  # noqa: E402
 from score_policy import apply_policy_eligibility  # noqa: E402
 from paired_grant_effect import dates, read_jsonl, roster_file  # noqa: E402
 from report.audit_stage2_generation import inspect  # noqa: E402
-from report.export_cashback_month import verify_cohorts  # noqa: E402
+from report.export_cashback_month import (verify_cohorts,
+                                           verify_metric_provenance)  # noqa: E402
 
 
 STATE_QUERY = """
@@ -218,6 +219,8 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
     if not audit["quality_gate_pass"]:
         raise ValueError(f"Stage2 generation quality gate failed: {audit['totals']}")
     cohort = verify_cohorts(metrics_dir, days, roster)
+    verify_metric_provenance({day: list(rows.values()) for day, rows in metrics_by_day.items()},
+                             cohort)
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + f".tmp.{os.getpid()}")
     previous_receipts: dict[str, int] = {}

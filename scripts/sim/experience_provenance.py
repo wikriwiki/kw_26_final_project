@@ -16,7 +16,7 @@ def source_fingerprint():
     return digest({p.relative_to(root).as_posix(): p.read_text(encoding='utf-8') for p in paths})
 
 
-def execution_fingerprint():
+def _settings():
     # All EXP_* settings can alter a citizen's state or decisions. A fixed
     # shortlist silently omitted income, the cashback base ratio and the
     # plan-to-total switch; a resumed run could then mix two experiments.
@@ -26,6 +26,17 @@ def execution_fingerprint():
                 'POLICY_BACKTEST_DETERMINISTIC', 'POLICY_POI_SORT_BOOST',
                 'SIM_ALLOW_STAGE2_FALLBACK', 'PYTHONHASHSEED'):
         settings[key] = os.environ.get(key)
+    return settings
+
+
+def execution_fingerprint():
+    return digest({'source': source_fingerprint(), 'settings': _settings()})
+
+
+def paired_environment_fingerprint():
+    """Pair two runs whose sole intended setting difference is environment ID."""
+    settings = _settings()
+    settings.pop('SIM_ENVIRONMENT', None)
     return digest({'source': source_fingerprint(), 'settings': settings})
 
 

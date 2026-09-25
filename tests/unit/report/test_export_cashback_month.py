@@ -89,7 +89,9 @@ def test_complete_month_exports_one_audited_row_per_citizen_day(tmp_path, monkey
     metrics_dir = tmp_path / "metrics"
     metrics_dir.mkdir()
     for day in days:
-        rows = [{"aid": aid, "status": "ok", "s2_timing": {
+        rows = [{"aid": aid, "status": "ok",
+                 "execution_fingerprint": "same-code-and-settings",
+                 "experience_run_id": "on-run", "s2_timing": {
             "n_llm_calls": 1, "attempts": [{"status": "ok"}]}} for aid in ("a", "b")]
         (metrics_dir / f"day_{day}.jsonl").write_text(
             "".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
@@ -155,3 +157,11 @@ def test_missing_run_id_blocks_month_export(tmp_path):
         "baseline_income_map_sha256": "same-income-map"}), encoding="utf-8")
     with pytest.raises(ValueError, match="run ID missing"):
         cashback.verify_cohorts(metrics_dir, ["2021-10-01"], ["citizen"])
+
+
+def test_metrics_from_another_run_cannot_join_same_day_cohort():
+    cohort = {"execution_fingerprint": "code-A", "run_id": "run-A"}
+    with pytest.raises(ValueError, match="provenance differs"):
+        cashback.verify_metric_provenance({"2021-10-01": [{
+            "aid": "a", "execution_fingerprint": "code-A",
+            "experience_run_id": "run-B"}]}, cohort)
