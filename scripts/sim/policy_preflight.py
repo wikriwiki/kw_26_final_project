@@ -304,6 +304,31 @@ def check_no_policy_db() -> list[tuple[str, str]]:
     return [(_PASS, "무정책 팔: Policy 0개, applied_to 0개")]
 
 
+def check_policy_set_db(paths: list[Path]) -> list[tuple[str, str]]:
+    """정책 팔에 지정하지 않은 이전 정책이 남아 있지 않은지 확인한다."""
+    uri = os.environ.get("NEO4J_URI")
+    if not uri:
+        return [(_FAIL, "NEO4J_URI 미설정 → 정책 집합 점검 불가")]
+    try:
+        expected = sorted(str(json.loads(p.read_text(encoding="utf-8"))["id"]) for p in paths)
+        from neo4j import GraphDatabase
+
+        drv = GraphDatabase.driver(uri, auth=(os.environ.get("NEO4J_USER", "neo4j"),
+                                          os.environ.get("NEO4J_PASSWORD", "")))
+        try:
+            with drv.session(database=os.environ.get("NEO4J_DATABASE", "neo4j")) as s:
+                actual = sorted(str(row["id"]) for row in s.run(
+                    "MATCH (p:Policy) RETURN p.id AS id"
+                ))
+        finally:
+            drv.close()
+    except Exception as e:
+        return [(_FAIL, f"정책 집합 DB 점검 실패: {e}")]
+    if actual != expected:
+        return [(_FAIL, f"정책 팔 오염/누락: 지정 {expected}, DB {actual}")]
+    return [(_PASS, f"정책 팔: DB 정책 집합 {actual} 일치")]
+
+
 def check_disbursement(path: Path) -> list[tuple[str, str]]:
     """**돈이 실제로 나가는가** — 런타임과 **같은 함수**로 시행일 하루를 돌려 본다.
 
@@ -358,7 +383,7 @@ def _as_date_safe(v):
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--require-db", action="store_true",
-                    help="검증 런 직전에는 DB 접속·정책 노출 조회를 반드시 통과시킨다")
+                    help="검증 런 직전 DB 접속·정책 노출·지정 정책 집합 일치를 반드시 확인한다")
     ap.add_argument("--expect-no-policy", action="store_true",
                     help="무정책 팔 시작 전 DB의 Policy 및 applied_to가 0개인지 확인한다")
     ap.add_argument("paths", nargs="*", type=Path)
@@ -383,6 +408,11 @@ def main() -> None:
             print(f"  {grade} {msg}")
         n_fail += sum(1 for g, _ in results if g == _FAIL)
         n_warn += sum(1 for g, _ in results if g == _WARN)
+    if args.require_db:
+        policy_set_results = check_policy_set_db(args.paths)
+        for grade, msg in policy_set_results:
+            print(f"  {grade} {msg}")
+        n_fail += sum(1 for g, _ in policy_set_results if g == _FAIL)
     print(f"\n{'='*64}")
     print("🔒 중립성 원칙: preflight는 입력 표현·주입 준비만 점검했다. 행동 파라미터는")
     print("   일절 변경하지 않았으며, 정책 효과의 크기·방향은 전적으로 시뮬 내생이다.")
