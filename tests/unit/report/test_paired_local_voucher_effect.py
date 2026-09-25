@@ -2,6 +2,9 @@
 from __future__ import annotations
 
 import sys
+import hashlib
+import json
+import subprocess
 from datetime import date
 from pathlib import Path
 
@@ -110,3 +113,44 @@ def test_paired_location_score_rejects_incomplete_or_unverified_rows():
     on[0]['prepaid_voucher_settlement_verified'] = True
     with pytest.raises(ValueError, match='unsupported voucher'):
         score(on, off, roster=['a'], days=[day], effect_days=[day], draws=0)
+
+
+def test_spatial_score_cli_verifies_manifests_and_writes_proxy_artifact(tmp_path):
+    day = '2020-09-22'
+    roster = tmp_path / 'roster.json'
+    roster.write_text('["a"]', encoding='utf-8')
+    roster_sha = hashlib.sha256(json.dumps(['a'], ensure_ascii=False).encode()).hexdigest()
+    paths = {}
+    for arm, home in (('off', 20), ('on', 40)):
+        path = tmp_path / f'{arm}.jsonl'
+        path.write_text(json.dumps(_row('a', day, arm, 100, home, 60, 40),
+                                   ensure_ascii=False) + '\n', encoding='utf-8')
+        manifest = {
+            'arm': arm, 'policy_id': 'P014', 'start': day, 'end': day,
+            'citizens': 1, 'days': 1, 'rows': 1,
+            'roster_sha256': roster_sha,
+            'output_sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+            'quality_gate_pass': True, 'policy_file_sha256': 'a' * 64,
+            'execution_fingerprint': 'engine-1',
+            'baseline_income_map_sha256': 'b' * 64,
+            'prompt_variant': 'v51', 'system_prompt_sha256': 'c' * 64,
+            'run_id': f'run-{arm}',
+            'paired_environment_fingerprint': 'environment-1',
+            'source_fingerprint': 'source-1', 'model_id': 'EXAONE-4.5-33B-AWQ',
+            'prepaid_voucher_settlement_verified': False,
+        }
+        path.with_name(path.name + '.manifest.json').write_text(
+            json.dumps(manifest), encoding='utf-8')
+        paths[arm] = path
+    result = tmp_path / 'score.json'
+    subprocess.run([
+        sys.executable, str(ROOT / 'scripts/report/paired_local_voucher_effect.py'),
+        '--on', str(paths['on']), '--off', str(paths['off']),
+        '--roster', str(roster), '--start', day, '--end', day,
+        '--effect-start', day, '--effect-end', day, '--draws', '20',
+        '--json-out', str(result),
+    ], cwd=ROOT, check=True, capture_output=True, text=True)
+    artifact = json.loads(result.read_text(encoding='utf-8'))
+    assert artifact['indicators']['LV-2']['difference_percentage_points'] == 20
+    assert artifact['comparison'] == 'indirect_proxy'
+    assert artifact['provenance']['arms']['on']['run_id'] == 'run-on'
