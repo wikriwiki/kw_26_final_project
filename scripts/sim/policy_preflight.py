@@ -17,6 +17,7 @@
 
 사용: python scripts/sim/policy_preflight.py data/neo4j_load/policies/P010.json [P011.json ...]
 검증 런 직전: python scripts/sim/policy_preflight.py --require-db <실제 적재한 정책 사본>
+무정책 팔 직전: python scripts/sim/policy_preflight.py --expect-no-policy
 """
 from __future__ import annotations
 
@@ -278,6 +279,31 @@ def check_db_wiring(path: Path, *, require_db: bool = False) -> list[tuple[str, 
     return out
 
 
+def check_no_policy_db() -> list[tuple[str, str]]:
+    """무정책 팔이 시작되기 전에 이전 팔의 Policy 잔재를 차단한다."""
+    uri = os.environ.get("NEO4J_URI")
+    if not uri:
+        return [(_FAIL, "NEO4J_URI 미설정 → 무정책 팔 DB 점검 불가")]
+    try:
+        from neo4j import GraphDatabase
+
+        drv = GraphDatabase.driver(uri, auth=(os.environ.get("NEO4J_USER", "neo4j"),
+                                          os.environ.get("NEO4J_PASSWORD", "")))
+        try:
+            with drv.session(database=os.environ.get("NEO4J_DATABASE", "neo4j")) as s:
+                n_policy = int(s.run("MATCH (p:Policy) RETURN count(p) AS c").single()["c"])
+                n_edges = int(s.run(
+                    "MATCH (:Policy)-[r:applied_to]->() RETURN count(r) AS c"
+                ).single()["c"])
+        finally:
+            drv.close()
+    except Exception as e:
+        return [(_FAIL, f"무정책 팔 DB 점검 실패: {e}")]
+    if n_policy or n_edges:
+        return [(_FAIL, f"무정책 팔 오염: Policy {n_policy}개, applied_to {n_edges}개")]
+    return [(_PASS, "무정책 팔: Policy 0개, applied_to 0개")]
+
+
 def check_disbursement(path: Path) -> list[tuple[str, str]]:
     """**돈이 실제로 나가는가** — 런타임과 **같은 함수**로 시행일 하루를 돌려 본다.
 
@@ -333,8 +359,19 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--require-db", action="store_true",
                     help="검증 런 직전에는 DB 접속·정책 노출 조회를 반드시 통과시킨다")
-    ap.add_argument("paths", nargs="+", type=Path)
+    ap.add_argument("--expect-no-policy", action="store_true",
+                    help="무정책 팔 시작 전 DB의 Policy 및 applied_to가 0개인지 확인한다")
+    ap.add_argument("paths", nargs="*", type=Path)
     args = ap.parse_args()
+    if args.expect_no_policy:
+        if args.paths:
+            ap.error("--expect-no-policy에는 정책 파일을 지정하지 않는다")
+        results = check_no_policy_db()
+        for grade, msg in results:
+            print(f"  {grade} {msg}")
+        sys.exit(1 if any(grade == _FAIL for grade, _ in results) else 0)
+    if not args.paths:
+        ap.error("정책 파일을 지정하거나 --expect-no-policy를 사용한다")
     n_fail = 0
     n_warn = 0
     for p in args.paths:
