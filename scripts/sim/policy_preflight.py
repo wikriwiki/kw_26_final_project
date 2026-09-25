@@ -16,11 +16,13 @@
   전적으로 시뮬 내생 — 기대 효과를 사전에 주입하는 어떤 경로도 두지 않는다.
 
 사용: python scripts/sim/policy_preflight.py data/neo4j_load/policies/P010.json [P011.json ...]
+검증 런 직전: python scripts/sim/policy_preflight.py --require-db <실제 적재한 정책 사본>
 """
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -194,7 +196,7 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
     return out
 
 
-def check_db_wiring(path: Path) -> list[tuple[str, str]]:
+def check_db_wiring(path: Path, *, require_db: bool = False) -> list[tuple[str, str]]:
     """적재 후 DB 배선 실측 — 파일 검사가 구조적으로 못 잡는 치명 결함을 게이트.
 
     핵심: POLICY_CYPHER 는 (Policy)-[:applied_to]->(District/Dong) 엣지를 통해
@@ -202,11 +204,11 @@ def check_db_wiring(path: Path) -> list[tuple[str, str]]:
     applied_to 가 0건이면 정책은 존재하지만 **어떤 에이전트도 보지 못한다**.
     NEO4J_URI 가 있을 때만(=적재 이후) 실행.
     """
-    import os
     out: list[tuple[str, str]] = []
     uri = os.environ.get("NEO4J_URI")
     if not uri:
-        out.append((_WARN, "NEO4J_URI 미설정 → DB 배선 점검 생략 (정책 적재 후 재실행 권장)"))
+        grade = _FAIL if require_db else _WARN
+        out.append((grade, "NEO4J_URI 미설정 → DB 배선 점검 불가"))
         return out
     pol = json.loads(path.read_text(encoding="utf-8"))
     pid = pol.get("id", "?")
@@ -271,7 +273,8 @@ def check_db_wiring(path: Path) -> list[tuple[str, str]]:
                                            "유흥주점·복권 약 3,400개가 적립으로 남아 C1 대조군이 무너진다"))
         drv.close()
     except Exception as e:
-        out.append((_WARN, f"DB 배선 점검 실패(건너뜀): {e}"))
+        grade = _FAIL if require_db else _WARN
+        out.append((grade, f"DB 배선 점검 실패: {e}"))
     return out
 
 
@@ -328,21 +331,33 @@ def _as_date_safe(v):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--require-db", action="store_true",
+                    help="검증 런 직전에는 DB 접속·정책 노출 조회를 반드시 통과시킨다")
     ap.add_argument("paths", nargs="+", type=Path)
     args = ap.parse_args()
     n_fail = 0
+    n_warn = 0
     for p in args.paths:
         print(f"\n{'='*64}\n정책 사전점검: {p}\n{'='*64}")
         results = check_policy(p)
         results += check_disbursement(p)
-        results += check_db_wiring(p)
+        results += check_db_wiring(p, require_db=args.require_db)
         for grade, msg in results:
             print(f"  {grade} {msg}")
         n_fail += sum(1 for g, _ in results if g == _FAIL)
+        n_warn += sum(1 for g, _ in results if g == _WARN)
     print(f"\n{'='*64}")
     print("🔒 중립성 원칙: preflight는 입력 표현·주입 준비만 점검했다. 행동 파라미터는")
     print("   일절 변경하지 않았으며, 정책 효과의 크기·방향은 전적으로 시뮬 내생이다.")
-    print(f"결과: {'FAIL ' + str(n_fail) + '건 — 수정 후 재실행' if n_fail else 'READY — 시뮬 구동 가능'}")
+    if n_fail:
+        verdict = f"FAIL {n_fail}건 — 수정 후 재실행"
+    elif n_warn:
+        suffix = ("경고를 검토해야 함" if args.require_db else
+                  "경고를 검토하고 검증 런 전 --require-db 재실행")
+        verdict = f"CHECKS PASS, 경고 {n_warn}건 — {suffix}"
+    else:
+        verdict = "READY — 시뮬 구동 가능"
+    print(f"결과: {verdict}")
     sys.exit(1 if n_fail else 0)
 
 
