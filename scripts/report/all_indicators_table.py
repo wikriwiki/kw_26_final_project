@@ -42,8 +42,14 @@ ROOT = Path(__file__).resolve().parents[2]
 SCORING = ROOT / "data/experiments/scoring_table.json"
 DASH = str.maketrans({"−": "-", "–": "-", "—": "-"})
 
-# 기각된 후보의 수를 정답지와 맞대면 안 된다. 선택은 v5 다.
-REJECTED = ("v45", "v51", "v7", "v8", "v9")
+# 이 표는 역사적 v5 기준선이다. 미래 후보(v52, v53 등)가 추가돼도
+# 그 결과를 표본 크기만으로 기준선 칸에 집어넣지 않는다.
+HISTORICAL_VARIANT = "v5"
+
+
+def belongs_to_historical_prompt(block: str) -> bool:
+    variants = re.findall(r"(?:^|_)v\d+(?=_|$)", block)
+    return not variants or variants[-1].lstrip("_") == HISTORICAL_VARIANT
 
 # 정책별 핵심 지표 — 표에 ★ 로 표시만 한다(무엇을 먼저 볼지 알려 주려고).
 CORE = {"P010": "P010-1", "P012": "P012-1", "EMERGENCY_2020": "EM-3",
@@ -167,7 +173,7 @@ def best_block(pol, iid):
     """**기준선 블록은 결과로 읽지 않는다.** note 가 있는 블록을 먼저 본다."""
     noted, best = None, None
     for bk, bv in pol.items():
-        if not isinstance(bv, dict) or any(r in bk for r in REJECTED):
+        if not isinstance(bv, dict) or not belongs_to_historical_prompt(bk):
             continue
         e = bv.get(iid)
         if not isinstance(e, dict):

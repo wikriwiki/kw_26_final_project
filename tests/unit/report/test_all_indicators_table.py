@@ -62,8 +62,15 @@ def test_무차원_실측도_읽는다():
 def test_기각된_후보_블록을_읽지_않는다():
     pol = {"indicators": [],
            "result_r2_v5": {"X": {"pct": 1.9, "n": 497}},
-           "result_r2_v45": {"X": {"pct": 0.6, "n": 499}}}
+           "result_r2_v45": {"X": {"pct": 0.6, "n": 499}},
+           "result_r2_v52": {"X": {"pct": 2.4, "n": 999}}}
     assert A.best_block(pol, "X")[0] == "result_r2_v5"
+
+
+def test_과거_런_번호_v50과_마지막_프롬프트_v5를_구분한다():
+    assert A.belongs_to_historical_prompt("result_v50_v5")
+    assert not A.belongs_to_historical_prompt("result_v50_v52")
+    assert A.belongs_to_historical_prompt("result_stage5_n500_2026_09_17")
 
 
 # ---------------------------------------------------------------- ③ 기준선 팔
