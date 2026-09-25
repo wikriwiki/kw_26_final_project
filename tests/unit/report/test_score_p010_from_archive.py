@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -35,3 +37,21 @@ def test_정책결제액_가중과_시민_수를_별도로_기록한다():
     result = P010.weighted_mpc(rows)
     assert result['mpc'] == pytest.approx(50 / 60)
     assert (result['agents'], result['cells'], result['days']) == (2, 3, 2)
+
+
+def test_보관_원장_숫자를_실측_오차나_적중으로_표시하지_않는다(tmp_path, monkeypatch, capsys):
+    metrics = tmp_path / 'metrics'
+    metrics.mkdir()
+    (metrics / 'day_2025-07-21.jsonl').write_text(json.dumps({
+        'aid': 'a', 'status': 'ok', 'cm_mpc_new_share': 0.2,
+        'policy_spend_today': 100,
+    }) + '\n', encoding='utf-8')
+    monkeypatch.setattr(P010, 'ROOT', tmp_path)
+    monkeypatch.setattr(sys, 'argv', ['score_p010_from_archive.py', '--metrics', 'metrics',
+                                      '--json-out', str(tmp_path / 'score.json')])
+    assert P010.main() == 0
+    out = capsys.readouterr().out
+    score = json.loads((tmp_path / 'score.json').read_text(encoding='utf-8'))['P010-1']
+    assert not any(line.lstrip().startswith('오차 ') for line in out.splitlines())
+    assert score['comparison'] == 'different_estimand'
+    assert score['hit'] is None

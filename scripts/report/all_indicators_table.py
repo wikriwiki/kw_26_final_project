@@ -13,7 +13,7 @@
 `error_budget` 은 **더할 수 있는 것만** 센다(같은 단위·같은 창). 그래서 값이 있어도
 빠진다. 이 표는 **빼지 않는다.** 대신 왜 그냥 더할 수 없는지를 줄마다 적는다.
 
-    대조가능   실측·시뮬이 같은 단위로 있다              -> 오차를 낸다
+    대조가능   단위와 추정량 정합 감사가 등록되어 있다    -> 오차를 낸다
     단위다름   둘 다 있는데 단위·창이 다르다             -> 값만 병기하고 오차는 비운다
     정의확인   추정량·기간·모집단·분모 정합 확인이 남았다    -> 값만 병기하고 오차는 비운다
     동등성검증 실측 크기 대신 등록한 무효과 밴드로 평가한다   -> 기존 CI·판정을 보존한다
@@ -112,6 +112,24 @@ def sim_gap(entry):
     return None
 
 
+DIRECT_AUDIT_FIELDS = ("source", "reported_estimand", "simulation_estimand",
+                       "reported_window", "simulation_window",
+                       "reported_population", "simulation_population",
+                       "reported_denominator", "simulation_denominator")
+
+
+def direct_comparison_audited(ind):
+    """Unit equality alone never certifies a matching empirical estimand.
+
+    These fields make the substantive comparison reviewable; their presence is
+    only a machine gate, not proof that the descriptions are correct.
+    """
+    audit = ind.get("empirical_audit") or {}
+    return (audit.get("comparison") == "matched_estimand"
+            and all(isinstance(audit.get(field), str) and audit[field].strip()
+                    for field in DIRECT_AUDIT_FIELDS))
+
+
 def from_note(entry):
     """두 팔 설계의 결과는 `note` 문자열에만 있다. (상태, 값, 단위) 를 돌려준다.
 
@@ -171,6 +189,7 @@ def classify(ind, entry, tv, tu, suspect=False):
     iid, expect = ind["id"], ind.get("expect")
     audit_status = (ind.get("empirical_audit") or {}).get("comparison")
     suspect = suspect or audit_status == "different_estimand"
+    direct = direct_comparison_audited(ind)
     # **지표 정의가 스스로 '측정 불가' 라고 말하면 그것이 맞다.**
     # DS-6 의 결과 블록에는 "관측부족" 으로 적혀 있지만, 지표 desc 는 "그래프에
     # hub_type 이 0건" 이라고 한다. 둘은 다르다 — 표본을 늘려 되는 것과 자료를
@@ -190,7 +209,9 @@ def classify(ind, entry, tv, tu, suspect=False):
             return "다른자", None, shown
         if tv is None:
             return "방향만", None, shown
-        return ("대조가능", abs(v - tv), shown) if u == tu else ("단위다름", None, shown)
+        if u != tu:
+            return "단위다름", None, shown
+        return ("대조가능", abs(v - tv), shown) if direct else ("정의확인", None, shown)
     if expect == "rank":
         g, tg = sim_gap(entry), truth_gap(ind.get("desc"), entry.get("실측"))
         shown = "간격 %+.1f%%p" % g if g is not None else "-"
@@ -200,7 +221,7 @@ def classify(ind, entry, tv, tu, suspect=False):
             return "다른자", None, shown
         if tg is None:
             return "방향만", None, shown
-        return "대조가능", abs(g - tg), shown
+        return ("대조가능", abs(g - tg), shown) if direct else ("정의확인", None, shown)
     pct, mean = entry.get("pct"), entry.get("mean")
     if isinstance(pct, (int, float)):
         shown = "%+.2f%%" % pct
@@ -211,7 +232,7 @@ def classify(ind, entry, tv, tu, suspect=False):
         if tv is None:
             return "방향만", None, shown
         if tu == "%":
-            return "대조가능", abs(pct - tv), shown
+            return ("대조가능", abs(pct - tv), shown) if direct else ("정의확인", None, shown)
         return "단위다름", None, shown
     if isinstance(mean, (int, float)):
         shown = "%.4g" % mean
@@ -326,7 +347,7 @@ def main() -> int:
     print()
     print("   '없음' 은 시뮬 값이 아예 없는 자리다 — 메워야 한다.")
     print("   '정의확인' 은 단위뿐 아니라 추정량·기간·분모·출처를 확인해야 한다.")
-    print("   '대조가능' 은 기존 분류다. 단위 일치만으로 외적 타당성이 검증되지는 않는다.")
+    print("   '대조가능' 은 출처·추정량·기간·대상·분모의 정합 감사가 등록된 경우만 뜻한다.")
     print("   registered_hit 는 기존 등록 시험의 판정이며 실측 크기 일치 판정이 아니다.")
 
     if a.json_out:
@@ -336,7 +357,7 @@ def main() -> int:
         print("→ %s" % a.json_out)
     if a.md_out:
         lines = [f"# 정책별 검증지표 비교 현황 ({date.today().isoformat()})", "",
-                 "채점표의 모든 지표를 표시한다. '대조가능'은 단위 기준의 잠정 분류이며 추정량·모집단·기간의 완전한 정합을 보증하지 않는다. 진행 중인 런의 최종 결과는 포함하지 않는다.", "",
+                 "채점표의 모든 지표를 표시한다. 직접 오차는 출처·추정량·기간·대상·분모의 정합 감사가 등록된 경우에만 계산한다. 감사 기록만으로 외적 타당성이 증명되지는 않는다. 진행 중인 런의 최종 결과는 포함하지 않는다.", "",
                  "`n`의 단위는 결과마다 다르다. P010은 시민 200명과 반복 시민-일 1,971개다. 등록된 hit는 실측 크기 일치 판정이 아니다.", "",
                  "| 정책 | 지표 | 실측 | 시뮬 | n | 상태 | 확인 사항 |",
                  "|---|---|---:|---:|---:|---|---|"]

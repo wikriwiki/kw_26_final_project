@@ -32,6 +32,14 @@ def _mod():
 A = _mod()
 
 
+def _matched_audit():
+    return {"comparison": "matched_estimand", "source": "verified-source",
+            "reported_estimand": "population contrast", "simulation_estimand": "population contrast",
+            "reported_window": "same dates", "simulation_window": "same dates",
+            "reported_population": "same cohort", "simulation_population": "same cohort",
+            "reported_denominator": "eligible spending", "simulation_denominator": "eligible spending"}
+
+
 # ---------------------------------------------------------------- ① 실측 읽기
 
 def test_할인율을_실측으로_읽지_않는다():
@@ -108,7 +116,8 @@ def test_관측부족은_그대로_관측부족이다():
 # ---------------------------------------------------------------- 오차 계산
 
 def test_같은_단위일_때만_오차를_낸다():
-    ind = {"id": "X", "expect": "+", "desc": "(실측 +7.3%)"}
+    ind = {"id": "X", "expect": "+", "desc": "(실측 +7.3%)",
+           "empirical_audit": _matched_audit()}
     st, err, _ = A.classify(ind, {"pct": 12.6, "n": 200}, 7.3, "%")
     assert st == "대조가능" and err == pytest.approx(5.3)
 
@@ -123,11 +132,21 @@ def test_다른자로_잰_것은_오차를_내지_않는다():
 
 
 def test_순위지표는_간격으로_맞댄다():
-    ind = {"id": "X", "expect": "rank", "desc": "(실측 +10.8%p vs +3.6%p)"}
+    ind = {"id": "X", "expect": "rank", "desc": "(실측 +10.8%p vs +3.6%p)",
+           "empirical_audit": _matched_audit()}
     st, err, shown = A.classify(ind, {"got": "A +45.8% vs B -22.5%"}, None, None)
     assert st == "대조가능"
     assert err == pytest.approx(abs((45.8 - (-22.5)) - (10.8 - 3.6)), abs=0.01)
     assert "간격" in shown
+
+
+def test_같은_단위여도_정합_감사_없으면_직접_오차를_내지_않는다():
+    ind = {"id": "X", "expect": "+", "desc": "(실측 +7.3%)"}
+    assert A.classify(ind, {"pct": 12.6}, 7.3, "%") == ("정의확인", None, "+12.60%")
+    ind["empirical_audit"] = {"comparison": "matched_estimand", "source": "verified-source"}
+    assert A.classify(ind, {"pct": 12.6}, 7.3, "%") == ("정의확인", None, "+12.60%")
+    ind["empirical_audit"] = _matched_audit()
+    assert A.classify(ind, {"pct": 12.6}, 7.3, "%") == ("대조가능", pytest.approx(5.3), "+12.60%")
 
 
 def test_시뮬_값이_없으면_없음():
