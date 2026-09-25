@@ -87,12 +87,21 @@ def _index(rows: list[dict], roster: list[str], days: list[str], arm: str,
 def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
           days: list[str], policy_id: str, draws: int = 2000,
           seed: int = 20260926,
+          effect_days: list[str] | None = None,
           expected_recipients: int | None = None,
           expected_issued_won: int | None = None) -> dict:
     if not roster or not days or len(set(roster)) != len(roster) or len(set(days)) != len(days):
         raise ValueError("nonempty unique roster and days required")
     if draws < 0:
         raise ValueError("draws must be nonnegative")
+    if dates(days[0], days[-1]) != days:
+        raise ValueError("ledger days must be contiguous and chronological")
+    effect_days = days if effect_days is None else effect_days
+    if (not effect_days or len(set(effect_days)) != len(effect_days)
+            or dates(effect_days[0], effect_days[-1]) != effect_days
+            or not set(effect_days).issubset(days)):
+        raise ValueError("effect days must be a nonempty contiguous subset of ledger days")
+    effect_day_set = set(effect_days)
     on = _index(on_rows, roster, days, "on", policy_id)
     off = _index(off_rows, roster, days, "off", policy_id)
     per_citizen = []
@@ -125,12 +134,13 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
             spent += p["grant_spent_today"]
             if received - spent != p["grant_remaining"]:
                 raise ValueError(f"grant wallet does not reconcile: {aid} {day}")
-            values["on_offline"] += p["offline_spent"]
-            values["off_offline"] += c["offline_spent"]
-            values["on_total"] += p["offline_spent"] + p["online_spent"]
-            values["off_total"] += c["offline_spent"] + c["online_spent"]
-            values["on_eligible"] += p["eligible_offline_spent"]
-            values["off_eligible"] += c["eligible_offline_spent"]
+            if day in effect_day_set:
+                values["on_offline"] += p["offline_spent"]
+                values["off_offline"] += c["offline_spent"]
+                values["on_total"] += p["offline_spent"] + p["online_spent"]
+                values["off_total"] += c["offline_spent"] + c["online_spent"]
+                values["on_eligible"] += p["eligible_offline_spent"]
+                values["off_eligible"] += c["eligible_offline_spent"]
         values.update(aid=aid, received=received, spent=spent,
                       remaining=on[(aid, days[-1])]["grant_remaining"],
                       choice_repaired=choice_repaired)
@@ -150,6 +160,10 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
         numerator = sum(r["on_" + field] - r["off_" + field] for r in rows)
         denominator = sum(r["received"] for r in rows)
         return numerator / denominator if denominator else float("nan")
+    def relative_change(rows: list[dict], field: str) -> float:
+        off_total = sum(r["off_" + field] for r in rows)
+        return (sum(r["on_" + field] - r["off_" + field] for r in rows) / off_total
+                if off_total else float("nan"))
     ratio = contrast(per_citizen, "total")
     clean_citizens = [row for row in per_citizen if not row["choice_repaired"]]
 
@@ -158,38 +172,56 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
         return value if math.isfinite(value) else None
     rng = random.Random(seed)
     boot = {field: [] for field in ("total", "offline", "eligible")}
+    boot_relative = {field: [] for field in ("total", "eligible")}
     for _ in range(draws):
         sample = rng.choices(per_citizen, k=len(per_citizen))
         for field in boot:
             value = contrast(sample, field)
             if math.isfinite(value):  # a resample can contain no recipients
                 boot[field].append(value)
+        for field in boot_relative:
+            value = relative_change(sample, field)
+            if math.isfinite(value):
+                boot_relative[field].append(value)
     for values in boot.values():
         values.sort()
+    for values in boot_relative.values():
+        values.sort()
 
-    def interval(field: str) -> list[float] | None:
-        values = boot[field]
+    def interval(values: list[float]) -> list[float] | None:
         return ([values[int(0.025 * (len(values) - 1))],
                  values[int(0.975 * (len(values) - 1))]] if values else None)
     return {
         "policy_id": policy_id, "start": days[0], "end": days[-1],
         "citizens": len(roster), "days": len(days),
+        "effect_start": effect_days[0], "effect_end": effect_days[-1],
+        "effect_days": len(effect_days),
         "grant_recipients": recipients,
         "complete_matrix": True, "funding_reconciled": True,
         "recorded_total_spend_on_won": summed["on_total"],
         "recorded_total_spend_off_won": summed["off_total"],
         "recorded_total_spend_difference_won": summed["on_total"] - summed["off_total"],
+        "recorded_total_relative_change": (relative_change(per_citizen, "total")
+                                           if summed["off_total"] else None),
+        "recorded_total_relative_citizen_bootstrap_95_interval": interval(
+            boot_relative["total"]),
         "grant_issued_won": issued, "grant_spent_won": summed["spent"],
         "grant_remaining_won": summed["remaining"],
         "incremental_recorded_spend_per_grant_won": ratio,
-        "citizen_bootstrap_95_interval": interval("total"),
+        "citizen_bootstrap_95_interval": interval(boot["total"]),
         "bootstrap_valid_draws": len(boot["total"]),
         "offline_difference_won": summed["on_offline"] - summed["off_offline"],
         "offline_effect_per_grant_won": contrast(per_citizen, "offline"),
-        "offline_citizen_bootstrap_95_interval": interval("offline"),
+        "offline_citizen_bootstrap_95_interval": interval(boot["offline"]),
+        "eligible_offline_spend_on_won": summed["on_eligible"],
+        "eligible_offline_spend_off_won": summed["off_eligible"],
         "eligible_offline_difference_won": summed["on_eligible"] - summed["off_eligible"],
+        "eligible_offline_relative_change": (relative_change(per_citizen, "eligible")
+                                             if summed["off_eligible"] else None),
+        "eligible_offline_relative_citizen_bootstrap_95_interval": interval(
+            boot_relative["eligible"]),
         "eligible_offline_effect_per_grant_won": contrast(per_citizen, "eligible"),
-        "eligible_offline_citizen_bootstrap_95_interval": interval("eligible"),
+        "eligible_offline_citizen_bootstrap_95_interval": interval(boot["eligible"]),
         "choice_repair_sensitivity": {
             "unrepaired_citizens": len(clean_citizens),
             "excluded_citizens": len(roster) - len(clean_citizens),
@@ -200,14 +232,18 @@ def score(on_rows: list[dict], off_rows: list[dict], *, roster: list[str],
                      "population effect or prompt accuracy score.",
         },
         "comparison": "indirect_proxy",
-        "scope": "Within-run matched-citizen spending proxy. Payment instrument, population "
-                 "and external counterfactual are not aligned; do not subtract from an "
-                 "empirical card-sales estimate as a direct accuracy error.",
+        "scope": "Within-run, same-calendar matched-citizen spending effect for the "
+                 "reported effect window. External outcome, population and "
+                 "counterfactual definitions require separate alignment audit; do not "
+                 "subtract this estimate as a direct empirical accuracy error.",
     }
 
 
 def compare_reference(result: dict, reference: dict) -> dict:
     """Give a rough sector-matched scale view without declaring estimand equality."""
+    if (result.get("effect_start", result.get("start")) != result.get("start")
+            or result.get("effect_end", result.get("end")) != result.get("end")):
+        raise ValueError("external grant reference requires the complete effect window")
     if (reference.get("policy_id") != result.get("policy_id")
             or reference.get("simulation_start") != result.get("start")
             or reference.get("simulation_end") != result.get("end")
@@ -307,6 +343,8 @@ def main() -> int:
     parser.add_argument("--start", required=True)
     parser.add_argument("--end", required=True)
     parser.add_argument("--policy-id", required=True)
+    parser.add_argument("--effect-start", help="First scored day; full ledger still reconciled")
+    parser.add_argument("--effect-end", help="Last scored day; must accompany effect-start")
     parser.add_argument("--expected-recipients", type=int)
     parser.add_argument("--expected-issued-won", type=int)
     parser.add_argument("--draws", type=int, default=2000)
@@ -316,11 +354,16 @@ def main() -> int:
     args = parser.parse_args()
     roster = roster_file(args.roster)
     days = dates(args.start, args.end)
+    if bool(args.effect_start) != bool(args.effect_end):
+        parser.error("effect-start and effect-end must be supplied together")
+    effect_days = (dates(args.effect_start, args.effect_end)
+                   if args.effect_start else None)
     provenance = verify_manifests(args.on, args.off, roster=roster, days=days,
                                   policy_id=args.policy_id)
     result = score(read_jsonl(args.on), read_jsonl(args.off),
                    roster=roster, days=days,
                    policy_id=args.policy_id, draws=args.draws,
+                   effect_days=effect_days,
                    expected_recipients=args.expected_recipients,
                    expected_issued_won=args.expected_issued_won)
     result["provenance"] = provenance

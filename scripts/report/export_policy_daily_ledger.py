@@ -11,6 +11,7 @@ import json
 import os
 import sys
 from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -84,7 +85,24 @@ def _policy_amount(value: object, policy_id: str) -> int:
 
 
 def verify_metrics(path: Path, roster: list[str], arm: str,
-                   policy_id: str | None = None) -> dict[str, dict]:
+                   policy_id: str | None = None,
+                   effective_from: str | None = None,
+                   effective_until: str | None = None) -> dict[str, dict]:
+    if (effective_from is None) != (effective_until is None):
+        raise ValueError("both policy effective dates are required together")
+    if effective_from is not None:
+        if (date.fromisoformat(effective_from).isoformat() != effective_from
+                or date.fromisoformat(effective_until).isoformat() != effective_until
+                or effective_from > effective_until):
+            raise ValueError("invalid policy effective window")
+        if not path.stem.startswith("day_"):
+            raise ValueError("daily metrics filename required for policy exposure")
+        observed_day = path.stem[4:]
+        if date.fromisoformat(observed_day).isoformat() != observed_day:
+            raise ValueError("invalid daily metrics date")
+        active = effective_from <= observed_day <= effective_until
+    else:
+        active = True
     rows = read_jsonl(path)
     seen = {}
     for row in rows:
@@ -101,9 +119,13 @@ def verify_metrics(path: Path, roster: list[str], arm: str,
         if policy_id is not None:
             if not isinstance(exposed, list):
                 raise ValueError(f"missing policy exposure evidence: {path} {aid}")
-            expected = {policy_id} if arm == "on" else set()
+            expected = {policy_id} if arm == "on" and active else set()
             if set(exposed) != expected:
                 raise ValueError(f"wrong policy exposure: {path} {aid}")
+        if arm == "on" and not active and any(row.get(key) for key in
+                                               ("policy_hits", "grant_applied_today",
+                                                "policy_spend_today")):
+            raise ValueError(f"policy activity before effective date: {path} {aid}")
         if arm == "on" and row.get("grant_due_but_zero"):
             raise ValueError(f"grant due but not delivered: {path} {aid}")
         if arm == "off" and any(row.get(key) for key in
@@ -212,7 +234,9 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
         raise ValueError("arm must be on or off")
     # Complete the inexpensive disk gate before querying the graph.
     metrics_by_day = {day: verify_metrics(metrics_dir / f"day_{day}.jsonl",
-                                          roster, arm, policy_id)
+                                          roster, arm, policy_id,
+                                          policy.get("effective_from"),
+                                          policy.get("effective_until"))
                       for day in days}
     audit = inspect({day: list(metrics_by_day[day].values()) for day in days},
                     expected_per_day=len(roster))

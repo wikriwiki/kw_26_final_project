@@ -56,6 +56,36 @@ def test_paired_incremental_spending_divides_by_once_issued_grant():
     assert result["comparison"] == "indirect_proxy"
 
 
+def test_effect_window_uses_same_dates_and_full_horizon_wallet_reconciliation():
+    days = ["2025-07-20", "2025-07-21", "2025-07-22"]
+    on = [row("a", days[0], "on", 100, 0, 80, self_cumulative=100),
+          row("a", days[1], "on", 150, 0, 130, 100, 50, 50, 200),
+          row("a", days[2], "on", 130, 0, 100, 100, 50, 0, 280)]
+    off = [row("a", day, "off", 100, 0, 80, self_cumulative=100 * (i + 1))
+           for i, day in enumerate(days)]
+    for item in on + off:
+        item["policy_id"] = "P010"
+    result = effect.score(on, off, roster=["a"], days=days, policy_id="P010",
+                          effect_days=[days[2]], draws=50)
+    assert result["grant_issued_won"] == 100
+    assert result["grant_spent_won"] == 100
+    assert result["grant_remaining_won"] == 0
+    assert result["effect_start"] == days[2]
+    assert result["recorded_total_spend_difference_won"] == 30
+    assert result["recorded_total_relative_change"] == pytest.approx(0.3)
+    assert result["eligible_offline_difference_won"] == 20
+    assert result["eligible_offline_relative_change"] == pytest.approx(0.25)
+    full = effect.score(on, off, roster=["a"], days=days, policy_id="P010", draws=0)
+    assert full["recorded_total_spend_difference_won"] == 80
+    with pytest.raises(ValueError, match="effect days"):
+        effect.score(on, off, roster=["a"], days=days, policy_id="P010",
+                     effect_days=["2025-07-23"], draws=0)
+    on[1]["grant_remaining"] += 1
+    with pytest.raises(ValueError, match="wallet does not reconcile"):
+        effect.score(on, off, roster=["a"], days=days, policy_id="P010",
+                     effect_days=[days[2]], draws=0)
+
+
 def test_grant_effect_reports_unrepaired_citizen_sensitivity():
     on, off, days = complete_pair()
     on[0]["s2_choice_status"] = "partial_repair"
@@ -96,6 +126,8 @@ def test_grant_reference_uses_eligible_sector_proxy_without_accuracy_claim():
     assert "no direct accuracy score" in comparison["comparison_status"]
     with pytest.raises(ValueError, match="does not match"):
         effect.compare_reference(result, {**reference, "simulation_end": "2020-06-21"})
+    with pytest.raises(ValueError, match="complete effect window"):
+        effect.compare_reference({**result, "effect_start": days[1]}, reference)
 
 
 def test_registered_kdi_reference_matches_proxy_contract():
@@ -219,6 +251,34 @@ def test_exporter_requires_policy_exposure_evidence(tmp_path):
     path.write_text(json.dumps({"aid": "a", "status": "ok"}) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="missing policy exposure"):
         exporter.verify_metrics(path, ["a"], "on", "P013")
+
+
+def test_exporter_uses_effective_dates_for_prepolicy_exposure(tmp_path):
+    before = tmp_path / "day_2025-07-20.jsonl"
+    before.write_text(json.dumps({"aid": "a", "status": "ok",
+                                  "experience_policy_ids": [],
+                                  "grant_applied_today": 0,
+                                  "policy_spend_today": 0}) + "\n", encoding="utf-8")
+    kwargs = {"policy_id": "P010", "effective_from": "2025-07-21",
+              "effective_until": "2025-11-30"}
+    assert exporter.verify_metrics(before, ["a"], "on", **kwargs)["a"][
+        "experience_policy_ids"] == []
+    before.write_text(json.dumps({"aid": "a", "status": "ok",
+                                  "experience_policy_ids": ["P010"]}) + "\n",
+                      encoding="utf-8")
+    with pytest.raises(ValueError, match="wrong policy exposure"):
+        exporter.verify_metrics(before, ["a"], "on", **kwargs)
+    before.write_text(json.dumps({"aid": "a", "status": "ok",
+                                  "experience_policy_ids": [],
+                                  "policy_spend_today": 1}) + "\n",
+                      encoding="utf-8")
+    with pytest.raises(ValueError, match="before effective date"):
+        exporter.verify_metrics(before, ["a"], "on", **kwargs)
+    after = tmp_path / "day_2025-07-21.jsonl"
+    after.write_text(json.dumps({"aid": "a", "status": "ok",
+                                 "experience_policy_ids": ["P010"]}) + "\n",
+                     encoding="utf-8")
+    exporter.verify_metrics(after, ["a"], "on", **kwargs)
 
 
 def test_exporter_rejects_wrong_policy_graph():
