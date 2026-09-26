@@ -13,8 +13,9 @@
 
     ① 업종코드 제외 목록      — 가장 신뢰도 높음
     ② 상호명 규칙             — 코드가 못 닿는 영역(대형업태 브랜드)
-    ③ 코드가 있고 ①②에 안 걸림 → 적격 확정
-    ④ 코드 미확보 → 세분류(sub) 규칙 fallback
+    ③ subs_always            — 정책이 업종 자체를 제외할 때, 코드와 무관하게 적용
+    ④ 코드가 있고 ①②③에 안 걸림 → 적격 확정
+    ⑤ 코드 미확보 → 세분류(sub) 규칙 fallback
 
 이 순서는 `sangsaeng_eligibility.sangsaeng_arm()` 의 검증된 순서를 그대로 옮긴 것이다.
 `--verify` 로 두 구현의 판정이 전건 일치하는지 대조할 수 있다.
@@ -63,7 +64,7 @@ _ARM_OF_KIND = {
 class Rules:
     """규칙 명세를 판정 가능한 형태로 굳혀 둔다. 정책당 한 번만 만든다."""
 
-    __slots__ = ("mode", "ex_codes", "ex_subs", "name_re",
+    __slots__ = ("mode", "ex_codes", "ex_subs", "ex_subs_always", "name_re",
                  "in_codes", "in_subs", "in_l1s", "same_district")
 
     def __init__(self, spec: dict[str, Any] | None):
@@ -81,6 +82,13 @@ class Rules:
             arm = _ARM_OF_KIND.get(kind, ARM_EXCLUDED_OTHER)
             for x in subs or ():
                 self.ex_subs[str(x).strip()] = arm
+        # Some policy exclusions are defined by the merchant category itself.
+        # Unlike fallback `subs`, these still apply when an industry code exists.
+        self.ex_subs_always: dict[str, str] = {}
+        for kind, subs in (ex.get("subs_always") or {}).items():
+            arm = _ARM_OF_KIND.get(kind, ARM_EXCLUDED_OTHER)
+            for x in subs or ():
+                self.ex_subs_always[str(x).strip()] = arm
         pat = ex.get("name_regex")
         self.name_re = re.compile(pat) if pat else None
 
@@ -124,10 +132,14 @@ class Rules:
         # ② 상호명 규칙 — 코드가 못 닿는 영역
         if n and self.name_re is not None and self.name_re.search(n):
             return ARM_EXCLUDED_OTHER, "brand_large"
-        # ③ 코드가 있고 ①②에 안 걸림 → 적격 확정
+        if s:
+            hit = self.ex_subs_always.get(s)
+            if hit:
+                return hit, "sub_always_" + _kind_of(hit)
+        # ④ 코드가 있고 위 제외 조건에 안 걸림 → 적격 확정
         if c:
             return ARM_ELIGIBLE, "code_eligible"
-        # ④ 코드 미확보 → 세분류 fallback
+        # ⑤ 코드 미확보 → 세분류 fallback
         if s:
             hit = self.ex_subs.get(s)
             if hit:
@@ -160,7 +172,8 @@ def validated_restricted_rules(spec: Any) -> Rules:
         if not isinstance(exc, dict):
             raise ValueError("exclude 적격 규칙은 객체여야 합니다")
         has_exclusion = bool(exc.get("name_regex")) or any(
-            values for group in (exc.get("codes") or {}, exc.get("subs") or {})
+            values for group in (exc.get("codes") or {}, exc.get("subs") or {},
+                                 exc.get("subs_always") or {})
             for values in (group.values() if isinstance(group, dict) else ())
         )
         if not has_exclusion and not spec.get("require_same_district"):

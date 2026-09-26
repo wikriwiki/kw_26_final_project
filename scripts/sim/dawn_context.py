@@ -226,6 +226,7 @@ RETURN p.id AS poi_id, p.name AS name,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
+       p.upjong_l3 AS upjong_l3,
        km
 ORDER BY km ASC, poi_id ASC LIMIT $limit
 """
@@ -244,6 +245,7 @@ RETURN DISTINCT p.id AS poi_id, p.name AS name,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
+       p.upjong_l3 AS upjong_l3,
        NULL AS km
 ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
@@ -262,6 +264,7 @@ RETURN DISTINCT p.id AS poi_id, p.name AS name,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
+       p.upjong_l3 AS upjong_l3,
        NULL AS km
 ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
