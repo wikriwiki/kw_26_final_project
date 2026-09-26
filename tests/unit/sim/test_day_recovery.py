@@ -36,6 +36,8 @@ def test_stale_done_checkpoint_never_skips_database_reconciliation(output, monke
     assert cohort['prompt_variant'] == runner._ACTIVE_PROMPT_VARIANT
     assert cohort['system_prompt_sha256'] == hashlib.sha256(
         runner.DAWN_SYSTEM_PROMPT.encode('utf-8')).hexdigest()
+    assert cohort['stage2_system_prompt_sha256'] == hashlib.sha256(
+        runner.active_stage2_system().encode('utf-8')).hexdigest()
 
 @pytest.mark.parametrize('agents', [[], ['A', 'A'], ['']])
 def test_invalid_cohort_rejected_before_execution(output, agents):

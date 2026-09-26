@@ -285,7 +285,14 @@ def pair_provenance(manifests: list[dict], arms: tuple[str, str]) -> dict:
             or not isinstance(system_prompt_sha, str) or len(system_prompt_sha) != 64
             or any(char not in "0123456789abcdef" for char in system_prompt_sha)):
         raise ValueError("paired ledger manifests need a prompt variant and system prompt hash")
-    return {
+    stage2_sha = manifests[0].get("stage2_system_prompt_sha256")
+    if prompt_variant == "v53" and (
+        not isinstance(stage2_sha, str) or len(stage2_sha) != 64
+        or any(char not in "0123456789abcdef" for char in stage2_sha)
+        or any(m.get("stage2_system_prompt_sha256") != stage2_sha for m in manifests[1:])
+    ):
+        raise ValueError("paired v53 ledgers need the same Stage2 system prompt hash")
+    provenance = {
         "prompt_variant": prompt_variant,
         "system_prompt_sha256": system_prompt_sha,
         "baseline_income_map_sha256": manifests[0]["baseline_income_map_sha256"],
@@ -302,6 +309,9 @@ def pair_provenance(manifests: list[dict], arms: tuple[str, str]) -> dict:
                            "generation_totals") or {}).get("stage2_choice_repair_agents")}
                  for arm, manifest in zip(arms, manifests)},
     }
+    if stage2_sha is not None:
+        provenance["stage2_system_prompt_sha256"] = stage2_sha
+    return provenance
 
 
 def verify_manifests(on_path: Path, off_path: Path, *, roster: list[str],

@@ -169,6 +169,29 @@ def test_cohort_prompt_change_blocks_month_export(tmp_path):
         cashback.verify_cohorts(metrics_dir, days, ["citizen"])
 
 
+def test_v53_requires_consistent_stage2_prompt_hash(tmp_path):
+    metrics_dir = tmp_path / "metrics"
+    metrics_dir.mkdir()
+    days = ["2021-10-01", "2021-10-02"]
+    for day, stage2_sha in zip(days, ("a" * 64, "b" * 64)):
+        (tmp_path / f"cohort_{day}.json").write_text(json.dumps({
+            "agent_ids": ["citizen"], "execution_fingerprint": "same-code",
+            "baseline_income_map_sha256": "same-income-map", "run_id": "same-run",
+            "prompt_variant": "v53", "system_prompt_sha256": "c" * 64,
+            "stage2_system_prompt_sha256": stage2_sha,
+        }), encoding="utf-8")
+    with pytest.raises(ValueError, match="prompt changed"):
+        cashback.verify_cohorts(metrics_dir, days, ["citizen"])
+    (tmp_path / f"cohort_{days[1]}.json").write_text(json.dumps({
+        "agent_ids": ["citizen"], "execution_fingerprint": "same-code",
+        "baseline_income_map_sha256": "same-income-map", "run_id": "same-run",
+        "prompt_variant": "v53", "system_prompt_sha256": "c" * 64,
+        "stage2_system_prompt_sha256": "a" * 64,
+    }), encoding="utf-8")
+    assert cashback.verify_cohorts(metrics_dir, days, ["citizen"])[
+        "stage2_system_prompt_sha256"] == "a" * 64
+
+
 def test_missing_run_id_blocks_month_export(tmp_path):
     metrics_dir = tmp_path / "metrics"
     metrics_dir.mkdir()

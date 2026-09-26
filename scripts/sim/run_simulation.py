@@ -67,7 +67,7 @@ _SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
 from stage1_intent import call_stage1, grant_style_to_use, SYSTEM_PROMPT as DAWN_SYSTEM_PROMPT  # noqa: E402
 from prompts import active_name as active_prompt_name  # noqa: E402
 _ACTIVE_PROMPT_VARIANT = active_prompt_name()
-from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
+from stage2_poi import call_stage2, merge_to_final_events, active_stage2_system  # noqa: E402
 from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
     night_finalize_yesterday, night_create_state,
@@ -933,6 +933,8 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
               "prompt_variant": _ACTIVE_PROMPT_VARIANT,
               "system_prompt_sha256": hashlib.sha256(
                   DAWN_SYSTEM_PROMPT.encode("utf-8")).hexdigest(),
+              "stage2_system_prompt_sha256": hashlib.sha256(
+                  active_stage2_system().encode("utf-8")).hexdigest(),
               "execution_fingerprint": execution_fingerprint(),
               "paired_environment_fingerprint": paired_environment_fingerprint()}
     from income import preflight_baseline_income

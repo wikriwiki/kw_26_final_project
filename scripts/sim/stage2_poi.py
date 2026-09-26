@@ -35,6 +35,7 @@ from dawn_context import (  # noqa: E402
     build_stage2_candidates,
     build_stage2_candidates_l1_dong,
     build_stage2_candidates_l1_district,
+    _format_policy_facts, _format_policy_status, _json_dict,
 )
 from stage1_intent import Stage1Output, call_stage1, _extract_json  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
@@ -529,6 +530,50 @@ pick_factor enum 정의 (가장 결정적이었던 단일 요인 1개):
 /no_think"""
 
 
+def _build_neutral_stage2_system() -> str:
+    """Preserve the legacy spatial contract while removing its grant assumptions."""
+    start = "**소비액 설정 (actual_spent + policy_spend)**"
+    end = "**만족도 설정 (actual_satisfaction)**"
+    assert SYSTEM_S2.count(start) == SYSTEM_S2.count(end) == 1
+    before, rest = SYSTEM_S2.split(start, 1)
+    _, after = rest.split(end, 1)
+    neutral_money = """**소비액과 정책 결제**
+- 실제 방문·금액·결제수단은 오늘의 필요, 평소 습관, 잔액, 일정, 후보 가격과 정책 블록의 적용 조건을 함께 보고 건별로 정합니다. 정책이 있다는 사실만으로 구매나 방문을 만들지 않습니다.
+- `actual_spent`는 거래 총액(원)입니다. 모든 commerce 이벤트에 양수를 적습니다.
+- `policy_spend`는 별도로 지급된 정책 지갑에서 이 거래에 실제로 사용하기로 한 금액만 `{정책ID: 금액}`으로 적습니다. 그런 지갑이 없거나 쓰지 않으면 null 또는 빈 객체로 적습니다. 나중에 돌려받는 혜택이나 가격 할인액을 정책 지갑 지출로 적지 않습니다.
+- 정책 지갑을 쓴다면 입력에 나온 해당 정책 ID·잔액·사용 자격·장소 조건을 확인합니다. 정책별 사용액은 잔액을 넘지 않고 합계는 `actual_spent`를 넘지 않습니다. 후보의 자격 표시는 그 후보에만 적용합니다.
+- `would_buy_anyway`는 이 정책이 없었어도 오늘 이 구매를 했을지에 대한 건별 판단입니다. `extra_spent`는 같은 조건에서 오늘 쓰지 않았을 것으로 판단한 거래액 부분이며 0 이상 `actual_spent` 이하입니다. 정책과 무관하거나 근거가 없으면 null로 둡니다. 이 두 자기보고값을 먼저 정해 구매·장소를 맞추지 않습니다.
+- `pick_reason`에는 시민의 구체적인 필요·예산·기억·후보 특성과, 실제 관련될 때만 정책 조건을 적습니다. 입력에 없는 사용처나 결과를 만들지 않습니다.
+
+"""
+    text = before + neutral_money + end + after
+    example_start = '## 출력 형식 (JSON만, 다른 텍스트 금지)'
+    example_end = 'pick_factor enum 정의'
+    assert text.count(example_start) == text.count(example_end) == 1
+    prefix, suffix = text.split(example_start, 1)
+    _, tail = suffix.split(example_end, 1)
+    example = """## 출력 형식 (JSON만, 다른 텍스트 금지)
+{"picks": [
+  {"order": 0, "poi_id": "C_xxxxxx", "actual_spent": 12000,
+   "policy_spend": null, "would_buy_anyway": null, "extra_spent": null,
+   "actual_satisfaction": 0.71,
+   "pick_reason": "오늘 필요한 방문에 맞고 가깝고 평소 예산에도 맞음.",
+   "pick_factor": "distance"}
+], "review_lookup_requests": []}
+
+"""
+    return prefix + example + example_end + tail
+
+
+SYSTEM_S2_NEUTRAL = _build_neutral_stage2_system()
+
+
+def active_stage2_system() -> str:
+    """Historical variants keep their original Stage2 prompt byte for byte."""
+    from prompts import active_name
+    return SYSTEM_S2_NEUTRAL if active_name() == "v53" else SYSTEM_S2
+
+
 def _format_event_with_candidates(
     i: int, ev, cands: list[dict], recent_poi_ids: set[str] | None = None
 ) -> str:
@@ -582,6 +627,9 @@ def build_stage2_prompt(
     persona: dict | None = None,
     recent_poi_ids: set[str] | None = None,
     state: dict | None = None,
+    active_policies: list[dict] | None = None,
+    today: date | None = None,
+    neutral: bool = False,
 ) -> str:
     # 페르소나 헤더
     header_parts = []
@@ -597,7 +645,9 @@ def build_stage2_prompt(
         # 새 사실이 아니라 Stage1 이 이미 받은 그 줄을 그대로 옮긴다 — 방향도
         # 목표 수치도 붙이지 않는다. 받아들이는 방식은 형편에 달렸다고만 적는다.
         if EXP_S2_THRESHOLD:
-            _ss = (persona.get("sangsaeng_status_line") or "").strip().lstrip("- ")
+            _ss = (
+                (persona.get("sangsaeng_status_line") or "") if not neutral else ""
+            ).strip().lstrip("- ")
             if _ss:
                 budget_info += (
                     "\n적립 정책 상태: " + _ss +
@@ -633,10 +683,24 @@ def build_stage2_prompt(
         except Exception:
             _dur = ""
         header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}{_dur}")
-        # 활성 정책 (grant 위주, LLM이 policy_spend 책정 시 참조)
-        policy_budget = persona.get("policy_budget_summary") or ""
-        if policy_budget:
-            header_parts.append(f"## 활성 정책 (policy_spend 책정 시 참조)\n{policy_budget}")
+        if neutral:
+            policies = active_policies or []
+            status = (
+                _format_policy_status(
+                    policies, policy_used=_json_dict((state or {}).get("policy_used")),
+                    persona=persona, state=state, today=today,
+                ) if policies else "(오늘 적용 정책 없음)"
+            )
+            header_parts.append(
+                "## 오늘 활성 정책 — 공통 사실\n"
+                + _format_policy_facts(policies)
+                + "\n\n## 나에게 적용되는 정책 상태\n" + status
+            )
+        else:
+            # Historical variants retain their original wallet-oriented block.
+            policy_budget = persona.get("policy_budget_summary") or ""
+            if policy_budget:
+                header_parts.append(f"## 활성 정책 (policy_spend 책정 시 참조)\n{policy_budget}")
 
     if recent_poi_ids:
         header_parts.append(
@@ -677,8 +741,8 @@ def call_stage2(
     max_retry: int = 2,
     verbose: bool = False,
     state: dict | None = None,
-    # 정책 정보는 persona["policy_budget_summary"]로 build_stage2_prompt에 전달됨 — 아래 두 인자는 호출부 호환용(미사용)
-    active_policies: list[dict] | None = None,  # noqa: ARG001
+    # v53 reads policy facts from active_policies; older variants keep the legacy summary.
+    active_policies: list[dict] | None = None,
     grant_remaining: dict[str, int] | None = None,  # noqa: ARG001
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
@@ -770,11 +834,16 @@ def call_stage2(
     timing["t_recent_memory"] = time.perf_counter() - started
 
     started = time.perf_counter()
+    system_prompt = active_stage2_system()
+    neutral_stage2 = system_prompt == SYSTEM_S2_NEUTRAL
     user_block = build_stage2_prompt(
         stage1.events, cands_by_order,
         persona=persona,
         recent_poi_ids=recent_poi_ids,
         state=state,
+        active_policies=active_policies,
+        today=today,
+        neutral=neutral_stage2,
     )
     timing["t_prompt_build"] = time.perf_counter() - started
 
@@ -870,7 +939,7 @@ def call_stage2(
         try:
             started = time.perf_counter()
             resp = _llm_call(
-                None, SYSTEM_S2, prompt_now,
+                None, system_prompt, prompt_now,
                 temperature=temp, max_tokens=token_cap,
                 response_format=s2_schema,
             )
@@ -1250,7 +1319,10 @@ if __name__ == "__main__":
     print(s1.model_dump_json(indent=2))
     print(f"\nmeta: {m1}")
 
-    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, today, verbose=args.verbose)
+    s2, cands, m2 = call_stage2(
+        args.aid, s1, ctx.persona, today, verbose=args.verbose,
+        state=ctx.state, active_policies=ctx.policy,
+    )
     print("\n=== Stage 2 ===")
     print(s2.model_dump_json(indent=2))
     print(f"\nmeta: {m2}")

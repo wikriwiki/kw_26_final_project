@@ -14,6 +14,16 @@ import paired_grant_effect as effect  # noqa: E402
 import export_policy_daily_ledger as exporter  # noqa: E402
 
 
+def test_v53_paired_provenance_rejects_different_stage2_systems():
+    manifests = [
+        {"prompt_variant": "v53", "system_prompt_sha256": "a" * 64,
+         "stage2_system_prompt_sha256": sha}
+        for sha in ("b" * 64, "c" * 64)
+    ]
+    with pytest.raises(ValueError, match="Stage2 system prompt hash"):
+        effect.pair_provenance(manifests, ("on", "off"))
+
+
 def row(aid, day, arm, offline, online, eligible, received=0, spent=0,
         remaining=0, self_cumulative=0):
     return {"aid": aid, "day": day, "arm": arm, "policy_id": "P013",
