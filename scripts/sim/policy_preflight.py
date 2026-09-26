@@ -118,10 +118,22 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
 
     # ── B. 환경 요구사항 (정책 속성 → 자동 도출) ──
     if pol.get("poi_restricted"):
-        csvs = list((ROOT / "data" / "coupon").glob("*.csv"))
-        out.append((_PASS, f"사용처 제한 → 실측 가맹점 CSV {len(csvs)}개 준비됨 "
-                           f"(서버에서 09_coupon_eligibility.py 백필 필요)") if csvs
-                   else (_WARN, "사용처 제한인데 data/coupon/*.csv 없음 — 룰 fallback만 사용됨"))
+        from prompts import get as get_prompt_variant
+        if getattr(get_prompt_variant(), "STAGE2_NEUTRAL", False):
+            from eligibility import validated_restricted_rules
+            try:
+                validated_restricted_rules(pol.get("eligibility"))
+            except ValueError as e:
+                out.append((_FAIL, f"중립 Stage2 사용처 적격 규칙 누락/오류: {e}"))
+            else:
+                out.append((_PASS, "중립 Stage2 사용처 적격 규칙 해석 가능"))
+            out.append((_PASS, "사용처 표시 선언됨") if pol.get("eligible_marker") else
+                       (_FAIL, "중립 Stage2 사용처 제한 정책에 eligible_marker 없음"))
+        elif not pol.get("eligibility"):
+            csvs = list((ROOT / "data" / "coupon").glob("*.csv"))
+            out.append((_PASS, f"기존 쿠폰 판정용 가맹점 CSV {len(csvs)}개 준비됨 "
+                               f"(서버에서 09_coupon_eligibility.py 백필 필요)") if csvs
+                       else (_WARN, "기존 쿠폰 판정용 data/coupon/*.csv 없음 — 룰 fallback만 사용됨"))
         out.append((_PASS, "정책결제 사용처 제약(require_poi_eligible)으로 배선 — 소비액 강제 가산 없음"))
     tl = pol.get("benefit_categories") or []
     if tl:
@@ -145,6 +157,7 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
             "rate": pol.get("benefit_rate"), "cap": pol.get("cap_per_agent"),
             "threshold_ratio": pol.get("threshold_ratio"),   # cashback 문턱 배수 (프롬프트 미리보기용)
             "poi_restricted": bool(pol.get("poi_restricted")),
+            "eligible_marker": pol.get("eligible_marker"),
             "from_": pol.get("effective_from"), "until_": pol.get("effective_until"),
             "regions": pol.get("target_districts") or [], "target_l1s": tl,
             "income_grants": json.dumps(ig, ensure_ascii=False),

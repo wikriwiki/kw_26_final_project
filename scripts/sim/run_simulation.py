@@ -67,7 +67,8 @@ _SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
 from stage1_intent import call_stage1, grant_style_to_use, SYSTEM_PROMPT as DAWN_SYSTEM_PROMPT  # noqa: E402
 from prompts import active_name as active_prompt_name  # noqa: E402
 _ACTIVE_PROMPT_VARIANT = active_prompt_name()
-from stage2_poi import call_stage2, merge_to_final_events, active_stage2_system  # noqa: E402
+from stage2_poi import (call_stage2, merge_to_final_events, active_stage2_system,
+                        active_stage2_is_neutral)  # noqa: E402
 from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
     night_finalize_yesterday, night_create_state,
@@ -394,6 +395,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         # tests/unit/sim/test_poi_restriction_wiring.py 로 못 박는다.
         restricted_pids, _elig_spec, _elig_marker = poi_restriction(
             ctx.policy, grant_avail_today)
+        if active_stage2_is_neutral() and len(restricted_pids) > 1:
+            raise ValueError(
+                "중립 Stage2는 사용처 제한 정책을 동시에 하나만 판정할 수 있습니다: "
+                + ", ".join(sorted(restricted_pids))
+            )
         ctx.persona["coupon_poi_restricted"] = bool(restricted_pids)
         ctx.persona["poi_eligibility_spec"] = _elig_spec
         ctx.persona["poi_eligible_marker"] = _elig_marker or "[쿠폰]"

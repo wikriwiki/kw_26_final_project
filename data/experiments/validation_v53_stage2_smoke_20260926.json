@@ -1,0 +1,21 @@
+{
+  "name": "v53_stage2_smoke_20260926",
+  "purpose": "Technical Stage2 screen only; no policy effect, sign, magnitude, or prompt-optimality claim",
+  "stage1_source": "output/validation_v53_decode_frozen_20260926",
+  "output": "output/validation_v53_stage2_smoke_20260926",
+  "prompt_variant": "v53",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "cases": ["cashback", "grant", "local_voucher", "distancing"],
+  "arm": "off",
+  "cells_per_case": 3,
+  "selection_seed": "v53-stage2-smoke-20260926",
+  "stage1_candidates": ["plain_t00", "schema_t00"],
+  "minimum_external_events_per_schedule": 1,
+  "minimum_nonempty_candidate_pools_per_schedule": 1,
+  "stage2_temperature_first": 0.7,
+  "stage2_max_retry": 2,
+  "stage2_token_cap_first": 2200,
+  "stage2_token_cap_after_output_limit": 3200,
+  "pass_to_larger_technical_validation": "24 of 24 completed without full Stage2 failure; report all partial corrections separately",
+  "exclude_from_interpretation": ["empirical policy direction", "empirical policy magnitude", "causal effect of schedule length", "optimal prompt selection"]
+}

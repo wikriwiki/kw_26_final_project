@@ -188,6 +188,13 @@ def fetch_candidates_for_events(
     from collections import defaultdict
     from neo4j_load._common import driver_session
 
+    neutral_rules = None
+    if active_stage2_is_neutral() and persona.get("coupon_poi_restricted"):
+        from eligibility import validated_restricted_rules
+        neutral_rules = validated_restricted_rules(persona.get("poi_eligibility_spec"))
+        if not persona.get("poi_eligible_marker"):
+            raise ValueError("사용처 제한 정책에 eligible_marker가 없습니다")
+
     out: dict[int, list[dict]] = {}
     s = stats if stats is not None else {}
     tm = timing if timing is not None else {}
@@ -302,9 +309,9 @@ def fetch_candidates_for_events(
             _home_gu = str(persona.get("home_dong_code") or "")[:5]
             _same_gu = (bool(_home_gu)
                         and str(dong_code or "")[:5] == _home_gu)
-            _rules = None
+            _rules = neutral_rules
             _spec = persona.get("poi_eligibility_spec")
-            if _spec:
+            if _rules is None and _spec:
                 try:
                     from eligibility import Rules as _ERules
                     _rules = _ERules(_spec)
@@ -570,8 +577,13 @@ SYSTEM_S2_NEUTRAL = _build_neutral_stage2_system()
 
 def active_stage2_system() -> str:
     """Historical variants keep their original Stage2 prompt byte for byte."""
-    from prompts import active_name
-    return SYSTEM_S2_NEUTRAL if active_name() == "v53" else SYSTEM_S2
+    return SYSTEM_S2_NEUTRAL if active_stage2_is_neutral() else SYSTEM_S2
+
+
+def active_stage2_is_neutral() -> bool:
+    """Use the variant's declared Stage2 contract, not its version label."""
+    from prompts import get
+    return bool(getattr(get(), "STAGE2_NEUTRAL", False))
 
 
 def _format_event_with_candidates(
@@ -835,7 +847,7 @@ def call_stage2(
 
     started = time.perf_counter()
     system_prompt = active_stage2_system()
-    neutral_stage2 = system_prompt == SYSTEM_S2_NEUTRAL
+    neutral_stage2 = active_stage2_is_neutral()
     user_block = build_stage2_prompt(
         stage1.events, cands_by_order,
         persona=persona,

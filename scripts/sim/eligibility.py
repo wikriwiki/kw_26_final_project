@@ -141,6 +141,36 @@ class Rules:
         return (a == ARM_ELIGIBLE), why
 
 
+def validated_restricted_rules(spec: Any) -> Rules:
+    """Reject an absent or empty restricted-POI rule before a neutral run.
+
+    ``Rules(None)`` deliberately means all eligible for legacy callers. A new
+    policy-neutral run must not silently interpret a missing policy rule that
+    way, or substitute the historical coupon rule for a different policy.
+    """
+    if not isinstance(spec, dict) or spec.get("mode") not in {"include", "exclude"}:
+        raise ValueError("사용처 제한 정책에는 명시적 eligibility.mode(include/exclude)가 필요합니다")
+    mode = spec["mode"]
+    if mode == "include":
+        inc = spec.get("include")
+        if not isinstance(inc, dict) or not any(inc.get(k) for k in ("codes", "subs", "l1s")):
+            raise ValueError("include 적격 규칙에 적어도 하나의 대상 업종이 필요합니다")
+    else:
+        exc = spec.get("exclude") or {}
+        if not isinstance(exc, dict):
+            raise ValueError("exclude 적격 규칙은 객체여야 합니다")
+        has_exclusion = bool(exc.get("name_regex")) or any(
+            values for group in (exc.get("codes") or {}, exc.get("subs") or {})
+            for values in (group.values() if isinstance(group, dict) else ())
+        )
+        if not has_exclusion and not spec.get("require_same_district"):
+            raise ValueError("exclude 적격 규칙에 제외 조건 또는 지역 조건이 필요합니다")
+    try:
+        return Rules(spec)
+    except (TypeError, AttributeError, re.error) as exc:
+        raise ValueError(f"사용처 적격 규칙을 해석할 수 없습니다: {exc}") from exc
+
+
 def _kind_of(arm: str) -> str:
     for k, v in _ARM_OF_KIND.items():
         if v == arm:

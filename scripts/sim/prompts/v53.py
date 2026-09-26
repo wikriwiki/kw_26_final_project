@@ -5,6 +5,11 @@ from .p012 import format_dawn_blocks  # noqa: F401
 from .v51 import SYSTEM_PROMPT as _V51
 
 
+# Stage2 must use the same policy-neutral contract as this Stage1 variant.
+# Future variants can opt in without depending on the literal variant name.
+STAGE2_NEUTRAL = True
+
+
 REWRITES = (
     (
         "- 정책이 정해 둔 표시가 붙은 매장으로 사용처를 한정한 경우, 그 범위는 생활 주변 가게 전반이다 — 동네\n"
