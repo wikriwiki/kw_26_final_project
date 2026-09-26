@@ -117,8 +117,8 @@ def apply_policy_eligibility(rows: list[dict], policy_file: str | None) -> str:
             return (f"{pol.get('id')} 쿠폰 사용처 룰(is_coupon_eligible)"
                     " — 런타임과 같은 함수")
         return "DB 백필값(상생 기준) — 사용처 제한이 없는 정책"
-    from eligibility import Rules
-    rules = Rules(spec)
+    from eligibility import Rules, validated_restricted_rules
+    rules = validated_restricted_rules(spec) if pol.get("poi_restricted") else Rules(spec)
     for r in rows:
         # 장소 조건이 있는 정책은 결제처와 사는 곳의 자치구를 대조한다.
         _pg = str(r.get("pdong") or "")[:5]

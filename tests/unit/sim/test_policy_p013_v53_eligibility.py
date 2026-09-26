@@ -2,6 +2,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from scripts.sim.eligibility import validated_restricted_rules
 
 
@@ -41,3 +43,13 @@ def test_scorer_uses_the_experimental_policy_rule_not_2025_coupon_rule():
     description = score_policy.apply_policy_eligibility(rows, RELATIVE_POLICY)
     assert "적격 규칙(exclude)" in description
     assert [row["elig"] for row in rows] == [True, False]
+
+
+def test_scorer_rejects_a_malformed_restricted_rule(tmp_path):
+    from scripts.sim import score_policy
+
+    bad = tmp_path / "bad_policy.json"
+    bad.write_text(json.dumps({"id": "PX", "poi_restricted": True,
+                               "eligibility": {"mode": "include"}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="include 적격 규칙"):
+        score_policy.apply_policy_eligibility([], str(bad))
