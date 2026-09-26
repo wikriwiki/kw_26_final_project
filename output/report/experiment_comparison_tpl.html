@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>실험별 정책 검증지표 · <!--EXPERIMENT--></title>
+<style>
+:root{--ground:#f6f7f9;--surface:#fff;--ink:#12161c;--muted:#69727e;--line:#dde2e8;--tru:#b4531f;--sim:#2f6f8f;--ok:#2f6f4f;--sus:#7a6a3a;--wait:#5b6472;--ci:#ccd6de}
+@media(prefers-color-scheme:dark){:root{--ground:#0f1217;--surface:#161a21;--ink:#e7eaef;--muted:#98a2ae;--line:#272d36;--tru:#e08a4e;--sim:#6fb2d2;--ok:#6fb58c;--sus:#c4ae6a;--wait:#8b95a3;--ci:#2e3844}}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:system-ui,-apple-system,"Malgun Gothic",sans-serif;line-height:1.5;margin:0;padding:32px 16px 64px}
+.wrap{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+h1{font-size:1.55rem;margin:0}h2{font-size:1rem;margin:0 0 3px}h2 small{font-size:.75rem;color:var(--muted);font-weight:400}
+.sub,.note p{color:var(--muted);font-size:.86rem;margin:0}.tally{display:flex;flex-wrap:wrap;gap:10px}
+.stat,.pol,.note{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:15px 18px}
+.stat{flex:1 1 150px}.stat .v{font:500 1.35rem ui-monospace,monospace;display:block}.stat .k{font-size:.73rem;color:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:15px;font-size:.78rem;color:var(--muted);border-block:1px solid var(--line);padding:10px 0}
+.key{display:inline-flex;align-items:center;gap:6px}.dot{width:10px;height:10px;border-radius:50%;display:inline-block}.dot.tru{background:var(--tru)}.dot.sim{background:var(--sim)}.dot.ci{background:var(--ci);width:23px;height:6px;border-radius:2px}
+.runline{font: .74rem ui-monospace,monospace;color:var(--muted);margin:0 0 14px}.rows{display:flex;flex-direction:column;gap:17px}.row{border-top:1px solid var(--line);padding-top:13px}.row:first-child{border:0;padding-top:0}
+.meta,.nums{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px}.meta{margin-bottom:6px}.id{font:600 .78rem ui-monospace,monospace;min-width:4.6em}.exp{font-size:.7rem;color:var(--muted);border:1px solid var(--line);border-radius:99px;padding:0 7px}.tag{font-size:.68rem;padding:1px 8px;border-radius:99px;border:1px solid currentColor;white-space:nowrap}.tag.ok{color:var(--ok)}.tag.sus{color:var(--sus)}.tag.wait{color:var(--wait)}.desc{font-size:.78rem;color:var(--muted);flex:1 1 20ch}
+.track{height:20px;position:relative;border:1px solid var(--line);border-radius:4px;background:var(--ground)}.track.empty{opacity:.45}.zero{position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)}.ci{position:absolute;top:8px;height:4px;background:var(--ci);border-radius:2px}.mk{position:absolute;width:3px;transform:translateX(-1.5px);border-radius:2px}.mk.sim{background:var(--sim);top:3px;height:14px}.mk.tru{background:var(--tru);top:1px;height:18px}
+.nums{font:.74rem ui-monospace,monospace;margin-top:6px;font-variant-numeric:tabular-nums}.nums .tru{color:var(--tru)}.nums .sim{color:var(--sim)}.nums .gap{color:var(--ok);font-weight:600}.nums .ciTxt,.nums .n,.nums .memo{color:var(--muted)}.reason{font-size:.73rem;color:var(--muted);margin:5px 0 0}.note h2{margin-bottom:7px}.note p+p{margin-top:8px}.source{overflow-wrap:anywhere}
+</style>
+</head>
+<body><main class="wrap">
+<header><h1>실험별 정책 검증지표 · <!--EXPERIMENT--></h1>
+<p class="sub">채점표의 모든 정책·위약과 모든 지표를 빠짐없이 표시합니다. 주황은 실측, 파랑은 이 실험의 시뮬레이션입니다. 각 막대는 해당 지표의 단위와 범위로 그리며, 감사된 동일 추정량일 때만 실측점을 같은 막대에 얹고 차이를 계산합니다.</p></header>
+<div class="tally"><!--TALLY--></div>
+<div class="legend"><span class="key"><span class="dot tru"></span>실측 참고값</span><span class="key"><span class="dot sim"></span>시뮬</span><span class="key"><span class="dot ci"></span>시뮬 95% 구간</span><span>막대 범위는 지표마다 다릅니다. 서로 다른 행의 길이를 직접 비교하지 마세요.</span></div>
+<!--BODY-->
+<section class="note"><h2>읽는 법과 출처</h2>
+<p>‘미실행’은 이 실험에 해당 정책의 채점 파일이 없다는 뜻입니다. ‘관측부족’은 채점 파일은 있지만 지표값이 없다는 뜻입니다. ‘참고 지표’도 목록에 남깁니다.</p>
+<p>실측 수치는 출처가 확인되어도 시뮬과 추정량·기간·모집단·분모가 다를 수 있습니다. 이 경우 두 값을 각각 표시하고 차이와 같은 축의 실측점은 비웁니다. 내부 등록판정은 외부 실측 적중 판정이 아닙니다.</p>
+<p>이 보고서는 시뮬레이션이 끝난 후 생성됩니다. 실측 값과 보고서의 차이값은 시민 프롬프트에 넣지 않습니다.</p>
+<p class="source">채점표 SHA256 <!--SCORING_SHA--> · 채점 파일 <!--SOURCE--></p>
+</section>
+</main></body></html>

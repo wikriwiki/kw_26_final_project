@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import random
 import statistics
@@ -541,7 +542,12 @@ def main() -> int:
                          " 을 쓰고, 그것도 없으면 DB 백필값(상생 기준)을 그대로 둔다.")
     a = ap.parse_args()
 
-    table = json.loads(TABLE.read_text(encoding="utf-8"))
+    # Capture the actual registration/code used by this process, rather than
+    # hashing files again after a long simulation while they may have changed.
+    _table_bytes = TABLE.read_bytes()
+    _table_sha = hashlib.sha256(_table_bytes).hexdigest()
+    _scorer_sha = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+    table = json.loads(_table_bytes.decode("utf-8"))
     spec = table.get(a.policy)
     if not spec:
         print(f"채점표에 {a.policy} 없음. 가능: "
@@ -559,6 +565,9 @@ def main() -> int:
 
     # 적격 판정을 채점하는 정책의 규칙으로 맞춘다(위 함수 주석 참조).
     _pf = a.elig_policy or spec.get("policy_file") or ""
+    _policy_path = Path(__file__).resolve().parents[2] / _pf if _pf else None
+    _policy_sha = (hashlib.sha256(_policy_path.read_bytes()).hexdigest()
+                   if _policy_path and _policy_path.is_file() else None)
     _how = apply_policy_eligibility(off_rows, _pf) if _pf else "DB 백필값(상생 기준)"
     if _pf:
         apply_policy_eligibility(on_rows, _pf)
@@ -757,7 +766,11 @@ def main() -> int:
         Path(a.json_out).write_text(json.dumps(
             {"policy": a.policy, "label": a.label, "off": a.off, "on": a.on,
              "hits": hits, "scored": len(scored), "results": results,
-             "diagnostics": diagnostics},
+             "diagnostics": diagnostics,
+             "scoring_table_sha256": _table_sha,
+             "scorer_sha256": _scorer_sha,
+             "eligibility_policy_file": _pf or None,
+             "eligibility_policy_sha256": _policy_sha},
             ensure_ascii=False, indent=1), encoding="utf-8")
         print(f"  → {a.json_out}")
         if a.per_agent:
@@ -766,6 +779,11 @@ def main() -> int:
                 for row in per_agent:
                     fh.write(json.dumps(row, ensure_ascii=False) + chr(10))
             print(f"  → {side}  ({len(per_agent)}행 · 지표 {len({r['id'] for r in per_agent})}개)")
+        # Keep the full indicator ledger beside each completed score. The
+        # empirical reference is post-run reporting data, never model input.
+        from report.build_experiment_comparison import generate
+        report_html, report_json, _ = generate([Path(a.json_out)])
+        print(f"  → {report_html} · {report_json}")
     return 0
 
 
