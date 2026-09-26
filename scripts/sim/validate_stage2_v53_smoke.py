@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts" / "sim"))
 sys.path.insert(0, str(ROOT / "scripts"))
 from stage1_intent import Stage1Output  # noqa: E402
-from scripts.sim import stage2_poi as s2  # noqa: E402
+import stage2_poi as s2  # noqa: E402
 
 CONFIG = ROOT / "data/experiments/validation_v53_stage2_smoke_20260926.json"
 SOURCES = [
