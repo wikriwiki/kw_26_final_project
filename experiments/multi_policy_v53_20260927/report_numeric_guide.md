@@ -34,6 +34,7 @@ py -3 scripts/report/build_experiment_comparison.py `
   --p010-funding-audit output/multi_policy_v53_20260928/p010/funded_by_sub_audit.json `
   --p010-channel-audit output/recovery_20260928/multipolicy_v53/p010/p010_channel_gap_audit.json `
   --p010-concentration-audit output/recovery_20260928/multipolicy_v53/p010/p010_citizen_gap_concentration_audit.json `
+  --in-progress-policy P012 `
   --experiment multi_policy_v53_20260928 `
   --out output/report/experiments/multi_policy_v53_20260928.html
 ```
@@ -42,6 +43,11 @@ py -3 scripts/report/build_experiment_comparison.py `
 `--out`의 `.html`과 같은 경로에 `.json`도 생성됩니다. P012, P016 등의
 산출물을 같은 방식으로 추가할 수 있습니다. 과거 r2/v5 채점 파일은 v53
 숫자 보고서에 넣지 않습니다.
+`--in-progress-policy`는 실제 실행 중인 정책만 명시합니다. 해당 정책은
+숫자 없는 지표 행이나 빈 값 대신 확보 현황에 `진행 중`으로 표시합니다.
+완료된 정책 scorer를 추가할 때 이 옵션을 제거합니다. 완료 뒤에도 시뮬
+수치가 구조상 미산출된 지표는 실측 숫자와 분자·분모를 만들 수 없는
+구체적인 사유를 접힌 현황에 표시합니다.
 
 본문에는 실측 숫자와 해당 v53 실험의 시뮬 숫자가 **모두 있는 행만** 나옵니다.
 정책별 숫자 확보 현황 표는 실측 숫자가 있는 정책만 본문에 놓습니다.

@@ -303,6 +303,34 @@ def test_coverage_omits_policies_and_rows_without_numeric_truth_from_html():
     assert "등록되지 않은 정책 파일 2개" in markup
 
 
+def test_in_progress_policy_shows_progress_without_blank_number_or_unfinished_details():
+    coverage = [{"policy": "P012", "policy_name": "상생소비지원금 P012",
+                 "empirical_numeric_count": 5, "simulation_numeric_count": 0,
+                 "paired_numeric_count": 0, "sample_citizens": None,
+                 "unmeasured_count": 1, "in_progress": True,
+                 "missing_simulation_reasons": [{"id": "P012-4", "truth": 47880,
+                                                 "truth_unit": "원", "reason": "월말 정산 필요"}]}]
+    markup = report._coverage_html(coverage)
+    assert "진행 중" in markup
+    assert "P012-4" not in markup and "실측 —" not in markup
+    coverage[0]["in_progress"] = False
+    markup = report._coverage_html(coverage)
+    assert "실측 +47,880원" in markup
+    assert "월말 정산 필요" in markup
+    assert "실측 —" not in markup and "시뮬 —" not in markup
+
+
+def test_missing_simulation_explanations_identify_absent_denominator():
+    assert "2020년 관광특구" in report._missing_simulation_explanation({
+        "id": "DS-6", "status": "시뮬 수치 없음", "reason": "missing geometry"})
+    assert "마트' 상위 분류 밖" in report._missing_simulation_explanation({
+        "id": "C2", "status": "시뮬 수치 없음",
+        "reason": "At least one target POI subclass is outside the mart parent"})
+    assert "캐시백 누적액" in report._missing_simulation_explanation({
+        "id": "P012-4", "status": "시뮬 수치 없음",
+        "reason": "Monthly cashback payout State is absent from this transaction ledger."})
+
+
 def test_policy_card_separates_first_attempt_quality_from_recovered_ledger():
     arm = {"citizen_days": 80, "stage1_final_ok_count": 80,
            "stage1_first_attempt_internal_validation_pass_count": 60,

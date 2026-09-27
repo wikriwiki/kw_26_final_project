@@ -391,7 +391,25 @@ def build_paired_effect(effect_path: Path, scoring_path: Path = SCORING,
                 "provenance": provenance}}
 
 
-def numeric_pair_view(report: dict) -> dict:
+def _missing_simulation_explanation(row: dict) -> str:
+    """Explain a missing simulation numerator in plain Korean where evidence permits."""
+    reason = row.get("reason") or ""
+    if row["id"] == "DS-6":
+        return ("시뮬 원장에는 2020년 관광특구·발달상권 공식 구분과 2019년 비교 매출이 "
+                "없어, 실측과 같은 상권별 전년 대비 변화율의 분자·분모를 만들 수 없습니다. "
+                "2023년 경계를 쓴 별도 값은 아래 탐색 참고값으로만 표시합니다.")
+    if row["id"] in ("C2", "C3") and "outside the mart parent" in reason:
+        return ("대상 업종 POI 일부가 원장의 '마트' 상위 분류 밖에 있어, 같은 마트 안의 "
+                "대상 상품 매출을 분자로 놓을 수 없습니다. 잘못된 분모로 비율을 만들지 않았습니다.")
+    if row["id"] in ("P012-4", "P012-6") and "State is absent" in reason:
+        return ("10월 한 달의 캐시백 누적액과 상한 도달 State가 이 거래 원장에 없어 "
+                "수령자별 지급액 또는 상한 도달자의 분자를 만들 수 없습니다.")
+    if row["status"] == "정책 미실행":
+        return "이번 보고서 묶음에 이 정책의 완료된 v53 원장이 아직 없습니다."
+    return row.get("expert_opinion") or reason or "시뮬 수치의 산출 근거가 없습니다."
+
+
+def numeric_pair_view(report: dict, *, in_progress_policies: set[str] | None = None) -> dict:
     """Show measured-versus-simulated pairs without hiding policy coverage.
 
     This is a presentation filter.  A pair is *not* a validated effect-size
@@ -400,6 +418,7 @@ def numeric_pair_view(report: dict) -> dict:
     merely putting their numbers next to an empirical number.
     """
     original = report["rows"]
+    in_progress_policies = in_progress_policies or set()
     coverage = []
     exploratory_by_policy = {}
     for entry in report.get("exploratory_pairs", []):
@@ -418,13 +437,13 @@ def numeric_pair_view(report: dict) -> dict:
             "simulation_numeric_count": len(simulated), "paired_numeric_count": len(paired),
             "exploratory_numeric_count": exploratory_by_policy.get(policy, 0),
             "sample_citizens": max(sample_sizes) if sample_sizes else None,
+            "in_progress": policy in in_progress_policies,
             "unmeasured_count": len(rows) - len(measured),
             "missing_simulation_ids": [row["id"] for row in missing_sim],
             "missing_simulation_reasons": [
                 {"id": row["id"], "status": row["status"],
-                 "reason": (row["reason"] if row["status"] == "정책 미실행" else
-                            "이번 원장에는 이 지표의 완결된 시뮬 수치가 없습니다. "
-                            + row["expert_opinion"]),
+                 "truth": row["truth"], "truth_unit": row["truth_unit"],
+                 "reason": _missing_simulation_explanation(row),
                  "technical_reason": row["reason"]}
                 for row in missing_sim
             ],
@@ -436,6 +455,7 @@ def numeric_pair_view(report: dict) -> dict:
     view = dict(report)
     from collections import Counter
     view.update(report_kind="numeric_pairs", rows=visible,
+                in_progress_policies=sorted(in_progress_policies),
                 indicator_count=len(visible), simulated_count=len(visible),
                 direct_gap_count=sum(row["gap"] is not None for row in visible),
                 catalog_tally=report.get("tally"),
@@ -1134,23 +1154,24 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
     excluded_indicators = sum(item["unmeasured_count"] for item in coverage)
     for item in included:
         missing = item["missing_simulation_reasons"]
-        if not item["empirical_numeric_count"]:
-            action = "등록 검증지표의 실측 수치가 없어 제외. 대응 실측값 확보 필요"
-            if item["exploratory_numeric_count"]:
-                action += (f' · 채점표 밖 탐색 참고값 {item["exploratory_numeric_count"]}건은 '
-                           '아래 별도 표시')
+        in_progress = item.get("in_progress") is True
+        if in_progress and missing:
+            action = "진행 중"
         elif missing:
-            action = "실측 수치가 있으나 이번 실험의 시뮬 수치 없음"
+            action = "실측 수치는 있으나 시뮬 수치가 미산출됨. 아래 사유 확인"
         else:
             action = "이번 실험에서 실측·시뮬 수치가 모두 있는 지표 표시됨"
-        details = ("<details><summary>미측정 지표와 사유</summary><ul>"
+        details = ("<details><summary>실측값과 시뮬 미산출 사유</summary><ul>"
                    + ''.join(f'<li><strong>{_esc(entry["id"])}</strong>: '
+                             f'실측 {_esc(_fmt(entry["truth"], entry["truth_unit"]))}. '
                              f'{_esc(entry["reason"])}</li>' for entry in missing)
-                   + '</ul></details>') if missing else ''
+                   + '</ul></details>') if missing and not in_progress else ''
+        sample = (str(item["sample_citizens"]) + "명" if item["sample_citizens"] else
+                  "진행 중" if in_progress else "미실행")
         body.append(
             '<tr>'
             f'<th scope="row">{_esc(item["policy_name"])}</th>'
-            f'<td>{_esc(str(item["sample_citizens"]) + "명" if item["sample_citizens"] else "미실행")}</td>'
+            f'<td>{_esc(sample)}</td>'
             f'<td>{item["empirical_numeric_count"]}</td>'
             f'<td>{item["simulation_numeric_count"]}</td>'
             f'<td>{item["paired_numeric_count"]}</td>'
@@ -1795,7 +1816,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              empirical_registry: Path | None = None,
              p010_funding_audit: Path | None = None,
              p010_channel_audit: Path | None = None,
-             p010_concentration_audit: Path | None = None) -> tuple[Path, Path, dict]:
+             p010_concentration_audit: Path | None = None,
+             in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
     if sum((bool(score_paths), bool(paired_effect), bool(multi_paths))) != 1:
@@ -1810,6 +1832,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--p010-channel-audit requires --multi-policy-pairs")
     if p010_concentration_audit and not multi_paths:
         raise ValueError("--p010-concentration-audit requires --multi-policy-pairs")
+    if in_progress_policies and not multi_paths:
+        raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
         raise ValueError("multiple scores require --out")
     if len(multi_paths) > 1 and out is None:
@@ -1851,7 +1875,12 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
     if multi_paths:
         numeric_only = True
     if numeric_only:
-        report = numeric_pair_view(report)
+        progress = {POLICY_ID_TO_SCORE.get(policy, policy)
+                    for policy in (in_progress_policies or [])}
+        unknown = progress - {row["policy"] for row in report["rows"]}
+        if unknown:
+            raise ValueError(f"unknown in-progress policy: {sorted(unknown)}")
+        report = numeric_pair_view(report, in_progress_policies=progress)
     _atomic_write(json_out, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     _atomic_write(out, render(report))
     return out, json_out, report
@@ -1876,6 +1905,8 @@ def main() -> int:
                     help="optional SHA-checked post-run P010 channel decomposition; never rescores")
     ap.add_argument("--p010-concentration-audit", type=Path,
                     help="optional SHA-checked post-run P010 citizen-gap concentration; never rescores")
+    ap.add_argument("--in-progress-policy", action="append", default=[],
+                    help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--json-out", type=Path)
@@ -1894,7 +1925,8 @@ def main() -> int:
                                          empirical_registry=a.empirical_registry,
                                          p010_funding_audit=a.p010_funding_audit,
                                          p010_channel_audit=a.p010_channel_audit,
-                                         p010_concentration_audit=a.p010_concentration_audit)
+                                         p010_concentration_audit=a.p010_concentration_audit,
+                                         in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
     print(f"{out} | {json_out} | indicators={report['indicator_count']} "
