@@ -217,9 +217,13 @@ def main() -> None:
     ambiguous_receipts = {
         arm: sum(r["poi_id"] in ambiguous for r in receipts)
         for arm, receipts in (("on", on), ("off", off))}
+    ambiguous_receipt_rate = {
+        arm: ambiguous_receipts[arm] / len(receipts) if receipts else None
+        for arm, receipts in (("on", on), ("off", off))}
     result = {
         "status": "exploratory_geographic_proxy_not_direct_empirical_comparison",
         "reason": "2023 official district polygons and 2026 POIs; short simulated policy ON/OFF, unlike 2020 merchant-panel year-over-year card-sales changes",
+        "spatial_overlap_rule": "A POI covered by both target district types is excluded from both; no undocumented priority is imposed",
         "days": sorted(days), "citizen_days_each_arm": len(on_days),
         "sources_sha256": {**on_sources, **off_sources,
                            zip_path.as_posix(): sha256(zip_path),
@@ -231,6 +235,7 @@ def main() -> None:
         "positive_receipts": {"on": len(on), "off": len(off)},
         "coordinate_join_rate_receipts": coordinate_join_rate,
         "ambiguous_receipts_excluded": ambiguous_receipts,
+        "ambiguous_receipt_rate_excluded": ambiguous_receipt_rate,
         "target_type_spend_capture_share": {
             "on": on_target_won / on_total_won if on_total_won else None,
             "off": off_target_won / off_total_won if off_total_won else None},
