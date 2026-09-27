@@ -37,7 +37,19 @@ with driver_session() as s:
     first=[dict(r) for r in s.run(q,ids=ids)]
     second=[dict(r) for r in s.run(q,ids=ids)]
 assert first==second and len(first)==80
-budgets={r['id']:round((5*float(r['wd'])+2*float(r['we']))/7) for r in first}
+def anchor(row):
+    wd,we=row['wd'],row['we']
+    wd=float(wd) if wd is not None and float(wd)>0 else None
+    we=float(we) if we is not None and float(we)>0 else None
+    # Mirror Day0's one-sided anchor fill; a citizen with no anchor receives
+    # a fixed 1,500,000/39 daily budget, declared below as a synthetic fallback.
+    if wd is None and we is None:
+        return round(1500000/39), 'both_missing'
+    if wd is None: wd=we
+    if we is None: we=wd
+    return round((5*wd+2*we)/7), 'observed_or_one_sided'
+computed={r['id']:anchor(r) for r in first}
+budgets={aid:v for aid,(v,kind) in computed.items()}
 assert all(v>0 for v in budgets.values())
 def sha(b): return hashlib.sha256(b).hexdigest()
 proj=json.dumps(first,ensure_ascii=False,sort_keys=True,separators=(',',':')).encode()
@@ -53,10 +65,12 @@ data={'schema':'fixed_persona_budget_v1','source_kind':'stable_persona_spending_
       'source_agent_projection_sha256':sha(proj),
       'citizen_count':len(ids),'total_daily_budget_won':sum(budgets.values()),
       'daily_income_by_aid':budgets,
+      'normalization_note':'One missing anchor uses the other; both missing use policy-independent 1,500,000/39 won per day.',
+      'both_missing_anchor_count':sum(kind=='both_missing' for v,kind in computed.values()),
       'provenance_note':'Projection read twice identically from restored graph; SHA256SUMS is backup manifest, not independent archive.'}
 (root/'roster.json').write_text(json.dumps(ids,ensure_ascii=False,indent=2)+'\n')
 (root/'frozen_income.json').write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n')
-print('Frozen 80 citizens; income map and graph projection verified')
+print(f'Frozen 80 citizens; missing both anchors={data["both_missing_anchor_count"]}; graph projection verified')
 PY
 sha256sum "$OUT/roster.json" "$OUT/frozen_income.json" >> "$OUT/frozen_inputs.sha256"
 
