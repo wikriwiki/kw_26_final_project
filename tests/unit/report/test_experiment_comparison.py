@@ -476,8 +476,10 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
     }])
     assert "실측 +0.1410 log-point" in markup
     assert "시뮬 +12.50%" in markup
-    assert "지역·연도별 업종 매출 회귀계수" in markup
-    assert "정식 효과 점수로 쓰지 않습니다" in markup
+    assert "지역·연도별 업종 매출 로그회귀계수" in markup
+    assert "상품권 구매·잔액·상환 지갑 원장이" in markup
+    assert "policy_hits도 실제 자치구·상호 적격 결제 건수를 세지 않습니다" in markup
+    assert "상품권 거래 효과나 사용률이 아니고" in markup
     assert "시뮬−실측" not in markup
 
 

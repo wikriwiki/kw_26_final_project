@@ -1633,6 +1633,16 @@ def _exploratory_html(pairs: list[dict]) -> str:
                           "2026년 3월 POI에 적용한 3일 쌍체 ON−OFF 영수증 대리값입니다. "
                           "연도·장소 표본·기간·추정량이 달라 정식 DS-6과 직접 비교하거나 "
                           "정책 효과 오차로 채점하지 않습니다.")
+        elif row["policy"] == "P014":
+            scope_note = (
+                "실측은 지역화폐 발행 강도에 대한 지역·연도별 업종 매출 로그회귀계수입니다. "
+                "시뮬은 정책 문구와 자치구 가맹점 적격 표시에 대한 시민의 짧은 ON−OFF "
+                "POI 장소·소비 반응 대리값입니다. 이번 정책 구현은 price_discount 유형이며 "
+                "할인 정산 경로가 활성화되지 않았고 상품권 구매·잔액·상환 지갑 원장이 "
+                "없습니다. policy_hits도 실제 자치구·상호 적격 결제 건수를 세지 않습니다. "
+                "따라서 이 숫자는 "
+                "상품권 거래 효과나 사용률이 아니고, 정식 효과 오차·적중률로 채점하지 않습니다."
+            )
         else:
             scope_note = ("실측은 지역화폐 발행 강도에 대한 지역·연도별 업종 매출 회귀계수, "
                           "시뮬은 시민의 단기 ON−OFF POI 지출 변화입니다. 정식 효과 점수로 쓰지 않습니다.")
@@ -1698,8 +1708,13 @@ def _exploratory_html(pairs: list[dict]) -> str:
                      + '</div>')
     grouped = ''.join(
         '<div class="exploratory-group">'
-        f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>'
-        '<div class="rows">' + ''.join(cards) + '</div></div>'
+        + f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>'
+        + ('<p class="balance">이 정책의 시뮬 입력은 price_discount와 지역 가맹점 '
+           '적격 표시를 사용합니다. 할인 정산과 상품권 지갑·구매·잔액·상환 원장이 '
+           '없으므로 '
+           '아래 POI 지출은 상품권 거래 효과 또는 사용률이 아닙니다.</p>'
+           if policy == "P014" else '')
+        + '<div class="rows">' + ''.join(cards) + '</div></div>'
         for policy, cards in cards_by_policy.items()
     )
     return ('<section class="pol"><h2>등록 38개 지표 밖의 탐색 참고값</h2>'
