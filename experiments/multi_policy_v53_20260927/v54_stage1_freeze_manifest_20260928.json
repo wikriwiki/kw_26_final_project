@@ -1,0 +1,32 @@
+{
+  "schema": "v54_stage1_screen_frozen_v1",
+  "created_at_utc": "2026-09-27T17:05:10.373136+00:00",
+  "scope": "192 first raw Stage1 responses; technical screen only",
+  "assets_sha256": {
+    "prereg.json": "7019d4da50d29f4253b8e8d05abd133fe31f8e28de018f8952910356a228a8cc",
+    "candidate_manifest.json": "d23dc6921fe085fcbbd6fea7cefb2ca6f48c61953b0b8bcc3a4ef45f60e01cd4",
+    "frozen_inputs.json": "8a5bbe2ecef69f4b2347c5e2a0e6841172d4bec9bf08f836a60c27134e34bf27",
+    "system_v53.txt": "7ccde1a4ea451a1c18c0b27a4ba30df43afe6c9b7056111fbb7f60280c7e710f",
+    "system_v54.txt": "3f5b3974d260b5e16e2ec607c5865d6267f4dcf8303d35d31838fd405b97c637"
+  },
+  "runner_sha256": "d91ec4ac88dffca941ef6847c549d1af08716e78e055ee8e76ad578126b51dcc",
+  "v3_validator_sha256": "1301b06a0069416310dc7760d016555c11d7a1ab7d4f67a1b35acccbee9674b0",
+  "full_validator_sha256": "6aa420fd6ef5819482f2ff0f43207ab6950bceebbd089bcb70a5cffe6eb0bed9",
+  "base_system_sha256": "7ccde1a4ea451a1c18c0b27a4ba30df43afe6c9b7056111fbb7f60280c7e710f",
+  "candidate_system_sha256": "3f5b3974d260b5e16e2ec607c5865d6267f4dcf8303d35d31838fd405b97c637",
+  "expected_contexts": 96,
+  "expected_responses": 192,
+  "replicate_seed": 1701,
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "temperature": 0.7,
+  "top_p": 1.0,
+  "max_tokens": 2200,
+  "thinking": false,
+  "co_primary_thresholds": {
+    "old_v3_min_pass": 92,
+    "full_structural_min_pass": 92,
+    "max_request_failures": 0,
+    "max_fiscal_off_screen_flags": 0,
+    "max_excess_paired_failures_vs_v53": 0
+  }
+}
