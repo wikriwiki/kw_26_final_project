@@ -86,6 +86,10 @@ def read_arm(ledger: Path, arm: str, run: dict, evidence: dict,
         raise ValueError(f"{arm} manifest cohort mismatch")
     if manifest.get("policy_id") != ("P014" if arm == "on" else None):
         raise ValueError(f"{arm} policy exposure mismatch")
+    run_id = (manifest.get("prompt_provenance") or {}).get("run_id")
+    if (not isinstance(run_id, str) or not run_id
+            or (manifest.get("provenance") or {}).get("experience_run_id") != [run_id]):
+        raise ValueError(f"{arm} manifest run provenance mismatch")
     sector = {}
     for line in ledger.read_text(encoding="utf-8").splitlines():
         if not line.strip():
@@ -124,7 +128,7 @@ def read_arm(ledger: Path, arm: str, run: dict, evidence: dict,
                 raise ValueError("duplicate canonical citizen-day")
             keys.add(key)
             if (row.get("status") != "ok" or row.get("experience_day") != day
-                    or row.get("experience_run_id") != manifest["run_id"]
+                    or row.get("experience_run_id") != run_id
                     or set(row.get("experience_policy_ids") or []) !=
                     ({"P014"} if arm == "on" else set())):
                 raise ValueError(f"{arm} canonical identity/exposure mismatch")
@@ -134,7 +138,7 @@ def read_arm(ledger: Path, arm: str, run: dict, evidence: dict,
                     continue
                 amount = integer(receipt.get("amount"), "receipt amount")
                 if (receipt.get("agent_id") != aid or receipt.get("occurred_at") != day
-                        or receipt.get("run_id") != manifest["run_id"]):
+                        or receipt.get("run_id") != run_id):
                     raise ValueError("receipt citizen/day/run mismatch")
                 if amount == 0:
                     continue
@@ -151,7 +155,7 @@ def read_arm(ledger: Path, arm: str, run: dict, evidence: dict,
                 raise ValueError("per-citizen-day receipt/sector offline amount mismatch")
     if keys != set(sector) or len(keys) != gate["citizen_days_each_arm"]:
         raise ValueError(f"{arm} effect-period citizen-day matrix mismatch")
-    return {"arm": arm, "run_id": manifest["run_id"],
+    return {"arm": arm, "run_id": run_id,
             "sector_ledger_path": ledger.as_posix(), "sector_ledger_sha256": sha256(ledger),
             "metrics_evidence": metric_evidence, "citizen_days": len(keys),
             "positive_receipts": len(receipts),
