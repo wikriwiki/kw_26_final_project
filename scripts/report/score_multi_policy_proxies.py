@@ -746,6 +746,20 @@ def apply_cashback_month(indicators: list[dict], cashback_score: Path, *,
     return indicators
 
 
+def audit_policy_funding_density(rows: list[dict], full_run_citizen_days: int) -> dict:
+    """Display-only P010 denominator evidence; rows are citizen-days, not receipts."""
+    if not rows or full_run_citizen_days < len(rows):
+        raise ValueError("invalid funded citizen-day denominator")
+    return {
+        "policy_funded_positive_citizen_days": sum(row["policy_funded_won"] > 0
+                                                    for row in rows),
+        "policy_funded_observed_citizen_days": len(rows),
+        "policy_funded_total_won": sum(row["policy_funded_won"] for row in rows),
+        "full_run_citizen_days": full_run_citizen_days,
+        "scope": "ON policy-effect days; one ledger row per citizen-day, not per transaction",
+    }
+
+
 def score_run(*, policy: str, experiment: str, on: Path | None = None,
               off: Path | None = None, effect_start: str | None = None,
               effect_end: str | None = None, paired_effect: Path | None = None,
@@ -804,6 +818,14 @@ def score_run(*, policy: str, experiment: str, on: Path | None = None,
                                                           effect_end=effect_end)
         indicators = score_ledger(on_rows, off_rows, roster, policy=policy, draws=draws)
         on_manifest, off_manifest = read_json(_manifest_path(on)), read_json(_manifest_path(off))
+        # Display-only denominator audit added after the frozen 452cfaf formulas.
+        # This counts funded citizen-days, never individual transaction receipts.
+        funding_density = None
+        if policy == "P010":
+            funding_density = audit_policy_funding_density(on_rows, on_manifest["rows"])
+            for indicator in indicators:
+                if indicator["id"] in P010_BOK_GROUPS:
+                    indicator.update(funding_density)
         try:
             on_quality, on_quality_files = audit_arm_quality(on, on_manifest)
         except (OSError, ValueError) as exc:
@@ -853,6 +875,8 @@ def score_run(*, policy: str, experiment: str, on: Path | None = None,
             "quality_audit": {"on": on_quality, "off": off_quality},
             "preperiod_balance": preperiod,
         }
+        if funding_density is not None:
+            run_provenance["policy_funding_density"] = funding_density
         window = f"{days[0]}:{days[-1]}"
         n = len(roster)
         if cashback_score:

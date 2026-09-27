@@ -221,6 +221,10 @@ def test_multi_policy_proxy_needs_verified_evidence_and_never_self_certifies_gap
                                   "estimand_alignment": "different",
                                   "direction_comparable": False,
                                   "exploratory_not_registered": True,
+                                  "policy_funded_positive_citizen_days": 2,
+                                  "policy_funded_observed_citizen_days": 240,
+                                  "policy_funded_total_won": 45672,
+                                  "full_run_citizen_days": 400,
                                   "reason": "funded transaction shares are not survey responses",
                                   "method": "funded share"}]}],
     }
@@ -240,6 +244,9 @@ def test_multi_policy_proxy_needs_verified_evidence_and_never_self_certifies_gap
     assert "환경 ON env-on / OFF env-off" in out.read_text(encoding="utf-8")
     assert "원문 정의·산식·증거 자세히 보기" in out.read_text(encoding="utf-8")
     assert "탐색적 숫자상 차이" in out.read_text(encoding="utf-8")
+    assert "정책결제액이 양수인 시민×일 2/240" in out.read_text(encoding="utf-8")
+    assert "정책결제 총액 45,672원" in out.read_text(encoding="utf-8")
+    assert "전체 원장은 400 시민×일(시행 전 포함)" in out.read_text(encoding="utf-8")
     model_id = "LGAI-EXAONE/EXAONE-4.5-33B-AWQ"
     model_snapshot = {"served_model_ids": [model_id],
                       "server_command": f"python -m sglang.launch_server --model-path {model_id}"}

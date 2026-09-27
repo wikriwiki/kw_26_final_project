@@ -729,6 +729,14 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
                 exploratory.append({"policy": policy, "policy_name": POLICY_NAMES.get(policy, policy),
                                     "id": indicator_id, "simulation": value,
                                     "simulation_unit": unit, "ci": ci, "n": n,
+                                    "policy_funded_positive_citizen_days": entry.get(
+                                        "policy_funded_positive_citizen_days"),
+                                    "policy_funded_observed_citizen_days": entry.get(
+                                        "policy_funded_observed_citizen_days"),
+                                    "policy_funded_total_won": entry.get(
+                                        "policy_funded_total_won"),
+                                    "full_run_citizen_days": entry.get(
+                                        "full_run_citizen_days"),
                                     "reason": reason, "simulation_method": entry.get("method"),
                                     "simulation_evidence": verified,
                                     "run_context": run_context,
@@ -919,6 +927,33 @@ def _exploratory_html(pairs: list[dict]) -> str:
                       if row["policy"] == "P010" else
                       "실측은 지역화폐 발행 강도에 대한 지역·연도별 업종 매출 회귀계수, "
                       "시뮬은 시민의 단기 ON−OFF POI 지출 변화입니다. 정식 효과 점수로 쓰지 않습니다.")
+        denominator_html = ""
+        if row["policy"] == "P010":
+            positive = row.get("policy_funded_positive_citizen_days")
+            observed = row.get("policy_funded_observed_citizen_days")
+            funded_won = row.get("policy_funded_total_won")
+            full_run = row.get("full_run_citizen_days")
+            if all(isinstance(value, int) and not isinstance(value, bool)
+                   for value in (positive, observed, funded_won, full_run)):
+                if not (0 <= positive <= observed <= full_run and funded_won >= 0):
+                    raise ValueError("invalid P010 funded-spending denominator metadata")
+                denominator_html = (
+                    '<p class="balance"><strong>업종비중 분모 주의:</strong> '
+                    f'정책 시행기간에 정책결제액이 양수인 시민×일 {_esc(positive)}/{_esc(observed)}, '
+                    f'정책결제 총액 {_esc(f"{funded_won:,}원")}. '
+                    f'전체 원장은 {_esc(full_run)} 시민×일(시행 전 포함)입니다. '
+                    f'시민 {_esc(row.get("n") or "미확인")}명이라는 부트스트랩 표본 수는 '
+                    '실제 결제 관측 수가 아닙니다. '
+                    '이 작은 분모의 업종비중으로 크기 적중을 판단할 수 없습니다. '
+                    '개별 거래 건수는 시민×일 집계 원장에서 알 수 없습니다. '
+                    '정책결제가 적게 기록된 원인은 확정되지 않았습니다. '
+                    'Stage2 결제 선택·요청 과정의 병목 가능성은 진단상의 추정입니다.</p>'
+                )
+            else:
+                denominator_html = (
+                    '<p class="balance">정책결제 분모가 검증되지 않아 업종비중의 '
+                    '크기를 판단할 수 없습니다. 시민 부트스트랩 표본 수는 결제 건수가 아닙니다.</p>'
+                )
         cards.append('<div class="row">'
                      f'<div class="meta"><span class="id">{_esc(row["id"])}</span>'
                      f'<span class="desc">{_esc(row["policy_name"])} · '
@@ -927,6 +962,7 @@ def _exploratory_html(pairs: list[dict]) -> str:
                      f'<span class="tru">실측 {_esc(truth)}</span>'
                      f'<span class="sim">시뮬 {_esc(sim)}</span></div>'
                      f'<p class="reason">{_esc(scope_note)}</p>'
+                     + denominator_html
                      + (f'<p class="reason source">실측 출처: {_esc(row["source"])}'
                         f' · {_esc(row.get("source_locator"))}</p>' if row.get("source") else '')
                      + _technical_details(row)

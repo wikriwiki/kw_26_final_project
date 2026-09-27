@@ -4,7 +4,8 @@ import json
 import pytest
 
 from scripts.report.score_multi_policy_proxies import (
-    apply_cashback_month, audit_arm_quality, audit_preperiod_balance,
+    apply_cashback_month, audit_arm_quality, audit_policy_funding_density,
+    audit_preperiod_balance,
     read_pair, score_ledger,
 )
 from scripts.report.audit_stage2_generation import inspect as inspect_stage2
@@ -69,6 +70,17 @@ def test_proxy_arithmetic_keeps_units_and_missing_values():
     assert distancing["DS-1"]["simulation"] is None  # No 한식 spending in OFF.
     assert distancing["DS-2"]["simulation"] == pytest.approx(100 * 25 / 90)
     assert distancing["DS-6"]["simulation"] is None  # Missing spatial hub type.
+
+
+def test_p010_funded_denominator_is_effect_window_citizen_days_not_receipts():
+    rows = [{"policy_funded_won": 0}, {"policy_funded_won": 3694},
+            {"policy_funded_won": 0}, {"policy_funded_won": 41978}]
+    density = audit_policy_funding_density(rows, full_run_citizen_days=6)
+    assert density["policy_funded_positive_citizen_days"] == 2
+    assert density["policy_funded_observed_citizen_days"] == 4
+    assert density["policy_funded_total_won"] == 45672
+    assert density["full_run_citizen_days"] == 6
+    assert "not per transaction" in density["scope"]
 
 
 def test_pair_reader_rejects_changed_evidence(tmp_path):
