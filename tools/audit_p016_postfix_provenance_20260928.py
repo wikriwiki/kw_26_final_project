@@ -101,7 +101,12 @@ def audited_arm(arm_dir: Path, arm: str, score_run: dict) -> dict:
     if (unique_suffix(frozen_hashes, "/roster.json") != sha256(roster)
             or unique_suffix(frozen_hashes, "/frozen_income.json") != sha256(income)):
         raise ValueError(f"{arm} cohort/budget file differs from frozen hashes")
-    if sector.get("roster_sha256") != sha256(roster):
+    roster_ids = read_json(roster)
+    if not isinstance(roster_ids, list) or len(roster_ids) != len(set(roster_ids)):
+        raise ValueError(f"{arm} invalid frozen roster")
+    semantic_roster_sha = hashlib.sha256(
+        json.dumps(sorted(roster_ids), ensure_ascii=False).encode()).hexdigest()
+    if sector.get("roster_sha256") != semantic_roster_sha:
         raise ValueError(f"{arm} sector roster hash differs from frozen cohort")
     patched = unique_suffix(frozen_hashes, "scripts/sim/instant_discount.py")
     if patched != PATCHED_INSTANT_DISCOUNT_SHA256:
@@ -118,6 +123,7 @@ def audited_arm(arm_dir: Path, arm: str, score_run: dict) -> dict:
         "frozen_hashes": {suffix: unique_suffix(frozen_hashes, suffix)
                           for suffix in COMMON_FROZEN_SUFFIXES},
         "roster_sha256": sha256(roster),
+        "roster_semantic_sha256": semantic_roster_sha,
         "income_map_sha256": sha256(income),
         "sector_manifest_sha256": sha256(ledger_manifest),
         "sector_ledger_sha256": sha256(ledger),
