@@ -924,6 +924,76 @@ def apply_p012_sector_display_audit(report: dict, path: Path) -> dict:
     return updated
 
 
+def apply_distancing_input_display_audit(report: dict, path: Path) -> dict:
+    """Disclose the dated ON/OFF regime, keeping its internal ID distinct from 2021."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("purpose") != "read-only frozen input audit; no observed policy outcomes or target numbers"
+            or not isinstance(audit.get("daily"), list)
+            or not isinstance(audit.get("source_sha256"), dict)):
+        raise ValueError("invalid distancing input display audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "DISTANCING_2020"), None)
+    if not run:
+        raise ValueError("distancing input audit requires a scored distancing run")
+    context = run["run_context"]
+    if (audit.get("on_environment_id") != context.get("on_environment_id")
+            or audit.get("off_environment_id") != context.get("off_environment_id")
+            or not context.get("generic_prompt_sha256")
+            or run.get("on") != run.get("off")):
+        raise ValueError("distancing input audit differs from run environment or prompt")
+    try:
+        first, last = run["on"].split(":")
+        start, end = date.fromisoformat(first), date.fromisoformat(last)
+        days = [(start + timedelta(days=offset)).isoformat()
+                for offset in range((end - start).days + 1)]
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError("distancing input audit needs valid simulation dates") from exc
+    if not days or [entry.get("date") for entry in audit["daily"]] != days:
+        raise ValueError("distancing input audit dates differ from numeric run")
+    if not audit["source_sha256"]:
+        raise ValueError("distancing input audit lacks source hashes")
+    for source, digest in audit["source_sha256"].items():
+        source_path = ROOT / source
+        if (not source_path.is_file() or not re.fullmatch(r"[0-9a-fA-F]{64}", str(digest))
+                or _sha(source_path).lower() != digest.lower()):
+            raise ValueError(f"distancing input audit source SHA mismatch: {source}")
+    case_counts = []
+    for entry in audit["daily"]:
+        on, off, shared = (entry.get(key) for key in ("on", "off", "shared_disease_facts"))
+        if (not isinstance(on, dict) or not isinstance(off, dict)
+                or not isinstance(shared, list) or len(shared) != 1
+                or not isinstance(on.get("facts"), list)
+                or not isinstance(off.get("facts"), list)
+                or shared[0] not in on["facts"] or shared[0] not in off["facts"]
+                or not any("21:00" in fact and "식당" in fact for fact in on["facts"])
+                or not any("카페" in fact and "포장" in fact for fact in on["facts"])
+                or not any("집합금지" in fact for fact in on["facts"])
+                or not any("추가" in fact and "제한 없음" in fact for fact in off["facts"])):
+            raise ValueError("distancing ON/OFF rendered facts do not support display")
+        match = re.search(r"서울 신규 확진 (\d+)명", shared[0])
+        if not match:
+            raise ValueError("distancing shared case count missing")
+        case_counts.append(int(match.group(1)))
+    evidence = {"path": _display_path(path), "sha256": _sha(path)}
+    displayed = {"dates": days, "seoul_case_counts": case_counts,
+                 "on_environment_id": audit["on_environment_id"],
+                 "off_environment_id": audit["off_environment_id"],
+                 "scope": "frozen static render, not complete HTTP request capture", **evidence}
+    updated = dict(report)
+    updated["run_evidence"] = [
+        {**item, "run_context": {**item["run_context"], "distancing_input_display_audit": displayed}}
+        if item["policy"] == "DISTANCING_2020" else item for item in report["run_evidence"]
+    ]
+    updated["rows"] = [
+        {**row, "run_context": {**row["run_context"], "distancing_input_display_audit": displayed}}
+        if row["policy"] == "DISTANCING_2020" and row.get("run_context") else row
+        for row in report["rows"]
+    ]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []), evidence]
+    return updated
+
+
 def build_multi_policy_pairs(manifest_paths: Path | list[Path],
                              scoring_path: Path = SCORING,
                              suite: str = "") -> dict:
@@ -1702,9 +1772,29 @@ def _run_context_html(context: dict | None) -> str:
         detail.append('<p><strong>시민별 집중 감사 원본:</strong> '
                       f'{_esc(concentration["path"])} '
                       f'SHA256 {_esc(concentration["sha256"])}</p>')
+    regime = context.get("distancing_input_display_audit")
+    regime_html = ''
+    if isinstance(regime, dict):
+        dates = regime["dates"]
+        counts = '→'.join(str(value) for value in regime["seoul_case_counts"])
+        regime_html = (
+            '<p class="balance"><strong>거리두기 입력의 실제 차이:</strong> '
+            f'시뮬 날짜 {_esc(dates[0])}~{_esc(dates[-1])}에 양팔은 '
+            f'같은 서울 신규 확진 배경({counts}명)을 받았습니다. '
+            'ON만 수도권 2단계(식당 21시 이후 매장취식 제한, 카페 포장·배달만, '
+            '집합 제한)를 받았고 OFF는 추가 방역 영업·모임 제한이 없습니다. '
+            '범용 v53 프롬프트는 같고 정책 레짐을 담은 환경 입력이 다릅니다. '
+            f'ON 환경 ID {_esc(regime["on_environment_id"])}의 숫자 2021은 '
+            '내부 이름일 뿐 이 시뮬이나 실측의 연도가 아닙니다. '
+            '이 근거는 동결 입력의 정적 렌더 감사이며 완성된 HTTP 요청 전수 '
+            '캡처를 뜻하지 않습니다.</p>'
+        )
+        detail.append('<p><strong>거리두기 입력 렌더 감사:</strong> '
+                      f'{_esc(regime["path"])} '
+                      f'SHA256 {_esc(regime["sha256"])}</p>')
     return ('<p class="contextline">' + ' · '.join(pieces) + '</p>'
             + quality_html + balance_html + diagnostic_html + channel_html
-            + concentration_html
+            + concentration_html + regime_html
             + ('<details class="technical"><summary>정책·환경·프롬프트 지문 보기</summary>'
                + ''.join(detail) + '</details>' if detail else ''))
 
@@ -1955,6 +2045,7 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              p010_channel_audit: Path | None = None,
              p010_concentration_audit: Path | None = None,
              p012_sector_audit: Path | None = None,
+             distancing_input_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -1972,6 +2063,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--p010-concentration-audit requires --multi-policy-pairs")
     if p012_sector_audit and not multi_paths:
         raise ValueError("--p012-sector-audit requires --multi-policy-pairs")
+    if distancing_input_audit and not multi_paths:
+        raise ValueError("--distancing-input-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -1989,7 +2082,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([p010_funding_audit] if p010_funding_audit else []),
                                                            *([p010_channel_audit] if p010_channel_audit else []),
                                                            *([p010_concentration_audit] if p010_concentration_audit else []),
-                                                           *([p012_sector_audit] if p012_sector_audit else [])]):
+                                                           *([p012_sector_audit] if p012_sector_audit else []),
+                                                           *([distancing_input_audit] if distancing_input_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -2001,6 +2095,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
             report = apply_p010_concentration_display_audit(report, p010_concentration_audit)
         if p012_sector_audit:
             report = apply_p012_sector_display_audit(report, p012_sector_audit)
+        if distancing_input_audit:
+            report = apply_distancing_input_display_audit(report, distancing_input_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -2050,6 +2146,8 @@ def main() -> int:
                     help="optional SHA-checked post-run P010 citizen-gap concentration; never rescores")
     ap.add_argument("--p012-sector-audit", type=Path,
                     help="optional SHA-checked post-run P012 sector denominator disclosure; never rescores")
+    ap.add_argument("--distancing-input-audit", type=Path,
+                    help="optional SHA-checked static ON/OFF distancing-regime render audit")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -2072,6 +2170,7 @@ def main() -> int:
                                          p010_channel_audit=a.p010_channel_audit,
                                          p010_concentration_audit=a.p010_concentration_audit,
                                          p012_sector_audit=a.p012_sector_audit,
+                                         distancing_input_audit=a.distancing_input_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))

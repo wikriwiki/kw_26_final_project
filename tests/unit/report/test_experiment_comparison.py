@@ -555,6 +555,44 @@ def test_ds6_2023_geo_proxy_remains_exploratory_with_mapping_and_sparse_gate():
         report._validate_geo_proxy_exploratory(entry)
 
 
+def test_distancing_input_display_distinguishes_internal_environment_id_from_year(tmp_path):
+    source = tmp_path / "frozen_input.json"
+    source.write_text('{"frozen": true}', encoding="utf-8")
+    digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    shared = "서울 신규 확진 112명 (2020-11-23 기준)"
+    audit = {
+        "purpose": "read-only frozen input audit; no observed policy outcomes or target numbers",
+        "on_environment_id": "covid_2021", "off_environment_id": "covid_no_distancing",
+        "daily": [{"date": "2020-11-24", "shared_disease_facts": [shared],
+                   "on": {"facts": [shared, "식당 21:00 이후 매장취식 제한",
+                                    "카페 포장·배달만", "유흥업소 집합금지"]},
+                   "off": {"facts": [shared, "추가 방역 영업시간 제한 없음"]}}],
+        "source_sha256": {source.relative_to(report.ROOT).as_posix(): digest}
+        if source.is_relative_to(report.ROOT) else {str(source): digest},
+    }
+    sidecar = tmp_path / "distancing_render_audit.json"
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    context = {"policy_id": "DISTANCING_2020", "generic_prompt_sha256": "a" * 64,
+               "on_environment_id": "covid_2021",
+               "off_environment_id": "covid_no_distancing"}
+    original = {"run_evidence": [{"policy": "DISTANCING_2020",
+                                  "on": "2020-11-24:2020-11-24",
+                                  "off": "2020-11-24:2020-11-24",
+                                  "run_context": context}],
+                "rows": [{"policy": "DISTANCING_2020", "id": "DS-1",
+                          "run_context": context}]}
+    updated = report.apply_distancing_input_display_audit(original, sidecar)
+    markup = report._run_context_html(updated["rows"][0]["run_context"])
+    assert "같은 서울 신규 확진 배경(112명)" in markup
+    assert "covid_2021" in markup and "내부 이름일 뿐" in markup
+    assert "정적 렌더 감사" in markup and "HTTP 요청 전수" in markup
+    assert updated["post_run_display_audits"][0]["sha256"] == hashlib.sha256(sidecar.read_bytes()).hexdigest()
+    audit["daily"][0]["date"] = "2021-11-24"
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="dates differ"):
+        report.apply_distancing_input_display_audit(original, sidecar)
+
+
 def test_log_point_is_converted_only_for_exploratory_number_impression():
     surface = report._surface_comparison({
         "truth": 0.2082, "truth_unit": "log-point",

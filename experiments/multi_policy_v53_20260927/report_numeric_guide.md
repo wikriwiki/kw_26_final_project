@@ -35,6 +35,7 @@ py -3 scripts/report/build_experiment_comparison.py `
   --p010-channel-audit output/recovery_20260928/multipolicy_v53/p010/p010_channel_gap_audit.json `
   --p010-concentration-audit output/recovery_20260928/multipolicy_v53/p010/p010_citizen_gap_concentration_audit.json `
   --p012-sector-audit output/multi_policy_v53_20260928/p012/sector_denominator_display_audit.json `
+  --distancing-input-audit experiments/multi_policy_v53_20260927/distancing_render_audit_20260928.json `
   --in-progress-policy P012 `
   --experiment multi_policy_v53_20260928 `
   --out output/report/experiments/multi_policy_v53_20260928.html
@@ -124,6 +125,18 @@ DS-6의 정식 시뮬 값은 이번 실험에서도 `null`입니다. 2020 서울
 (0.50%)을 발견한 데 따른 사전 방법 수정입니다. 결합·분모가
 통과하더라도 관측이 희소하면 숫자는 기술값만 보이고 방향·크기 의미
 판정은 금지합니다. 경계 ZIP SHA와 상권별 두 원수치를 카드에 보존합니다.
+
+거리두기 ON/OFF의 동결 입력 정적 렌더 감사
+`distancing_render_audit_20260928.json`(SHA256
+`B043081CED861D1385D83EA52E609AFC6FE89398B40B3350BF707FC41EFF640B`)
+는 실제 시뮬 날짜 2020-11-24~26에 양팔 공통 서울 확진 배경
+112→133→142명, ON만 수도권 2단계 식당 21시·카페 포장·집합 제한,
+OFF는 추가 거리두기 제한 없음임을 기록합니다. ON 환경의
+`covid_2021`은 코드 내부 ID이며 관측연도 2021을 뜻하지 않습니다.
+빌더는 정적 소스 SHA256, 두 팔 환경 ID와 날짜가 scorer 원장과
+일치할 때만 카드에 이를 표시합니다. 완성 HTTP 요청 전수 캡처의
+증거로 확대하지 않습니다. 양팔은 같은 바이트의 범용 v53 프롬프트와
+서로 다른 정책 레짐 환경 입력을 사용합니다.
 
 P012 캐시백 지급액·상한 도달률의 원문 47,880원·21%는 10~11월 합계입니다.
 10월 한 달 시뮬에는 scorer의 `empirical_variant: october_only`가 필요하며,
