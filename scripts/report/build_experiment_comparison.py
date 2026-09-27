@@ -1175,7 +1175,8 @@ def _run_context_html(context: dict | None) -> str:
         won = lambda key: f'{diagnostic[key]:,}원'
         diagnostic_html = (
             '<p class="balance"><strong>정책결제 경로의 사후 진단:</strong> '
-            f'시행기간 적격 구매 이벤트 {_esc(diagnostic["eligible_purchase_events"])}/'
+            f'시행기간 Neo4j INCLUDES 기준 적격 구매 이벤트 '
+            f'{_esc(diagnostic["eligible_purchase_events"])}/'
             f'{_esc(diagnostic["positive_purchase_events"])}, '
             f'적격 구매액 {_esc(won("eligible_purchase_won"))}/'
             f'전체 구매액 {_esc(won("positive_purchase_won"))}. '
