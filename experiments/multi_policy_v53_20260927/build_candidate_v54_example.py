@@ -24,7 +24,7 @@ def sha(data: bytes) -> str:
 
 def build() -> tuple[str, dict]:
     opening = "예시 (실제 dong_code는 페르소나 블록 참조 / reasoning은 페르소나 → 행동 직결이 아닌 살아있는 흐름):\n"
-    closing = "\n※ 위 예시의 건강·미용·쇼핑·마트 이벤트는"
+    closing = "\n※ 하루 일정(events)을 먼저"
     if V53.count(opening) != 1 or V53.count(closing) != 1:
         raise ValueError("v53 output example markers changed")
     prefix, tail = V53.split(opening, 1)
@@ -69,8 +69,11 @@ def build() -> tuple[str, dict]:
         raise ValueError("weekday worker example lacks four hours of work")
     replacement = ('{"events": [\n'
                    + ',\n'.join('  ' + raw[time] for time in selected)
-                   + ',\n  ' + home + '\n ],\n "daily_propensity": 0.72}\n')
-    if json.loads(replacement)["events"] != events:
+                   + ',\n  ' + home + '\n ],\n "daily_propensity": 0.72}\n'
+                   + "\n※ 위 예시의 건강·마트 이벤트는 '그런 날'의 예시일 뿐이다. 오늘이 병원 갈 날도,\n"
+                   + " 장을 볼 날도 아니면 넣지 않는다. 미용·쇼핑·학원·안경점도 필요와 주기가 돌아온 날에만\n"
+                   + " 같은 방식으로 넣는다.")
+    if json.loads(replacement.split('\n※', 1)[0])["events"] != events:
         raise ValueError("candidate example did not round-trip as JSON")
     candidate = prefix + opening + replacement + closing + suffix
     if candidate.count(closing) != 1 or candidate == V53:
@@ -81,9 +84,11 @@ def build() -> tuple[str, dict]:
         "status": "not_executed",
         "candidate": "v54-example-contract",
         "base": "v53",
-        "change_scope": "one contiguous Stage1 JSON output example; policy text and Stage2 unchanged",
+        "change_scope": "one contiguous Stage1 JSON output example and immediately following explanatory note; policy text and Stage2 unchanged",
         "base_system_sha256": sha(V53.encode("utf-8")),
         "candidate_system_sha256": sha(candidate.encode("utf-8")),
+        "supersedes_candidate_system_sha256": "6b102e77d039508a4f7d8b7719ed0c2c3dcaad7ddb540fc9c5b64d5c821bbfe2",
+        "superseded_before_calls": True,
         "frozen_inputs_path": str(frozen_inputs.relative_to(ROOT)).replace("\\", "/"),
         "frozen_inputs_sha256": sha(frozen_inputs.read_bytes()),
         "selected_example_event_times": [event["time"] for event in events],
