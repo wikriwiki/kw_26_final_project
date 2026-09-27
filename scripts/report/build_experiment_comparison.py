@@ -446,6 +446,8 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
              (report["simulated_count"], "시뮬 수치 있음"),
              (sum(r["external_direction_match"] is not None for r in rows), "외부 방향 대조 가능"),
              (report["direct_gap_count"], "실측과 직접 차감 가능"),
+             (sum(r["more_people"] == "아니요" for r in rows), "표본 확대만으로 부족"),
+             (sum(r["more_people"] == "내부 정밀도만" for r in rows), "내부 정밀도만 개선"),
              (len(report.get("unregistered_policies") or []), "지표 미등록 정책")]
     paired = report.get("paired_effect_summary")
     if paired:

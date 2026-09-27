@@ -104,11 +104,4 @@ PY
   log "Completed and exported $arm"
 }
 run_arm off
-run_arm on
-python scripts/report/paired_grant_effect.py --on "$OUT/on.ledger.jsonl" \
-  --off "$OUT/off.ledger.jsonl" --roster "$OUT/roster.json" \
-  --start 2020-05-09 --end 2020-05-13 --effect-start 2020-05-11 \
-  --effect-end 2020-05-13 --policy-id P013 --expected-recipients 80 \
-  --expected-issued-won 22400000 --json-out "$OUT/paired_effect.json"
-sha256sum "$OUT/paired_effect.json" >> "$OUT/frozen_inputs.sha256"
-log 'PILOT_COMPLETE'
+log 'OFF_COMPLETE: preserve OFF output outside A100, then use on_from_restore.sh'
