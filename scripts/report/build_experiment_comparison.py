@@ -473,7 +473,8 @@ def _surface_comparison(row: dict) -> dict | None:
     # P012-5 is a difference of two log-regression coefficients. Converting
     # that difference to a single percentage does not produce a percentage-
     # point difference between the two sector growth rates.
-    if row.get("gap") is not None or row.get("id") == "P012-5":
+    if (row.get("gap") is not None or row.get("id") == "P012-5"
+            or row.get("binomial_zero_count_audit")):
         return None
     truth, sim = row["truth"], row["simulation"]
     truth_unit, sim_unit = row["truth_unit"], row["simulation_unit"]
@@ -857,6 +858,72 @@ def apply_p010_concentration_display_audit(report: dict, path: Path) -> dict:
     return updated
 
 
+def apply_p012_sector_display_audit(report: dict, path: Path) -> dict:
+    """Explain P012's unstable sector proxy using source-bound ON/OFF amounts."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("schema") != "p012_sector_denominator_display_audit_v1"
+            or audit.get("policy") != "P012" or audit.get("indicator") != "P012-5"):
+        raise ValueError("invalid P012 sector display audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "P012"), None)
+    row = next((item for item in report.get("rows", [])
+                if item["policy"] == "P012" and item["id"] == "P012-5"), None)
+    if not run or not row or not _number(row.get("simulation")):
+        raise ValueError("P012 sector audit requires a scored P012-5 run")
+    if not any(item["path"] == audit.get("numeric_path")
+               and item["sha256"] == audit.get("numeric_sha256")
+               for item in report.get("score_files", [])):
+        raise ValueError("P012 sector audit does not match the frozen numeric score")
+    evidence = {item["path"]: item["sha256"] for item in run["evidence"]}
+    if (audit.get("on_sector_ledger_sha256") != evidence.get(audit.get("on_sector_ledger_path"))
+            or audit.get("off_sector_ledger_sha256") != evidence.get(audit.get("off_sector_ledger_path"))
+            or not str(audit.get("on_sector_ledger_path", "")).replace("\\", "/").endswith(
+                "/on/on/sector.ledger.jsonl")
+            or not str(audit.get("off_sector_ledger_path", "")).replace("\\", "/").endswith(
+                "/off/off/sector.ledger.jsonl")):
+        raise ValueError("P012 sector audit does not match verified ON/OFF ledgers")
+    start_end = str(run.get("on") or "").split(":")
+    if (audit.get("effect_window") != run.get("on") or run.get("on") != run.get("off")
+            or audit.get("citizens") != run.get("citizens")
+            or len(start_end) != 2):
+        raise ValueError("P012 sector audit period or citizens differ from run")
+    try:
+        days = (date.fromisoformat(start_end[1]) - date.fromisoformat(start_end[0])).days + 1
+    except ValueError as exc:
+        raise ValueError("P012 sector audit needs valid dates") from exc
+    if days <= 0 or audit.get("paired_citizen_days") != days * run["citizens"]:
+        raise ValueError("P012 sector audit citizen-days do not reconcile")
+    expected = (("appliance_furniture", "appliance_furniture_pct"),
+                ("hair_beauty", "hair_beauty_pct"))
+    components = row.get("simulation_components") or {}
+    for source, score_key in expected:
+        item = audit.get(source)
+        if (not isinstance(item, dict)
+                or not all(isinstance(item.get(key), int) and not isinstance(item[key], bool)
+                           and item[key] >= 0 for key in ("on_won", "off_won"))
+                or item["off_won"] <= 0 or not _number(item.get("on_off_percent"))
+                or abs(item["on_off_percent"]
+                       - 100 * (item["on_won"] - item["off_won"]) / item["off_won"]) > 1e-9
+                or not _number(components.get(score_key))
+                or abs(item["on_off_percent"] - components[score_key]) > 1e-9):
+            raise ValueError("P012 sector audit amounts differ from scored components")
+    if (not _number(audit.get("gap_percentage_points"))
+            or abs(audit["gap_percentage_points"] - row["simulation"]) > 1e-9):
+        raise ValueError("P012 sector audit gap differs from frozen numeric score")
+    evidence_note = {"path": _display_path(path), "sha256": _sha(path)}
+    displayed = {
+        "appliance_furniture": audit["appliance_furniture"],
+        "hair_beauty": audit["hair_beauty"],
+        "paired_citizen_days": audit["paired_citizen_days"], **evidence_note,
+    }
+    updated = dict(report)
+    updated["rows"] = [{**item, "sector_denominator_display_audit": displayed}
+                       if item is row else item for item in report["rows"]]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []), evidence_note]
+    return updated
+
+
 def build_multi_policy_pairs(manifest_paths: Path | list[Path],
                              scoring_path: Path = SCORING,
                              suite: str = "") -> dict:
@@ -1062,6 +1129,28 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
                        empirical_variant=entry.get("empirical_variant"),
                        estimand_alignment=alignment,
                        gap=None, gap_unit=None, external_direction_match=None)
+            if policy == "P012" and indicator_id == "P012-6" and value == 0:
+                month_evidence = [item for item in verified
+                                  if Path(item["path"]).name == "paired_cashback_month.json"]
+                if len(month_evidence) != 1:
+                    raise ValueError("P012-6 zero rate needs one verified monthly cashback score")
+                month_path = Path(month_evidence[0]["path"])
+                if not month_path.is_absolute():
+                    month_path = ROOT / month_path
+                month = json.loads(month_path.read_text(encoding="utf-8"))
+                if (month.get("policy_id") != "P012" or month.get("month") != "2021-10"
+                        or month.get("complete_paired_matrix") is not True
+                        or month.get("recipients") != n
+                        or month.get("capped_recipients") != 0
+                        or (month.get("metrics") or {}).get("cap_share_recipients", {}).get("value") != 0):
+                    raise ValueError("P012-6 zero-cap evidence differs from numeric score")
+                row["binomial_zero_count_audit"] = {
+                    "capped_recipients": 0, "recipients": n,
+                    "two_sided_95_upper_pct": 100 * (1 - 0.025 ** (1 / n)),
+                    "source_path": month_evidence[0]["path"],
+                    "source_sha256": month_evidence[0]["sha256"],
+                    "assumption": "independent-binomial-recipient-reference; not model uncertainty",
+                }
             if entry.get("direction_comparable") is True and _number(row["truth"]):
                 row["proxy_direction_same"] = ((value > 0 and row["truth"] > 0)
                                                or (value < 0 and row["truth"] < 0))
@@ -1343,6 +1432,16 @@ def _technical_details(row: dict) -> str:
         fields.append('<p><strong>정책결제 업종 사후 표시 감사:</strong> '
                       + _esc(subclass_audit["path"] + ' SHA256 '
                              + subclass_audit["sha256"]) + '</p>')
+    zero_cap = row.get("binomial_zero_count_audit")
+    if isinstance(zero_cap, dict):
+        fields.append('<p><strong>10월 0건 상한률 월말 원장:</strong> '
+                      + _esc(zero_cap["source_path"] + ' SHA256 '
+                             + zero_cap["source_sha256"]) + '</p>')
+    sector_audit = row.get("sector_denominator_display_audit")
+    if isinstance(sector_audit, dict):
+        fields.append('<p><strong>업종 분모 사후 표시 감사:</strong> '
+                      + _esc(sector_audit["path"] + ' SHA256 '
+                             + sector_audit["sha256"]) + '</p>')
     return ('<details class="technical"><summary>원문 정의·산식·증거 자세히 보기</summary>'
             + ''.join(fields) + '</details>') if fields else ''
 
@@ -1364,10 +1463,27 @@ def _p012_rank_components(row: dict) -> str:
         f'<td>{_esc(_fmt(simulation[proxy], "%"))}</td></tr>'
         for label, source, proxy in pairs
     )
+    audit = row.get("sector_denominator_display_audit")
+    denominator_note = ''
+    if isinstance(audit, dict):
+        appliance = audit["appliance_furniture"]
+        beauty = audit["hair_beauty"]
+        denominator_note = (
+            '<p><strong>시뮬 원화 분모 주의:</strong> '
+            f'가전·가구 POI는 ON {appliance["on_won"]:,}원 / '
+            f'OFF {appliance["off_won"]:,}원, '
+            f'이·미용 POI는 ON {beauty["on_won"]:,}원 / '
+            f'OFF {beauty["off_won"]:,}원입니다. '
+            f'{audit["paired_citizen_days"]} 시민×일에서 가전·가구 OFF 분모가 작아 '
+            f'시뮬 {_esc(_fmt(row["simulation"], "%p"))}의 크기가 매우 불안정하고 '
+            '재표집 구간도 넓습니다. '
+            '실측의 월별 가구 삼중차분 로그계수와 같은 추정량이 아닙니다.</p>'
+        )
     return ('<div class="component-breakdown"><strong>두 업종의 원수치</strong>'
             '<table><thead><tr><th>업종</th><th>실측 로그회귀 계수</th>'
             '<th>시뮬 ON−OFF 변화율</th></tr></thead><tbody>' + cells + '</tbody></table>'
-            '<p>실측 0.3336 log-point는 두 회귀계수의 차이이고, '
+            + denominator_note
+            + '<p>실측 0.3336 log-point는 두 회귀계수의 차이이고, '
             '시뮬 값은 두 업종 퍼센트 변화율의 차이입니다. '
             '로그계수 차이를 퍼센트로 변환해도 퍼센트포인트 차이가 되지 않으므로 '
             '두 차이를 빼거나 적중률로 채점하지 않습니다.</p></div>')
@@ -1620,6 +1736,8 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                     f'<span class="sim">시뮬 {_esc(sim)}</span>']
             if r["gap"] is not None:
                 nums.append(f'<span class="gap">시뮬−실측 {_esc(_fmt(r["gap"], r["gap_unit"]))}</span>')
+            elif numeric_only and r.get("binomial_zero_count_audit"):
+                nums.append('<span class="memo">0건·소표본: 산술 차이 생략</span>')
             elif numeric_only and r.get("surface_comparison"):
                 surface = r["surface_comparison"]
                 nums.append(f'<span class="memo">탐색적 숫자상 차이 '
@@ -1627,7 +1745,15 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                             f' · {_esc(surface["scale"])}</span>')
             elif numeric_only:
                 nums.append('<span class="memo">서로 다른 단위·정의: 산술 차이 생략</span>')
-            if r["ci"]:
+            if r.get("binomial_zero_count_audit"):
+                zero_cap = r["binomial_zero_count_audit"]
+                nums.append('<span class="smalln">'
+                            f'시뮬 상한 도달 {zero_cap["capped_recipients"]}/'
+                            f'{zero_cap["recipients"]}명; 시민 재표집 [0, 0]은 퇴화. '
+                            f'독립 이항 표본 가정의 양측 95% 상한 '
+                            f'{zero_cap["two_sided_95_upper_pct"]:.2f}%'
+                            '</span>')
+            elif r["ci"]:
                 ci_label = ("시뮬 시민 재표집 95% 구간(모델·외부 표본 불확실성 미포함)"
                             if numeric_only else "95% 구간")
                 nums.append(f'<span class="ciTxt">{_esc(ci_label)} '
@@ -1673,6 +1799,17 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                          f'<p class="reason">{_esc(visible_reason)}</p>'
                          f'<p class="opinion"><strong>표본만 확대:</strong> {_esc(r["more_people"])}. '
                          f'{_esc(r["expert_opinion"])}</p>'
+                         + (f'<p class="balance">0/{r["binomial_zero_count_audit"]["recipients"]} '
+                            '수령자는 상한 도달률이 실제로 0이라는 증거가 아닙니다. '
+                            f'위 {r["binomial_zero_count_audit"]["two_sided_95_upper_pct"]:.2f}%는 '
+                            f'{r["binomial_zero_count_audit"]["recipients"]}명을 '
+                            '독립 이항 표본으로 본 '
+                            '참고 상한이며, 모델 반복 변동·외부 표본 불확실성은 '
+                            f'포함하지 않습니다. 실측은 10월 원문 표를 재구성한 '
+                            f'{_esc(_fmt(r["truth"], r["truth_unit"]))}이고 '
+                            '시뮬은 10월 말 발생추정(익월 실제 지급 관측 아님)이므로 '
+                            '이 상한에 실측이 들어온다고 해서 정책 효과 검증이 된 것은 '
+                            '아닙니다.</p>' if r.get("binomial_zero_count_audit") else '')
                          + (f'<p class="reason">탐색적 차이는 표시된 두 숫자의 산술 차이일 뿐 '
                             f'정책 효과 오차나 프롬프트 적중률이 아닙니다. '
                             f'{_esc(r["surface_comparison"].get("conversion") or "")}'
@@ -1817,6 +1954,7 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              p010_funding_audit: Path | None = None,
              p010_channel_audit: Path | None = None,
              p010_concentration_audit: Path | None = None,
+             p012_sector_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -1832,6 +1970,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--p010-channel-audit requires --multi-policy-pairs")
     if p010_concentration_audit and not multi_paths:
         raise ValueError("--p010-concentration-audit requires --multi-policy-pairs")
+    if p012_sector_audit and not multi_paths:
+        raise ValueError("--p012-sector-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -1848,7 +1988,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([empirical_registry] if empirical_registry else []),
                                                            *([p010_funding_audit] if p010_funding_audit else []),
                                                            *([p010_channel_audit] if p010_channel_audit else []),
-                                                           *([p010_concentration_audit] if p010_concentration_audit else [])]):
+                                                           *([p010_concentration_audit] if p010_concentration_audit else []),
+                                                           *([p012_sector_audit] if p012_sector_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -1858,6 +1999,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
             report = apply_p010_channel_display_audit(report, p010_channel_audit)
         if p010_concentration_audit:
             report = apply_p010_concentration_display_audit(report, p010_concentration_audit)
+        if p012_sector_audit:
+            report = apply_p012_sector_display_audit(report, p012_sector_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -1905,6 +2048,8 @@ def main() -> int:
                     help="optional SHA-checked post-run P010 channel decomposition; never rescores")
     ap.add_argument("--p010-concentration-audit", type=Path,
                     help="optional SHA-checked post-run P010 citizen-gap concentration; never rescores")
+    ap.add_argument("--p012-sector-audit", type=Path,
+                    help="optional SHA-checked post-run P012 sector denominator disclosure; never rescores")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -1926,6 +2071,7 @@ def main() -> int:
                                          p010_funding_audit=a.p010_funding_audit,
                                          p010_channel_audit=a.p010_channel_audit,
                                          p010_concentration_audit=a.p010_concentration_audit,
+                                         p012_sector_audit=a.p012_sector_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))

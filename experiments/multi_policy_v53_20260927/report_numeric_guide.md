@@ -34,6 +34,7 @@ py -3 scripts/report/build_experiment_comparison.py `
   --p010-funding-audit output/multi_policy_v53_20260928/p010/funded_by_sub_audit.json `
   --p010-channel-audit output/recovery_20260928/multipolicy_v53/p010/p010_channel_gap_audit.json `
   --p010-concentration-audit output/recovery_20260928/multipolicy_v53/p010/p010_citizen_gap_concentration_audit.json `
+  --p012-sector-audit output/multi_policy_v53_20260928/p012/sector_denominator_display_audit.json `
   --in-progress-policy P012 `
   --experiment multi_policy_v53_20260928 `
   --out output/report/experiments/multi_policy_v53_20260928.html
@@ -133,6 +134,22 @@ P012-5의 실측 0.3336 log-point는 가전·가구 0.3623과 이·미용 0.0287
 회귀계수 차이입니다. 시뮬 지표는 두 업종의 `%` 변화율 차이인 `%p`입니다.
 두 업종의 원수치를 각각 표시하며, `exp(0.3336)-1`을 시뮬 `%p`에서
 빼거나 이를 크기 적중으로 평가하지 않습니다.
+P012-5의 점수 산식이 동결된 뒤 작성한 표시 감사
+`sector_denominator_display_audit.json`(SHA256
+`54B5AF4F4A1BCB7EEE6320BABFA09893388BC28B2C1C8785DEEC804DF4867FEF`)
+는 양팔 sector 원장과 숫자 score SHA를 검사했습니다. 가전·가구 POI
+ON 1,708,715원/OFF 578,631원, 이·미용 POI ON 279,385원/OFF
+295,902원입니다. 작은 가전·가구 OFF 분모에서 +200.9%p 차이가 크게
+움직이며 재표집 구간도 −127.1~+1,322.4%p입니다. 이 숫자는 월별
+가구 삼중차분 로그계수의 크기 검증이 아닙니다.
+P012-6의 이번 v53 월말 **발생추정**은 상한 도달 0/11 수령자입니다.
+시민 재표집 구간 [0, 0]은 성공 관측이 0명이라 퇴화한 값으로, 상한
+도달률이 실제로 0이라는 증거가 아닙니다. 독립 이항 표본이라는 단순
+가정 아래 Clopper–Pearson 양측 95% 상한은
+`100×[1−0.025^(1/11)] = 28.49%`입니다. 보고서는 원자료 월말 JSON
+SHA256·수령자 분모·0명 관측을 확인했을 때만 이 **참고 불확실성**을
+표시하며 10월 실측 약 20.87%와의 산술 차이를 생략합니다.
+모델 반복 변동과 실제 인구 표본오차, 익월 지급 관측은 반영하지 않습니다.
 
 같은 단위이거나 로그계수를 `100×(exp(계수)−1)%`로 변환할 수 있는 경우
 `탐색적 숫자상 차이`와 대략적인 규모를 표시합니다. 이는 서로 다른 모집단,

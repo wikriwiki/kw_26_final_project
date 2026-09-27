@@ -597,6 +597,110 @@ def test_october_cashback_uses_october_reference_instead_of_two_month_mean(tmp_p
     assert all("10월" in row["truth_kind"] for row in updated["rows"])
 
 
+def test_zero_of_eleven_cap_recipients_gets_exact_reference_not_accuracy_gap(tmp_path):
+    scoring = tmp_path / "scoring.json"
+    scoring.write_text(json.dumps({"P012": {"indicators": [{
+        "id": "P012-6", "metric": "cap_share_recipients", "expect": "0",
+        "desc": "10월 캐시백 상한 도달률"}]}}), encoding="utf-8")
+    month = tmp_path / "paired_cashback_month.json"
+    month.write_text(json.dumps({
+        "policy_id": "P012", "month": "2021-10", "complete_paired_matrix": True,
+        "recipients": 11, "capped_recipients": 0,
+        "metrics": {"cap_share_recipients": {"value": 0.0}},
+    }), encoding="utf-8")
+    manifest = tmp_path / "numeric.json"
+    manifest.write_text(json.dumps({
+        "schema": "multi_policy_numeric_v1", "experiment": "cap_test",
+        "prompt_variant": "v53",
+        "scoring_table_sha256": hashlib.sha256(scoring.read_bytes()).hexdigest(),
+        "runs": [{"policy": "P012", "citizens": 12,
+                  "on": "2021-10-01:2021-10-31", "off": "2021-10-01:2021-10-31",
+                  "run_provenance": {"generic_prompt_sha256": "a" * 64},
+                  "evidence": [{"path": str(month),
+                                "sha256": hashlib.sha256(month.read_bytes()).hexdigest()}],
+                  "indicators": [{"id": "P012-6", "simulation": 0.0,
+                                  "simulation_unit": "%", "ci": [0.0, 0.0], "n": 11,
+                                  "estimand_alignment": "different",
+                                  "direction_comparable": False,
+                                  "empirical_variant": "october_only",
+                                  "reason": "monthly accrual differs from paid survey",
+                                  "method": "capped recipients / recipients"}]}],
+    }), encoding="utf-8")
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"schema": "empirical_registry_v1", "indicators": [{
+        "policy": "P012", "id": "P012-6", "empirical": {
+            "value": 21.0, "unit": "% of cashback recipients",
+            "october_only_from_rounded_table_percent": 20.8714,
+            "source": "test table"},
+        "direct_gap_allowed": False, "reason": "accrual differs from paid benefits",
+    }]}), encoding="utf-8")
+    _, _, built = report.generate([], multi_policy_pairs=manifest,
+                                  scoring_path=scoring, empirical_registry=registry,
+                                  out=tmp_path / "cap.html")
+    row = built["rows"][0]
+    assert row["truth"] == 20.8714 and row["simulation"] == 0.0
+    assert row["gap"] is None and row["surface_comparison"] is None
+    assert row["binomial_zero_count_audit"]["two_sided_95_upper_pct"] == pytest.approx(28.49, abs=.01)
+    markup = (tmp_path / "cap.html").read_text(encoding="utf-8")
+    assert "0/11" in markup and "28.49%" in markup
+    assert "시민 재표집 [0, 0]은 퇴화" in markup
+    assert "탐색적 숫자상 차이" not in markup
+
+
+def test_p012_sector_denominator_display_audit_binds_frozen_score_and_ledgers(tmp_path):
+    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{"frozen": true}', encoding="utf-8")
+    ledgers = []
+    for arm in ("on", "off"):
+        source = tmp_path / arm / arm / "sector.ledger.jsonl"
+        source.parent.mkdir(parents=True)
+        source.write_text('{"verified": true}\n', encoding="utf-8")
+        ledgers.append({"path": source.as_posix(), "sha256": digest(source)})
+    row = {"policy": "P012", "id": "P012-5", "simulation": 125.0,
+           "simulation_components": {"appliance_furniture_pct": 100.0,
+                                     "hair_beauty_pct": -25.0},
+           "truth": .3336, "truth_unit": "log-point",
+           "simulation_unit": "%p", "gap": None, "ci": [-10, 500],
+           "empirical_components": [{"sector": "appliances_furniture", "value": .3623},
+                                    {"sector": "hair_beauty", "value": .0287}]}
+    original = {
+        "score_files": [{"path": numeric.as_posix(), "sha256": digest(numeric)}],
+        "run_evidence": [{"policy": "P012", "on": "2021-10-01:2021-10-01",
+                          "off": "2021-10-01:2021-10-01", "citizens": 2,
+                          "evidence": ledgers}],
+        "rows": [row],
+    }
+    audit = {
+        "schema": "p012_sector_denominator_display_audit_v1",
+        "policy": "P012", "indicator": "P012-5",
+        "numeric_path": numeric.as_posix(), "numeric_sha256": digest(numeric),
+        "on_sector_ledger_path": ledgers[0]["path"],
+        "on_sector_ledger_sha256": ledgers[0]["sha256"],
+        "off_sector_ledger_path": ledgers[1]["path"],
+        "off_sector_ledger_sha256": ledgers[1]["sha256"],
+        "effect_window": "2021-10-01:2021-10-01", "citizens": 2,
+        "paired_citizen_days": 2,
+        "appliance_furniture": {"on_won": 100, "off_won": 50,
+                                "on_off_percent": 100.0},
+        "hair_beauty": {"on_won": 75, "off_won": 100,
+                        "on_off_percent": -25.0},
+        "gap_percentage_points": 125.0,
+    }
+    sidecar = tmp_path / "sector_denominator_display_audit.json"
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    updated = report.apply_p012_sector_display_audit(original, sidecar)
+    assert updated["rows"][0]["simulation"] == row["simulation"]
+    assert updated["post_run_display_audits"][0]["sha256"] == digest(sidecar)
+    markup = report._p012_rank_components(updated["rows"][0])
+    assert "ON 100원 / OFF 50원" in markup
+    assert "시뮬 +125.00%p의 크기가 매우 불안정" in markup
+    audit["off_sector_ledger_sha256"] = "0" * 64
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    with pytest.raises(ValueError, match="verified ON/OFF ledgers"):
+        report.apply_p012_sector_display_audit(original, sidecar)
+
+
 def test_p012_sector_log_coefficient_gap_is_never_treated_as_percent_point_gap():
     row = {
         "id": "P012-5", "truth": 0.3336, "truth_unit": "log-point",
