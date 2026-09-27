@@ -317,7 +317,7 @@ def build_paired_effect(effect_path: Path, scoring_path: Path = SCORING,
                    proxy_direction_same=(value > 0 if _number(row["truth"]) and row["truth"] > 0
                                          else None))
     by_id["EM-4"].update(status="업종별 측정 없음",
-                         reason="P013 양팔은 실행했지만 업종별 쌍체 원장을 보존하지 않으면 준내구재·대면서비스 순위를 계산할 수 없습니다.",
+                         reason="P013 양팔은 실행했지만 업종별 쌍체 원장이 없거나 한 업종의 OFF 지출이 0원이면 준내구재·대면서비스 변화율 순위를 계산할 수 없습니다.",
                          score_label=experiment or "P013 v53 소규모 쌍체 파일럿",
                          off=f"{effect['effect_start']}:{effect['effect_end']}",
                          on=f"{effect['effect_start']}:{effect['effect_end']}")

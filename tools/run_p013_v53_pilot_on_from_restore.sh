@@ -135,9 +135,12 @@ python scripts/report/paired_grant_effect.py --on "$OUT/on.ledger.jsonl" \
   --start 2020-05-09 --end 2020-05-13 --effect-start 2020-05-11 \
   --effect-end 2020-05-13 --policy-id P013 --expected-recipients 80 \
   --expected-issued-won 22400000 --json-out "$OUT/paired_effect.json"
-PILOT_REPO_ROOT="$REPO" python "$OUT/sector_export.py" pair \
-  --on "$OUT/on.sector.json" --off "$OUT/off.sector.json" \
-  --out "$OUT/paired_sector.json"
+if PILOT_REPO_ROOT="$REPO" python "$OUT/sector_export.py" pair \
+     --on "$OUT/on.sector.json" --off "$OUT/off.sector.json" \
+     --out "$OUT/paired_sector.json"; then
+  sha256sum "$OUT/paired_sector.json" >> "$OUT/frozen_inputs.sha256"
+else
+  log 'SECTOR_PROXY_UNAVAILABLE: report EM-4 as unestimated; primary pair remains valid'
+fi
 sha256sum "$OUT/paired_effect.json" >> "$OUT/frozen_inputs.sha256"
-sha256sum "$OUT/paired_sector.json" >> "$OUT/frozen_inputs.sha256"
 log 'PILOT_COMPLETE'
