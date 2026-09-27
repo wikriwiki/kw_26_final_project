@@ -112,8 +112,10 @@ def test_paired_pilot_proxies_never_become_empirical_gaps(tmp_path):
         "recorded_total_relative_citizen_bootstrap_95_interval": [-0.01, 0.06],
         "provenance": {"prompt_variant": "v53", "arms": {"on": {}, "off": {}}},
     }), encoding="utf-8")
+    note = tmp_path / "quality.txt"
+    note.write_text("중간 Stage1 실패 1건을 기록하고 재개했습니다.", encoding="utf-8")
     out, json_out, built = report.generate([], paired_effect=effect,
-                                           out=tmp_path / "pilot.html")
+                                           run_note=note, out=tmp_path / "pilot.html")
     assert built["indicator_count"] == 38
     assert built["simulated_count"] == 2
     assert built["direct_gap_count"] == 0
@@ -125,6 +127,8 @@ def test_paired_pilot_proxies_never_become_empirical_gaps(tmp_path):
     assert rows["P012-1"]["status"] == "미실행"
     markup = out.read_text(encoding="utf-8")
     assert markup.count('class="opinion"') == 38
+    assert "중간 Stage1 실패 1건" in markup
+    assert built["run_note"]["sha256"] == hashlib.sha256(note.read_bytes()).hexdigest()
     assert "표본만 확대" in markup
     assert json.loads(json_out.read_text(encoding="utf-8"))["direct_gap_count"] == 0
     sector = tmp_path / "sector.json"
