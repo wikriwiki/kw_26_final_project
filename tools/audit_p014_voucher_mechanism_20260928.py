@@ -56,6 +56,14 @@ def arm_audit(ledger: Path, *, arm: str, run: dict, evidence: dict[str, str]) ->
         raise ValueError("ON policy ID mismatch")
     if arm == "off" and manifest.get("policy_id") is not None:
         raise ValueError("OFF unexpectedly exposed to policy")
+    stage2_path = ledger.parent / "stage2.json"
+    if evidence.get(stage2_path.as_posix()) != sha256(stage2_path):
+        raise ValueError(f"{arm} Stage2 evidence SHA mismatch")
+    stage2 = json.loads(stage2_path.read_text(encoding="utf-8"))
+    stage2_totals = stage2.get("totals") or {}
+    if (stage2.get("quality_gate_pass") is not True
+            or stage2_totals.get("metrics_rows") != run["citizens"] * manifest["days"]):
+        raise ValueError(f"{arm} Stage2 audit does not cover the full run")
 
     totals = Counter()
     roster = set()
@@ -119,6 +127,13 @@ def arm_audit(ledger: Path, *, arm: str, run: dict, evidence: dict[str, str]) ->
                         for row in effect_sector)
     return {"arm": arm, "sector_ledger_path": ledger.as_posix(),
             "sector_ledger_sha256": sha256(ledger),
+            "stage2_audit_path": stage2_path.as_posix(),
+            "stage2_audit_sha256": sha256(stage2_path),
+            "stage2_quality_gate_pass": stage2["quality_gate_pass"],
+            "stage2_unrepaired_choice_trace_pass": stage2["unrepaired_choice_trace_pass"],
+            "stage2_choice_repair_agents": stage2_totals["stage2_choice_repair_agents"],
+            "stage2_hallucinations_corrected": stage2_totals["stage2_hallucinations_corrected"],
+            "stage2_spend_amount_fallbacks": stage2_totals["stage2_spend_amount_fallbacks"],
             "effect_days": effect_days, "citizens": len(roster),
             "sector_offline_spent_won": sector_offline,
             "sector_policy_funded_won": sector_funded,
