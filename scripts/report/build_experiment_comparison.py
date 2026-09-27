@@ -1773,6 +1773,21 @@ def _exploratory_html(pairs: list[dict]) -> str:
                     )
         if row["policy"] == "DISTANCING_2020":
             denominator_html = _geo_proxy_exploratory_html(row)
+        if row["policy"] == "P014":
+            uncertainty = []
+            if isinstance(row.get("n"), int):
+                uncertainty.append(f'시뮬 시민 {row["n"]}명')
+            if isinstance(row.get("ci"), list) and len(row["ci"]) == 2:
+                uncertainty.append(
+                    '시뮬 시민 재표집 95% 구간 '
+                    + _fmt(row["ci"][0], sim_unit) + ' ~ '
+                    + _fmt(row["ci"][1], sim_unit))
+            if uncertainty:
+                denominator_html = (
+                    '<p class="reason">' + _esc(' · '.join(uncertainty))
+                    + '. 이 구간은 모델 재실행·외부 실측 표본의 불확실성을 '
+                    '포함하지 않습니다.</p>' + denominator_html
+                )
         policy_names[row["policy"]] = row["policy_name"]
         contexts.setdefault(row["policy"], row.get("run_context"))
         cards_by_policy.setdefault(row["policy"], []).append('<div class="row">'

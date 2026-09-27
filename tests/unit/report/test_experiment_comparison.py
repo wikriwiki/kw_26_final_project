@@ -470,7 +470,7 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
     markup = report._exploratory_html([{
         "policy": "P014", "policy_name": "지역사랑상품권 탐색 지표",
         "id": "P014-KIPF-47121", "truth": 0.141, "truth_unit": "log-point",
-        "simulation": 12.5, "simulation_unit": "%", "n": 40,
+        "simulation": 12.5, "simulation_unit": "%", "ci": [1.0, 25.0], "n": 40,
         "source": "KIPF table VI-6", "source_locator": "column 3",
         "simulation_evidence": [],
         "run_context": {"policy_id": "P014", "generic_prompt_sha256": "a" * 64,
@@ -479,6 +479,8 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
     assert "실측 +0.1410 log-point" in markup
     assert "시뮬 +12.50%" in markup
     assert "지역·연도별 업종 매출 로그회귀계수" in markup
+    assert "시뮬 시민 40명" in markup
+    assert "시뮬 시민 재표집 95% 구간 +1.00% ~ +25.00%" in markup
     assert "상품권 구매·잔액·상환 지갑 원장이" in markup
     assert "policy_hits도 실제 자치구·상호 적격 결제 건수를 세지 않습니다" in markup
     assert "상품권 거래 효과나 사용률이 아니고" in markup
