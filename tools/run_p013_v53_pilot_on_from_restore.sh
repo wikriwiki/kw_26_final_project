@@ -56,6 +56,17 @@ if [ ! -f "$OUT/on_graph_restored.marker" ]; then
   "$NEO/bin/neo4j" start
   stopped=0
   "$NEO/bin/neo4j" status
+  ready=0
+  for attempt in $(seq 1 30); do
+    if python - <<'PY' >/dev/null 2>&1
+from scripts.neo4j_load._common import driver_session
+with driver_session() as session:
+    assert session.run('RETURN 1 AS ready').single()['ready'] == 1
+PY
+    then ready=1; break; fi
+    sleep 2
+  done
+  if [ "$ready" -ne 1 ]; then log 'Neo4j did not become query-ready'; exit 1; fi
   log 'Database restored; reset run artifacts and seed identical Day0'
   python scripts/neo4j_load/97_reset_run_artifacts.py
   DAY_ZERO=2020-05-08 python scripts/neo4j_load/08_initial_state.py
