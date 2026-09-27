@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,193 @@ from scripts.report import build_experiment_comparison as report
 
 
 ROOT = Path(__file__).resolve().parents[3]
+
+
+def test_completed_suite_metadata_uses_october_denominators_without_rescoring():
+    rows = []
+    for key, policy in (("P010-1", "P010"), ("P012-1", "P012"),
+                        ("P012-2", "P012"), ("P012-4", "P012"),
+                        ("P012-5", "P012"), ("P012-6", "P012"),
+                        ("DS-1", "DISTANCING_2020"), ("DS-2", "DISTANCING_2020"),
+                        ("C2", "P016"), ("C3", "P016")):
+        rows.append({"id": key, "policy": policy, "truth": 2.0, "simulation": 3.0,
+                     "ci": [1.0, 4.0], "gap": None, "desc": "historical short pilot",
+                     "expert_opinion": "historical opinion", "empirical_population": "16.8m",
+                     "empirical_variant": "october_only" if key in ("P012-4", "P012-6") else None,
+                     "run_context": {"policy_id": policy, "preperiod_balance": {
+                         "status": "fail", "reason": "P010 offline spending"}}})
+    original = {"experiment": "multi_policy_v53_20260928", "rows": rows,
+                "score_files": [{"sha256": "a" * 64}], "run_evidence": [],
+                "exploratory_pairs": [{"id": "P014-KIPF-47121", "policy": "LOCAL_VOUCHER",
+                                        "truth": .141, "simulation": 2.224,
+                                        "run_context": {"policy_id": "P014"}}]}
+    untouched = deepcopy(original)
+    updated = report.apply_completed_20260928_display_opinions(original)
+    assert original == untouched
+    by_id = {row["id"]: row for row in updated["rows"]}
+    for before, after in zip(rows, updated["rows"]):
+        for key in ("truth", "simulation", "ci", "gap"):
+            assert before[key] == after[key]
+        assert after["original_display_metadata"]["desc"] == "historical short pilot"
+    assert "0.2082 로그포인트" in by_id["P012-1"]["desc"]
+    assert "10월 전체" in by_id["P012-1"]["expert_opinion"]
+    assert "0.3623" in by_id["P012-5"]["desc"]
+    assert "8,102,000명" in by_id["P012-4"]["empirical_population"]
+    assert "3,875억원" in by_id["P012-4"]["empirical_estimand"]
+    assert "1,691,000명" in by_id["P012-6"]["empirical_estimand"]
+    assert "고유 인원 수가 아님" in by_id["P012-6"]["empirical_population"]
+    assert "11월 실제 지급을 관측하지 않음" in by_id["P012-4"]["empirical_period"]
+    assert "28.49%" in by_id["P012-6"]["expert_opinion"]
+    assert "한식 POI" in by_id["DS-1"]["expert_opinion"]
+    assert "같은 3일" in by_id["DS-2"]["expert_opinion"]
+    assert "분자=분모" in by_id["C3"]["expert_opinion"]
+    assert "P010 offline" not in by_id["C2"]["run_context"]["preperiod_balance"]["reason"]
+    assert "2010년 지역 GRDP" in updated["exploratory_pairs"][0]["empirical_estimand"]
+
+
+def _ksic_failed_join_fixture(tmp_path):
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{"frozen": true}', encoding="utf-8")
+    source = tmp_path / "catalog.csv"
+    source.write_text("id,code\na,G47121\nb,G47129\n", encoding="utf-8")
+    tool = tmp_path / "join_tool.py"
+    tool.write_text("# frozen grouping tool", encoding="utf-8")
+    plan = {"schema": "p014_ksic2026_posthoc_receipt_proxy_plan_v1",
+            "status": "frozen_before_recovered_catalog_outcome_join", "posthoc_exploratory": True,
+            "source": {"sha256": report._sha(source), "bytes": source.stat().st_size,
+                       "strict_utf8_rows": 2},
+            "input_gate": {"numeric_sha256": report._sha(numeric),
+                           "effect_days": ["2020-09-21"], "citizens": 40,
+                           "citizen_days_each_arm": 40,
+                           "minimum_join_count_fraction_each_arm": .99,
+                           "minimum_join_won_fraction_each_arm": .99}}
+    plan_path = tmp_path / "plan.json"
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
+    evidence, arms = [], {}
+    for arm in ("on", "off"):
+        folder = tmp_path / arm
+        folder.mkdir()
+        ledger = folder / "sector.ledger.jsonl"
+        ledger.write_text('{}\n', encoding="utf-8")
+        metric = folder / "day_2020-09-21.jsonl"
+        metric.write_text('{}\n', encoding="utf-8")
+        for item in (ledger, metric):
+            evidence.append({"path": report._display_path(item), "sha256": report._sha(item)})
+        arms[arm] = {"run_id": "p014-" + arm, "citizen_days": 40,
+                     "sector_ledger_path": report._display_path(ledger),
+                     "sector_ledger_sha256": report._sha(ledger),
+                     "metrics_evidence": [{"path": report._display_path(metric), "sha256": report._sha(metric)}],
+                     "positive_receipts": 100, "positive_receipt_won": 10000,
+                     "matched_receipts": 98, "matched_receipt_won": 9800,
+                     "unmatched_receipts": 2, "unmatched_receipt_won": 200,
+                     "join_count_fraction": .98, "join_won_fraction": .98,
+                     "join_gate_pass": False, "ambiguous_join_receipts": 0,
+                     "groups": {"47121": {"won": 1000 if arm == "on" else 2000,
+                                          "positive_receipts": 17, "unique_citizens": 15,
+                                          "unique_pois": 16},
+                                "47129": {"won": 3000 if arm == "on" else 4000,
+                                          "positive_receipts": 36, "unique_citizens": 23,
+                                          "unique_pois": 33}}}
+    audit = {"schema": "p014_ksic2026_posthoc_receipt_proxy_v1", "policy": "P014",
+             "posthoc_exploratory": True, "numeric_path": report._display_path(numeric),
+             "numeric_sha256": report._sha(numeric), "plan_path": report._display_path(plan_path),
+             "plan_sha256": report._sha(plan_path), "tool_path": report._display_path(tool),
+             "tool_sha256": report._sha(tool), "effect_days": ["2020-09-21"], "citizens": 40,
+             "source": {**plan["source"], "path": report._display_path(source), "nul_bytes": 0,
+                        "duplicate_merchant_ids": 0, "original_graph_ingest_byte_identity_confirmed": False},
+             "technical_gate_pass": False,
+             "join_gate": {"minimum_count_fraction_each_arm": .99, "minimum_won_fraction_each_arm": .99},
+             **arms, "indicators": []}
+    empirical = []
+    for code, truth in (("47121", .141), ("47129", .082)):
+        audit["indicators"].append({"id": "P014-KSIC2026-" + code, "ksic": code,
+                                    "empirical_reference_id": "P014-KIPF-" + code,
+                                    "simulation": None, "ci": None, "simulation_unit": "%", "n": 40,
+                                    "on": arms["on"]["groups"][code], "off": arms["off"]["groups"][code],
+                                    "direct_gap_allowed": False, "direction_comparable": False,
+                                    "sparse_interpretation_blocked": code == "47121"})
+        empirical.append({"id": "P014-KIPF-" + code, "policy": "LOCAL_VOUCHER",
+                          "policy_name": "지역상품권 P014", "truth": truth, "truth_unit": "log-point",
+                          "simulation": 2.224 if code == "47121" else None,
+                          "simulation_unit": "%", "source": "KIPF", "source_locator": "VI-6",
+                          "run_context": {"policy_id": "P014"}})
+    original = {"score_files": [{"path": report._display_path(numeric), "sha256": report._sha(numeric)}],
+                "run_evidence": [{"policy": "LOCAL_VOUCHER", "citizens": 40,
+                                  "on": "2020-09-21:2020-09-21", "off": "2020-09-21:2020-09-21",
+                                  "evidence": evidence,
+                                  "run_context": {"on_run_id": "p014-on", "off_run_id": "p014-off"}}],
+                "exploratory_pairs": empirical[:1], "exploratory_uncomputed": empirical[1:]}
+    sidecar = tmp_path / "ksic.json"
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    return original, sidecar, audit
+
+
+def test_p014_posthoc_failed_join_shows_raw_money_and_preserves_reference_count(tmp_path):
+    original, path, audit = _ksic_failed_join_fixture(tmp_path)
+    untouched = deepcopy(original)
+    result = report.apply_p014_ksic_posthoc_proxy(original, path)
+    assert original == untouched
+    assert result["score_files"] == original["score_files"]
+    assert result["exploratory_reference_count"] == 2
+    assert len(result["exploratory_pairs"]) == 1
+    observed = result["p014_ksic_posthoc"]
+    markup = report._p014_ksic_posthoc_html(observed)
+    assert "실측 +0.1410 log-point" in markup and "실측 +0.0820 log-point" in markup
+    assert "시뮬 ON 1,000원 / OFF 2,000원" in markup
+    assert "시뮬 ON 3,000원 / OFF 4,000원" in markup
+    assert "영수증 17건·구매 시민 15명" in markup
+    assert "고정 99% 관문 실패" in markup
+    assert "시뮬 −50" not in markup and "시뮬 -50" not in markup
+    grouped = report._exploratory_html(original["exploratory_pairs"], [], observed)
+    assert 'id="p014-exploratory"' in grouped
+    assert "원래 동결 by_sub 집계 2항목(재채점 아님)" in grouped
+    assert grouped.index("원업종 코드 영수증 연결") < grouped.index("원래 동결 by_sub 집계")
+    audit["indicators"][0]["simulation"] = -50
+    path.write_text(json.dumps(audit), encoding="utf-8")
+    with pytest.raises(ValueError, match="failed gate cannot produce"):
+        report.apply_p014_ksic_posthoc_proxy(original, path)
+
+
+def test_p014_posthoc_verifies_source_hash_and_join_fraction_arithmetic(tmp_path):
+    original, path, audit = _ksic_failed_join_fixture(tmp_path)
+    audit["on"]["join_count_fraction"] = .999
+    path.write_text(json.dumps(audit), encoding="utf-8")
+    with pytest.raises(ValueError, match="join fractions"):
+        report.apply_p014_ksic_posthoc_proxy(original, path)
+    audit["on"]["join_count_fraction"] = .98
+    path.write_text(json.dumps(audit), encoding="utf-8")
+    Path(audit["source"]["path"]).write_text("corrupt", encoding="utf-8")
+    with pytest.raises(ValueError, match="source SHA mismatch"):
+        report.apply_p014_ksic_posthoc_proxy(original, path)
+
+
+def test_consumption_architecture_display_distinguishes_runtime_from_raw_model_and_env():
+    markup = report._consumption_architecture_html({
+        "p012_on_outside_0_12": 116, "p012_on_rows": 372,
+        "p012_on_maximum_postclamp_difference": .30,
+        "p012_off_outside_0_12": 0, "p012_off_rows": 372,
+        "p012_off_maximum_postclamp_difference": .12,
+        "other_latest_arms_outside_0_12": 0, "online_allocation_share_observed": .7465,
+        "path": "audit.json", "sha256": "a" * 64,
+        "document_path": "audit.md", "document_sha256": "b" * 64})
+    assert "116/372 시민×일" in markup and "OFF는 0/372" in markup
+    assert "원시 모델 소비의향이 아니라" in markup and "처리 후 관측" in markup
+    assert "온라인 배분몫 74.65%" in markup
+    assert "환경변수 실제 값은 보존되지 않았으므로" in markup
+    assert "실행 설정의 확정 증거라고 부르지 않습니다" in markup
+    assert "최신 5정책 10팔과 과거 P013 2팔" in markup
+
+
+def test_consumption_architecture_audit_refuses_environment_or_prompt_only_overclaim(tmp_path):
+    sidecar = tmp_path / "architecture.json"
+    sidecar.write_text(json.dumps({
+        "schema": "consumption_architecture_readonly_audit_v1",
+        "settings_capture_limits": {"completed_process_environment_snapshot_found": False,
+                                    "exact_EXP_values_recoverable_from_hash": False},
+        "attribution": {"final_policy_spend_prompt_only_effect": True,
+                        "direction_magnitude_external_accuracy_validated": False}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="overstates settings or attribution"):
+        report.apply_consumption_architecture_audit({}, sidecar)
 
 
 def test_historical_score_covers_every_registered_indicator_without_false_gap():

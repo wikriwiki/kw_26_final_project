@@ -22,6 +22,7 @@ import math
 import os
 import re
 import tempfile
+import tarfile
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -692,6 +693,210 @@ def apply_empirical_registry(report: dict, path: Path = EMPIRICAL_REGISTRY) -> d
             exploratory_uncomputed.append(candidate)
     updated["exploratory_pairs"] = exploratory_pairs
     updated["exploratory_uncomputed"] = exploratory_uncomputed
+    return updated
+
+
+def apply_completed_20260928_display_opinions(report: dict) -> dict:
+    """Correct historical pilot wording for this completed frozen v53 suite."""
+    if report.get("experiment") != "multi_policy_v53_20260928":
+        return report
+    def current_context(context):
+        if not isinstance(context, dict):
+            return context
+        balance = context.get("preperiod_balance")
+        policy = context.get("policy_id")
+        if not isinstance(balance, dict) or policy not in ("P010", "P014", "P016"):
+            return context
+        reasons = {
+            "P010": "사전 2일 총지출·오프라인 대리 지출의 차이를 고정 문턱과 비교했습니다. "
+                    "통과는 인과 식별이나 실측 MPC 정합의 증명이 아니며 오프라인 대리는 "
+                    "정확한 쿠폰 적격 결제와 구분합니다.",
+            "P014": "사전 총지출·슈퍼마켓 차이 폭은 문턱 안이지만 식료품 양팔 0원으로 "
+                    "OFF 기준 분모가 없어 전체 관문은 실패했습니다. 현 업종은 원문의 "
+                    "165㎡ 기준 슈퍼마켓 두 집단과 다릅니다.",
+            "P016": "사전 2일 총지출은 ±10%, 대상 POI 지출은 ±20% 문턱으로 각각 "
+                    "비교했습니다. 대상 POI 지출 차이가 문턱을 넘어 실패했으므로 정책 "
+                    "후 차이를 인과효과나 방향·크기 적중으로 해석하지 않습니다.",
+        }
+        return {**context, "preperiod_balance": {
+            **balance, "reason": reasons[policy],
+            "original_reason_before_display_erratum": balance.get("reason")}}
+    opinions = {
+        "P010-1": (
+            "한국은행 0.21은 전국 신청자의 설문에서 쿠폰 소비 중 새로 유발된 소비를 "
+            "분류한 한계소비성향(MPC)입니다. 이번 시뮬은 80명의 같은 시행 3일 "
+            "ON−OFF 총지출 차이를 명목 지원금 지급액으로 나눈 값입니다. "
+            "쿠폰 사용처 업종비중과도 다른 지표입니다. 설문 응답·신청자 모집단·"
+            "추가소비 분류와 원장상의 대조 차이는 정의가 다르므로, 시민 수만 "
+            "늘려 이 두 값을 같은 MPC의 정확도로 채점할 수 없습니다. "
+            "아래의 온라인 채널·지갑결제 희소성과 시민별 집중 감사도 함께 읽어야 합니다."
+        ),
+        "P012-1": (
+            "이번 실험은 12명×31일의 10월 전체를 동일기간 ON/OFF로 완주했습니다. "
+            "시뮬 값은 개인의 캐시백 적격 오프라인 지출 변화율이고, KDI 실측은 "
+            "가구 월별 지출의 연도·월·수급 여부를 비교한 삼중차분 로그계수입니다. "
+            "같은 가구 단위 집계, 기준 연월, 수급·미수급 대조와 동일 회귀식을 "
+            "마련해야 합니다. 표본 확대는 그 뒤 내부 정밀도를 높일 수 있습니다."
+        ),
+        "P012-2": (
+            "10월 전체 ON/OFF의 온라인 지출은 계산됐지만 실측의 제외업종 카드소비 "
+            "전체를 대신하지 않습니다. KDI의 유의하지 않은 +0.0285 로그계수도 "
+            "효과가 정확히 0이라는 뜻은 아닙니다. 온라인·오프라인 제외업종 범위, "
+            "가구 집계와 월별 삼중차분 대조를 맞춰야 하며, 무반응 판정은 사전 "
+            "허용 오차와 충분히 좁은 불확실성 구간을 갖춰야 합니다."
+        ),
+        "P012-4": (
+            "10월 전체 누적 원장은 완결됐고 시뮬 평균은 10월 말 발생추정액의 "
+            "양수 수령자당 평균입니다. 11월 실제 지급을 관측한 값은 아닙니다. "
+            "비교 실측은 원문의 반올림 표에서 10월만 재구성한 47,827.70원이며 "
+            "10~11월 합계 수령자 평균 47,880원과 구분했습니다. 신청자·수령자 "
+            "분모와 실제 정산·지급을 맞춘 뒤 표본을 늘려야 평균의 유의미한 "
+            "정밀도를 평가할 수 있습니다."
+        ),
+        "P012-5": (
+            "이번 수치는 10월 전체의 같은 날짜 ON/OFF 업종 지출 변화율 차이입니다. "
+            "실측은 가전·가구와 이·미용 각각의 가구 월별 삼중차분 로그계수이므로 "
+            "두 로그계수의 차이와 두 퍼센트 변화율의 차이를 직접 빼지 않습니다. "
+            "현재 가전 OFF 분모가 작고 시민 재표집 구간이 매우 넓습니다. "
+            "표본 확대는 내부 변동을 줄일 여지가 있지만 업종·가구·회귀 대조군 "
+            "정합이 먼저이며 순위와 크기를 별도로 검증해야 합니다."
+        ),
+        "P012-6": (
+            "10월 31일 전체 누적에서 상한 도달은 양수 발생추정 수령자 11명 중 "
+            "0명입니다. 짧은 날짜 누락 때문에 나온 값이 아닙니다. 시민 재표집 "
+            "[0,0]은 퇴화하며, 독립 이항 표본을 가정한 양측 95% 참고 상한은 "
+            "28.49%로 0/11만으로 도달 가능성이 0이라고 할 수 없습니다. "
+            "실측의 10월 수령자 모집단·분모와 실제 정산·지급을 맞춰야 합니다. "
+            "그 뒤 표본 확대는 비율의 불확실성을 줄일 수 있습니다."
+        ),
+        "DS-1": (
+            "실측 −14.1%는 한식 매출의 전년 대비 변화이고, 이번 시뮬은 같은 "
+            "2020-11-24~26 날짜의 ON/OFF 한식 POI 지출 변화율입니다. "
+            "정책 전후 기간을 섞은 비율이 아닙니다. 시뮬 재표집 구간도 0을 "
+            "포함합니다. 한식이라는 업종 대응은 이루어졌지만 전년 동기 기준·"
+            "가맹점 패널, 동일 거리두기 "
+            "단계와 다른 코로나 충격을 맞추는 작업이 표본 확대보다 먼저입니다."
+        ),
+        "DS-2": (
+            "실측 +4.2%는 코로나19 기간 소매업 평균 매출이고, 이번 시뮬은 같은 "
+            "3일 ON/OFF 쇼핑+마트 지출입니다. 점추정 부호는 반대지만 재표집 "
+            "구간이 매우 넓어 방향을 확정할 수 없습니다. 같은 소매업 범위·"
+            "관측기간·코로나 배경과 대조 기준을 맞추지 않은 채 표본만 늘리면 "
+            "서로 다른 숫자를 더 정밀하게 측정하게 됩니다."
+        ),
+        "C1": (
+            "실측 +6.957%는 대형유통업체 5곳의 농축산물 상품 매출을 과거 연도와 "
+            "비교한 DID 결과입니다. 이번 시뮬은 같은 시행 3일 ON/OFF에서 청과·"
+            "정육·슈퍼마켓·식료품 POI의 모든 상품 지출을 셌습니다. 시행 전 대상 "
+            "POI 지출 +31.59% 차이로 균형 관문에도 실패했습니다. 상품·유통업체·"
+            "비교 연도·회귀식과 사전 균형을 맞춰야 하며 현재 차이를 인과효과나 "
+            "방향·크기 적중으로 판단할 수 없습니다."
+        ),
+        "C2": (
+            "실측의 +11.6%와 +4.6%는 같은 대형마트 안의 농축산물 상품과 전체 "
+            "매출입니다. 이번 시뮬에서는 네 대상 POI 분류 합이 마트 분류 전체와 "
+            "항상 같아 0%p가 자동으로 나왔습니다. 상품 반응이 같거나 정책 효과가 "
+            "없다는 관측이 아닙니다. 표본을 늘려도 같은 분류 항등식은 유지되므로 "
+            "마트 안의 상품별 판매 원장을 먼저 만들어야 합니다."
+        ),
+        "C3": (
+            "실측 +1.9%p는 같은 대형마트 내부 농축산물 상품 매출 비중의 변화입니다. "
+            "이번 대상 POI/전체 마트 POI 비중은 양팔에서 분자=분모라 0%p의 "
+            "구조적 결과를 냈습니다. 표본 확대만으로 상품 수준의 분자를 만들 수 "
+            "없습니다. 점포별 농축산물·전체 상품 판매를 같은 분모로 측정한 뒤 "
+            "동일 사업기간·대조 설계를 맞춰야 합니다."
+        ),
+    }
+    rows = []
+    for row in report["rows"]:
+        if row["id"] not in opinions or not row.get("run_context"):
+            rows.append(row)
+            continue
+        candidate = {**row, "expert_opinion": opinions[row["id"]],
+                     "run_context": current_context(row.get("run_context")),
+                     "opinion_display_erratum": "completed_frozen_v53_20260928_no_rescoring",
+                     "original_display_metadata": {key: row.get(key) for key in (
+                         "desc", "expert_opinion", "empirical_estimand", "empirical_population",
+                         "empirical_period", "empirical_comparison_reason")}}
+        if row["id"] == "P010-1":
+            candidate["desc"] = "설문 추가소비 MPC와 ON/OFF 추가 총지출/명목 지원금 대조"
+            candidate["empirical_comparison_reason"] = (
+                "실측은 전국 신청자의 설문상 추가소비 MPC이고 시뮬은 80명 시행 3일의 "
+                "동일날짜 ON−OFF 총지출 차이/명목 지원금입니다. 같은 분자·분모가 아닙니다.")
+        elif row["id"] == "P012-1":
+            candidate["desc"] = "적격업종: 실측 +0.2082 로그포인트와 10월 ON/OFF 지출 변화율"
+            candidate["empirical_comparison_reason"] = (
+                "10월 전체 개인 ON/OFF 변화율은 계산됐지만 실측 가구 월별 연도·수급 "
+                "삼중차분 로그계수와 집계단위·대조군·추정량이 다릅니다.")
+        elif row["id"] == "P012-2":
+            candidate["desc"] = "제외업종: 실측 +0.0285 로그포인트(유의하지 않음)와 온라인 대리값"
+            candidate["empirical_comparison_reason"] = (
+                "10월 전체 온라인 State는 백화점·대형마트 등 오프라인 제외업종을 "
+                "포함하지 않습니다. 유의하지 않은 로그계수가 실제 효과 0을 뜻하지 않습니다.")
+        elif row["id"] == "P012-5":
+            candidate["desc"] = "업종 로그계수: 가전·가구 +0.3623 / 이·미용 +0.0287(차이 0.3336)"
+            candidate["empirical_comparison_reason"] = (
+                "10월 전체 POI ON/OFF 퍼센트 변화율 차이는 두 가구 월별 삼중차분 "
+                "로그회귀계수 차이와 차원이 다릅니다. 같은 수치 차감으로 비교하지 않습니다.")
+        elif row["id"] == "DS-1":
+            candidate["desc"] = "한식: 실측 전년 대비와 동일 날짜 시뮬 ON/OFF 변화율"
+            candidate["empirical_comparison_reason"] = (
+                "시뮬도 한식 POI로 범위를 좁혔습니다. 다만 동일 3일 ON/OFF 변화율은 "
+                "실측 2020년 가맹점 카드매출의 전년 대비 변화와 기간·기준·패널이 다릅니다.")
+        elif row["id"] == "DS-2":
+            candidate["desc"] = "소매 실측과 같은 날짜 쇼핑+마트 ON/OFF 변화율 대조"
+            candidate["empirical_comparison_reason"] = (
+                "시뮬은 동일 3일 쇼핑+마트 ON/OFF 지출이며, 실측은 더 긴 코로나 "
+                "기간의 소매 매출 평균입니다. 업종범위·관측기간·대조 기준이 다릅니다.")
+        if row.get("empirical_variant") == "october_only" and row["id"] in ("P012-4", "P012-6"):
+            candidate["empirical_population"] = (
+                "2021년 10월 실적 귀속 지급 수령자 810.2만명(8,102,000명, 원문 반올림 표). "
+                "10~11월 인원 합 1,680만은 월별 수령 관측 합이며 고유 인원 수가 아님")
+            candidate["empirical_period"] = (
+                "2021년 10월 실적 귀속 지급분; 실적 대상 월과 실제 입금 월을 구분. "
+                "시뮬은 10월 말 발생추정이며 11월 실제 지급을 관측하지 않음")
+            if row["id"] == "P012-4":
+                candidate["desc"] = "10월 실적 귀속 지급액/수령자: 반올림 표 재구성 약 47,827.70원"
+                candidate["empirical_estimand"] = (
+                    "원문 표 3-1(PDF 29쪽/인쇄 19쪽)의 10월 실적 귀속 지급액 "
+                    "3,875억원/수령자 810.2만명(8,102,000명)으로 재구성한 평균. "
+                    "원문 10~11월 합산 평균 47,880원과 다른 선택 기준이며 실제 입금 월을 "
+                    "시뮬의 10월 말 발생추정과 동일하게 취급하지 않음.")
+            else:
+                candidate["desc"] = "10월 실적 귀속 지급 수령자의 10만원 상한 비율: 약 20.8714%"
+                candidate["empirical_estimand"] = (
+                    "원문 표 3-1(PDF 29쪽/인쇄 19쪽)의 10월 실적 귀속 지급 수령자 "
+                    "810.2만명 중 10만원 구간 169.1만명(1,691,000명)/8,102,000명으로 "
+                    "재구성한 비율. 원문 10~11월 합산 21.0%와 구분하며 실적 대상 월과 "
+                    "실제 입금 월을 혼동하지 않음.")
+        rows.append(candidate)
+    updated = dict(report)
+    updated["rows"] = rows
+    updated["run_evidence"] = [
+        {**run, "run_context": current_context(run.get("run_context"))}
+        for run in report.get("run_evidence", [])]
+    for key in ("exploratory_pairs", "exploratory_uncomputed"):
+        entries = []
+        for row in report.get(key, []):
+            candidate = {**row, "run_context": current_context(row.get("run_context"))}
+            if row["policy"] == POLICY_ID_TO_SCORE["P014"]:
+                scope = ("165㎡ 이상·3,000㎡ 미만 슈퍼마켓" if row["id"].endswith("47121")
+                         else "165㎡ 미만 슈퍼마켓·음식료 중심 종합소매")
+                candidate.update(
+                    empirical_estimand=("지자체·연도 패널에서 지역화폐 발행액 증가를 "
+                                        "2010년 지역 GRDP의 1% 단위로 측정한 "
+                                        f"{scope} 업종 매출의 로그회귀계수"),
+                    empirical_population="원문 지자체·연도별 업종 매출 패널; 서울 합성 시민과 다름",
+                    truth_unit_full="업종 로그매출 회귀계수 / 2010년 지역 GRDP 대비 발행액 1% 단위")
+            entries.append(candidate)
+        updated[key] = entries
+    updated["opinion_display_erratum"] = "completed-run wording; frozen score values and formulas unchanged"
+    screen_path = ROOT / "experiments/multi_policy_v53_20260927/v54_stage1_screen_result_20260928.md"
+    if screen_path.is_file():
+        updated["technical_screen_reference"] = {
+            "path": _display_path(screen_path), "sha256": _sha(screen_path),
+            "title": "v54 출력 예시 기술 비교: 전체 형식 관문 실패, 미채택",
+            "policy_effect_validation": False}
     return updated
 
 
@@ -1412,6 +1617,318 @@ def apply_p014_catalog_display_audit(report: dict, path: Path) -> dict:
     return updated
 
 
+def apply_p014_ksic_posthoc_proxy(report: dict, path: Path) -> dict:
+    """Keep a source-bound posthoc grouping separate from the frozen P014 score."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == POLICY_ID_TO_SCORE["P014"]), None)
+    if (audit.get("schema") != "p014_ksic2026_posthoc_receipt_proxy_v1"
+            or audit.get("policy") != "P014" or audit.get("posthoc_exploratory") is not True
+            or not run or not any(
+                item["path"] == _display_path(Path(audit.get("numeric_path") or ""))
+                and item["sha256"] == audit.get("numeric_sha256")
+                for item in report.get("score_files", []))):
+        raise ValueError("P014 KSIC proxy does not match the frozen numeric score")
+
+    def verified_source(source_path, expected_sha):
+        source = Path(source_path or "")
+        if not source.is_absolute():
+            source = ROOT / source
+        if not source.is_file() or not re.fullmatch(r"[0-9a-f]{64}", str(expected_sha)):
+            raise ValueError("P014 KSIC source is missing or has an invalid SHA")
+        # The recovered catalog is 291 MB; hash it without a second full buffer.
+        digest = hashlib.sha256()
+        with source.open("rb") as stream:
+            for block in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(block)
+        if digest.hexdigest() != expected_sha:
+            raise ValueError("P014 KSIC source SHA mismatch")
+        return source
+
+    plan_path = verified_source(audit.get("plan_path"), audit.get("plan_sha256"))
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    verified_source(audit.get("tool_path"), audit.get("tool_sha256"))
+    source = audit.get("source") or {}
+    catalog_path = verified_source(source.get("path"), source.get("sha256"))
+    input_gate = plan.get("input_gate") or {}
+    effect_days = audit.get("effect_days")
+    if (plan.get("schema") != "p014_ksic2026_posthoc_receipt_proxy_plan_v1"
+            or plan.get("status") != "frozen_before_recovered_catalog_outcome_join"
+            or plan.get("posthoc_exploratory") is not True
+            or source.get("sha256") != (plan.get("source") or {}).get("sha256")
+            or source.get("bytes") != catalog_path.stat().st_size
+            or source.get("bytes") != (plan.get("source") or {}).get("bytes")
+            or source.get("strict_utf8_rows") != (plan.get("source") or {}).get("strict_utf8_rows")
+            or source.get("nul_bytes") != 0 or source.get("duplicate_merchant_ids") != 0
+            or source.get("original_graph_ingest_byte_identity_confirmed") is not False
+            or input_gate.get("numeric_sha256") != audit.get("numeric_sha256")
+            or effect_days != input_gate.get("effect_days")
+            or not isinstance(effect_days, list) or not effect_days
+            or audit.get("citizens") != run.get("citizens")
+            or audit.get("citizens") != input_gate.get("citizens")
+            or run.get("on") != run.get("off")
+            or run.get("on") != effect_days[0] + ":" + effect_days[-1]
+            or input_gate.get("minimum_join_count_fraction_each_arm") != .99
+            or input_gate.get("minimum_join_won_fraction_each_arm") != .99
+            or (audit.get("join_gate") or {}).get("minimum_count_fraction_each_arm") != .99
+            or (audit.get("join_gate") or {}).get("minimum_won_fraction_each_arm") != .99):
+        raise ValueError("P014 KSIC plan, source, population or gate differs")
+    evidence = {entry["path"]: entry["sha256"] for entry in run.get("evidence", [])}
+    arm_passes = []
+    for arm in ("on", "off"):
+        data = audit.get(arm) or {}
+        ledger_path = verified_source(data.get("sector_ledger_path"),
+                                      data.get("sector_ledger_sha256"))
+        if (evidence.get(_display_path(ledger_path)) != data.get("sector_ledger_sha256")
+                or data.get("run_id") != (run.get("run_context") or {}).get(arm + "_run_id")
+                or data.get("citizen_days") != audit["citizens"] * len(effect_days)
+                or data.get("citizen_days") != input_gate.get("citizen_days_each_arm")):
+            raise ValueError("P014 KSIC arm does not match the scored ledger")
+        metric_evidence = data.get("metrics_evidence") or []
+        if len(metric_evidence) != len(effect_days):
+            raise ValueError("P014 KSIC effect metrics incomplete")
+        for entry, day in zip(metric_evidence, effect_days):
+            metric_path = verified_source(entry.get("path"), entry.get("sha256"))
+            if (metric_path.name != "day_" + day + ".jsonl"
+                    or evidence.get(_display_path(metric_path)) != entry.get("sha256")):
+                raise ValueError("P014 KSIC metrics are not bound to the frozen score")
+        integer_keys = ("positive_receipts", "positive_receipt_won", "matched_receipts",
+                        "matched_receipt_won", "unmatched_receipts", "unmatched_receipt_won",
+                        "ambiguous_join_receipts")
+        if (any(not isinstance(data.get(key), int) or isinstance(data[key], bool)
+                or data[key] < 0 for key in integer_keys)
+                or data["positive_receipts"] <= 0 or data["positive_receipt_won"] <= 0
+                or data["matched_receipts"] + data["unmatched_receipts"] != data["positive_receipts"]
+                or data["matched_receipt_won"] + data["unmatched_receipt_won"] != data["positive_receipt_won"]):
+            raise ValueError("P014 KSIC join counts or amounts do not reconcile")
+        count_fraction = data["matched_receipts"] / data["positive_receipts"]
+        won_fraction = data["matched_receipt_won"] / data["positive_receipt_won"]
+        if (not _number(data.get("join_count_fraction"))
+                or not _number(data.get("join_won_fraction"))
+                or not math.isclose(count_fraction, data["join_count_fraction"], abs_tol=1e-12)
+                or not math.isclose(won_fraction, data["join_won_fraction"], abs_tol=1e-12)):
+            raise ValueError("P014 KSIC join fractions do not match counts or amounts")
+        passed = (count_fraction >= .99 and won_fraction >= .99
+                  and data["ambiguous_join_receipts"] == 0)
+        if data.get("join_gate_pass") is not passed:
+            raise ValueError("P014 KSIC declared join gate differs from the frozen rule")
+        arm_passes.append(passed)
+        groups = data.get("groups") or {}
+        if set(groups) != {"47121", "47129"}:
+            raise ValueError("P014 KSIC requires both frozen industry groups")
+        for group in groups.values():
+            if (any(not isinstance(group.get(key), int) or isinstance(group[key], bool)
+                    or group[key] < 0 for key in ("won", "positive_receipts", "unique_citizens", "unique_pois"))
+                    or group["won"] > data["matched_receipt_won"]
+                    or group["positive_receipts"] > data["matched_receipts"]
+                    or group["unique_citizens"] > audit["citizens"]
+                    or group["unique_citizens"] > group["positive_receipts"]
+                    or group["unique_pois"] > group["positive_receipts"]):
+                raise ValueError("P014 KSIC group statistics do not reconcile")
+    technical_pass = all(arm_passes)
+    if audit.get("technical_gate_pass") is not technical_pass:
+        raise ValueError("P014 KSIC technical gate does not match the frozen rules")
+    empirical_rows = {row["id"]: row for key in ("exploratory_pairs", "exploratory_uncomputed")
+                      for row in report.get(key, []) if row["policy"] == POLICY_ID_TO_SCORE["P014"]}
+    rows = []
+    entries = audit.get("indicators") or []
+    if {entry.get("id") for entry in entries} != {"P014-KSIC2026-47121", "P014-KSIC2026-47129"} or len(entries) != 2:
+        raise ValueError("P014 KSIC proxy indicator set differs from the frozen plan")
+    for item in entries:
+        code = item.get("ksic")
+        reference_id = "P014-KIPF-" + str(code)
+        original = empirical_rows.get(reference_id)
+        if (not original or not _number(original.get("truth"))
+                or item.get("empirical_reference_id") != reference_id
+                or item.get("simulation_unit") != "%" or item.get("n") != audit["citizens"]
+                or item.get("on") != audit["on"]["groups"][code]
+                or item.get("off") != audit["off"]["groups"][code]
+                or item.get("direct_gap_allowed") is not False
+                or item.get("direction_comparable") is not False):
+            raise ValueError("P014 KSIC proxy does not match reference or group statistics")
+        if not technical_pass and (item.get("simulation") is not None or item.get("ci") is not None):
+            raise ValueError("P014 KSIC failed gate cannot produce a ratio or confidence interval")
+        if technical_pass and item["off"]["won"] > 0:
+            expected = 100 * (item["on"]["won"] - item["off"]["won"]) / item["off"]["won"]
+            if not _number(item.get("simulation")) or not math.isclose(expected, item["simulation"], abs_tol=1e-10):
+                raise ValueError("P014 KSIC ratio differs from the frozen formula")
+        elif item.get("simulation") is not None:
+            raise ValueError("P014 KSIC zero OFF denominator cannot produce a ratio")
+        sparse = any(group["positive_receipts"] < 20 or group["unique_citizens"] < 10
+                     for group in (item["on"], item["off"]))
+        if item.get("sparse_interpretation_blocked") is not sparse:
+            raise ValueError("P014 KSIC sparse interpretation gate differs")
+        rows.append({**item, "policy": POLICY_ID_TO_SCORE["P014"],
+                     "truth": original["truth"], "truth_unit": original["truth_unit"],
+                     "source": original.get("source"), "source_locator": original.get("source_locator"),
+                     "empirical_estimand": original.get("empirical_estimand"),
+                     "run_context": original.get("run_context"), "gap": None})
+    displayed = {"path": _display_path(path), "sha256": _sha(path),
+                 "plan_path": _display_path(plan_path), "plan_sha256": audit["plan_sha256"],
+                 "source": source, "technical_gate_pass": technical_pass,
+                 "effect_days": effect_days, "citizens": audit["citizens"],
+                 "on": audit["on"], "off": audit["off"], "indicators": rows,
+                 "original_score_unchanged": True}
+    diagnostic_path = path.with_name("ksic_join_failure_diagnostic.json")
+    if diagnostic_path.is_file():
+        diagnostic = json.loads(diagnostic_path.read_text(encoding="utf-8"))
+        if (diagnostic.get("schema") != "p014_ksic2026_join_failure_diagnostic_v1"
+                or diagnostic.get("proxy_sha256") != displayed["sha256"]
+                or diagnostic.get("numeric_sha256") != audit["numeric_sha256"]
+                or diagnostic.get("source_sha256") != source["sha256"]
+                or diagnostic.get("score_or_threshold_changes") is not False):
+            raise ValueError("P014 KSIC missingness diagnostic does not match the proxy")
+        verified_source(diagnostic.get("tool_path"), diagnostic.get("tool_sha256"))
+        for arm in ("on", "off"):
+            reasons = (diagnostic.get(arm) or {}).get("by_reason") or {}
+            if (sum(item.get("positive_receipts", -1) for item in reasons.values()) != audit[arm]["unmatched_receipts"]
+                    or sum(item.get("won", -1) for item in reasons.values()) != audit[arm]["unmatched_receipt_won"]):
+                raise ValueError("P014 KSIC missingness reasons do not reconcile")
+        displayed["join_failure_diagnostic"] = {
+            "path": _display_path(diagnostic_path), "sha256": _sha(diagnostic_path),
+            "on": diagnostic["on"], "off": diagnostic["off"]}
+    updated = dict(report)
+    updated["p014_ksic_posthoc"] = displayed
+    registered = {(row["policy"], row["id"]) for row in report.get("rows", [])}
+    references = {(row["policy"], row.get("empirical_reference_id") or
+                   ("DS-6" if row["id"] == "DS6-2023-GEO-PROXY" else row["id"]))
+                  for row in [*report.get("exploratory_pairs", []),
+                              *report.get("exploratory_uncomputed", []), *rows]}
+    updated["exploratory_reference_count"] = len(references - registered)
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []),
+        {"path": displayed["path"], "sha256": displayed["sha256"],
+         "purpose": "posthoc grouping; original numeric score unchanged"}]
+    return updated
+
+
+def apply_consumption_architecture_audit(report: dict, path: Path) -> dict:
+    """Bind engine-attribution caveats to the completed frozen run evidence."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    limits = audit.get("settings_capture_limits") or {}
+    attribution = audit.get("attribution") or {}
+    if (audit.get("schema") != "consumption_architecture_readonly_audit_v1"
+            or limits.get("completed_process_environment_snapshot_found") is not False
+            or limits.get("exact_EXP_values_recoverable_from_hash") is not False
+            or attribution.get("final_policy_spend_prompt_only_effect") is not False
+            or attribution.get("direction_magnitude_external_accuracy_validated") is not False):
+        raise ValueError("consumption architecture audit overstates settings or attribution")
+    def source_checked(source_path, expected_sha):
+        source = Path(source_path or "")
+        if not source.is_absolute():
+            source = ROOT / source
+        if not source.is_file() or _sha(source) != expected_sha:
+            raise ValueError("consumption architecture source SHA mismatch")
+        return source
+    source_checked(audit.get("launcher_snapshot_path"), audit.get("launcher_snapshot_sha256"))
+    source = audit.get("source") or {}
+    source_checked(source.get("local_consumption_path"), source.get("local_byte_sha256"))
+    policy_map = {"p010": "P010", "p012": "P012", "p013": "EMERGENCY_2020",
+                  "distancing": "DISTANCING_2020", "p016": "P016", "p014": "LOCAL_VOUCHER"}
+    runs = audit.get("runs") or []
+    if len(runs) != 12 or {(item.get("case"), item.get("arm")) for item in runs} != {
+            (case, arm) for case in policy_map for arm in ("on", "off")}:
+        raise ValueError("consumption architecture audit must distinguish all twelve arms")
+    scored = {item["policy"]: item for item in report.get("run_evidence", [])}
+    for item in runs:
+        run = scored.get(policy_map[item["case"]])
+        if not run or item.get("prompt") != "v53":
+            raise ValueError("consumption architecture audit differs from report runs")
+        evidence = {entry["path"]: entry["sha256"] for entry in run.get("evidence", [])}
+        counts = item.get("counts") or {}
+        rows = counts.get("canonical_rows")
+        if (not isinstance(rows, int) or isinstance(rows, bool) or rows <= 0
+                or counts.get("payment_choice_true") != rows
+                or counts.get("payment_choice_false") != 0
+                or counts.get("online_source:seoul_smallbiz") != rows
+                or item.get("online_share_values") != {"0.7465": rows}
+                or not isinstance(counts.get("postclamp_outside_default_0_12"), int)
+                or not 0 <= counts["postclamp_outside_default_0_12"] <= rows
+                or not _number(item.get("max_abs_postclamp_propensity_center_difference"))):
+            raise ValueError("consumption architecture branch counts do not reconcile")
+        if item["case"] != "p013":
+            for prefix in ("run_manifest", "frozen_inputs"):
+                source_checked(item.get(prefix + "_path"), item.get(prefix + "_sha256"))
+        for entry in item.get("metrics_evidence") or []:
+            if item["case"] == "p013":
+                archive = source_checked(entry.get("archive_path"), entry.get("archive_sha256"))
+                with tarfile.open(archive, "r:gz") as tf:
+                    member = tf.extractfile(entry.get("member"))
+                    if member is None or hashlib.sha256(member.read()).hexdigest() != entry.get("member_sha256"):
+                        raise ValueError("consumption architecture historical member SHA mismatch")
+            else:
+                metric = source_checked(entry.get("path"), entry.get("sha256"))
+                if evidence.get(_display_path(metric)) != entry.get("sha256"):
+                    raise ValueError("consumption architecture metrics are not bound to frozen scoring")
+    keyed = {(item["case"], item["arm"]): item for item in runs}
+    on, off = keyed[("p012", "on")], keyed[("p012", "off")]
+    document = ROOT / "experiments/multi_policy_v53_20260927/consumption_architecture_audit_20260928.md"
+    if not document.is_file():
+        raise ValueError("consumption architecture explanation document missing")
+    displayed = {"path": _display_path(path), "sha256": _sha(path),
+                 "document_path": _display_path(document), "document_sha256": _sha(document),
+                 "scope": "latest five policies ten arms plus historical P013 two arms",
+                 "p012_on_rows": on["counts"]["canonical_rows"],
+                 "p012_on_outside_0_12": on["counts"]["postclamp_outside_default_0_12"],
+                 "p012_on_maximum_postclamp_difference": on["max_abs_postclamp_propensity_center_difference"],
+                 "p012_off_rows": off["counts"]["canonical_rows"],
+                 "p012_off_outside_0_12": off["counts"]["postclamp_outside_default_0_12"],
+                 "p012_off_maximum_postclamp_difference": off["max_abs_postclamp_propensity_center_difference"],
+                 "other_latest_arms_outside_0_12": sum(
+                     item["counts"]["postclamp_outside_default_0_12"] for item in runs
+                     if item["case"] not in ("p012", "p013")),
+                 "online_allocation_share_observed": .7465,
+                 "exact_process_env_values_preserved": False}
+    updated = dict(report)
+    updated["consumption_architecture_audit"] = displayed
+    updated["rows"] = []
+    for row in report.get("rows", []):
+        note = None
+        if row["id"] == "P010-1":
+            note = ("엔진의 온라인 배분몫은 74.65% 분기로 고정됐습니다. 온라인 지출의 "
+                    "증가를 모델이 쿠폰의 비사용처 채널을 자유롭게 골랐다는 증거로 읽지 않습니다.")
+        elif row["id"] in ("P012-1", "P012-2", "P012-5"):
+            note = ("별도 원장 감사에서 캐시백 ON에만 소비의향 변환 허용폭이 넓어지는 "
+                    "후처리 경로가 관찰됐습니다. 온라인 배분몫도 74.65% 분기로 고정돼 "
+                    "이 지출 차이는 프롬프트의 자유로운 채널 선택 또는 단독 효과가 아닙니다.")
+        updated["rows"].append(
+            {**row, "consumption_engine_attribution_note": note,
+             "expert_opinion": (row.get("expert_opinion") or "")
+             + (" " + note if note not in (row.get("expert_opinion") or "") else "")}
+            if note else row)
+    updated["post_run_display_audits"] = [*report.get("post_run_display_audits", []),
+                                          {"path": displayed["path"], "sha256": displayed["sha256"]}]
+    return updated
+
+
+def _consumption_architecture_html(audit: dict) -> str:
+    return ('<div class="component-breakdown"><strong>실제 소비 후처리에서 확인한 제한</strong>'
+            '<p>캐시백 ON에서는 처리 후 소비의향과 같은 시민의 기준 성향 차이가 '
+            f'기본 ±0.12를 넘은 행이 {audit["p012_on_outside_0_12"]}/'
+            f'{audit["p012_on_rows"]} 시민×일이고, 최대 차이는 '
+            f'{audit["p012_on_maximum_postclamp_difference"]:.2f}입니다. '
+            f'OFF는 {audit["p012_off_outside_0_12"]}/{audit["p012_off_rows"]}, 최대 '
+            f'{audit["p012_off_maximum_postclamp_difference"]:.2f}입니다. '
+            f'다른 최신 4정책 8팔의 ±0.12 초과는 {audit["other_latest_arms_outside_0_12"]}건입니다. '
+            '같은 프롬프트여도 캐시백 유형에 따라 엔진이 소비의향 변환 허용폭을 '
+            '다르게 쓰는 경로가 실제 결과에 들어갔다는 근거입니다. 이 숫자는 '
+            '원시 모델 소비의향이 아니라 <strong>처리 후 관측</strong>입니다.</p>'
+            '<p>최신 5정책 10팔과 과거 P013 2팔 모두 선택 결제 모드와 '
+            f'엔진 온라인 배분몫 {100 * audit["online_allocation_share_observed"]:.2f}% '
+            '분기를 사용했습니다. 이는 모델이 온라인 주문 비중을 자유롭게 '
+            '선택한 정확도가 아닙니다. 완료 프로세스의 환경변수 실제 값은 '
+            '보존되지 않았으므로 코드 기본값 0.30과 관측 최대 0.30을 같은 '
+            '실행 설정의 확정 증거라고 부르지 않습니다. 다음 후보 비교에서는 '
+            '이 엔진 분기·처리 폭·실제 설정을 함께 고정해야 합니다.</p>'
+            f'<p><a href="{_esc((ROOT / audit["document_path"]).as_uri())}">'
+            '소비 후처리 감사의 쉬운 설명</a> · '
+            f'<a href="{_esc((ROOT / audit["path"]).as_uri())}">팔별 원장·실행 지문 감사 JSON</a></p>'
+            '<details class="technical"><summary>후처리 감사 지문</summary>'
+            f'<p>{_esc(audit["path"])} SHA256 {_esc(audit["sha256"])}</p>'
+            f'<p>{_esc(audit["document_path"])} SHA256 {_esc(audit["document_sha256"])}</p>'
+            '</details></div>')
+
+
 def apply_distancing_input_display_audit(report: dict, path: Path) -> dict:
     """Disclose the dated ON/OFF regime, keeping its internal ID distinct from 2021."""
     audit = json.loads(path.read_text(encoding="utf-8"))
@@ -1540,6 +2057,8 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
             "generic_prompt_sha256": run.get("generic_prompt_sha256")
             or provenance.get("generic_prompt_sha256"),
             "stage2_sha256": provenance.get("stage2_sha256"),
+            "on_run_id": provenance.get("on_run_id"),
+            "off_run_id": provenance.get("off_run_id"),
             "quality_audit": provenance.get("quality_audit"),
             "preperiod_balance": provenance.get("preperiod_balance"),
             "policy_funding_diagnostic": provenance.get("policy_funding_diagnostic"),
@@ -1795,7 +2314,8 @@ def _track(row):
     return '<div class="track">' + ''.join(bits) + '</div>'
 
 
-def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
+def _coverage_html(coverage: list[dict], unregistered_count: int = 0,
+                   p014_posthoc: dict | None = None) -> str:
     body = []
     included = [item for item in coverage if item["empirical_numeric_count"]]
     exploratory_only = [item for item in coverage
@@ -1839,6 +2359,23 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
             '넣지 않았습니다. 아래 별도 탐색 카드에서 실측·시뮬 값을 '
             '나란히 보되 효과 오차로 채점하지 않습니다.</p>'
         )
+    if p014_posthoc:
+        body.append(
+            '<tr><th scope="row"><a href="#p014-exploratory">지역상품권 P014</a>'
+            '<br><small>주지표 밖 사후 탐색</small></th>'
+            f'<td>{p014_posthoc["citizens"]}명</td><td>2개 탐색 실측 참조</td>'
+            '<td>ON/OFF 원금액 2업종</td><td>원금액 병렬 2업종</td>'
+            '<td>원업종 코드 연결을 추가 감사했습니다. '
+            + ('유효 비율을 별도 탐색 카드에서 확인합니다.'
+               if p014_posthoc["technical_gate_pass"] else
+               '99% 결합 관문 실패로 성장률은 미산출입니다. '
+               '아래 카드에 실제 원화·영수증·시민 수와 실패 원인을 표시합니다.')
+            + '</td></tr>')
+        exploratory_note = (
+            '<p class="balance"><a href="#p014-exploratory"><strong>여섯 번째 정책: '
+            '지역상품권 P014 사후 탐색 원금액 보기</strong></a>. '
+            '두 실측 참조에 기존 집계와 후속 집계를 대응한 것이며, 독립 실험이나 '
+            '주 검증지표 수가 늘어난 것으로 세지 않습니다.</p>')
     return ('<section class="note"><h2>실측 수치가 있는 정책의 숫자 확보 현황</h2>'
             '<p>비교 행에는 실측과 이번 실험의 시뮬 수치가 모두 있는 지표만 표시합니다. '
             f'등록 지표 중 실측 숫자가 없는 {excluded_indicators}개는 HTML의 '
@@ -1853,7 +2390,8 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
             + exploratory_note + '</section>')
 
 
-def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None) -> str:
+def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None,
+                      p014_posthoc: dict | None = None) -> str:
     cards_by_policy: dict[str, list[str]] = {}
     policy_names = {}
     contexts = {}
@@ -2024,23 +2562,126 @@ def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None) -
             '<details class="technical"><summary>원금액 0원 근거</summary>'
             f'<p>{_esc(zero["path"])} SHA256 {_esc(zero["sha256"])}</p>'
             '</details></div>')
-    grouped = ''.join(
-        '<div class="exploratory-group">'
-        + f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>'
-        + (_run_context_html(contexts[policy]) if policy == POLICY_ID_TO_SCORE["P014"]
-           and contexts.get(policy) else '')
-        + ('<p class="balance">이 정책의 시뮬 입력은 price_discount와 지역 가맹점 '
-           '적격 표시를 사용합니다. 할인 정산과 상품권 지갑·구매·잔액·상환 원장이 '
-           '없으므로 '
-           '아래 POI 지출은 상품권 거래 효과 또는 사용률이 아닙니다.</p>'
-           if policy == POLICY_ID_TO_SCORE["P014"] else '')
-        + '<div class="rows">' + ''.join(cards) + '</div></div>'
-        for policy, cards in cards_by_policy.items()
-    )
+    groups = []
+    for policy, cards in cards_by_policy.items():
+        p014 = policy == POLICY_ID_TO_SCORE["P014"]
+        group = ('<div class="exploratory-group"'
+                 + (' id="p014-exploratory"' if p014 else '') + '>'
+                 + f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>')
+        if p014:
+            group += ('<p class="balance">이 정책의 시뮬 입력은 price_discount와 지역 가맹점 '
+                      '적격 표시를 사용합니다. 할인 정산과 상품권 지갑·구매·잔액·상환 원장이 '
+                      '없으므로 아래 POI 지출은 상품권 거래 효과 또는 사용률이 아닙니다.</p>')
+            if p014_posthoc:
+                group += _p014_ksic_posthoc_html(p014_posthoc)
+            if contexts.get(policy):
+                group += _run_context_html(contexts[policy])
+        card_html = '<div class="rows">' + ''.join(cards) + '</div>'
+        if p014 and p014_posthoc:
+            card_html = ('<details class="technical"><summary>원래 동결 by_sub 집계 2항목'
+                         '(재채점 아님)</summary>'
+                         '<p>같은 두 실측 참조에 다른 장소 분류 집계를 붙인 원본 기록입니다. '
+                         '후속 KSIC 집계로 원점수·관문·선택을 대체하지 않았고, '
+                         '독립 검증지표를 추가한 것으로 세지 않습니다.</p>'
+                         + card_html + '</details>')
+        group += card_html + '</div>'
+        groups.append(group)
+    grouped = ''.join(groups)
     return ('<section class="pol"><h2>등록 38개 지표 밖의 탐색 참고값</h2>'
-            '<p class="runline">실측과 시뮬 수치는 있지만 정책 효과 채점표의 검증지표가 아닙니다. '
+            '<p class="runline">실측 참조와 시뮬 관측을 병렬 표시하지만 정책 효과 채점표의 검증지표가 아닙니다. '
             '표본·기간·추정량이 달라 외부 효과 오차 또는 적중률에 포함하지 않습니다.</p>'
             + grouped + '</section>')
+
+
+def _p014_ksic_posthoc_html(audit: dict) -> str:
+    """Use raw observations on a failed join, never a fabricated growth ratio."""
+    joins = []
+    for arm, label in (("on", "ON"), ("off", "OFF")):
+        data = audit[arm]
+        joins.append(
+            f'{label} 영수증 {data["matched_receipts"]}/{data["positive_receipts"]} '
+            f'({100 * data["join_count_fraction"]:.2f}%), '
+            f'원화 {data["matched_receipt_won"]:,}/{data["positive_receipt_won"]:,}원 '
+            f'({100 * data["join_won_fraction"]:.2f}%)')
+    markup = ('<div class="posthoc"><h4>원업종 코드 영수증 연결: 사후 탐색 원금액</h4>'
+              '<p>회복한 2026년 3월 상가 원자료의 KSIC 47121/47129 코드로 같은 '
+              '시뮬 영수증을 다시 분류했습니다. 시뮬을 새로 실행하거나 원래 동결 '
+              '점수를 바꾼 작업이 아닙니다. 두 실측 참조의 중복 집계이므로 독립 '
+              '실험 또는 지표 수 증가로 세지 않습니다.</p>'
+              f'<p class="balance"><strong>결합 관문:</strong> {_esc(" · ".join(joins))}. '
+              '결합 영수증 건수와 원화 비율이 각 팔에서 모두 99% 이상이어야 합니다. '
+              + ('기술 결합 관문을 통과했습니다. 외부 정책효과 정확도 관문은 아닙니다.'
+                 if audit["technical_gate_pass"] else
+                 '<strong>고정 99% 관문 실패: 두 업종 성장률·구간·방향·크기 판정을 '
+                 '산출하지 않습니다.</strong> 아래는 연결된 거래의 실제 관측만 표시합니다.')
+              + '</p>')
+    diagnostic = audit.get("join_failure_diagnostic")
+    if isinstance(diagnostic, dict):
+        on = diagnostic["on"]["by_reason"]
+        off = diagnostic["off"]["by_reason"]
+        markup += (
+            '<p class="reason"><strong>왜 결합이 안 되었나:</strong> '
+            f'ON 미결합 {diagnostic["on"]["unmatched_receipts"]}건·'
+            f'{diagnostic["on"]["unmatched_won"]:,}원 중 원자료에 업체 ID가 없는 '
+            f'{on["source_merchant_id_absent"]["positive_receipts"]}건·'
+            f'{on["source_merchant_id_absent"]["won"]:,}원, 업종코드가 비어 있는 '
+            f'{on["source_industry_code_blank"]["positive_receipts"]}건·'
+            f'{on["source_industry_code_blank"]["won"]:,}원입니다. '
+            f'OFF 미결합 {off["source_merchant_id_absent"]["positive_receipts"]}건·'
+            f'{off["source_merchant_id_absent"]["won"]:,}원은 원자료 업체 ID가 없습니다. '
+            '복구한 CSV와 그래프에 들어간 원본이 같은 바이트라는 증거는 없고, '
+            '정확한 자료 개정 원인은 미확정입니다. 표본 확대만으로 판매처 연결률을 '
+            '보장할 수 없으므로 실제 그래프 입력 원본이나 검증된 업체 ID 대응표가 '
+            '필요합니다.</p>')
+    markup += '<div class="rows">'
+    for row in audit["indicators"]:
+        on, off = row["on"], row["off"]
+        code = row["ksic"]
+        ratio = ('<p class="reason"><strong>변화율 미산출:</strong> 99% 자료 결합 '
+                 '관문을 통과하지 못했기 때문입니다. 확인된 원금액으로 임의 성장률을 '
+                 '만들거나 실측과 빼지 않습니다.' if not audit["technical_gate_pass"] else
+                 '<p class="reason"><strong>사후 탐색 변화율:</strong> '
+                 + (_esc(_fmt(row["simulation"], "%")) if _number(row.get("simulation"))
+                    else 'OFF 분모가 0이므로 미산출')
+                 + '. 외부 효과 오차 또는 적중률이 아닙니다.')
+        ratio += (' 원금액이 0이거나 상품권 미사용을 뜻하는 것도 아닙니다.</p>'
+                  if not audit["technical_gate_pass"] else '</p>')
+        sparse = ('<p class="balance">이 업종은 ON/OFF 각각 양수 영수증 20건 이상·'
+                  '구매 시민 10명 이상이라는 희소성 관문도 통과하지 못했습니다. '
+                  '자료 연결이 해결돼도 현재 표본으로 크기를 판단하지 않습니다.</p>'
+                  if row.get("sparse_interpretation_blocked") else '')
+        markup += ('<div class="row"><div class="meta">'
+                   f'<span class="id">{_esc(row["id"])}</span>'
+                   f'<span class="desc">KSIC {code} 원자료 연결 · 사후 탐색</span>'
+                   '<span class="tag wait">원금액 관측</span></div>'
+                   '<div class="nums">'
+                   f'<span class="tru">실측 {_esc(_fmt(row["truth"], row["truth_unit"]))}</span>'
+                   f'<span class="sim">시뮬 ON {on["won"]:,}원 / OFF {off["won"]:,}원</span>'
+                   '</div><p class="reason">'
+                   f'ON 양수 영수증 {on["positive_receipts"]}건·구매 시민 '
+                   f'{on["unique_citizens"]}명·판매처 {on["unique_pois"]}곳; '
+                   f'OFF {off["positive_receipts"]}건·{off["unique_citizens"]}명·'
+                   f'{off["unique_pois"]}곳. 전체 쌍체 시민 n={row["n"]}, '
+                   f'각 팔 {audit["on"]["citizen_days"]} 시민×일입니다.</p>'
+                   + ratio + sparse
+                   + '<p class="opinion">실측은 원문 지역·연도 패널의 발행액/2010년 '
+                   'GRDP 강도에 대한 매출 로그계수이고, 위 원금액은 2026년 상가 분류를 '
+                   '연결한 3일 합성 시민 영수증입니다. 업종 코드가 비슷해도 원문과 '
+                   '같은 연도·가맹점 패널·발행 강도·상품권 구매/정산 기전이 확보된 '
+                   '것은 아닙니다. 원금액을 로그계수와 직접 차감하거나 방향·대략적 '
+                   '크기가 적중했다고 말할 수 없습니다.</p>'
+                   f'<p class="reason source">실측 출처: {_esc(row.get("source"))} '
+                   f'· {_esc(row.get("source_locator"))}</p></div>')
+    markup += ('</div><details class="technical"><summary>사후 집계·동결 계획·원자료 지문</summary>'
+               f'<p>{_esc(audit["path"])} SHA256 {_esc(audit["sha256"])}</p>'
+               f'<p>결과 결합 전 고정 계획: {_esc(audit["plan_path"])} '
+               f'SHA256 {_esc(audit["plan_sha256"])}</p>'
+               f'<p>회복 원자료: {_esc(audit["source"]["path"])} '
+               f'SHA256 {_esc(audit["source"]["sha256"])}</p>'
+               + (f'<p>미결합 진단: {_esc(diagnostic["path"])} '
+                  f'SHA256 {_esc(diagnostic["sha256"])}</p>' if diagnostic else '')
+               + '</details></div>')
+    return markup
 
 
 def _geo_proxy_exploratory_html(row: dict) -> str:
@@ -2640,11 +3281,15 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
     if numeric_only:
         measured_policies = sum(item["empirical_numeric_count"] > 0
                                 for item in report["policy_coverage"])
-        stats = [(measured_policies, "실측 숫자 있는 정책"),
-                 (report["indicator_count"], "실측·시뮬 숫자 쌍"),
+        if report.get("p014_ksic_posthoc"):
+            measured_policies += 1
+        stats = [(measured_policies, "실측 참조 있는 정책"),
+                 (report["indicator_count"], "등록 실측·시뮬 숫자 쌍"),
                  (report["direct_gap_count"], "직접 차감 감사 통과"),
                  (report["omitted_without_simulation"], "시뮬 수치 없어 보류")]
-        if report.get("exploratory_pairs"):
+        if report.get("exploratory_reference_count"):
+            stats.append((report["exploratory_reference_count"], "채점표 밖 실측 참조"))
+        elif report.get("exploratory_pairs"):
             stats.append((len(report["exploratory_pairs"]), "채점표 밖 탐색 참고"))
     else:
         stats = [(report["policy_count"], "등록 정책·위약"),
@@ -2686,7 +3331,8 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         '나머지 정책의 미실행은 표본 부족이 아니라 이번 파일럿에 정책 팔이 없다는 뜻입니다.</p></section>')
     if numeric_only:
         sections.insert(0, _coverage_html(report["policy_coverage"],
-                                          len(report.get("unregistered_policies") or [])))
+                                          len(report.get("unregistered_policies") or []),
+                                          report.get("p014_ksic_posthoc")))
     if numeric_only and report.get("prompt_variant") == "v53":
         prompt_note = (
             '모든 정책 팔의 범용 v53 프롬프트 SHA256 지문이 일치합니다. '
@@ -2696,17 +3342,35 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
             '동일 바이트 지문은 아직 교차 확인되지 않았으므로 동일 프롬프트의 '
             '확정 증거로 취급하지 않습니다.'
         )
+        screen = report.get("technical_screen_reference")
+        architecture = report.get("consumption_architecture_audit")
+        architecture_html = _consumption_architecture_html(architecture) if architecture else ''
+        screen_html = ''
+        if screen:
+            screen_html = (
+                '<p>범용 출력 예시를 고친 v54의 첫 원시응답 기술 비교도 수행했지만 '
+                '전체 형식 관문은 실패해 후보를 채택하지 않았습니다. 아래 v53 정책 '
+                '수치를 v54 결과로 바꾸거나 형식 개선을 정책 효과 개선으로 '
+                '해석하지 않습니다. '
+                f'<a href="{_esc((ROOT / screen["path"]).as_uri())}">'
+                f'{_esc(screen["title"])}</a></p>')
         sections.insert(0, '<section class="note"><h2>v53 기준선: 범용 프롬프트 최적화 완료 아님</h2>'
                         f'<p>{_esc(prompt_note)}</p>'
+                        '<p>프롬프트 바이트가 같아도 최종 지출이 프롬프트만으로 결정되는 것은 '
+                        '아닙니다. 원시 모델 출력은 앵커·계획 처리, 소비성향 제한, 온라인 비중 '
+                        '배분, 장소 보정과 결제 정산을 거칩니다. 이 결과는 고정된 실행 엔진 '
+                        '안에서의 v53 기준선이며 프롬프트 단독 효과를 분리한 실험이 아닙니다.</p>'
                         '<p>이 보고서는 현재 범용 프롬프트가 정책별로 어떤 방향과 대략적인 '
                         '크기의 숫자를 내는지 확인하는 출발점입니다. 실측과 시뮬의 기간·모집단·'
                         '분모·대조군이 다른 행은 정식 효과 오차로 채점하지 않습니다. '
                         '정책별 약점과 측정 공백을 확인한 뒤, 같은 평가 설계로 후속 프롬프트 '
                         '후보를 비교해야 최적화를 주장할 수 있습니다. 정책별 표본 수가 다르며 '
-                        '특히 12명 월간 실험은 방향·크기 모두 매우 불확실합니다.</p></section>')
+                        '특히 12명 월간 실험은 방향·크기 모두 매우 불확실합니다.</p>'
+                        + architecture_html + screen_html + '</section>')
     if report.get("exploratory_pairs") or report.get("exploratory_uncomputed"):
         sections.append(_exploratory_html(report.get("exploratory_pairs") or [],
-                                         report.get("exploratory_uncomputed")))
+                                         report.get("exploratory_uncomputed"),
+                                         report.get("p014_ksic_posthoc")))
     tally_html = ''.join(f'<div class="stat"><span class="v">{v}</span><span class="k">{_esc(k)}</span></div>'
                          for v, k in stats)
     unregistered = report.get("unregistered_policies") or []
@@ -2778,6 +3442,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              p014_food_zero_audit: Path | None = None,
              p014_industry_audit: Path | None = None,
              p014_catalog_audit: Path | None = None,
+             p014_ksic_proxy: Path | None = None,
+             consumption_architecture_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -2811,6 +3477,10 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--p014-industry-audit requires --multi-policy-pairs")
     if p014_catalog_audit and not multi_paths:
         raise ValueError("--p014-catalog-audit requires --multi-policy-pairs")
+    if p014_ksic_proxy and not multi_paths:
+        raise ValueError("--p014-ksic-proxy requires --multi-policy-pairs")
+    if consumption_architecture_audit and not multi_paths:
+        raise ValueError("--consumption-architecture-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -2843,7 +3513,11 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([p014_industry_audit]
                                                              if p014_industry_audit else []),
                                                            *([p014_catalog_audit]
-                                                             if p014_catalog_audit else [])]):
+                                                             if p014_catalog_audit else []),
+                                                           *([p014_ksic_proxy]
+                                                             if p014_ksic_proxy else []),
+                                                           *([consumption_architecture_audit]
+                                                             if consumption_architecture_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -2887,6 +3561,11 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
     if empirical_registry:
         report = apply_empirical_registry(report, empirical_registry)
     if multi_paths:
+        report = apply_completed_20260928_display_opinions(report)
+        if p014_ksic_proxy:
+            report = apply_p014_ksic_posthoc_proxy(report, p014_ksic_proxy)
+        if consumption_architecture_audit:
+            report = apply_consumption_architecture_audit(report, consumption_architecture_audit)
         numeric_only = True
     if numeric_only:
         progress = {POLICY_ID_TO_SCORE.get(policy, policy)
@@ -2937,6 +3616,10 @@ def main() -> int:
                     help="optional score-bound P014 original-area/subclass mapping audit")
     ap.add_argument("--p014-catalog-audit", type=Path,
                     help="optional completed-OFF P014 proxy-shop availability disclosure")
+    ap.add_argument("--p014-ksic-proxy", type=Path,
+                    help="optional source-bound posthoc P014 KSIC receipt grouping; keeps frozen score unchanged")
+    ap.add_argument("--consumption-architecture-audit", type=Path,
+                    help="optional completed-run postprocessing attribution audit; preserves all scores")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -2967,6 +3650,8 @@ def main() -> int:
                                          p014_food_zero_audit=a.p014_food_zero_audit,
                                          p014_industry_audit=a.p014_industry_audit,
                                          p014_catalog_audit=a.p014_catalog_audit,
+                                         p014_ksic_proxy=a.p014_ksic_proxy,
+                                         consumption_architecture_audit=a.consumption_architecture_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
