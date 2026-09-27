@@ -24,6 +24,7 @@ def test_historical_score_covers_every_registered_indicator_without_false_gap():
     assert rows["P012-2"]["status"] == "정의 변경"
     assert rows["P010-1"]["status"] == "미실행"
     assert {p["id"] for p in result["unregistered_policies"]} == {"P008", "P011"}
+    assert all(r["more_people"] and r["expert_opinion"] for r in result["rows"])
 
 
 def _synthetic(tmp_path, *, score_on="2020-01-04:2020-01-05", audit_on="2020-01-04:2020-01-05"):
@@ -94,3 +95,35 @@ def test_generated_report_keeps_sources_and_machine_readable_coverage(tmp_path):
     assert saved["indicator_count"] == result["indicator_count"]
     assert saved["score_files"][0]["sha256"] == hashlib.sha256(score.read_bytes()).hexdigest()
     assert "T-1" in out.read_text(encoding="utf-8")
+
+
+def test_paired_pilot_proxies_never_become_empirical_gaps(tmp_path):
+    effect = tmp_path / "paired.json"
+    effect.write_text(json.dumps({
+        "policy_id": "P013", "complete_matrix": True, "funding_reconciled": True,
+        "citizens": 80, "days": 5, "effect_start": "2020-05-11",
+        "effect_end": "2020-05-13", "grant_recipients": 80,
+        "grant_issued_won": 22400000, "grant_spent_won": 1000000,
+        "recorded_total_spend_difference_won": 500000,
+        "incremental_recorded_spend_per_grant_won": 0.02,
+        "eligible_offline_relative_change": 0.05,
+        "eligible_offline_relative_citizen_bootstrap_95_interval": [0.01, 0.08],
+        "recorded_total_relative_change": 0.03,
+        "recorded_total_relative_citizen_bootstrap_95_interval": [-0.01, 0.06],
+        "provenance": {"prompt_variant": "v53", "arms": {"on": {}, "off": {}}},
+    }), encoding="utf-8")
+    out, json_out, built = report.generate([], paired_effect=effect,
+                                           out=tmp_path / "pilot.html")
+    assert built["indicator_count"] == 38
+    assert built["simulated_count"] == 2
+    assert built["direct_gap_count"] == 0
+    rows = {r["id"]: r for r in built["rows"]}
+    assert rows["EM-2"]["simulation"] == 5
+    assert rows["EM-2"]["simulation_unit"] == "%"
+    assert rows["EM-2"]["truth_unit"] == "%p"
+    assert rows["EM-3"]["gap"] is None
+    assert rows["P012-1"]["status"] == "미실행"
+    markup = out.read_text(encoding="utf-8")
+    assert markup.count('class="opinion"') == 38
+    assert "표본만 확대" in markup
+    assert json.loads(json_out.read_text(encoding="utf-8"))["direct_gap_count"] == 0

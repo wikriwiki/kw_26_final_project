@@ -27,6 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 SCORING = ROOT / "data/experiments/scoring_table.json"
 TEMPLATE = ROOT / "output/report/experiment_comparison_tpl.html"
+COMPARABILITY_NOTES = ROOT / "data/experiments/indicator_comparability_notes_20260927.json"
 
 import sys
 if str(ROOT) not in sys.path:
@@ -202,6 +203,21 @@ def _row(policy, ind, score, result, table_hash):
     }
 
 
+def _annotate_comparability(rows: list[dict], notes_path: Path = COMPARABILITY_NOTES,
+                           strict: bool = True) -> None:
+    notes = json.loads(notes_path.read_text(encoding="utf-8"))
+    expected = {r["id"] for r in rows}
+    if strict and set(notes) != expected:
+        raise ValueError(f"indicator opinion coverage mismatch: missing={sorted(expected-set(notes))}, extra={sorted(set(notes)-expected)}")
+    for row in rows:
+        note = notes.get(row["id"], {"more_people": "개별 판단 필요",
+                                     "opinion": "이 지표는 등록표의 실측 정의와 실험 설계를 확인해야 합니다."})
+        if not isinstance(note, dict) or not note.get("more_people") or not note.get("opinion"):
+            raise ValueError(f"incomplete indicator opinion: {row['id']}")
+        row["more_people"] = note["more_people"]
+        row["expert_opinion"] = note["opinion"]
+
+
 def build(score_paths: list[Path], scoring_path: Path = SCORING, experiment: str = "") -> dict:
     if not score_paths:
         raise ValueError("at least one --score is required")
@@ -238,6 +254,7 @@ def build(score_paths: list[Path], scoring_path: Path = SCORING, experiment: str
         score, results = scores.get(policy, (None, {}))
         rows.extend(_row(policy, ind, score, results.get(ind["id"]), table_hash)
                     for ind in spec["indicators"])
+    _annotate_comparability(rows, strict=scoring_path.resolve() == SCORING.resolve())
     from collections import Counter
     tally = dict(Counter(r["status"] for r in rows))
     unregistered = []
@@ -248,10 +265,91 @@ def build(score_paths: list[Path], scoring_path: Path = SCORING, experiment: str
                                  "path": _display_path(path), "status": "검증지표 미등록"})
     return {"experiment": experiment or scores[next(iter(scores))][0].get("label") or score_paths[0].stem,
             "scoring_table": {"path": _display_path(scoring_path), "sha256": table_hash},
+            "comparability_notes": {"path": _display_path(COMPARABILITY_NOTES),
+                                     "sha256": _sha(COMPARABILITY_NOTES)},
             "score_files": sources, "indicator_count": len(rows), "policy_count": len(policies),
             "simulated_count": sum(_number(r["simulation"]) for r in rows),
             "direct_gap_count": sum(r["gap"] is not None for r in rows),
             "tally": tally, "rows": rows, "unregistered_policies": unregistered}
+
+
+def build_paired_effect(effect_path: Path, scoring_path: Path = SCORING,
+                        experiment: str = "") -> dict:
+    """Display paired-pilot proxies without granting empirical estimand equivalence."""
+    effect = json.loads(effect_path.read_text(encoding="utf-8"))
+    provenance = effect.get("provenance") or {}
+    arms = provenance.get("arms") or {}
+    if (effect.get("policy_id") != "P013" or effect.get("complete_matrix") is not True
+            or effect.get("funding_reconciled") is not True
+            or provenance.get("prompt_variant") != "v53"
+            or set(arms) != {"on", "off"}):
+        raise ValueError("paired P013/v53 evidence and accounting gates missing")
+    table_hash = _sha(scoring_path)
+    table = json.loads(scoring_path.read_text(encoding="utf-8"))
+    policies = {k: v for k, v in table.items()
+                if isinstance(v, dict) and isinstance(v.get("indicators"), list)}
+    rows = [_row(policy, ind, None, None, table_hash)
+            for policy, spec in policies.items() for ind in spec["indicators"]]
+    by_id = {row["id"]: row for row in rows}
+    proxies = {
+        "EM-2": ("eligible_offline_relative_change",
+                 "eligible_offline_relative_citizen_bootstrap_95_interval",
+                 "같은 시민·날짜의 적격 오프라인 지출 ON−OFF 변화율입니다. 실측은 카드매출의 전년동기 증가율 변화(%p)이므로 수치를 빼거나 크기 적중으로 판정할 수 없습니다."),
+        "EM-3": ("recorded_total_relative_change",
+                 "recorded_total_relative_citizen_bootstrap_95_interval",
+                 "같은 시민·날짜의 총지출 ON−OFF 변화율입니다. 실측은 전국 카드매출의 전년동기 변화이므로 단위가 %로 보여도 추정량이 다릅니다."),
+    }
+    for indicator_id, (value_key, interval_key, reason) in proxies.items():
+        value = effect.get(value_key)
+        if not _number(value):
+            raise ValueError(f"paired proxy missing: {value_key}")
+        ci = effect.get(interval_key)
+        if ci is not None and (not isinstance(ci, list) or len(ci) != 2
+                               or not all(_number(x) for x in ci)):
+            raise ValueError(f"invalid paired interval: {interval_key}")
+        row = by_id[indicator_id]
+        row.update(simulation=100 * value, simulation_unit="%",
+                   ci=[100*x for x in ci] if ci else None,
+                   n=effect.get("citizens"), status="간접 대리지표", reason=reason,
+                   score_label=experiment or "P013 v53 소규모 쌍체 파일럿",
+                   off=f"{effect['effect_start']}:{effect['effect_end']}",
+                   on=f"{effect['effect_start']}:{effect['effect_end']}",
+                   proxy_direction_same=(value > 0 if _number(row["truth"]) and row["truth"] > 0
+                                         else None))
+    by_id["EM-4"].update(status="업종별 측정 없음",
+                         reason="P013 양팔은 실행했지만 업종별 쌍체 원장을 이 파일럿에서 보존하지 않아 준내구재·대면서비스 순위를 계산할 수 없습니다.",
+                         score_label=experiment or "P013 v53 소규모 쌍체 파일럿",
+                         off=f"{effect['effect_start']}:{effect['effect_end']}",
+                         on=f"{effect['effect_start']}:{effect['effect_end']}")
+    _annotate_comparability(rows, strict=scoring_path.resolve() == SCORING.resolve())
+    unregistered = []
+    for path in sorted((ROOT / "data/neo4j_load/policies").glob("P???.json")):
+        if POLICY_ID_TO_SCORE.get(path.stem) not in policies:
+            policy_file = json.loads(path.read_text(encoding="utf-8"))
+            unregistered.append({"id": path.stem, "name": policy_file.get("name", path.stem),
+                                 "path": _display_path(path), "status": "검증지표 미등록"})
+    from collections import Counter
+    return {"experiment": experiment or effect_path.stem,
+            "report_kind": "paired_pilot_proxy",
+            "scoring_table": {"path": _display_path(scoring_path), "sha256": table_hash},
+            "comparability_notes": {"path": _display_path(COMPARABILITY_NOTES),
+                                     "sha256": _sha(COMPARABILITY_NOTES)},
+            "score_files": [{"path": _display_path(effect_path), "sha256": _sha(effect_path),
+                             "policy": "EMERGENCY_2020", "scoring_table_matches": "not_applicable"}],
+            "indicator_count": len(rows), "policy_count": len(policies),
+            "simulated_count": 2, "direct_gap_count": 0,
+            "tally": dict(Counter(r["status"] for r in rows)),
+            "rows": rows, "unregistered_policies": unregistered,
+            "paired_effect_summary": {
+                "citizens": effect["citizens"], "days": effect["days"],
+                "effect_start": effect["effect_start"], "effect_end": effect["effect_end"],
+                "grant_recipients": effect["grant_recipients"],
+                "grant_issued_won": effect["grant_issued_won"],
+                "grant_spent_won": effect["grant_spent_won"],
+                "recorded_total_spend_difference_won": effect["recorded_total_spend_difference_won"],
+                "incremental_recorded_spend_per_grant_won": effect["incremental_recorded_spend_per_grant_won"],
+                "choice_repair_sensitivity": effect.get("choice_repair_sensitivity"),
+                "provenance": provenance}}
 
 
 def _fmt(value, unit):
@@ -326,6 +424,10 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
             if r["external_direction_match"] is not None:
                 nums.append('<span class="memo">외부 방향: '
                             + ('일치' if r["external_direction_match"] else '반대') + '</span>')
+            if r.get("proxy_direction_same") is not None:
+                nums.append('<span class="memo">방향 참고: '
+                            + ('양쪽 증가' if r["proxy_direction_same"] else '부호 다름')
+                            + ' (정식 검증 아님)</span>')
             parts.append('<div class="row"><div class="meta">'
                          f'<span class="id">{_esc(r["id"])}</span>'
                          f'<span class="exp">{_esc(EXPECT.get(r["expect"], r["expect"]))}</span>'
@@ -333,6 +435,8 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                          f'<span class="desc">{_esc(r["desc"])}</span></div>'
                          + _track(r) + '<div class="nums">' + ''.join(nums) + '</div>'
                          f'<p class="reason">{_esc(r["reason"])}</p>'
+                         f'<p class="opinion"><strong>표본만 확대:</strong> {_esc(r["more_people"])}. '
+                         f'{_esc(r["expert_opinion"])}</p>'
                          + (f'<p class="reason source">실측 출처: {_esc(r["source"])}</p>'
                             if r["source"] else '') + '</div>')
         parts.append('</div></section>')
@@ -343,6 +447,21 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
              (sum(r["external_direction_match"] is not None for r in rows), "외부 방향 대조 가능"),
              (report["direct_gap_count"], "실측과 직접 차감 가능"),
              (len(report.get("unregistered_policies") or []), "지표 미등록 정책")]
+    paired = report.get("paired_effect_summary")
+    if paired:
+        sections.insert(0, '<section class="note"><h2>이번 실험에서 실제로 확인한 범위</h2>'
+                        f'<p>{_esc(paired["citizens"])}명 × {_esc(paired["days"])}일 × ON/OFF 두 팔. '
+                        f'정책 후 분석 {_esc(paired["effect_start"])} ~ {_esc(paired["effect_end"])}. '
+                        f'지원금 수령 {_esc(paired["grant_recipients"])}명, '
+                        f'지급 {_esc(_fmt(paired["grant_issued_won"], "원"))}, '
+                        f'사용 {_esc(_fmt(paired["grant_spent_won"], "원"))}, '
+                        f'양팔 총지출 차이 {_esc(_fmt(paired["recorded_total_spend_difference_won"], "원"))}, '
+                        f'지원금 1원당 기록된 추가 지출 '
+                        f'{_esc(_fmt(paired["incremental_recorded_spend_per_grant_won"], "ratio"))}.</p>'
+                        '<p>아래 EM-2/EM-3의 파란 수치는 쌍체 시뮬레이션의 대리 변화율입니다. '
+                        '실측의 전년동기 카드매출 효과와 분모·기간·모집단이 달라 같은 방향의 참고만 가능하며, '
+                        '실측과의 숫자 차이 또는 최적 프롬프트 정확도는 계산하지 않습니다. '
+                        '나머지 정책의 미실행은 표본 부족이 아니라 이번 파일럿에 정책 팔이 없다는 뜻입니다.</p></section>')
     tally_html = ''.join(f'<div class="stat"><span class="v">{v}</span><span class="k">{_esc(k)}</span></div>'
                          for v, k in stats)
     unregistered = report.get("unregistered_policies") or []
@@ -362,6 +481,7 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
             .replace('<!--TALLY-->', tally_html)
             .replace('<!--BODY-->', '\n'.join(sections))
             .replace('<!--SOURCE-->', source_note)
+            .replace('<!--NOTES_SHA-->', _esc(report["comparability_notes"]["sha256"]))
             .replace('<!--SCORING_SHA-->', _esc(report["scoring_table"]["sha256"])))
 
 
@@ -378,15 +498,20 @@ def _atomic_write(path: Path, value: str):
 
 
 def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None = None,
-             json_out: Path | None = None, scoring_path: Path = SCORING) -> tuple[Path, Path, dict]:
+             json_out: Path | None = None, scoring_path: Path = SCORING,
+             paired_effect: Path | None = None) -> tuple[Path, Path, dict]:
+    if bool(score_paths) == bool(paired_effect):
+        raise ValueError("supply either score files or one paired effect")
     if len(score_paths) > 1 and out is None:
         raise ValueError("multiple scores require --out")
-    out = out or score_paths[0].with_suffix(".comparison.html")
+    source = paired_effect or score_paths[0]
+    out = out or source.with_suffix(".comparison.html")
     json_out = json_out or out.with_suffix(".json")
     if out.resolve() == json_out.resolve() or any(out.resolve() == p.resolve() or json_out.resolve() == p.resolve()
-                                                 for p in score_paths):
+                                                 for p in [source, *score_paths]):
         raise ValueError("report paths must not overwrite source scores or each other")
-    report = build(score_paths, scoring_path, experiment)
+    report = (build_paired_effect(paired_effect, scoring_path, experiment) if paired_effect
+              else build(score_paths, scoring_path, experiment))
     _atomic_write(json_out, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     _atomic_write(out, render(report))
     return out, json_out, report
@@ -394,7 +519,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--score", type=Path, action="append", required=True)
+    ap.add_argument("--score", type=Path, action="append", default=[])
+    ap.add_argument("--paired-effect", type=Path,
+                    help="audited P013 ON/OFF paired effect; proxies stay non-comparable")
     ap.add_argument("--experiment", default="")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--json-out", type=Path)
@@ -402,11 +529,12 @@ def main() -> int:
     a = ap.parse_args()
     try:
         out, json_out, report = generate(a.score, experiment=a.experiment, out=a.out,
-                                         json_out=a.json_out, scoring_path=a.scoring)
+                                         json_out=a.json_out, scoring_path=a.scoring,
+                                         paired_effect=a.paired_effect)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
-    print(f"{out} · {json_out} — {report['indicator_count']}개 지표, "
-          f"시뮬 {report['simulated_count']}개, 직접 차감 {report['direct_gap_count']}개")
+    print(f"{out} | {json_out} | indicators={report['indicator_count']} "
+          f"simulated={report['simulated_count']} direct_gaps={report['direct_gap_count']}")
     return 0
 
 
