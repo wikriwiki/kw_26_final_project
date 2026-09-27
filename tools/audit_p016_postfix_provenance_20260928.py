@@ -163,6 +163,39 @@ def preflight_audit(case_dir: Path) -> dict:
     }
 
 
+def stage1_line_endings_audit(case_dir: Path, on: dict, off: dict) -> dict:
+    path = case_dir / "source_diff" / "stage1_line_ending_audit.json"
+    audit = read_json(path)
+    if audit.get("schema") != "p016_stage1_line_ending_audit_v1":
+        raise ValueError("wrong P016 Stage1 line-ending audit")
+    server = Path(audit["server_frozen_path"])
+    local = Path(audit["local_git_snapshot_path"])
+    diff = Path(audit["normalized_text_unified_diff_path"])
+    if (sha256(server) != audit.get("server_frozen_sha256")
+            or sha256(local) != audit.get("local_git_raw_sha256")
+            or sha256(diff) != audit.get("normalized_text_unified_diff_sha256")):
+        raise ValueError("P016 Stage1 source snapshots/diff changed")
+    normalized = hashlib.sha256(local.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    if (normalized != audit.get("local_git_crlf_normalized_sha256")
+            or normalized != audit.get("server_frozen_sha256")
+            or not audit.get("normalized_bytes_equal_server")
+            or audit.get("normalized_text_unified_diff_lines") != 0):
+        raise ValueError("P016 Stage1 source difference is not only CRLF versus LF")
+    frozen_suffix = "scripts/sim/stage1_intent.py"
+    if (on["frozen_hashes"][frozen_suffix] != normalized
+            or off["frozen_hashes"][frozen_suffix] != normalized):
+        raise ValueError("P016 Stage1 frozen inputs differ from audited server source")
+    return {
+        "path": path.as_posix(),
+        "sha256": sha256(path),
+        "server_frozen_sha256": normalized,
+        "local_git_raw_sha256": audit["local_git_raw_sha256"],
+        "local_crlf_pairs": audit["local_crlf_pairs"],
+        "normalized_bytes_equal_server": True,
+        "meaning": "Windows CRLF only; no Stage1 source-content difference between frozen A100 and local Git snapshot",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--on-dir", type=Path, required=True)
@@ -207,6 +240,7 @@ def main() -> int:
         "run_manifest_source_commit_is_not_live_code_evidence": True,
         "on": on,
         "off": off,
+        "stage1_line_endings": stage1_line_endings_audit(args.case_dir, on, off),
         "preflight": preflight_audit(args.case_dir),
         "invalidated_prepatch_arm": {
             "excluded_from_score": True,
