@@ -208,6 +208,13 @@ def main() -> None:
     off_target_won = sum(r["spend_won"] for r in off_summary.values())
     on_total_won = sum(int(r["amount"]) for r in on)
     off_total_won = sum(int(r["amount"]) for r in off)
+    coordinate_join_rate = {
+        arm: (sum(r["poi_id"] in coordinates for r in receipts) / len(receipts)
+              if receipts else None)
+        for arm, receipts in (("on", on), ("off", off))}
+    ambiguous_receipts = {
+        arm: sum(r["poi_id"] in ambiguous for r in receipts)
+        for arm, receipts in (("on", on), ("off", off))}
     result = {
         "status": "exploratory_geographic_proxy_not_direct_empirical_comparison",
         "reason": "2023 official district polygons and 2026 POIs; short simulated policy ON/OFF, unlike 2020 merchant-panel year-over-year card-sales changes",
@@ -218,6 +225,8 @@ def main() -> None:
         "polygon_epsg": crs.to_epsg(),
         "polygon_count_by_type": dict(Counter(categories)),
         "positive_receipts": {"on": len(on), "off": len(off)},
+        "coordinate_join_rate_receipts": coordinate_join_rate,
+        "ambiguous_receipts_excluded": ambiguous_receipts,
         "target_type_spend_capture_share": {
             "on": on_target_won / on_total_won if on_total_won else None,
             "off": off_target_won / off_total_won if off_total_won else None},
