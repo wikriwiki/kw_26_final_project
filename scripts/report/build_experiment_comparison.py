@@ -274,7 +274,7 @@ def build(score_paths: list[Path], scoring_path: Path = SCORING, experiment: str
 
 
 def build_paired_effect(effect_path: Path, scoring_path: Path = SCORING,
-                        experiment: str = "") -> dict:
+                        experiment: str = "", sector_path: Path | None = None) -> dict:
     """Display paired-pilot proxies without granting empirical estimand equivalence."""
     effect = json.loads(effect_path.read_text(encoding="utf-8"))
     provenance = effect.get("provenance") or {}
@@ -317,10 +317,35 @@ def build_paired_effect(effect_path: Path, scoring_path: Path = SCORING,
                    proxy_direction_same=(value > 0 if _number(row["truth"]) and row["truth"] > 0
                                          else None))
     by_id["EM-4"].update(status="업종별 측정 없음",
-                         reason="P013 양팔은 실행했지만 업종별 쌍체 원장을 이 파일럿에서 보존하지 않아 준내구재·대면서비스 순위를 계산할 수 없습니다.",
+                         reason="P013 양팔은 실행했지만 업종별 쌍체 원장을 보존하지 않으면 준내구재·대면서비스 순위를 계산할 수 없습니다.",
                          score_label=experiment or "P013 v53 소규모 쌍체 파일럿",
                          off=f"{effect['effect_start']}:{effect['effect_end']}",
                          on=f"{effect['effect_start']}:{effect['effect_end']}")
+    sector = None
+    if sector_path:
+        sector = json.loads(sector_path.read_text(encoding="utf-8"))
+        from datetime import date, timedelta
+        start, end = date.fromisoformat(effect["effect_start"]), date.fromisoformat(effect["effect_end"])
+        expected_days = [(start + timedelta(days=i)).isoformat()
+                         for i in range((end-start).days+1)]
+        if (sector.get("schema") != "p013_sector_pair_v1"
+                or sector.get("citizens") != effect["citizens"]
+                or sector.get("days") != expected_days
+                or sector.get("scoring_table_sha256") != table_hash
+                or not _number(sector.get("rank_gap_percentage_points"))
+                or not _number(sector.get("semidurable_relative_change_pct"))
+                or not _number(sector.get("face_service_relative_change_pct"))
+                or "not_external_kdi_estimand" not in str(sector.get("comparison"))):
+            raise ValueError("paired sector proxy does not match the completed P013 pilot")
+        ci = sector.get("citizen_bootstrap_95_interval")
+        if ci is not None and (not isinstance(ci, list) or len(ci) != 2
+                               or not all(_number(x) for x in ci)):
+            raise ValueError("invalid paired sector interval")
+        by_id["EM-4"].update(simulation=sector["rank_gap_percentage_points"],
+                             simulation_unit="%p", ci=ci, n=effect["citizens"],
+                             status="업종 간접 대리지표",
+                             reason="준내구재 POI와 대면서비스 POI의 동일 날짜 ON−OFF 매출 변화율 차이입니다. 실측은 다른 업종 범위·전년동기 카드매출 분석이므로 순위만 참고하고 수치 오차는 계산하지 않습니다.",
+                             proxy_direction_same=sector["rank_gap_percentage_points"] > 0)
     _annotate_comparability(rows, strict=scoring_path.resolve() == SCORING.resolve())
     unregistered = []
     for path in sorted((ROOT / "data/neo4j_load/policies").glob("P???.json")):
@@ -329,17 +354,22 @@ def build_paired_effect(effect_path: Path, scoring_path: Path = SCORING,
             unregistered.append({"id": path.stem, "name": policy_file.get("name", path.stem),
                                  "path": _display_path(path), "status": "검증지표 미등록"})
     from collections import Counter
+    sources = [{"path": _display_path(effect_path), "sha256": _sha(effect_path),
+                "policy": "EMERGENCY_2020", "scoring_table_matches": "not_applicable"}]
+    if sector_path:
+        sources.append({"path": _display_path(sector_path), "sha256": _sha(sector_path),
+                        "policy": "EMERGENCY_2020/sector", "scoring_table_matches": "not_applicable"})
     return {"experiment": experiment or effect_path.stem,
             "report_kind": "paired_pilot_proxy",
             "scoring_table": {"path": _display_path(scoring_path), "sha256": table_hash},
             "comparability_notes": {"path": _display_path(COMPARABILITY_NOTES),
                                      "sha256": _sha(COMPARABILITY_NOTES)},
-            "score_files": [{"path": _display_path(effect_path), "sha256": _sha(effect_path),
-                             "policy": "EMERGENCY_2020", "scoring_table_matches": "not_applicable"}],
+            "score_files": sources,
             "indicator_count": len(rows), "policy_count": len(policies),
-            "simulated_count": 2, "direct_gap_count": 0,
+            "simulated_count": 3 if sector else 2, "direct_gap_count": 0,
             "tally": dict(Counter(r["status"] for r in rows)),
             "rows": rows, "unregistered_policies": unregistered,
+            "paired_sector_summary": sector,
             "paired_effect_summary": {
                 "citizens": effect["citizens"], "days": effect["days"],
                 "effect_start": effect["effect_start"], "effect_end": effect["effect_end"],
@@ -451,6 +481,12 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
              (len(report.get("unregistered_policies") or []), "지표 미등록 정책")]
     paired = report.get("paired_effect_summary")
     if paired:
+        sector = report.get("paired_sector_summary")
+        sector_line = (f'<p>업종 대리 지표: 준내구재 {_esc(_fmt(sector["semidurable_relative_change_pct"], "%"))}, '
+                       f'대면서비스 {_esc(_fmt(sector["face_service_relative_change_pct"], "%"))}; '
+                       f'변화율 차이 {_esc(_fmt(sector["rank_gap_percentage_points"], "%p"))}. '
+                       '이는 같은 날짜 POI 매출의 내부 비교이며 KDI 실측 업종 범위와 다릅니다.</p>'
+                       if sector else '')
         sections.insert(0, '<section class="note"><h2>이번 실험에서 실제로 확인한 범위</h2>'
                         f'<p>{_esc(paired["citizens"])}명 × {_esc(paired["days"])}일 × ON/OFF 두 팔. '
                         f'정책 후 분석 {_esc(paired["effect_start"])} ~ {_esc(paired["effect_end"])}. '
@@ -460,6 +496,7 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         f'양팔 총지출 차이 {_esc(_fmt(paired["recorded_total_spend_difference_won"], "원"))}, '
                         f'지원금 1원당 기록된 추가 지출 '
                         f'{_esc(_fmt(paired["incremental_recorded_spend_per_grant_won"], "ratio"))}.</p>'
+                        + sector_line +
                         '<p>아래 EM-2/EM-3의 파란 수치는 쌍체 시뮬레이션의 대리 변화율입니다. '
                         '실측의 전년동기 카드매출 효과와 분모·기간·모집단이 달라 같은 방향의 참고만 가능하며, '
                         '실측과의 숫자 차이 또는 최적 프롬프트 정확도는 계산하지 않습니다. '
@@ -501,18 +538,21 @@ def _atomic_write(path: Path, value: str):
 
 def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None = None,
              json_out: Path | None = None, scoring_path: Path = SCORING,
-             paired_effect: Path | None = None) -> tuple[Path, Path, dict]:
+             paired_effect: Path | None = None,
+             paired_sector: Path | None = None) -> tuple[Path, Path, dict]:
     if bool(score_paths) == bool(paired_effect):
         raise ValueError("supply either score files or one paired effect")
+    if paired_sector and not paired_effect:
+        raise ValueError("--paired-sector requires --paired-effect")
     if len(score_paths) > 1 and out is None:
         raise ValueError("multiple scores require --out")
     source = paired_effect or score_paths[0]
     out = out or source.with_suffix(".comparison.html")
     json_out = json_out or out.with_suffix(".json")
     if out.resolve() == json_out.resolve() or any(out.resolve() == p.resolve() or json_out.resolve() == p.resolve()
-                                                 for p in [source, *score_paths]):
+                                                 for p in [source, *score_paths, *([paired_sector] if paired_sector else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
-    report = (build_paired_effect(paired_effect, scoring_path, experiment) if paired_effect
+    report = (build_paired_effect(paired_effect, scoring_path, experiment, paired_sector) if paired_effect
               else build(score_paths, scoring_path, experiment))
     _atomic_write(json_out, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     _atomic_write(out, render(report))
@@ -524,6 +564,8 @@ def main() -> int:
     ap.add_argument("--score", type=Path, action="append", default=[])
     ap.add_argument("--paired-effect", type=Path,
                     help="audited P013 ON/OFF paired effect; proxies stay non-comparable")
+    ap.add_argument("--paired-sector", type=Path,
+                    help="optional same-calendar P013 sector proxy for EM-4")
     ap.add_argument("--experiment", default="")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--json-out", type=Path)
@@ -532,7 +574,8 @@ def main() -> int:
     try:
         out, json_out, report = generate(a.score, experiment=a.experiment, out=a.out,
                                          json_out=a.json_out, scoring_path=a.scoring,
-                                         paired_effect=a.paired_effect)
+                                         paired_effect=a.paired_effect,
+                                         paired_sector=a.paired_sector)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
     print(f"{out} | {json_out} | indicators={report['indicator_count']} "

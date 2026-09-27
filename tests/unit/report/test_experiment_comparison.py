@@ -127,3 +127,19 @@ def test_paired_pilot_proxies_never_become_empirical_gaps(tmp_path):
     assert markup.count('class="opinion"') == 38
     assert "표본만 확대" in markup
     assert json.loads(json_out.read_text(encoding="utf-8"))["direct_gap_count"] == 0
+    sector = tmp_path / "sector.json"
+    sector.write_text(json.dumps({
+        "schema": "p013_sector_pair_v1", "citizens": 80,
+        "days": ["2020-05-11", "2020-05-12", "2020-05-13"],
+        "semidurable_relative_change_pct": 5.0,
+        "face_service_relative_change_pct": 2.0,
+        "rank_gap_percentage_points": 3.0,
+        "citizen_bootstrap_95_interval": [-1.0, 7.0],
+        "scoring_table_sha256": hashlib.sha256(
+            (ROOT / "data/experiments/scoring_table.json").read_bytes()).hexdigest(),
+        "comparison": "internal_same_calendar_poi_sector_proxy; not_external_kdi_estimand",
+    }), encoding="utf-8")
+    sector_report = report.build_paired_effect(effect, sector_path=sector)
+    assert sector_report["simulated_count"] == 3
+    assert sector_report["direct_gap_count"] == 0
+    assert {r["id"]: r for r in sector_report["rows"]}["EM-4"]["simulation"] == 3

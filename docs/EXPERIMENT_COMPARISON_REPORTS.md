@@ -24,8 +24,11 @@ python scripts/report/build_experiment_comparison.py \
 python scripts/report/build_experiment_comparison.py \
   --experiment p013_v53_pilot_20260927 \
   --paired-effect output/p013_v53_pilot_20260927/paired_effect.json \
+  --paired-sector output/p013_v53_pilot_20260927/paired_sector.json \
   --out output/report/experiments/p013_v53_pilot_20260927.html
 ```
+
+`--paired-sector`는 양팔에서 별도로 보존한 업종별 거래 원장이 있을 때만 쓴다. EM-4의 준내구재·대면서비스 변화율 순위는 같은 날짜의 **시뮬 내부 대리지표**로만 표시한다. 없으면 해당 행에 업종별 측정 부재를 그대로 남긴다.
 
 실측과 시뮬 값을 나란히 보여 주는 것과 **차이를 계산하는 것**은 다르다. 차이는 `empirical_audit.comparison=matched_estimand`, 원문 출처, 양쪽 추정량·기간·대상·분모·단위 설명, 수치, 해당 채점 파일의 정확한 `simulation_off`/`simulation_on` 창, 채점표 지문, 측정 완결성까지 맞을 때만 나온다. 방향도 `matched_direction` 또는 `matched_estimand`의 원문 대응 감사와 같은 실험 창이 있을 때에만 ‘외부 방향’으로 판정한다. 원문과 비교 대상이 다르면 두 값을 각각 표시하고 차이와 같은 축의 실측점은 비운다. `hit`은 내부 사전등록 판정이며 외부 실측 효과의 방향·크기 적중으로 승격하지 않는다. 그래프의 수평축은 **지표마다** 범위를 잡으므로 다른 행의 막대 길이를 서로 비교하지 않는다.
 
