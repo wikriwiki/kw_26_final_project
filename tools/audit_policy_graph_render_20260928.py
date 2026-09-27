@@ -99,7 +99,7 @@ def main() -> None:
         "facts": example_facts,
         "status": example_status,
         "model_calls": 0,
-        "graph_mutations": 0,
+        "audit_graph_mutations": 0,
         "pass": True,
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
