@@ -13,11 +13,11 @@ case "$case_id" in
   p016)
     PREVIOUS=distancing/off
     POLICY=data/neo4j_load/policies/P016.json
-    TODAY=2020-07-30;;
+    TODAY=2020-07-30; DAY_ZERO=2020-07-27;;
   p014)
     PREVIOUS=p016/off
     POLICY=data/neo4j_load/policies/P014.json
-    TODAY=2020-09-21;;
+    TODAY=2020-09-21; DAY_ZERO=2020-09-18;;
   *) echo 'preflight supports p016 or p014' >&2; exit 2;;
 esac
 OUT=$BASE/$case_id
@@ -62,6 +62,10 @@ PY
   sleep 2
 done
 trap - EXIT
+# The verified dump is a post-run graph and can contain an old Policy. Mirror
+# the formal runner's clean Day0 sequence before loading this arm's policy.
+python scripts/neo4j_load/97_reset_run_artifacts.py
+DAY_ZERO="$DAY_ZERO" python scripts/neo4j_load/08_initial_state.py
 python scripts/neo4j_load/10_load_grant_policy.py "$POLICY"
 python scripts/sim/policy_preflight.py --require-db "$POLICY"
 python - "$OUT/preflight_roster.json" <<'PY'

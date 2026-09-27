@@ -31,6 +31,11 @@ fi
 test -s "$ARM/summary.json"
 test -s "$ARM/stage2.json"
 test -s "$ARM/served_model_evidence.json"
+if [[ $case_id == distancing ]]; then
+  test -s "$ARM/receipt_coordinates.jsonl"
+  test -s "$ARM/receipt_coordinates.jsonl.manifest.json"
+  test -s "$ARM/poi_coordinates.json"
+fi
 test ! -e "$ARM/graph_backup/SHA256SUMS" || { log 'Graph already dumped; refusing duplicate'; exit 1; }
 python - "$ARM/summary.json" "$DAYS" "$N" <<'PY'
 import json,sys
@@ -105,5 +110,12 @@ if [[ $case_id == p010 ]]; then
 fi
 if [[ $case_id == p012 ]]; then
   sha256sum "$ARM/cashback.ledger.jsonl" "$ARM/cashback.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
+fi
+if [[ $case_id == distancing ]]; then
+  # Geography is a descriptive proxy. Require its graph-backed input archive
+  # before this graph may be reset for the next arm.
+  sha256sum "$ARM/receipt_coordinates.jsonl" \
+    "$ARM/receipt_coordinates.jsonl.manifest.json" \
+    "$ARM/poi_coordinates.json" >> "$ARM/outputs.sha256"
 fi
 log 'PRESERVED_ON_SERVER: copy both archives/manifests outside A100 and verify before any next restore'
