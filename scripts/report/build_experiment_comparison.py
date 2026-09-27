@@ -1646,6 +1646,23 @@ def _run_context_html(context: dict | None) -> str:
                for arm in ("on", "off")):
             quality_html += ('<p class="balance">한쪽 팔의 생성 품질 증거가 없어 '
                              '정책 후 차이의 인과효과 해석과 프롬프트 성능 판정을 보류합니다.</p>')
+        if context.get("policy_id") == "P012":
+            on, off = quality["on"], quality["off"]
+            on_total, off_total = on.get("citizen_days"), off.get("citizen_days")
+            on_first = on.get("stage1_first_attempt_internal_validation_pass_count")
+            off_first = off.get("stage1_first_attempt_internal_validation_pass_count")
+            if all(isinstance(value, int) and not isinstance(value, bool)
+                   for value in (on_total, off_total, on_first, off_first)) and on_total and off_total:
+                quality_html += (
+                    '<p class="balance"><strong>P012 양팔 생성 품질 차이:</strong> '
+                    f'Stage1 첫 기록 내부검증 ON {on_first}/{on_total} '
+                    f'({100 * on_first / on_total:.1f}%), '
+                    f'OFF {off_first}/{off_total} ({100 * off_first / off_total:.1f}%). '
+                    '최종 원장이 완결돼도 이 차이는 사라지지 않습니다. '
+                    '재시도·보정 경로가 양팔 행동 기록에 다르게 작용했을 가능성이 있어 '
+                    '현재 지출 차이를 정책 효과의 정확도나 범용 프롬프트의 '
+                    '최적 성능으로 단정하지 않습니다.</p>'
+                )
     else:
         quality_html = ('<p class="qualityline">이 팔의 첫 시도 생성 품질은 '
                         '현재 보고서에서 검증되지 않았습니다. 최종 원장 완결과 구분해야 합니다.</p>')

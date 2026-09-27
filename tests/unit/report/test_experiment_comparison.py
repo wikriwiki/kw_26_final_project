@@ -373,6 +373,22 @@ def test_policy_card_does_not_overstate_first_pass_with_missing_attempt_history(
     assert "80/80" in markup
 
 
+def test_p012_card_calls_out_arm_asymmetry_after_full_recovery():
+    arm = {"citizen_days": 372, "stage1_final_ok_count": 372,
+           "stage1_first_attempt_internal_validation_pass_count": 244,
+           "stage1_outer_retry_recovered_count": 4,
+           "stage2_fallback_only_count": 0, "stage2_choice_repair_count": 21,
+           "stage2_quality_gate_pass": True}
+    off = {**arm, "stage1_first_attempt_internal_validation_pass_count": 344,
+           "stage1_outer_retry_recovered_count": 0,
+           "stage2_choice_repair_count": 25}
+    markup = report._run_context_html({"policy_id": "P012",
+                                       "quality_audit": {"on": arm, "off": off}})
+    assert "ON 244/372 (65.6%), OFF 344/372 (92.5%)" in markup
+    assert "최종 원장이 완결돼도 이 차이는 사라지지 않습니다" in markup
+    assert "재시도·보정 경로가 양팔 행동 기록에 다르게 작용" in markup
+
+
 def test_p010_wallet_diagnosis_is_descriptive_and_distinguishes_events_from_citizen_days():
     diagnostic = {
         "status": "post_run_descriptive_quality_audit", "path": "verified/p010_wallet_diagnosis.json",
