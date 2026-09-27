@@ -12,6 +12,7 @@ BASE=/data/multipolicy_v53_20260928
 PRE=/data/backup_20260927_pre_pilot
 NEO=/data/neo4j-community-5.26.0
 N=40
+RUN_REVISION=initial
 case "$case_id" in
   p010)
     START=2025-07-19; DAYS=5; DAY0=2025-07-18; N=80
@@ -22,7 +23,8 @@ case "$case_id" in
     if [[ $arm == on ]]; then ENV_ID=covid_2021; else ENV_ID=covid_no_distancing; fi;;
   p016)
     START=2020-07-28; DAYS=5; DAY0=2020-07-27
-    ENV_ID=covid_2021; POLICY=data/neo4j_load/policies/P016.json; PID=P016;;
+    ENV_ID=covid_2021; POLICY=data/neo4j_load/policies/P016.json; PID=P016
+    RUN_REVISION=no_eligible_discount_fix1;;
   p014)
     START=2020-09-19; DAYS=5; DAY0=2020-09-18
     ENV_ID=covid_2021; POLICY=data/neo4j_load/policies/P014.json; PID=P014;;
@@ -101,13 +103,14 @@ if [[ -n $POLICY ]]; then
   SIM_OUTPUT_DIR="$ARM/preflight" NEO4J_URI='' python scripts/sim/policy_preflight.py "$POLICY"
 fi
 sha256sum scripts/sim/prompts/v53.py scripts/sim/stage1_intent.py scripts/sim/stage2_poi.py \
-  scripts/sim/run_simulation.py scripts/sim/environments/registry.py \
+  scripts/sim/run_simulation.py scripts/sim/instant_discount.py \
+  scripts/sim/environments/registry.py \
   ${POLICY:+"$POLICY"} > "$ARM/frozen_inputs.sha256"
 if [[ $case_id == p010 ]]; then
   sha256sum "$OUT/roster.json" "$OUT/frozen_income.json" >> "$ARM/frozen_inputs.sha256"
 fi
 cat > "$ARM/run_manifest.json" <<EOF
-{"case":"$case_id","arm":"$arm","start":"$START","days":$DAYS,"day0":"$DAY0","environment":"$ENV_ID","policy_file":"$POLICY","prompt":"v53","served_model":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ","request_mode":"${LLM_MODE:-qwen8b}","citizens":$N,"source_commit":"$(git rev-parse HEAD)","prepared_at":"$(date -Is)"}
+{"case":"$case_id","arm":"$arm","start":"$START","days":$DAYS,"day0":"$DAY0","environment":"$ENV_ID","policy_file":"$POLICY","prompt":"v53","served_model":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ","request_mode":"${LLM_MODE:-qwen8b}","citizens":$N,"run_revision":"$RUN_REVISION","source_commit":"$(git rev-parse HEAD)","prepared_at":"$(date -Is)"}
 EOF
 sha256sum "$ARM/run_manifest.json" >> "$ARM/frozen_inputs.sha256"
 python tools/capture_served_model_evidence_20260928.py \
@@ -160,7 +163,7 @@ else
 fi
 printf 'restored_from=%s\nrestored_at=%s\n' "$PRE" "$(date -Is)" > "$ARM/graph_restored.marker"
 
-export SIM_OUTPUT_DIR="$ARM" SIM_RUN_ID="multipolicy-v53-20260928-$case_id-$arm"
+export SIM_OUTPUT_DIR="$ARM" SIM_RUN_ID="multipolicy-v53-20260928-$case_id-$RUN_REVISION-$arm"
 log "RUNNING $case_id/$arm: $N citizens x $DAYS days"
 for offset in $(seq 0 $((DAYS - 1))); do
   day=$(date -d "$START + $offset days" +%F)

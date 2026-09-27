@@ -50,6 +50,10 @@ def settle_instant_discounts(events: list[dict], amounts: list[int],
         raise ValueError("할인 회계의 거래·금액 행 수가 다르다")
     prior = {str(k): max(0, int(v)) for k, v in (used_before or {}).items()}
     used = dict(prior)
+    # A citizen can have no eligible purchase today. Keep every active policy
+    # in the closing balance even then; run_simulation persists it by policy ID.
+    for spec in specs:
+        used.setdefault(spec["id"], 0)
     by_event = [{} for _ in events]
     eligible_gross = 0
     for i, (event, raw_amount) in enumerate(zip(events, amounts)):

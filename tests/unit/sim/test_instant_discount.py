@@ -48,6 +48,20 @@ def test_개인_누적_상한을_날짜를_넘어_보존한다():
     assert second["used_after"]["TEST"] == 10_000
 
 
+def test_적격_구매가_없는_날도_활성_할인정책_잔액을_기록한다():
+    specs = active_rate_discounts([_policy()])
+    for events, amounts in (
+        ([], []),
+        ([{"poi_id": "C2", "category": "마트", "sub_category": "수산"}], [30_000]),
+    ):
+        fresh = settle_instant_discounts(events, amounts, specs)
+        assert fresh["by_pid"] == {"TEST": 0}
+        assert fresh["used_after"]["TEST"] == 0
+        resumed = settle_instant_discounts(events, amounts, specs, {"TEST": 7_500})
+        assert resumed["by_pid"] == {"TEST": 0}
+        assert resumed["used_after"]["TEST"] == 7_500
+
+
 def test_지원되지_않는_할인방식은_조용히_정책효과로_채우지_않는다():
     policy = _policy()
     policy["sectors"]["식재료"]["mode"] = "count_rebate"
