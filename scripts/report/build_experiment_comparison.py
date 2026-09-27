@@ -51,7 +51,8 @@ EXPLORATORY_NAMES = {
     "P010-BOK-RESTAURANT": "외식 사용액 비중", "P010-BOK-MART_FOOD": "마트·식료품 사용액 비중",
     "P010-BOK-MEDICAL": "의료 사용액 비중", "P010-BOK-BEAUTY": "미용 사용액 비중",
     "P010-BOK-ACADEMY": "학원 사용액 비중", "P010-BOK-PHARMACY": "약국 사용액 비중",
-    "P014-KIPF-47121": "슈퍼마켓 매출 계수", "P014-KIPF-47129": "음식료 소매 매출 계수",
+    "P014-KIPF-47121": "원문 47121: 165㎡ 이상 슈퍼마켓 매출 계수",
+    "P014-KIPF-47129": "원문 47129: 165㎡ 미만 슈퍼마켓 매출 계수",
     "DS6-2023-GEO-PROXY": "상권 유형 차이의 2023년 경계 탐색 대리값",
 }
 POLICY_ID_TO_SCORE = {
@@ -663,9 +664,10 @@ def apply_empirical_registry(report: dict, path: Path = EMPIRICAL_REGISTRY) -> d
             raise ValueError(f"duplicate exploratory benchmark: {key}")
         exploratory_truth[key] = entry
     exploratory_pairs = []
+    exploratory_uncomputed = []
     for item in report.get("exploratory_simulations", []):
         benchmark = exploratory_truth.get((item["policy"], item["id"]))
-        if not benchmark or not _number(item.get("simulation")):
+        if not benchmark:
             continue
         empirical = benchmark.get("empirical") or {}
         value = empirical.get("value", benchmark.get("empirical_coefficient"))
@@ -684,8 +686,12 @@ def apply_empirical_registry(report: dict, path: Path = EMPIRICAL_REGISTRY) -> d
                          empirical_components=empirical.get("components"),
                          empirical_comparison_reason=benchmark.get("reason"),
                          gap=None, gap_unit=None)
-        exploratory_pairs.append(candidate)
+        if _number(item.get("simulation")):
+            exploratory_pairs.append(candidate)
+        else:
+            exploratory_uncomputed.append(candidate)
     updated["exploratory_pairs"] = exploratory_pairs
+    updated["exploratory_uncomputed"] = exploratory_uncomputed
     return updated
 
 
@@ -1182,7 +1188,7 @@ def apply_p014_mechanism_display_audit(report: dict, path: Path) -> dict:
                 "voucher_usage_rate_among_eligible_purchases"))):
         raise ValueError("invalid P014 voucher mechanism audit")
     run = next((item for item in report.get("run_evidence", [])
-                if item["policy"] == "P014"), None)
+                if item["policy"] == POLICY_ID_TO_SCORE["P014"]), None)
     if not run or not any(
         item["path"] == audit.get("numeric_path")
         and item["sha256"] == audit.get("numeric_sha256")
@@ -1242,7 +1248,163 @@ def apply_p014_mechanism_display_audit(report: dict, path: Path) -> dict:
     updated["exploratory_simulations"] = [
         {**item, "run_context": {**item["run_context"],
                                  "p014_mechanism_display_audit": displayed}}
-        if item["policy"] == "P014" and item.get("run_context") else item
+        if item["policy"] == POLICY_ID_TO_SCORE["P014"] and item.get("run_context") else item
+        for item in report.get("exploratory_simulations", [])]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []),
+        {"path": displayed["path"], "sha256": displayed["sha256"]}]
+    return updated
+
+
+def apply_p014_food_zero_display_audit(report: dict, path: Path) -> dict:
+    """Explain a frozen zero/zero food-store denominator without inventing 0%."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    indicator = "P014-KIPF-47129"
+    if (audit.get("schema") != "p014_food_zero_display_audit_v1"
+            or audit.get("policy") != "P014"
+            or audit.get("indicator") != indicator
+            or audit.get("subclass") != "식료품"
+            or not audit.get("numeric_path")):
+        raise ValueError("invalid P014 food-zero display audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == POLICY_ID_TO_SCORE["P014"]), None)
+    row = next((item for item in report.get("exploratory_simulations", [])
+                if item["policy"] == POLICY_ID_TO_SCORE["P014"]
+                and item["id"] == indicator), None)
+    if (not run or not row or row.get("simulation") is not None
+            or not any(item["path"] == _display_path(Path(audit["numeric_path"]))
+                       and item["sha256"] == audit.get("numeric_sha256")
+                       for item in report.get("score_files", []))):
+        raise ValueError("P014 food-zero audit does not match frozen null score")
+    start, end = str(run.get("on") or "").split(":")
+    dates = [(date.fromisoformat(start) + timedelta(days=offset)).isoformat()
+             for offset in range((date.fromisoformat(end) - date.fromisoformat(start)).days + 1)]
+    if audit.get("effect_days") != dates or run.get("off") != run.get("on"):
+        raise ValueError("P014 food-zero audit effect window differs from scored pair")
+    evidence = {item["path"]: item["sha256"] for item in run["evidence"]}
+    for arm in ("on", "off"):
+        info = audit.get(arm) or {}
+        source = info.get("sector_ledger_path")
+        if (not source or evidence.get(_display_path(Path(source)))
+                != info.get("sector_ledger_sha256")
+                or info.get("won") != 0
+                or info.get("citizen_days") != run.get("citizens") * len(dates)):
+            raise ValueError("P014 food-zero audit source or population differs from score")
+        ledger = Path(source)
+        if not ledger.is_absolute():
+            ledger = ROOT / ledger
+        if _sha(ledger) != info["sector_ledger_sha256"]:
+            raise ValueError("P014 food-zero ledger changed after score verification")
+        rows = [json.loads(line) for line in ledger.read_text(encoding="utf-8").splitlines()
+                if line.strip()]
+        period = [item for item in rows if item.get("day") in dates]
+        if (len(period) != info["citizen_days"]
+                or len({(item.get("aid"), item.get("day")) for item in period}) != len(period)
+                or any(not isinstance((item.get("by_sub") or {}).get("식료품", 0), int)
+                       or isinstance((item.get("by_sub") or {}).get("식료품", 0), bool)
+                       or (item.get("by_sub") or {}).get("식료품", 0) < 0
+                       for item in period)
+                or sum((item.get("by_sub") or {}).get("식료품", 0)
+                       for item in period) != 0):
+            raise ValueError("P014 food-store amount differs from frozen sector ledger")
+    displayed = {"on_won": 0, "off_won": 0, "citizen_days_each_arm":
+                 audit["on"]["citizen_days"], "path": _display_path(path),
+                 "sha256": _sha(path), "meaning": "zero_denominator_not_zero_effect"}
+    updated = dict(report)
+    updated["exploratory_simulations"] = [
+        {**item, "p014_food_zero_display_audit": displayed}
+        if item is row else item for item in report.get("exploratory_simulations", [])]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []),
+        {"path": displayed["path"], "sha256": displayed["sha256"]}]
+    return updated
+
+
+def apply_p014_industry_scope_display_audit(report: dict, path: Path) -> dict:
+    """Retain source-backed KSIC/area-mapping limits outside frozen scoring."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("schema") != "p014_industry_scope_postscore_audit_v1"
+            or audit.get("policy") != "P014"
+            or audit.get("original_ksic_or_floor_area_crosswalk_in_subclass_mapping") is not False
+            or not audit.get("numeric_path")
+            or not any(item["path"] == _display_path(Path(audit["numeric_path"]))
+                       and item["sha256"] == audit.get("numeric_sha256")
+                       for item in report.get("score_files", []))):
+        raise ValueError("P014 industry-scope audit does not match frozen score")
+    for source_key, hash_key in (("source_pdf_path", "source_pdf_sha256"),
+                                 ("local_extracted_text_path", "local_extracted_text_sha256"),
+                                 ("mapping_path", "mapping_sha256")):
+        source = Path(audit.get(source_key) or "")
+        if not source.is_absolute():
+            source = ROOT / source
+        if not source.is_file() or _sha(source) != audit.get(hash_key):
+            raise ValueError("P014 industry-scope source SHA mismatch")
+    displayed = {"path": _display_path(path), "sha256": _sha(path),
+                 "source_locator": audit.get("source_locator")}
+    updated = dict(report)
+    updated["exploratory_simulations"] = [
+        {**item, "run_context": {**item["run_context"],
+                                 "p014_industry_scope_display_audit": displayed}}
+        if item["policy"] == POLICY_ID_TO_SCORE["P014"] and item.get("run_context") else item
+        for item in report.get("exploratory_simulations", [])]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []),
+        {"path": displayed["path"], "sha256": displayed["sha256"]}]
+    return updated
+
+
+def apply_p014_catalog_display_audit(report: dict, path: Path) -> dict:
+    """Distinguish zero observed spending from missing proxy-shop catalog support."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == POLICY_ID_TO_SCORE["P014"]), None)
+    if (audit.get("audit_id") != "p014_proxy_catalog_support_20260928"
+            or audit.get("read_only") is not True
+            or audit.get("graph_arm") != "P014_OFF_completed"
+            or audit.get("policy_nodes") != [] or not run
+            or audit.get("roster_n") != run.get("citizens")
+            or audit.get("floor_area_like_properties") != []):
+        raise ValueError("invalid P014 completed-OFF catalog audit")
+    roster_path = path.parent / "off" / "roster.json"
+    if (not roster_path.is_file()
+            or _sha(roster_path) != audit.get("roster_sha256")):
+        raise ValueError("P014 catalog audit roster SHA mismatch")
+    roster = json.loads(roster_path.read_text(encoding="utf-8"))
+    off_source = next((item["path"] for item in run["evidence"]
+                       if item["path"].replace("\\", "/").endswith("/off/off/sector.ledger.jsonl")), None)
+    if not off_source:
+        raise ValueError("P014 catalog audit lacks scored OFF ledger")
+    ledger = Path(off_source)
+    if not ledger.is_absolute():
+        ledger = ROOT / ledger
+    if set(roster) != {json.loads(line)["aid"] for line in ledger.read_text(
+            encoding="utf-8").splitlines() if line.strip()}:
+        raise ValueError("P014 catalog audit roster differs from scored citizens")
+    support = audit.get("proxy_subcategory_support") or {}
+    coverage = audit.get("roster_home_district_coverage") or []
+    if sum(item.get("roster_agents", 0) for item in coverage) != run["citizens"]:
+        raise ValueError("P014 catalog home-district coverage incomplete")
+    for subclass in ("식료품", "슈퍼마켓"):
+        info = support.get(subclass) or {}
+        keys = ("citywide_proxy_pois", "roster_home_district_proxy_pois",
+                "roster_agents_with_home_district_proxy_support")
+        if (any(not isinstance(info.get(key), int) or isinstance(info[key], bool)
+                or info[key] <= 0 for key in keys)
+                or info["roster_agents_with_home_district_proxy_support"] != run["citizens"]
+                or sum(item.get("poi_count_by_proxy_sub", {}).get(subclass, 0)
+                       for item in coverage) != info["roster_home_district_proxy_pois"]
+                or sum(item["poi_count"] for item in audit.get("catalog_aggregated_rows") or []
+                       if item.get("sub") == subclass) != info["citywide_proxy_pois"]):
+            raise ValueError("P014 proxy catalog counts do not reconcile")
+    displayed = {"path": _display_path(path), "sha256": _sha(path),
+                 "roster_path": _display_path(roster_path),
+                 "roster_sha256": audit["roster_sha256"], "citizens": run["citizens"],
+                 "home_districts": len(coverage), "support": support,
+                 "floor_area_properties": 0}
+    updated = dict(report)
+    updated["exploratory_simulations"] = [
+        {**item, "p014_catalog_display_audit": displayed}
+        if item["policy"] == POLICY_ID_TO_SCORE["P014"] else item
         for item in report.get("exploratory_simulations", [])]
     updated["post_run_display_audits"] = [
         *report.get("post_run_display_audits", []),
@@ -1691,7 +1853,7 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
             + exploratory_note + '</section>')
 
 
-def _exploratory_html(pairs: list[dict]) -> str:
+def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None) -> str:
     cards_by_policy: dict[str, list[str]] = {}
     policy_names = {}
     contexts = {}
@@ -1713,15 +1875,17 @@ def _exploratory_html(pairs: list[dict]) -> str:
                           "2026년 3월 POI에 적용한 3일 쌍체 ON−OFF 영수증 대리값입니다. "
                           "연도·장소 표본·기간·추정량이 달라 정식 DS-6과 직접 비교하거나 "
                           "정책 효과 오차로 채점하지 않습니다.")
-        elif row["policy"] == "P014":
+        elif row["policy"] == POLICY_ID_TO_SCORE["P014"]:
             scope_note = (
                 "실측은 지역화폐 발행 강도에 대한 지역·연도별 업종 매출 로그회귀계수입니다. "
                 "시뮬은 정책 문구와 자치구 가맹점 적격 표시에 대한 시민의 짧은 ON−OFF "
                 "POI 장소·소비 반응 대리값입니다. 이번 정책 구현은 price_discount 유형이며 "
                 "할인 정산 경로가 활성화되지 않았고 상품권 구매·잔액·상환 지갑 원장이 "
                 "없습니다. policy_hits도 실제 자치구·상호 적격 결제 건수를 세지 않습니다. "
-                "원문 KSIC 47121/47129와 시뮬 POI 하위명 사이의 업종 대응도 "
-                "감사되지 않았습니다. 따라서 이 숫자는 "
+                "원문 KSIC 47121/47129는 슈퍼마켓을 매장 면적 165㎡ 이상/미만으로 "
+                "나눕니다. 시뮬 슈퍼마켓은 면적 구분 없는 통합 POI이고 식료품은 "
+                "곡물·반찬·건어물·사료 등의 다른 소매 업종 묶음입니다. "
+                "원문의 두 슈퍼마켓 집단과 같은 업종 대응이 아닙니다. 따라서 이 숫자는 "
                 "상품권 거래 효과나 사용률이 아니고, 정식 효과 오차·적중률로 채점하지 않습니다."
             )
         else:
@@ -1773,7 +1937,7 @@ def _exploratory_html(pairs: list[dict]) -> str:
                     )
         if row["policy"] == "DISTANCING_2020":
             denominator_html = _geo_proxy_exploratory_html(row)
-        if row["policy"] == "P014":
+        if row["policy"] == POLICY_ID_TO_SCORE["P014"]:
             uncertainty = []
             if isinstance(row.get("n"), int):
                 uncertainty.append(f'시뮬 시민 {row["n"]}명')
@@ -1803,16 +1967,73 @@ def _exploratory_html(pairs: list[dict]) -> str:
                         f' · {_esc(row.get("source_locator"))}</p>' if row.get("source") else '')
                      + _technical_details(row)
                      + '</div>')
+    for row in uncomputed or []:
+        # Missing ratios remain outside the numeric-pair tally.  Raw audited
+        # amounts explain the missing denominator without fabricating 0%.
+        zero = row.get("p014_food_zero_display_audit")
+        if row["policy"] != POLICY_ID_TO_SCORE["P014"] or not isinstance(zero, dict):
+            continue
+        catalog = row.get("p014_catalog_display_audit")
+        catalog_html = ''
+        if isinstance(catalog, dict):
+            food = catalog["support"]["식료품"]
+            catalog_html = (
+                '<p class="balance"><strong>판매처가 없어서 0원인가:</strong> 아닙니다. '
+                f'완료된 OFF 그래프의 식료품 대리 판매처는 서울 전체 '
+                f'{food["citywide_proxy_pois"]:,}개, 이 표본의 '
+                f'{catalog["home_districts"]}개 거주 자치구에 '
+                f'{food["roster_home_district_proxy_pois"]:,}개이며 '
+                f'{catalog["citizens"]}명 전원에게 거주 자치구 내 해당 업종이 있습니다. '
+                '이번 짧은 실행에서 그 업종 지출이 기록되지 않은 것입니다. '
+                '표본 확대는 대리 판매처 방문을 관측할 여지가 있으나, '
+                'POI 매장 면적 속성이 없어 원문의 165㎡ 구분을 만들 수 없으므로 '
+                '대규모 표본만으로 원문 지표의 검증 가능성이 확보되지는 않습니다.</p>'
+                '<details class="technical"><summary>판매처 지지집합 감사</summary>'
+                f'<p>{_esc(catalog["path"])} SHA256 {_esc(catalog["sha256"])}</p>'
+                '</details>'
+            )
+        policy_names[row["policy"]] = row["policy_name"]
+        contexts.setdefault(row["policy"], row.get("run_context"))
+        cards_by_policy.setdefault(row["policy"], []).append(
+            '<div class="row"><div class="meta">'
+            f'<span class="id">{_esc(row["id"])}</span>'
+            f'<span class="desc">{_esc(EXPLORATORY_NAMES.get(row["id"], row["id"]))}</span>'
+            '<span class="tag wait">비율 미산출</span></div><div class="nums">'
+            f'<span class="tru">실측 {_esc(_fmt(row["truth"], row["truth_unit"]))}</span>'
+            '<span class="sim">시뮬 원금액 ON 0원 / OFF 0원</span>'
+            '</div><p class="reason">이번 시행기간 식료품 POI 지출이 양팔 모두 '
+            f'0원입니다(각 {zero["citizen_days_each_arm"]} 시민×일). '
+            '변화율의 분모 OFF가 0이므로 증가율을 계산할 수 없습니다. '
+            '이 원금액은 실제로 나온 시뮬 출력이며 0%의 정책효과를 뜻하지 않습니다. '
+            '실측은 165㎡ 미만 슈퍼마켓의 지역·연도 매출 로그회귀계수여서 '
+            '이 원화 0원과 직접 차감하지 않습니다. 시뮬 식료품은 곡물·반찬·'
+            '건어물·사료 등의 소매 묶음으로 원문의 소형 슈퍼마켓 집단이 '
+            '아닙니다.</p>'
+            + catalog_html
+            +
+            '<p class="opinion"><strong>표본만 확대:</strong> 시뮬 표본에 해당 '
+            '판매처 지지가 있으면 지출이 관측될 가능성은 커질 수 있지만, 증가율 '
+            '분모가 양수가 되는지 별도 확인이 필요합니다. 원문의 165㎡ 면적 기준 '
+            '업종 대응을 먼저 만들어야 합니다. 이를 위해 무결성이 확인된 KSIC·면적 '
+            '원자료 복구와 판매처 연결이 필요합니다. 표본 확대만으로 업종·관측기간·상품권 '
+            '구매와 정산 기전의 공백을 해결할 수 없으므로 현재 설계 그대로 '
+            '대규모 실행해도 이 실측 계수의 유의미한 정책효과 검증을 '
+            '보장할 수 없습니다.</p>'
+            f'<p class="reason source">실측 출처: {_esc(row.get("source"))} '
+            f'· {_esc(row.get("source_locator"))}</p>'
+            '<details class="technical"><summary>원금액 0원 근거</summary>'
+            f'<p>{_esc(zero["path"])} SHA256 {_esc(zero["sha256"])}</p>'
+            '</details></div>')
     grouped = ''.join(
         '<div class="exploratory-group">'
         + f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>'
-        + (_run_context_html(contexts[policy]) if policy == "P014"
+        + (_run_context_html(contexts[policy]) if policy == POLICY_ID_TO_SCORE["P014"]
            and contexts.get(policy) else '')
         + ('<p class="balance">이 정책의 시뮬 입력은 price_discount와 지역 가맹점 '
            '적격 표시를 사용합니다. 할인 정산과 상품권 지갑·구매·잔액·상환 원장이 '
            '없으므로 '
            '아래 POI 지출은 상품권 거래 효과 또는 사용률이 아닙니다.</p>'
-           if policy == "P014" else '')
+           if policy == POLICY_ID_TO_SCORE["P014"] else '')
         + '<div class="rows">' + ''.join(cards) + '</div></div>'
         for policy, cards in cards_by_policy.items()
     )
@@ -2030,7 +2251,7 @@ def _run_context_html(context: dict | None) -> str:
                for arm in ("on", "off")):
             quality_html += ('<p class="balance">한쪽 팔의 생성 품질 증거가 없어 '
                              '정책 후 차이의 인과효과 해석과 프롬프트 성능 판정을 보류합니다.</p>')
-        if context.get("policy_id") == "P012":
+        if context.get("policy_id") in ("P012", "P014"):
             on, off = quality["on"], quality["off"]
             on_total, off_total = on.get("citizen_days"), off.get("citizen_days")
             on_first = on.get("stage1_first_attempt_internal_validation_pass_count")
@@ -2038,7 +2259,8 @@ def _run_context_html(context: dict | None) -> str:
             if all(isinstance(value, int) and not isinstance(value, bool)
                    for value in (on_total, off_total, on_first, off_first)) and on_total and off_total:
                 quality_html += (
-                    '<p class="balance"><strong>P012 양팔 생성 품질 차이:</strong> '
+                    f'<p class="balance"><strong>{_esc(context["policy_id"])} '
+                    '양팔 생성 품질 차이:</strong> '
                     f'Stage1 첫 기록 내부검증 ON {on_first}/{on_total} '
                     f'({100 * on_first / on_total:.1f}%), '
                     f'OFF {off_first}/{off_total} ({100 * off_first / off_total:.1f}%). '
@@ -2067,6 +2289,16 @@ def _run_context_html(context: dict | None) -> str:
         else:
             balance_message = "시행 전 균형 검증 상태를 확인해야 합니다."
         comparisons = balance.get("comparisons") or {}
+        if (context.get("policy_id") == "P014" and status == "fail"
+                and isinstance(comparisons, dict)
+                and (comparisons.get("food_store_poi_spend_proxy") or {}).get("off_won") == 0
+                and (comparisons.get("food_store_poi_spend_proxy") or {}).get("on_won") == 0):
+            balance_message = (
+                "P014 시행 전 식료품 POI 지출이 ON 0원/OFF 0원으로 변화율 기준 분모가 "
+                "없어 사전 관문에 실패했습니다. 총지출·슈퍼마켓의 차이 폭이 "
+                "문턱을 넘었다는 뜻이 아닙니다. 지지집합이 없는 식료품을 포함한 "
+                "전체 정책 후 차이는 인과효과·방향·크기 적중으로 해석하지 않습니다."
+            )
         balance_detail = []
         balance_names = {
             "recorded_total_spend": "기록된 총지출",
@@ -2264,6 +2496,11 @@ def _run_context_html(context: dict | None) -> str:
         detail.append('<p><strong>P014 상품권 기전 감사:</strong> '
                       f'{_esc(voucher["path"])} '
                       f'SHA256 {_esc(voucher["sha256"])}</p>')
+    industry = context.get("p014_industry_scope_display_audit")
+    if isinstance(industry, dict):
+        detail.append('<p><strong>P014 원문 면적·업종 대응 감사:</strong> '
+                      f'{_esc(industry["path"])} SHA256 {_esc(industry["sha256"])}; '
+                      f'{_esc(industry.get("source_locator"))}</p>')
     return ('<p class="contextline">' + ' · '.join(pieces) + '</p>'
             + quality_html + balance_html + diagnostic_html + channel_html
             + concentration_html + regime_html + p016_html + taxonomy_html
@@ -2467,8 +2704,9 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         '정책별 약점과 측정 공백을 확인한 뒤, 같은 평가 설계로 후속 프롬프트 '
                         '후보를 비교해야 최적화를 주장할 수 있습니다. 정책별 표본 수가 다르며 '
                         '특히 12명 월간 실험은 방향·크기 모두 매우 불확실합니다.</p></section>')
-    if report.get("exploratory_pairs"):
-        sections.append(_exploratory_html(report["exploratory_pairs"]))
+    if report.get("exploratory_pairs") or report.get("exploratory_uncomputed"):
+        sections.append(_exploratory_html(report.get("exploratory_pairs") or [],
+                                         report.get("exploratory_uncomputed")))
     tally_html = ''.join(f'<div class="stat"><span class="v">{v}</span><span class="k">{_esc(k)}</span></div>'
                          for v, k in stats)
     unregistered = report.get("unregistered_policies") or []
@@ -2537,6 +2775,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              p016_postfix_audit: Path | None = None,
              p016_taxonomy_audit: Path | None = None,
              p014_mechanism_audit: Path | None = None,
+             p014_food_zero_audit: Path | None = None,
+             p014_industry_audit: Path | None = None,
+             p014_catalog_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -2564,6 +2805,12 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--p016-taxonomy-audit requires --multi-policy-pairs")
     if p014_mechanism_audit and not multi_paths:
         raise ValueError("--p014-mechanism-audit requires --multi-policy-pairs")
+    if p014_food_zero_audit and not multi_paths:
+        raise ValueError("--p014-food-zero-audit requires --multi-policy-pairs")
+    if p014_industry_audit and not multi_paths:
+        raise ValueError("--p014-industry-audit requires --multi-policy-pairs")
+    if p014_catalog_audit and not multi_paths:
+        raise ValueError("--p014-catalog-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -2590,7 +2837,13 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([p016_taxonomy_audit]
                                                              if p016_taxonomy_audit else []),
                                                            *([p014_mechanism_audit]
-                                                             if p014_mechanism_audit else [])]):
+                                                             if p014_mechanism_audit else []),
+                                                           *([p014_food_zero_audit]
+                                                             if p014_food_zero_audit else []),
+                                                           *([p014_industry_audit]
+                                                             if p014_industry_audit else []),
+                                                           *([p014_catalog_audit]
+                                                             if p014_catalog_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -2613,6 +2866,12 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
             report = apply_p016_taxonomy_display_audit(report, p016_taxonomy_audit)
         if p014_mechanism_audit:
             report = apply_p014_mechanism_display_audit(report, p014_mechanism_audit)
+        if p014_food_zero_audit:
+            report = apply_p014_food_zero_display_audit(report, p014_food_zero_audit)
+        if p014_industry_audit:
+            report = apply_p014_industry_scope_display_audit(report, p014_industry_audit)
+        if p014_catalog_audit:
+            report = apply_p014_catalog_display_audit(report, p014_catalog_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -2672,6 +2931,12 @@ def main() -> int:
                     help="optional score-bound P016 C2/C3 structural-zero disclosure")
     ap.add_argument("--p014-mechanism-audit", type=Path,
                     help="optional score-bound P014 voucher-accounting and repair disclosure")
+    ap.add_argument("--p014-food-zero-audit", type=Path,
+                    help="optional score-bound P014 ON/OFF food-store zero-amount disclosure")
+    ap.add_argument("--p014-industry-audit", type=Path,
+                    help="optional score-bound P014 original-area/subclass mapping audit")
+    ap.add_argument("--p014-catalog-audit", type=Path,
+                    help="optional completed-OFF P014 proxy-shop availability disclosure")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -2699,6 +2964,9 @@ def main() -> int:
                                          p016_postfix_audit=a.p016_postfix_audit,
                                          p016_taxonomy_audit=a.p016_taxonomy_audit,
                                          p014_mechanism_audit=a.p014_mechanism_audit,
+                                         p014_food_zero_audit=a.p014_food_zero_audit,
+                                         p014_industry_audit=a.p014_industry_audit,
+                                         p014_catalog_audit=a.p014_catalog_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))

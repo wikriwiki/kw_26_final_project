@@ -33,6 +33,7 @@ py -3 scripts/report/build_experiment_comparison.py `
   --multi-policy-pairs output/multi_policy_v53_20260928/p012/numeric.json `
   --multi-policy-pairs output/multi_policy_v53_20260928/distancing/numeric.json `
   --multi-policy-pairs output/multi_policy_v53_20260928/p016/numeric.json `
+  --multi-policy-pairs output/multi_policy_v53_20260928/p014/numeric.json `
   --p010-funding-audit output/multi_policy_v53_20260928/p010/funded_by_sub_audit.json `
   --p010-channel-audit output/recovery_20260928/multipolicy_v53/p010/p010_channel_gap_audit.json `
   --p010-concentration-audit output/recovery_20260928/multipolicy_v53/p010/p010_citizen_gap_concentration_audit.json `
@@ -41,8 +42,12 @@ py -3 scripts/report/build_experiment_comparison.py `
   --distancing-geo-failure-audit output/recovery_20260928/multipolicy_v53/distancing_geo_proxy_20260928.json `
   --p016-postfix-audit output/multi_policy_v53_20260928/p016/postfix_provenance_audit.json `
   --p016-taxonomy-audit output/multi_policy_v53_20260928/p016/taxonomy_identity_audit.json `
+  --p014-mechanism-audit output/multi_policy_v53_20260928/p014/voucher_mechanism_audit.json `
+  --p014-food-zero-audit output/multi_policy_v53_20260928/p014/foodstore_zero_audit.json `
+  --p014-industry-audit output/multi_policy_v53_20260928/p014/industry_scope_audit.json `
+  --p014-catalog-audit output/recovery_20260928/multipolicy_v53/p014/catalog_support_audit_20260928.json `
   --experiment multi_policy_v53_20260928 `
-  --out output/report/experiments/multi_policy_v53_20260928.html
+  --out output/report/experiments/multi_policy_v53_numeric_20260928.html
 ```
 
 정책이 끝날 때마다 **완료된 정책 파일만** 추가해 새 이름으로 출력합니다.
@@ -212,17 +217,51 @@ C2·C3의 시뮬 0%p와 재표집 [0,0]은 양팔 원장 400/400 시민×일에�
 보고서에서 C2·C3 실측과 0%p를 나란히 보이되 산술 차이·방향 판정을
 생략합니다. 수치 score나 등록 산식은 바꾸지 않습니다.
 
-P014의 KIPF 표 VI-6 계수 두 개(슈퍼마켓 0.141, 식료품 소매
-0.082 log-sales)는 등록 38지표 밖의 별도 탐색 실측입니다. 시뮬은
+P014의 KIPF 표 VI-6 계수 두 개(47121 0.141, 47129
+0.082 log-sales)는 등록 38지표 밖의 별도 탐색 실측입니다. 원문의 두
+분류는 슈퍼마켓을 매장 면적 165㎡ 이상/미만으로 나눈 집단입니다. 시뮬은
 `price_discount` 정책 문구와 `[지역]` 가맹점 적격 표시를 받은 시민의
 짧은 POI 장소·총지출 반응만 기록합니다. 구현에는 상품권 구매·잔액·상환
 지갑 원장이 없고 할인 정산 경로도 활성화되지 않았으며 `policy_hits`도
 실제 동일 자치구·상호 적격 결제 건수의 분모가 아닙니다. 그러므로
 `instant_discount_today=0` 또는 `policy_spend=0`을 상품권 사용률
-0으로 해석하지 않습니다. KIPF 원문 KSIC 47121/47129와 시뮬 원장의
-`슈퍼마켓`/`식료품` POI 하위 분류 대응도 미검증입니다. 탐색 두 수치는
+0으로 해석하지 않습니다. 시뮬 `슈퍼마켓`은 G20404 통합 POI 분류이며
+매장 면적 구분이 없고, `식료품`은 곡물·반찬·건어물·사료 등의 G205xx
+소매 코드 묶음입니다. 원문 KSIC 47121/47129 두 슈퍼마켓 집단과 다릅니다. 탐색 수치는
 지역·연도 회귀계수의 정책
 효과 오차나 프롬프트 적중률로 채점하지 않습니다.
+
+P014 결과 후 표시 감사는 동결 `numeric.json`을 수정하지 않습니다.
+`voucher_mechanism_audit.json`은 score·정책 파일·양팔 sector/Stage2 SHA에
+결속돼 전체 실행 200 시민×일 기준의 선택 보정(ON 8/OFF 11 시민×일),
+환각 장소 보정(9/17건), 금액 대체(16/23건)를 구분합니다. Stage1 첫 내부
+검증은 ON 74%/OFF 93.5%로 최종 원장 200/200 성공과 별개입니다.
+47121 proxy +2.224%의 시민 재표집 95% 구간은 −31.249~+54.452%입니다.
+47129의 시뮬 시행기간 원금액은 ON 0원/OFF 0원이어서 OFF 분모가 0이고
+변화율을 계산할 수 없습니다. `foodstore_zero_audit.json`(SHA256
+`312c9429830f358b69ce5efdc96febfcf4bb1d15a129d96715a9ecaafe656772`)은
+이 0/0를 score·양팔 원장 SHA·각 120 시민×일에 묶습니다. HTML은 실측
+0.082 log-point와 실제 시뮬 원금액 0/0를 표시하되 0%로 대체하지 않습니다.
+선행 식료품 원금액도 0/0이므로 사전 관문 실패는 큰 차이 폭이 아니라
+해당 지지집합·분모 부재입니다. 표본 확대만으로 면적 기준 업종 대응과
+상품권 구매·정산 기전 공백을 해결할 수 없습니다. 이 설명은 결과 후 정의
+감사·표시 정오표이며 지표 선택이나 frozen score 산식 변경이 아닙니다.
+원문의 면적 분류와 현 소매 코드 묶음의 차이는
+`industry_scope_audit.json`(SHA256
+`d3430c0bfb3cf12fc2090a4db78ca7fcd45e884a86e02dd2dbc01879af724509`)
+으로 source PDF·추출 텍스트·현재 업종 매핑·동결 numeric SHA에 결속합니다.
+완료된 OFF 그래프의 읽기 전용 catalog 감사(SHA256
+`365e2cde22bbc76d301b5ba4e66d0178ec65828b58da3e5cc3b964bcf63896a0`)
+는 식료품 대리 POI가 서울 전체 3,485개, 40명 표본의 20개 거주 자치구에
+2,658개이며 40명 모두 자신의 자치구에 해당 업종이 있음을 확인했습니다.
+따라서 0/0은 catalog 없음이 아니라 이번 실행에 지출 관측이 없다는 뜻입니다.
+표본 확대는 해당 proxy의 방문 관측 가능성을 높일 여지는 있지만, POI 면적
+속성은 0개여서 원문 165㎡ 집단을 나누는 문제를 해결하지 못합니다.
+무결성이 확인된 KSIC·면적 원자료를 복구하고 판매처에 연결해야 합니다.
+
+P014 보고서 연결의 내부 정책 키는 `LOCAL_VOUCHER`입니다. 실제 P014
+manifest를 처음 렌더하며 정책 키를 원시 `P014`로 취급했던 표시 버그를
+수정했습니다. 이 정오표는 P014의 원시·점수 수치를 바꾸지 않습니다.
 
 같은 단위이거나 로그계수를 `100×(exp(계수)−1)%`로 변환할 수 있는 경우
 `탐색적 숫자상 차이`와 대략적인 규모를 표시합니다. 이는 서로 다른 모집단,

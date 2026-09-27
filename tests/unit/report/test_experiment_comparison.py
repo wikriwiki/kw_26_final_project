@@ -468,7 +468,7 @@ def test_p016_patch_history_is_bound_to_new_score_not_failed_arm(tmp_path):
 
 def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy():
     markup = report._exploratory_html([{
-        "policy": "P014", "policy_name": "지역사랑상품권 탐색 지표",
+        "policy": "LOCAL_VOUCHER", "policy_name": "지역사랑상품권 탐색 지표",
         "id": "P014-KIPF-47121", "truth": 0.141, "truth_unit": "log-point",
         "simulation": 12.5, "simulation_unit": "%", "ci": [1.0, 25.0], "n": 40,
         "source": "KIPF table VI-6", "source_locator": "column 3",
@@ -479,6 +479,8 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
     assert "실측 +0.1410 log-point" in markup
     assert "시뮬 +12.50%" in markup
     assert "지역·연도별 업종 매출 로그회귀계수" in markup
+    assert "매장 면적 165㎡ 이상/미만" in markup
+    assert "곡물·반찬·건어물·사료" in markup
     assert "시뮬 시민 40명" in markup
     assert "시뮬 시민 재표집 95% 구간 +1.00% ~ +25.00%" in markup
     assert "상품권 구매·잔액·상환 지갑 원장이" in markup
@@ -540,9 +542,9 @@ def test_p014_mechanism_audit_shows_repairs_without_claiming_voucher_usage(tmp_p
     sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
     original = {"score_files": [{"path": report._display_path(numeric),
                                   "sha256": report._sha(numeric)}],
-                "run_evidence": [{"policy": "P014", "run_context": context,
+                "run_evidence": [{"policy": "LOCAL_VOUCHER", "run_context": context,
                                   "evidence": evidence}],
-                "exploratory_simulations": [{"policy": "P014", "run_context": context}]}
+                "exploratory_simulations": [{"policy": "LOCAL_VOUCHER", "run_context": context}]}
     augmented = report.apply_p014_mechanism_display_audit(original, sidecar)
     markup = report._run_context_html(
         augmented["exploratory_simulations"][0]["run_context"])
@@ -554,6 +556,87 @@ def test_p014_mechanism_audit_shows_repairs_without_claiming_voucher_usage(tmp_p
     sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
     with pytest.raises(ValueError, match="frozen Stage2 evidence"):
         report.apply_p014_mechanism_display_audit(original, sidecar)
+
+
+def test_p014_food_zero_displays_raw_amounts_without_fabricating_percentage(tmp_path):
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{"runs": []}', encoding="utf-8")
+    arms, evidence = {}, []
+    for arm in ("on", "off"):
+        ledger = tmp_path / arm / "sector.ledger.jsonl"
+        ledger.parent.mkdir()
+        ledger.write_text(json.dumps({"aid": "a", "day": "2020-09-21",
+                                      "by_sub": {"식료품": 0}}, ensure_ascii=False) + "\n",
+                          encoding="utf-8")
+        arms[arm] = {"sector_ledger_path": report._display_path(ledger),
+                     "sector_ledger_sha256": report._sha(ledger),
+                     "won": 0, "citizen_days": 1}
+        evidence.append({"path": report._display_path(ledger), "sha256": report._sha(ledger)})
+    audit = {"schema": "p014_food_zero_display_audit_v1", "policy": "P014",
+             "indicator": "P014-KIPF-47129", "subclass": "식료품",
+             "numeric_path": report._display_path(numeric),
+             "numeric_sha256": report._sha(numeric), "effect_days": ["2020-09-21"], **arms}
+    path = tmp_path / "foodstore_zero_audit.json"
+    path.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    row = {"policy": "LOCAL_VOUCHER", "id": "P014-KIPF-47129",
+           "simulation": None, "simulation_unit": "%", "policy_name": "지역상품권 P014",
+           "truth": .082, "truth_unit": "log-point", "source": "KIPF", "source_locator": "VI-6"}
+    original = {"score_files": [{"path": report._display_path(numeric),
+                                  "sha256": report._sha(numeric)}],
+                "run_evidence": [{"policy": "LOCAL_VOUCHER", "citizens": 1,
+                                  "on": "2020-09-21:2020-09-21",
+                                  "off": "2020-09-21:2020-09-21", "evidence": evidence}],
+                "exploratory_simulations": [row]}
+    augmented = report.apply_p014_food_zero_display_audit(original, path)
+    marked = augmented["exploratory_simulations"][0]
+    markup = report._exploratory_html([], [marked])
+    assert "실측 +0.0820 log-point" in markup
+    assert "시뮬 원금액 ON 0원 / OFF 0원" in markup
+    assert "비율 미산출" in markup and "분모 OFF가 0" in markup
+    assert "시뮬 +0.00%" not in markup
+    audit["off"]["won"] = 1
+    path.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="source or population differs"):
+        report.apply_p014_food_zero_display_audit(original, path)
+
+
+def test_p014_zero_preperiod_support_is_distinguished_from_large_imbalance():
+    markup = report._run_context_html({
+        "policy_id": "P014", "preperiod_balance": {
+            "status": "fail", "post_effect_causal_interpretation_blocked": True,
+            "comparisons": {"food_store_poi_spend_proxy": {"on_won": 0, "off_won": 0}},
+            "reason": "P010 offline spending includes merchants outside exact eligibility"}})
+    assert "변화율 기준 분모가 없어 사전 관문에 실패" in markup
+    assert "총지출·슈퍼마켓의 차이 폭이 문턱을 넘었다는 뜻이 아닙니다" in markup
+    assert "P010 offline" not in markup
+
+
+def test_p014_industry_scope_audit_retains_verified_definition_sources(tmp_path):
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{}', encoding="utf-8")
+    audit = {"schema": "p014_industry_scope_postscore_audit_v1", "policy": "P014",
+             "numeric_path": report._display_path(numeric), "numeric_sha256": report._sha(numeric),
+             "original_ksic_or_floor_area_crosswalk_in_subclass_mapping": False,
+             "source_locator": "KIPF table VI-6 footnotes 62-63"}
+    for name, path_key, hash_key in (("source.pdf", "source_pdf_path", "source_pdf_sha256"),
+                                   ("source.txt", "local_extracted_text_path", "local_extracted_text_sha256"),
+                                   ("mapping.json", "mapping_path", "mapping_sha256")):
+        source = tmp_path / name
+        source.write_text('definition snapshot', encoding="utf-8")
+        audit[path_key], audit[hash_key] = report._display_path(source), report._sha(source)
+    sidecar = tmp_path / "industry.json"
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    original = {"score_files": [{"path": report._display_path(numeric),
+                                  "sha256": report._sha(numeric)}],
+                "exploratory_simulations": [{"policy": "LOCAL_VOUCHER",
+                                             "run_context": {"policy_id": "P014"}}]}
+    result = report.apply_p014_industry_scope_display_audit(original, sidecar)
+    context = result["exploratory_simulations"][0]["run_context"]
+    assert "원문 면적·업종 대응 감사" in report._run_context_html(context)
+    audit["mapping_sha256"] = "0" * 64
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    with pytest.raises(ValueError, match="source SHA mismatch"):
+        report.apply_p014_industry_scope_display_audit(original, sidecar)
 
 
 def test_p016_taxonomy_identity_suppresses_false_zero_gap(tmp_path):
