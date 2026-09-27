@@ -1,0 +1,33 @@
+{
+  "schema": "candidate_prompt_freeze_v1",
+  "status": "not_executed",
+  "candidate": "v54-example-contract",
+  "base": "v53",
+  "change_scope": "one contiguous Stage1 JSON output example; policy text and Stage2 unchanged",
+  "base_system_sha256": "7ccde1a4ea451a1c18c0b27a4ba30df43afe6c9b7056111fbb7f60280c7e710f",
+  "candidate_system_sha256": "6b102e77d039508a4f7d8b7719ed0c2c3dcaad7ddb540fc9c5b64d5c821bbfe2",
+  "frozen_inputs_path": "output/validation_v53_prodtemp_frozen_v3_20260926/frozen_inputs.json",
+  "frozen_inputs_sha256": "8a5bbe2ecef69f4b2347c5e2a0e6841172d4bec9bf08f836a60c27134e34bf27",
+  "selected_example_event_times": [
+    "08:10",
+    "08:50",
+    "09:20",
+    "12:00",
+    "13:00",
+    "15:00",
+    "15:30",
+    "18:10",
+    "19:20",
+    "20:10"
+  ],
+  "removed_optional_examples": [
+    "17:30 tuition",
+    "16:30 shoes",
+    "17:00 rice cooker",
+    "18:40 pharmacy",
+    "19:00 haircut"
+  ],
+  "weekday_workplace_minutes_09_to_18": 430,
+  "model_calls": 0,
+  "stage2_system_sha256": null
+}
