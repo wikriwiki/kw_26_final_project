@@ -16,6 +16,8 @@ from collections import Counter, defaultdict
 from pathlib import Path
 
 import shapefile
+import pyproj
+import shapely
 from pyproj import CRS, Transformer
 from shapely.geometry import Point, shape
 from shapely.strtree import STRtree
@@ -223,6 +225,8 @@ def main() -> None:
                            zip_path.as_posix(): sha256(zip_path),
                            **{path.as_posix(): sha256(path) for path in coordinate_sources}},
         "polygon_epsg": crs.to_epsg(),
+        "software_versions": {"pyshp": shapefile.__version__,
+                              "pyproj": pyproj.__version__, "shapely": shapely.__version__},
         "polygon_count_by_type": dict(Counter(categories)),
         "positive_receipts": {"on": len(on), "off": len(off)},
         "coordinate_join_rate_receipts": coordinate_join_rate,
