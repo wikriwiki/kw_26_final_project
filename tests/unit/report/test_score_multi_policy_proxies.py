@@ -6,7 +6,7 @@ import pytest
 from scripts.report.score_multi_policy_proxies import (
     apply_cashback_month, audit_arm_quality, audit_policy_funding_density,
     audit_preperiod_balance,
-    read_pair, score_ledger, score_run,
+    read_pair, score_ds6_geographic_proxy, score_ledger, score_run,
 )
 from scripts.report.audit_stage2_generation import inspect as inspect_stage2
 
@@ -70,6 +70,67 @@ def test_proxy_arithmetic_keeps_units_and_missing_values():
     assert distancing["DS-1"]["simulation"] is None  # No 한식 spending in OFF.
     assert distancing["DS-2"]["simulation"] == pytest.approx(100 * 25 / 90)
     assert distancing["DS-6"]["simulation"] is None  # Missing spatial hub type.
+
+
+def test_geo_proxy_separates_numeric_and_sparse_gates(tmp_path, monkeypatch):
+    from scripts.report import score_multi_policy_proxies as scorer
+
+    day = "2020-11-24"
+    sources = {}
+    ledger_paths = {}
+    for arm in ("on", "off"):
+        arm_dir = tmp_path / arm
+        (arm_dir / "metrics").mkdir(parents=True)
+        ledger_paths[arm] = arm_dir / "sector.ledger.jsonl"
+        metrics = arm_dir / "metrics" / f"day_{day}.jsonl"
+        metrics.write_text(f"{arm} preserved metric bytes\n", encoding="utf-8")
+        sources[metrics.as_posix()] = hashlib.sha256(metrics.read_bytes()).hexdigest()
+    boundary = tmp_path / "official_2023-10-23.zip"
+    boundary.write_bytes(b"frozen official-polygon test bytes")
+    boundary_sha = hashlib.sha256(boundary.read_bytes()).hexdigest()
+    monkeypatch.setattr(scorer, "DS6_OFFICIAL_BOUNDARY_SHA256", boundary_sha)
+    sources[boundary.as_posix()] = boundary_sha
+    def cell(won):
+        return {"spend_won": won, "positive_receipts": 20,
+                "citizens_with_receipts": 10}
+    payload = {
+        "status": "exploratory_geographic_proxy_not_direct_empirical_comparison",
+        "days": [day], "citizen_days_each_arm": 10,
+        "polygon_epsg": 5181, "sources_sha256": sources,
+        "positive_receipts": {"on": 40, "off": 40},
+        "coordinate_join_rate_receipts": {"on": 1.0, "off": 1.0},
+        "ambiguous_receipts_excluded": {"on": 0, "off": 0},
+        "on": {"관광특구": cell(120), "발달상권": cell(110)},
+        "off": {"관광특구": cell(100), "발달상권": cell(100)},
+        "on_off_percent_change": {"관광특구": 20.0, "발달상권": 10.0},
+        "tourism_minus_developed_percentage_points": 10.0,
+    }
+    proxy = tmp_path / "geo.json"
+    proxy.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    kwargs = {"on": ledger_paths["on"], "off": ledger_paths["off"],
+              "days": [day], "roster": [str(i) for i in range(10)]}
+    row, proof = score_ds6_geographic_proxy(proxy, **kwargs)
+    assert row["id"] == "DS6-2023-GEO-PROXY"
+    assert row["simulation"] == pytest.approx(10)
+    assert row["exploratory_not_registered"] is True
+    assert row["geo_proxy_audit"]["sparse_interpretation_blocked"] is False
+    assert len(proof) == 4
+
+    payload["on"]["관광특구"]["positive_receipts"] = 19
+    proxy.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    sparse, _ = score_ds6_geographic_proxy(proxy, **kwargs)
+    assert sparse["simulation"] == pytest.approx(10)
+    assert sparse["geo_proxy_audit"]["sparse_interpretation_blocked"] is True
+
+    payload["coordinate_join_rate_receipts"]["off"] = .98
+    proxy.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    blocked, _ = score_ds6_geographic_proxy(proxy, **kwargs)
+    assert blocked["simulation"] is None
+    assert blocked["geo_proxy_audit"]["match_rate"] == .98
+
+    boundary.write_bytes(b"tampered")
+    with pytest.raises(ValueError, match="SHA256"):
+        score_ds6_geographic_proxy(proxy, **kwargs)
 
 
 def test_p010_funded_denominator_is_effect_window_citizen_days_not_receipts():

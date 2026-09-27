@@ -36,6 +36,14 @@ P010_BOK_GROUPS = {
     "P010-BOK-ACADEMY": ("학원",),
     "P010-BOK-PHARMACY": ("약국",),
 }
+DS6_GEO_PROXY_ID = "DS6-2023-GEO-PROXY"
+DS6_OFFICIAL_BOUNDARY_SHA256 = "38bb8fab4e45a1171af4989cd7fa1275f68e5d644aa770f5431ce7ccc38384dd"
+DS6_GEO_TYPES = {"tourism_special_zone": "관광특구",
+                 "developed_commercial_district": "발달상권"}
+# Fixed before the DISTANCING pair is scored. This governs interpretation,
+# separately from the coordinate/denominator conditions needed for a number.
+DS6_MIN_RECEIPTS_PER_CELL = 20
+DS6_MIN_CITIZENS_PER_CELL = 10
 POLICY_TO_SCORE_KEY = {"P010": "P010", "P012": "P012", "P013": "EMERGENCY_2020",
                        "DISTANCING_2020": "DISTANCING_2020", "P016": "P016",
                        "P014": "LOCAL_VOUCHER"}
@@ -626,6 +634,151 @@ def score_ledger(on_rows: list[dict], off_rows: list[dict], roster: list[str],
     return out
 
 
+def score_ds6_geographic_proxy(path: Path | None, *, on: Path, off: Path,
+                               days: list[str], roster: list[str]
+                               ) -> tuple[dict, list[Path]]:
+    """Attach a separately registered 2023-geometry diagnostic, never DS-6.
+
+    The sidecar is made from preserved positive purchase receipts, not the
+    sector ledger. Its hashes and paired citizen-day matrix are checked here;
+    a technical number and an interpretable number have distinct gates.
+    """
+    method = ("2023 official Seoul commercial-district polygons × 2026 POI "
+              "coordinates; receipt-won ON/OFF growth in tourism special zones "
+              "minus developed commercial districts")
+    mismatch = ("Exploratory geography proxy only: the Seoul Institute's 2020 "
+                "Shinhan-card merchant panel, boundary vintage, merchant sample, "
+                "year-on-year period and estimator differ. Never subtract this "
+                "from the registered DS-6 empirical percentage-point gap.")
+    if path is None:
+        return (_item(DS6_GEO_PROXY_ID, None, "percentage points", None, len(roster),
+                      method, "No verified 2023 polygon × receipt overlay was attached. " + mismatch,
+                      exploratory_not_registered=True), [])
+    payload = read_json(path)
+    if payload.get("status") != "exploratory_geographic_proxy_not_direct_empirical_comparison":
+        raise ValueError("wrong DS-6 geographic sidecar status")
+    if payload.get("days") != days or payload.get("citizen_days_each_arm") != len(roster) * len(days):
+        raise ValueError("DS-6 geographic sidecar has a different citizen-day matrix")
+    if payload.get("polygon_epsg") != 5181:
+        raise ValueError("DS-6 official polygon CRS mismatch")
+    sources = payload.get("sources_sha256")
+    if not isinstance(sources, dict) or not sources:
+        raise ValueError("DS-6 geographic sidecar lacks source hashes")
+    source_paths = []
+    for source, expected_hash in sources.items():
+        source_path = Path(source)
+        if (not isinstance(expected_hash, str) or len(expected_hash) != 64
+                or not source_path.is_file() or sha256(source_path) != expected_hash):
+            raise ValueError(f"DS-6 geographic source SHA256 mismatch: {source}")
+        source_paths.append(source_path)
+    expected_metrics = {((arm.parent / "metrics" / f"day_{day}.jsonl").resolve())
+                        for arm in (on, off) for day in days}
+    if not expected_metrics.issubset({source.resolve() for source in source_paths}):
+        raise ValueError("DS-6 geographic sidecar is not bound to these paired metrics")
+    boundary = [(source, digest) for source, digest in sources.items()
+                if Path(source).name.endswith("2023-10-23.zip")]
+    if (len(boundary) != 1 or boundary[0][1] != DS6_OFFICIAL_BOUNDARY_SHA256):
+        raise ValueError("DS-6 official 2023 boundary SHA256 mismatch")
+
+    receipt_totals = payload.get("positive_receipts") or {}
+    join_rates = payload.get("coordinate_join_rate_receipts") or {}
+    ambiguous = payload.get("ambiguous_receipts_excluded") or {}
+    cells = {}
+    for arm in ("on", "off"):
+        if (not isinstance(receipt_totals.get(arm), int)
+                or isinstance(receipt_totals[arm], bool)
+                or receipt_totals[arm] < 0):
+            raise ValueError(f"invalid DS-6 {arm} receipt total")
+        rate = join_rates.get(arm)
+        if (rate is not None and (not isinstance(rate, (int, float))
+                                  or isinstance(rate, bool)
+                                  or not math.isfinite(rate) or not 0 <= rate <= 1)):
+            raise ValueError(f"invalid DS-6 {arm} coordinate join rate")
+        if (not isinstance(ambiguous.get(arm), int)
+                or isinstance(ambiguous[arm], bool)
+                or ambiguous[arm] < 0):
+            raise ValueError(f"invalid DS-6 {arm} overlapping receipt count")
+        summary = payload.get(arm)
+        if not isinstance(summary, dict):
+            raise ValueError(f"missing DS-6 {arm} cell summaries")
+        for key, korean_name in DS6_GEO_TYPES.items():
+            cell = summary.get(korean_name)
+            if not isinstance(cell, dict):
+                raise ValueError(f"missing DS-6 {arm}/{korean_name} cell")
+            for field in ("spend_won", "positive_receipts", "citizens_with_receipts"):
+                amount = cell.get(field)
+                if (not isinstance(amount, int) or isinstance(amount, bool)
+                        or amount < 0):
+                    raise ValueError(f"invalid DS-6 {arm}/{korean_name}/{field}")
+            if cell["citizens_with_receipts"] > len(roster):
+                raise ValueError("DS-6 cell has more buying citizens than cohort")
+            cells[arm, key] = cell
+
+    min_rate = min(join_rates.get(arm) if join_rates.get(arm) is not None else -1
+                   for arm in ("on", "off"))
+    overlap_count = ambiguous["on"] + ambiguous["off"]
+    off_denominators = {key: cells["off", key]["spend_won"] for key in DS6_GEO_TYPES}
+    mapped_receipts = sum(round(receipt_totals[arm] * join_rates[arm])
+                          for arm in ("on", "off") if join_rates.get(arm) is not None)
+    total_receipts = receipt_totals["on"] + receipt_totals["off"]
+    sparse_cells = [f"{arm}/{key}: receipts={cells[arm, key]['positive_receipts']}, "
+                    f"citizens={cells[arm, key]['citizens_with_receipts']}"
+                    for arm in ("on", "off") for key in DS6_GEO_TYPES
+                    if (cells[arm, key]["positive_receipts"] < DS6_MIN_RECEIPTS_PER_CELL
+                        or cells[arm, key]["citizens_with_receipts"] < DS6_MIN_CITIZENS_PER_CELL)]
+    audit = {
+        "source_year": 2023,
+        "source_boundary_sha256": boundary[0][1],
+        "match_rate": min_rate,
+        "match_rate_by_arm": join_rates,
+        "overlap_count": overlap_count,
+        "off_denominator_won_by_type": off_denominators,
+        "mapped_receipt_count": mapped_receipts,
+        "total_receipt_count": total_receipts,
+        "on_citizen_days": payload["citizen_days_each_arm"],
+        "off_citizen_days": payload["citizen_days_each_arm"],
+        "minimum_receipts_per_cell": DS6_MIN_RECEIPTS_PER_CELL,
+        "minimum_citizens_per_cell": DS6_MIN_CITIZENS_PER_CELL,
+        "sparse_interpretation_blocked": bool(sparse_cells),
+        "sparse_reason": ("At least one of the four hub-type × arm cells has fewer "
+                          "than 20 positive purchase receipts or 10 distinct buyers: "
+                          + "; ".join(sparse_cells)) if sparse_cells else None,
+    }
+    technical_failures = []
+    if min_rate < 0.99:
+        technical_failures.append("positive-receipt coordinate join below 99%")
+    if overlap_count:
+        technical_failures.append("receipts assigned to overlapping hub types")
+    if any(amount <= 0 for amount in off_denominators.values()):
+        technical_failures.append("zero OFF won denominator in a hub type")
+    if technical_failures:
+        return (_item(DS6_GEO_PROXY_ID, None, "percentage points", None, len(roster),
+                      method, "; ".join(technical_failures) + ". " + mismatch,
+                      exploratory_not_registered=True, geo_proxy_audit=audit),
+                [path, *source_paths])
+
+    expected_rates = {}
+    for key, korean_name in DS6_GEO_TYPES.items():
+        expected_rates[key] = 100 * (cells["on", key]["spend_won"] /
+                                     cells["off", key]["spend_won"] - 1)
+        observed_rate = (payload.get("on_off_percent_change") or {}).get(korean_name)
+        if (not isinstance(observed_rate, (int, float))
+                or not math.isfinite(observed_rate)
+                or not math.isclose(observed_rate, expected_rates[key], abs_tol=1e-9)):
+            raise ValueError(f"DS-6 {korean_name} reported rate differs from receipt sums")
+    gap = expected_rates["tourism_special_zone"] - expected_rates["developed_commercial_district"]
+    reported_gap = payload.get("tourism_minus_developed_percentage_points")
+    if (not isinstance(reported_gap, (int, float)) or not math.isfinite(reported_gap)
+            or not math.isclose(reported_gap, gap, abs_tol=1e-9)):
+        raise ValueError("DS-6 geographic sidecar gap differs from component rates")
+    return (_item(DS6_GEO_PROXY_ID, gap, "percentage points", None, len(roster),
+                  method, mismatch, exploratory_not_registered=True,
+                  simulation_components={"tourism_special_zone_pct": expected_rates["tourism_special_zone"],
+                                         "developed_commercial_district_pct": expected_rates["developed_commercial_district"]},
+                  geo_proxy_audit=audit),
+            [path, *source_paths])
+
+
 def score_p013(paired_effect: Path, paired_sector: Path) -> tuple[list[dict], list[Path], str]:
     effect, sector = read_json(paired_effect), read_json(paired_sector)
     if (effect.get("policy_id") != "P013" or not effect.get("complete_matrix")
@@ -764,9 +917,12 @@ def score_run(*, policy: str, experiment: str, on: Path | None = None,
               off: Path | None = None, effect_start: str | None = None,
               effect_end: str | None = None, paired_effect: Path | None = None,
               paired_sector: Path | None = None, cashback_score: Path | None = None,
+              geographic_proxy: Path | None = None,
               draws: int = 1000) -> dict:
     if policy not in POLICY_TO_SCORE_KEY:
         raise ValueError(f"unsupported policy: {policy}")
+    if geographic_proxy is not None and policy != "DISTANCING_2020":
+        raise ValueError("--geographic-proxy only applies to DISTANCING_2020")
     if policy == "P013":
         if not paired_effect or not paired_sector:
             raise ValueError("P013 needs --paired-effect and --paired-sector")
@@ -817,6 +973,11 @@ def score_run(*, policy: str, experiment: str, on: Path | None = None,
                                                           effect_start=effect_start,
                                                           effect_end=effect_end)
         indicators = score_ledger(on_rows, off_rows, roster, policy=policy, draws=draws)
+        if policy == "DISTANCING_2020":
+            geo_indicator, geo_files = score_ds6_geographic_proxy(
+                geographic_proxy, on=on, off=off, days=days, roster=roster)
+            indicators.append(geo_indicator)
+            files.extend(geo_files)
         on_manifest, off_manifest = read_json(_manifest_path(on)), read_json(_manifest_path(off))
         # Display-only denominator audit added after the frozen 452cfaf formulas.
         # This counts funded citizen-days, never individual transaction receipts.
@@ -954,6 +1115,8 @@ def main() -> int:
     parser.add_argument("--paired-sector", type=Path)
     parser.add_argument("--cashback-score", type=Path,
                         help="Separately audited paired_cashback_month.py output for full October")
+    parser.add_argument("--geographic-proxy", type=Path,
+                        help="Separate SHA-audited 2023 commercial-district receipt overlay for DISTANCING_2020")
     parser.add_argument("--draws", type=int, default=1000)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
@@ -961,7 +1124,8 @@ def main() -> int:
                         on=args.on, off=args.off, effect_start=args.effect_start,
                         effect_end=args.effect_end, paired_effect=args.paired_effect,
                         paired_sector=args.paired_sector,
-                        cashback_score=args.cashback_score, draws=args.draws)
+                        cashback_score=args.cashback_score,
+                        geographic_proxy=args.geographic_proxy, draws=args.draws)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     temporary = args.out.with_name(args.out.name + ".tmp")
     try:
