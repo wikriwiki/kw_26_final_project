@@ -367,6 +367,59 @@ def test_p010_wallet_diagnosis_is_descriptive_and_distinguishes_events_from_citi
     assert "SHA256 " + "b" * 64 in markup
 
 
+def test_p010_subclass_display_erratum_is_evidence_bound_and_does_not_rescore(tmp_path):
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{"frozen": true}', encoding="utf-8")
+    ledger = tmp_path / "sector.ledger.jsonl"
+    ledger.write_text('{"citizen_id": "sample"}\n', encoding="utf-8")
+    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    audit = {
+        "schema": "p010_funded_subclass_display_audit_v1",
+        "status": "post_run_display_erratum_not_rescoring", "policy": "P010",
+        "numeric_score_sha256": digest(numeric),
+        "on_sector_ledger_sha256": digest(ledger),
+        "effect_days": ["2025-07-21", "2025-07-23"],
+        "observed_citizen_days": 240,
+        "positive_policy_funded_citizen_days": 2,
+        "policy_funded_total_won": 45672,
+        "funded_by_sub_won": {"의류": 3694, "가전·통신": 41978},
+        "funded_by_sub_total_won": 45672,
+    }
+    sidecar = tmp_path / "funded_by_sub_audit.json"
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    original = {
+        "score_files": [{"path": str(numeric), "sha256": digest(numeric)}],
+        "run_evidence": [{"policy": "P010", "on": "2025-07-21:2025-07-23",
+                          "evidence": [{"path": str(ledger), "sha256": digest(ledger)}],
+                          "run_context": {"policy_funding_density": {
+                              "policy_funded_observed_citizen_days": 240,
+                              "policy_funded_positive_citizen_days": 2,
+                              "policy_funded_total_won": 45672}}}],
+        "exploratory_simulations": [{
+            "policy": "P010", "policy_name": "민생회복 소비쿠폰",
+            "id": "P010-BOK-X", "truth": 46.0, "truth_unit": "%",
+            "simulation": 0.0, "simulation_unit": "%", "n": 80,
+            "policy_funded_positive_citizen_days": 2,
+            "policy_funded_observed_citizen_days": 240,
+            "policy_funded_total_won": 45672, "full_run_citizen_days": 400,
+            "source": "BOK", "simulation_evidence": [],
+        }],
+    }
+    augmented = report.apply_p010_funding_display_audit(original, sidecar)
+    assert augmented["score_files"] == original["score_files"]
+    assert "funded_subclass_display_audit" not in original["exploratory_simulations"][0]
+    assert augmented["post_run_display_audits"][0]["sha256"] == digest(sidecar)
+    markup = report._exploratory_html(augmented["exploratory_simulations"])
+    assert "시뮬 0%의 의미" in markup
+    assert "가전·통신 41,978원" in markup and "의류 3,694원" in markup
+    assert "실측 업종 비중이 0%라는 뜻도" in markup
+    assert "2/240 시민×일" in markup
+    audit["numeric_score_sha256"] = "0" * 64
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="does not match a frozen numeric score"):
+        report.apply_p010_funding_display_audit(original, sidecar)
+
+
 def test_ds6_2023_geo_proxy_remains_exploratory_with_mapping_and_sparse_gate():
     audit = {"match_rate": 0.995, "overlap_count": 0,
              "on_citizen_days": 240, "off_citizen_days": 240,

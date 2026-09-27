@@ -620,6 +620,57 @@ def apply_empirical_registry(report: dict, path: Path = EMPIRICAL_REGISTRY) -> d
     return updated
 
 
+def apply_p010_funding_display_audit(report: dict, path: Path) -> dict:
+    """Attach a post-run explanation without changing frozen numeric scores."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("schema") != "p010_funded_subclass_display_audit_v1"
+            or audit.get("status") != "post_run_display_erratum_not_rescoring"
+            or audit.get("policy") != "P010"):
+        raise ValueError("invalid P010 funded-subclass display audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "P010"), None)
+    if not run:
+        raise ValueError("P010 display audit requires a P010 numeric run")
+    if audit.get("numeric_score_sha256") not in {
+            item["sha256"] for item in report.get("score_files", [])}:
+        raise ValueError("P010 display audit does not match a frozen numeric score")
+    if audit.get("on_sector_ledger_sha256") not in {
+            item["sha256"] for item in run["evidence"]
+            if item["path"].endswith("sector.ledger.jsonl")}:
+        raise ValueError("P010 display audit does not match a verified sector ledger")
+    start_end = str(run.get("on") or "").split(":")
+    if audit.get("effect_days") != start_end:
+        raise ValueError("P010 display audit effect days differ from numeric run")
+    density = run["run_context"].get("policy_funding_density") or {}
+    for audit_key, source_key in (("observed_citizen_days", "policy_funded_observed_citizen_days"),
+                                  ("positive_policy_funded_citizen_days", "policy_funded_positive_citizen_days"),
+                                  ("policy_funded_total_won", "policy_funded_total_won")):
+        if audit.get(audit_key) != density.get(source_key):
+            raise ValueError(f"P010 display audit {audit_key} differs from numeric run")
+    amounts = audit.get("funded_by_sub_won")
+    if (not isinstance(amounts, dict) or not amounts
+            or any(not isinstance(key, str) or not key
+                   or not isinstance(value, int) or isinstance(value, bool) or value < 0
+                   for key, value in amounts.items())
+            or sum(amounts.values()) != audit.get("policy_funded_total_won")
+            or audit.get("funded_by_sub_total_won") != audit.get("policy_funded_total_won")):
+        raise ValueError("P010 funded-subclass amounts do not reconcile")
+    evidence = {"path": _display_path(path), "sha256": _sha(path)}
+    augmented = []
+    for row in report.get("exploratory_simulations", []):
+        candidate = dict(row)
+        if row["policy"] == "P010":
+            candidate["funded_subclass_display_audit"] = {
+                "funded_by_sub_won": amounts, "positive_citizen_days": audit["positive_policy_funded_citizen_days"],
+                "observed_citizen_days": audit["observed_citizen_days"],
+                "funded_total_won": audit["policy_funded_total_won"], **evidence}
+        augmented.append(candidate)
+    updated = dict(report)
+    updated["exploratory_simulations"] = augmented
+    updated["post_run_display_audits"] = [evidence]
+    return updated
+
+
 def build_multi_policy_pairs(manifest_paths: Path | list[Path],
                              scoring_path: Path = SCORING,
                              suite: str = "") -> dict:
@@ -681,6 +732,7 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
             "quality_audit": provenance.get("quality_audit"),
             "preperiod_balance": provenance.get("preperiod_balance"),
             "policy_funding_diagnostic": provenance.get("policy_funding_diagnostic"),
+            "policy_funding_density": provenance.get("policy_funding_density"),
         }
         prompt_hash = run_context["generic_prompt_sha256"]
         if prompt_hash and not re.fullmatch(r"[0-9a-fA-F]{64}", str(prompt_hash)):
@@ -1003,6 +1055,22 @@ def _exploratory_html(pairs: list[dict]) -> str:
                     '<p class="balance">정책결제 분모가 검증되지 않아 업종비중의 '
                     '크기를 판단할 수 없습니다. 시민 부트스트랩 표본 수는 결제 건수가 아닙니다.</p>'
                 )
+            subclass_audit = row.get("funded_subclass_display_audit")
+            if isinstance(subclass_audit, dict):
+                destinations = ', '.join(
+                    f'{_esc(name)} {amount:,}원'
+                    for name, amount in sorted(subclass_audit["funded_by_sub_won"].items()))
+                if row["simulation"] == 0:
+                    denominator_html += (
+                        '<p class="balance"><strong>시뮬 0%의 의미:</strong> '
+                        f'이 실행의 정책지갑 결제 총액 {subclass_audit["funded_total_won"]:,}원은 '
+                        f'{destinations}에만 기록됐습니다. 이 지표의 대응 업종 분자는 '
+                        '0원이라 시뮬 구성비가 0%입니다. 실측 업종 비중이 0%라는 뜻도, '
+                        '정책 효과가 0이라는 뜻도 아닙니다. 정책지갑 결제 관측이 '
+                        f'{subclass_audit["positive_citizen_days"]}/'
+                        f'{subclass_audit["observed_citizen_days"]} 시민×일뿐이어서 '
+                        '이 0%를 실측과의 크기 적중으로 채점할 수 없습니다.</p>'
+                    )
         if row["policy"] == "DISTANCING_2020":
             denominator_html = _geo_proxy_exploratory_html(row)
         cards.append('<div class="row">'
@@ -1076,6 +1144,11 @@ def _technical_details(row: dict) -> str:
         fields.append('<p><strong>시뮬 증거 SHA256:</strong> '
                       + _esc('; '.join(item["path"] + ' ' + item["sha256"]
                                        for item in evidence)) + '</p>')
+    subclass_audit = row.get("funded_subclass_display_audit")
+    if isinstance(subclass_audit, dict):
+        fields.append('<p><strong>정책결제 업종 사후 표시 감사:</strong> '
+                      + _esc(subclass_audit["path"] + ' SHA256 '
+                             + subclass_audit["sha256"]) + '</p>')
     return ('<details class="technical"><summary>원문 정의·산식·증거 자세히 보기</summary>'
             + ''.join(fields) + '</details>') if fields else ''
 
@@ -1506,7 +1579,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              run_note: Path | None = None,
              numeric_only: bool = False,
              multi_policy_pairs: Path | list[Path] | None = None,
-             empirical_registry: Path | None = None) -> tuple[Path, Path, dict]:
+             empirical_registry: Path | None = None,
+             p010_funding_audit: Path | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
     if sum((bool(score_paths), bool(paired_effect), bool(multi_paths))) != 1:
@@ -1515,6 +1589,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--paired-sector requires --paired-effect")
     if run_note and not paired_effect:
         raise ValueError("--run-note requires --paired-effect")
+    if p010_funding_audit and not multi_paths:
+        raise ValueError("--p010-funding-audit requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
         raise ValueError("multiple scores require --out")
     if len(multi_paths) > 1 and out is None:
@@ -1526,10 +1602,13 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                  for p in [source, *score_paths, *multi_paths,
                                                            *([paired_sector] if paired_sector else []),
                                                            *([run_note] if run_note else []),
-                                                           *([empirical_registry] if empirical_registry else [])]):
+                                                           *([empirical_registry] if empirical_registry else []),
+                                                           *([p010_funding_audit] if p010_funding_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
+        if p010_funding_audit:
+            report = apply_p010_funding_display_audit(report, p010_funding_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -1566,6 +1645,8 @@ def main() -> int:
                     help="v53 multi-policy numeric manifest with SHA256-verified run evidence")
     ap.add_argument("--empirical-registry", type=Path,
                     help="audited external numeric values; required by default for multi-policy pairs")
+    ap.add_argument("--p010-funding-audit", type=Path,
+                    help="optional SHA-checked post-run P010 subclass display erratum; never rescores")
     ap.add_argument("--experiment", default="")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--json-out", type=Path)
@@ -1581,7 +1662,8 @@ def main() -> int:
                                          run_note=a.run_note,
                                          numeric_only=a.numeric_only,
                                          multi_policy_pairs=a.multi_policy_pairs,
-                                         empirical_registry=a.empirical_registry)
+                                         empirical_registry=a.empirical_registry,
+                                         p010_funding_audit=a.p010_funding_audit)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
     print(f"{out} | {json_out} | indicators={report['indicator_count']} "

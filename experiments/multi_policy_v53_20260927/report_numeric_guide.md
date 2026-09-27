@@ -31,6 +31,7 @@ py -3 scripts/report/build_experiment_comparison.py `
   --multi-policy-pairs output/p013_v53_pilot_20260927/multi_policy_numeric_v1.json `
   --multi-policy-pairs output/<p010-run>/multi_policy_numeric_v1.json `
   --multi-policy-pairs output/<distancing-run>/multi_policy_numeric_v1.json `
+  --p010-funding-audit output/multi_policy_v53_20260928/p010/funded_by_sub_audit.json `
   --experiment multi_policy_v53_20260928 `
   --out output/report/experiments/multi_policy_v53_20260928.html
 ```
@@ -67,6 +68,19 @@ P010 ON의 별도 사후 진단 `p010_wallet_diagnosis.json`(SHA256
 읽은 수치여서 이 진단에 사용하지 않습니다. 해당 필드는 필수 출력 계약이
 아니므로 0/240을 모델의 지시 위반으로 보지 않습니다. 정책결제 희소성의
 프롬프트·파서·스키마·결제선택 로직상 원인은 추가 감사 전까지 미확정입니다.
+
+P010 탐색 6행의 시뮬 업종비중이 모두 0%인 표시를 사후에 바로잡았습니다.
+동결된 정책별 숫자 산출물 `numeric.json`(SHA256
+`0f341e6a3a59f2ee53c43c2ac6fc1e0eed3043fa34b00f7377abbf560290db34`)은
+수정하지 않았습니다. ON 원장에 연결된 별도 표시 감사
+`funded_by_sub_audit.json`(SHA256
+`59d739ffc671f1556cf280823f14584b24a8071e19c6d79918b50138d9c8d8a6`)
+에서 정책지갑 결제 45,672원 전체가 의류 3,694원과 가전·통신 41,978원에
+기록됐음을 확인했습니다. 이 두 업종은 실측 표에서 선택된 6개 업종 밖이므로
+각 선택 업종의 시뮬 분자가 0원입니다. 이 0%는 실측 비중 0%나 정책효과 0을
+뜻하지 않습니다. 관측은 2/240 시행기간 시민×일뿐이므로 업종비중 크기
+판정이 불가능합니다. 빌더는 감사 파일의 원장·점수 SHA256과 분모를 검증한
+경우에만 이 설명을 HTML에 추가하며 산식·숫자·판정은 바꾸지 않습니다.
 
 DS-6의 정식 시뮬 값은 이번 실험에서도 `null`입니다. 2020 서울 카드패널의
 관광특구 −8.7%와 발달상권 −4.4%(차이 −4.3%p)를 재현하려면 당시
