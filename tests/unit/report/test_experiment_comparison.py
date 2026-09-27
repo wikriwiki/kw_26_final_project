@@ -284,22 +284,23 @@ def test_multi_policy_proxy_needs_verified_evidence_and_never_self_certifies_gap
         report.build_multi_policy_pairs(manifest, scoring)
 
 
-def test_coverage_moves_policies_without_numeric_truth_to_collapsed_appendix():
+def test_coverage_omits_policies_and_rows_without_numeric_truth_from_html():
     coverage = [
         {"policy": "P010", "policy_name": "쿠폰", "empirical_numeric_count": 1,
          "simulation_numeric_count": 1, "paired_numeric_count": 1,
          "sample_citizens": 80, "exploratory_numeric_count": 0,
+         "unmeasured_count": 1,
          "missing_simulation_reasons": []},
         {"policy": "P015", "policy_name": "위약", "empirical_numeric_count": 0,
          "simulation_numeric_count": 0, "paired_numeric_count": 0,
          "sample_citizens": None, "exploratory_numeric_count": 0,
+         "unmeasured_count": 2,
          "missing_simulation_reasons": []},
     ]
-    markup = report._coverage_html(coverage)
-    main_table = markup.split("</table>")[0]
-    assert "쿠폰" in main_table and "위약" not in main_table
-    assert "실측 수치가 없어 평가에서 제외한 정책·위약 1개 보기" in markup
-    assert "위약" in markup.split("</table>")[1]
+    markup = report._coverage_html(coverage, unregistered_count=2)
+    assert "쿠폰" in markup and "위약" not in markup
+    assert "실측 숫자가 없는 3개" in markup
+    assert "등록되지 않은 정책 파일 2개" in markup
 
 
 def test_policy_card_separates_first_attempt_quality_from_recovered_ledger():
@@ -342,6 +343,28 @@ def test_policy_card_does_not_overstate_first_pass_with_missing_attempt_history(
     assert "성공한 마지막 호출 안의 첫 시도 통과율 90.0%" in markup
     assert "OFF 첫 시도·Stage2 품질 감사 불가" in markup
     assert "80/80" in markup
+
+
+def test_p010_wallet_diagnosis_is_descriptive_and_distinguishes_events_from_citizen_days():
+    diagnostic = {
+        "status": "post_run_descriptive_quality_audit", "path": "verified/p010_wallet_diagnosis.json",
+        "sha256": "b" * 64, "days": ["2025-07-21", "2025-07-22", "2025-07-23"],
+        "citizens": 80, "positive_purchase_events": 1288,
+        "eligible_purchase_events": 1280, "positive_purchase_won": 9427617,
+        "eligible_purchase_won": 9368052, "funded_purchase_events": 2,
+        "funded_won": 45672, "stage1_grant_style_present_citizen_days": 0,
+        "stage1_grant_use_present_citizen_days": 0,
+        "policy_request_positive_citizen_days": 2,
+        "policy_requested_won": 165000,
+    }
+    markup = report._run_context_html({"policy_id": "P010",
+                                       "policy_funding_diagnostic": diagnostic})
+    assert "적격 구매 이벤트 1280/1288" in markup
+    assert "Stage2 양수 정책결제 요청 2/240 시민×일·165,000원" in markup
+    assert "실제 지갑결제 2 구매 이벤트·45,672원" in markup
+    assert "필수가 아니므로 모델의 지시 위반으로 해석하지 않습니다" in markup
+    assert "프롬프트·파서·스키마·결제선택 로직" in markup
+    assert "SHA256 " + "b" * 64 in markup
 
 
 def test_log_point_is_converted_only_for_exploratory_number_impression():

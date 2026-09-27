@@ -736,11 +736,11 @@ def apply_cashback_month(indicators: list[dict], cashback_score: Path, *,
         row["simulation_unit"] = unit
         row["ci"] = [x * scale for x in interval] if interval is not None else None
         row["n"] = recipients if value is not None else None
-        row["method"] = ("Complete 2021-10 ON month: finalized cashback among positive recipients"
+        row["method"] = ("Complete 2021-10 ON month: rule-implied cashback accrued at month end / citizens with positive accrual; no following-month payout transaction or State was observed"
                          if id_ == "P012-4" else
-                         "Complete 2021-10 ON month: cap-reaching recipients / positive cashback recipients")
-        row["reason"] = ("Approximate October recipient-level population reference; KDI table values are rounded. "
-                         "Simulation is a synthetic citizen cohort, not the nationwide recipient frame.")
+                         "Complete 2021-10 ON month: citizens whose rule-implied accrual reaches the monthly cap / citizens with positive accrual")
+        row["reason"] = ("The KDI main reference is cashback actually paid over October–November; its rounded October table yields a separate approximate one-month comparison. "
+                         "Simulation is October month-end rule-implied accrual, not observed payment, and the synthetic citizens are not the nationwide recipient frame.")
         row["empirical_variant"] = "october_only"
         row["cashback_score_evidence"] = display_path(cashback_score)
     return indicators
@@ -877,6 +877,49 @@ def score_run(*, policy: str, experiment: str, on: Path | None = None,
         }
         if funding_density is not None:
             run_provenance["policy_funding_density"] = funding_density
+            # Post-run explanatory evidence is attached for disclosure only.
+            # It never changes an indicator's value, uncertainty or gate.
+            diagnosis_path = on.parent / "p010_wallet_diagnosis.json"
+            if diagnosis_path.is_file():
+                diagnosis = read_json(diagnosis_path)
+                if (diagnosis.get("days") != days
+                        or diagnosis.get("citizens") != len(roster)
+                        or diagnosis.get("funded_won") !=
+                        funding_density["policy_funded_total_won"]
+                        or diagnosis.get("citizen_days_with_policy_payment") !=
+                        funding_density["policy_funded_positive_citizen_days"]):
+                    raise ValueError("P010 wallet diagnosis differs from verified sector ledger")
+                diagnostic_fields = (
+                    "positive_purchase_events", "eligible_purchase_events",
+                    "positive_purchase_won", "eligible_purchase_won",
+                    "funded_purchase_events", "funded_won",
+                    "citizen_days_with_eligible_purchase",
+                    "citizen_days_with_policy_payment",
+                    "policy_hits_positive_citizen_days",
+                    "stage1_grant_style_present_citizen_days",
+                    "stage1_grant_use_present_citizen_days",
+                    "choice_mode_citizen_days",
+                    "policy_request_positive_citizen_days", "policy_requested_won",
+                    "policy_allocated_positive_citizen_days", "policy_allocated_won",
+                )
+                if any(isinstance(diagnosis.get(key), bool)
+                       or not isinstance(diagnosis.get(key), int)
+                       or diagnosis[key] < 0 for key in diagnostic_fields):
+                    raise ValueError("P010 wallet diagnosis has invalid counts or amounts")
+                run_provenance["policy_funding_diagnostic"] = {
+                    "status": "post_run_descriptive_quality_audit",
+                    "path": display_path(diagnosis_path),
+                    "sha256": sha256(diagnosis_path),
+                    "days": diagnosis["days"],
+                    "citizens": diagnosis["citizens"],
+                    **{key: diagnosis[key] for key in diagnostic_fields},
+                }
+                files.append(diagnosis_path)
+            else:
+                run_provenance["policy_funding_diagnostic"] = {
+                    "status": "not_available",
+                    "reason": "No separately preserved post-run graph/metrics diagnosis beside ON ledger",
+                }
         window = f"{days[0]}:{days[-1]}"
         n = len(roster)
         if cashback_score:

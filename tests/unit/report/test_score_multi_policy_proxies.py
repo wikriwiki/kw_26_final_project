@@ -6,7 +6,7 @@ import pytest
 from scripts.report.score_multi_policy_proxies import (
     apply_cashback_month, audit_arm_quality, audit_policy_funding_density,
     audit_preperiod_balance,
-    read_pair, score_ledger,
+    read_pair, score_ledger, score_run,
 )
 from scripts.report.audit_stage2_generation import inspect as inspect_stage2
 
@@ -120,6 +120,29 @@ def test_pair_reader_rejects_changed_evidence(tmp_path):
                     "output_sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
         path.with_name(path.name + ".manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
     read_pair(on_file, off_file, policy="P010")
+    diagnosis = {"days": ["2020-08-01"], "citizens": 1,
+                 "positive_purchase_events": 2, "eligible_purchase_events": 2,
+                 "positive_purchase_won": 100, "eligible_purchase_won": 100,
+                 "funded_purchase_events": 1, "funded_won": 30,
+                 "citizen_days_with_eligible_purchase": 1,
+                 "citizen_days_with_policy_payment": 1,
+                 "policy_hits_positive_citizen_days": 1,
+                 "stage1_grant_style_present_citizen_days": 0,
+                 "stage1_grant_use_present_citizen_days": 0,
+                 "choice_mode_citizen_days": 1,
+                 "policy_request_positive_citizen_days": 1,
+                 "policy_requested_won": 30,
+                 "policy_allocated_positive_citizen_days": 1,
+                 "policy_allocated_won": 30}
+    (tmp_path / "p010_wallet_diagnosis.json").write_text(
+        json.dumps(diagnosis), encoding="utf-8")
+    scored = score_run(policy="P010", experiment="fixture", on=on_file,
+                       off=off_file, draws=0)
+    run = scored["runs"][0]
+    assert run["run_provenance"]["policy_funding_density"]["policy_funded_total_won"] == 30
+    assert run["run_provenance"]["policy_funding_diagnostic"]["funded_purchase_events"] == 1
+    assert any(item["path"].endswith("p010_wallet_diagnosis.json")
+               for item in run["evidence"])
     off_manifest = off_file.with_name(off_file.name + ".manifest.json")
     payload = json.loads(off_manifest.read_text(encoding="utf-8"))
     payload["prompt_provenance"]["requested_model_id"] = "another-model"
@@ -156,6 +179,8 @@ def test_monthly_cashback_values_require_v53_complete_month(tmp_path):
     assert updated["P012-6"]["ci"] == [10, 40]
     assert updated["P012-6"]["n"] == 4
     assert updated["P012-6"]["empirical_variant"] == "october_only"
+    assert "accrued" in updated["P012-4"]["method"]
+    assert "not observed payment" in updated["P012-4"]["reason"]
     payload["provenance"]["prompt_variant"] = "v5"
     path.write_text(json.dumps(payload), encoding="utf-8")
     with pytest.raises(ValueError, match="v53"):

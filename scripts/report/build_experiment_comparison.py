@@ -647,6 +647,7 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
             "stage2_sha256": provenance.get("stage2_sha256"),
             "quality_audit": provenance.get("quality_audit"),
             "preperiod_balance": provenance.get("preperiod_balance"),
+            "policy_funding_diagnostic": provenance.get("policy_funding_diagnostic"),
         }
         prompt_hash = run_context["generic_prompt_sha256"]
         if prompt_hash and not re.fullmatch(r"[0-9a-fA-F]{64}", str(prompt_hash)):
@@ -669,6 +670,16 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
             if not source.is_file() or _sha(source).lower() != str(item["sha256"]).lower():
                 raise ValueError(f"{policy}: missing or SHA256-mismatched evidence: {source}")
             verified.append({"path": _display_path(source), "sha256": _sha(source)})
+        diagnostic = run_context.get("policy_funding_diagnostic")
+        if isinstance(diagnostic, dict) and diagnostic.get("status") == "post_run_descriptive_quality_audit":
+            diagnostic_path = diagnostic.get("path")
+            diagnostic_sha = diagnostic.get("sha256")
+            if (not isinstance(diagnostic_path, str)
+                    or not re.fullmatch(r"[0-9a-fA-F]{64}", str(diagnostic_sha))
+                    or not any(item["path"] == diagnostic_path
+                               and item["sha256"].lower() == diagnostic_sha.lower()
+                               for item in verified)):
+                raise ValueError(f"{policy}: P010 diagnostic lacks verified SHA evidence")
         served = provenance.get("served_model_provenance")
         if served is not None:
             if not isinstance(served, dict) or not isinstance(served.get("model_id"), str):
@@ -862,10 +873,10 @@ def _track(row):
     return '<div class="track">' + ''.join(bits) + '</div>'
 
 
-def _coverage_html(coverage: list[dict]) -> str:
+def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
     body = []
     included = [item for item in coverage if item["empirical_numeric_count"]]
-    excluded = [item for item in coverage if not item["empirical_numeric_count"]]
+    excluded_indicators = sum(item["unmeasured_count"] for item in coverage)
     for item in included:
         missing = item["missing_simulation_reasons"]
         if not item["empirical_numeric_count"]:
@@ -891,24 +902,17 @@ def _coverage_html(coverage: list[dict]) -> str:
             f'<td>{_esc(action)}{details}</td>'
             '</tr>'
         )
-    excluded_html = (
-        '<details class="technical"><summary>실측 수치가 없어 평가에서 제외한 정책·위약 '
-        f'{len(excluded)}개 보기</summary><ul>'
-        + ''.join(f'<li><strong>{_esc(item["policy_name"])} '
-                  f'({_esc(item["policy"])})</strong>: 등록 검증지표에 실측 숫자가 없어 '
-                  '이번 실측·시뮬 대조에서 제외했습니다.'
-                  + (f' 채점표 밖 탐색 참고값 {item["exploratory_numeric_count"]}건은 '
-                     '아래 별도 표에 표시합니다.' if item["exploratory_numeric_count"] else '')
-                  + '</li>' for item in excluded)
-        + '</ul></details>' if excluded else '')
     return ('<section class="note"><h2>실측 수치가 있는 정책의 숫자 확보 현황</h2>'
             '<p>비교 행에는 실측과 이번 실험의 시뮬 수치가 모두 있는 지표만 표시합니다. '
-            '실측 수치가 없는 지표는 검증 대상에서 제외했습니다. 수치 쌍이 '
+            f'등록 지표 중 실측 숫자가 없는 {excluded_indicators}개는 HTML의 '
+            '정책 카드·부록 목록에서 제외했습니다. '
+            + (f'검증지표가 등록되지 않은 정책 파일 {unregistered_count}개도 '
+               '숫자 비교 대상에서 제외했습니다. ' if unregistered_count else '')
+            + '수치 쌍이 '
             '측정 정의까지 일치한다는 뜻은 아닙니다.</p>'
             '<div class="coverage-scroll"><table class="coverage"><thead><tr>'
             '<th>정책</th><th>시뮬 시민</th><th>실측 수치</th><th>시뮬 수치</th><th>나란히 표시</th><th>남은 작업</th>'
-            '</tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>'
-            + excluded_html + '</section>')
+            '</tr></thead><tbody>' + ''.join(body) + '</tbody></table></div></section>')
 
 
 def _exploratory_html(pairs: list[dict]) -> str:
@@ -940,14 +944,15 @@ def _exploratory_html(pairs: list[dict]) -> str:
                 denominator_html = (
                     '<p class="balance"><strong>업종비중 분모 주의:</strong> '
                     f'정책 시행기간에 정책결제액이 양수인 시민×일 {_esc(positive)}/{_esc(observed)}, '
-                    f'정책결제 총액 {_esc(f"{funded_won:,}원")}. '
+                    f'정책결제 총액 {funded_won:,}원. '
                     f'전체 원장은 {_esc(full_run)} 시민×일(시행 전 포함)입니다. '
                     f'시민 {_esc(row.get("n") or "미확인")}명이라는 부트스트랩 표본 수는 '
                     '실제 결제 관측 수가 아닙니다. '
                     '이 작은 분모의 업종비중으로 크기 적중을 판단할 수 없습니다. '
                     '개별 거래 건수는 시민×일 집계 원장에서 알 수 없습니다. '
-                    '정책결제가 적게 기록된 원인은 확정되지 않았습니다. '
-                    'Stage2 결제 선택·요청 과정의 병목 가능성은 진단상의 추정입니다.</p>'
+                    '정책 카드의 별도 진단에서 선택 필드인 Stage1 지갑 태세는 0이고 '
+                    'Stage2 양수 요청은 극소수로 관찰됐습니다. 필수 출력 위반은 아니며, '
+                    '프롬프트·파서·스키마·결제선택 로직 중 원인은 미확정입니다.</p>'
                 )
             else:
                 denominator_html = (
@@ -1151,8 +1156,48 @@ def _run_context_html(context: dict | None) -> str:
                            if balance_detail else ''))
     else:
         balance_html = ''
+    diagnostic = context.get("policy_funding_diagnostic")
+    diagnostic_html = ''
+    if (isinstance(diagnostic, dict)
+            and diagnostic.get("status") == "post_run_descriptive_quality_audit"):
+        keys = ("citizens", "positive_purchase_events", "eligible_purchase_events",
+                "positive_purchase_won", "eligible_purchase_won", "funded_purchase_events",
+                "funded_won", "stage1_grant_style_present_citizen_days",
+                "stage1_grant_use_present_citizen_days", "policy_request_positive_citizen_days",
+                "policy_requested_won")
+        if (not all(isinstance(diagnostic.get(key), int)
+                    and not isinstance(diagnostic[key], bool) and diagnostic[key] >= 0
+                    for key in keys)
+                or not isinstance(diagnostic.get("days"), list)
+                or not diagnostic["days"]):
+            raise ValueError("malformed P010 policy funding diagnostic")
+        days = diagnostic["citizens"] * len(diagnostic["days"])
+        won = lambda key: f'{diagnostic[key]:,}원'
+        diagnostic_html = (
+            '<p class="balance"><strong>정책결제 경로의 사후 진단:</strong> '
+            f'시행기간 적격 구매 이벤트 {_esc(diagnostic["eligible_purchase_events"])}/'
+            f'{_esc(diagnostic["positive_purchase_events"])}, '
+            f'적격 구매액 {_esc(won("eligible_purchase_won"))}/'
+            f'전체 구매액 {_esc(won("positive_purchase_won"))}. '
+            f'Stage1 지갑 태세 필드(style/use) '
+            f'{_esc(diagnostic["stage1_grant_style_present_citizen_days"])}/'
+            f'{_esc(diagnostic["stage1_grant_use_present_citizen_days"])} 시민×일 '
+            f'(전체 {days}), Stage2 양수 정책결제 요청 '
+            f'{_esc(diagnostic["policy_request_positive_citizen_days"])}/{days} 시민×일·'
+            f'{_esc(won("policy_requested_won"))}, '
+            f'실제 지갑결제 {_esc(diagnostic["funded_purchase_events"])} 구매 이벤트·'
+            f'{_esc(won("funded_won"))}. '
+            '적격 구매는 많았지만 선택 필드인 Stage1 지갑 태세와 Stage2 양수 요청은 '
+            '드물거나 없었습니다. 이 필드들은 필수가 아니므로 모델의 지시 위반으로 '
+            '해석하지 않습니다. 프롬프트·파서·스키마·결제선택 로직 중 '
+            '어떤 구조가 지갑 결제를 적게 만들었는지는 추가 감사가 필요합니다. '
+            '이 사후 진단은 정책 효과 채점에 쓰지 않습니다.</p>'
+        )
+        detail.append('<p><strong>정책결제 진단 원본:</strong> '
+                      f'{_esc(diagnostic.get("path"))} '
+                      f'SHA256 {_esc(diagnostic.get("sha256"))}</p>')
     return ('<p class="contextline">' + ' · '.join(pieces) + '</p>'
-            + quality_html + balance_html
+            + quality_html + balance_html + diagnostic_html
             + ('<details class="technical"><summary>정책·환경·프롬프트 지문 보기</summary>'
                + ''.join(detail) + '</details>' if detail else ''))
 
@@ -1298,7 +1343,8 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         '95% 구간은 시민 재표본에 한정되며 모델 생성 결과를 다시 뽑았을 때의 변동은 포함하지 않습니다. '
                         '나머지 정책의 미실행은 표본 부족이 아니라 이번 파일럿에 정책 팔이 없다는 뜻입니다.</p></section>')
     if numeric_only:
-        sections.insert(0, _coverage_html(report["policy_coverage"]))
+        sections.insert(0, _coverage_html(report["policy_coverage"],
+                                          len(report.get("unregistered_policies") or [])))
     if numeric_only and report.get("prompt_variant") == "v53":
         prompt_note = (
             '모든 정책 팔의 범용 v53 프롬프트 SHA256 지문이 일치합니다. '
@@ -1321,19 +1367,13 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
     tally_html = ''.join(f'<div class="stat"><span class="v">{v}</span><span class="k">{_esc(k)}</span></div>'
                          for v, k in stats)
     unregistered = report.get("unregistered_policies") or []
-    if unregistered:
+    if unregistered and not numeric_only:
         missing = ''.join(f'<li><strong>{_esc(p["id"])}</strong> {_esc(p["name"])} — '
                           '검증지표 미등록, 프롬프트 성능 평가 대상에 아직 넣을 수 없음</li>'
                           for p in unregistered)
-        if numeric_only:
-            sections.append('<details class="technical"><summary>등록 검증지표가 없는 정책 파일 '
-                            f'{len(unregistered)}개 보기</summary><p>지표·기간·원문 추정량을 '
-                            '등록한 뒤에야 평가할 수 있습니다.</p>'
-                            f'<ul>{missing}</ul></details>')
-        else:
-            sections.append('<section class="note"><h2>정책 파일은 있으나 검증지표가 없는 정책</h2>'
-                            '<p>채점표에 지표·창·원문 추정량을 사전등록해야 누락 없이 비교할 수 있습니다.</p>'
-                            f'<ul>{missing}</ul></section>')
+        sections.append('<section class="note"><h2>정책 파일은 있으나 검증지표가 없는 정책</h2>'
+                        '<p>채점표에 지표·창·원문 추정량을 사전등록해야 누락 없이 비교할 수 있습니다.</p>'
+                        f'<ul>{missing}</ul></section>')
     source_note = '; '.join(f'{_esc(x["policy"])} {_esc(x["sha256"][:12])}' for x in report["score_files"])
     warnings = [x["policy"] for x in report["score_files"] if not x["scoring_table_matches"]]
     if warnings:
@@ -1348,7 +1388,10 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
             '본문에는 실측 수치와 이번 실험의 시뮬 수치가 모두 있는 지표만 표시합니다. 아래 정책별 표에서 누락 정책과 남은 측정을 확인할 수 있습니다. 단위가 맞는 경우 숫자상 차이를 탐색적으로 표시하지만, 측정 정의가 다르면 정식 정책 효과 오차로 보지 않습니다.')
         page = page.replace(
             '‘미실행’은 이 실험에 해당 정책의 채점 파일이 없다는 뜻입니다. ‘관측부족’은 채점 파일은 있지만 지표값이 없다는 뜻입니다. ‘참고 지표’도 목록에 남깁니다.',
-            '본문에 없는 지표는 실측 수치 또는 이번 실험의 시뮬 수치가 없습니다. 어떤 정책과 지표의 측정이 부족한지는 정책별 숫자 확보 현황과 JSON 원장에서 확인할 수 있습니다.')
+            '본문에 없는 지표는 실측 수치 또는 이번 실험의 시뮬 수치가 없습니다. '
+            '실측 숫자가 있는 정책의 미산출 시뮬 지표는 위 표에 사유를 남겼습니다. '
+            '실측 숫자가 없는 지표는 HTML에서 제외하고 개수만 설명합니다. '
+            '전체 감사 내역은 JSON 원장에서 확인할 수 있습니다.')
         page = page.replace('시뮬 95% 구간</span>',
                             '시뮬 시민 재표집 95% 구간</span>')
     return (page
