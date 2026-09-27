@@ -52,6 +52,12 @@ def normalize_ksic(code: str) -> str | None:
     return None
 
 
+def has_resolved_industry(code: str) -> bool:
+    # A normal non-G prefix (for example I56111) is a definite non-target
+    # industry. It remains outside the two groups; its prefix is not relabeled.
+    return bool(re.fullmatch(r"(?:[A-Z])?[0-9]{5}", code))
+
+
 def percentile(values: list[float], fraction: float) -> float:
     ordered = sorted(values)
     position = (len(ordered) - 1) * fraction
@@ -174,6 +180,7 @@ def read_catalog(source: Path, needed_pois: set[str], plan: dict) -> tuple[dict,
     mapping = {}
     group_counts = Counter()
     group_names = defaultdict(set)
+    missing_codes = malformed_codes = 0
     id_field, code_field, name_field = (expected[field] for field in
                                       ("merchant_id_field", "industry_code_field",
                                        "industry_name_field"))
@@ -187,8 +194,10 @@ def read_catalog(source: Path, needed_pois: set[str], plan: dict) -> tuple[dict,
             if len(row) != len(header):
                 raise ValueError(f"catalog column count differs at row {rows + 1}")
             merchant_id, raw_code, name = (row[index] for index in indices)
-            if not merchant_id or not raw_code:
-                raise ValueError("catalog merchant ID or industry code missing")
+            if not merchant_id:
+                raise ValueError("catalog merchant ID missing")
+            missing_codes += not bool(raw_code)
+            malformed_codes += bool(raw_code) and not has_resolved_industry(raw_code)
             duplicate_ids += merchant_id in seen_ids
             seen_ids.add(merchant_id)
             rows += 1
@@ -200,7 +209,8 @@ def read_catalog(source: Path, needed_pois: set[str], plan: dict) -> tuple[dict,
             if poi_id in needed_pois:
                 if poi_id in mapping:
                     raise ValueError("ambiguous receipt/catalog merchant join")
-                mapping[poi_id] = {"ksic": code, "raw_code": raw_code, "name": name}
+                mapping[poi_id] = {"ksic": code, "raw_code": raw_code, "name": name,
+                                   "classification_resolved": has_resolved_industry(raw_code)}
     if rows != expected["strict_utf8_rows"]:
         raise ValueError("catalog row-count gate failed")
     if duplicate_ids > plan["input_gate"]["catalog_duplicate_merchant_ids_allowed"]:
@@ -208,6 +218,8 @@ def read_catalog(source: Path, needed_pois: set[str], plan: dict) -> tuple[dict,
     return {"path": source.as_posix(), "sha256": digest, "bytes": size,
             "nul_bytes": nul, "strict_utf8_rows": rows,
             "duplicate_merchant_ids": duplicate_ids,
+            "missing_industry_codes": missing_codes,
+            "malformed_industry_codes": malformed_codes,
             "group_catalog_rows": {code: group_counts[code] for code in GROUPS},
             "group_names": {code: sorted(group_names[code]) for code in GROUPS},
             "vintage": expected["vintage"],
@@ -217,7 +229,8 @@ def read_catalog(source: Path, needed_pois: set[str], plan: dict) -> tuple[dict,
 
 
 def group_arm(summary: dict, receipts: list[dict], mapping: dict, plan: dict) -> tuple[dict, dict]:
-    matched = [row for row in receipts if row["poi_id"] in mapping]
+    id_joined = [row for row in receipts if row["poi_id"] in mapping]
+    matched = [row for row in id_joined if mapping[row["poi_id"]]["classification_resolved"]]
     matched_won = sum(row["amount"] for row in matched)
     total_won = summary["positive_receipt_won"]
     count_fraction = len(matched) / len(receipts) if receipts else 0
@@ -236,12 +249,16 @@ def group_arm(summary: dict, receipts: list[dict], mapping: dict, plan: dict) ->
                        "unique_citizens": len({row["aid"] for row in rows}),
                        "unique_pois": len({row["poi_id"] for row in rows})}
     summary.update({"matched_receipts": len(matched), "matched_receipt_won": matched_won,
+                    "id_joined_receipts": len(id_joined),
+                    "unresolved_industry_receipts": len(id_joined) - len(matched),
+                    "unresolved_industry_won": sum(row["amount"] for row in id_joined) - matched_won,
                     "join_count_fraction": count_fraction, "join_won_fraction": won_fraction,
                     "join_gate_pass": join_pass, "ambiguous_join_receipts": 0,
                     "unmatched_receipts": len(receipts) - len(matched),
                     "unmatched_receipt_won": total_won - matched_won,
                     "unmatched_pois": sorted({row["poi_id"] for row in receipts
-                                              if row["poi_id"] not in mapping}),
+                                              if row["poi_id"] not in mapping
+                                              or not mapping[row["poi_id"]]["classification_resolved"]}),
                     "groups": stats})
     return summary, by_citizen
 
