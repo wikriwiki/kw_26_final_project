@@ -100,6 +100,7 @@ def test_geo_proxy_separates_numeric_and_sparse_gates(tmp_path, monkeypatch):
         "positive_receipts": {"on": 40, "off": 40},
         "coordinate_join_rate_receipts": {"on": 1.0, "off": 1.0},
         "ambiguous_receipts_excluded": {"on": 0, "off": 0},
+        "ambiguous_receipt_rate_excluded": {"on": 0.0, "off": 0.0},
         "on": {"관광특구": cell(120), "발달상권": cell(110)},
         "off": {"관광특구": cell(100), "발달상권": cell(100)},
         "on_off_percent_change": {"관광특구": 20.0, "발달상권": 10.0},
@@ -127,6 +128,20 @@ def test_geo_proxy_separates_numeric_and_sparse_gates(tmp_path, monkeypatch):
     blocked, _ = score_ds6_geographic_proxy(proxy, **kwargs)
     assert blocked["simulation"] is None
     assert blocked["geo_proxy_audit"]["match_rate"] == .98
+
+    payload["coordinate_join_rate_receipts"]["off"] = 1.0
+    payload["ambiguous_receipts_excluded"]["off"] = 1
+    payload["ambiguous_receipt_rate_excluded"]["off"] = 1 / 40
+    proxy.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    overlap_blocked, _ = score_ds6_geographic_proxy(proxy, **kwargs)
+    assert overlap_blocked["simulation"] is None  # 1/40 > 1%.
+    assert overlap_blocked["geo_proxy_audit"]["overlap_rate_by_arm"]["off"] == .025
+
+    payload["positive_receipts"]["off"] = 200
+    payload["ambiguous_receipt_rate_excluded"]["off"] = 1 / 200
+    proxy.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    overlap_tolerated, _ = score_ds6_geographic_proxy(proxy, **kwargs)
+    assert overlap_tolerated["simulation"] == pytest.approx(10)  # 1/200 <= 1%.
 
     boundary.write_bytes(b"tampered")
     with pytest.raises(ValueError, match="SHA256"):

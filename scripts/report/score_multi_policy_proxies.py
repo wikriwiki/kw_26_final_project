@@ -44,6 +44,10 @@ DS6_GEO_TYPES = {"tourism_special_zone": "관광특구",
 # separately from the coordinate/denominator conditions needed for a number.
 DS6_MIN_RECEIPTS_PER_CELL = 20
 DS6_MIN_CITIZENS_PER_CELL = 10
+# Amended before DISTANCING outcomes after an unrelated P010 one-day geometry
+# smoke found 2 overlapping receipts among 403 (0.50%). Ambiguous receipts
+# are excluded from *both* hub types; no arbitrary type priority is imposed.
+DS6_MAX_OVERLAP_FRACTION = 0.01
 POLICY_TO_SCORE_KEY = {"P010": "P010", "P012": "P012", "P013": "EMERGENCY_2020",
                        "DISTANCING_2020": "DISTANCING_2020", "P016": "P016",
                        "P014": "LOCAL_VOUCHER"}
@@ -717,6 +721,22 @@ def score_ds6_geographic_proxy(path: Path | None, *, on: Path, off: Path,
     min_rate = min(join_rates.get(arm) if join_rates.get(arm) is not None else -1
                    for arm in ("on", "off"))
     overlap_count = ambiguous["on"] + ambiguous["off"]
+    overlap_rate_by_arm = {
+        arm: ambiguous[arm] / receipt_totals[arm] if receipt_totals[arm] else None
+        for arm in ("on", "off")}
+    reported_overlap_rates = payload.get("ambiguous_receipt_rate_excluded")
+    if not isinstance(reported_overlap_rates, dict):
+        raise ValueError("DS-6 geographic sidecar lacks arm-specific overlap rates")
+    for arm in ("on", "off"):
+        expected_rate = overlap_rate_by_arm[arm]
+        reported_rate = reported_overlap_rates.get(arm)
+        if (expected_rate is None and reported_rate is not None) or (
+            expected_rate is not None and
+            (not isinstance(reported_rate, (int, float))
+             or isinstance(reported_rate, bool)
+             or not math.isclose(reported_rate, expected_rate, abs_tol=1e-12))
+        ):
+            raise ValueError(f"DS-6 {arm} overlap rate differs from receipt counts")
     off_denominators = {key: cells["off", key]["spend_won"] for key in DS6_GEO_TYPES}
     mapped_receipts = sum(round(receipt_totals[arm] * join_rates[arm])
                           for arm in ("on", "off") if join_rates.get(arm) is not None)
@@ -732,6 +752,11 @@ def score_ds6_geographic_proxy(path: Path | None, *, on: Path, off: Path,
         "match_rate": min_rate,
         "match_rate_by_arm": join_rates,
         "overlap_count": overlap_count,
+        "overlap_count_by_arm": ambiguous,
+        "overlap_rate_by_arm": overlap_rate_by_arm,
+        "total_receipt_count_by_arm": receipt_totals,
+        "maximum_overlap_rate_allowed": DS6_MAX_OVERLAP_FRACTION,
+        "overlap_rule": "Exclude ambiguous receipts from both hub types; no category priority",
         "off_denominator_won_by_type": off_denominators,
         "mapped_receipt_count": mapped_receipts,
         "total_receipt_count": total_receipts,
@@ -747,8 +772,9 @@ def score_ds6_geographic_proxy(path: Path | None, *, on: Path, off: Path,
     technical_failures = []
     if min_rate < 0.99:
         technical_failures.append("positive-receipt coordinate join below 99%")
-    if overlap_count:
-        technical_failures.append("receipts assigned to overlapping hub types")
+    if any(rate is None or rate > DS6_MAX_OVERLAP_FRACTION
+           for rate in overlap_rate_by_arm.values()):
+        technical_failures.append("ambiguous receipts exceed 1% in at least one arm")
     if any(amount <= 0 for amount in off_denominators.values()):
         technical_failures.append("zero OFF won denominator in a hub type")
     if technical_failures:
