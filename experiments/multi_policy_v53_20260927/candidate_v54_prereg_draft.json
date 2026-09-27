@@ -22,11 +22,15 @@
   "thinking": false,
   "baseline": "Fresh v53 calls on the same frozen 96 contexts and same seed, interleaved with v54 candidate if a GPU window is available. Historical v53 calls alone are a contextual reference, not a new matched control.",
   "run_size_if_started": 192,
-  "primary_technical_gate": "Each first raw output is checked without repair against the frozen v3 JSON/time/anchor/category/zone contract; candidate must pass at least 92/96, have zero request failures and zero false fiscal OFF policy-attribution screening flags, and not have more paired raw failures than fresh v53.",
+  "primary_technical_gate": "A: each first raw output is checked without repair against the frozen v3 JSON/time/anchor/category/zone contract; candidate must pass at least 92/96, have zero request failures and zero false fiscal OFF policy-attribution screening flags, and have no more paired v3 failures than fresh v53.",
+  "co_primary_full_structural_gate": "B: on those same 96 first raw outputs, require the v3 contract plus at most ten weekday/eight weekend events, exactly events and daily_propensity top-level fields, and no workplace anchor for a persona lacking a workplace. Candidate must pass at least 92/96 and have no more paired full-structural failures than fresh v53. A and B both must pass; 92/96 is 95.83%. This structural gate is not a policy-effect claim.",
+  "co_primary_thresholds": {"old_v3_min_pass": 92, "full_structural_min_pass": 92, "max_request_failures": 0, "max_fiscal_off_screen_flags": 0, "max_excess_paired_failures_vs_v53": 0},
+  "historical_contract_discrepancy": "In the earlier unchanged-v53 decoding screen, plain text at temperature 0 passed old v3 raw checks 96/96, yet 83/96 exceeded the prompt's ten-event cap; full schedule checks passed only 13/96. At temperature 0.7 the prior plain-text v53 screen had 82/96 old-v3 passes and 69/96 over the event cap. These historical runs are context, not the fresh matched v53 control.",
   "secondary_diagnostics": [
     "Same-context discordant passes and failures",
     "Start/end residence, chronological order and twenty-minute spacing errors separately",
-    "More than ten events despite example contract",
+    "More than ten events despite example contract, reported separately from old-v3 validity",
+    "Weekday workplace minutes 09:00-18:00 for personas with a workplace; a separate diagnostic, not silently added to the frozen v3 or B denominator",
     "Output length, tokens and latency",
     "Stage1 policy-trigger rate shown as a diagnostic, not rewarded for increasing"
   ],
