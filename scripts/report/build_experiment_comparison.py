@@ -395,9 +395,28 @@ def _missing_simulation_explanation(row: dict) -> str:
     """Explain a missing simulation numerator in plain Korean where evidence permits."""
     reason = row.get("reason") or ""
     if row["id"] == "DS-6":
+        geo = row.get("geographic_failure_display_audit")
+        if geo:
+            on, off = geo["on"], geo["off"]
+            return (
+                "실측은 2020년 카드패널에서 관광특구 매출 변화 −8.7%, 발달상권 −4.4%의 "
+                "차이 −4.3%p입니다. 시뮬에는 2019년 비교 매출과 같은 가맹점 표본이 없어 "
+                "동일한 전년 대비 수치를 만들 수 없습니다. 별도 2023년 상권 경계를 "
+                "2026년 POI에 씌운 탐색 대리값도 사전 기술 관문에 실패했습니다: "
+                f"경계 중첩 제외 비율 ON {100 * on['overlap_rate']:.2f}% "
+                f"({on['overlap_count']}/{on['positive_receipts']}건), "
+                f"OFF {100 * off['overlap_rate']:.2f}% "
+                f"({off['overlap_count']}/{off['positive_receipts']}건)으로 "
+                "각 팔 1% 상한을 넘었습니다. 관광특구 양수 구매도 "
+                f"ON {on['tourism_receipts']}건/{on['tourism_citizens']}명·"
+                f"{on['tourism_won']:,}원, "
+                f"OFF {off['tourism_receipts']}건/{off['tourism_citizens']}명·"
+                f"{off['tourism_won']:,}원뿐입니다. 기술적 계산값은 검증 가능한 "
+                "시뮬 수치로 채택하지 않아 실측과 방향·크기를 비교하지 않습니다."
+            )
         return ("시뮬 원장에는 2020년 관광특구·발달상권 공식 구분과 2019년 비교 매출이 "
                 "없어, 실측과 같은 상권별 전년 대비 변화율의 분자·분모를 만들 수 없습니다. "
-                "2023년 경계를 쓴 별도 값은 아래 탐색 참고값으로만 표시합니다.")
+                "2023년 경계 탐색값도 사전 기술 관문을 통과했을 때만 별도 표시합니다.")
     if row["id"] in ("C2", "C3") and "outside the mart parent" in reason:
         return ("대상 업종 POI 일부가 원장의 '마트' 상위 분류 밖에 있어, 같은 마트 안의 "
                 "대상 상품 매출을 분자로 놓을 수 없습니다. 잘못된 분모로 비율을 만들지 않았습니다.")
@@ -921,6 +940,71 @@ def apply_p012_sector_display_audit(report: dict, path: Path) -> dict:
                        if item is row else item for item in report["rows"]]
     updated["post_run_display_audits"] = [
         *report.get("post_run_display_audits", []), evidence_note]
+    return updated
+
+
+def apply_distancing_geo_failure_display_audit(report: dict, path: Path) -> dict:
+    """Explain a rejected 2023 geographic proxy without promoting its raw value."""
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "DISTANCING_2020"), None)
+    row = next((item for item in report.get("rows", [])
+                if item["policy"] == "DISTANCING_2020" and item["id"] == "DS-6"), None)
+    proxy = next((item for item in report.get("exploratory_simulations", [])
+                  if item["policy"] == "DISTANCING_2020"
+                  and item["id"] == "DS6-2023-GEO-PROXY"), None)
+    if (not run or not row or not proxy or row.get("simulation") is not None
+            or proxy.get("simulation") is not None):
+        raise ValueError("DIST geographic failure display needs a rejected paired geo proxy")
+    evidence = {item["path"]: item["sha256"] for item in run["evidence"]}
+    source = _display_path(path)
+    if (evidence.get(source) != _sha(path)
+            or Path(source).name != "distancing_geo_proxy_20260928.json"):
+        raise ValueError("DIST geographic sidecar is not verified by the frozen score")
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    geo = proxy.get("geo_proxy_audit") or {}
+    receipt_counts = audit.get("positive_receipts") or {}
+    overlaps = audit.get("ambiguous_receipts_excluded") or {}
+    rates = audit.get("ambiguous_receipt_rate_excluded") or {}
+    arms = {}
+    for arm in ("on", "off"):
+        cell = (audit.get(arm) or {}).get("관광특구") or {}
+        count, ambiguous, rate = (receipt_counts.get(arm), overlaps.get(arm),
+                                  rates.get(arm))
+        if (not isinstance(count, int) or isinstance(count, bool) or count <= 0
+                or not isinstance(ambiguous, int) or isinstance(ambiguous, bool)
+                or not 0 <= ambiguous <= count or not _number(rate)
+                or abs(rate - ambiguous / count) > 1e-12
+                or not all(isinstance(cell.get(key), int)
+                           and not isinstance(cell[key], bool) and cell[key] >= 0
+                           for key in ("positive_receipts", "citizens_with_receipts", "spend_won"))):
+            raise ValueError("DIST geographic sidecar has invalid receipt or tourism cells")
+        if (geo.get("overlap_count_by_arm", {}).get(arm) != ambiguous
+                or geo.get("total_receipt_count_by_arm", {}).get(arm) != count
+                or not _number(geo.get("overlap_rate_by_arm", {}).get(arm))
+                or abs(geo["overlap_rate_by_arm"][arm] - rate) > 1e-12):
+            raise ValueError("DIST geographic sidecar differs from scored geo audit")
+        arms[arm] = {"positive_receipts": count, "overlap_count": ambiguous,
+                     "overlap_rate": rate,
+                     "tourism_receipts": cell["positive_receipts"],
+                     "tourism_citizens": cell["citizens_with_receipts"],
+                     "tourism_won": cell["spend_won"]}
+    source_hashes = audit.get("sources_sha256") or {}
+    official_boundary = [digest for source_path, digest in source_hashes.items()
+                         if Path(source_path).name.endswith("2023-10-23.zip")]
+    if (geo.get("maximum_overlap_rate_allowed") != 0.01
+            or not any(item["overlap_rate"] > 0.01 for item in arms.values())
+            or geo.get("source_year") != 2023
+            or official_boundary != [geo.get("source_boundary_sha256")]
+            or (geo.get("off_denominator_won_by_type") or {}).get(
+                "tourism_special_zone") != arms["off"]["tourism_won"]):
+        raise ValueError("DIST geographic sidecar does not substantiate a 1% gate failure")
+    display = {**arms, "path": source, "sha256": evidence[source],
+               "status": "post_run_display_erratum_not_rescoring"}
+    updated = dict(report)
+    updated["rows"] = [{**item, "geographic_failure_display_audit": display}
+                       if item is row else item for item in report["rows"]]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []), {"path": source, "sha256": evidence[source]}]
     return updated
 
 
@@ -2063,6 +2147,7 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              p010_concentration_audit: Path | None = None,
              p012_sector_audit: Path | None = None,
              distancing_input_audit: Path | None = None,
+             distancing_geo_failure_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -2082,6 +2167,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--p012-sector-audit requires --multi-policy-pairs")
     if distancing_input_audit and not multi_paths:
         raise ValueError("--distancing-input-audit requires --multi-policy-pairs")
+    if distancing_geo_failure_audit and not multi_paths:
+        raise ValueError("--distancing-geo-failure-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -2100,7 +2187,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([p010_channel_audit] if p010_channel_audit else []),
                                                            *([p010_concentration_audit] if p010_concentration_audit else []),
                                                            *([p012_sector_audit] if p012_sector_audit else []),
-                                                           *([distancing_input_audit] if distancing_input_audit else [])]):
+                                                           *([distancing_input_audit] if distancing_input_audit else []),
+                                                           *([distancing_geo_failure_audit]
+                                                             if distancing_geo_failure_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -2114,6 +2203,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
             report = apply_p012_sector_display_audit(report, p012_sector_audit)
         if distancing_input_audit:
             report = apply_distancing_input_display_audit(report, distancing_input_audit)
+        if distancing_geo_failure_audit:
+            report = apply_distancing_geo_failure_display_audit(
+                report, distancing_geo_failure_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -2165,6 +2257,8 @@ def main() -> int:
                     help="optional SHA-checked post-run P012 sector denominator disclosure; never rescores")
     ap.add_argument("--distancing-input-audit", type=Path,
                     help="optional SHA-checked static ON/OFF distancing-regime render audit")
+    ap.add_argument("--distancing-geo-failure-audit", type=Path,
+                    help="optional score-bound 2023 geography gate-failure disclosure; never rescores")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -2188,6 +2282,7 @@ def main() -> int:
                                          p010_concentration_audit=a.p010_concentration_audit,
                                          p012_sector_audit=a.p012_sector_audit,
                                          distancing_input_audit=a.distancing_input_audit,
+                                         distancing_geo_failure_audit=a.distancing_geo_failure_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))

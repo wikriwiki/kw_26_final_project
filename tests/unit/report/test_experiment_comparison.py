@@ -331,6 +331,51 @@ def test_missing_simulation_explanations_identify_absent_denominator():
         "reason": "Monthly cashback payout State is absent from this transaction ledger."})
 
 
+def test_distancing_geo_failure_discloses_counts_without_promoting_proxy(tmp_path):
+    sidecar = tmp_path / "distancing_geo_proxy_20260928.json"
+    payload = {
+        "sources_sha256": {"official-2023-10-23.zip": "a" * 64},
+        "positive_receipts": {"on": 448, "off": 477},
+        "ambiguous_receipts_excluded": {"on": 22, "off": 23},
+        "ambiguous_receipt_rate_excluded": {"on": 22 / 448, "off": 23 / 477},
+        "on": {"관광특구": {"positive_receipts": 1,
+                           "citizens_with_receipts": 1, "spend_won": 1833}},
+        "off": {"관광특구": {"positive_receipts": 2,
+                            "citizens_with_receipts": 1, "spend_won": 3537}},
+    }
+    sidecar.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    source = report._display_path(sidecar)
+    digest = hashlib.sha256(sidecar.read_bytes()).hexdigest()
+    geo = {"overlap_count_by_arm": payload["ambiguous_receipts_excluded"],
+           "total_receipt_count_by_arm": payload["positive_receipts"],
+           "overlap_rate_by_arm": payload["ambiguous_receipt_rate_excluded"],
+           "maximum_overlap_rate_allowed": 0.01,
+           "source_year": 2023, "source_boundary_sha256": "a" * 64,
+           "off_denominator_won_by_type": {"tourism_special_zone": 3537}}
+    original = {
+        "run_evidence": [{"policy": "DISTANCING_2020",
+                          "evidence": [{"path": source, "sha256": digest}]}],
+        "exploratory_simulations": [{"policy": "DISTANCING_2020",
+                                     "id": "DS6-2023-GEO-PROXY",
+                                     "simulation": None, "geo_proxy_audit": geo}],
+        "rows": [{"policy": "DISTANCING_2020", "id": "DS-6",
+                  "simulation": None, "reason": "no comparable 2020 panel",
+                  "status": "시뮬 수치 없음"}],
+    }
+    updated = report.apply_distancing_geo_failure_display_audit(original, sidecar)
+    explanation = report._missing_simulation_explanation(updated["rows"][0])
+    assert "실측은 2020년 카드패널" in explanation
+    assert "ON 4.91% (22/448건), OFF 4.82% (23/477건)" in explanation
+    assert "ON 1건/1명·1,833원, OFF 2건/1명·3,537원" in explanation
+    assert "−48.58" not in explanation
+    assert updated["rows"][0]["simulation"] is None
+    assert updated["post_run_display_audits"][0]["sha256"] == digest
+    payload["ambiguous_receipts_excluded"]["on"] = 21
+    sidecar.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="frozen score"):
+        report.apply_distancing_geo_failure_display_audit(original, sidecar)
+
+
 def test_policy_card_separates_first_attempt_quality_from_recovered_ledger():
     arm = {"citizen_days": 80, "stage1_final_ok_count": 80,
            "stage1_first_attempt_internal_validation_pass_count": 60,

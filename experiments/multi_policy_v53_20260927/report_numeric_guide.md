@@ -29,14 +29,15 @@ ON/OFF 균형 관문이 실패하거나 사전등록되지 않았으면 인과�
 ```powershell
 py -3 scripts/report/build_experiment_comparison.py `
   --multi-policy-pairs output/p013_v53_pilot_20260927/multi_policy_numeric_v1.json `
-  --multi-policy-pairs output/<p010-run>/multi_policy_numeric_v1.json `
-  --multi-policy-pairs output/<distancing-run>/multi_policy_numeric_v1.json `
+  --multi-policy-pairs output/multi_policy_v53_20260928/p010/numeric.json `
+  --multi-policy-pairs output/multi_policy_v53_20260928/p012/numeric.json `
+  --multi-policy-pairs output/multi_policy_v53_20260928/distancing/numeric.json `
   --p010-funding-audit output/multi_policy_v53_20260928/p010/funded_by_sub_audit.json `
   --p010-channel-audit output/recovery_20260928/multipolicy_v53/p010/p010_channel_gap_audit.json `
   --p010-concentration-audit output/recovery_20260928/multipolicy_v53/p010/p010_citizen_gap_concentration_audit.json `
   --p012-sector-audit output/multi_policy_v53_20260928/p012/sector_denominator_display_audit.json `
   --distancing-input-audit experiments/multi_policy_v53_20260927/distancing_render_audit_20260928.json `
-  --in-progress-policy P012 `
+  --distancing-geo-failure-audit output/recovery_20260928/multipolicy_v53/distancing_geo_proxy_20260928.json `
   --experiment multi_policy_v53_20260928 `
   --out output/report/experiments/multi_policy_v53_20260928.html
 ```
@@ -125,6 +126,17 @@ DS-6의 정식 시뮬 값은 이번 실험에서도 `null`입니다. 2020 서울
 (0.50%)을 발견한 데 따른 사전 방법 수정입니다. 결합·분모가
 통과하더라도 관측이 희소하면 숫자는 기술값만 보이고 방향·크기 의미
 판정은 금지합니다. 경계 ZIP SHA와 상권별 두 원수치를 카드에 보존합니다.
+
+실제 DIST 지리 sidecar(SHA256
+`2F14708FEA245C9244B12949E3A5B99DF44A45163441B6C826DA4537FB57CDBA`)
+에서는 좌표 결합률이 100%였지만 경계 중첩 제외율이 ON 22/448
+(4.91%), OFF 23/477(4.82%)로 사전 1% 관문을 넘었습니다. 관광특구
+양수 구매도 ON 1건/1명·1,833원, OFF 2건/1명·3,537원입니다. 이에
+별도 지리 탐색값 역시 `null`로 두고, HTML의 DS-6 실측 −4.3%p 옆
+미산출 사유에만 이 품질 근거를 표시합니다. 원시 기술 계산값
+−48.58%p는 실측과 방향·크기 비교에 쓰지 않습니다. 이는 채점
+산식을 바꾼 것이 아닌 결과 후 표시상 정오표입니다. sidecar 파일 SHA는
+DIST 점수의 `evidence[]`와 일치할 때만 빌더가 수치를 보여 줍니다.
 
 거리두기 ON/OFF의 동결 입력 정적 렌더 감사
 `distancing_render_audit_20260928.json`(SHA256
