@@ -493,7 +493,10 @@ def _surface_comparison(row: dict) -> dict | None:
     # that difference to a single percentage does not produce a percentage-
     # point difference between the two sector growth rates.
     if (row.get("gap") is not None or row.get("id") == "P012-5"
-            or row.get("binomial_zero_count_audit")):
+            or row.get("binomial_zero_count_audit")
+            or row.get("structural_zero_display_audit")
+            or ((row.get("run_context") or {}).get("preperiod_balance") or {}).get(
+                "status") == "fail"):
         return None
     truth, sim = row["truth"], row["simulation"]
     truth_unit, sim_unit = row["truth_unit"], row["simulation_unit"]
@@ -1109,6 +1112,65 @@ def apply_p016_postfix_display_audit(report: dict, path: Path) -> dict:
     return updated
 
 
+def apply_p016_taxonomy_display_audit(report: dict, path: Path) -> dict:
+    """Flag C2/C3 zeroes caused by equality of two POI taxonomy buckets."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("schema") != "p016_taxonomy_identity_display_audit_v1"
+            or audit.get("policy") != "P016"
+            or audit.get("indicators") != ["C2", "C3"]
+            or audit.get("target_poi_subclasses") != ["청과", "정육", "슈퍼마켓", "식료품"]
+            or audit.get("mart_l1_category") != "마트"
+            or audit.get("structural_identity_all_rows") is not True):
+        raise ValueError("invalid P016 taxonomy identity audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "P016"), None)
+    if not run or not any(
+        item["path"] == audit.get("numeric_path")
+        and item["sha256"] == audit.get("numeric_sha256")
+        for item in report.get("score_files", [])
+    ):
+        raise ValueError("P016 taxonomy audit does not match frozen numeric score")
+    evidence = {item["path"]: item["sha256"] for item in run["evidence"]}
+    for arm in ("on", "off"):
+        item = audit.get(arm) or {}
+        total, effect = item.get("citizen_days_all"), item.get("citizen_days_effect")
+        if (evidence.get(item.get("sector_ledger_path")) != item.get("sector_ledger_sha256")
+                or not all(isinstance(value, int) and not isinstance(value, bool)
+                           for value in (total, effect, item.get("identity_count_all"),
+                                         item.get("identity_count_effect"),
+                                         item.get("effect_target_poi_won"),
+                                         item.get("effect_mart_l1_won")))
+                or total <= 0 or effect <= 0 or effect > total
+                or item["identity_count_all"] != total
+                or item["identity_count_effect"] != effect
+                or item["effect_target_poi_won"] != item["effect_mart_l1_won"]):
+            raise ValueError("P016 taxonomy identity is not bound to scored ledgers")
+    marked = []
+    for indicator in ("C2", "C3"):
+        row = next((item for item in report["rows"]
+                    if item["policy"] == "P016" and item["id"] == indicator), None)
+        if (not row or row.get("simulation") != 0
+                or row.get("ci") != [0, 0]
+                or audit.get(f"score_{indicator.lower()}_percentage_points") != 0):
+            raise ValueError("P016 structural zero differs from frozen score")
+        marked.append(row)
+    displayed = {"on": audit["on"], "off": audit["off"],
+                 "path": _display_path(path), "sha256": _sha(path),
+                 "meaning": "taxonomy_identity_not_policy_nonresponse"}
+    updated = dict(report)
+    updated["rows"] = [
+        {**item,
+         **({"structural_zero_display_audit": displayed}
+            if any(item is chosen for chosen in marked) else {}),
+         "run_context": {**item["run_context"], "p016_taxonomy_display_audit": displayed}}
+        if item["policy"] == "P016" and item.get("run_context") else item
+        for item in report["rows"]]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []),
+        {"path": displayed["path"], "sha256": displayed["sha256"]}]
+    return updated
+
+
 def apply_distancing_input_display_audit(report: dict, path: Path) -> dict:
     """Disclose the dated ON/OFF regime, keeping its internal ID distinct from 2021."""
     audit = json.loads(path.read_text(encoding="utf-8"))
@@ -1495,6 +1557,9 @@ def _track(row):
 def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
     body = []
     included = [item for item in coverage if item["empirical_numeric_count"]]
+    exploratory_only = [item for item in coverage
+                        if not item["empirical_numeric_count"]
+                        and item.get("exploratory_numeric_count", 0)]
     excluded_indicators = sum(item["unmeasured_count"] for item in coverage)
     for item in included:
         missing = item["missing_simulation_reasons"]
@@ -1522,6 +1587,17 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
             f'<td>{_esc(action)}{details}</td>'
             '</tr>'
         )
+    exploratory_note = ''
+    if exploratory_only:
+        labels = ', '.join(f'{_esc(item["policy_name"])} '
+                           f'{item["exploratory_numeric_count"]}쌍'
+                           for item in exploratory_only)
+        exploratory_note = (
+            '<p class="balance"><strong>주지표 밖 탐색 숫자가 있는 정책:</strong> '
+            f'{labels}. 등록 검증지표의 실측 숫자는 없어서 주 비교표에는 '
+            '넣지 않았습니다. 아래 별도 탐색 카드에서 실측·시뮬 값을 '
+            '나란히 보되 효과 오차로 채점하지 않습니다.</p>'
+        )
     return ('<section class="note"><h2>실측 수치가 있는 정책의 숫자 확보 현황</h2>'
             '<p>비교 행에는 실측과 이번 실험의 시뮬 수치가 모두 있는 지표만 표시합니다. '
             f'등록 지표 중 실측 숫자가 없는 {excluded_indicators}개는 HTML의 '
@@ -1532,11 +1608,13 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
             '측정 정의까지 일치한다는 뜻은 아닙니다.</p>'
             '<div class="coverage-scroll"><table class="coverage"><thead><tr>'
             '<th>정책</th><th>시뮬 시민</th><th>실측 수치</th><th>시뮬 수치</th><th>나란히 표시</th><th>남은 작업</th>'
-            '</tr></thead><tbody>' + ''.join(body) + '</tbody></table></div></section>')
+            '</tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>'
+            + exploratory_note + '</section>')
 
 
 def _exploratory_html(pairs: list[dict]) -> str:
-    cards = []
+    cards_by_policy: dict[str, list[str]] = {}
+    policy_names = {}
     for row in pairs:
         truth_unit = row.get("truth_unit")
         sim_unit = row.get("simulation_unit")
@@ -1604,7 +1682,8 @@ def _exploratory_html(pairs: list[dict]) -> str:
                     )
         if row["policy"] == "DISTANCING_2020":
             denominator_html = _geo_proxy_exploratory_html(row)
-        cards.append('<div class="row">'
+        policy_names[row["policy"]] = row["policy_name"]
+        cards_by_policy.setdefault(row["policy"], []).append('<div class="row">'
                      f'<div class="meta"><span class="id">{_esc(row["id"])}</span>'
                      f'<span class="desc">{_esc(row["policy_name"])} · '
                      f'{_esc(EXPLORATORY_NAMES.get(row["id"], row["id"]))}</span></div>'
@@ -1617,10 +1696,16 @@ def _exploratory_html(pairs: list[dict]) -> str:
                         f' · {_esc(row.get("source_locator"))}</p>' if row.get("source") else '')
                      + _technical_details(row)
                      + '</div>')
+    grouped = ''.join(
+        '<div class="exploratory-group">'
+        f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>'
+        '<div class="rows">' + ''.join(cards) + '</div></div>'
+        for policy, cards in cards_by_policy.items()
+    )
     return ('<section class="pol"><h2>등록 38개 지표 밖의 탐색 참고값</h2>'
             '<p class="runline">실측과 시뮬 수치는 있지만 정책 효과 채점표의 검증지표가 아닙니다. '
             '표본·기간·추정량이 달라 외부 효과 오차 또는 적중률에 포함하지 않습니다.</p>'
-            '<div class="rows">' + ''.join(cards) + '</div></section>')
+            + grouped + '</section>')
 
 
 def _geo_proxy_exploratory_html(row: dict) -> str:
@@ -2015,9 +2100,27 @@ def _run_context_html(context: dict | None) -> str:
                       f'회계 엔진 SHA256 {_esc(p016["patch_sha256"])}; '
                       f'실패 arm 스냅샷 SHA256 '
                       f'{_esc(p016["failed_snapshot_sha256"])}</p>')
+    taxonomy = context.get("p016_taxonomy_display_audit")
+    taxonomy_html = ''
+    if isinstance(taxonomy, dict):
+        on, off = taxonomy["on"], taxonomy["off"]
+        taxonomy_html = (
+            '<p class="balance"><strong>P016 C2·C3의 시뮬 0%p는 구조적 0:</strong> '
+            f'양팔 {on["citizen_days_all"]}+{off["citizen_days_all"]} 시민×일 전부에서 '
+            '청과·정육·슈퍼마켓·식료품 POI 지출 합이 마트 상위 분류 지출과 '
+            '항상 같습니다. 시행기간에도 ON '
+            f'{on["effect_target_poi_won"]:,}원, OFF '
+            f'{off["effect_target_poi_won"]:,}원으로 분자와 분모가 각 팔에서 '
+            '동일합니다. 따라서 두 proxy의 0은 분류 항등식의 결과이며 '
+            '농축산물 상품 매출의 무반응, 실측의 0, 실측과의 불일치를 '
+            '검증한 숫자가 아닙니다. C2·C3의 산술 차이와 방향 판정을 생략합니다.</p>'
+        )
+        detail.append('<p><strong>P016 분류 항등식 감사:</strong> '
+                      f'{_esc(taxonomy["path"])} '
+                      f'SHA256 {_esc(taxonomy["sha256"])}</p>')
     return ('<p class="contextline">' + ' · '.join(pieces) + '</p>'
             + quality_html + balance_html + diagnostic_html + channel_html
-            + concentration_html + regime_html + p016_html
+            + concentration_html + regime_html + p016_html + taxonomy_html
             + ('<details class="technical"><summary>정책·환경·프롬프트 지문 보기</summary>'
                + ''.join(detail) + '</details>' if detail else ''))
 
@@ -2049,6 +2152,11 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                     f'<span class="sim">시뮬 {_esc(sim)}</span>']
             if r["gap"] is not None:
                 nums.append(f'<span class="gap">시뮬−실측 {_esc(_fmt(r["gap"], r["gap_unit"]))}</span>')
+            elif numeric_only and r.get("structural_zero_display_audit"):
+                nums.append('<span class="memo">분류 항등식 0: 산술 차이·방향 판정 생략</span>')
+            elif (numeric_only and ((r.get("run_context") or {}).get(
+                    "preperiod_balance") or {}).get("status") == "fail"):
+                nums.append('<span class="memo">시행 전 균형 실패: 크기·방향 적중 판정 보류</span>')
             elif numeric_only and r.get("binomial_zero_count_audit"):
                 nums.append('<span class="memo">0건·소표본: 산술 차이 생략</span>')
             elif numeric_only and r.get("surface_comparison"):
@@ -2066,6 +2174,9 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                             f'독립 이항 표본 가정의 양측 95% 상한 '
                             f'{zero_cap["two_sided_95_upper_pct"]:.2f}%'
                             '</span>')
+            elif r.get("structural_zero_display_audit"):
+                nums.append('<span class="smalln">재표집 [0, 0]은 같은 분류 항등식을 '
+                            '반복한 값으로 효과 불확실성 구간이 아닙니다.</span>')
             elif r["ci"]:
                 ci_label = ("시뮬 시민 재표집 95% 구간(모델·외부 표본 불확실성 미포함)"
                             if numeric_only else "95% 구간")
@@ -2077,7 +2188,8 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                             f'n={_esc(r["n"])}</span>')
             if numeric_only and r.get("sample_citizens") and r["sample_citizens"] <= 12:
                 nums.append('<span class="smalln">표본 12명 이하: 방향·크기 매우 불확실</span>')
-            if numeric_only and r.get("ci") and r["ci"][0] <= 0 <= r["ci"][1]:
+            if (numeric_only and r.get("ci") and not r.get("structural_zero_display_audit")
+                    and r["ci"][0] <= 0 <= r["ci"][1]):
                 nums.append('<span class="smalln">시뮬 방향 불확실: 재표집 구간에 0 포함</span>')
             if (r["simulation_unit"] == "%" and _number(r["raw_base"])
                     and _number(r["raw_mean"])
@@ -2123,6 +2235,11 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                             '시뮬은 10월 말 발생추정(익월 실제 지급 관측 아님)이므로 '
                             '이 상한에 실측이 들어온다고 해서 정책 효과 검증이 된 것은 '
                             '아닙니다.</p>' if r.get("binomial_zero_count_audit") else '')
+                         + ('<p class="balance">이 지표의 시뮬 0%p는 대상 POI 네 업종 합이 '
+                            '마트 상위 분류 전체와 같은 원장 구조 때문에 자동으로 나온 값입니다. '
+                            '실측은 같은 마트 안의 농축산물 상품 매출을 따로 측정했으므로 '
+                            '이 0%p를 정책 무반응이나 실측 효과와의 차이로 읽을 수 없습니다.</p>'
+                            if r.get("structural_zero_display_audit") else '')
                          + (f'<p class="reason">탐색적 차이는 표시된 두 숫자의 산술 차이일 뿐 '
                             f'정책 효과 오차나 프롬프트 적중률이 아닙니다. '
                             f'{_esc(r["surface_comparison"].get("conversion") or "")}'
@@ -2271,6 +2388,7 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              distancing_input_audit: Path | None = None,
              distancing_geo_failure_audit: Path | None = None,
              p016_postfix_audit: Path | None = None,
+             p016_taxonomy_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -2294,6 +2412,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--distancing-geo-failure-audit requires --multi-policy-pairs")
     if p016_postfix_audit and not multi_paths:
         raise ValueError("--p016-postfix-audit requires --multi-policy-pairs")
+    if p016_taxonomy_audit and not multi_paths:
+        raise ValueError("--p016-taxonomy-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -2316,7 +2436,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([distancing_geo_failure_audit]
                                                              if distancing_geo_failure_audit else []),
                                                            *([p016_postfix_audit]
-                                                             if p016_postfix_audit else [])]):
+                                                             if p016_postfix_audit else []),
+                                                           *([p016_taxonomy_audit]
+                                                             if p016_taxonomy_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -2335,6 +2457,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                 report, distancing_geo_failure_audit)
         if p016_postfix_audit:
             report = apply_p016_postfix_display_audit(report, p016_postfix_audit)
+        if p016_taxonomy_audit:
+            report = apply_p016_taxonomy_display_audit(report, p016_taxonomy_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -2390,6 +2514,8 @@ def main() -> int:
                     help="optional score-bound 2023 geography gate-failure disclosure; never rescores")
     ap.add_argument("--p016-postfix-audit", type=Path,
                     help="optional score-bound P016 patched-arm and excluded-run provenance")
+    ap.add_argument("--p016-taxonomy-audit", type=Path,
+                    help="optional score-bound P016 C2/C3 structural-zero disclosure")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -2415,6 +2541,7 @@ def main() -> int:
                                          distancing_input_audit=a.distancing_input_audit,
                                          distancing_geo_failure_audit=a.distancing_geo_failure_audit,
                                          p016_postfix_audit=a.p016_postfix_audit,
+                                         p016_taxonomy_audit=a.p016_taxonomy_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))

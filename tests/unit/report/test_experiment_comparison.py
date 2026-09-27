@@ -303,6 +303,24 @@ def test_coverage_omits_policies_and_rows_without_numeric_truth_from_html():
     assert "등록되지 않은 정책 파일 2개" in markup
 
 
+def test_p014_exploratory_only_policy_is_discoverable_without_fake_primary_pair():
+    coverage = [
+        {"policy": "P010", "policy_name": "쿠폰", "empirical_numeric_count": 1,
+         "simulation_numeric_count": 1, "paired_numeric_count": 1,
+         "sample_citizens": 80, "exploratory_numeric_count": 6,
+         "unmeasured_count": 0, "missing_simulation_reasons": []},
+        {"policy": "P014", "policy_name": "지역사랑상품권 P014",
+         "empirical_numeric_count": 0, "simulation_numeric_count": 0,
+         "paired_numeric_count": 0, "sample_citizens": 40,
+         "exploratory_numeric_count": 2, "unmeasured_count": 3,
+         "missing_simulation_reasons": []},
+    ]
+    markup = report._coverage_html(coverage)
+    assert "지역사랑상품권 P014 2쌍" in markup
+    assert "주지표 밖 탐색 숫자가 있는 정책" in markup
+    assert "<th scope=\"row\">지역사랑상품권 P014</th>" not in markup
+
+
 def test_in_progress_policy_shows_progress_without_blank_number_or_unfinished_details():
     coverage = [{"policy": "P012", "policy_name": "상생소비지원금 P012",
                  "empirical_numeric_count": 5, "simulation_numeric_count": 0,
@@ -461,6 +479,54 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
     assert "지역·연도별 업종 매출 회귀계수" in markup
     assert "정식 효과 점수로 쓰지 않습니다" in markup
     assert "시뮬−실측" not in markup
+
+
+def test_p016_taxonomy_identity_suppresses_false_zero_gap(tmp_path):
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{"runs": []}', encoding="utf-8")
+    arms, evidence = {}, []
+    for arm in ("on", "off"):
+        ledger = tmp_path / arm / arm / "sector.ledger.jsonl"
+        ledger.parent.mkdir(parents=True)
+        ledger.write_text('{}\n', encoding="utf-8")
+        digest = hashlib.sha256(ledger.read_bytes()).hexdigest()
+        evidence.append({"path": report._display_path(ledger), "sha256": digest})
+        arms[arm] = {"sector_ledger_path": report._display_path(ledger),
+                     "sector_ledger_sha256": digest, "citizen_days_all": 200,
+                     "identity_count_all": 200, "citizen_days_effect": 120,
+                     "identity_count_effect": 120,
+                     "effect_target_poi_won": 968643 if arm == "on" else 626734,
+                     "effect_mart_l1_won": 968643 if arm == "on" else 626734}
+    audit = {"schema": "p016_taxonomy_identity_display_audit_v1",
+             "policy": "P016", "indicators": ["C2", "C3"],
+             "target_poi_subclasses": ["청과", "정육", "슈퍼마켓", "식료품"],
+             "mart_l1_category": "마트", "structural_identity_all_rows": True,
+             "numeric_path": report._display_path(numeric),
+             "numeric_sha256": hashlib.sha256(numeric.read_bytes()).hexdigest(),
+             "score_c2_percentage_points": 0.0, "score_c3_percentage_points": 0.0,
+             **arms}
+    sidecar = tmp_path / "taxonomy_identity_audit.json"
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    context = {"policy_id": "P016", "generic_prompt_sha256": "a" * 64,
+               "preperiod_balance": {"status": "fail",
+                                     "post_effect_causal_interpretation_blocked": True}}
+    rows = [{"policy": "P016", "id": key, "simulation": 0.0,
+             "ci": [0.0, 0.0], "truth": 7.0 if key == "C2" else 1.9,
+             "truth_unit": "%p", "simulation_unit": "%p", "gap": None,
+             "run_context": context} for key in ("C2", "C3")]
+    original = {"score_files": [{"path": report._display_path(numeric),
+                                  "sha256": audit["numeric_sha256"]}],
+                "run_evidence": [{"policy": "P016", "evidence": evidence}],
+                "rows": rows}
+    updated = report.apply_p016_taxonomy_display_audit(original, sidecar)
+    assert all(row["structural_zero_display_audit"]["meaning"] ==
+               "taxonomy_identity_not_policy_nonresponse" for row in updated["rows"])
+    assert all(report._surface_comparison(row) is None for row in updated["rows"])
+    assert "분류 항등식" in report._run_context_html(updated["rows"][0]["run_context"])
+    audit["on"]["identity_count_all"] = 199
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="not bound to scored ledgers"):
+        report.apply_p016_taxonomy_display_audit(original, sidecar)
 
 
 def test_policy_card_separates_first_attempt_quality_from_recovered_ledger():

@@ -32,12 +32,15 @@ py -3 scripts/report/build_experiment_comparison.py `
   --multi-policy-pairs output/multi_policy_v53_20260928/p010/numeric.json `
   --multi-policy-pairs output/multi_policy_v53_20260928/p012/numeric.json `
   --multi-policy-pairs output/multi_policy_v53_20260928/distancing/numeric.json `
+  --multi-policy-pairs output/multi_policy_v53_20260928/p016/numeric.json `
   --p010-funding-audit output/multi_policy_v53_20260928/p010/funded_by_sub_audit.json `
   --p010-channel-audit output/recovery_20260928/multipolicy_v53/p010/p010_channel_gap_audit.json `
   --p010-concentration-audit output/recovery_20260928/multipolicy_v53/p010/p010_citizen_gap_concentration_audit.json `
   --p012-sector-audit output/multi_policy_v53_20260928/p012/sector_denominator_display_audit.json `
   --distancing-input-audit experiments/multi_policy_v53_20260927/distancing_render_audit_20260928.json `
   --distancing-geo-failure-audit output/recovery_20260928/multipolicy_v53/distancing_geo_proxy_20260928.json `
+  --p016-postfix-audit output/multi_policy_v53_20260928/p016/postfix_provenance_audit.json `
+  --p016-taxonomy-audit output/multi_policy_v53_20260928/p016/taxonomy_identity_audit.json `
   --experiment multi_policy_v53_20260928 `
   --out output/report/experiments/multi_policy_v53_20260928.html
 ```
@@ -194,6 +197,20 @@ SHA와 점수의 sector 원장·run_id를 검증할 때만 카드에 이 이력�
 표시합니다. 서버 저장소의 `source_commit`은 활성 파일이 pull되지
 않았으므로 코드 버전 증거로 사용하지 않습니다. 범용 v53 프롬프트
 바이트 SHA는 그대로 비교합니다.
+
+P016 새 양팔 C1 proxy는 +54.554%(시민 재표집 +12.12~+130.70%)이고
+실측은 +6.957%의 과거 연도 대비 상품 매출 DID입니다. 분모·기간·대상
+상품이 달라 숫자 차이를 정책 효과 오차로 쓰지 않습니다. 사전 2일 대상
+POI 지출도 ON 365,073원/OFF 277,436원(+31.59%)으로 사전 ±20%
+균형 관문에 실패해 정책 후 차이의 인과·방향·크기 적중 판단을 보류합니다.
+C2·C3의 시뮬 0%p와 재표집 [0,0]은 양팔 원장 400/400 시민×일에서
+`청과+정육+슈퍼마켓+식료품 by_sub == 마트 by_l1`이라는 **분류 항등식**
+때문입니다. 이는 같은 마트 안의 농축산물 상품 매출 변화가 0이라는
+관측이 아닙니다. `taxonomy_identity_audit.json`(SHA256
+`77D24B49F7EEE10B69E3EF3F10F2EC30262900299F1ADDBC2493FA39407A219F`)
+은 score·양팔 sector 원장 SHA에 결속된 결과 후 표시 감사이고,
+보고서에서 C2·C3 실측과 0%p를 나란히 보이되 산술 차이·방향 판정을
+생략합니다. 수치 score나 등록 산식은 바꾸지 않습니다.
 
 같은 단위이거나 로그계수를 `100×(exp(계수)−1)%`로 변환할 수 있는 경우
 `탐색적 숫자상 차이`와 대략적인 규모를 표시합니다. 이는 서로 다른 모집단,
