@@ -22,6 +22,7 @@ import math
 import os
 import re
 import tempfile
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -505,10 +506,35 @@ def _validate_geo_proxy_exploratory(entry: dict) -> None:
         raise ValueError("DS6 geo proxy lacks both sector components")
     match_rate = audit.get("match_rate")
     overlaps = audit.get("overlap_count")
+    overlap_by_arm = audit.get("overlap_count_by_arm")
+    receipts_by_arm = audit.get("total_receipt_count_by_arm")
+    overlap_rates = audit.get("overlap_rate_by_arm")
+    maximum_overlap = audit.get("maximum_overlap_rate_allowed")
     on_days, off_days = audit.get("on_citizen_days"), audit.get("off_citizen_days")
     denominators = audit.get("off_denominator_won_by_type")
+    overlap_audited = (
+        isinstance(overlap_by_arm, dict) and set(overlap_by_arm) == {"on", "off"}
+        and isinstance(receipts_by_arm, dict) and set(receipts_by_arm) == {"on", "off"}
+        and isinstance(overlap_rates, dict) and set(overlap_rates) == {"on", "off"}
+        and maximum_overlap == 0.01
+        and audit.get("overlap_rule") ==
+        "Exclude ambiguous receipts from both hub types; no category priority"
+        and all(isinstance(overlap_by_arm.get(arm), int)
+                and not isinstance(overlap_by_arm[arm], bool)
+                and isinstance(receipts_by_arm.get(arm), int)
+                and not isinstance(receipts_by_arm[arm], bool)
+                and 0 <= overlap_by_arm[arm] <= receipts_by_arm[arm]
+                and receipts_by_arm[arm] > 0
+                and _number(overlap_rates.get(arm))
+                and abs(overlap_rates[arm] - overlap_by_arm[arm] / receipts_by_arm[arm]) < 1e-9
+                and 0 <= overlap_rates[arm] <= maximum_overlap
+                for arm in ("on", "off"))
+        and isinstance(overlaps, int) and not isinstance(overlaps, bool)
+        and overlaps == sum(overlap_by_arm.values())
+        and audit.get("total_receipt_count") == sum(receipts_by_arm.values())
+    )
     if (not _number(match_rate) or not 0.99 <= match_rate <= 1
-            or not isinstance(overlaps, int) or isinstance(overlaps, bool) or overlaps != 0
+            or not overlap_audited
             or not all(isinstance(value, int) and not isinstance(value, bool) and value > 0
                        for value in (on_days, off_days))
             or on_days != off_days
@@ -668,6 +694,146 @@ def apply_p010_funding_display_audit(report: dict, path: Path) -> dict:
     updated = dict(report)
     updated["exploratory_simulations"] = augmented
     updated["post_run_display_audits"] = [evidence]
+    return updated
+
+
+def apply_p010_channel_display_audit(report: dict, path: Path) -> dict:
+    """Show a sourced channel decomposition without changing policy scores."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("status") != "posthoc_simulator_channel_diagnostic_not_empirical_policy_effect"
+            or not isinstance(audit.get("source_sha256"), dict)):
+        raise ValueError("invalid P010 channel display audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "P010"), None)
+    if not run:
+        raise ValueError("P010 channel audit requires a P010 numeric run")
+    try:
+        start_text, end_text = run["on"].split(":")
+        start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
+        days = [(start + timedelta(days=offset)).isoformat()
+                for offset in range((end - start).days + 1)]
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError("P010 channel audit requires valid effect dates") from exc
+    citizens = run.get("citizens")
+    if (not days or not isinstance(citizens, int) or isinstance(citizens, bool)
+            or citizens <= 0 or audit.get("policy_effect_days") != days
+            or audit.get("paired_citizen_days") != citizens * len(days)):
+        raise ValueError("P010 channel audit dates or citizen-days differ from numeric run")
+    verified = {item["path"].replace("\\", "/"): item["sha256"]
+                for item in run["evidence"]}
+    sources = audit["source_sha256"]
+    expected = {source: verified[source] for source in verified
+                if any(source.endswith(f"/{arm}/{arm}/metrics/day_{day}.jsonl")
+                       for arm in ("on", "off") for day in days)}
+    if (len(expected) != 2 * len(days) or sources != expected):
+        raise ValueError("P010 channel audit metrics do not match verified paired evidence")
+    on, off, gap = (audit.get(key) for key in ("on_sum", "off_sum", "on_minus_off"))
+    keys = ("cm_today_total_incl_online", "cm_online_total",
+            "offline_positive_receipt_won", "cm_policy_allocated_total")
+    if not all(isinstance(part, dict) and all(_number(part.get(key)) for key in keys)
+               for part in (on, off, gap)):
+        raise ValueError("P010 channel audit lacks numeric channel sums")
+    for key in keys:
+        if abs((on[key] - off[key]) - gap[key]) > 1e-6:
+            raise ValueError("P010 channel audit ON-OFF sums do not reconcile")
+    for part in (on, off, gap):
+        if abs(part["cm_today_total_incl_online"]
+               - part["cm_online_total"] - part["offline_positive_receipt_won"]) > 1e-6:
+            raise ValueError("P010 channel audit online/offline sums do not reconcile")
+    total = gap["cm_today_total_incl_online"]
+    online = gap["cm_online_total"]
+    online_fraction = audit.get("online_fraction_of_total_gap")
+    offline_fraction = audit.get("offline_fraction_of_total_gap")
+    if (total <= 0 or online < 0 or gap["offline_positive_receipt_won"] < 0
+            or not _number(online_fraction) or not _number(offline_fraction)
+            or abs(online_fraction - online / total) > 1e-9
+            or abs(offline_fraction - gap["offline_positive_receipt_won"] / total) > 1e-9
+            or gap["cm_policy_allocated_total"] !=
+            (run["run_context"].get("policy_funding_density") or {}).get("policy_funded_total_won")):
+        raise ValueError("P010 channel audit fractions or policy wallet do not reconcile")
+    evidence = {"path": _display_path(path), "sha256": _sha(path)}
+    displayed = {
+        "status": audit["status"], "total_gap_won": total, "online_gap_won": online,
+        "offline_gap_won": gap["offline_positive_receipt_won"],
+        "online_fraction": online_fraction,
+        "wallet_won": gap["cm_policy_allocated_total"],
+        "paired_citizen_days": audit["paired_citizen_days"], **evidence,
+    }
+    updated = dict(report)
+    updated["run_evidence"] = [
+        {**item, "run_context": {**item["run_context"], "p010_channel_display_audit": displayed}}
+        if item["policy"] == "P010" else item for item in report["run_evidence"]
+    ]
+    updated["rows"] = [
+        {**row, "run_context": {**row["run_context"], "p010_channel_display_audit": displayed}}
+        if row["policy"] == "P010" and row.get("run_context") else row
+        for row in report["rows"]
+    ]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []), evidence]
+    return updated
+
+
+def apply_p010_concentration_display_audit(report: dict, path: Path) -> dict:
+    """Disclose how few simulated citizens dominate P010's short-window gap."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("status") != "posthoc_citizen_gap_concentration_diagnostic_not_policy_effect"
+            or not isinstance(audit.get("source_sha256"), dict)):
+        raise ValueError("invalid P010 concentration display audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "P010"), None)
+    if not run:
+        raise ValueError("P010 concentration audit requires a P010 numeric run")
+    try:
+        start_text, end_text = run["on"].split(":")
+        start, end = date.fromisoformat(start_text), date.fromisoformat(end_text)
+        days = [(start + timedelta(days=offset)).isoformat()
+                for offset in range((end - start).days + 1)]
+    except (AttributeError, TypeError, ValueError) as exc:
+        raise ValueError("P010 concentration audit requires valid effect dates") from exc
+    verified = {item["path"].replace("\\", "/"): item["sha256"]
+                for item in run["evidence"]}
+    expected = {source: verified[source] for source in verified
+                if any(source.endswith(f"/{arm}/{arm}/metrics/day_{day}.jsonl")
+                       for arm in ("on", "off") for day in days)}
+    if not days or len(expected) != 2 * len(days) or audit["source_sha256"] != expected:
+        raise ValueError("P010 concentration audit metrics do not match verified paired evidence")
+    n = audit.get("paired_citizens")
+    counts = [audit.get(key) for key in (
+        "positive_delta_citizens", "negative_delta_citizens", "zero_delta_citizens")]
+    top = audit.get("top_five_positive_deltas_won")
+    net, top_sum = audit.get("net_gap_won"), audit.get("top_five_sum_won")
+    share = audit.get("top_five_share_of_net_gap")
+    channel = run["run_context"].get("p010_channel_display_audit") or {}
+    if (not isinstance(n, int) or isinstance(n, bool) or n != run.get("citizens") or n < 5
+            or not all(isinstance(value, int) and not isinstance(value, bool)
+                       and value >= 0 for value in counts)
+            or sum(counts) != n
+            or not isinstance(top, list) or len(top) != 5
+            or not all(_number(value) and value > 0 for value in top)
+            or top != sorted(top, reverse=True)
+            or not _number(net) or net <= 0 or not _number(top_sum)
+            or abs(top_sum - sum(top)) > 1e-6
+            or not _number(share) or abs(share - top_sum / net) > 1e-9
+            or (channel and abs(channel["total_gap_won"] - net) > 1e-6)):
+        raise ValueError("P010 concentration audit counts or gap do not reconcile")
+    evidence = {"path": _display_path(path), "sha256": _sha(path)}
+    displayed = {"status": audit["status"], "paired_citizens": n,
+                 "net_gap_won": net, "top_five_sum_won": top_sum,
+                 "top_five_share": share, "remaining_gap_won": net - top_sum,
+                 **evidence}
+    updated = dict(report)
+    updated["run_evidence"] = [
+        {**item, "run_context": {**item["run_context"], "p010_concentration_display_audit": displayed}}
+        if item["policy"] == "P010" else item for item in report["run_evidence"]
+    ]
+    updated["rows"] = [
+        {**row, "run_context": {**row["run_context"], "p010_concentration_display_audit": displayed}}
+        if row["policy"] == "P010" and row.get("run_context") else row
+        for row in report["rows"]
+    ]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []), evidence]
     return updated
 
 
@@ -1111,14 +1277,21 @@ def _geo_proxy_exploratory_html(row: dict) -> str:
     sparse = audit.get("sparse_interpretation_blocked") is True
     n_label = _esc(row.get("n") or "미확인")
     match_label = _esc(_fmt(100 * audit["match_rate"], "%"))
-    overlap_label = _esc(audit["overlap_count"])
+    overlap_parts = []
+    for arm, label in (("on", "ON"), ("off", "OFF")):
+        count = audit["overlap_count_by_arm"][arm]
+        total = audit["total_receipt_count_by_arm"][arm]
+        rate = 100 * audit["overlap_rate_by_arm"][arm]
+        overlap_parts.append(f'{label} {count:,}/{total:,} ({rate:.2f}%)')
+    overlap_label = _esc(', '.join(overlap_parts))
     boundary_sha = _esc(audit["source_boundary_sha256"])
     return ('<div class="component-breakdown"><strong>상권별 원수치와 결합 관문</strong>'
             '<table><thead><tr><th>상권 유형</th><th>실측 2020 전년 대비</th>'
             '<th>시뮬 3일 ON−OFF</th></tr></thead><tbody>' + rows + '</tbody></table>'
             f'<p>시뮬 시민 n={n_label}, '
             f'영수증 좌표 결합률 {match_label}, '
-            f'애매한 상권 겹침 {overlap_label}건, '
+            f'애매한 상권 겹침 영수증 {overlap_label}; 두 유형 모두에서 제외하고 '
+            '어느 한쪽에 우선 배정하지 않았습니다(각 팔 허용 상한 1%). '
             f'관광특구 OFF 분모 {den["tourism_special_zone"]:,}원, '
             f'발달상권 OFF 분모 {den["developed_commercial_district"]:,}원.</p>'
             + ('<p>희소한 관측 때문에 이 숫자는 기술값일 뿐 방향·크기 의미를 '
@@ -1353,8 +1526,48 @@ def _run_context_html(context: dict | None) -> str:
         detail.append('<p><strong>정책결제 진단 원본:</strong> '
                       f'{_esc(diagnostic.get("path"))} '
                       f'SHA256 {_esc(diagnostic.get("sha256"))}</p>')
+    channel = context.get("p010_channel_display_audit")
+    channel_html = ''
+    if isinstance(channel, dict):
+        total = channel["total_gap_won"]
+        online = channel["online_gap_won"]
+        offline = channel["offline_gap_won"]
+        channel_html = (
+            '<p class="balance"><strong>P010 총지출 차이의 채널별 사후 분해:</strong> '
+            f'시행기간 같은 시민×일 {channel["paired_citizen_days"]}개에서 '
+            f'ON−OFF 총지출 {total:,.0f}원 중 온라인 모델 채널 '
+            f'{online:,.0f}원({100 * channel["online_fraction"]:.1f}%), '
+            f'오프라인 영수증 {offline:,.0f}원입니다. '
+            f'온라인 채널은 쿠폰 사용 대상이 아니며 실제 지갑결제는 '
+            f'{channel["wallet_won"]:,.0f}원입니다. '
+            '이 산술 분해는 왜 지출 계획이 바뀌었는지 증명하지 않으며 '
+            '실측 설문 MPC와의 정확도나 정책효과 크기 적중으로 해석하지 않습니다.</p>'
+        )
+        detail.append('<p><strong>채널 분해 원본:</strong> '
+                      f'{_esc(channel["path"])} SHA256 {_esc(channel["sha256"])}</p>')
+    concentration = context.get("p010_concentration_display_audit")
+    concentration_html = ''
+    if isinstance(concentration, dict):
+        remainder = concentration["remaining_gap_won"]
+        remainder_text = (f'나머지 시민의 순합은 {-remainder:,.0f}원 감소입니다. '
+                          if remainder < 0 else
+                          f'나머지 시민의 순합은 {remainder:,.0f}원 증가입니다. ')
+        concentration_html = (
+            '<p class="balance"><strong>P010 단기 수치의 시민별 집중:</strong> '
+            f'{concentration["paired_citizens"]}명 중 상위 5명의 ON−OFF 지출차이 합은 '
+            f'{concentration["top_five_sum_won"]:,.0f}원으로 전체 순증 '
+            f'{concentration["net_gap_won"]:,.0f}원의 '
+            f'{100 * concentration["top_five_share"]:.1f}%입니다. '
+            + remainder_text + '이 3일 대리값의 크기는 소수 시민에 '
+            '매우 민감합니다. 실제 인구의 정책효과 분포나 실측 MPC 정합을 '
+            '뜻하지 않습니다.</p>'
+        )
+        detail.append('<p><strong>시민별 집중 감사 원본:</strong> '
+                      f'{_esc(concentration["path"])} '
+                      f'SHA256 {_esc(concentration["sha256"])}</p>')
     return ('<p class="contextline">' + ' · '.join(pieces) + '</p>'
-            + quality_html + balance_html + diagnostic_html
+            + quality_html + balance_html + diagnostic_html + channel_html
+            + concentration_html
             + ('<details class="technical"><summary>정책·환경·프롬프트 지문 보기</summary>'
                + ''.join(detail) + '</details>' if detail else ''))
 
@@ -1580,7 +1793,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              numeric_only: bool = False,
              multi_policy_pairs: Path | list[Path] | None = None,
              empirical_registry: Path | None = None,
-             p010_funding_audit: Path | None = None) -> tuple[Path, Path, dict]:
+             p010_funding_audit: Path | None = None,
+             p010_channel_audit: Path | None = None,
+             p010_concentration_audit: Path | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
     if sum((bool(score_paths), bool(paired_effect), bool(multi_paths))) != 1:
@@ -1591,6 +1806,10 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--run-note requires --paired-effect")
     if p010_funding_audit and not multi_paths:
         raise ValueError("--p010-funding-audit requires --multi-policy-pairs")
+    if p010_channel_audit and not multi_paths:
+        raise ValueError("--p010-channel-audit requires --multi-policy-pairs")
+    if p010_concentration_audit and not multi_paths:
+        raise ValueError("--p010-concentration-audit requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
         raise ValueError("multiple scores require --out")
     if len(multi_paths) > 1 and out is None:
@@ -1603,12 +1822,18 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([paired_sector] if paired_sector else []),
                                                            *([run_note] if run_note else []),
                                                            *([empirical_registry] if empirical_registry else []),
-                                                           *([p010_funding_audit] if p010_funding_audit else [])]):
+                                                           *([p010_funding_audit] if p010_funding_audit else []),
+                                                           *([p010_channel_audit] if p010_channel_audit else []),
+                                                           *([p010_concentration_audit] if p010_concentration_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
         if p010_funding_audit:
             report = apply_p010_funding_display_audit(report, p010_funding_audit)
+        if p010_channel_audit:
+            report = apply_p010_channel_display_audit(report, p010_channel_audit)
+        if p010_concentration_audit:
+            report = apply_p010_concentration_display_audit(report, p010_concentration_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -1647,6 +1872,10 @@ def main() -> int:
                     help="audited external numeric values; required by default for multi-policy pairs")
     ap.add_argument("--p010-funding-audit", type=Path,
                     help="optional SHA-checked post-run P010 subclass display erratum; never rescores")
+    ap.add_argument("--p010-channel-audit", type=Path,
+                    help="optional SHA-checked post-run P010 channel decomposition; never rescores")
+    ap.add_argument("--p010-concentration-audit", type=Path,
+                    help="optional SHA-checked post-run P010 citizen-gap concentration; never rescores")
     ap.add_argument("--experiment", default="")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--json-out", type=Path)
@@ -1663,7 +1892,9 @@ def main() -> int:
                                          numeric_only=a.numeric_only,
                                          multi_policy_pairs=a.multi_policy_pairs,
                                          empirical_registry=a.empirical_registry,
-                                         p010_funding_audit=a.p010_funding_audit)
+                                         p010_funding_audit=a.p010_funding_audit,
+                                         p010_channel_audit=a.p010_channel_audit,
+                                         p010_concentration_audit=a.p010_concentration_audit)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
     print(f"{out} | {json_out} | indicators={report['indicator_count']} "

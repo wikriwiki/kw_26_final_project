@@ -420,8 +420,76 @@ def test_p010_subclass_display_erratum_is_evidence_bound_and_does_not_rescore(tm
         report.apply_p010_funding_display_audit(original, sidecar)
 
 
+def test_p010_channel_display_audit_reconciles_verified_metrics_without_rescoring(tmp_path):
+    digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+    evidence = []
+    for arm in ("on", "off"):
+        metric = tmp_path / "p010" / arm / arm / "metrics" / "day_2025-07-21.jsonl"
+        metric.parent.mkdir(parents=True)
+        metric.write_text('{"verified": true}\n', encoding="utf-8")
+        evidence.append({"path": metric.as_posix(), "sha256": digest(metric)})
+    context = {"policy_funding_density": {"policy_funded_total_won": 5}}
+    original = {
+        "score_files": [{"sha256": "a" * 64}],
+        "run_evidence": [{"policy": "P010", "on": "2025-07-21:2025-07-21",
+                          "citizens": 6, "evidence": evidence, "run_context": context}],
+        "rows": [{"policy": "P010", "simulation": 0.375, "run_context": context}],
+    }
+    audit = {
+        "status": "posthoc_simulator_channel_diagnostic_not_empirical_policy_effect",
+        "policy_effect_days": ["2025-07-21"], "paired_citizen_days": 6,
+        "source_sha256": {entry["path"]: entry["sha256"] for entry in evidence},
+        "on_sum": {"cm_today_total_incl_online": 120, "cm_online_total": 80,
+                   "offline_positive_receipt_won": 40, "cm_policy_allocated_total": 5},
+        "off_sum": {"cm_today_total_incl_online": 100, "cm_online_total": 65,
+                    "offline_positive_receipt_won": 35, "cm_policy_allocated_total": 0},
+        "on_minus_off": {"cm_today_total_incl_online": 20, "cm_online_total": 15,
+                         "offline_positive_receipt_won": 5, "cm_policy_allocated_total": 5},
+        "online_fraction_of_total_gap": .75, "offline_fraction_of_total_gap": .25,
+    }
+    sidecar = tmp_path / "p010_channel_gap_audit.json"
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    augmented = report.apply_p010_channel_display_audit(original, sidecar)
+    assert augmented["rows"][0]["simulation"] == original["rows"][0]["simulation"]
+    assert "p010_channel_display_audit" not in original["rows"][0]["run_context"]
+    assert augmented["post_run_display_audits"][0]["sha256"] == digest(sidecar)
+    markup = report._run_context_html(augmented["rows"][0]["run_context"])
+    assert "ON−OFF 총지출 20원 중 온라인 모델 채널 15원(75.0%)" in markup
+    assert "실측 설문 MPC와의 정확도" in markup
+    concentration = {
+        "status": "posthoc_citizen_gap_concentration_diagnostic_not_policy_effect",
+        "source_sha256": {entry["path"]: entry["sha256"] for entry in evidence},
+        "paired_citizens": 6, "positive_delta_citizens": 5,
+        "negative_delta_citizens": 1, "zero_delta_citizens": 0,
+        "net_gap_won": 20, "top_five_positive_deltas_won": [10, 5, 4, 3, 2],
+        "top_five_sum_won": 24, "top_five_share_of_net_gap": 1.2,
+    }
+    concentration_sidecar = tmp_path / "p010_citizen_gap_concentration_audit.json"
+    concentration_sidecar.write_text(json.dumps(concentration), encoding="utf-8")
+    concentrated = report.apply_p010_concentration_display_audit(augmented,
+                                                                  concentration_sidecar)
+    markup = report._run_context_html(concentrated["rows"][0]["run_context"])
+    assert "상위 5명의 ON−OFF 지출차이 합은 24원" in markup
+    assert "나머지 시민의 순합은 4원 감소" in markup
+    assert concentrated["rows"][0]["simulation"] == original["rows"][0]["simulation"]
+    audit["source_sha256"][evidence[0]["path"]] = "0" * 64
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    with pytest.raises(ValueError, match="metrics do not match verified paired evidence"):
+        report.apply_p010_channel_display_audit(original, sidecar)
+    concentration["top_five_sum_won"] = 25
+    concentration_sidecar.write_text(json.dumps(concentration), encoding="utf-8")
+    with pytest.raises(ValueError, match="counts or gap do not reconcile"):
+        report.apply_p010_concentration_display_audit(augmented, concentration_sidecar)
+
+
 def test_ds6_2023_geo_proxy_remains_exploratory_with_mapping_and_sparse_gate():
-    audit = {"match_rate": 0.995, "overlap_count": 0,
+    audit = {"match_rate": 0.995, "overlap_count": 3,
+             "overlap_count_by_arm": {"on": 2, "off": 1},
+             "total_receipt_count_by_arm": {"on": 403, "off": 500},
+             "total_receipt_count": 903,
+             "overlap_rate_by_arm": {"on": 2 / 403, "off": 1 / 500},
+             "maximum_overlap_rate_allowed": 0.01,
+             "overlap_rule": "Exclude ambiguous receipts from both hub types; no category priority",
              "on_citizen_days": 240, "off_citizen_days": 240,
              "off_denominator_won_by_type": {"tourism_special_zone": 5000,
                                              "developed_commercial_district": 9000},
@@ -447,8 +515,14 @@ def test_ds6_2023_geo_proxy_remains_exploratory_with_mapping_and_sparse_gate():
     assert "2023-10-23 상권 경계" in markup
     assert "2026년 3월 POI" in markup
     assert "실측 2020 전년 대비" in markup and "시뮬 3일 ON−OFF" in markup
+    assert "ON 2/403 (0.50%), OFF 1/500 (0.20%)" in markup
+    assert "두 유형 모두에서 제외" in markup and "허용 상한 1%" in markup
     assert "희소한 관측 때문에 이 숫자는 기술값" in markup
     audit["match_rate"] = 0.98
+    with pytest.raises(ValueError, match="coordinate, overlap, balance or OFF denominator"):
+        report._validate_geo_proxy_exploratory(entry)
+    audit["match_rate"] = 0.995
+    audit["overlap_rate_by_arm"]["on"] = 0.02
     with pytest.raises(ValueError, match="coordinate, overlap, balance or OFF denominator"):
         report._validate_geo_proxy_exploratory(entry)
 

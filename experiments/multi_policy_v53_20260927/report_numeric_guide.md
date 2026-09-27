@@ -32,6 +32,8 @@ py -3 scripts/report/build_experiment_comparison.py `
   --multi-policy-pairs output/<p010-run>/multi_policy_numeric_v1.json `
   --multi-policy-pairs output/<distancing-run>/multi_policy_numeric_v1.json `
   --p010-funding-audit output/multi_policy_v53_20260928/p010/funded_by_sub_audit.json `
+  --p010-channel-audit output/recovery_20260928/multipolicy_v53/p010/p010_channel_gap_audit.json `
+  --p010-concentration-audit output/recovery_20260928/multipolicy_v53/p010/p010_citizen_gap_concentration_audit.json `
   --experiment multi_policy_v53_20260928 `
   --out output/report/experiments/multi_policy_v53_20260928.html
 ```
@@ -82,6 +84,24 @@ P010 탐색 6행의 시뮬 업종비중이 모두 0%인 표시를 사후에 바�
 판정이 불가능합니다. 빌더는 감사 파일의 원장·점수 SHA256과 분모를 검증한
 경우에만 이 설명을 HTML에 추가하며 산식·숫자·판정은 바꾸지 않습니다.
 
+P010 시행 3일의 별도 채널 감사
+`p010_channel_gap_audit.json`(SHA256
+`B8FA839F4A8A0FC8F1B79280119B57BD955A0CEB6608B2E477D441CFF6884C8A`)
+는 같은 240 시민×일에서 총지출 ON−OFF 차이 5,636,547원 중 온라인 모델
+채널 4,259,283원(75.6%), 오프라인 영수증 1,377,264원을 확인했습니다.
+온라인 채널은 쿠폰 비적격이고 실제 정책지갑 결제는 45,672원입니다.
+이 감사는 보존된 양팔 일별 metrics SHA256, ON/OFF 합계와 분해 비율을
+검증한 뒤 P010 카드에만 표시합니다. 지출 계획 변화의 원인을 판정하거나
+한국은행 설문 MPC 0.21에 대한 정확도·정책효과 적중을 채점하지 않습니다.
+
+같은 보존 metrics에 묶인 시민별 집중 감사
+`p010_citizen_gap_concentration_audit.json`(SHA256
+`B9DE4E5A997948CB12290838CD88BEE4D6AC198D363163D3B67812A2B3BB4B3F`)
+에서는 80명 중 순증 상위 5명의 합 5,903,499원이 전체 순증
+5,636,547원의 104.7%였습니다(나머지 시민의 순합은 음수). HTML은 이
+3일 수치의 크기가 소수 시민에 민감하다고 표시합니다. 실세계 인구의
+정책효과 분포나 설문 MPC 정합의 증거로 사용하지 않습니다.
+
 DS-6의 정식 시뮬 값은 이번 실험에서도 `null`입니다. 2020 서울 카드패널의
 관광특구 −8.7%와 발달상권 −4.4%(차이 −4.3%p)를 재현하려면 당시
 상권 경계·가맹점 표본과 전년 대비 매출 분모가 필요합니다. 별도
@@ -89,8 +109,12 @@ DS-6의 정식 시뮬 값은 이번 실험에서도 `null`입니다. 2020 서울
 있습니다. 2023-10-23 상권 polygon을 2026년 3월 시뮬 POI에 연결한
 3일 ON−OFF 영수증 변화율의 두 상권 차이를 표시하되 2020 실측과
 정식 오차를 계산하지 않습니다. 숫자 표시 전 양팔 동일 시민×일,
-영수증 좌표 결합률 각각 99% 이상, 애매한 상권 겹침 0,
-관광특구·발달상권 두 OFF 원화 분모 양수를 확인합니다. 결합·분모가
+영수증 좌표 결합률 각각 99% 이상, 각 팔의 애매한 상권 겹침 영수증
+비율 1% 이하, 관광특구·발달상권 두 OFF 원화 분모 양수를 확인합니다.
+겹친 영수증은 어느 유형에도 우선 배정하지 않고 두 유형 모두에서
+제외하며, ON/OFF별 제외 건수·전체 양수 영수증 수·비율을 표시합니다.
+이 개정은 DIST 결과 전에 독립 P010 하루 영수증 403건 중 겹침 2건
+(0.50%)을 발견한 데 따른 사전 방법 수정입니다. 결합·분모가
 통과하더라도 관측이 희소하면 숫자는 기술값만 보이고 방향·크기 의미
 판정은 금지합니다. 경계 ZIP SHA와 상권별 두 원수치를 카드에 보존합니다.
 
