@@ -481,6 +481,9 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
              (len(report.get("unregistered_policies") or []), "지표 미등록 정책")]
     paired = report.get("paired_effect_summary")
     if paired:
+        run_note = report.get("run_note")
+        run_note_html = (f'<p><strong>실행 품질 기록:</strong> {_esc(run_note["text"])}</p>'
+                         if run_note else '')
         sector = report.get("paired_sector_summary")
         sector_line = (f'<p>업종 대리 지표: 준내구재 {_esc(_fmt(sector["semidurable_relative_change_pct"], "%"))}, '
                        f'대면서비스 {_esc(_fmt(sector["face_service_relative_change_pct"], "%"))}; '
@@ -496,7 +499,7 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         f'양팔 총지출 차이 {_esc(_fmt(paired["recorded_total_spend_difference_won"], "원"))}, '
                         f'지원금 1원당 기록된 추가 지출 '
                         f'{_esc(_fmt(paired["incremental_recorded_spend_per_grant_won"], "ratio"))}.</p>'
-                        + sector_line +
+                        + sector_line + run_note_html +
                         '<p>아래 EM-2/EM-3의 파란 수치는 쌍체 시뮬레이션의 대리 변화율입니다. '
                         '실측의 전년동기 카드매출 효과와 분모·기간·모집단이 달라 같은 방향의 참고만 가능하며, '
                         '실측과의 숫자 차이 또는 최적 프롬프트 정확도는 계산하지 않습니다. '
@@ -540,21 +543,32 @@ def _atomic_write(path: Path, value: str):
 def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None = None,
              json_out: Path | None = None, scoring_path: Path = SCORING,
              paired_effect: Path | None = None,
-             paired_sector: Path | None = None) -> tuple[Path, Path, dict]:
+             paired_sector: Path | None = None,
+             run_note: Path | None = None) -> tuple[Path, Path, dict]:
     if bool(score_paths) == bool(paired_effect):
         raise ValueError("supply either score files or one paired effect")
     if paired_sector and not paired_effect:
         raise ValueError("--paired-sector requires --paired-effect")
+    if run_note and not paired_effect:
+        raise ValueError("--run-note requires --paired-effect")
     if len(score_paths) > 1 and out is None:
         raise ValueError("multiple scores require --out")
     source = paired_effect or score_paths[0]
     out = out or source.with_suffix(".comparison.html")
     json_out = json_out or out.with_suffix(".json")
     if out.resolve() == json_out.resolve() or any(out.resolve() == p.resolve() or json_out.resolve() == p.resolve()
-                                                 for p in [source, *score_paths, *([paired_sector] if paired_sector else [])]):
+                                                 for p in [source, *score_paths,
+                                                           *([paired_sector] if paired_sector else []),
+                                                           *([run_note] if run_note else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     report = (build_paired_effect(paired_effect, scoring_path, experiment, paired_sector) if paired_effect
               else build(score_paths, scoring_path, experiment))
+    if run_note:
+        note_text = run_note.read_text(encoding="utf-8").strip()
+        if not note_text or len(note_text) > 2000:
+            raise ValueError("run note must contain 1-2000 characters")
+        report["run_note"] = {"text": note_text, "path": _display_path(run_note),
+                              "sha256": _sha(run_note)}
     _atomic_write(json_out, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     _atomic_write(out, render(report))
     return out, json_out, report
@@ -567,6 +581,8 @@ def main() -> int:
                     help="audited P013 ON/OFF paired effect; proxies stay non-comparable")
     ap.add_argument("--paired-sector", type=Path,
                     help="optional same-calendar P013 sector proxy for EM-4")
+    ap.add_argument("--run-note", type=Path,
+                    help="frozen execution-quality caveat displayed in the paired report")
     ap.add_argument("--experiment", default="")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--json-out", type=Path)
@@ -576,7 +592,8 @@ def main() -> int:
         out, json_out, report = generate(a.score, experiment=a.experiment, out=a.out,
                                          json_out=a.json_out, scoring_path=a.scoring,
                                          paired_effect=a.paired_effect,
-                                         paired_sector=a.paired_sector)
+                                         paired_sector=a.paired_sector,
+                                         run_note=a.run_note)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
     print(f"{out} | {json_out} | indicators={report['indicator_count']} "

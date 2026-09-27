@@ -46,7 +46,11 @@ if [ ! -f "$OUT/on_graph_restored.marker" ]; then
     exit "$rc"
   }
   trap restart_if_needed EXIT
-  "$NEO/bin/neo4j" stop
+  if "$NEO/bin/neo4j" status >/dev/null 2>&1; then
+    "$NEO/bin/neo4j" stop
+  else
+    log 'Neo4j is already stopped after the OFF dump; proceeding with offline restore'
+  fi
   stopped=1
   if pgrep -af '[o]rg.neo4j.server.CommunityEntryPoint' | grep -q .; then
     log 'Neo4j still mounted; refusing load'
