@@ -89,10 +89,40 @@ def main() -> None:
     out = BASE / "p010_channel_gap_audit.json"
     out.write_text(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
                    encoding="utf-8")
+    by_citizen = {}
+    for (aid, _day), row in on.items():
+        by_citizen.setdefault(aid, {"on": 0, "off": 0})["on"] += int(
+            row["cm_today_total_incl_online"])
+    for (aid, _day), row in off.items():
+        by_citizen.setdefault(aid, {"on": 0, "off": 0})["off"] += int(
+            row["cm_today_total_incl_online"])
+    deltas = sorted((value["on"] - value["off"] for value in by_citizen.values()),
+                    reverse=True)
+    if len(deltas) != 80 or sum(deltas) != total_delta:
+        raise ValueError("Citizen-level paired deltas do not reconcile")
+    concentration = {
+        "status": "posthoc_citizen_gap_concentration_diagnostic_not_policy_effect",
+        "source_sha256": {**on_sources, **off_sources},
+        "paired_citizens": len(deltas),
+        "positive_delta_citizens": sum(value > 0 for value in deltas),
+        "negative_delta_citizens": sum(value < 0 for value in deltas),
+        "zero_delta_citizens": sum(value == 0 for value in deltas),
+        "top_five_positive_deltas_won": deltas[:5],
+        "top_five_sum_won": sum(deltas[:5]),
+        "top_five_share_of_net_gap": sum(deltas[:5]) / total_delta if total_delta else None,
+        "net_gap_won": total_delta,
+        "interpretation_limit": "A few simulated citizens can dominate a short-window net gap; this does not measure real-world population effects.",
+    }
+    concentration_out = BASE / "p010_citizen_gap_concentration_audit.json"
+    concentration_out.write_text(
+        json.dumps(concentration, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8")
     print(json.dumps({"total_gap_won": total_delta, "online_gap_won": online_delta,
                       "offline_gap_won": offline_delta,
                       "online_fraction": result["online_fraction_of_total_gap"],
-                      "output_sha256": file_sha256(out)}, ensure_ascii=False))
+                      "output_sha256": file_sha256(out),
+                      "concentration_sha256": file_sha256(concentration_out)},
+                     ensure_ascii=False))
 
 
 if __name__ == "__main__":
