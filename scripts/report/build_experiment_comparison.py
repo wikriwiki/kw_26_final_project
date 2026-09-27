@@ -1615,6 +1615,7 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0) -> str:
 def _exploratory_html(pairs: list[dict]) -> str:
     cards_by_policy: dict[str, list[str]] = {}
     policy_names = {}
+    contexts = {}
     for row in pairs:
         truth_unit = row.get("truth_unit")
         sim_unit = row.get("simulation_unit")
@@ -1640,7 +1641,8 @@ def _exploratory_html(pairs: list[dict]) -> str:
                 "POI 장소·소비 반응 대리값입니다. 이번 정책 구현은 price_discount 유형이며 "
                 "할인 정산 경로가 활성화되지 않았고 상품권 구매·잔액·상환 지갑 원장이 "
                 "없습니다. policy_hits도 실제 자치구·상호 적격 결제 건수를 세지 않습니다. "
-                "따라서 이 숫자는 "
+                "원문 KSIC 47121/47129와 시뮬 POI 하위명 사이의 업종 대응도 "
+                "감사되지 않았습니다. 따라서 이 숫자는 "
                 "상품권 거래 효과나 사용률이 아니고, 정식 효과 오차·적중률로 채점하지 않습니다."
             )
         else:
@@ -1693,6 +1695,7 @@ def _exploratory_html(pairs: list[dict]) -> str:
         if row["policy"] == "DISTANCING_2020":
             denominator_html = _geo_proxy_exploratory_html(row)
         policy_names[row["policy"]] = row["policy_name"]
+        contexts.setdefault(row["policy"], row.get("run_context"))
         cards_by_policy.setdefault(row["policy"], []).append('<div class="row">'
                      f'<div class="meta"><span class="id">{_esc(row["id"])}</span>'
                      f'<span class="desc">{_esc(row["policy_name"])} · '
@@ -1709,6 +1712,8 @@ def _exploratory_html(pairs: list[dict]) -> str:
     grouped = ''.join(
         '<div class="exploratory-group">'
         + f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>'
+        + (_run_context_html(contexts[policy]) if policy == "P014"
+           and contexts.get(policy) else '')
         + ('<p class="balance">이 정책의 시뮬 입력은 price_discount와 지역 가맹점 '
            '적격 표시를 사용합니다. 할인 정산과 상품권 지갑·구매·잔액·상환 원장이 '
            '없으므로 '

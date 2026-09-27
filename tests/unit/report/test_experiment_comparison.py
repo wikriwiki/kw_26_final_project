@@ -473,6 +473,8 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
         "simulation": 12.5, "simulation_unit": "%", "n": 40,
         "source": "KIPF table VI-6", "source_locator": "column 3",
         "simulation_evidence": [],
+        "run_context": {"policy_id": "P014", "generic_prompt_sha256": "a" * 64,
+                        "policy_input_file": "data/neo4j_load/policies/P014.json"},
     }])
     assert "실측 +0.1410 log-point" in markup
     assert "시뮬 +12.50%" in markup
@@ -480,6 +482,7 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
     assert "상품권 구매·잔액·상환 지갑 원장이" in markup
     assert "policy_hits도 실제 자치구·상호 적격 결제 건수를 세지 않습니다" in markup
     assert "상품권 거래 효과나 사용률이 아니고" in markup
+    assert "범용 프롬프트 v53" in markup
     assert "시뮬−실측" not in markup
 
 
