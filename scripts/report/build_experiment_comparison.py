@@ -1008,6 +1008,107 @@ def apply_distancing_geo_failure_display_audit(report: dict, path: Path) -> dict
     return updated
 
 
+def apply_p016_postfix_display_audit(report: dict, path: Path) -> dict:
+    """Disclose an excluded failed arm and the patched, separately scored pair."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("schema") != "p016_postfix_provenance_display_audit_v1"
+            or audit.get("policy") != "P016"
+            or audit.get("run_manifest_source_commit_is_not_live_code_evidence") is not True):
+        raise ValueError("invalid P016 post-fix display audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "P016"), None)
+    if not run or not any(
+        item["path"] == audit.get("numeric_path")
+        and item["sha256"] == audit.get("numeric_sha256")
+        for item in report.get("score_files", [])
+    ):
+        raise ValueError("P016 post-fix audit does not match frozen numeric score")
+    evidence = {item["path"]: item["sha256"] for item in run["evidence"]}
+    patch_sha = "bc3819adaee5c8c922309aa0dc6b62c22a89f8630023939edb874b2b8fec50c4"
+    if audit.get("patched_instant_discount_sha256") != patch_sha:
+        raise ValueError("P016 post-fix audit has a different account-engine patch")
+    run_ids = []
+    revisions = []
+    for arm in ("on", "off"):
+        item = audit.get(arm) or {}
+        frozen_path = item.get("frozen_inputs_path")
+        sector_path = next((source for source in evidence
+                            if source.replace("\\", "/").endswith(
+                                f"/{arm}/{arm}/sector.ledger.jsonl")), None)
+        if not frozen_path or not sector_path:
+            raise ValueError("P016 post-fix audit lacks scored arm evidence")
+        frozen = Path(frozen_path)
+        if not frozen.is_absolute():
+            frozen = ROOT / frozen
+        if (not frozen.is_file() or _sha(frozen) != item.get("frozen_inputs_sha256")
+                or item.get("sector_ledger_sha256") != evidence[sector_path]
+                or (item.get("frozen_hashes") or {}).get(
+                    "scripts/sim/instant_discount.py") != patch_sha):
+            raise ValueError("P016 post-fix arm differs from patched frozen inputs or score")
+        manifest_source = sector_path + ".manifest.json"
+        manifest = Path(manifest_source)
+        if not manifest.is_absolute():
+            manifest = ROOT / manifest
+        if (evidence.get(manifest_source) != item.get("sector_manifest_sha256")
+                or _sha(manifest) != item["sector_manifest_sha256"]
+                or (json.loads(manifest.read_text(encoding="utf-8"))
+                    .get("prompt_provenance") or {}).get("run_id") != item.get("run_id")):
+            raise ValueError("P016 post-fix run ID differs from scored sector manifest")
+        run_ids.append(item["run_id"])
+        revisions.append(item.get("run_revision"))
+    if (run_ids[0] == run_ids[1] or revisions != ["no_eligible_discount_fix1"] * 2
+            or not all(run_id.endswith(f"-p016-no_eligible_discount_fix1-{arm}")
+                       for run_id, arm in zip(run_ids, ("on", "off")))):
+        raise ValueError("P016 post-fix paired run IDs or revisions differ")
+    invalid = audit.get("invalidated_prepatch_arm") or {}
+    preflight = audit.get("preflight") or {}
+    failed_snapshot = Path(invalid.get("snapshot_path") or "")
+    if not failed_snapshot.is_absolute():
+        failed_snapshot = ROOT / failed_snapshot
+    if (not failed_snapshot.is_file()
+            or _sha(failed_snapshot) != invalid.get("snapshot_sha256")):
+        raise ValueError("P016 excluded failed-arm snapshot SHA mismatch")
+    snapshot = json.loads(failed_snapshot.read_text(encoding="utf-8"))
+    if (invalid.get("excluded_from_score") is not True
+            or snapshot.get("schema") != "failed_p016_prepatch_snapshot_v1"
+            or snapshot.get("run_status") != "incomplete_failed"
+            or snapshot.get("model_calls_occurred") is not True
+            or snapshot.get("raw_keyerror_rows") != invalid.get("raw_keyerror_rows")
+            or snapshot.get("date_of_failure") != invalid.get("failure_date")
+            or not isinstance(invalid.get("raw_keyerror_rows"), int)
+            or invalid["raw_keyerror_rows"] <= 0
+            or preflight.get("first_failure_model_calls") != 0
+            or preflight.get("passed_preflight_model_calls") != 0):
+        raise ValueError("P016 excluded arm or preflight evidence is inconsistent")
+    for source_key, sha_key in (("first_failure_manifest_path", "first_failure_manifest_sha256"),
+                               ("passed_preflight_checksums_path", "passed_preflight_checksums_sha256")):
+        source = Path(preflight.get(source_key) or "")
+        if not source.is_absolute():
+            source = ROOT / source
+        if not source.is_file() or _sha(source) != preflight.get(sha_key):
+            raise ValueError("P016 preflight evidence SHA mismatch")
+    displayed = {"patch_sha256": patch_sha, "run_ids": run_ids,
+                 "failed_rows": invalid["raw_keyerror_rows"],
+                 "failure_date": invalid.get("failure_date"),
+                 "failed_snapshot_sha256": invalid["snapshot_sha256"],
+                 "first_preflight_sha256": preflight["first_failure_manifest_sha256"],
+                 "passed_preflight_sha256": preflight["passed_preflight_checksums_sha256"],
+                 "source_commit_not_live_code_evidence": True,
+                 "path": _display_path(path), "sha256": _sha(path)}
+    updated = dict(report)
+    updated["run_evidence"] = [
+        {**item, "run_context": {**item["run_context"], "p016_postfix_display_audit": displayed}}
+        if item is run else item for item in report["run_evidence"]]
+    updated["rows"] = [
+        {**item, "run_context": {**item["run_context"], "p016_postfix_display_audit": displayed}}
+        if item["policy"] == "P016" and item.get("run_context") else item
+        for item in report["rows"]]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []),
+        {"path": displayed["path"], "sha256": displayed["sha256"]}]
+    return updated
+
+
 def apply_distancing_input_display_audit(report: dict, path: Path) -> dict:
     """Disclose the dated ON/OFF regime, keeping its internal ID distinct from 2021."""
     audit = json.loads(path.read_text(encoding="utf-8"))
@@ -1893,9 +1994,30 @@ def _run_context_html(context: dict | None) -> str:
         detail.append('<p><strong>거리두기 입력 렌더 감사:</strong> '
                       f'{_esc(regime["path"])} '
                       f'SHA256 {_esc(regime["sha256"])}</p>')
+    p016 = context.get("p016_postfix_display_audit")
+    p016_html = ''
+    if isinstance(p016, dict):
+        p016_html = (
+            '<p class="balance"><strong>P016 실행 이력과 회계 패치:</strong> '
+            '첫 사전검증에서 이전 P012 정책 노드가 남은 것을 모델 호출 0회에 '
+            '발견했고, 그래프 초기화 순서를 고쳐 재검증을 통과했습니다. '
+            f'이후 첫 ON 실행은 {_esc(p016["failure_date"])}에 '
+            f'적격 구매가 없는 시민의 장부 키 오류가 원시 기록 '
+            f'{p016["failed_rows"]}행에서 발생해 미완결·채점 제외했습니다. '
+            '0원 즉시할인 키를 초기화하는 회계 코드 패치 뒤 ON/OFF를 '
+            '새 run_id로 처음부터 실행했습니다. 범용 v53 프롬프트는 '
+            '양팔에서 같은 바이트이며 패치 전 실패 팔은 어떤 지표에도 섞지 않았습니다. '
+            '서버 저장소의 source_commit은 실행 파일 증거가 아니므로 '
+            '양팔 frozen_inputs의 회계 코드 SHA와 원장·점수 SHA로 확인했습니다.</p>'
+        )
+        detail.append('<p><strong>P016 실패·패치 감사:</strong> '
+                      f'{_esc(p016["path"])} SHA256 {_esc(p016["sha256"])}; '
+                      f'회계 엔진 SHA256 {_esc(p016["patch_sha256"])}; '
+                      f'실패 arm 스냅샷 SHA256 '
+                      f'{_esc(p016["failed_snapshot_sha256"])}</p>')
     return ('<p class="contextline">' + ' · '.join(pieces) + '</p>'
             + quality_html + balance_html + diagnostic_html + channel_html
-            + concentration_html + regime_html
+            + concentration_html + regime_html + p016_html
             + ('<details class="technical"><summary>정책·환경·프롬프트 지문 보기</summary>'
                + ''.join(detail) + '</details>' if detail else ''))
 
@@ -2148,6 +2270,7 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              p012_sector_audit: Path | None = None,
              distancing_input_audit: Path | None = None,
              distancing_geo_failure_audit: Path | None = None,
+             p016_postfix_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -2169,6 +2292,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--distancing-input-audit requires --multi-policy-pairs")
     if distancing_geo_failure_audit and not multi_paths:
         raise ValueError("--distancing-geo-failure-audit requires --multi-policy-pairs")
+    if p016_postfix_audit and not multi_paths:
+        raise ValueError("--p016-postfix-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -2189,7 +2314,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([p012_sector_audit] if p012_sector_audit else []),
                                                            *([distancing_input_audit] if distancing_input_audit else []),
                                                            *([distancing_geo_failure_audit]
-                                                             if distancing_geo_failure_audit else [])]):
+                                                             if distancing_geo_failure_audit else []),
+                                                           *([p016_postfix_audit]
+                                                             if p016_postfix_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -2206,6 +2333,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         if distancing_geo_failure_audit:
             report = apply_distancing_geo_failure_display_audit(
                 report, distancing_geo_failure_audit)
+        if p016_postfix_audit:
+            report = apply_p016_postfix_display_audit(report, p016_postfix_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -2259,6 +2388,8 @@ def main() -> int:
                     help="optional SHA-checked static ON/OFF distancing-regime render audit")
     ap.add_argument("--distancing-geo-failure-audit", type=Path,
                     help="optional score-bound 2023 geography gate-failure disclosure; never rescores")
+    ap.add_argument("--p016-postfix-audit", type=Path,
+                    help="optional score-bound P016 patched-arm and excluded-run provenance")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -2283,6 +2414,7 @@ def main() -> int:
                                          p012_sector_audit=a.p012_sector_audit,
                                          distancing_input_audit=a.distancing_input_audit,
                                          distancing_geo_failure_audit=a.distancing_geo_failure_audit,
+                                         p016_postfix_audit=a.p016_postfix_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))

@@ -376,6 +376,78 @@ def test_distancing_geo_failure_discloses_counts_without_promoting_proxy(tmp_pat
         report.apply_distancing_geo_failure_display_audit(original, sidecar)
 
 
+def test_p016_patch_history_is_bound_to_new_score_not_failed_arm(tmp_path):
+    patch_sha = "bc3819adaee5c8c922309aa0dc6b62c22a89f8630023939edb874b2b8fec50c4"
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{"runs": []}', encoding="utf-8")
+    provenance = {}
+    evidence = []
+    for arm in ("on", "off"):
+        folder = tmp_path / "p016" / arm / arm
+        folder.mkdir(parents=True)
+        run_id = f"multipolicy-v53-20260928-p016-no_eligible_discount_fix1-{arm}"
+        frozen = folder / "frozen_inputs.sha256"
+        frozen.write_text(f"{patch_sha}  scripts/sim/instant_discount.py\n", encoding="utf-8")
+        sector = folder / "sector.ledger.jsonl"
+        sector.write_text('{}\n', encoding="utf-8")
+        manifest = folder / "sector.ledger.jsonl.manifest.json"
+        manifest.write_text(json.dumps({"prompt_provenance": {"run_id": run_id}}), encoding="utf-8")
+        for source in (sector, manifest):
+            evidence.append({"path": report._display_path(source),
+                             "sha256": hashlib.sha256(source.read_bytes()).hexdigest()})
+        provenance[arm] = {
+            "run_id": run_id, "run_revision": "no_eligible_discount_fix1",
+            "frozen_inputs_path": report._display_path(frozen),
+            "frozen_inputs_sha256": hashlib.sha256(frozen.read_bytes()).hexdigest(),
+            "frozen_hashes": {"scripts/sim/instant_discount.py": patch_sha},
+            "sector_ledger_sha256": hashlib.sha256(sector.read_bytes()).hexdigest(),
+            "sector_manifest_sha256": hashlib.sha256(manifest.read_bytes()).hexdigest(),
+        }
+    failed = tmp_path / "failed_prepatch_snapshot.json"
+    failed.write_text(json.dumps({"schema": "failed_p016_prepatch_snapshot_v1",
+                                  "run_status": "incomplete_failed",
+                                  "model_calls_occurred": True,
+                                  "raw_keyerror_rows": 11,
+                                  "date_of_failure": "2020-07-30"}), encoding="utf-8")
+    first = tmp_path / "preflight_first_failure.manifest.json"
+    first.write_text('{"model_calls": 0}', encoding="utf-8")
+    passed = tmp_path / "preflight_success.sha256"
+    passed.write_text('verified\n', encoding="utf-8")
+    audit = {
+        "schema": "p016_postfix_provenance_display_audit_v1", "policy": "P016",
+        "run_manifest_source_commit_is_not_live_code_evidence": True,
+        "numeric_path": report._display_path(numeric),
+        "numeric_sha256": hashlib.sha256(numeric.read_bytes()).hexdigest(),
+        "patched_instant_discount_sha256": patch_sha, **provenance,
+        "invalidated_prepatch_arm": {
+            "excluded_from_score": True, "snapshot_path": report._display_path(failed),
+            "snapshot_sha256": hashlib.sha256(failed.read_bytes()).hexdigest(),
+            "raw_keyerror_rows": 11, "failure_date": "2020-07-30"},
+        "preflight": {"first_failure_model_calls": 0,
+                      "passed_preflight_model_calls": 0,
+                      "first_failure_manifest_path": report._display_path(first),
+                      "first_failure_manifest_sha256": hashlib.sha256(first.read_bytes()).hexdigest(),
+                      "passed_preflight_checksums_path": report._display_path(passed),
+                      "passed_preflight_checksums_sha256": hashlib.sha256(passed.read_bytes()).hexdigest()},
+    }
+    sidecar = tmp_path / "p016_postfix.json"
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    context = {"policy_id": "P016", "generic_prompt_sha256": "a" * 64}
+    original = {"score_files": [{"path": report._display_path(numeric),
+                                  "sha256": audit["numeric_sha256"]}],
+                "run_evidence": [{"policy": "P016", "evidence": evidence,
+                                  "run_context": context}],
+                "rows": [{"policy": "P016", "id": "C1", "run_context": context}]}
+    updated = report.apply_p016_postfix_display_audit(original, sidecar)
+    markup = report._run_context_html(updated["rows"][0]["run_context"])
+    assert "미완결·채점 제외" in markup and "원시 기록 11행" in markup
+    assert "서버 저장소의 source_commit은 실행 파일 증거가 아니므로" in markup
+    audit["on"]["frozen_hashes"]["scripts/sim/instant_discount.py"] = "0" * 64
+    sidecar.write_text(json.dumps(audit), encoding="utf-8")
+    with pytest.raises(ValueError, match="patched frozen inputs"):
+        report.apply_p016_postfix_display_audit(original, sidecar)
+
+
 def test_policy_card_separates_first_attempt_quality_from_recovered_ledger():
     arm = {"citizen_days": 80, "stage1_final_ok_count": 80,
            "stage1_first_attempt_internal_validation_pass_count": 60,
