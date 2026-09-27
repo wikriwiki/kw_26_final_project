@@ -51,6 +51,7 @@ EXPLORATORY_NAMES = {
     "P010-BOK-MEDICAL": "의료 사용액 비중", "P010-BOK-BEAUTY": "미용 사용액 비중",
     "P010-BOK-ACADEMY": "학원 사용액 비중", "P010-BOK-PHARMACY": "약국 사용액 비중",
     "P014-KIPF-47121": "슈퍼마켓 매출 계수", "P014-KIPF-47129": "음식료 소매 매출 계수",
+    "DS6-2023-GEO-PROXY": "상권 유형 차이의 2023년 경계 탐색 대리값",
 }
 POLICY_ID_TO_SCORE = {
     "P010": "P010", "P012": "P012", "P013": "EMERGENCY_2020",
@@ -488,6 +489,37 @@ def _surface_comparison(row: dict) -> dict | None:
             "simulation_interval_crosses_zero": bool(ci and ci[0] <= 0 <= ci[1])}
 
 
+def _validate_geo_proxy_exploratory(entry: dict) -> None:
+    """Keep a 2023 geographic proxy outside the registered 2020 DS-6 score."""
+    if entry.get("simulation") is None:
+        return
+    audit = entry.get("geo_proxy_audit")
+    components = entry.get("simulation_components")
+    if (entry.get("simulation_unit") not in ("percentage points", "%p")
+            or entry.get("estimand_alignment") != "different"
+            or entry.get("direction_comparable") is not False
+            or not isinstance(audit, dict) or not isinstance(components, dict)):
+        raise ValueError("DS6 geo proxy requires explicit exploratory audit and units")
+    if not all(_number(components.get(key)) for key in (
+            "tourism_special_zone_pct", "developed_commercial_district_pct")):
+        raise ValueError("DS6 geo proxy lacks both sector components")
+    match_rate = audit.get("match_rate")
+    overlaps = audit.get("overlap_count")
+    on_days, off_days = audit.get("on_citizen_days"), audit.get("off_citizen_days")
+    denominators = audit.get("off_denominator_won_by_type")
+    if (not _number(match_rate) or not 0.99 <= match_rate <= 1
+            or not isinstance(overlaps, int) or isinstance(overlaps, bool) or overlaps != 0
+            or not all(isinstance(value, int) and not isinstance(value, bool) and value > 0
+                       for value in (on_days, off_days))
+            or on_days != off_days
+            or not isinstance(denominators, dict)
+            or not all(_number(denominators.get(key)) and denominators[key] > 0
+                       for key in ("tourism_special_zone", "developed_commercial_district"))
+            or audit.get("source_year") != 2023
+            or not re.fullmatch(r"[0-9a-fA-F]{64}", str(audit.get("source_boundary_sha256")))):
+        raise ValueError("DS6 geo proxy failed coordinate, overlap, balance or OFF denominator gate")
+
+
 def apply_empirical_registry(report: dict, path: Path = EMPIRICAL_REGISTRY) -> dict:
     """Use the separately audited numeric source registry, never a prompt input."""
     registry = json.loads(path.read_text(encoding="utf-8"))
@@ -580,6 +612,7 @@ def apply_empirical_registry(report: dict, path: Path = EMPIRICAL_REGISTRY) -> d
                          source=empirical.get("source", benchmark.get("source")),
                          source_locator=empirical.get("locator", benchmark.get("locator")),
                          empirical_estimand=empirical.get("estimand", benchmark.get("estimand")),
+                         empirical_components=empirical.get("components"),
                          empirical_comparison_reason=benchmark.get("reason"),
                          gap=None, gap_unit=None)
         exploratory_pairs.append(candidate)
@@ -737,6 +770,8 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
             if key not in by_key:
                 if entry.get("exploratory_not_registered") is not True:
                     raise ValueError(f"{policy}: unregistered indicator {indicator_id}")
+                if policy == "DISTANCING_2020" and indicator_id == "DS6-2023-GEO-PROXY":
+                    _validate_geo_proxy_exploratory(entry)
                 exploratory.append({"policy": policy, "policy_name": POLICY_NAMES.get(policy, policy),
                                     "id": indicator_id, "simulation": value,
                                     "simulation_unit": unit, "ci": ci, "n": n,
@@ -748,6 +783,8 @@ def build_multi_policy_pairs(manifest_paths: Path | list[Path],
                                         "policy_funded_total_won"),
                                     "full_run_citizen_days": entry.get(
                                         "full_run_citizen_days"),
+                                    "simulation_components": entry.get("simulation_components"),
+                                    "geo_proxy_audit": entry.get("geo_proxy_audit"),
                                     "reason": reason, "simulation_method": entry.get("method"),
                                     "simulation_evidence": verified,
                                     "run_context": run_context,
@@ -926,11 +963,18 @@ def _exploratory_html(pairs: list[dict]) -> str:
         sim = (_fmt(row["simulation"], sim_unit)
                if sim_unit in ("%", "%p", "ratio", "원", "log-point")
                else f'{row["simulation"]:+.4f} {sim_unit or ""}')
-        scope_note = ("실측은 쿠폰 사용처의 카드결제 분포, 시뮬은 지급액으로 결제된 POI 분포입니다. "
-                      "업종 대응과 모집단을 감사하기 전에는 정식 효과 점수로 쓰지 않습니다."
-                      if row["policy"] == "P010" else
-                      "실측은 지역화폐 발행 강도에 대한 지역·연도별 업종 매출 회귀계수, "
-                      "시뮬은 시민의 단기 ON−OFF POI 지출 변화입니다. 정식 효과 점수로 쓰지 않습니다.")
+        if row["policy"] == "P010":
+            scope_note = ("실측은 쿠폰 사용처의 카드결제 분포, 시뮬은 지급액으로 결제된 POI 분포입니다. "
+                          "업종 대응과 모집단을 감사하기 전에는 정식 효과 점수로 쓰지 않습니다.")
+        elif row["policy"] == "DISTANCING_2020":
+            scope_note = ("실측은 2020년 서울 신한카드 가맹점 패널의 관광특구·발달상권 "
+                          "전년 대비 매출 변화이고, 시뮬은 2023-10-23 상권 경계를 "
+                          "2026년 3월 POI에 적용한 3일 쌍체 ON−OFF 영수증 대리값입니다. "
+                          "연도·장소 표본·기간·추정량이 달라 정식 DS-6과 직접 비교하거나 "
+                          "정책 효과 오차로 채점하지 않습니다.")
+        else:
+            scope_note = ("실측은 지역화폐 발행 강도에 대한 지역·연도별 업종 매출 회귀계수, "
+                          "시뮬은 시민의 단기 ON−OFF POI 지출 변화입니다. 정식 효과 점수로 쓰지 않습니다.")
         denominator_html = ""
         if row["policy"] == "P010":
             positive = row.get("policy_funded_positive_citizen_days")
@@ -959,6 +1003,8 @@ def _exploratory_html(pairs: list[dict]) -> str:
                     '<p class="balance">정책결제 분모가 검증되지 않아 업종비중의 '
                     '크기를 판단할 수 없습니다. 시민 부트스트랩 표본 수는 결제 건수가 아닙니다.</p>'
                 )
+        if row["policy"] == "DISTANCING_2020":
+            denominator_html = _geo_proxy_exploratory_html(row)
         cards.append('<div class="row">'
                      f'<div class="meta"><span class="id">{_esc(row["id"])}</span>'
                      f'<span class="desc">{_esc(row["policy_name"])} · '
@@ -976,6 +1022,43 @@ def _exploratory_html(pairs: list[dict]) -> str:
             '<p class="runline">실측과 시뮬 수치는 있지만 정책 효과 채점표의 검증지표가 아닙니다. '
             '표본·기간·추정량이 달라 외부 효과 오차 또는 적중률에 포함하지 않습니다.</p>'
             '<div class="rows">' + ''.join(cards) + '</div></section>')
+
+
+def _geo_proxy_exploratory_html(row: dict) -> str:
+    empirical = {item.get("hub"): item.get("value")
+                 for item in row.get("empirical_components") or []}
+    simulation = row.get("simulation_components") or {}
+    audit = row.get("geo_proxy_audit") or {}
+    pairs = (("관광특구", "tourism_special_zone", "tourism_special_zone_pct"),
+             ("발달상권", "developed_commercial_district", "developed_commercial_district_pct"))
+    if not all(_number(empirical.get(source)) and _number(simulation.get(proxy))
+               for _, source, proxy in pairs):
+        raise ValueError("DS6 geo proxy requires empirical and simulation components")
+    rows = ''.join('<tr>'
+                   f'<th>{_esc(label)}</th>'
+                   f'<td>{_esc(_fmt(empirical[source], "%"))}</td>'
+                   f'<td>{_esc(_fmt(simulation[proxy], "%"))}</td>'
+                   '</tr>' for label, source, proxy in pairs)
+    den = audit["off_denominator_won_by_type"]
+    sparse = audit.get("sparse_interpretation_blocked") is True
+    n_label = _esc(row.get("n") or "미확인")
+    match_label = _esc(_fmt(100 * audit["match_rate"], "%"))
+    overlap_label = _esc(audit["overlap_count"])
+    boundary_sha = _esc(audit["source_boundary_sha256"])
+    return ('<div class="component-breakdown"><strong>상권별 원수치와 결합 관문</strong>'
+            '<table><thead><tr><th>상권 유형</th><th>실측 2020 전년 대비</th>'
+            '<th>시뮬 3일 ON−OFF</th></tr></thead><tbody>' + rows + '</tbody></table>'
+            f'<p>시뮬 시민 n={n_label}, '
+            f'영수증 좌표 결합률 {match_label}, '
+            f'애매한 상권 겹침 {overlap_label}건, '
+            f'관광특구 OFF 분모 {den["tourism_special_zone"]:,}원, '
+            f'발달상권 OFF 분모 {den["developed_commercial_district"]:,}원.</p>'
+            + ('<p>희소한 관측 때문에 이 숫자는 기술값일 뿐 방향·크기 의미를 '
+               '판정하지 않습니다.</p>' if sparse else
+               '<p>이 숫자는 공간 대리값의 기술통계입니다. 2020 실측과의 방향·크기 '
+               '일치 판정이나 정책 효과 오차로 사용하지 않습니다.</p>')
+            + f'<p>2023 경계 ZIP SHA256 {boundary_sha}.</p>'
+            + '</div>')
 
 
 def _technical_details(row: dict) -> str:

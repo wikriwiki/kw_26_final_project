@@ -367,6 +367,39 @@ def test_p010_wallet_diagnosis_is_descriptive_and_distinguishes_events_from_citi
     assert "SHA256 " + "b" * 64 in markup
 
 
+def test_ds6_2023_geo_proxy_remains_exploratory_with_mapping_and_sparse_gate():
+    audit = {"match_rate": 0.995, "overlap_count": 0,
+             "on_citizen_days": 240, "off_citizen_days": 240,
+             "off_denominator_won_by_type": {"tourism_special_zone": 5000,
+                                             "developed_commercial_district": 9000},
+             "source_year": 2023, "source_boundary_sha256": "a" * 64,
+             "sparse_interpretation_blocked": True}
+    entry = {"id": "DS6-2023-GEO-PROXY", "simulation": -2.0,
+             "simulation_unit": "percentage points", "estimand_alignment": "different",
+             "direction_comparable": False,
+             "simulation_components": {"tourism_special_zone_pct": -5.0,
+                                       "developed_commercial_district_pct": -3.0},
+             "geo_proxy_audit": audit}
+    report._validate_geo_proxy_exploratory(entry)
+    markup = report._exploratory_html([{
+        "policy": "DISTANCING_2020", "policy_name": "사회적 거리두기",
+        "id": entry["id"], "truth": -4.3, "truth_unit": "%p",
+        "simulation": -2.0, "simulation_unit": "%p", "n": 40,
+        "empirical_components": [{"hub": "tourism_special_zone", "value": -8.7},
+                                 {"hub": "developed_commercial_district", "value": -4.4}],
+        "simulation_components": entry["simulation_components"],
+        "geo_proxy_audit": audit, "source": "2020 Seoul card panel",
+        "source_locator": "publisher summary", "simulation_evidence": [],
+    }])
+    assert "2023-10-23 상권 경계" in markup
+    assert "2026년 3월 POI" in markup
+    assert "실측 2020 전년 대비" in markup and "시뮬 3일 ON−OFF" in markup
+    assert "희소한 관측 때문에 이 숫자는 기술값" in markup
+    audit["match_rate"] = 0.98
+    with pytest.raises(ValueError, match="coordinate, overlap, balance or OFF denominator"):
+        report._validate_geo_proxy_exploratory(entry)
+
+
 def test_log_point_is_converted_only_for_exploratory_number_impression():
     surface = report._surface_comparison({
         "truth": 0.2082, "truth_unit": "log-point",
