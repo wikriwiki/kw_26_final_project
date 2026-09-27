@@ -1,0 +1,128 @@
+{
+  "schema": "empirical_registry_v1",
+  "created_at_kst": "2026-09-27",
+  "purpose": "evaluation_only",
+  "never_inject_into_model_prompt": true,
+  "registered_numeric_indicator_count": 15,
+  "registered_without_numeric_truth_count": 23,
+  "comparison_rule": "A numeric gap is valid only when population, period, denominator, unit, outcome and counterfactual estimator match. A nearby policy proxy is a displayed diagnostic, not an accuracy score.",
+  "indicators": [
+    {
+      "id": "P010-1", "policy": "P010", "metric": "mpc_amount",
+      "empirical": {"value": 0.21, "unit": "share", "estimand": "First-round recipients' survey-based fraction of voucher use or intended use classed as newly induced consumption across nine item groups", "population": "National first-round applicants/respondents", "period": "2025 first round, survey recall/plans", "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf", "locator": "paragraphs 29–32 and reference 3"},
+      "simulation": {"formula": "Grant-spend-weighted citizen self-report of new-consumption share from completed transactions; reproduce the nine survey item categories and applicant denominator to align", "required": "P010 v53 grant transactions, category mapping, survey-equivalent response or clearly labelled alternative", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "The old 28-day 0.216 was a payment-weighted plan/ledger construct, whereas 0.21 is a national survey response. The registered ON two-day value was different again."
+    },
+    {
+      "id": "P012-1", "policy": "P012", "metric": "elig_spend_paired",
+      "empirical": {"value": 0.2082, "unit": "log-point", "estimand": "Household monthly eligible-card-spending triple-difference coefficient, recipient × October × 2021", "population": "KDI household/card panel with recipients and nonrecipients", "period": "October 2021 with comparison months and year", "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf", "locator": "table 4-7, PDF p.59 / printed p.49"},
+      "simulation": {"formula": "Aggregate eligible card-like spending by household-month and estimate the same triple-difference log regression with recipient, month and year controls", "required": "Complete months, recipient/nonrecipient controls, prior-year panel, household linkage and eligible merchant classification", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "A short citizen-level ON/OFF percentage is neither a household-month log coefficient nor a triple difference."
+    },
+    {
+      "id": "P012-2", "policy": "P012", "metric": "online_spend_paired",
+      "empirical": {"value": 0.0285, "unit": "log-point", "significance": "not statistically significant", "estimand": "Household monthly excluded-industry card-spending triple-difference coefficient", "population": "KDI recipient/nonrecipient household panel", "period": "October 2021 with comparison months and year", "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf", "locator": "table 4-7 continued, PDF p.61 / printed p.51"},
+      "simulation": {"formula": "Monthly excluded-industry spending (department stores, large marts, online, etc.) in the same household triple-difference regression", "required": "Full excluded-industry state and transaction ledger, monthly controls and household panel", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "Online spending alone omits other excluded industries. Nonsignificance does not make the empirical effect exactly zero."
+    },
+    {
+      "id": "P012-4", "policy": "P012", "metric": "cashback_per_capita",
+      "empirical": {"value": 47880, "unit": "KRW per recipient", "estimand": "Mean cashback actually paid to recipients over October and November combined", "population": "Approximately 16.8 million cashback recipients", "period": "October–November 2021", "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf", "locator": "table 3-1, PDF p.29 / printed p.19", "october_only_from_rounded_table": 47827.696864971615},
+      "simulation": {"formula": "Sum finalized cashback paid for October and November divided by citizens receiving positive cashback; if only October is simulated compare the separately derived October mean", "required": "Complete monthly accrual and following-month payout; positive-recipient denominator", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "The published 47,880 KRW spans two months and recipients only; a partial-month or all-citizen mean is a different quantity."
+    },
+    {
+      "id": "P012-5", "policy": "P012", "metric": "sector_rank",
+      "empirical": {"components": [{"sector": "appliances_furniture", "value": 0.3623}, {"sector": "hair_beauty", "value": 0.0287}], "gap": 0.3336, "unit": "log-point", "estimand": "Difference between two sector-specific household monthly eligible-card-spending triple-difference log coefficients", "population": "KDI recipient/nonrecipient household panel", "period": "October 2021 with comparison months and year", "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf", "locator": "table 4-7, PDF p.59 / printed p.49"},
+      "simulation": {"formula": "Fit the same sector-specific monthly log triple-difference regressions, then subtract the beauty coefficient from the appliances/furniture coefficient", "required": "Audited sector mapping and monthly household/card panels with recipient and prior-year controls", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "Subtracting short-run POI spending percentages does not reproduce a difference of regression coefficients."
+    },
+    {
+      "id": "P012-6", "policy": "P012", "metric": "cap_reach_rate",
+      "empirical": {"value": 21.0, "unit": "% of cashback recipients", "estimand": "Share of October–November recipients who received the 100,000 KRW monthly cap", "population": "Approximately 16.8 million cashback recipients", "period": "October–November 2021", "source": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf", "locator": "table 3-1, PDF p.29 / printed p.19", "october_only_from_rounded_table_percent": 20.871389780301158},
+      "simulation": {"formula": "Number of finalized positive-cashback recipients whose payout reaches 100,000 KRW divided by all finalized positive-cashback recipients", "required": "Full month(s), exact cap logic and recipient denominator", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "A few days cannot expose the monthly cap; the published 21% also aggregates two months."
+    },
+    {
+      "id": "EM-2", "policy": "P013", "metric": "elig_spend_post",
+      "empirical": {"value": 11.1, "unit": "percentage points", "estimand": "Change after grant payment in the year-on-year growth rate of card sales at grant-eligible merchants", "population": "National credit/debit-card sales", "period": "2020 grant payment and subsequent observation against 2019 same period", "source": "https://www.kdi.re.kr/share/pressView?bd_no=4018", "locator": "KDI press release, 2020-12-22"},
+      "simulation": {"formula": "Current pilot proxy is 100×(ON eligible-offline spend − OFF eligible-offline spend)/OFF; direct match needs the eligible-card-sales year-on-year growth-rate change", "required": "2019 matched-period comparator, card-only and merchant eligibility mapping, payment timing and national/weighted population", "current_v53_proxy": {"value": 13.51753564131229, "unit": "%", "artifact": "output/p013_v53_pilot_20260927/paired_effect.json", "field": "eligible_offline_relative_change"}},
+      "direct_gap_allowed": false, "reason": "Percentage change in three-day same-calendar paired spending cannot be subtracted from a percentage-point change in year-on-year card-sales growth."
+    },
+    {
+      "id": "EM-3", "policy": "P013", "metric": "total_spend_paired",
+      "empirical": {"value": 7.3, "unit": "%", "estimand": "Year-on-year change in all credit/debit-card sales from 11 May to 21 June 2020", "population": "National card sales", "period": "2020-05-11 through 2020-06-21 versus 2019 equivalent", "source": "https://www.kdi.re.kr/share/pressView?bd_no=4018", "locator": "KDI press release, 2020-12-22"},
+      "simulation": {"formula": "Current pilot proxy is 100×(ON total recorded spend − OFF total recorded spend)/OFF over three days; direct match needs 42-day 2020-versus-2019 card-sales growth", "required": "Full 42-day card-only sales, 2019 same-period comparator, population weights", "current_v53_proxy": {"value": 13.137301810857427, "unit": "%", "artifact": "output/p013_v53_pilot_20260927/paired_effect.json", "field": "recorded_total_relative_change"}},
+      "direct_gap_allowed": false, "reason": "The pilot's three-day ON/OFF spending contrast has a different counterfactual, period, geography and payment scope."
+    },
+    {
+      "id": "EM-4", "policy": "P013", "metric": "sector_rank",
+      "empirical": {"components": [{"sector": "semi_durables", "value": 10.8}, {"sector": "face_to_face_services", "value": 3.6}], "gap": 7.2, "unit": "percentage points", "estimand": "Policy-induced card-sales effect by item group, semi-durables minus face-to-face services", "population": "KDI card-sales analysis", "period": "2020 first emergency grant effect study", "source": "data/policy_raw_data/긴급재난지원금_P013/정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf", "locator": "printed p.4; corresponding source excerpt in 평가항목.md"},
+      "simulation": {"formula": "For each mapped POI group calculate 100×(ON spend−OFF spend)/OFF, then semi-durable minus face-service response", "required": "Item-to-POI crosswalk, matching treatment period and card-sales counterfactual", "current_v53_proxy": {"components": [52.73803549365053, 0.9771087998710005], "gap": 51.76092669377953, "unit": "percentage points", "artifact": "output/p013_v53_pilot_20260927/paired_sector.json"}},
+      "direct_gap_allowed": false, "reason": "The current POI groups and three-day ON/OFF percentage changes differ from KDI item-level card-sales effects; the pilot gap also has a wide interval crossing zero."
+    },
+    {
+      "id": "DS-1", "policy": "DISTANCING_2020", "metric": "sector_spend:식사",
+      "empirical": {"value": -14.1, "unit": "%", "estimand": "Year-on-year sales change in Korean restaurants", "population": "Seoul Shinhan-card merchant panel", "period": "2020 COVID period in the Seoul Institute study", "source": "data/policy_raw_data/사회적거리두기_DISTANCING2020/정답지_서울연구원_요약_발행처웹.txt", "locator": "publisher summary; source PDF in same folder"},
+      "simulation": {"formula": "Current category '식사' short-run OFF/ON spend change; direct match would restrict to Korean restaurants and construct the same year-on-year panel change", "required": "Korean-restaurant POI subclass, 2019 comparison, matched period and payment scope", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "Korean restaurants are narrower than the current all-meals category, and year-on-year 2020 sales are not a short policy OFF/ON contrast."
+    },
+    {
+      "id": "DS-2", "policy": "DISTANCING_2020", "metric": "sector_spend:쇼핑+마트",
+      "empirical": {"value": 4.2, "unit": "%", "estimand": "Average retail sales change during the COVID period", "population": "Seoul Shinhan-card merchant panel", "period": "2020 COVID period in the Seoul Institute study", "source": "data/policy_raw_data/사회적거리두기_DISTANCING2020/정답지_서울연구원_요약_발행처웹.txt", "locator": "publisher summary; source PDF in same folder"},
+      "simulation": {"formula": "Current shopping-plus-mart short-run OFF/ON spend change; direct match needs the source's retail classification and period", "required": "Retail POI classification, matching long-period sales and comparison period", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "A broad COVID-period retail change does not isolate one two-day distancing-stage transition."
+    },
+    {
+      "id": "DS-6", "policy": "DISTANCING_2020", "metric": "hub_type_rank",
+      "empirical": {"components": [{"hub": "tourism_special_zone", "value": -8.7}, {"hub": "developed_commercial_district", "value": -4.4}], "difference_tourism_minus_developed": -4.3, "unit": "% and percentage points", "estimand": "Relative sales changes by Seoul commercial district type", "population": "Seoul Shinhan-card merchant panel", "period": "2020 COVID period in the Seoul Institute study", "source": "data/policy_raw_data/사회적거리두기_DISTANCING2020/정답지_서울연구원_요약_발행처웹.txt", "locator": "publisher summary; source PDF in same folder"},
+      "simulation": {"formula": "Map each POI into official tourism-special-zone/developed-district boundaries, compute matched-period sales changes by hub type and subtract", "required": "Official hub-type boundary overlay and coverage audit; current graph has zero hub_type properties", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "Without spatial hub tags the simulation denominator cannot be constructed; a larger citizen sample cannot supply missing geography."
+    },
+    {
+      "id": "C1", "policy": "P016", "metric": "sector_spend:청과|정육|슈퍼마켓|식료품",
+      "empirical": {"value": 6.957, "unit": "%", "estimand": "Difference-in-differences in agricultural/livestock product sales at five large retailers compared with 2018–2019", "population": "Five participating large retailers' product sales", "period": "2020-07-30 through 2020-11-30 against 2018–2019", "source": "data/policy_raw_data/농축산물할인쿠폰_P016/정답지_농식품소비정보분석_농축산물할인지원_효과분석_2022.pdf", "locator": "PDF p.67"},
+      "simulation": {"formula": "Current proxy would be ON/OFF total spend across four POI types; direct match requires eligible product-line sales at comparable retailers and the same historical DID", "required": "Product-level transactions, matched large-retailer scope, prior-year panel and full program window", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "POI-level all-goods sales and short paired run are not product-level large-retailer DID."
+    },
+    {
+      "id": "C2", "policy": "P016", "metric": "sector_rank",
+      "empirical": {"components": [{"product_scope": "agricultural_livestock_products_within_large_marts", "value": 11.6}, {"product_scope": "all_products_within_large_marts", "value": 4.6}], "gap": 7.0, "unit": "% and percentage points", "estimand": "Descriptive sales growth during the program at large marts, agricultural/livestock products versus all products", "population": "Participating large marts", "period": "2020-07-30 through 2020-11-30", "source": "data/policy_raw_data/농축산물할인쿠폰_P016/정답지_농식품소비정보분석_농축산물할인지원_효과분석_2022.pdf", "locator": "PDF p.20"},
+      "simulation": {"formula": "Within the same marts calculate program-period product-specific and all-product sales growth and their difference", "required": "Store identity and product-level purchase ledger; current four POI types are separate stores rather than products inside marts", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "Different POI-set responses cannot represent product mix within the same large marts."
+    },
+    {
+      "id": "C3", "policy": "P016", "metric": "sector_share_within:청과|정육|슈퍼마켓|식료품/마트",
+      "empirical": {"value": 1.9, "unit": "percentage points", "estimand": "Change in agricultural/livestock product share of all sales inside large marts during the program", "population": "Participating large marts", "period": "2020-07-30 through 2020-11-30", "source": "data/policy_raw_data/농축산물할인쿠폰_P016/정답지_농식품소비정보분석_농축산물할인지원_효과분석_2022.pdf", "locator": "PDF p.20"},
+      "simulation": {"formula": "100×[(eligible-product sales/all sales)after−(eligible-product sales/all sales)before] within the same large marts", "required": "Product labels within store transactions and a matching full program period; POI category shares do not suffice", "current_v53": null},
+      "direct_gap_allowed": false, "reason": "The existing numerator is spending at separate POI types rather than agricultural products sold inside marts."
+    }
+  ],
+  "exploratory_additional_benchmarks_not_in_registered_38": [
+    {"policy": "P010", "id": "P010-BOK-RESTAURANT", "empirical": {"value": 46.0, "unit": "% of first-round voucher spending", "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf", "locator": "table 3, first-round restaurant row", "estimand": "Share of first-round voucher card spending at restaurants"}, "direct_gap_allowed": false, "reason": "Exploratory post-registration descriptive benchmark; mapped Seoul POI subclasses and recipient/period scope may differ."},
+    {"policy": "P010", "id": "P010-BOK-MART_FOOD", "empirical": {"value": 21.6, "unit": "% of first-round voucher spending", "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf", "locator": "table 3, first-round mart/food row", "estimand": "Share of first-round voucher card spending at marts and food retailers"}, "direct_gap_allowed": false, "reason": "Exploratory; simulator mart POI subclasses may omit some real card-industry entries such as convenience stores."},
+    {"policy": "P010", "id": "P010-BOK-MEDICAL", "empirical": {"value": 6.2, "unit": "% of first-round voucher spending", "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf", "locator": "table 3, first-round medical row", "estimand": "Share of first-round voucher card spending in medical services, excluding pharmacy shown separately"}, "direct_gap_allowed": false, "reason": "Exploratory; POI medical subclasses and card-industry scope require a verified crosswalk."},
+    {"policy": "P010", "id": "P010-BOK-BEAUTY", "empirical": {"value": 5.1, "unit": "% of first-round voucher spending", "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf", "locator": "table 3, first-round beauty row", "estimand": "Share of first-round voucher card spending in beauty services"}, "direct_gap_allowed": false, "reason": "Exploratory; mapped nail/hairdresser/skin-care POIs may not equal the BOK card-industry definition."},
+    {"policy": "P010", "id": "P010-BOK-ACADEMY", "empirical": {"value": 4.0, "unit": "% of first-round voucher spending", "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf", "locator": "table 3, first-round academy row", "estimand": "Share of first-round voucher card spending at private academies"}, "direct_gap_allowed": false, "reason": "Exploratory; only the simulator's 학원 subclass is counted and coverage must be audited."},
+    {"policy": "P010", "id": "P010-BOK-PHARMACY", "empirical": {"value": 3.9, "unit": "% of first-round voucher spending", "source": "data/policy_raw_data/민생회복소비쿠폰_P010/정답지_한국은행_이슈노트_2026-13.pdf", "locator": "table 3, first-round pharmacy row", "estimand": "Share of first-round voucher card spending at pharmacies"}, "direct_gap_allowed": false, "reason": "Exploratory; a mapped 약국 POI proxy, not an audited national card-merchant match."},
+    {"policy": "P014", "id": "P014-KIPF-47121", "empirical_coefficient": 0.141, "unit": "log-sales coefficient per regional-currency sales increment equal to 1% of 2010 local GRDP", "approximate_interpretation": "about 14% supermarket sales increase", "standard_error": 0.064, "source": "data/policy_raw_data/지역사랑상품권_P014/정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf", "locator": "table VI-6 column 3, PDF pp.79–80 / printed pp.62–63", "direct_gap_allowed": false, "reason": "Needs municipality-year-industry merchant sales and issuance/GRDP intensity, not the registered citizen LV-1/2/3 spending metrics."},
+    {"policy": "P014", "id": "P014-KIPF-47129", "empirical_coefficient": 0.082, "unit": "log-sales coefficient per regional-currency sales increment equal to 1% of 2010 local GRDP", "approximate_interpretation": "about 8% small food/general-store sales increase", "standard_error": 0.034, "source": "data/policy_raw_data/지역사랑상품권_P014/정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf", "locator": "table VI-6 column 3, PDF pp.79–80 / printed pp.62–63", "direct_gap_allowed": false, "reason": "Same panel/intensity mismatch; exploratory literature benchmark only."}
+  ],
+  "excluded_from_empirical_numeric_comparison": [
+    {"policy": "P010", "ids": ["P010-2", "P010-3"], "reason": "No corresponding empirical numeric value registered; internal mechanics only."},
+    {"policy": "P012", "ids": ["P012-3"], "reason": "Threshold-reach fraction has no external observed value."},
+    {"policy": "DISTANCING_2020", "ids": ["DS-3", "DS-4"], "reason": "Derived rank or cafe rule expectation, no same-definition numeric observed effect."},
+    {"policy": "GATHERING_2020", "ids": ["GA-1", "GA-2", "GA-3"], "reason": "Source reports significance/direction, no corresponding numeric effect in registered evidence; nonsignificant is not numeric zero."},
+    {"policy": "P014", "ids": ["LV-1", "LV-2", "LV-3"], "reason": "Original KIPF outcomes are merchant sales coefficients, not citizen total spending or residential/out-of-district shares; registered rows have no numeric truth."},
+    {"policy": "P015", "ids": ["HO-1", "HO-2", "HO-3", "HO-4", "HO-5", "HO-6"], "reason": "Only policy rules and hypothesized directions are in local files; no external outcome answer key. Existing holdout has already been opened and must not be rerun as untouched holdout."},
+    {"policy": "PLACEBO_FAKE", "ids": ["PL-1", "PL-2"], "reason": "Invented policy has no historical empirical outcome."},
+    {"policy": "PLACEBO_TIMING", "ids": ["PT-1", "PT-2", "PT-3"], "reason": "Placebo windows are internal falsification checks, not external empirical outcomes."},
+    {"policy": "P016", "ids": ["E1"], "reason": "Fourfold cost ratio is from a different year's program and is explicitly not a scoring target."}
+  ],
+  "separate_p010_numeric_research_leads": {
+    "status": "not_registered_in_original_38",
+    "source": "data/policy_raw_data/민생회복소비쿠폰_P010/대조표_BOK_이슈노트_전체지표.md",
+    "candidate_examples": ["first-round restaurant share of coupon spend 46.0%", "first-round mart/food share 21.6%", "first-round medical 6.2%", "first-round beauty 5.1%", "first-round academy 4.0%", "first-round pharmacy 3.9%", "first-round weekly redemption shares 20.9%, 30.2%, 19.5%"],
+    "warning": "EXP-001 detailed post-payment merchant transactions were lost in an infrastructure failure; its old prompt is not v53. New indicators require separate preregistration and same-scope v53 transaction and grant ledger before scoring."
+  }
+}

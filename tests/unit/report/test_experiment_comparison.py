@@ -149,3 +149,249 @@ def test_paired_pilot_proxies_never_become_empirical_gaps(tmp_path):
     assert {r["id"]: r for r in sector_report["rows"]}["EM-4"]["simulation"] == 3
     assert "준내구재" in report.render(sector_report)
     assert "방향 불확실: 시뮬 95% 구간에 0 포함" in report.render(sector_report)
+
+
+def test_numeric_only_view_keeps_policy_coverage_but_hides_unpaired_rows(tmp_path):
+    scoring, score = _synthetic(tmp_path)
+    original = report.build([score], scoring)
+    measured = original["rows"][0]
+    no_truth = dict(measured, id="T-2", truth=None, truth_unit=None, gap=None)
+    no_simulation = dict(measured, id="T-3", simulation=None,
+                         simulation_unit=None, gap=None, status="미실행")
+    original["rows"].extend([no_truth, no_simulation])
+    view = report.numeric_pair_view(original)
+    assert [row["id"] for row in view["rows"]] == ["T-1"]
+    assert view["omitted_without_empirical"] == 1
+    assert view["omitted_without_simulation"] == 1
+    assert view["policy_coverage"][0]["missing_simulation_ids"] == ["T-3"]
+    markup = report.render(view)
+    assert "실측 수치가 있는 정책의 숫자 확보 현황" in markup
+    assert 'class="id">T-2<' not in markup
+    assert 'class="id">T-3<' not in markup
+    assert "실측 —" not in markup and "시뮬 —" not in markup
+    assert "시뮬−실측" in markup  # only the audited T-1 has a direct gap
+
+
+def test_numeric_only_cli_output_preserves_source_and_direct_gap(tmp_path):
+    scoring, score = _synthetic(tmp_path)
+    out, json_out, result = report.generate([score], scoring_path=scoring,
+                                            numeric_only=True,
+                                            out=tmp_path / "numeric.html")
+    assert result["report_kind"] == "numeric_pairs"
+    assert result["indicator_count"] == 1
+    assert result["direct_gap_count"] == 1
+    assert result["policy_coverage"][0]["empirical_numeric_count"] == 1
+    assert "실측 +5.00%" in out.read_text(encoding="utf-8")
+    assert json.loads(json_out.read_text(encoding="utf-8"))["score_files"][0]["sha256"] == hashlib.sha256(score.read_bytes()).hexdigest()
+
+
+def test_multi_policy_proxy_needs_verified_evidence_and_never_self_certifies_gap(tmp_path):
+    scoring, evidence = _synthetic(tmp_path)
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"schema": "empirical_registry_v1", "indicators": [{
+        "policy": "P010", "id": "T-1",
+        "empirical": {"value": 5, "unit": "%", "source": "example/table 1",
+                      "estimand": "reported 2020 effect"},
+        "direct_gap_allowed": False, "reason": "proxy has another denominator",
+    }], "exploratory_additional_benchmarks_not_in_registered_38": [{
+        "policy": "P010", "id": "P010-BOK-X",
+        "empirical": {"value": 46.0, "unit": "%", "source": "example/table 3"},
+        "direct_gap_allowed": False, "reason": "survey and payments differ",
+    }]}), encoding="utf-8")
+    manifest = tmp_path / "multi.json"
+    payload = {
+        "schema": "multi_policy_numeric_v1", "experiment": "v53_test",
+        "prompt_variant": "v53",
+        "scoring_table_sha256": hashlib.sha256(scoring.read_bytes()).hexdigest(),
+        "runs": [{"policy": "P010", "label": "v53_test", "citizens": 12,
+                  "run_provenance": {"generic_prompt_sha256": "a" * 64,
+                                     "on_environment_id": "env-on",
+                                     "off_environment_id": "env-off"},
+                  "off": "2020-01-01:2020-01-02",
+                  "on": "2020-01-04:2020-01-05",
+                  "evidence": [{"path": str(evidence),
+                                "sha256": hashlib.sha256(evidence.read_bytes()).hexdigest()}],
+                  "indicators": [{"id": "T-1", "simulation": 10, "simulation_unit": "%",
+                                  "ci": [5, 15], "n": 80, "estimand_alignment": "matched",
+                                  "direction_comparable": False,
+                                  "reason": "same unit alone does not audit the estimand",
+                                  "method": "paired change"},
+                                 {"id": "P010-BOK-X", "simulation": 45,
+                                  "simulation_unit": "%", "ci": None, "n": 80,
+                                  "estimand_alignment": "different",
+                                  "direction_comparable": False,
+                                  "exploratory_not_registered": True,
+                                  "reason": "funded transaction shares are not survey responses",
+                                  "method": "funded share"}]}],
+    }
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    out, _, result = report.generate([], multi_policy_pairs=manifest,
+                                     empirical_registry=registry, scoring_path=scoring,
+                                     out=tmp_path / "numeric_report.html")
+    assert result["indicator_count"] == 1
+    assert result["rows"][0]["truth"] == 5
+    assert result["rows"][0]["simulation"] == 10
+    assert result["rows"][0]["gap"] is None
+    assert result["exploratory_pairs"][0]["truth"] == 46.0
+    assert "등록 38개 지표 밖의 탐색 참고값" in out.read_text(encoding="utf-8")
+    assert "v53 기준선: 범용 프롬프트 최적화 완료 아님" in out.read_text(encoding="utf-8")
+    assert "표본 12명 이하: 방향·크기 매우 불확실" in out.read_text(encoding="utf-8")
+    assert "시뮬 시민 재표집 95% 구간(모델·외부 표본 불확실성 미포함)" in out.read_text(encoding="utf-8")
+    assert "환경 ON env-on / OFF env-off" in out.read_text(encoding="utf-8")
+    assert "원문 정의·산식·증거 자세히 보기" in out.read_text(encoding="utf-8")
+    assert "탐색적 숫자상 차이" in out.read_text(encoding="utf-8")
+    model_id = "LGAI-EXAONE/EXAONE-4.5-33B-AWQ"
+    model_snapshot = {"served_model_ids": [model_id],
+                      "server_command": f"python -m sglang.launch_server --model-path {model_id}"}
+    snapshots = []
+    for arm in ("on", "off"):
+        snapshot = tmp_path / arm / "served_model_evidence.json"
+        snapshot.parent.mkdir()
+        snapshot.write_text(json.dumps(model_snapshot), encoding="utf-8")
+        digest = hashlib.sha256(snapshot.read_bytes()).hexdigest()
+        snapshots.append(digest)
+        payload["runs"][0]["evidence"].append({"path": str(snapshot), "sha256": digest})
+    payload["runs"][0]["run_provenance"].update({
+        "requested_model_id": "Qwen/Qwen3-8B",
+        "served_model_provenance": {
+            "model_id": model_id,
+            "on_evidence_sha256": snapshots[0],
+            "off_evidence_sha256": snapshots[1],
+        },
+    })
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    verified_html, _, _ = report.generate([], multi_policy_pairs=manifest,
+                                          empirical_registry=registry, scoring_path=scoring,
+                                          out=tmp_path / "verified_model.html")
+    model_markup = verified_html.read_text(encoding="utf-8")
+    assert "실제 서빙 모델 " + model_id in model_markup
+    assert "Qwen/Qwen3-8B" not in model_markup
+    payload["runs"][0]["run_provenance"]["served_model_provenance"]["model_id"] = "other/model"
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="inconsistent on served-model evidence"):
+        report.build_multi_policy_pairs(manifest, scoring)
+    payload["runs"][0]["run_provenance"]["served_model_provenance"]["model_id"] = model_id
+    payload["runs"][0]["evidence"][0]["sha256"] = "0" * 64
+    manifest.write_text(json.dumps(payload), encoding="utf-8")
+    with pytest.raises(ValueError, match="SHA256-mismatched evidence"):
+        report.build_multi_policy_pairs(manifest, scoring)
+
+
+def test_coverage_moves_policies_without_numeric_truth_to_collapsed_appendix():
+    coverage = [
+        {"policy": "P010", "policy_name": "쿠폰", "empirical_numeric_count": 1,
+         "simulation_numeric_count": 1, "paired_numeric_count": 1,
+         "sample_citizens": 80, "exploratory_numeric_count": 0,
+         "missing_simulation_reasons": []},
+        {"policy": "P015", "policy_name": "위약", "empirical_numeric_count": 0,
+         "simulation_numeric_count": 0, "paired_numeric_count": 0,
+         "sample_citizens": None, "exploratory_numeric_count": 0,
+         "missing_simulation_reasons": []},
+    ]
+    markup = report._coverage_html(coverage)
+    main_table = markup.split("</table>")[0]
+    assert "쿠폰" in main_table and "위약" not in main_table
+    assert "실측 수치가 없어 평가에서 제외한 정책·위약 1개 보기" in markup
+    assert "위약" in markup.split("</table>")[1]
+
+
+def test_policy_card_separates_first_attempt_quality_from_recovered_ledger():
+    arm = {"citizen_days": 80, "stage1_final_ok_count": 80,
+           "stage1_first_attempt_internal_validation_pass_count": 60,
+           "stage1_retry_recovered_count": 20, "stage2_fallback_only_count": 2,
+           "stage2_choice_repair_count": 4, "stage2_quality_gate_pass": True}
+    markup = report._run_context_html({
+        "policy_id": "P010", "generic_prompt_sha256": "a" * 64,
+        "quality_audit": {"on": arm, "off": arm},
+        "preperiod_balance": {"status": "fail",
+                              "post_effect_causal_interpretation_blocked": True,
+                              "comparisons": {"recorded_total_spend": {
+                                  "difference_pct_of_off": 15.0}}},
+    })
+    assert "첫 시도 내부검증 60/80 (75.0%)" in markup
+    assert "최종 원장 성공 80/80" in markup
+    assert "원시 첫응답의 엄격 형식률과 다릅니다" in markup
+    assert "정책 후 차이를 인과효과로 해석할 수 없습니다" in markup
+    assert "기록된 총지출" in markup
+
+
+def test_policy_card_does_not_overstate_first_pass_with_missing_attempt_history():
+    markup = report._run_context_html({
+        "policy_id": "P010", "generic_prompt_sha256": "a" * 64,
+        "quality_audit": {
+            "on": {"audit_status": "verified", "citizen_days": 80,
+                   "stage1_final_ok_count": 80,
+                   "stage1_first_attempt_internal_validation_pass_count": 60,
+                   "stage1_first_attempt_unknown_count": 4,
+                   "stage1_outer_retry_recovered_count": 4,
+                   "stage1_successful_invocation_first_attempt_pass_rate": 0.9,
+                   "stage2_fallback_only_count": 2,
+                   "stage2_choice_repair_count": 4,
+                   "stage2_quality_gate_pass": True},
+            "off": {"audit_status": "unavailable", "reason": "missing raw metrics"},
+        },
+    })
+    assert "이력 불명 4, 가능 범위 75.0~80.0%" in markup
+    assert "성공한 마지막 호출 안의 첫 시도 통과율 90.0%" in markup
+    assert "OFF 첫 시도·Stage2 품질 감사 불가" in markup
+    assert "80/80" in markup
+
+
+def test_log_point_is_converted_only_for_exploratory_number_impression():
+    surface = report._surface_comparison({
+        "truth": 0.2082, "truth_unit": "log-point",
+        "simulation": 20.0, "simulation_unit": "%", "gap": None,
+        "ci": [5.0, 35.0],
+    })
+    assert surface is not None
+    assert 23 < surface["empirical_as"] < 24
+    assert surface["delta_unit"] == "%p"
+    assert surface["delta"] < 0
+    assert report._surface_comparison({
+        "truth": 11.1, "truth_unit": "%p", "simulation": 13.5,
+        "simulation_unit": "%", "gap": None, "ci": None,
+    }) is None
+
+
+def test_october_cashback_uses_october_reference_instead_of_two_month_mean(tmp_path):
+    registry = tmp_path / "registry.json"
+    registry.write_text(json.dumps({"schema": "empirical_registry_v1", "indicators": [
+        {"policy": "P012", "id": "P012-4", "empirical": {
+            "value": 47880, "unit": "KRW per recipient",
+            "october_only_from_rounded_table": 47827.7},
+         "direct_gap_allowed": False, "reason": "different panel"},
+        {"policy": "P012", "id": "P012-6", "empirical": {
+            "value": 21.0, "unit": "% of cashback recipients",
+            "october_only_from_rounded_table_percent": 20.8714},
+         "direct_gap_allowed": False, "reason": "different panel"},
+    ]}), encoding="utf-8")
+    source = {"rows": [
+        {"policy": "P012", "id": "P012-4", "empirical_variant": "october_only",
+         "gap": None},
+        {"policy": "P012", "id": "P012-6", "empirical_variant": "october_only",
+         "gap": None},
+    ]}
+    updated = report.apply_empirical_registry(source, registry)
+    assert updated["rows"][0]["truth"] == 47827.7
+    assert updated["rows"][0]["truth_unit"] == "원"
+    assert updated["rows"][1]["truth"] == 20.8714
+    assert updated["rows"][1]["truth_unit"] == "%"
+    assert all("10월" in row["truth_kind"] for row in updated["rows"])
+
+
+def test_p012_sector_log_coefficient_gap_is_never_treated_as_percent_point_gap():
+    row = {
+        "id": "P012-5", "truth": 0.3336, "truth_unit": "log-point",
+        "simulation": 18.0, "simulation_unit": "%p", "gap": None, "ci": [-3.0, 40.0],
+        "empirical_components": [
+            {"sector": "appliances_furniture", "value": 0.3623},
+            {"sector": "hair_beauty", "value": 0.0287},
+        ],
+        "simulation_components": {"appliance_furniture_pct": 25.0,
+                                  "hair_beauty_pct": 7.0},
+    }
+    assert report._surface_comparison(row) is None
+    markup = report._p012_rank_components(row)
+    assert "0.3623" in markup and "0.0287" in markup
+    assert "+25.00%" in markup and "+7.00%" in markup
+    assert "두 차이를 빼거나 적중률로 채점하지 않습니다" in markup
