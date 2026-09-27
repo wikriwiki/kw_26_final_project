@@ -1020,8 +1020,8 @@ def apply_p016_postfix_display_audit(report: dict, path: Path) -> dict:
         raise ValueError("invalid P016 post-fix display audit")
     run = next((item for item in report.get("run_evidence", [])
                 if item["policy"] == "P016"), None)
-    if not run or not any(
-        item["path"] == audit.get("numeric_path")
+    if not run or not audit.get("numeric_path") or not any(
+        item["path"] == _display_path(Path(audit["numeric_path"]))
         and item["sha256"] == audit.get("numeric_sha256")
         for item in report.get("score_files", [])
     ):
@@ -1165,6 +1165,85 @@ def apply_p016_taxonomy_display_audit(report: dict, path: Path) -> dict:
          "run_context": {**item["run_context"], "p016_taxonomy_display_audit": displayed}}
         if item["policy"] == "P016" and item.get("run_context") else item
         for item in report["rows"]]
+    updated["post_run_display_audits"] = [
+        *report.get("post_run_display_audits", []),
+        {"path": displayed["path"], "sha256": displayed["sha256"]}]
+    return updated
+
+
+def apply_p014_mechanism_display_audit(report: dict, path: Path) -> dict:
+    """Bind voucher-mechanism limits and repair counts to a scored P014 pair."""
+    audit = json.loads(path.read_text(encoding="utf-8"))
+    if (audit.get("schema") != "p014_voucher_mechanism_postscore_audit_v1"
+            or audit.get("policy") != "P014"
+            or audit.get("policy_type") != "price_discount"
+            or any(audit.get(key) is not None for key in (
+                "voucher_purchase_count", "voucher_redemption_count",
+                "voucher_usage_rate_among_eligible_purchases"))):
+        raise ValueError("invalid P014 voucher mechanism audit")
+    run = next((item for item in report.get("run_evidence", [])
+                if item["policy"] == "P014"), None)
+    if not run or not any(
+        item["path"] == audit.get("numeric_path")
+        and item["sha256"] == audit.get("numeric_sha256")
+        for item in report.get("score_files", [])
+    ):
+        raise ValueError("P014 mechanism audit does not match frozen numeric score")
+    evidence = {item["path"]: item["sha256"] for item in run["evidence"]}
+    policy_file = Path(audit.get("policy_file_path") or "")
+    if not policy_file.is_absolute():
+        policy_file = ROOT / policy_file
+    if (not policy_file.is_file()
+            or _sha(policy_file) != audit.get("policy_file_sha256")
+            or (run.get("run_context") or {}).get("policy_input_sha256")
+            != audit["policy_file_sha256"]):
+        raise ValueError("P014 policy input is not the scored price_discount file")
+    for arm in ("on", "off"):
+        item = audit.get(arm) or {}
+        for source_key, sha_key in (("sector_ledger_path", "sector_ledger_sha256"),
+                                   ("stage2_audit_path", "stage2_audit_sha256")):
+            source = item.get(source_key)
+            if not source or evidence.get(_display_path(Path(source))) != item.get(sha_key):
+                raise ValueError("P014 mechanism audit source differs from numeric evidence")
+        total = item.get("citizen_days")
+        if (not isinstance(total, int) or isinstance(total, bool) or total <= 0
+                or item.get("stage2_quality_gate_pass") is not True
+                or any(not isinstance(item.get(key), int)
+                       or isinstance(item[key], bool) or item[key] < 0
+                       for key in ("stage2_choice_repair_agents",
+                                   "stage2_hallucinations_corrected",
+                                   "stage2_spend_amount_fallbacks",
+                                   "positive_purchase_receipts",
+                                   "positive_purchase_won", "policy_hits_total"))):
+            raise ValueError("P014 mechanism audit has invalid repair or receipt counts")
+        stage2_path = Path(item["stage2_audit_path"])
+        if not stage2_path.is_absolute():
+            stage2_path = ROOT / stage2_path
+        stage2 = json.loads(stage2_path.read_text(encoding="utf-8"))
+        totals = stage2.get("totals") or {}
+        run_quality = ((run.get("run_context") or {}).get("quality_audit") or {}).get(arm) or {}
+        if (stage2.get("quality_gate_pass") is not True
+                or stage2.get("unrepaired_choice_trace_pass")
+                != item.get("stage2_unrepaired_choice_trace_pass")
+                or not isinstance(totals.get("metrics_rows"), int)
+                or totals["metrics_rows"] < total
+                or totals["metrics_rows"] != run_quality.get("citizen_days")
+                or any(totals.get(key) != item[key] for key in (
+                    "stage2_choice_repair_agents", "stage2_hallucinations_corrected",
+                    "stage2_spend_amount_fallbacks"))):
+            raise ValueError("P014 repair counts differ from frozen Stage2 evidence")
+    displayed = {"on": audit["on"], "off": audit["off"],
+                 "stage2_total_citizen_days": {
+                     arm: ((run["run_context"]["quality_audit"])[arm]["citizen_days"])
+                     for arm in ("on", "off")},
+                 "path": _display_path(path), "sha256": _sha(path),
+                 "status": "mechanism_not_fully_accounted"}
+    updated = dict(report)
+    updated["exploratory_simulations"] = [
+        {**item, "run_context": {**item["run_context"],
+                                 "p014_mechanism_display_audit": displayed}}
+        if item["policy"] == "P014" and item.get("run_context") else item
+        for item in report.get("exploratory_simulations", [])]
     updated["post_run_display_audits"] = [
         *report.get("post_run_display_audits", []),
         {"path": displayed["path"], "sha256": displayed["sha256"]}]
@@ -2138,9 +2217,42 @@ def _run_context_html(context: dict | None) -> str:
         detail.append('<p><strong>P016 분류 항등식 감사:</strong> '
                       f'{_esc(taxonomy["path"])} '
                       f'SHA256 {_esc(taxonomy["sha256"])}</p>')
+    voucher = context.get("p014_mechanism_display_audit")
+    voucher_html = ''
+    if isinstance(voucher, dict):
+        arms = []
+        for arm, label in (("on", "ON"), ("off", "OFF")):
+            item = voucher[arm]
+            full = voucher["stage2_total_citizen_days"][arm]
+            arms.append(
+                f'{label} 전체 {full} 시민×일 중 장소 선택 보정 '
+                f'{item["stage2_choice_repair_agents"]} 시민×일, '
+                f'존재하지 않는 장소 보정 {item["stage2_hallucinations_corrected"]}건, '
+                f'금액 대체 {item["stage2_spend_amount_fallbacks"]}건'
+            )
+        unrepaired_fails = [label for arm, label in (("on", "ON"), ("off", "OFF"))
+                            if voucher[arm]["stage2_unrepaired_choice_trace_pass"] is False]
+        choice_note = ('원래 선택 기록의 무보정 관문도 양팔 통과했습니다.'
+                       if not unrepaired_fails else
+                       f'원래 선택 기록의 무보정 관문은 {"·".join(unrepaired_fails)}에서 '
+                       '통과하지 못했습니다.')
+        voucher_html = (
+            '<p class="balance"><strong>P014 상품권 기전·생성 품질 감사:</strong> '
+            + ' / '.join(_esc(line) for line in arms) + '. '
+            'Stage2 최종 품질 관문은 양팔 통과했습니다. ' + choice_note + ' '
+            '이 숫자는 시민×일과 보정 발생 건수를 구분한 '
+            '실행 품질 기록입니다. 현재 정책에는 상품권 구매·잔액·상환 장부가 없고 '
+            'price_discount 할인 정산도 작동하지 않습니다. '
+            'policy_hits는 넓은 방문 표시이므로 상품권 사용률이 아닙니다. '
+            '계산된 POI 지출 반응을 상품권 거래 효과로 해석하지 않습니다.</p>'
+        )
+        detail.append('<p><strong>P014 상품권 기전 감사:</strong> '
+                      f'{_esc(voucher["path"])} '
+                      f'SHA256 {_esc(voucher["sha256"])}</p>')
     return ('<p class="contextline">' + ' · '.join(pieces) + '</p>'
             + quality_html + balance_html + diagnostic_html + channel_html
             + concentration_html + regime_html + p016_html + taxonomy_html
+            + voucher_html
             + ('<details class="technical"><summary>정책·환경·프롬프트 지문 보기</summary>'
                + ''.join(detail) + '</details>' if detail else ''))
 
@@ -2409,6 +2521,7 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              distancing_geo_failure_audit: Path | None = None,
              p016_postfix_audit: Path | None = None,
              p016_taxonomy_audit: Path | None = None,
+             p014_mechanism_audit: Path | None = None,
              in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
@@ -2434,6 +2547,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         raise ValueError("--p016-postfix-audit requires --multi-policy-pairs")
     if p016_taxonomy_audit and not multi_paths:
         raise ValueError("--p016-taxonomy-audit requires --multi-policy-pairs")
+    if p014_mechanism_audit and not multi_paths:
+        raise ValueError("--p014-mechanism-audit requires --multi-policy-pairs")
     if in_progress_policies and not multi_paths:
         raise ValueError("--in-progress-policy requires --multi-policy-pairs")
     if len(score_paths) > 1 and out is None:
@@ -2458,7 +2573,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([p016_postfix_audit]
                                                              if p016_postfix_audit else []),
                                                            *([p016_taxonomy_audit]
-                                                             if p016_taxonomy_audit else [])]):
+                                                             if p016_taxonomy_audit else []),
+                                                           *([p014_mechanism_audit]
+                                                             if p014_mechanism_audit else [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -2479,6 +2596,8 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
             report = apply_p016_postfix_display_audit(report, p016_postfix_audit)
         if p016_taxonomy_audit:
             report = apply_p016_taxonomy_display_audit(report, p016_taxonomy_audit)
+        if p014_mechanism_audit:
+            report = apply_p014_mechanism_display_audit(report, p014_mechanism_audit)
     elif paired_effect:
         report = build_paired_effect(paired_effect, scoring_path, experiment, paired_sector)
     else:
@@ -2536,6 +2655,8 @@ def main() -> int:
                     help="optional score-bound P016 patched-arm and excluded-run provenance")
     ap.add_argument("--p016-taxonomy-audit", type=Path,
                     help="optional score-bound P016 C2/C3 structural-zero disclosure")
+    ap.add_argument("--p014-mechanism-audit", type=Path,
+                    help="optional score-bound P014 voucher-accounting and repair disclosure")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
     ap.add_argument("--experiment", default="")
@@ -2562,6 +2683,7 @@ def main() -> int:
                                          distancing_geo_failure_audit=a.distancing_geo_failure_audit,
                                          p016_postfix_audit=a.p016_postfix_audit,
                                          p016_taxonomy_audit=a.p016_taxonomy_audit,
+                                         p014_mechanism_audit=a.p014_mechanism_audit,
                                          in_progress_policies=a.in_progress_policy)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))

@@ -486,6 +486,74 @@ def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy(
     assert "시뮬−실측" not in markup
 
 
+def test_p014_mechanism_audit_shows_repairs_without_claiming_voucher_usage(tmp_path):
+    numeric = tmp_path / "numeric.json"
+    numeric.write_text('{"runs": []}', encoding="utf-8")
+    policy = ROOT / "data/neo4j_load/policies/P014.json"
+    quality_arm = {"citizen_days": 200, "stage1_final_ok_count": 200,
+                   "stage1_first_attempt_internal_validation_pass_count": 160,
+                   "stage2_fallback_only_count": 16,
+                   "stage2_choice_repair_count": 8,
+                   "stage2_quality_gate_pass": True}
+    context = {"policy_id": "P014", "policy_input_sha256": report._sha(policy),
+               "quality_audit": {arm: quality_arm for arm in ("on", "off")}}
+    evidence = []
+    arms = {}
+    for arm in ("on", "off"):
+        folder = tmp_path / arm
+        folder.mkdir()
+        ledger = folder / "sector.ledger.jsonl"
+        ledger.write_text('{}\n', encoding="utf-8")
+        stage2 = folder / "stage2.json"
+        stage2.write_text(json.dumps({
+            "quality_gate_pass": True, "unrepaired_choice_trace_pass": False,
+            "totals": {"metrics_rows": 200, "stage2_choice_repair_agents": 8,
+                       "stage2_hallucinations_corrected": 9,
+                       "stage2_spend_amount_fallbacks": 16}}), encoding="utf-8")
+        for source in (ledger, stage2):
+            evidence.append({"path": report._display_path(source),
+                             "sha256": report._sha(source)})
+        arms[arm] = {"citizen_days": 120,
+                     "sector_ledger_path": report._display_path(ledger),
+                     "sector_ledger_sha256": report._sha(ledger),
+                     "stage2_audit_path": report._display_path(stage2),
+                     "stage2_audit_sha256": report._sha(stage2),
+                     "stage2_quality_gate_pass": True,
+                     "stage2_unrepaired_choice_trace_pass": False,
+                     "stage2_choice_repair_agents": 8,
+                     "stage2_hallucinations_corrected": 9,
+                     "stage2_spend_amount_fallbacks": 16,
+                     "positive_purchase_receipts": 634,
+                     "positive_purchase_won": 5991515,
+                     "policy_hits_total": 634}
+    audit = {"schema": "p014_voucher_mechanism_postscore_audit_v1",
+             "policy": "P014", "policy_type": "price_discount",
+             "policy_file_path": report._display_path(policy),
+             "policy_file_sha256": report._sha(policy),
+             "numeric_path": report._display_path(numeric),
+             "numeric_sha256": report._sha(numeric),
+             "voucher_purchase_count": None, "voucher_redemption_count": None,
+             "voucher_usage_rate_among_eligible_purchases": None, **arms}
+    sidecar = tmp_path / "mechanism.json"
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    original = {"score_files": [{"path": report._display_path(numeric),
+                                  "sha256": report._sha(numeric)}],
+                "run_evidence": [{"policy": "P014", "run_context": context,
+                                  "evidence": evidence}],
+                "exploratory_simulations": [{"policy": "P014", "run_context": context}]}
+    augmented = report.apply_p014_mechanism_display_audit(original, sidecar)
+    markup = report._run_context_html(
+        augmented["exploratory_simulations"][0]["run_context"])
+    assert "전체 200 시민×일 중 장소 선택 보정 8 시민×일" in markup
+    assert "존재하지 않는 장소 보정 9건" in markup
+    assert "금액 대체 16건" in markup
+    assert "상품권 사용률이 아닙니다" in markup
+    audit["on"]["stage2_hallucinations_corrected"] = 10
+    sidecar.write_text(json.dumps(audit, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(ValueError, match="frozen Stage2 evidence"):
+        report.apply_p014_mechanism_display_audit(original, sidecar)
+
+
 def test_p016_taxonomy_identity_suppresses_false_zero_gap(tmp_path):
     numeric = tmp_path / "numeric.json"
     numeric.write_text('{"runs": []}', encoding="utf-8")
