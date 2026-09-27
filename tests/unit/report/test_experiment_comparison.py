@@ -148,3 +148,4 @@ def test_paired_pilot_proxies_never_become_empirical_gaps(tmp_path):
     assert sector_report["direct_gap_count"] == 0
     assert {r["id"]: r for r in sector_report["rows"]}["EM-4"]["simulation"] == 3
     assert "준내구재" in report.render(sector_report)
+    assert "방향 불확실: 시뮬 95% 구간에 0 포함" in report.render(sector_report)

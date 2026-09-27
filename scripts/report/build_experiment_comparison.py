@@ -455,9 +455,14 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                 nums.append('<span class="memo">외부 방향: '
                             + ('일치' if r["external_direction_match"] else '반대') + '</span>')
             if r.get("proxy_direction_same") is not None:
-                nums.append('<span class="memo">방향 참고: '
-                            + ('양쪽 증가' if r["proxy_direction_same"] else '부호 다름')
-                            + ' (정식 검증 아님)</span>')
+                interval = r.get("ci")
+                if interval and interval[0] <= 0 <= interval[1]:
+                    nums.append('<span class="memo">방향 불확실: 시뮬 95% 구간에 0 포함 '
+                                '(정식 검증 아님)</span>')
+                else:
+                    nums.append('<span class="memo">방향 참고: '
+                                + ('양쪽 증가' if r["proxy_direction_same"] else '부호 다름')
+                                + ' (정식 검증 아님)</span>')
             parts.append('<div class="row"><div class="meta">'
                          f'<span class="id">{_esc(r["id"])}</span>'
                          f'<span class="exp">{_esc(EXPECT.get(r["expect"], r["expect"]))}</span>'
@@ -475,6 +480,9 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
              (report["indicator_count"], "등록 지표 전체"),
              (report["simulated_count"], "시뮬 수치 있음"),
              (sum(r["external_direction_match"] is not None for r in rows), "외부 방향 대조 가능"),
+             (sum(r.get("proxy_direction_same") is not None
+                  and not (r.get("ci") and r["ci"][0] <= 0 <= r["ci"][1])
+                  for r in rows), "대리 부호 참고 가능"),
              (report["direct_gap_count"], "실측과 직접 차감 가능"),
              (sum(r["more_people"] == "아니요" for r in rows), "표본 확대만으로 부족"),
              (sum(r["more_people"] == "내부 정밀도만" for r in rows), "내부 정밀도만 개선"),
