@@ -500,6 +500,7 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         '<p>아래 EM-2/EM-3의 파란 수치는 쌍체 시뮬레이션의 대리 변화율입니다. '
                         '실측의 전년동기 카드매출 효과와 분모·기간·모집단이 달라 같은 방향의 참고만 가능하며, '
                         '실측과의 숫자 차이 또는 최적 프롬프트 정확도는 계산하지 않습니다. '
+                        '95% 구간은 시민 재표본에 한정되며 모델 생성 결과를 다시 뽑았을 때의 변동은 포함하지 않습니다. '
                         '나머지 정책의 미실행은 표본 부족이 아니라 이번 파일럿에 정책 팔이 없다는 뜻입니다.</p></section>')
     tally_html = ''.join(f'<div class="stat"><span class="v">{v}</span><span class="k">{_esc(k)}</span></div>'
                          for v, k in stats)
