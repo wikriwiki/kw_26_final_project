@@ -448,6 +448,21 @@ def test_p016_patch_history_is_bound_to_new_score_not_failed_arm(tmp_path):
         report.apply_p016_postfix_display_audit(original, sidecar)
 
 
+def test_p014_exploratory_card_keeps_source_coefficient_separate_from_poi_proxy():
+    markup = report._exploratory_html([{
+        "policy": "P014", "policy_name": "지역사랑상품권 탐색 지표",
+        "id": "P014-KIPF-47121", "truth": 0.141, "truth_unit": "log-point",
+        "simulation": 12.5, "simulation_unit": "%", "n": 40,
+        "source": "KIPF table VI-6", "source_locator": "column 3",
+        "simulation_evidence": [],
+    }])
+    assert "실측 +0.1410 log-point" in markup
+    assert "시뮬 +12.50%" in markup
+    assert "지역·연도별 업종 매출 회귀계수" in markup
+    assert "정식 효과 점수로 쓰지 않습니다" in markup
+    assert "시뮬−실측" not in markup
+
+
 def test_policy_card_separates_first_attempt_quality_from_recovered_ledger():
     arm = {"citizen_days": 80, "stage1_final_ok_count": 80,
            "stage1_first_attempt_internal_validation_pass_count": 60,
