@@ -114,6 +114,30 @@ METRICS_DIR.mkdir(parents=True, exist_ok=True)
 # =========================================================
 # Agent 풀 (시뮬 대상)
 # =========================================================
+def fetch_roster(path: str) -> list[str]:
+    """명부 파일에 적힌 사람만 돌린다 — 표본을 다시 뽑지 않는다.
+
+    `--limit` 은 소비분위 층화표본을 **새로** 뽑는다. 인구 분포에 맞춰 얼린 명부가
+    있을 때 그것을 쓰면 명부가 조용히 버려진다. 그래서 명부는 따로 받고,
+    **그래프에 없거나 거주지가 없는 사람이 하나라도 있으면 멈춘다.**
+    """
+    ids = json.loads(Path(path).read_text(encoding="utf-8"))
+    if isinstance(ids, dict):
+        ids = list(ids)
+    ids = [str(x) for x in ids]
+    if not ids or len(set(ids)) != len(ids):
+        raise SystemExit("roster is empty or has duplicates: %s" % path)
+    with driver_session() as s:
+        ok = {r["id"] for r in s.run(
+            "MATCH (a:Agent) WHERE a.id IN $ids AND (a)-[:LIVES_AT]->() RETURN a.id AS id",
+            ids=ids)}
+    missing = [x for x in ids if x not in ok]
+    if missing:
+        raise SystemExit("roster has %d agent(s) absent or without a residence; first: %s"
+                         % (len(missing), missing[0]))
+    return sorted(ids)
+
+
 def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[str]:
     """시뮬 대상 agent.
 
@@ -1141,6 +1165,8 @@ def main():
     ap.add_argument("--start", default="2026-05-01", help="시뮬 시작일")
     ap.add_argument("--days", type=int, default=3, help="시뮬 일수")
     ap.add_argument("--limit", type=int, default=None, help="agent 수 제한 (dry-run용)")
+    ap.add_argument("--roster", default=None,
+                    help="명부 파일(JSON 배열). 주면 --limit 대신 이 사람들만 돌린다.")
     ap.add_argument("--gu", default=None, help="자치구 코드 필터 (예: 11680 강남)")
     ap.add_argument("--environment", default=None,
                     help="사회 배경 id (예: covid_2021). 미지정 시 환경 블록 없음")
@@ -1166,7 +1192,12 @@ def main():
             raise ValueError("profile roster is frozen; --gu/--limit cannot resample it")
         agents = matched_roster
     else:
-        agents = fetch_agents(limit=args.limit, gu_only=args.gu)
+        if args.roster:
+            if args.gu:
+                raise SystemExit("--roster 와 --gu 를 함께 쓸 수 없다")
+            agents = fetch_roster(args.roster)
+        else:
+            agents = fetch_agents(limit=args.limit, gu_only=args.gu)
     preflight_profile_roster(agents)
     from income import preflight_baseline_income
     income_map = preflight_baseline_income(

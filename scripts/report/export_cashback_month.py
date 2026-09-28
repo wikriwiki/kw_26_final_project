@@ -56,16 +56,21 @@ def _money(value, label: str) -> int:
     return value
 
 
-def load_policy(path: Path, month: str, policy_id: str) -> dict:
+def load_policy(path: Path, month: str, policy_id: str, *, partial_ok: bool = False) -> dict:
     policy = json.loads(path.read_text(encoding="utf-8"))
     if policy.get("id") != policy_id or policy.get("type") != "cashback":
         raise ValueError("selected policy file is not the cashback policy")
     days = month_days(month)
     effective_from = policy.get("effective_from")
     effective_until = policy.get("effective_until")
-    if (not isinstance(effective_from, str) or not isinstance(effective_until, str)
-            or effective_from > days[0] or effective_until < days[-1]):
-        raise ValueError("cashback policy does not cover the complete calendar month")
+    if not isinstance(effective_from, str) or not isinstance(effective_until, str):
+        raise ValueError("cashback policy needs an explicit effective period")
+    if effective_from > days[0] or effective_until < days[-1]:
+        # 캐시백은 월 단위 문턱·한도라 보통 달 전체를 덮어야 한다. 압축월 검수처럼
+        # **알고서** 일부만 볼 때만 부르는 이가 명시적으로 허용한다 — 그 사실이
+        # manifest 에 남고, 실측과 맞대는 자리에서는 이 길을 쓰지 않는다.
+        if not partial_ok:
+            raise ValueError("cashback policy does not cover the complete calendar month")
     rate = policy.get("benefit_rate")
     threshold_ratio = policy.get("threshold_ratio")
     cap = policy.get("cap_per_agent")
@@ -218,15 +223,23 @@ def verify_metric_provenance(daily_metrics: dict[str, list[dict]], cohort: dict)
                                  f"{row.get('aid')} {day}")
 
 
-def export(*, month: str, arm: str, policy_id: str, policy_file: Path,
+def export(*, partial_month_ok: bool = False,
+           month: str, arm: str, policy_id: str, policy_file: Path,
            base_ratio: float, roster: list[str], metrics_dir: Path, out: Path) -> int:
     if arm not in ("on", "off") or not 0 < base_ratio <= 1:
         raise ValueError("invalid arm or eligible base ratio")
     days = month_days(month)
-    policy = load_policy(policy_file, month, policy_id)
+    policy = load_policy(policy_file, month, policy_id, partial_ok=partial_month_ok)
     source = load_sources(metrics_dir, [])
     if not set(days).issubset(source):
-        raise ValueError("missing calendar-month metrics days")
+        # 월 누적 문턱·한도라 보통 달 전체가 있어야 한다. 압축월 검수처럼 알고서
+        # 일부만 돌렸을 때만, 있는 날로 줄이고 그 사실을 manifest 에 남긴다.
+        if not partial_month_ok:
+            raise ValueError("missing calendar-month metrics days")
+        present = [d for d in days if d in source]
+        if not present:
+            raise ValueError("no metrics days inside the requested month")
+        days = present
     daily_metrics = {day: source[day] for day in days}
     audit = inspect(daily_metrics, expected_per_day=len(roster))
     if not audit["quality_gate_pass"]:
@@ -284,6 +297,8 @@ def export(*, month: str, arm: str, policy_id: str, policy_file: Path,
     with out.open("rb") as stream:
         output_sha = hashlib.file_digest(stream, "sha256").hexdigest()
     manifest = {
+        "partial_month_accepted": bool(partial_month_ok),
+        "days_covered": list(days),
         "month": month, "arm": arm, "policy_id": policy_id,
         "policy_file": str(policy_file),
         "policy_file_sha256": hashlib.sha256(policy_file.read_bytes()).hexdigest(),
@@ -319,8 +334,12 @@ def main() -> int:
     parser.add_argument("--roster", type=Path, required=True)
     parser.add_argument("--metrics-dir", type=Path, required=True)
     parser.add_argument("--out", type=Path, required=True)
+    parser.add_argument("--allow-partial-month", action="store_true",
+                        help="정책이 달 전체를 덮지 않아도 진행한다(압축월 검수 전용). "
+                             "manifest 에 기록되며 실측 대조에 쓰지 않는다.")
     args = parser.parse_args()
-    count = export(month=args.month, arm=args.arm, policy_id=args.policy_id,
+    count = export(partial_month_ok=args.allow_partial_month,
+                   month=args.month, arm=args.arm, policy_id=args.policy_id,
                    policy_file=args.policy_file, base_ratio=args.base_ratio,
                    roster=roster_file(args.roster), metrics_dir=args.metrics_dir,
                    out=args.out)

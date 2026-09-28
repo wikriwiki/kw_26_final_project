@@ -4,7 +4,7 @@
 set -Eeuo pipefail
 umask 077
 
-case_id=${1:?case id required: p010|distancing|p016|p014|p012|p012t}
+case_id=${1:?case id required: p010|distancing|p016|p014|p012|p012t|p012m}
 arm=${2:?arm required: on|off}
 [[ $arm == on || $arm == off ]] || { echo 'arm must be on or off' >&2; exit 2; }
 REPO=/data/pilot_repo_20260927
@@ -12,6 +12,7 @@ BASE=/data/multipolicy_v53_20260928
 PRE=/data/backup_20260927_pre_pilot
 NEO=/data/neo4j-community-5.26.0
 N=40
+WORKERS=32
 RUN_REVISION=initial
 case "$case_id" in
   p010)
@@ -31,6 +32,16 @@ case "$case_id" in
   p012)
     START=2021-10-01; DAYS=31; DAY0=2021-09-30; N=12
     ENV_ID=covid_2021; POLICY=data/experiments/P012_v53_october_policy_20260928.json; PID=P012;;
+  p012m)
+    # 본런. 31일 창의 **동결본** 정책으로 실측과 맞댄다. 명부는 행안부 2021-09
+    # 서울 주민등록 분포에 맞춘 것을 쓴다(소득은 맞추지 않았다 — manifest 에 적혀 있다).
+    # 사람 수는 명부가 정한다. 동시성은 측정으로 정했다(12->64 에서 3.46배, 그 위로 12%).
+    START=2021-10-01; DAYS=31; DAY0=2021-09-30
+    ROSTER_SRC=${P012M_ROSTER:?P012M_ROSTER required}
+    N=$(python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$ROSTER_SRC")
+    WORKERS=64
+    ENV_ID=covid_2021; POLICY=data/experiments/P012_v53_october_policy_20260928.json; PID=P012
+    RUN_REVISION=eligible_channel_main;;
   p012t)
     # 출력 배관 검수용. 창 7일 + 문턱·한도를 7/31 로 줄인 압축월이고, 적립 몫을
     # 정책에 반응하게 한 경로를 켠다. **실측과 맞대지 않는다** — 값이 창 길이에
@@ -57,6 +68,7 @@ case "$case_id/$arm" in
   p014/on) previous=p016/off;;
   p014/off) previous=p014/on;;
   p012t/on|p012t/off) previous='';;
+  p012m/on|p012m/off) previous='';;
 esac
 if [[ -n $previous ]]; then
   prevdir=$BASE/$previous
@@ -74,12 +86,17 @@ export SIM_PROMPT_VARIANT=v53 SIM_ENVIRONMENT="$ENV_ID"
 if [[ $case_id == p010 ]]; then unset LLM_MODE; else export LLM_MODE=exaone_4_5; fi
 export EXP_SANGSAENG_BASE_RATIO=0.268 EXP_SEED_SANGSAENG=1 EXP_BALANCE_DAYS=39
 export EXP_DURABLES=1 EXP_CATLINE=fold EXP_POLICY_ANONYMOUS=1 POLICY_POI_SORT_BOOST=0
-export EXP_DAILY_INCOME=baseline EXP_DAILY_INCOME_MAP="$OUT/frozen_income.json"
+export EXP_DAILY_INCOME=baseline
+if [[ $case_id == p012m ]]; then unset EXP_DAILY_INCOME_MAP
+else export EXP_DAILY_INCOME_MAP="$OUT/frozen_income.json"; fi
 unset SIM_ALLOW_STAGE2_FALLBACK
 # [적립 몫을 정책에 반응하게 한다] 이 경로는 검수 케이스에서만 켠다. 동결된
 # 케이스들의 회계는 손대지 않는다 — 켜고 끔이 기준 런에서 항등임을 단위테스트가
 # 못 박고 있지만, 동결본은 바이트 단위로 같은 환경에서 돌아야 한다.
-if [[ $case_id == p012t ]]; then export EXP_ELIGIBLE_CHANNEL=1; else unset EXP_ELIGIBLE_CHANNEL; fi
+case "$case_id" in
+  p012t|p012m) export EXP_ELIGIBLE_CHANNEL=1;;
+  *) unset EXP_ELIGIBLE_CHANNEL;;
+esac
 log() { printf '[%s] %s\n' "$(date -Is)" "$*" | tee -a "$ARM/arm.log"; }
 trap 'log "FAILED at line $LINENO; graph/output left intact"' ERR
 
@@ -160,9 +177,15 @@ done
 [[ $ready == 1 ]] || { log 'Neo4j not query-ready'; exit 1; }
 trap - EXIT
 log 'Pre-pilot graph restored; seeding Day0'
-if [[ $case_id != p010 ]]; then
-  SIM_OUTPUT_DIR="$ARM/preflight" python tools/freeze_multi_small_cohort_20260928.py \
-    --out "$OUT" --citizens "$N" --backup "$PRE"
+if [[ $case_id == p012m ]]; then
+  # 인구 분포에 맞춘 명부를 그대로 쓴다. 80명 상한 도구를 통과시키지 않는다.
+  cp -n "$ROSTER_SRC" "$OUT/roster.json"
+  cmp "$ROSTER_SRC" "$OUT/roster.json"
+  test -s "$ROSTER_SRC.manifest.json"
+  cp -n "$ROSTER_SRC.manifest.json" "$OUT/roster.manifest.json"
+  sha256sum "$OUT/roster.json" "$OUT/roster.manifest.json" >> "$ARM/frozen_inputs.sha256"
+elif [[ $case_id != p010 ]]; then
+  SIM_OUTPUT_DIR="$ARM/preflight" python tools/freeze_multi_small_cohort_20260928.py     --out "$OUT" --citizens "$N" --backup "$PRE"
   sha256sum "$OUT/roster.json" "$OUT/frozen_income.json" >> "$ARM/frozen_inputs.sha256"
 fi
 python scripts/neo4j_load/97_reset_run_artifacts.py
@@ -181,7 +204,11 @@ for offset in $(seq 0 $((DAYS - 1))); do
   day=$(date -d "$START + $offset days" +%F)
   success=0
   for attempt in 1 2 3; do
-    args=(--start "$day" --days 1 --limit "$N" --workers 32)
+    if [[ $case_id == p012m ]]; then
+      args=(--start "$day" --days 1 --roster "$OUT/roster.json" --workers "$WORKERS")
+    else
+      args=(--start "$day" --days 1 --limit "$N" --workers "$WORKERS")
+    fi
     if [[ -n $ENV_ID ]]; then args+=(--environment "$ENV_ID"); fi
     log "Day $day attempt $attempt"
     if python -u scripts/sim/run_simulation.py "${args[@]}" \

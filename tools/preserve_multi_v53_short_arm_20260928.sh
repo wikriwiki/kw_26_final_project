@@ -63,7 +63,10 @@ if [[ $case_id == p010 ]]; then
     --metrics-dir "$ARM/metrics" --out "$ARM/policy.ledger.jsonl"
 fi
 if [[ $case_id == p012 || $case_id == p012t ]]; then
-  python scripts/report/export_cashback_month.py \
+  extra_cb=()
+  # 압축월 검수는 달의 일부만 본다 - 그 사실을 명시적으로 켜고 manifest 에 남긴다.
+  if [[ $case_id == p012t ]]; then extra_cb=(--allow-partial-month); fi
+  python scripts/report/export_cashback_month.py "${extra_cb[@]}" \
     --month 2021-10 --arm "$arm" --policy-id P012 --policy-file "$POLICY" \
     --base-ratio 0.268 --roster "$OUT/roster.json" \
     --metrics-dir "$ARM/metrics" --out "$ARM/cashback.ledger.jsonl"
