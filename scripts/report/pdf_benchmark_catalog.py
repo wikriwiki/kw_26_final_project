@@ -106,6 +106,8 @@ KOREAN_TEXT = {
         '1차 설문 2025-08-13~20, 2차 설문 2025-10-27~11-07; 실제 사용과 사용 계획을 함께 관측',
     'Total issued coupon amount, NOT total used amount.':
         '총 쿠폰 지급액(실제 사용액이 아님)',
+    'Total issued coupon amount, NOT total used amount':
+        '총 쿠폰 지급액(실제 사용액이 아님)',
     'Household triple difference: recipient × month × 2021 (vs 2019)':
         '수급·비수급 가구 × 월 × 2021년(2019년 대비)의 삼중차분',
     '2021-10; September is baseline; 2019 comparison year for DDD; July–December panel':
@@ -390,6 +392,7 @@ def _raw_html(values):
         elif value is not None:
             label = ' · '.join(parts)
             unit = '원' if any('원화' in part or '금액' in part or '지급액' in part or '결제액' in part
+                              or part.endswith('총액')
                               or part.endswith('_won') or part.endswith('추정액') for part in parts) else ''
             pieces.append('<li>' + _esc(label) + ': ' + _value(value, unit) + '</li>')
     visit(values, [])
