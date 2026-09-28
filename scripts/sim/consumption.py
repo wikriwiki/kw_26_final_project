@@ -18,6 +18,7 @@ Stage2가 고른 POI 가격대로 정한다. 지원금은 총소비를 강제로
 """
 from __future__ import annotations
 
+import math
 import os
 
 from instant_discount import settle_instant_discounts
@@ -212,6 +213,28 @@ def propensity_center(
     return max(HARD_LO, min(HARD_HI, center))
 
 
+def propensity_mode(mode: str | None = None) -> str:
+    """Explicit opt-in; unset/empty retains the completed-run behavior."""
+    selected = os.environ.get("EXP_PROPENSITY_MODE", "") if mode is None else mode
+    selected = selected.strip() or "legacy"
+    if selected not in {"legacy", "llm_budget_only"}:
+        raise ValueError(f"unknown EXP_PROPENSITY_MODE: {selected!r}")
+    return selected
+
+
+def _finite_budget_propensity(p) -> float:
+    # This is the value passed by Stage1, not a guarantee about its raw response.
+    if p is None or isinstance(p, bool):
+        raise ValueError("llm_budget_only requires a finite daily_propensity")
+    try:
+        value = float(p)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("llm_budget_only requires a finite daily_propensity") from exc
+    if not math.isfinite(value):
+        raise ValueError("llm_budget_only requires a finite daily_propensity")
+    return max(0.0, min(1.0, value))
+
+
 def clamp_propensity(
     p: float | None,
     income_tier: str | None,
@@ -219,11 +242,15 @@ def clamp_propensity(
     daily_wd: float | int | None = None,
     tendency: str | None = None,
     band: float | None = None,
+    *,
+    mode: str | None = None,
 ) -> float:
     """LLM 소비성향 출력을 prior 중심 ± BAND 로 클램프. None이면 중심값 사용.
 
     통계 prior(소득별 MPC 골격)를 벗어나지 못하게 가드 → LLM 노이즈에도 MPC 순서 보존.
     """
+    if propensity_mode(mode) == "llm_budget_only":
+        return _finite_budget_propensity(p)
     center = propensity_center(income_tier, balance, daily_wd, tendency)
     _b = BAND if band is None else float(band)
     lo = max(HARD_LO, center - _b)
@@ -703,6 +730,13 @@ def apply_consumption_model(
 
     events 를 in-place 수정(actual_spent, policy_spend). 반환: 메타 dict.
     """
+    # Reject an unknown mode or missing/nonfinite passed scalar before mutating
+    # events, including a no-commerce day. Legacy retains its prior fallback.
+    _propensity_mode = propensity_mode()
+    _budget_propensity = (
+        _finite_budget_propensity(llm_propensity)
+        if _propensity_mode == "llm_budget_only" else None
+    )
     grant_avail = {k: int(v) for k, v in (grant_avail or {}).items() if int(v) > 0}
     grant_total = sum(grant_avail.values())
     envelopes = [e for e in (restricted_envelopes or []) if int(e.get("amount") or 0) > 0]
@@ -794,6 +828,10 @@ def apply_consumption_model(
             "personal_total": 0,
             "grant_carry_in": _carry,
             "grant_carry_out": 0 if (_choice_mode or _intensity_mode) else min(int(wallet_total), int(intended_grant_today)),
+            **({"propensity_mode": _propensity_mode,
+                "propensity_input_value": float(llm_propensity),
+                "propensity": _budget_propensity}
+               if _propensity_mode == "llm_budget_only" else {}),
         }
 
     # Stage2가 정한 절대 계획금액.
@@ -849,7 +887,7 @@ def apply_consumption_model(
     # Stage2 절대 계획금액을 보존하되, POI 가격대 효과는 기존 BASKET_CLAMP 범위에서 반영한다.
     planned_total = int(round(sum(weights) * basket_idx))
 
-    center = propensity_center(
+    center = ANCHOR_PROPENSITY if _propensity_mode == "llm_budget_only" else propensity_center(
         income_tier,
         balance=balance,
         daily_wd=daily,
@@ -872,6 +910,7 @@ def apply_consumption_model(
         daily_wd=daily,
         tendency=tendency,
         band=_band,
+        mode=_propensity_mode,
     )
     day_multiplier = p / center if center > 0 else 1.0
 
@@ -1160,6 +1199,9 @@ def apply_consumption_model(
     return {
         "applied": True,
         "propensity": p,
+        **({"propensity_mode": _propensity_mode,
+            "propensity_input_value": float(llm_propensity)}
+           if _propensity_mode == "llm_budget_only" else {}),
         "grant_spread_days": int(grant_spread_days) if grant_spread_days else None,
         "intended_grant_today": intended_grant_today,
         "grant_carry_in": _carry,
