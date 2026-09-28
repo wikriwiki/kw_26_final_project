@@ -86,9 +86,18 @@ export SIM_PROMPT_VARIANT=v53 SIM_ENVIRONMENT="$ENV_ID"
 if [[ $case_id == p010 ]]; then unset LLM_MODE; else export LLM_MODE=exaone_4_5; fi
 export EXP_SANGSAENG_BASE_RATIO=0.268 EXP_SEED_SANGSAENG=1 EXP_BALANCE_DAYS=39
 export EXP_DURABLES=1 EXP_CATLINE=fold EXP_POLICY_ANONYMOUS=1 POLICY_POI_SORT_BOOST=0
-export EXP_DAILY_INCOME=baseline
-if [[ $case_id == p012m ]]; then unset EXP_DAILY_INCOME_MAP
-else export EXP_DAILY_INCOME_MAP="$OUT/frozen_income.json"; fi
+# [31일이면 소득을 넣어야 한다] 소득 주입이 없으면 지갑이 말라 정책 효과가
+# 유동성 제약에 가려진다(14일 넘는 런에서 확인된 함정). 본런은 앵커 비례로 넣는다.
+# 계수 0.41667 = 1/2.40 — 적립 채널이 지출 수준을 anchor/2.40 으로 보정하므로
+# 같은 눈금으로 넣어 지갑이 마르지도 불지도 않게 한다. **두 팔에 똑같이** 들어가
+# 차에서 상쇄된다.
+if [[ $case_id == p012m ]]; then
+  export EXP_DAILY_INCOME=anchor:0.41667
+  unset EXP_DAILY_INCOME_MAP
+else
+  export EXP_DAILY_INCOME=baseline
+  export EXP_DAILY_INCOME_MAP="$OUT/frozen_income.json"
+fi
 unset SIM_ALLOW_STAGE2_FALLBACK
 # [적립 몫을 정책에 반응하게 한다] 이 경로는 검수 케이스에서만 켠다. 동결된
 # 케이스들의 회계는 손대지 않는다 — 켜고 끔이 기준 런에서 항등임을 단위테스트가
