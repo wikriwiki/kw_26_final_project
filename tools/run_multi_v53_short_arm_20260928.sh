@@ -36,12 +36,24 @@ case "$case_id" in
     # 본런. 31일 창의 **동결본** 정책으로 실측과 맞댄다. 명부는 행안부 2021-09
     # 서울 주민등록 분포에 맞춘 것을 쓴다(소득은 맞추지 않았다 — manifest 에 적혀 있다).
     # 사람 수는 명부가 정한다. 동시성은 측정으로 정했다(12->64 에서 3.46배, 그 위로 12%).
-    START=2021-10-01; DAYS=31; DAY0=2021-09-30
+    # 창과 정책 파일은 함께 움직인다. 31일이면 동결본, 짧으면 문턱·한도를 같은
+    # 비율로 줄인 압축월 파일을 쓴다 — 둘을 섞으면 문턱이 창에 비해 너무 높아
+    # 아무도 못 넘고 정책이 조용히 사라진다.
+    DAYS=${P012M_DAYS:-31}
+    START=2021-10-01; DAY0=2021-09-30
     ROSTER_SRC=${P012M_ROSTER:?P012M_ROSTER required}
     N=$(python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$ROSTER_SRC")
     WORKERS=64
-    ENV_ID=covid_2021; POLICY=data/experiments/P012_v53_october_policy_20260928.json; PID=P012
-    RUN_REVISION=eligible_channel_main;;
+    ENV_ID=covid_2021; PID=P012
+    if [[ $DAYS == 31 ]]; then
+      POLICY=data/experiments/P012_v53_october_policy_20260928.json
+    elif [[ $DAYS == 7 ]]; then
+      POLICY=data/experiments/P012_v53_compressed7_main_20260929.json
+    else
+      echo "DAYS=$DAYS 에 맞는 정책 파일이 없다 — 문턱·한도를 그 비율로 줄인 파일을 먼저 만들라" >&2
+      exit 2
+    fi
+    RUN_REVISION=eligible_channel_main_${DAYS}d;;
   p012t)
     # 출력 배관 검수용. 창 7일 + 문턱·한도를 7/31 로 줄인 압축월이고, 적립 몫을
     # 정책에 반응하게 한 경로를 켠다. **실측과 맞대지 않는다** — 값이 창 길이에
