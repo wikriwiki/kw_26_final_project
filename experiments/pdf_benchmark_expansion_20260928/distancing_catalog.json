@@ -1,0 +1,2687 @@
+{
+  "schema": "pdf_benchmark_catalog_v1",
+  "policy": "DISTANCING_2020",
+  "source": {
+    "path": "data/policy_raw_data/사회적거리두기_DISTANCING2020/정답지_서울연구원_코로나19_서울_경제적손실_2021.pdf",
+    "sha256": "fd186587f51aab93531272f38d52cc5c7a77991d24997a862553a24eaf702d09",
+    "pages": 22
+  },
+  "timing": "post-result exploratory",
+  "definition_frozen_before_cpu_scoring": true,
+  "sampling_caveat": "기존 동결 v53의 비가중 소규모 시민 표본, 같은 달력 날짜의 정책 ON/OFF 비교이다. 성별·연령·행정동·소득의 실측 인구분포를 맞춘 대표 표본이 아니다. 2019년 기준 원장과 장기 관찰이 없으므로 원문의 전년동기 증감률/회귀효과와 직접 오차를 계산하지 않는다.",
+  "counting_rule": "각 업종/집단의 독립 결과를 구분하되 같은 통계의 단위변환·증감액/증감률·시계열 점들은 별도 독립지표 수로 부풀리지 않는다.",
+  "entries": [
+    {
+      "id": "DS-PDF-SECTOR-01",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "한식의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -14.1,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 한식 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -15264
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "한식"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": false,
+      "independent_outcome_family": "DS-PDF-SECTOR-01",
+      "existing_indicator_id": "DS-1"
+    },
+    {
+      "id": "DS-PDF-SECTOR-02",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "기타요식의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -10.7,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 기타요식 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -6152
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-02"
+    },
+    {
+      "id": "DS-PDF-SECTOR-03",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "의복/의류의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -19.6,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 의복/의류 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -3824
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "의류"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-03"
+    },
+    {
+      "id": "DS-PDF-SECTOR-04",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "학원의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -12.6,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 학원 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -3749
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "학원"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-04"
+    },
+    {
+      "id": "DS-PDF-SECTOR-05",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "백화점의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -5.8,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 백화점 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -2954
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-05"
+    },
+    {
+      "id": "DS-PDF-SECTOR-06",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "양식의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -19.5,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 양식 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -2616
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "양식"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-06"
+    },
+    {
+      "id": "DS-PDF-SECTOR-07",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "호텔/콘도의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -32.5,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 호텔/콘도 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -2300
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-07"
+    },
+    {
+      "id": "DS-PDF-SECTOR-08",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "유흥주점의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -49.2,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 유흥주점 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -2248
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-08"
+    },
+    {
+      "id": "DS-PDF-SECTOR-09",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "주유소의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -7.5,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 주유소 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -2015
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "주유소"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-09"
+    },
+    {
+      "id": "DS-PDF-SECTOR-10",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "면세점의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -82.8,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 면세점 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": -1773
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-10"
+    },
+    {
+      "id": "DS-PDF-SECTOR-11",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "자동차판매의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 210.6,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 자동차판매 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 6546
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다. 원문은 양재동 본사 귀속 자동차매출을 서울 점포의 직접 매출로 보기 어렵다고 경고한다(p13)."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-11"
+    },
+    {
+      "id": "DS-PDF-SECTOR-12",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "약국의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 20.6,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 약국 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 2819
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "약국"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-12"
+    },
+    {
+      "id": "DS-PDF-SECTOR-13",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "일반병원의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 5.5,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 일반병원 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 2474
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "병원"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-13"
+    },
+    {
+      "id": "DS-PDF-SECTOR-14",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "할인점/슈퍼마켓의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 2.2,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 할인점/슈퍼마켓 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 1929
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "슈퍼마켓"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다. 현 매핑은 슈퍼마켓만 포함하므로 원문 할인점 부분을 누락한다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-14"
+    },
+    {
+      "id": "DS-PDF-SECTOR-15",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "자동차서비스의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 20.8,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 자동차서비스 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 1834
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "차량정비"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-15"
+    },
+    {
+      "id": "DS-PDF-SECTOR-16",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "정육점의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 21.0,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 정육점 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 1341
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "정육"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-16"
+    },
+    {
+      "id": "DS-PDF-SECTOR-17",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "기타의료의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 20.9,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 기타의료 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 1291
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-17"
+    },
+    {
+      "id": "DS-PDF-SECTOR-18",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "농수산물의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 16.8,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 농수산물 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 1123
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "청과",
+            "수산"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-18"
+    },
+    {
+      "id": "DS-PDF-SECTOR-19",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "기타음/식료품의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 6.1,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 기타음/식료품 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 646
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "식료품",
+            "음료소매"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-19"
+    },
+    {
+      "id": "DS-PDF-SECTOR-20",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "편의점의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 1.7,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 편의점 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 13,
+        "printed_page": 12,
+        "locator": "표7",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-13.png",
+        "amount_change_100million_won": 529
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "편의점"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-20"
+    },
+    {
+      "id": "DS-PDF-SECTOR-21",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "여행사의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -60.9,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 여행사 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -696
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "여행사"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-21"
+    },
+    {
+      "id": "DS-PDF-SECTOR-22",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "종합레저시설의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -52.4,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 종합레저시설 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -79
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-22"
+    },
+    {
+      "id": "DS-PDF-SECTOR-23",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "기타유흥업소의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -48.6,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 기타유흥업소 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -1468
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-23"
+    },
+    {
+      "id": "DS-PDF-SECTOR-24",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "유아교육의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -47.4,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 유아교육 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -361
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-24"
+    },
+    {
+      "id": "DS-PDF-SECTOR-25",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "스포츠시설의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -42.9,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 스포츠시설 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -883
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "스포츠",
+            "헬스장"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-25"
+    },
+    {
+      "id": "DS-PDF-SECTOR-26",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "노래방의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -40.7,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 노래방 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -1262
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "노래방"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-26"
+    },
+    {
+      "id": "DS-PDF-SECTOR-27",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "영화/공연의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -39.1,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 영화/공연 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -827
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-27"
+    },
+    {
+      "id": "DS-PDF-SECTOR-28",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "모텔/여관/기타숙박의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": -32.8,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 모텔/여관/기타숙박 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": -978
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-28"
+    },
+    {
+      "id": "DS-PDF-SECTOR-29",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "실외골프/스키의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 95.9,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 실외골프/스키 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": 162
+      },
+      "simulation": {
+        "feasibility": "needs_merchant_code_crosswalk",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드사 업종과 POI 업종의 정확한 crosswalk 또는 더 세부적인 거래 분류"
+        ],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-29"
+    },
+    {
+      "id": "DS-PDF-SECTOR-30",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "가구의 서울 카드매출 전년동기 변화",
+      "empirical": {
+        "value": 23.3,
+        "unit": "% (전년동기)",
+        "denominator": "2019년 같은 주 서울 가구 신한카드 매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "업종별 전년동기 신한카드 매출 증감; 코로나·규제·지원금·명절 등 혼합",
+        "pdf_page": 14,
+        "printed_page": 13,
+        "locator": "표8",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-14.png",
+        "amount_change_100million_won": 501
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "가구"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드사 업종코드 crosswalk 부재. 의미가 유사한 고정 POI subclass만 사용하는 탐색 대리이며 결과를 맞추기 위해 매핑을 확대·축소하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-SECTOR-30"
+    },
+    {
+      "id": "DS-PDF-DONG-01",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "마포구 서교동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -19.0,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 마포구 서교동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -2241
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "마포구",
+          "poi_merchant_dong": "서교동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-01"
+    },
+    {
+      "id": "DS-PDF-DONG-02",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "서대문구 신촌동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -27.6,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 서대문구 신촌동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -2195
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "서대문구",
+          "poi_merchant_dong": "신촌동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-02"
+    },
+    {
+      "id": "DS-PDF-DONG-03",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "중구 명동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -26.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 중구 명동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -2075
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "중구",
+          "poi_merchant_dong": "명동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-03"
+    },
+    {
+      "id": "DS-PDF-DONG-04",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강남구 삼성1동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -16.8,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강남구 삼성1동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1876
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강남구",
+          "poi_merchant_dong": "삼성1동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-04"
+    },
+    {
+      "id": "DS-PDF-DONG-05",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강남구 역삼1동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -8.0,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강남구 역삼1동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1786
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강남구",
+          "poi_merchant_dong": "역삼1동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-05"
+    },
+    {
+      "id": "DS-PDF-DONG-06",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "송파구 잠실3동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -28.7,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 송파구 잠실3동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1605
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "송파구",
+          "poi_merchant_dong": "잠실3동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-06"
+    },
+    {
+      "id": "DS-PDF-DONG-07",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "용산구 한강로동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -20.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 용산구 한강로동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1566
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "용산구",
+          "poi_merchant_dong": "한강로동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-07"
+    },
+    {
+      "id": "DS-PDF-DONG-08",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "중구 소공동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -17.0,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 중구 소공동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1533
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "중구",
+          "poi_merchant_dong": "소공동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-08"
+    },
+    {
+      "id": "DS-PDF-DONG-09",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "종로구 종로1.2.3.4가동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -11.7,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 종로구 종로1.2.3.4가동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1415
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "종로구",
+          "poi_merchant_dong": "종로1.2.3.4가동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-09"
+    },
+    {
+      "id": "DS-PDF-DONG-10",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "구로구 구로5동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -34.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 구로구 구로5동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1300
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "구로구",
+          "poi_merchant_dong": "구로5동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-10"
+    },
+    {
+      "id": "DS-PDF-DONG-11",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "중구 광희동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -31.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 중구 광희동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1281
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "중구",
+          "poi_merchant_dong": "광희동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-11"
+    },
+    {
+      "id": "DS-PDF-DONG-12",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강남구 대치4동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -16.8,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강남구 대치4동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1189
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강남구",
+          "poi_merchant_dong": "대치4동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-12"
+    },
+    {
+      "id": "DS-PDF-DONG-13",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "금천구 가산동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -12.5,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 금천구 가산동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1047
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "금천구",
+          "poi_merchant_dong": "가산동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-13"
+    },
+    {
+      "id": "DS-PDF-DONG-14",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강서구 방화2동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -25.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강서구 방화2동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -1024
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강서구",
+          "poi_merchant_dong": "방화2동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-14"
+    },
+    {
+      "id": "DS-PDF-DONG-15",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "용산구 이태원1동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": -40.7,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 용산구 이태원1동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": -952
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "용산구",
+          "poi_merchant_dong": "이태원1동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-15"
+    },
+    {
+      "id": "DS-PDF-DONG-16",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "서초구 양재2동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 78.7,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 서초구 양재2동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 4623
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "서초구",
+          "poi_merchant_dong": "양재2동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-16"
+    },
+    {
+      "id": "DS-PDF-DONG-17",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "영등포구 여의동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 7.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 영등포구 여의동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 974
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "영등포구",
+          "poi_merchant_dong": "여의동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-17"
+    },
+    {
+      "id": "DS-PDF-DONG-18",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강서구 발산1동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 22.5,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강서구 발산1동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 617
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강서구",
+          "poi_merchant_dong": "발산1동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-18"
+    },
+    {
+      "id": "DS-PDF-DONG-19",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "노원구 월계3동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 34.6,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 노원구 월계3동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 469
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "노원구",
+          "poi_merchant_dong": "월계3동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-19"
+    },
+    {
+      "id": "DS-PDF-DONG-20",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강남구 도곡2동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 15.9,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강남구 도곡2동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 415
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강남구",
+          "poi_merchant_dong": "도곡2동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-20"
+    },
+    {
+      "id": "DS-PDF-DONG-21",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강동구 고덕2동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 154.4,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강동구 고덕2동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 297
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강동구",
+          "poi_merchant_dong": "고덕2동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-21"
+    },
+    {
+      "id": "DS-PDF-DONG-22",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "은평구 진관동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 9.9,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 은평구 진관동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 256
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "은평구",
+          "poi_merchant_dong": "진관동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-22"
+    },
+    {
+      "id": "DS-PDF-DONG-23",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "동대문구 용신동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 6.7,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 동대문구 용신동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 239
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "동대문구",
+          "poi_merchant_dong": "용신동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-23"
+    },
+    {
+      "id": "DS-PDF-DONG-24",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "송파구 가락1동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 9.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 송파구 가락1동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 230
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "송파구",
+          "poi_merchant_dong": "가락1동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-24"
+    },
+    {
+      "id": "DS-PDF-DONG-25",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "양천구 목2동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 19.4,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 양천구 목2동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 167
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "양천구",
+          "poi_merchant_dong": "목2동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-25"
+    },
+    {
+      "id": "DS-PDF-DONG-26",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "양천구 신월3동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 36.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 양천구 신월3동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 160
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "양천구",
+          "poi_merchant_dong": "신월3동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-26"
+    },
+    {
+      "id": "DS-PDF-DONG-27",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강서구 화곡본동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 14.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강서구 화곡본동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 159
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강서구",
+          "poi_merchant_dong": "화곡본동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-27"
+    },
+    {
+      "id": "DS-PDF-DONG-28",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "영등포구 당산2동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 5.4,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 영등포구 당산2동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 154
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "영등포구",
+          "poi_merchant_dong": "당산2동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-28"
+    },
+    {
+      "id": "DS-PDF-DONG-29",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "송파구 위례동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 24.2,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 송파구 위례동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 144
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "송파구",
+          "poi_merchant_dong": "위례동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-29"
+    },
+    {
+      "id": "DS-PDF-DONG-30",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "강서구 가양1동 점포 매출 전년동기 변화",
+      "empirical": {
+        "value": 2.5,
+        "unit": "% (전년동기)",
+        "denominator": "해당 행정동의2019년 동기간 신한카드 매출",
+        "population": "서울 강서구 가양1동 소재 신한카드 가맹점, 거주민 소비 아님",
+        "period": "2020년1~40주 대 2019년 같은 주",
+        "method": "점포 소재 행정동별 매출 합계의 전년동기 변화",
+        "pdf_page": 15,
+        "printed_page": 14,
+        "locator": "표9 매출액 증감 상위15개 행정동",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-15.png",
+        "amount_change_100million_won": 143
+      },
+      "simulation": {
+        "feasibility": "supported_existing_receipts_with_source_join",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "poi_merchant_district": "강서구",
+          "poi_merchant_dong": "가양1동"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2020년 행정동 경계·명칭 crosswalk: 현 POI 자료는2026년3월"
+        ],
+        "scope_note": "시민 거주동으로 대신 집계하지 않는다. 영수증 POI를 보존된2026 업소자료 소재 행정동에 결합한 탐색 대리이다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-DONG-30"
+    },
+    {
+      "id": "DS-PDF-REG-FOOD-DISTANCING",
+      "benchmark_kind": "policy_effect",
+      "label": "음식점 매출의 2단계 이상 거리두기 추가 효과",
+      "empirical": {
+        "value": -0.1401,
+        "unit": "log point",
+        "denominator": "음식점 매출 로그; 음식점은 한식뿐 아니라 제과·커피·간이음식 포함",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 17,
+        "printed_page": 16,
+        "locator": "표10",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-17.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "ln(sum ON purchases / sum OFF purchases)",
+        "poi_mapping": {
+          "by_l1": [
+            "식사",
+            "카페",
+            "디저트"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-FOOD-DISTANCING"
+    },
+    {
+      "id": "DS-PDF-REG-RETAIL-DISTANCING",
+      "benchmark_kind": "policy_effect",
+      "label": "소매점 매출의 2단계 이상 거리두기 추가 효과",
+      "empirical": {
+        "value": 0.05395,
+        "unit": "log point",
+        "denominator": "소매 매출 로그; 원문 백화점·대형마트·슈퍼마켓·편의점의 혼합",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 19,
+        "printed_page": 18,
+        "locator": "표12",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-19.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "ln(sum ON purchases / sum OFF purchases)",
+        "poi_mapping": {
+          "by_l1": [
+            "마트",
+            "편의점"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-RETAIL-DISTANCING"
+    },
+    {
+      "id": "DS-PDF-REG-FOOD-MOBILITY",
+      "benchmark_kind": "regression_association",
+      "label": "음식점 매출의 유동인구 탄력성",
+      "empirical": {
+        "value": 0.34081,
+        "unit": "탄력성 (log/log)",
+        "denominator": "첨두 유동인구1% 변화에 대한 음식점 매출% 반응",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 17,
+        "printed_page": 16,
+        "locator": "표10",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-17.png"
+      },
+      "simulation": {
+        "feasibility": "needs_panel_and_new_measurement",
+        "proposed_formula": "원문 설명변수와 동일한 고정효과 패널회귀 계수",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2019·2020 동일 업종 주간 패널",
+          "동별첨두 생활인구",
+          "각 주 거리두기·지급기간·명절과 월 변수"
+        ],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-FOOD-MOBILITY"
+    },
+    {
+      "id": "DS-PDF-REG-RETAIL-MOBILITY",
+      "benchmark_kind": "regression_association",
+      "label": "소매점 매출의 유동인구 탄력성",
+      "empirical": {
+        "value": 0.29599,
+        "unit": "탄력성 (log/log)",
+        "denominator": "첨두 유동인구1% 변화에 대한 소매 매출% 반응",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 19,
+        "printed_page": 18,
+        "locator": "표12",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-19.png"
+      },
+      "simulation": {
+        "feasibility": "needs_panel_and_new_measurement",
+        "proposed_formula": "원문 설명변수와 동일한 고정효과 패널회귀 계수",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2019·2020 동일 업종 주간 패널",
+          "동별첨두 생활인구",
+          "각 주 거리두기·지급기간·명절과 월 변수"
+        ],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-RETAIL-MOBILITY"
+    },
+    {
+      "id": "DS-PDF-REG-FOOD-YEAR",
+      "benchmark_kind": "regression_association",
+      "label": "음식점 2020년 더미 회귀계수",
+      "empirical": {
+        "value": -0.11685,
+        "unit": "log point",
+        "denominator": "2019년 대비2020년 효과, 다른 설명변수 통제",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 17,
+        "printed_page": 16,
+        "locator": "표10",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-17.png"
+      },
+      "simulation": {
+        "feasibility": "needs_panel_and_new_measurement",
+        "proposed_formula": "원문 설명변수와 동일한 고정효과 패널회귀 계수",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2019·2020 동일 업종 주간 패널",
+          "동별첨두 생활인구",
+          "각 주 거리두기·지급기간·명절과 월 변수"
+        ],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-FOOD-YEAR"
+    },
+    {
+      "id": "DS-PDF-REG-RETAIL-YEAR",
+      "benchmark_kind": "regression_association",
+      "label": "소매점 2020년 더미 회귀계수",
+      "empirical": {
+        "value": 0.04199,
+        "unit": "log point",
+        "denominator": "2019년 대비2020년 효과, 다른 설명변수 통제",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 19,
+        "printed_page": 18,
+        "locator": "표12",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-19.png"
+      },
+      "simulation": {
+        "feasibility": "needs_panel_and_new_measurement",
+        "proposed_formula": "원문 설명변수와 동일한 고정효과 패널회귀 계수",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2019·2020 동일 업종 주간 패널",
+          "동별첨두 생활인구",
+          "각 주 거리두기·지급기간·명절과 월 변수"
+        ],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-RETAIL-YEAR"
+    },
+    {
+      "id": "DS-PDF-REG-FOOD-GRANT",
+      "benchmark_kind": "policy_effect",
+      "label": "음식점 국가재난지원금 기간 더미 계수",
+      "empirical": {
+        "value": 0.08049,
+        "unit": "log point",
+        "denominator": "지원금 지급기간 여부, 유동인구·거리두기·시간 고정효과 통제",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 17,
+        "printed_page": 16,
+        "locator": "표10",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-17.png"
+      },
+      "simulation": {
+        "feasibility": "needs_panel_and_new_measurement",
+        "proposed_formula": "원문 설명변수와 동일한 고정효과 패널회귀 계수",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2019·2020 동일 업종 주간 패널",
+          "동별첨두 생활인구",
+          "각 주 거리두기·지급기간·명절과 월 변수"
+        ],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-FOOD-GRANT"
+    },
+    {
+      "id": "DS-PDF-REG-RETAIL-GRANT",
+      "benchmark_kind": "policy_effect",
+      "label": "소매 국가재난지원금 기간 더미 계수",
+      "empirical": {
+        "value": 0.01365,
+        "unit": "log point",
+        "denominator": "지원금 지급기간 여부, 유동인구·거리두기·시간 고정효과 통제",
+        "population": "서울397행정동 × 2019·2020 80주 balanced panel(31,760관측), 동·월 고정효과; 업종별 신한카드 매출",
+        "period": "2019~2020주간 패널(각40주)",
+        "method": "로그 매출 종속변수, 행정동·월 고정효과 패널 회귀",
+        "pdf_page": 19,
+        "printed_page": 18,
+        "locator": "표12",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-19.png"
+      },
+      "simulation": {
+        "feasibility": "needs_panel_and_new_measurement",
+        "proposed_formula": "원문 설명변수와 동일한 고정효과 패널회귀 계수",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "2019·2020 동일 업종 주간 패널",
+          "동별첨두 생활인구",
+          "각 주 거리두기·지급기간·명절과 월 변수"
+        ],
+        "scope_note": "음식점/소매 장소 대리이며 log point를 원문 설명의14%/5.4%와 중복 독립 지표로 세지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-REG-RETAIL-GRANT"
+    },
+    {
+      "id": "DS-PDF-MOBILITY-ALL",
+      "benchmark_kind": "mobility_outcome",
+      "label": "서울 상권 첨두 유동인구 전년 대비 변화",
+      "empirical": {
+        "value": -7.6,
+        "unit": "% (전년대비)",
+        "denominator": "2019년 동일 상권의 첨두 생활인구",
+        "population": "서울 상권의11~14시·18~24시 생활인구, 면적 중첩 비례배분; 방문 구매건수 아님",
+        "period": "2020년 대2019년 비교(상권유형별 본문 평균)",
+        "method": "생활인구를 상권면적에 배분한 평균 첨두 유동인구 변화",
+        "pdf_page": 9,
+        "printed_page": 8,
+        "locator": "본문 및 그림1/3",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-09.png"
+      },
+      "simulation": {
+        "feasibility": "needs_new_measurement_and_population_scaling",
+        "proposed_formula": "각 상권의 첨두시간 생활인구 합/평균의 동일년 전후 변화",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "비구매자를 포함한 시간대별 체류 인원/이동경로",
+          "상권별경계 중첩면적 배분",
+          "2019 동일 시간대 기초 생활인구",
+          "대표 표본 및 외삽가중치"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-MOBILITY-ALL"
+    },
+    {
+      "id": "DS-PDF-MOBILITY-TOURIST",
+      "benchmark_kind": "mobility_outcome",
+      "label": "관광특구 첨두 유동인구 전년 대비 변화",
+      "empirical": {
+        "value": -25.5,
+        "unit": "% (전년대비)",
+        "denominator": "2019년 동일 상권의 첨두 생활인구",
+        "population": "서울 상권의11~14시·18~24시 생활인구, 면적 중첩 비례배분; 방문 구매건수 아님",
+        "period": "2020년 대2019년 비교(상권유형별 본문 평균)",
+        "method": "생활인구를 상권면적에 배분한 평균 첨두 유동인구 변화",
+        "pdf_page": 10,
+        "printed_page": 9,
+        "locator": "본문 및 그림1/3",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-10.png"
+      },
+      "simulation": {
+        "feasibility": "needs_new_measurement_and_population_scaling",
+        "proposed_formula": "각 상권의 첨두시간 생활인구 합/평균의 동일년 전후 변화",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "비구매자를 포함한 시간대별 체류 인원/이동경로",
+          "상권별경계 중첩면적 배분",
+          "2019 동일 시간대 기초 생활인구",
+          "대표 표본 및 외삽가중치"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-MOBILITY-TOURIST"
+    },
+    {
+      "id": "DS-PDF-MOBILITY-DEVELOPED",
+      "benchmark_kind": "mobility_outcome",
+      "label": "발달상권 첨두 유동인구 전년 대비 변화",
+      "empirical": {
+        "value": -13.0,
+        "unit": "% (전년대비)",
+        "denominator": "2019년 동일 상권의 첨두 생활인구",
+        "population": "서울 상권의11~14시·18~24시 생활인구, 면적 중첩 비례배분; 방문 구매건수 아님",
+        "period": "2020년 대2019년 비교(상권유형별 본문 평균)",
+        "method": "생활인구를 상권면적에 배분한 평균 첨두 유동인구 변화",
+        "pdf_page": 10,
+        "printed_page": 9,
+        "locator": "본문 및 그림1/3",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-10.png"
+      },
+      "simulation": {
+        "feasibility": "needs_new_measurement_and_population_scaling",
+        "proposed_formula": "각 상권의 첨두시간 생활인구 합/평균의 동일년 전후 변화",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "비구매자를 포함한 시간대별 체류 인원/이동경로",
+          "상권별경계 중첩면적 배분",
+          "2019 동일 시간대 기초 생활인구",
+          "대표 표본 및 외삽가중치"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-MOBILITY-DEVELOPED"
+    },
+    {
+      "id": "DS-PDF-MOBILITY-ALLEY",
+      "benchmark_kind": "mobility_outcome",
+      "label": "골목상권 첨두 유동인구 전년 대비 변화",
+      "empirical": {
+        "value": -1.5,
+        "unit": "% (전년대비)",
+        "denominator": "2019년 동일 상권의 첨두 생활인구",
+        "population": "서울 상권의11~14시·18~24시 생활인구, 면적 중첩 비례배분; 방문 구매건수 아님",
+        "period": "2020년 대2019년 비교(상권유형별 본문 평균)",
+        "method": "생활인구를 상권면적에 배분한 평균 첨두 유동인구 변화",
+        "pdf_page": 10,
+        "printed_page": 9,
+        "locator": "본문 및 그림1/3",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-10.png"
+      },
+      "simulation": {
+        "feasibility": "needs_new_measurement_and_population_scaling",
+        "proposed_formula": "각 상권의 첨두시간 생활인구 합/평균의 동일년 전후 변화",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "비구매자를 포함한 시간대별 체류 인원/이동경로",
+          "상권별경계 중첩면적 배분",
+          "2019 동일 시간대 기초 생활인구",
+          "대표 표본 및 외삽가중치"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-MOBILITY-ALLEY"
+    },
+    {
+      "id": "DS-PDF-MOBILITY-MARKET",
+      "benchmark_kind": "mobility_outcome",
+      "label": "전통시장 첨두 유동인구 전년 대비 변화",
+      "empirical": {
+        "value": -7.4,
+        "unit": "% (전년대비)",
+        "denominator": "2019년 동일 상권의 첨두 생활인구",
+        "population": "서울 상권의11~14시·18~24시 생활인구, 면적 중첩 비례배분; 방문 구매건수 아님",
+        "period": "2020년 대2019년 비교(상권유형별 본문 평균)",
+        "method": "생활인구를 상권면적에 배분한 평균 첨두 유동인구 변화",
+        "pdf_page": 10,
+        "printed_page": 9,
+        "locator": "본문 및 그림1/3",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-10.png"
+      },
+      "simulation": {
+        "feasibility": "needs_new_measurement_and_population_scaling",
+        "proposed_formula": "각 상권의 첨두시간 생활인구 합/평균의 동일년 전후 변화",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "비구매자를 포함한 시간대별 체류 인원/이동경로",
+          "상권별경계 중첩면적 배분",
+          "2019 동일 시간대 기초 생활인구",
+          "대표 표본 및 외삽가중치"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-MOBILITY-MARKET"
+    },
+    {
+      "id": "DS-PDF-ALL-SALES",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "서울 점포 전체40주 카드매출 변화",
+      "empirical": {
+        "value": -6.2,
+        "unit": "% (전년동기)",
+        "denominator": "2019년1~40주 서울점포 신한매출",
+        "population": "서울 신한카드 내외국인 업종별 매출(63업종); 현금·타 카드 매출 및 시민 거주지 지출 아님",
+        "period": "2020년1~40주 대2019년 같은주",
+        "method": "전체업종 신한 매출합계 전년동기비",
+        "pdf_page": 11,
+        "printed_page": 10,
+        "locator": "매출액 변화 첫 본문",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-11.png",
+        "amount_change_100million_won": -48162
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "ledger": "offline_spent"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "현40명3일 오프라인 소비합계 대리; 서울 전체 매출로 확대하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-ALL-SALES"
+    },
+    {
+      "id": "DS-PDF-CLOSURE-FOOD",
+      "benchmark_kind": "business_supply_outcome",
+      "label": "음식점 평균 폐업률",
+      "empirical": {
+        "value": {
+          "2019": 0.21,
+          "2020": 0.19
+        },
+        "unit": "%",
+        "denominator": "영업+폐업 사업자 수",
+        "population": "지방행정인허가DB의서울음식점/대규모점포·담배소매업 사업자",
+        "period": "2019·2020 연평균",
+        "method": "인허가DB상 폐업/(영업+폐업), 미신고·영업자 지위승계 한계",
+        "pdf_page": 16,
+        "printed_page": 15,
+        "locator": "본문 및 그림6; 폐업률=폐업/(영업+폐업)",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-16.png"
+      },
+      "simulation": {
+        "feasibility": "needs_business_supply_model",
+        "proposed_formula": "폐업 사업자수 / (영업+폐업 사업자수)",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "사업자 영업·폐업 상태",
+          "매출·비용·임대료·신고/지위승계 과정",
+          "연간 추적"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-CLOSURE-FOOD"
+    },
+    {
+      "id": "DS-PDF-CLOSURE-RETAIL",
+      "benchmark_kind": "business_supply_outcome",
+      "label": "소매점 평균 폐업률",
+      "empirical": {
+        "value": {
+          "2019": 0.15,
+          "2020": 0.13
+        },
+        "unit": "%",
+        "denominator": "영업+폐업 사업자 수",
+        "population": "지방행정인허가DB의서울음식점/대규모점포·담배소매업 사업자",
+        "period": "2019·2020 연평균",
+        "method": "인허가DB상 폐업/(영업+폐업), 미신고·영업자 지위승계 한계",
+        "pdf_page": 16,
+        "printed_page": 15,
+        "locator": "본문 및 그림6; 폐업률=폐업/(영업+폐업)",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/DISTANCING_2020/page-16.png"
+      },
+      "simulation": {
+        "feasibility": "needs_business_supply_model",
+        "proposed_formula": "폐업 사업자수 / (영업+폐업 사업자수)",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "사업자 영업·폐업 상태",
+          "매출·비용·임대료·신고/지위승계 과정",
+          "연간 추적"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "DS-PDF-CLOSURE-RETAIL"
+    }
+  ],
+  "source_limitations": [
+    "현DIST동결기간2020-11-24~26은원문매출결과2020년1~40주범위밖이다.",
+    "표7과표8에반복된업종은한번만목록화했고금액·증감률을독립지표둘로세지않는다.",
+    "표11·13의합성 요약(A+거리두기 등)은같은회귀계수합으로중복독립지표가아니다.",
+    "R²·표준오차·t값은추정품질정보이며정책행동결과검증지표로세지않는다.",
+    "원문 성별·연령·소득별 결과 수치 없음. 표본 분포 개선 요구와 결과 benchmark를 구분한다."
+  ]
+}
