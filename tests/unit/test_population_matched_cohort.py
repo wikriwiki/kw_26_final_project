@@ -43,7 +43,8 @@ def test_balanced_four_fields_and_deterministic(fixture):
     root, frame, candidates = fixture
     a = MODULE.calibrate(frame, candidates, root, sample_size=32)
     b = MODULE.calibrate(frame, candidates, root, sample_size=32)
-    assert a == b and a["model_calls_allowed"]
+    assert a == b and a["population_gate_pass"]
+    assert not a["model_calls_allowed"] and not a["runtime_input_binding_verified"]
     assert a["unweighted_max_absolute_error"] == 0
     assert a["weighted_max_absolute_error"] == 0
     assert a["effective_sample_size"] == 32
@@ -119,7 +120,7 @@ def test_calibrated_synthetic_income_explicitly_supported(fixture):
     root, frame, candidates = fixture
     candidates["income_candidate_origin"] = "calibrated_synthetic_income_assignment"
     result = MODULE.calibrate(frame, candidates, root, sample_size=32)
-    assert result["model_calls_allowed"]
+    assert result["population_gate_pass"] and not result["model_calls_allowed"]
     assert result["income_candidate_origin"] == "calibrated_synthetic_income_assignment"
 
 
@@ -184,3 +185,53 @@ def test_cli_missing_real_frame_produces_blocked_result(tmp_path):
     result = json.loads(output.read_text(encoding="utf8"))
     assert result["model_calls_allowed"] is False and result["model_calls"] == 0
     assert result["graph_modified"] is False and result["status"] == "blocked"
+
+
+def runtime_proof(fixture):
+    import json
+    root, frame, candidates = fixture
+    source = candidates["source_evidence"][0]
+    for row in candidates["rows"]:
+        row["age"] = 25 if row["age_band"] == "20" else 35
+        row["home_dong_code"] = row["admin_dong"]
+    definition = candidates["income_assignment_audit"]["income_definition"]
+    profile = {"schema": "frozen_population_profile_v1", "population_unit": "resident_person", "reference_year": 2025,
+               "assignment_kind": "calibrated_synthetic_income_assignment", "policy_outcome_used_for_assignment": False,
+               "source_evidence": [source], "household_income_definition": definition,
+               "admin_dong_code_system": "synthetic_admin_2025", "official_admin_crosswalk_verified": True,
+               "mapping_definition": {"method": "observed_income_band_mapping", "income_band_order": ["low", "high"],
+                                      "band_to_tier": {"low": "하", "high": "상"}, "policy_outcome_used": False,
+                                      "observed_band_direct_mapping": True, "source_evidence": [source]},
+               "rows": [{"aid": r["aid"], "sex": r["sex"], "age": r["age"], "home_dong_code": r["home_dong_code"],
+                         "income_band": r["income_band"], "income_tier": "하" if r["income_band"] == "low" else "상",
+                         "household_income_definition": definition} for r in candidates["rows"]]}
+    profile_path = root / "synthetic_profile.json"
+    profile_path.write_text(json.dumps(profile, ensure_ascii=False), encoding="utf8")
+    profile_sha = hashlib.sha256(profile_path.read_bytes()).hexdigest()
+    proof_path = root / "synthetic_runtime_binding.json"
+    proof_path.write_text(json.dumps({"schema": "population_runtime_binding_audit_v1", "profile_sha256": profile_sha,
+                                     "persona_and_policy_income_match": True, "identity_anchor_checks_pass": True,
+                                     "no_aggregate_targets_in_persona": True}), encoding="utf8")
+    production = Path(SPEC.origin).resolve().parents[1]
+    sources = [{"path": str(production / "scripts/sim" / name),
+                "sha256": hashlib.sha256((production / "scripts/sim" / name).read_bytes()).hexdigest()}
+               for name in ("population_profile.py", "dawn_context.py", "run_simulation.py")]
+    candidates["runtime_input_binding"] = {"profile": {"path": profile_path.name, "sha256": profile_sha},
+                                           "audit": {"path": proof_path.name, "sha256": hashlib.sha256(proof_path.read_bytes()).hexdigest()},
+                                           "code_source_evidence": sources}
+    return root, frame, candidates
+
+
+def test_model_gate_needs_population_and_actual_runtime_proof(fixture):
+    root, frame, candidates = runtime_proof(fixture)
+    result = MODULE.calibrate(frame, candidates, root, sample_size=32)
+    assert result["population_gate_pass"] and result["runtime_input_binding_verified"]
+    assert result["model_calls_allowed"]
+
+
+def test_runtime_proof_cannot_bind_different_selected_income(fixture):
+    root, frame, candidates = runtime_proof(fixture)
+    candidates["rows"][0]["home_dong_code"] = "other_runtime_anchor"
+    result = MODULE.calibrate(frame, candidates, root, sample_size=32)
+    assert result["population_gate_pass"] and not result["runtime_input_binding_verified"]
+    assert not result["model_calls_allowed"]

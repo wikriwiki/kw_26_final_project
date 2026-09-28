@@ -135,6 +135,48 @@ def max_error(observed: dict, targets: dict) -> float:
     return max(abs(observed[f][k] - p) for f, cats in targets.items() for k, p in cats.items())
 
 
+def verify_runtime_input_binding(candidates: dict, root: Path, selected: list[dict]) -> tuple[bool, list, list]:
+    binding = candidates.get("runtime_input_binding")
+    if not binding:
+        return False, ["frozen income profile has not been proved to feed both persona and policy eligibility"], []
+    try:
+        roster = [r["aid"] for r in selected]
+        profile_source = verify_source(binding.get("profile"), root)
+        audit_source = verify_source(binding.get("audit"), root)
+        proof = json.loads((root / audit_source["path"]).read_text(encoding="utf-8-sig"))
+        profile = json.loads((root / profile_source["path"]).read_text(encoding="utf-8-sig"))
+        if (proof.get("schema") != "population_runtime_binding_audit_v1" or
+                proof.get("profile_sha256") != profile_source["sha256"] or
+                proof.get("persona_and_policy_income_match") is not True or
+                proof.get("identity_anchor_checks_pass") is not True or
+                proof.get("no_aggregate_targets_in_persona") is not True or
+                sorted(r.get("aid") for r in profile.get("rows", [])) != roster):
+            raise CalibrationError("runtime income/persona/eligibility/roster proof is incomplete")
+        code_sources = binding.get("code_source_evidence", [])
+        if {Path(x.get("path", "")).name for x in code_sources} != {"population_profile.py", "dawn_context.py", "run_simulation.py"}:
+            raise CalibrationError("runtime loader/Dawn/simulation code SHA evidence is incomplete")
+        verified = [profile_source, audit_source] + [verify_source(x, root) for x in code_sources]
+        production_root = Path(__file__).resolve().parents[1]
+        for source in code_sources:
+            if (root / source["path"]).resolve() != (production_root / "scripts/sim" / Path(source["path"]).name).resolve():
+                raise CalibrationError("binding evidence must identify the actual runtime source files")
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("_frozen_profile_validator", production_root / "scripts/sim/population_profile.py")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        valid = module.validate_profile(profile, root / profile_source["path"])
+        if valid["reference_year"] != candidates["reference_year"]:
+            raise CalibrationError("runtime profile reference year differs from calibrated population")
+        for candidate in selected:
+            row = valid["rows_by_aid"][candidate["aid"]]
+            if (row["income_band"] != candidate["income_band"] or row["sex"] != candidate["sex"] or
+                    row["age"] != candidate.get("age") or row["home_dong_code"] != candidate.get("home_dong_code")):
+                raise CalibrationError("runtime profile is not the selected calibrated income/identity projection")
+        return True, [], verified
+    except (CalibrationError, OSError, ValueError, TypeError, KeyError, AttributeError) as exc:
+        return False, [str(exc)], []
+
+
 def rake(rows: list[dict], targets: dict, *, tolerance: float = 1e-8,
          iterations: int = 2000) -> tuple[list[float], int]:
     weights = [1.0] * len(rows)
@@ -203,10 +245,15 @@ def calibrate(frame: dict, candidates: dict, root: Path, *, sample_size: int,
         sparse = [k for k, p in cats.items() if p > 0 and selected_counts[field][k] < 5]
         if sparse:
             warnings.append({"field": field, "categories_below_five_candidates": sparse})
-    return {"schema": "population_matched_cohort_v1", "model_calls_allowed": not failures,
+    roster = [r["aid"] for r in selected]
+    runtime_verified, runtime_failures, runtime_sources = verify_runtime_input_binding(candidates, root, selected)
+    return {"schema": "population_matched_cohort_v1", "population_gate_pass": not failures,
+            "runtime_input_binding_verified": runtime_verified,
+            "runtime_input_binding_failures": runtime_failures,
+            "model_calls_allowed": not failures and runtime_verified,
             "population_unit": frame["population_unit"], "reference_year": frame["reference_year"],
             "income_candidate_origin": candidates["income_candidate_origin"], "seed": seed, "citizens": sample_size,
-            "candidate_count": len(rows), "roster": [r["aid"] for r in selected],
+            "candidate_count": len(rows), "roster": roster,
             "admin_dong_code_system": candidates["admin_dong_code_system"],
             "weights_by_aid": {r["aid"]: w for r, w in zip(selected, weights)},
             "targets": targets, "unweighted_proportions": raw, "weighted_proportions": weighted,
@@ -215,7 +262,7 @@ def calibrate(frame: dict, candidates: dict, root: Path, *, sample_size: int,
             "gates": {"max_unweighted_error": max_unweighted_error,
                       "min_ess_fraction": min_ess_fraction, "max_normalized_weight": max_normalized_weight},
             "raking_iterations": {"candidate_pool": full_iterations, "selected": selected_iterations},
-            "failures": failures, "support_warnings": warnings, "source_evidence": sources,
+            "failures": failures, "support_warnings": warnings, "source_evidence": sources + runtime_sources,
             "joint_distribution_verified": False,
             "scope_note": "Four empirical marginal distributions only; joint income/demographic distribution is not identified. Weights are evaluator data and cannot be claimed to alter an unweighted simulation roster.",
             "policy_result_used_for_selection": False, "graph_modified": False, "model_calls": 0}
@@ -242,6 +289,7 @@ def main() -> None:
         result["input_files"] = [{"path": str(p), "sha256": sha256(p)} for p in (args.frame, args.candidates)]
     except (CalibrationError, OSError, ValueError, KeyError, TypeError) as exc:
         result = {"schema": "population_matched_cohort_v1", "model_calls_allowed": False,
+                  "population_gate_pass": False, "runtime_input_binding_verified": False,
                   "status": "blocked", "reason": str(exc), "model_calls": 0, "graph_modified": False}
     args.out.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"output": str(args.out), "model_calls_allowed": result["model_calls_allowed"],

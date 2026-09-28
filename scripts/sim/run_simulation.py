@@ -60,6 +60,8 @@ from evidence_integrity import money
 from experience_provenance import (source_fingerprint, execution_fingerprint,
                                    paired_environment_fingerprint, atomic_json)
 from environments import build_environment  # noqa: E402
+from population_profile import (profile_roster, preflight_profile_roster,
+                                income_for_eligibility, verify_graph_projection)  # noqa: E402
 from mechanisms import poi_restriction  # noqa: E402
 
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
@@ -318,7 +320,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         #   balance에는 더하지 않는다 (개인 돈과 정책 돈 완전 분리, 미사용분 누수 방지).
         # 멱등성: 어제 State.grant_received에 이미 기록된 정책은 skip (resume 시 중복 적용 방지)
         prev_grant_received = _read_state_json(ctx.state, "grant_received")
-        income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
+        income = income_for_eligibility(ctx.persona)
         spend_decile = ctx.persona.get("spend_decile")   # 소비 10분위 — grant_key='spend_decile' 정책용
         # 게이트는 plan_writer.grants_to_apply 하나로 모았다 — **예비점검기가 같은
         # 함수를 부른다.** 인라인이던 시절 `str(today) != eff` 문자열 비교가 타입에
@@ -932,6 +934,15 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
         raise ValueError("cohort must contain distinct nonempty agent IDs")
     if active_prompt_name() != _ACTIVE_PROMPT_VARIANT:
         raise ValueError("prompt variant changed after the Dawn system prompt was loaded")
+    profile_provenance = preflight_profile_roster(agents)
+    if profile_provenance:
+        with driver_session() as session:
+            profile_graph_rows = [dict(r) for r in session.run(
+                "MATCH (a:Agent) WHERE a.id IN $aids "
+                "OPTIONAL MATCH (a)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(d:Dong) "
+                "RETURN a.id AS aid, a.p_gender AS sex, a.personal_age AS age, d.code AS home_dong_code ORDER BY aid",
+                aids=agents)]
+        profile_provenance["graph_identity_sha256"] = verify_graph_projection(profile_graph_rows)
     day_str = today.isoformat()
     cohort = {"run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
               "day": day_str, "agent_ids": sorted(agents),
@@ -943,6 +954,8 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                   active_stage2_system().encode("utf-8")).hexdigest(),
               "execution_fingerprint": execution_fingerprint(),
               "paired_environment_fingerprint": paired_environment_fingerprint()}
+    if profile_provenance:
+        cohort["population_profile"] = profile_provenance
     from income import preflight_baseline_income
     income_map = preflight_baseline_income(
         os.environ.get("EXP_DAILY_INCOME"),
@@ -1147,7 +1160,14 @@ def main():
         print("[환경] 사회 배경 없음 (프롬프트에 해당 섹션 생략)")
 
     start = date.fromisoformat(args.start)
-    agents = fetch_agents(limit=args.limit, gu_only=args.gu)
+    matched_roster = profile_roster()
+    if matched_roster is not None:
+        if args.gu or (args.limit is not None and args.limit != len(matched_roster)):
+            raise ValueError("profile roster is frozen; --gu/--limit cannot resample it")
+        agents = matched_roster
+    else:
+        agents = fetch_agents(limit=args.limit, gu_only=args.gu)
+    preflight_profile_roster(agents)
     from income import preflight_baseline_income
     income_map = preflight_baseline_income(
         os.environ.get("EXP_DAILY_INCOME"),

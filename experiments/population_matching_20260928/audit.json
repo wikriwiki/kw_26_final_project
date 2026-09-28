@@ -5416,8 +5416,10 @@
       "sha256": "b9e914684b0caaf890b7311bc6fe1bea2de7164944de017a7bc4285ca203d8bc"
     },
     {
-      "path": "scripts/sim/run_simulation.py",
-      "sha256": "7e8313ba3fb0cd0923ef3e5ca2a09607cd974938a1c3bb7648a8966832e3bfd4"
+      "path": "output/population_matching_20260928/legacy_runtime_sources/run_simulation.py",
+      "sha256": "7e8313ba3fb0cd0923ef3e5ca2a09607cd974938a1c3bb7648a8966832e3bfd4",
+      "original_path": "scripts/sim/run_simulation.py",
+      "git_snapshot_commit": "9253a4d"
     },
     {
       "path": "tools/freeze_multi_small_cohort_20260928.py",
@@ -5432,8 +5434,10 @@
       "sha256": "dee30d4ff35d9dafe37557319b13d8aadb340521f35992925c150f6c6407f4f6"
     },
     {
-      "path": "scripts/sim/dawn_context.py",
-      "sha256": "160e6cb14e3b22b53974e6c898a13186bb9a85f96a7e563f0997269786874eca"
+      "path": "output/population_matching_20260928/legacy_runtime_sources/dawn_context.py",
+      "sha256": "160e6cb14e3b22b53974e6c898a13186bb9a85f96a7e563f0997269786874eca",
+      "original_path": "scripts/sim/dawn_context.py",
+      "git_snapshot_commit": "9253a4d"
     }
   ],
   "official_four_field_frame_available_in_this_audit": false,
@@ -5454,6 +5458,50 @@
     "new_income_assignment_bound": false,
     "income_field_v2_found_in_active_sources": false,
     "proposed_cohort_alone_updates_persona_or_policy_income": false,
-    "graph_or_runtime_code_changed": false
+    "graph_or_runtime_code_changed": false,
+    "new_opt_in_code_prepared": true,
+    "new_opt_in_applied_to_existing_six_runs": false,
+    "opt_in_guide": "docs/POPULATION_PROFILE.md"
+  },
+  "runtime_opt_in_preparation": {
+    "prepared": true,
+    "server_code_updated": false,
+    "existing_six_run_results_changed": false,
+    "new_model_calls": 0,
+    "graph_modified": false,
+    "validation": {
+      "passed": 89,
+      "scope": "synthetic profile/calibration/integration tests plus selected grant/context/reference/ruler regressions"
+    },
+    "sources": [
+      {
+        "path": "scripts/sim/population_profile.py",
+        "sha256": "30710d2c0904abf50dc0287e280434418f91d8ff1ce531425f2aebe5fc5fc913"
+      },
+      {
+        "path": "scripts/sim/dawn_context.py",
+        "sha256": "ba3b221cafc1345f9108f98e6260833408a73bc6ecd1cecb4f2865d83d48e7b5"
+      },
+      {
+        "path": "scripts/sim/run_simulation.py",
+        "sha256": "20a619c7451f80e998b8fea3b6c9df610f531d9a22bc6c6aefe3c5cd67ea27cc"
+      },
+      {
+        "path": "tools/freeze_population_matched_cohort.py",
+        "sha256": "e39af5709acf5e0ca8619faf777cf2553918419785995b3bdcb5c58b96f84008"
+      },
+      {
+        "path": "tests/unit/test_population_profile.py",
+        "sha256": "41a8f82d930b88230c27f364c91d8eb77ace2b57b755b0188440ce0b350ef060"
+      },
+      {
+        "path": "tests/unit/test_population_matched_cohort.py",
+        "sha256": "d1e5363f85b652100b9ebb919e072f3bd732235a423a0540eb8d6528f8daa0ef"
+      },
+      {
+        "path": "docs/POPULATION_PROFILE.md",
+        "sha256": "834d0227769ca733414b7b5b763ff9e8137072a36cb1438b28dad68ca1d1d47a"
+      }
+    ]
   }
 }

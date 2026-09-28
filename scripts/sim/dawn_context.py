@@ -373,6 +373,8 @@ def _format_persona(p: dict) -> str:
         f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
         f"거주: {p.get('home_dong','?')} ({p.get('home_dong_code','?')}) — {p.get('home_poi','(이름없음)')}",
     ]
+    if p.get("population_profile_sha256"):
+        lines.append(f"개인에게 배정된 소득구간: {p['assigned_income_band']} / 정의: {p['assigned_income_definition']} (합성 소득 할당)")
     if p.get("work_dong"):
         lines.append(f"직장: {p.get('work_dong','?')} ({p.get('work_dong_code','?')}) — {p.get('work_poi','(이름없음)')} / 통근 {(p.get('commute_min') or 0)}분")
     else:
@@ -1097,6 +1099,12 @@ def build_dawn_context(
             row = s.run(PERSONA_CYPHER, aid=aid).single()
             persona = dict(row) if row else {}
             _cache_persona(aid, persona)
+        # Opt-in only: cached legacy persona remains unchanged; the frozen
+        # income feeds both prompt formatting and policy eligibility.
+        from population_profile import profile_enabled, bind_persona
+        if profile_enabled():
+            age_row = s.run("MATCH (a:Agent {id:$aid}) RETURN a.personal_age AS age", aid=aid).single()
+            persona = bind_persona(aid, persona, age_row["age"] if age_row else None)
         tm["t_persona"] = time.perf_counter() - started
 
         started = time.perf_counter()
