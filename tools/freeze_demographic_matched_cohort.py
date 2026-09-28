@@ -71,6 +71,9 @@ def main() -> int:
     ap.add_argument("--citizens", type=int, required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--seed", type=int, default=20260929)
+    ap.add_argument("--eligible-ids", default=None,
+                    help="그래프가 실제로 가진 에이전트 id 목록(JSON 배열). 주면 이 안에서만 "
+                         "뽑는다 — 후보 목록이 다른 그래프에서 만들어졌을 수 있다.")
     ap.add_argument("--max-margin-error", type=float, default=0.02,
                     help="주변분포 최대 절대오차. 넘으면 쓰지 않고 멈춘다.")
     a = ap.parse_args()
@@ -82,13 +85,21 @@ def main() -> int:
         raise SystemExit("frame schema unsupported: %s" % frame.get("schema"))
     tg = frame["targets"]
 
-    # 후보 — 범위 밖 연령을 먼저 걷어낸다
+    # 후보 — 범위 밖 연령과 **그래프에 없는 사람**을 먼저 걷어낸다.
+    # 후보 파일은 다른 시점의 그래프에서 만들어졌을 수 있다. 실제로 1,000명 중
+    # 9명이 지금 그래프에 거주지가 없었고, 시뮬의 명부 관문이 그것을 잡았다.
+    eligible = None
+    if a.eligible_ids:
+        eligible = set(json.loads(Path(a.eligible_ids).read_text(encoding="utf-8")))
     pool: dict[tuple[str, str, str], list[str]] = defaultdict(list)
-    dropped = 0
+    dropped = not_in_graph = 0
     for ag in cand["agents"]:
         band = ag.get("age_band")
         if band in OUT_OF_SCOPE:
             dropped += 1
+            continue
+        if eligible is not None and str(ag["aid"]) not in eligible:
+            not_in_graph += 1
             continue
         fb = AGE_TO_FRAME.get(band)
         if fb is None:
@@ -178,8 +189,8 @@ def main() -> int:
           % (fp.name, frame.get("reference_period") or frame.get("reference_year"),
              frame.get("age_scope"), frame.get("administrative_dong_count"),
              "{:,}".format(frame.get("resident_count") or 0)))
-    print("  후보    %s  (%d명 중 범위 밖 %d명 제외)"
-          % (cp.name, len(cand["agents"]), dropped))
+    print("  후보    %s  (%d명 중 범위 밖 %d명 · 그래프에 없음 %d명 제외)"
+          % (cp.name, len(cand["agents"]), dropped, not_in_graph))
     print("  뽑음    **%d명** / 요청 %d명" % (len(picked), a.citizens))
     print()
     print("  %-10s %10s %10s %9s" % ("분포", "목표", "표본", "오차"))
@@ -217,6 +228,8 @@ def main() -> int:
                             "소득 분포는 맞추지 않았다. 보고서에 명시할 것."),
             "age_scope": frame.get("age_scope"),
             "out_of_scope_dropped": dropped,
+           "not_in_graph_dropped": not_in_graph,
+           "eligible_ids": a.eligible_ids,
             "margin_error": err, "dong_max_error": round(dmax, 6),
             "worst_margin_error": round(worst, 6),
             "unfilled_coarse_cells": short_dong, "cross_dong_substitutions": subs,
