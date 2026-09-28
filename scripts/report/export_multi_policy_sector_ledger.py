@@ -76,6 +76,8 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
     buckets = {aid: {"offline_spent": 0, "sangsaeng_eligible_offline_spent": 0,
                      "unclassified_won": 0, "by_sub": defaultdict(int),
                      "by_l1": defaultdict(int), "funded_by_sub": defaultdict(int),
+                     "eligible_by_sub": defaultdict(int),
+                     "eligible_by_l1": defaultdict(int),
                      "policy_funded_won": 0} for aid in roster}
     for spend in spends:
         aid = spend.get("aid")
@@ -90,16 +92,22 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
             raise ValueError(f"control transaction has policy funding: {aid} {day}")
         bucket = buckets[aid]
         bucket["offline_spent"] += amount
-        if spend.get("sangsaeng_eligible") is True:
+        # 업종별 적립/제외 분해 — 이것이 없으면 '제외업종 중 유통'(KDI K10) 을 셀 수 없다.
+        eligible = spend.get("sangsaeng_eligible") is True
+        if eligible:
             bucket["sangsaeng_eligible_offline_spent"] += amount
         sub, l1 = spend.get("sub"), spend.get("l1")
         if sub:
             bucket["by_sub"][str(sub)] += amount
             bucket["funded_by_sub"][str(sub)] += funded
+            if eligible:
+                bucket["eligible_by_sub"][str(sub)] += amount
         else:
             bucket["unclassified_won"] += amount
         if l1:
             bucket["by_l1"][str(l1)] += amount
+            if eligible:
+                bucket["eligible_by_l1"][str(l1)] += amount
         bucket["policy_funded_won"] += funded
     out = []
     for aid in roster:
@@ -112,6 +120,8 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
             raise ValueError(f"control State has grant funding: {aid} {day}")
         if sum(bucket["by_sub"].values()) + bucket["unclassified_won"] != bucket["offline_spent"]:
             raise ValueError(f"sector spending does not reconcile: {aid} {day}")
+        if sum(bucket["eligible_by_sub"].values()) > bucket["sangsaeng_eligible_offline_spent"]:
+            raise ValueError(f"eligible sector spending exceeds eligible total: {aid} {day}")
         out.append({"aid": aid, "day": day, "arm": arm, "policy_id": policy_id,
                     "offline_spent": bucket["offline_spent"],
                     "online_spent": online,
@@ -123,6 +133,8 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
                     "grant_remaining": remaining.get(policy_id, 0) if policy_id else 0,
                     "by_sub": dict(sorted(bucket["by_sub"].items())),
                     "by_l1": dict(sorted(bucket["by_l1"].items())),
+                    "eligible_by_sub": dict(sorted(bucket["eligible_by_sub"].items())),
+                    "eligible_by_l1": dict(sorted(bucket["eligible_by_l1"].items())),
                     "funded_by_sub": dict(sorted(bucket["funded_by_sub"].items()))})
     return out
 
