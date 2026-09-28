@@ -1,0 +1,34 @@
+{
+  "kind": "synthetic_fixture_golden_expectations",
+  "synthetic_fixture": true,
+  "input_sha256": "6de8382bc0a698335f530d9f2d4e4e54ebc66c3d846b433e62b907002968f326",
+  "fit_partition": {
+    "arm": "off",
+    "period": "pre"
+  },
+  "effective_k": 2,
+  "same_cluster_groups": [
+    [
+      "a",
+      "b"
+    ],
+    [
+      "c",
+      "d"
+    ]
+  ],
+  "different_clusters": [
+    "a",
+    "c"
+  ],
+  "expected_agent_periods": 16,
+  "selected_actual_records": 6,
+  "heldout_metrics": {
+    "macro_f1": 0.5,
+    "balanced_accuracy": 0.5,
+    "accuracy": 0.5
+  },
+  "heldout_coverage": 0.5,
+  "heldout_oppose_to_insufficient_evidence": 1,
+  "interpretation": "Software regression expectations only, not empirical performance."
+}

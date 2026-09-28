@@ -22,7 +22,7 @@ POC 단계에선 1~3개 정도면 충분.
 ```
 policies/*.txt
   ↓ Watchdog 감지
-LangChain LLM 추출 (vLLM Qwen3-32B)
+LangChain LLM 추출 (SGLang LG EXAONE-4.5-33B-AWQ)
   ↓
 Pydantic 검증
   ↓

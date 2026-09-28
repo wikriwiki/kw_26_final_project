@@ -2,7 +2,7 @@
 
 소상공인 상권정책의 효과를 LLM 기반 에이전트 시뮬레이션으로 평가하는 프로젝트.
 
-서울 시민 약 14,881명의 페르소나를 빅데이터캠퍼스(BDC) 통계로 생성하고, Neo4j 그래프 위에서 일별 의도·POI 선택·상호작용·정책 수용을 LLM(Qwen3) 으로 시뮬레이션. 정책 시행 전/후의 강남 매출과 비강남 대조군 변화를 Difference-in-Differences (DID) 로 측정한다.
+서울 시민 약 14,881명의 페르소나를 빅데이터캠퍼스(BDC) 통계로 생성하고, Neo4j 그래프 위에서 일별 의도·POI 선택·상호작용·정책 수용을 LLM(LG EXAONE 4.5) 으로 시뮬레이션. 정책 시행 전/후의 강남 매출과 비강남 대조군 변화를 Difference-in-Differences (DID) 로 측정한다.
 
 자세한 셋업·실행 절차는 [SETUP.md](SETUP.md) 참고.
 
@@ -118,11 +118,12 @@ VWorld API로 주소 → 위경도. `cache.sqlite` 에 결과 영속화.
 
 | 파일 | 모델 |
 |---|---|
-| `serve_qwen32b.sh` | Qwen3-32B-AWQ — **현재 표준** (페르소나/스케줄/Graphiti 통합) |
-| `serve_qwen14b.sh` | Qwen3-14B-AWQ — 7일 풀런에 사용 |
-| `serve_qwen9b.sh`  | Qwen3-9B — 디버그·smoke test |
-| `serve_exaone.sh`  | EXAONE 32B — 비교 실험 |
-| `run_vllm.sh`      | vLLM 일반 부팅 헬퍼 |
+| `serve_exaone45_sglang_a100x2.sh` | **기본**: 기존 SGLang 환경, LG EXAONE-4.5-33B-AWQ, TP=2 |
+| `serve_exaone.sh`, `serve_exaone45_33b.sh` | SGLang 기본 진입점 호환 래퍼 |
+| `run_vllm.sh`, `run_vllm_exaone45_33b.sh` | 별도 호환 환경이 필요한 선택적 vLLM 경로 |
+| `serve_exaone45_awq_a100x2.sh` | 선택적 vLLM TP=2 경로 |
+
+`LLM_MODE=exaone_4_5`, 기존 서버는 `http://127.0.0.1:8000/v1`이다. `/data/venv_sgl` 환경을 유지하며 AWQ 체크포인트의 `compressed-tensors` 메타데이터를 자동 사용한다. 이전 모델의 실험 기록은 `docs/archive/`와 기존 결과물에 유지한다. 현재 서버의 처리량은 대여 GPU에서 측정한다.
 
 ---
 

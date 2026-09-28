@@ -13,12 +13,12 @@
 2. **워크로드 볼륨은 종료 시 사라진다.** 반드시 **스토리지(NAS)를 마운트**하고, Neo4j 데이터·
    시뮬 산출물·모델 캐시를 거기 둔다. 스토리지에 없는 건 워크로드 삭제 시 복구 불가.
 3. **우리 프로젝트에서 GPU가 필요한 건 LLM 서버뿐.** 시뮬 코드와 Neo4j는 CPU만 쓴다.
-   즉 GPU 워크로드 = "Qwen을 vLLM으로 서빙하는 자리" + 거기에 Neo4j·시뮬을 얹는다.
+   즉 GPU 워크로드 = "LG EXAONE을 SGLang으로 서빙하는 자리" + 거기에 Neo4j·시뮬을 얹는다.
 
 ### 우리 프로젝트 3요소 ↔ GPU LIVE 매핑
 | 요소 | 자원 | GPU LIVE에서 |
 |---|---|---|
-| **LLM 서버** (vLLM, Qwen3) | **GPU** | 워크로드에서 `scripts/serve/*.sh` 실행 → localhost:30000(또는 8000) |
+| **LLM 서버** (SGLang, LG EXAONE 4.5) | **GPU** | 기본 SGLang 스크립트 실행 → localhost:8000 |
 | **Neo4j** (그래프 DB) | CPU·디스크 | 같은 워크로드에 바이너리로 기동 → localhost:7687, data는 스토리지 |
 | **시뮬** (run_simulation.py) | CPU | 같은 워크로드에서 실행, 위 둘에 localhost로 연결 |
 
@@ -38,9 +38,9 @@
 ### Step 1. 워크로드 생성
 콘솔 → 프로젝트 영역 → **워크로드 → [워크로드 생성]**
 - **01 GPU & 리소스**
-  - GPU 유형: **Qwen3-32B-AWQ면 A100 80GB급 1장**(또는 프로젝트 쿼터 최대). 8B면 24GB급도 가능
+  - GPU 유형: **EXAONE-4.5-33B-AWQ 단일 32/48GB급에서 소규모 검증**, 필요 시 80GB 또는 TP=2. 실제 문맥·동시성의 메모리 사용량 확인
   - 워크로드 유형: **단일 노드 / 인터랙티브** (SSH·Jupyter로 붙어 작업)
-  - 공유 메모리: 넉넉히(vLLM은 shm 사용) — 가능하면 16GB↑
+  - 공유 메모리: 넉넉히(SGLang TP 통신에 사용) — 가능하면 16GB↑
   - 실행 환경: **기본 이미지 중 NVIDIA PyTorch 계열** (CUDA 포함) 선택
 - **02 추가 설정**
   - **스토리지 마운트**: 미리 만든 스토리지를 `/home/ubuntu/workspace` 또는 `/data`에 마운트
@@ -61,7 +61,7 @@
 cd /data                       # 스토리지 마운트 경로
 git clone https://github.com/wikriwiki/kw_26_final_project.git
 cd kw_26_final_project
-git checkout main              # 최신 (리뷰계측+가격/쿠폰/봉투 병합본, e0d4814)
+git checkout No_SmokingZone_EXP  # 실험 브랜치; 업로드한 코드 revision을 기록
 ```
 Neo4j 덤프(`neo4j_*.dump`)와 대용량 입력은 git에 없으므로 **SFTP/Web SFTP로 `/data`에 업로드**.
 
@@ -74,12 +74,15 @@ pip install -r requirements.txt          # 시뮬 런타임 의존성
 # 모델 캐시를 스토리지에 (재다운로드 방지 — 워크로드 재생성해도 유지)
 export HF_HOME=/data/hf_cache
 
-# LLM 서버 실행 (기본 qwen8b, 32B는 serve_qwen32b.sh). background + 로그
-bash scripts/serve/run_vllm_qwen3_8b_awq.sh > /data/llm.log 2>&1 &
-# 준비 확인 (포트는 스크립트 기준 — SGLang 30000 / vLLM 8000)
-curl -s http://localhost:30000/v1/models || curl -s http://localhost:8000/v1/models
+# 신규 서버에 /data/venv_sgl 환경이 없을 때만 실행:
+# bash scripts/deploy/install_sglang_exaone45.sh
+# 기존 작동 환경은 유지한다. 설치 상세는 SETUP.md 참조.
+# 기본 EXAONE 4.5 AWQ 서버. background + 로그
+bash scripts/serve/serve_exaone45_sglang_a100x2.sh > /data/llm.log 2>&1 &
+# 준비 확인 (기본 SGLang 포트 8000)
+curl -s http://127.0.0.1:8000/v1/models
 ```
-> 모델 최초 다운로드는 수 분~수십 분(32B-AWQ ~20GB). `/data/hf_cache`에 받아두면 다음부터 즉시.
+> 모델 최초 다운로드·로딩 시간은 네트워크와 디스크에 따라 달라진다. `/data/hf_cache`를 유지하면 재다운로드를 줄일 수 있다.
 
 ### Step 5. Neo4j 기동 (CPU) + 덤프 로드 — background
 GPU LIVE 워크로드는 docker가 없을 수 있으므로 **Neo4j 바이너리**를 쓴다(데이터는 스토리지에).
@@ -107,8 +110,8 @@ until cypher-shell -a bolt://localhost:7687 -u neo4j -p changeme123 'RETURN 1' 2
 ### Step 6. 시뮬 실행
 ```bash
 export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j NEO4J_PASSWORD=changeme123
-export LLM_BASE_URL=http://localhost:30000/v1   # LLM 서버 포트에 맞춤
-export LLM_MODE=qwen8b                          # 또는 qwen32b
+export LLM_BASE_URL=http://127.0.0.1:8000/v1   # 기본 SGLang 서버
+export LLM_MODE=exaone_4_5                     # LG EXAONE 4.5 AWQ
 export SIM_OUTPUT_DIR=/data/sim_output          # 산출물도 스토리지에
 
 # (백테스트면) 정책 사전점검 후 적재
@@ -132,7 +135,7 @@ python scripts/sim/run_simulation.py --start 2026-05-25 --days 3 --workers 8
 | 워크로드 삭제 후 데이터 없음 | 마운트 밖(`/home/ubuntu`)에 저장 → **항상 `/data`(스토리지)에** |
 | 모델 매번 재다운로드 | `HF_HOME`을 스토리지로 (`export HF_HOME=/data/hf_cache`) |
 | 시뮬이 LLM 연결 실패 | `LLM_BASE_URL` 포트 불일치 — `curl .../v1/models`로 실제 포트 확인(30000 vs 8000) |
-| vLLM OOM / shm 부족 | 워크로드 생성 시 **공유 메모리↑**, 또는 8B·AWQ 모델로 |
+| SGLang OOM / shm 부족 | 실제 VRAM·공유 메모리와 TP 설정을 확인하고 문맥·동시성을 줄여 pilot 재검증 |
 | Neo4j 덤프 load 실패(버전) | 덤프가 만든 버전 ≥ 5.26이면 Community **5.26**으로 |
 | GPU가 안 잡힘 | 기본 이미지가 CUDA 포함(NVIDIA PyTorch)인지, `nvidia-smi` 확인 |
 
@@ -146,7 +149,7 @@ GPU LIVE 사용자 이미지는 **SSH/Jupyter/supervisor/tini 연동 규약**(�
 
 ```dockerfile
 # syntax=docker/dockerfile:1
-# ① 베이스 (CUDA 포함 — vLLM용)
+# ① 베이스 (CUDA 포함 — SGLang용)
 ARG IMAGE_TAG=24.10-py3
 FROM nvcr.io/nvidia/pytorch:${IMAGE_TAG}
 # ... (가이드 3.8의 규약 블록 그대로: apt, jupyter, ubuntu 계정, sshd, supervisor, entrypoint, tini) ...
@@ -188,7 +191,7 @@ docker buildx build --platform linux/amd64 \
 |---|---|---|
 | `NEO4J_URI` | bolt://neo4j:7687 | GPU LIVE에선 `bolt://localhost:7687` |
 | `NEO4J_PASSWORD` | changeme123 | Neo4j 비밀번호 |
-| `LLM_BASE_URL` | http://…:30000/v1 | LLM 서버 (SGLang 30000 / vLLM 8000) |
-| `LLM_MODE` | qwen8b | qwen8b / qwen32b / qwen35_9b_awq 등 |
+| `LLM_BASE_URL` | http://127.0.0.1:8000/v1 | 기존 SGLang localhost endpoint |
+| `LLM_MODE` | exaone_4_5 | LGAI-EXAONE/EXAONE-4.5-33B-AWQ |
 | `SIM_OUTPUT_DIR` | ~/sim_output | **스토리지 경로로 지정** |
-| LLM 기동 | `scripts/serve/run_vllm_qwen3_8b_awq.sh` (8B) · `serve_qwen32b.sh` (32B) | |
+| LLM 기동 | `scripts/serve/serve_exaone45_sglang_a100x2.sh` | 고정 revision; quantization 메타데이터 자동 사용 |

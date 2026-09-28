@@ -14,6 +14,9 @@ from transaction_contract import schema, inspect
 from validate_prompt_v3 import atomic, digest
 
 
+from llm_client import require_supported_model_id
+
+
 def make_cases():
     def candidate(pid, price, eligible=()):
         return {'poi_id':pid,'listed_price_won':price,'eligible_wallets':list(eligible)}
@@ -47,7 +50,7 @@ def make_cases():
 def invoke(job,config,base):
     thinking,rep,case=job
     user={k:v for k,v in case.items() if k!='requirements'}
-    payload={'model':config['model'],'messages':[{'role':'system','content':SYSTEM_PROMPT},{'role':'user','content':json.dumps(user,ensure_ascii=False)}],
+    payload={'model':require_supported_model_id(config['model']),'messages':[{'role':'system','content':SYSTEM_PROMPT},{'role':'user','content':json.dumps(user,ensure_ascii=False)}],
              'temperature':config['temperature'],'top_p':config['top_p'],'presence_penalty':config['presence_penalty'],
              'max_tokens':config['max_tokens'],'seed':int(digest([rep,case['id']])[:8],16)%2147483647,
              'chat_template_kwargs':{'enable_thinking':thinking},
@@ -72,6 +75,7 @@ def invoke(job,config,base):
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--config',required=True); ap.add_argument('--out',required=True); ap.add_argument('--prepare-only',action='store_true')
     args=ap.parse_args(); config=json.loads(Path(args.config).read_text(encoding='utf-8')); cases=make_cases()
+    require_supported_model_id(config["model"])
     folder=Path(args.out)
     if (folder/'responses.jsonl').exists(): raise ValueError('Refusing overwrite/retry')
     current={'config':config,'config_sha256':digest(config),'cases_sha256':digest(cases),'system_sha256':digest(SYSTEM_PROMPT),
@@ -88,7 +92,7 @@ def main():
         (folder/'system.txt').write_text(SYSTEM_PROMPT,encoding='utf-8')
     if args.prepare_only: print('Frozen seven development cases; no model calls.'); return
     base=os.environ.get('LLM_BASE_URL','http://localhost:8000/v1').rstrip('/')
-    with urlopen(base+'/models') as response: assert config['model'] in [m['id'] for m in json.load(response)['data']]
+    with urlopen(base+'/models') as response: assert require_supported_model_id(config['model']) in [m['id'] for m in json.load(response)['data']]
     jobs=[(t,rep,c) for t in config['thinking_modes'] for rep in config['seeds'] for c in cases]
     random.Random(config['order_seed']).shuffle(jobs); rows=[]
     with (folder/'responses.jsonl').open('x',encoding='utf-8') as fp,ThreadPoolExecutor(max_workers=config['workers']) as pool:

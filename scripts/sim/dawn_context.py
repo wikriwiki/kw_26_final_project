@@ -318,7 +318,7 @@ class DawnContext:
                 ),
             ),
             "persona": timed("t_persona", lambda: _format_persona(self.persona)),
-            "state": timed("t_state", lambda: _format_state(self.state)),
+            "state": timed("t_state", lambda: _format_state(self.state, grounded=bool(self.persona.get('_no_smoking_prompt')))),
             "memory": timed("t_memory", lambda: _format_memory(self.memory)),
             "appointment": timed("t_appointment", lambda: _format_appointment(self.appointment)),
             "social": timed("t_social", lambda: _format_social(self.social)),
@@ -359,6 +359,9 @@ def _strip_lifestyle_first_line(lifestyle: str) -> str:
 def _format_persona(p: dict) -> str:
     if not p:
         return "(페르소나 없음)"
+    if p.get('_no_smoking_prompt'):
+        from personal_context import render_personal_context
+        return render_personal_context(p)
     job = (p.get("job") or "").strip()
     lifestyle = _strip_lifestyle_first_line(p.get("lifestyle") or "")[:280]
     lines = [
@@ -375,6 +378,10 @@ def _format_persona(p: dict) -> str:
         lines.append("직장: 없음")
     if lifestyle:
         lines.append(f"라이프스타일: {lifestyle}")
+    from no_smoking_context import prompt_for_persona
+    smoking_context = prompt_for_persona(p)
+    if smoking_context:
+        lines.append(smoking_context)
     # 집안 내구재 보유 상태 — 정책과 무관한 페르소나 사실. EXP_DURABLES=0 이면
     # 빈 문자열이라 P010 검증본 렌더는 바이트 그대로 유지된다. durables.py 참조.
     _dur = _durables_line(p)
@@ -387,7 +394,10 @@ def _format_persona(p: dict) -> str:
     return "\n".join(lines)
 
 
-def _format_state(s: dict | None) -> str:
+def _format_state(s: dict | None, *, grounded=False) -> str:
+    if grounded:
+        from personal_context import render_personal_state
+        return render_personal_state(s)
     if not s:
         return "(어제 State 없음 — Day 0 시드 누락 가능)"
     lc = s.get("policy_lc") or "{}"
@@ -972,7 +982,11 @@ def _build_zone_candidates(persona: dict, today: date, stats_dir: Path | None = 
         import mobility
         exclude = {c for c in (home_code, work_code) if c}
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
-        rng = random.Random(hash((persona.get("id"), today.isoformat())))
+        from no_smoking_context import configured_context
+        smoking_runtime = configured_context()
+        mobility_seed = (smoking_runtime.stable_seed(persona.get("id"), today, "mobility")
+                         if smoking_runtime else hash((persona.get("id"), today.isoformat())))
+        rng = random.Random(mobility_seed)
         for h in mobility.suggest_hubs(home_code, exclude, day_type,
                                        persona.get("mobility"), k=8, rng=rng,
                                        persona=persona, stats_dir=stats_dir):

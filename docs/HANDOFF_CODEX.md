@@ -1,5 +1,8 @@
 # 이전 Claude → Codex 인수인계 기록
 
+> **실내 금연구역 실험 / `No_SmokingZone_EXP`의 현재 기록은 [HANDOFF_NO_SMOKING_ZONE.md](HANDOFF_NO_SMOKING_ZONE.md)를 먼저 읽는다.**
+> 아래의 2026-09-20 중단·인계 요청과 서버 정보는 다른 실험의 당시 기록이며, 금연 실험의 현재 작업 상태나 지시를 대체하지 않는다.
+
 > **최신 인수인계는 [HANDOFF_CLAUDE_20260920.md](HANDOFF_CLAUDE_20260920.md)를 먼저 읽는다.**
 > 사용자가 현재 실험까지만 마무리하고 Claude에 넘기도록 요청했다. daily_v2 계획192건과
 > 후속 결제192건은 모두 종료됐다. 결제는96/96과95/96이며 배송 전 사용 실패1건을 보존했다.

@@ -1,46 +1,39 @@
-#!/bin/bash
-# =============================================================================
-# vLLM 서버 시작 스크립트 — Qwen3-32B-AWQ (단일 모델 단일화)
-# =============================================================================
-#
-# 페르소나 생성·스케줄 Stage 1·2·Night 의도 분류·정책 NL 추출 모두 이 모델 단독.
-# 결정: 2026-05-04 (Gemma/EXAONE 후보 폐기). project_vllm_model_decision 메모 참조.
-#
-# 사전 준비:
-#   conda activate vllm  (vllm>=0.19.0 + openai sdk)
-#
-# 실행:
-#   bash run_vllm.sh
-#
-# 모델 로딩 확인:
-#   curl http://localhost:8000/v1/models
-#
-# 테스트:
-#   curl http://localhost:8000/v1/chat/completions \
-#     -H "Content-Type: application/json" \
-#     -d '{"model":"Qwen/Qwen3-32B-AWQ",
-#          "messages":[{"role":"user","content":"안녕하세요"}],
-#          "max_tokens":50}'
-# =============================================================================
+#!/usr/bin/env bash
+# Optional vLLM LG EXAONE entry; the project default remains SGLang.
+# Prepare a compatible vLLM environment separately before using this entry.
+# AWQ weights use compressed-tensors metadata; do not force an AWQ kernel name.
+set -euo pipefail
 
-MODEL="Qwen/Qwen3-32B-AWQ"
-PORT=8000
-GPU_UTIL=0.92
-MAX_MODEL_LEN=8192
+DEFAULT_MODEL="LGAI-EXAONE/EXAONE-4.5-33B-AWQ"
+MODEL="${MODEL:-$DEFAULT_MODEL}"
+case "$MODEL" in
+  LGAI-EXAONE/*) ;;
+  *) echo "MODEL must use the official LGAI-EXAONE namespace." >&2; exit 2 ;;
+esac
+if [[ "$MODEL" == "$DEFAULT_MODEL" ]]; then
+  MODEL_REVISION="${MODEL_REVISION:-31e6a965d0661bbe4a8b895e22a77f8271772ba0}"
+else
+  : "${MODEL_REVISION:?Set MODEL_REVISION explicitly when changing the LG model.}"
+fi
 
-echo "============================================"
-echo " vLLM 서버 시작"
-echo " 모델: $MODEL  (AWQ 양자화)"
-echo " 포트: $PORT"
-echo " GPU 메모리 사용률: $GPU_UTIL"
-echo " 최대 컨텍스트: $MAX_MODEL_LEN tokens"
-echo " 옵션: prefix-caching 활성 (Stage 1·2 SYSTEM/persona 공유)"
-echo "============================================"
+HOST="${HOST:-127.0.0.1}"
+PORT="${PORT:-8000}"
+TP="${TP:-1}"
+GPU_UTIL="${GPU_UTIL:-0.90}"
+MAX_LEN="${MAX_LEN:-8192}"
+MAX_NUM_SEQS="${MAX_NUM_SEQS:-16}"
 
-vllm serve "$MODEL" \
-    --quantization awq_marlin \
-    --gpu-memory-utilization "$GPU_UTIL" \
-    --max-model-len "$MAX_MODEL_LEN" \
-    --port "$PORT" \
-    --enable-prefix-caching \
-    --trust-remote-code
+echo "[serve] model=$MODEL revision=$MODEL_REVISION tp=$TP port=$PORT"
+exec python -m vllm.entrypoints.openai.api_server \
+  --model "$MODEL" \
+  --revision "$MODEL_REVISION" \
+  --served-model-name "$MODEL" \
+  --host "$HOST" \
+  --port "$PORT" \
+  --tensor-parallel-size "$TP" \
+  --dtype auto \
+  --gpu-memory-utilization "$GPU_UTIL" \
+  --max-model-len "$MAX_LEN" \
+  --max-num-seqs "$MAX_NUM_SEQS" \
+  --enable-prefix-caching \
+  --language-model-only

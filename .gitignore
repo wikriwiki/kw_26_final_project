@@ -125,3 +125,7 @@ web/ui/test-results/
 output/*.pptx
 output/sim/visualization/sim_standalone*.html
 output/sim/visualization/sim_standalone*.zip
+
+# No-smoking experiment: frozen cohorts, per-agent labels and run artifacts
+output/no_smoking_zone/
+output/experiments/no_smoking_zone/

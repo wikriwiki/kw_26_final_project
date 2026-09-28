@@ -40,6 +40,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 
 from _common import driver_session  # noqa: E402
+from report_model import recorded_model_label
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -72,6 +73,7 @@ def section1_conditions(start: date, days: int, policy_from: str | None) -> dict
         "기간": f"{start.isoformat()} ~ {(start + timedelta(days=days-1)).isoformat()}",
         "일수": days,
         "정책_시행일": policy_from or "처음부터",
+        "모델": recorded_model_label(start, days),
     }
     with driver_session() as s:
         for k, q in [
@@ -493,7 +495,7 @@ def build_markdown(start: date, days: int, policy_from: str | None,
     lines.append(f"**작성일**: {datetime.now().strftime('%Y-%m-%d %H:%M KST')}")
     lines.append("")
     lines.append(f"**기간**: {s1['기간']} ({s1['일수']}일) · "
-                 f"**모델**: Qwen3-14B-AWQ · "
+                 f"**모델**: {s1.get('모델', '모델 실행 기록 없음')} · "
                  f"**정책 시행**: {s1['정책_시행일']}")
     lines.append("")
 
@@ -2298,7 +2300,7 @@ def build_html(start: date, days: int, policy_from: str | None,
     <h2>목차</h2>
     <nav>{nav}</nav>
     <div class="tech-info">
-      <span>Qwen3-14B-AWQ</span><br/>
+      <span>{_h(s1.get('모델', '모델 실행 기록 없음'))}</span><br/>
       <span>Neo4j 5.x</span><br/>
       ABM × Generative Agent
     </div>
@@ -2313,7 +2315,7 @@ def build_html(start: date, days: int, policy_from: str | None,
         강남구 여름 카페·디저트 원소 바우처 (자연어 정책 자동 주입) 효과 분석
       </div>
       <div class="badges">
-        <span class="badge alt">Qwen3-14B-AWQ</span>
+        <span class="badge alt">{_h(s1.get('모델', '모델 실행 기록 없음'))}</span>
         <span class="badge purple">Neo4j Graph DB</span>
         <span class="badge">DID 분석</span>
         <span class="badge">설명가능 AI</span>

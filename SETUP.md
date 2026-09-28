@@ -35,7 +35,7 @@
 | OS | Windows 11 (WSL2) / Linux / macOS | Linux (Ubuntu 22.04+) |
 | Python | 3.10 | 3.11 |
 | RAM | 16 GB | 32 GB+ |
-| GPU (LLM 서버) | RTX 5090 32GB (Qwen3-14B-AWQ) | A100 80GB (Qwen3-32B-AWQ) |
+| GPU (LLM 서버) | 단일 32GB급에서 AWQ 소규모 부하 검증 | 48GB 이상 또는 필요 시 TP=2; 문맥·동시성에 따라 메모리 확인 |
 | CUDA | 12.1+ | 12.4+ |
 | 디스크 | 50 GB (모델 가중치 + 출력) | 100 GB |
 | Neo4j | 5.20+ | 5.x 최신 |
@@ -143,11 +143,11 @@ export SIM_OUTPUT_DIR="$HOME/sim_output"
 # 시각화 산출물 디렉토리 (export_visualization.py)
 export VIZ_OUT_DIR="$HOME/sim_output/visualization"
 
-# LLM 모델 선택: qwen32b | qwen14b | qwen9b | exaone
-export LLM_MODE=qwen14b
+# LG EXAONE 4.5 33B AWQ 기본 모드
+export LLM_MODE=exaone_4_5
 
-# LLM 서버 URL (SGLang 기본 30000, vLLM 호환 8000)
-export SGLANG_BASE_URL=http://localhost:30000/v1
+# 기존 SGLang 서버 URL (포트 8000)
+export LLM_BASE_URL=http://127.0.0.1:8000/v1
 
 # (선택) 정책 파이프라인 LLM 추출 시
 # export OPENAI_API_KEY=sk-...                   # OpenAI structured output 경로
@@ -158,37 +158,32 @@ export SGLANG_BASE_URL=http://localhost:30000/v1
 
 ---
 
-## 5. LLM 서버 띄우기 (별도 venv 권장)
+## 5. 기존 SGLang 서버 사용
 
-LLM 서버는 GPU 가 있는 머신에서 띄운다. 시뮬 클라이언트와는 별도 환경이 좋다.
+기본 모델은 `LGAI-EXAONE/EXAONE-4.5-33B-AWQ`, 모드는 `exaone_4_5`다. 기존 `/data/venv_sgl` SGLang 환경과 `/data/hf_cache`를 유지한다. 체크포인트 revision은 `31e6a965d0661bbe4a8b895e22a77f8271772ba0`로 고정한다.
 
 ```bash
-# LLM 서버용 별도 venv
-python3.11 -m venv ~/.venv-sglang
-source ~/.venv-sglang/bin/activate
-pip install --upgrade pip
+# 새 서버에 환경이 없을 때만 기존 SGLang 설치 절차 실행
+bash scripts/deploy/install_sglang_exaone45.sh
 
-# SGLang (RadixAttention prefix cache 지원 — 우리 5-레이어 프롬프트와 궁합)
-pip install "sglang[all]"
-
-# Qwen3-14B-AWQ 기동 (RTX 5090 32GB 권장 — 가장 빠름)
-bash scripts/serve/serve_qwen14b.sh
-
-# 또는 A100 80GB 1장이면 32B
-bash scripts/serve/serve_qwen32b.sh
+# 기존 EXAONE 4.5 지원 SGLang 환경에서 실행
+bash scripts/serve/serve_exaone45_sglang_a100x2.sh
 ```
+
+설치 스크립트는 LG 모델 카드가 안내하는 SGLang 포크의 commit `6757c9f904cdb8ae9028a394a2108d079b9e088c`와 기존 작동 조합 `transformers==5.8.0`, `kernels==0.10.0`을 사용한다. 이미 검증된 환경은 재설치하지 않고 그대로 사용한다. 새 서버에서는 실제 모델 적재와 JSON 응답을 확인한 후 본실험을 시작한다.
 
 기동 확인:
+
 ```bash
-curl http://localhost:30000/v1/models
-# {"data":[{"id":"Qwen/Qwen3-14B-AWQ", ...}]}
+curl http://127.0.0.1:8000/v1/models
+# data[].id: LGAI-EXAONE/EXAONE-4.5-33B-AWQ
 ```
 
-**모델별 권장**:
-- `qwen14b` — RTX 5090 32GB / RTX 4090 24GB, 5초/agent
-- `qwen32b` — A100 80GB, 9초/agent, 출력 품질 최고
-- `qwen9b` — 디버깅용, 어떤 GPU든 빠름
-- `exaone` — 국내 대회 제출용 EXAONE-4.5-33B-FP8
+서버는 체크포인트의 `compressed-tensors` 양자화 설정을 읽는다. AWQ라는 이름만 보고 다른 양자화 형식을 강제하지 않는다. 클라이언트는 기본 비추론 모드를 사용한다. [LG 모델 카드](https://huggingface.co/LGAI-EXAONE/EXAONE-4.5-33B-AWQ) 참조.
+
+기존 기본값은 A100 80GB 두 장의 `TP=2`, `PORT=8000`, attention backend `triton`이며 `NCCL_CUMEM_ENABLE=1` 설정을 유지한다. 다른 GPU 구성을 사용할 때는 `TP`와 실제 메모리·처리량을 검증한다. AWQ/FP8/BF16/GGUF 사이의 절대 속도 순위는 동일 GPU·프롬프트·배치에서 측정 전까지 확정하지 않는다.
+
+다른 LG 체크포인트를 명시하려면 `MODEL`과 `MODEL_REVISION`을 함께 설정하고 클라이언트 모드도 맞춰야 한다. 공식 `LGAI-EXAONE/` 이외 namespace는 LG 서버 진입점에서 거절한다. 기존 서버는 Docker app의 `host.docker.internal` 연결을 위해 `HOST=0.0.0.0`을 유지한다. 별도 Vast 실행기는 `127.0.0.1`에 바인딩하고 SSH 터널을 사용한다. `run_vllm*.sh`는 별도 호환 환경을 준비했을 때만 사용하는 선택적 경로이며 기본 설치 절차에 포함하지 않는다.
 
 ---
 
@@ -367,7 +362,7 @@ python scripts/sim/run_simulation.py \
 ```bash
 python scripts/sim/run_simulation.py \
     --start 2026-05-01 --days 60 --workers 16
-# 소요: GPU에 따라 ~10시간(qwen14b) ~ ~3일(qwen32b)
+# 소요: 동일 GPU에서 소량 실행으로 agent-day 처리량을 측정한 뒤 산정
 ```
 
 중단됐다 다시 돌려도 OK — `done_<day>.json` 보고 resume.
@@ -410,7 +405,7 @@ kw_26_final_project/
 │   └── agents/agents_final.json      # 약 15,000 agent
 ├── scripts/
 │   ├── neo4j_load/                   # Day 0 적재 (01~08 + 99 validate)
-│   ├── serve/                        # LLM 서버 기동 sh (qwen14b/32b/9b/exaone)
+│   ├── serve/                        # LG EXAONE SGLang 서버 기동 sh
 │   ├── policy_pipeline/              # 정책 추출·검증·적재
 │   └── sim/                          # 매일 사이클 시뮬
 │       ├── run_simulation.py         # ★ 메인 엔트리
@@ -437,11 +432,11 @@ kw_26_final_project/
 → `data/neo4j_load/.env` 안에 `NEO4J_PASSWORD=...` 있는지 확인.
 
 **Q. `Connection refused` (LLM 호출)**
-→ SGLang 서버가 안 떠 있다. `curl http://localhost:30000/v1/models` 로 살아있나 확인.
+→ SGLang 서버가 안 떠 있다. `curl http://127.0.0.1:8000/v1/models` 로 살아있나 확인.
 
 **Q. agent 생성 후 `agents_final.json` 이 비어있음**
 → LLM이 JSON 스키마 못 맞춤. `scripts/bdc/generate_agents.py --limit 5 --verbose` 로 raw 출력 봐서
-어디서 깨지는지 보고, 더 작은 모델(`qwen9b`)로 디버그.
+어디서 깨지는지 보고, 동일 LG 모델에서 `--limit`을 줄여 디버그.
 
 **Q. 시뮬 도중 `OutOfMemory` (Neo4j)**
 → Neo4j 힙 메모리 부족. Docker면 `-e NEO4J_dbms_memory_heap_max__size=8G` 추가.
@@ -497,6 +492,6 @@ Neo4j 통합 테스트는 실제 인스턴스가 필요해 CI에서 제외.
 
 - 원본 통계: 서울시 빅데이터캠퍼스, KT 유동인구, 카드사 소비 데이터 등 (각 라이선스 준수)
 - 코드: 본 레포 라이선스 참조
-- LLM 모델: Qwen3 (Apache 2.0), EXAONE (LG 제공 라이선스)
+- LLM 모델: LG EXAONE 4.5 (모델 카드에 연결된 EXAONE 라이선스 확인)
 
 질문은 GitHub Issue 로.

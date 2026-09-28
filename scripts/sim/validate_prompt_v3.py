@@ -22,6 +22,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "scripts/sim"))
 
 
+from llm_client import require_supported_model_id
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
 
@@ -147,7 +150,7 @@ def invoke(job, config, systems, base):
     seed = int(digest([rep, cell["aid"], cell["case"]])[:8], 16) % 2147483647
     result = {k: cell[k] for k in ("aid", "case", "arm", "date", "context_sha256")}
     result.update(variant=variant, replicate=rep, seed=seed)
-    payload = {"model": config["model"], "messages": [{"role": "system", "content": systems[variant]}, {"role": "user", "content": cell["user"]}],
+    payload = {"model": require_supported_model_id(config["model"]), "messages": [{"role": "system", "content": systems[variant]}, {"role": "user", "content": cell["user"]}],
                "temperature": config["temperature"], "max_tokens": config["max_tokens"], "seed": seed,
                "chat_template_kwargs": {"enable_thinking": False}}
     try:
@@ -213,6 +216,7 @@ def main():
     os.environ["EXP_CATLINE"]="fold"
     os.environ["EXP_SANGSAENG_BASE_RATIO"]="0.268"
     config=json.loads((ROOT/"data/experiments/validation_v3.json").read_text(encoding="utf-8"))
+    require_supported_model_id(config["model"])
     out=Path(args.out); out.mkdir(parents=True, exist_ok=True)
     if (out/"responses.jsonl").exists(): raise SystemExit("Existing run: refusing overwrite or implicit retry")
     frozen=out/"frozen_inputs.json"
@@ -235,7 +239,7 @@ def main():
         print(f"Frozen {len(inputs['cells'])} contexts. No LLM calls."); return
     base=os.environ.get("LLM_BASE_URL","http://localhost:8000/v1").rstrip("/")
     with urlopen(base+"/models",timeout=10) as r: models=json.load(r)
-    if config["model"] not in [m["id"] for m in models["data"]]: raise SystemExit("wrong served model")
+    if require_supported_model_id(config["model"]) not in [m["id"] for m in models["data"]]: raise SystemExit("wrong served model")
     jobs=[(v,rep,cell) for v in config["candidates"] for rep in config["replicate_seeds"] for cell in inputs["cells"]]
     random.Random(20260919).shuffle(jobs)
     rows=[]

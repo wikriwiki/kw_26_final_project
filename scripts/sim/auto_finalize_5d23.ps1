@@ -110,7 +110,7 @@ if ((Test-Path $reportPath) -and (Test-Path $precisePath)) {
 # 7) full report with interview (vLLM-dependent — vLLM 죽었으면 skip 가능)
 Log "step7 generate_final_report (with interview)"
 $out7 = Join-Path $logDir "final_report_full.log"
-$env:LLM_MODE = "qwen14b"
+    $env:LLM_MODE = "exaone_4_5"
 & python scripts/sim/generate_final_report.py --start 2026-05-18 --days 5 --policy-from 2026-05-20 --out output/sim/report/FINAL_REPORT_5D_FULL.md *>&1 | Out-File $out7 -Encoding utf8
 Log "step7 done (exit=$LASTEXITCODE)"
 

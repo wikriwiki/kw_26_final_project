@@ -48,21 +48,16 @@ python scripts/persona/prepare_nvidia.py --jsonl
 ```
 
 ### 2-3. LLM 서버 (실서버 실행 시 필수)
-SGLang(권장, 포트 30000) 또는 vLLM(포트 8000) 중 하나를 띄운다. 레포에 기동
-스크립트가 있다.
+기본은 LG EXAONE-4.5-33B-AWQ, 기존 SGLang 포트 8000이다. 설치 절차는 루트 `SETUP.md`를 따른다.
 ```bash
-# 예: 개발/디버깅용 14B (vLLM, 포트 8000)
-bash scripts/serve/serve_qwen14b.sh
-# 대회/본런: 32B AWQ
-bash scripts/serve/serve_qwen32b.sh
-# 그 외: serve_qwen9b.sh, serve_exaone.sh
+bash scripts/serve/serve_exaone45_sglang_a100x2.sh
 ```
 서버 연결 확인:
 ```bash
 python scripts/sim/llm_client.py        # healthcheck JSON 출력 (base_url/active_model/served_match)
 ```
 > `llm_client`가 포트를 자동 감지한다: **SGLang(30000) 우선 → 없으면 vLLM(8000) 폴백.**
-> 자세한 서버 셋업은 `docs/archive/SGLANG_MIGRATION.md`.
+> 현재 서버 셋업은 `SETUP.md`. 아카이브는 이전 실행 환경의 기록이다.
 
 ---
 
@@ -79,12 +74,12 @@ python scripts/persona/build_rank_coupling.py --limit 10 --llm-reconcile --llm-s
 ### 3-2. 실서버 실행 (소량 스모크)
 ```bash
 # (서버가 떠 있는 상태)
-python scripts/persona/build_rank_coupling.py --limit 50 --llm-reconcile --llm-mode qwen14b
+python scripts/persona/build_rank_coupling.py --limit 50 --llm-reconcile --llm-mode exaone_4_5
 ```
 
 ### 3-3. 전체 실행 (실데이터 풀런)
 ```bash
-python scripts/persona/build_rank_coupling.py --llm-reconcile --llm-mode qwen32b --jsonl
+python scripts/persona/build_rank_coupling.py --llm-reconcile --llm-mode exaone_4_5 --jsonl
 #   --jsonl: 대용량 메모리 절약(라인당 1건). --limit 생략 = 전체(15,000명)
 ```
 
@@ -96,7 +91,7 @@ python scripts/persona/build_rank_coupling.py --llm-reconcile --llm-mode qwen32b
 |--------|------|------|
 | `--llm-reconcile` | off | **A+LLM 활성화.** 모순 페르소나만 LLM 봉합 |
 | `--llm-stub` | off | 서버 없이 결정적 stub fixer (오프라인/테스트) |
-| `--llm-mode MODE` | env/기본 | `qwen32b`(기본)·`qwen14b`·`qwen9b`·`exaone` |
+| `--llm-mode MODE` | env/기본 | `exaone_4_5`(기본, LG EXAONE 4.5 AWQ) |
 | `--jsonl` | off | JSONL 라인 출력(대용량 권장). `.json`→`.jsonl` 자동 |
 | `--limit N` | 0(전체) | 생성 수 제한(스모크 테스트) |
 | `--seed N` | 42 | 결정성 시드 |
@@ -110,15 +105,15 @@ python scripts/persona/build_rank_coupling.py --llm-reconcile --llm-mode qwen32b
 
 | 변수 | 용도 | 예 |
 |------|------|----|
-| `LLM_MODE` | 모델 모드(=`--llm-mode` 대체) | `qwen14b` |
+| `LLM_MODE` | 모델 모드(=`--llm-mode` 대체) | `exaone_4_5` |
 | `SGLANG_BASE_URL` | SGLang 서버 URL | `http://localhost:30000/v1` |
 | `LLM_BASE_URL` | 대체 서버 URL | `http://localhost:8000/v1` |
 
-우선순위: `--llm-mode` > `LLM_MODE` > 기본 `qwen32b`. URL 미지정 시 30000→8000 자동 감지.
+우선순위: `--llm-mode` > `LLM_MODE` > 기본 `exaone_4_5`. URL 미지정 시 30000→8000 자동 감지.
 
 ```bash
-export LLM_MODE=qwen14b
-export SGLANG_BASE_URL=http://localhost:30000/v1
+export LLM_MODE=exaone_4_5
+export LLM_BASE_URL=http://127.0.0.1:8000/v1
 python scripts/persona/build_rank_coupling.py --llm-reconcile --jsonl
 ```
 
@@ -170,11 +165,11 @@ python scripts/persona/build_rank_coupling.py --llm-reconcile --jsonl
 일관 판정된 페르소나는 `llm_consistent: true`, `llm_reconciled: false`로 기록되고
 서사·숫자는 그대로 유지된다(전수 검증이라 `llm_audited`는 항상 true).
 
-실행 후 콘솔 요약:
+실행 후 콘솔 형식 예시 (실측 결과가 아닌 자리표시자):
 ```
 [rank-coupling+LLM] 15000 personas → ...
   match levels: {'gu_sex_age': 5170, 'sex_age': 9830}
-  llm(qwen32b): 전수검증 15000/15000, 모순발견 N, 봉합 M
+  llm(exaone_4_5): 전수검증 15000/15000, 모순발견 N, 봉합 M
 ```
 
 ---
@@ -185,8 +180,8 @@ python scripts/persona/build_rank_coupling.py --llm-reconcile --jsonl
   룰 게이트 버전(모순난 것만)보다 **호출이 많다** — 정확도(LLM 종합 판단)와의 트레이드오프.
 - SGLang RadixAttention + 배치 처리로 동시성을 높여 처리(자세히 `docs/archive/SGLANG_MIGRATION.md`).
   시스템 프롬프트가 전 호출 공통이라 prefix cache 적중률이 높음.
-- 비용 절감이 필요하면: 작은 모델(`qwen14b`)로 검증, 또는 `--limit`으로 표본 검증 후 확대.
-- 모델 선택 가이드: 디버깅 `qwen9b/14b`, 본런 `qwen32b`, 국내대회 `exaone`.
+- 비용 절감이 필요하면: 같은 LG 모델에서 `--limit`으로 표본 검증 후 확대.
+- 소량 검증과 본런은 `exaone_4_5`와 같은 체크포인트 revision을 사용한다.
 
 ---
 
@@ -195,7 +190,7 @@ python scripts/persona/build_rank_coupling.py --llm-reconcile --jsonl
 | 증상 | 원인/조치 |
 |------|-----------|
 | `모순발견`은 많은데 `봉합 0` | LLM이 `fused_lifestyle`을 비워 보냄/JSON 파싱 실패 → `--llm-mode` 변경, 서버 로그 확인. `parse_verdict`가 빈 dict면 `llm_consistent:true`로 처리 |
-| 전부 `llm_consistent:true` | 모델이 너무 관대 → 더 큰 모델(`qwen32b`)로, 또는 프롬프트 강화 |
+| 전부 `llm_consistent:true` | 판정 근거를 수동 검토하고 프롬프트·표본 구성 및 평가 기준 점검 |
 | 서버 연결 실패 | `python scripts/sim/llm_client.py` healthcheck로 base_url/served_match 확인. 포트/모델명 불일치 점검 |
 | `openai` ImportError | `pip install -r requirements.txt` |
 | 데이터 120건만 | fixture 사용 중 → `prepare_nvidia.py`로 full 받기 |

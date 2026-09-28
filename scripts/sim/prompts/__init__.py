@@ -21,7 +21,7 @@ from __future__ import annotations
 import os
 from types import ModuleType
 
-from . import p010, p012
+from . import p010, p012, no_smoking_v1
 
 from . import v1, v2, v3, v4, v5, v6  # noqa: E402
 from . import v7, v8, v9  # noqa: E402  (2차 후보, 사전등록 2026-09-18)
@@ -40,6 +40,7 @@ from . import v20, v21  # noqa: E402  (fact/choice separation and contrastive re
 # v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
 # v7~v9 는 2차 후보 — 훈련 정책에서 드러난 결함 둘을 겨냥하는 문장을 더한다.
 _VARIANTS: dict[str, ModuleType] = {
+    "no_smoking_v1": no_smoking_v1,
     "p010": p010, "p012": p012,
     "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v5": v5, "v6": v6,
     "v7": v7, "v8": v8, "v9": v9,

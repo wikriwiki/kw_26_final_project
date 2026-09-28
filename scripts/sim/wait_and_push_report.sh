@@ -1,5 +1,5 @@
 #!/bin/bash
-# sim_resume_qwen36의 "ALL DONE" 신호 잡으면 보고서·시각화 git push.
+# 등록된 시뮬 실행의 "ALL DONE" 신호 잡으면 보고서·시각화 git push.
 set -u
 
 WD="/g/내 드라이브/Kw/final_project"
@@ -31,7 +31,7 @@ tail -F -n 0 "$LOG" 2>/dev/null | while read line; do
 
         git commit -m "report(P009): 3-day sim final report + dashboard
 
-Qwen3.6-35B-A3B-AWQ + workers=32 + P009 grant 정책 적용 (2026-05-27 1일).
+모델은 실행 메타데이터 참조 + workers=32 + P009 grant 정책 적용 (2026-05-27 1일).
 - FINAL_REPORT_3D_P009_FULL.md / .html (인터뷰 포함)
 - POLICY_SPEND_ANALYSIS.md
 - 정책 적용 그룹 income bucket(중상/중/중하/하)별 DID 분석

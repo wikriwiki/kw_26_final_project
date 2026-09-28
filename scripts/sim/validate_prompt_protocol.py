@@ -14,11 +14,15 @@ from validate_prompt_v4 import prepare,invoke,summarize
 from planning_repair import repair
 
 
+from llm_client import require_supported_model_id
+
+
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--source"); ap.add_argument("--out",required=True)
     ap.add_argument("--config",required=True); ap.add_argument("--prepare-only",action="store_true")
     ap.add_argument("--reuse-first-responses")
     args=ap.parse_args(); config=json.loads(Path(args.config).read_text(encoding="utf-8"))
+    require_supported_model_id(config["model"])
     out=Path(args.out); out.mkdir(parents=True,exist_ok=True)
     hashes={n:hashlib.sha256((ROOT/"scripts/sim"/n).read_bytes()).hexdigest() for n in ["validate_prompt_protocol.py","planning_repair.py","validate_prompt_v4.py","planning_contract.py","validate_prompt_v3.py"]}
     if (out/"responses.jsonl").exists(): raise SystemExit("No implicit restart or overwrite")
@@ -45,7 +49,7 @@ def main():
         raise SystemExit("Registered replay requires original first responses")
     base=os.environ.get("LLM_BASE_URL","http://localhost:8000/v1")
     with urlopen(base+"/models",timeout=10) as r: models=json.load(r)
-    assert config["model"] in [x["id"] for x in models["data"]]
+    assert require_supported_model_id(config["model"]) in [x["id"] for x in models["data"]]
     def process(job):
         candidate,rep,cell=job
         if replay:

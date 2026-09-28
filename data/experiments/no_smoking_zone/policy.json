@@ -1,0 +1,46 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "no_smoking_zone_2017",
+  "purpose": "Runtime policy facts only; outcome benchmarks are stored separately.",
+  "policy": {
+    "id": "indoor_sports_smoking_ban_2017",
+    "name": "당구장 등 실내체육시설 금연구역 확대",
+    "effective_date": "2017-12-03",
+    "authority": "보건복지부",
+    "legal_basis_at_introduction": "국민건강증진법 제9조제4항제20호; 체육시설의 설치·이용에 관한 법률 제10조에 따른 실내 체육시설",
+    "jurisdiction": "대한민국",
+    "scope": "실내 체육시설을 금연구역으로 확대 지정",
+    "designated_smoking_room_exception": true,
+    "source_ids": ["user_policy_html", "government_2017_changes"]
+  },
+  "experiment_scope": {
+    "city": "서울특별시",
+    "districts": ["노원구", "서초구", "송파구"],
+    "facility_types": ["billiard", "indoor_golf"],
+    "facility_labels": {"billiard": "당구장", "indoor_golf": "실내골프연습장·스크린골프장"},
+    "excluded_facility_types": ["헬스장", "수영장", "실외 골프장", "골프용품점", "체육용품점", "공공체육시설", "기타 스포츠시설"],
+    "exclusion_note": "위 제외는 연구 비교 범위에 한정한 모델링 선택이며 법률상 금연구역 제외를 뜻하지 않는다.",
+    "minimum_agent_age": 19,
+    "report_card_data_window": {"start": "2017-01", "end": "2018-09"},
+    "report_policy_indicator": {"zero_year": 2017, "one_year": 2018, "post_start": "2018-01-01"},
+    "report_policy_indicator_note": "법 시행일과 보고서 연도별 정책변수 기준일은 서로 다르다. 정책 OFF/ON 실험은 동일 기간의 반사실 비교다."
+  },
+  "arms": {
+    "OFF": {
+      "indoor_smoking_ban": false,
+      "ordinary_play_area_smoking_allowed": true,
+      "smoking_rule": "해당 실내체육시설 전체 금연 의무가 도입되지 않은 조건. 업소별 자발적 제한 여부는 별도 관측 정보가 있을 때만 적용한다."
+    },
+    "ON": {
+      "indoor_smoking_ban": true,
+      "ordinary_play_area_smoking_allowed": false,
+      "smoking_rule": "해당 시설 일반 이용공간에서 흡연할 수 없다. 흡연은 별도 설치된 흡연실 또는 시설 밖에서 해야 한다. 흡연실 존재 여부를 자동으로 가정하지 않는다."
+    }
+  },
+  "runtime_boundary": {
+    "allowed_files": ["policy.json", "smoking_rates.json"],
+    "excluded_from_prompt": ["ground_truth.json", "evidence.md", "source_manifest.json", "policy_reference.html", "policy_report.pdf"],
+    "hold_constant_between_arms": ["agents", "smoking_status", "POIs", "prices", "budgets", "simulation_period", "random_seed", "model", "prompt_version"],
+    "outcome_dependent_behavior_calibration": false
+  }
+}

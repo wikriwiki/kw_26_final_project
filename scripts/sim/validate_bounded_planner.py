@@ -14,6 +14,9 @@ from evidence_contract import evidence_atoms,constrain_evidence,constrain_field,
 from temporal_projection import project,transition_violations
 
 
+from llm_client import require_supported_model_id
+
+
 def invoke(job,config,base,prefixes,folder):
     c,rep,cell=job
     key=digest([c['id'],rep,cell['aid'],cell['case'],cell['arm']])
@@ -73,6 +76,7 @@ def main():
     ap=argparse.ArgumentParser(); ap.add_argument('--config',required=True); ap.add_argument('--source',required=True)
     ap.add_argument('--out',required=True); ap.add_argument('--tokenizer',required=True)
     args=ap.parse_args();config=json.loads(Path(args.config).read_text(encoding='utf-8'))
+    require_supported_model_id(config["model"])
     if config.get('schema_mode','standard') not in {'standard','endpoint_guard'}: raise ValueError('Unknown schema mode')
     if config.get('trigger_evidence_guard') and not (config.get('reasoning_evidence') and config.get('input_trigger_guard')):
         raise ValueError('Causal evidence requires explicit input/evidence guards')
@@ -95,7 +99,7 @@ def main():
                 [{'role':'system','content':inputs['systems'][c['id']]},{'role':'user','content':cell['user']}],
                 tokenize=False,add_generation_prompt=True,enable_thinking=True)
     base=os.environ.get('LLM_BASE_URL','http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
-    with urlopen(base+'/v1/models',timeout=10) as response: assert config['model'] in [m['id'] for m in json.load(response)['data']]
+    with urlopen(base+'/v1/models',timeout=10) as response: assert require_supported_model_id(config['model']) in [m['id'] for m in json.load(response)['data']]
     code={name:hashlib.sha256(Path(__file__).with_name(name).read_bytes()).hexdigest() for name in
           ['validate_bounded_planner.py','bounded_reasoning.py','planning_contract.py','validate_prompt_v3.py','validate_prompt_v4.py','evidence_contract.py','temporal_projection.py']}
     manifest={'config':config,'config_sha256':digest(config),'inputs_sha256':digest(inputs),'code_sha256':code,

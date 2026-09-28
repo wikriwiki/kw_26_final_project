@@ -15,6 +15,9 @@ daily_propensity와 각 외출의 장소·업종·의도·이유·trigger는 그
 """
 
 
+from llm_client import require_supported_model_id
+
+
 def signature(event):
     return json.dumps({k:v for k,v in event.items() if k!="time"},ensure_ascii=False,sort_keys=True)
 
@@ -61,7 +64,7 @@ def repair(first,cell,system,config,base):
             return result
         result["repair_attempted"]=True
         errors={"violations":first["errors"],"event_times":[[i,e.get("time"),e.get("anchor")] for i,e in enumerate(obj["events"])]}
-        payload={"model":config["model"],"messages":[{"role":"system","content":system},
+        payload={"model":require_supported_model_id(config["model"]),"messages":[{"role":"system","content":system},
                  {"role":"user","content":cell["user"]},{"role":"assistant","content":first["raw"]},
                  {"role":"user","content":REPAIR_INSTRUCTION+json.dumps(errors,ensure_ascii=False)}],
                  "temperature":0,"max_tokens":config["max_tokens"],"seed":first["seed"],

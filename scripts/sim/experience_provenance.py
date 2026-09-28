@@ -1,5 +1,6 @@
 """Bounded source provenance and atomic local artifacts. Never reads secrets."""
 import os
+import hashlib
 from functools import lru_cache
 from pathlib import Path
 import tempfile
@@ -19,8 +20,17 @@ def source_fingerprint():
 def execution_fingerprint():
     settings = ('LLM_MODE','SIM_ENVIRONMENT','SIM_PROMPT_VARIANT','CONSUMPTION_MODEL',
                 'EXP_PAYMENT_CHOICE','EXP_ELIGIBLE_SHARE','EXP_GRANT_USE',
-                'POLICY_BACKTEST_DETERMINISTIC')
-    return digest({'source':source_fingerprint(), 'settings':{k:os.environ.get(k) for k in settings}})
+                'POLICY_BACKTEST_DETERMINISTIC','SIM_INTERVIEW_EVIDENCE',
+                'SIM_PROMPT_TOKEN_GUARD','SIM_MODEL_CONTEXT_LENGTH')
+    result = {'source':source_fingerprint(), 'settings':{k:os.environ.get(k) for k in settings}}
+    from no_smoking_context import configured_context
+    smoking_runtime = configured_context()
+    if smoking_runtime:
+        from prompt_budget import MANIFEST
+        result['no_smoking'] = {'arm': smoking_runtime.arm,
+                               'manifest_sha256': smoking_runtime.manifest_sha256,
+                               'tokenizer_manifest_sha256': hashlib.sha256(MANIFEST.read_bytes()).hexdigest()}
+    return digest(result)
 
 
 def atomic_json(path, value):
@@ -32,7 +42,7 @@ def atomic_text(path, value):
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix=path.name + '.', suffix='.tmp', dir=path.parent)
     try:
-        with os.fdopen(fd, 'w', encoding='utf-8') as output:
+        with os.fdopen(fd, 'w', encoding='utf-8', newline='') as output:
             output.write(value)
             output.flush()
             os.fsync(output.fileno())

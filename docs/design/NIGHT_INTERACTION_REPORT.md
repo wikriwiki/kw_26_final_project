@@ -164,7 +164,7 @@ InteractionScore(A, B) = 0.4·Exposure + 0.3·Relationship + 0.3·Urgency
 - persona는 `agent_id`, `job`, `lifestyle`, `mood`, `fatigue`만 사용
 - daily_log는 시간순 전체 이벤트 (정규화 한 줄: `time | dong | poi | category | activity`)
 
-**LLM**: SGLang/vLLM 자동감지 — 기본 Qwen3-32B-AWQ (Pydantic 검증 + 재시도 2회)
+**LLM**: SGLang/vLLM 자동감지 — 기본 LG EXAONE-4.5-33B-AWQ (Pydantic 검증 + 재시도 2회)
 
 **출력 JSON 스키마** (v2, flat topic + 확장 plan_signal):
 ```json
@@ -420,7 +420,7 @@ def run_day(agents, today, day_idx, workers=64):
 |  ↳ Urgency (정보/감정) | `calc_urgency` (정책 비대칭 + mood 극단 + fatigue 보정) | ✅ |
 |  ↳ 점수 기반 랭킹 | `select_interaction_pairs` (`scored.sort` + 그리디 매칭) | ✅ |
 |  ↳ 상호작용 대상 Persona B 선정 | greedy `max_pairs_per_agent=2` | ✅ |
-|  ↳ LLM 실행: 대화 의도 추론 | `night_intent_llm.classify_intent` (SGLang/vLLM, Qwen3-32B-AWQ 기본) | ✅ |
+|  ↳ LLM 실행: 대화 의도 추론 | `night_intent_llm.classify_intent` (SGLang/vLLM, LG EXAONE-4.5-33B-AWQ 기본) | ✅ |
 |  ↳ Input Data (Persona A & B 프로필 + 하루 일과) | `build_user_block` (MATCHING_ANALYSIS + AGENT_A + AGENT_B) | ✅ |
 |  ↳ LLM 분류 → 약속/이슈/추천/기타 | Pydantic `IntentOutput` 검증 (enum + topic_type 강제) | ✅ |
 |  ↳ Conversation 노드 생성 | flat topic + plan_signal 4필드 | ✅ |
@@ -478,7 +478,7 @@ def run_day(agents, today, day_idx, workers=64):
 python scripts/neo4j_load/apply_constraints.py
 python scripts/neo4j_load/run_all.py
 
-# 2) 시뮬 (vLLM Qwen3-32B-AWQ 가동 후)
+# 2) 시뮬 (vLLM LG EXAONE-4.5-33B-AWQ 가동 후)
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --workers 16
 
 # 3) 🆕 Night 상호작용 (시뮬 day별로)

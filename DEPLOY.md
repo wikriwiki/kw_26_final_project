@@ -40,8 +40,8 @@ cd kw_26_final_project
 # 서버 설정 .env (배포마다 안 바뀜 — 한 번만)
 cat > .env <<'EOF'
 NEO4J_PASSWORD=원하는비번
-LLM_BASE_URL=http://host.docker.internal:30000/v1   # 같은 서버의 vLLM/SGLang
-LLM_MODE=qwen8b
+LLM_BASE_URL=http://host.docker.internal:8000/v1   # 같은 서버의 SGLang
+LLM_MODE=exaone_4_5
 EOF
 
 # Neo4j 기동 + Day0 그래프 적재 (최초 1회)
@@ -62,7 +62,7 @@ docker compose -f docker-compose.prod.yml run --rm app \
   scripts/sim/run_simulation.py --start 2026-05-25 --days 3 --workers 8
 # 결과 → ./sim_output/
 ```
-> LLM 서버(vLLM/SGLang)는 GPU 서버에서 `scripts/serve/serve_qwen32b.sh` 등으로 별도 기동.
+> LLM 서버는 기존 SGLang 구성을 사용합니다. `bash scripts/deploy/install_sglang_exaone45.sh`로 설치하고 `bash scripts/serve/serve_exaone45_sglang_a100x2.sh`로 기동합니다. 기본 모델은 `LGAI-EXAONE/EXAONE-4.5-33B-AWQ`이며, GPU 1장에서는 `TP=1`을 명시합니다.
 
 ## 참고
 - 시크릿(`SSH_PRIVATE_KEY`)이 없으면 배포 단계는 자동 skip되고 **빌드만** 됩니다 (워크플로는 green).

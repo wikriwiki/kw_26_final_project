@@ -14,6 +14,9 @@ from prompts.asset_transaction_v1 import SYSTEM_PROMPT
 from validate_prompt_v3 import atomic, digest
 
 
+from llm_client import require_supported_model_id
+
+
 def make_cases():
     def offer(): return {'O': {'wallet_id': 'V', 'unit_face': 10000, 'unit_cash_cost': 9000, 'max_units': 1}}
     def event(eid, price, wallets=(), channel='offline'):
@@ -50,7 +53,7 @@ def make_cases():
 
 def invoke(job, config, base, folder):
     seed, case = job; key = digest([seed, case['id']]); started = time.monotonic()
-    payload = {'model': config['model'], 'messages': [{'role': 'system', 'content': SYSTEM_PROMPT},
+    payload = {'model': require_supported_model_id(config['model']), 'messages': [{'role': 'system', 'content': SYSTEM_PROMPT},
                {'role': 'user', 'content': json.dumps({k: v for k, v in case.items() if k != 'requirements'}, ensure_ascii=False)}],
                **config['sampling'], 'max_tokens': config['max_tokens'],
                'seed': int(key[:8], 16) % 2147483647, 'chat_template_kwargs': {'enable_thinking': True},
@@ -75,6 +78,7 @@ def invoke(job, config, base, folder):
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument('--config', required=True); ap.add_argument('--out', required=True)
     args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); cases = make_cases()
+    require_supported_model_id(config["model"])
     folder = Path(args.out); folder.mkdir(parents=True, exist_ok=False); (folder/'attempts').mkdir(); (folder/'code').mkdir()
     names = ['validate_asset_transactions.py', 'asset_transaction_contract.py', 'asset_ledger.py', 'transaction_ledger.py']
     code = {}
@@ -85,7 +89,7 @@ def main():
                                   'system_sha256': digest(SYSTEM_PROMPT), 'code_sha256': code, 'registered_at': datetime.now(timezone.utc).isoformat()})
     atomic(folder/'frozen_cases.json', cases); (folder/'system.txt').write_text(SYSTEM_PROMPT, encoding='utf-8')
     base = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/')
-    with urlopen(base + '/models', timeout=10) as response: assert config['model'] in [m['id'] for m in json.load(response)['data']]
+    with urlopen(base + '/models', timeout=10) as response: assert require_supported_model_id(config['model']) in [m['id'] for m in json.load(response)['data']]
     jobs = [(seed, case) for seed in config['seeds'] for case in cases]; random.Random(config['order_seed']).shuffle(jobs); rows = []
     with (folder/'responses.jsonl').open('x', encoding='utf-8') as fp, ThreadPoolExecutor(max_workers=config['workers']) as pool:
         pending = [pool.submit(invoke, job, config, base, folder) for job in jobs]

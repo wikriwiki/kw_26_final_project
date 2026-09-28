@@ -1,0 +1,5 @@
+*.sh text eol=lf
+*.py text eol=lf
+
+# This historical patch is pinned by SHA256; preserve its original mixed endings.
+runtime_hotfix_v22_retry_prompt/frozen_source/stage1_intent.py -text !eol whitespace=cr-at-eol

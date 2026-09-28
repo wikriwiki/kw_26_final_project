@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "created_at": "2026-09-22T14:03:28.029377+00:00",
+  "status": "offline_checks_complete_with_three_preexisting_main_test_failures",
+  "branch": "No_SmokingZone_EXP",
+  "base_main_commit": "77ec86cf49397ac118fc63501f39abbb3244cab2",
+  "scope": "No-smoking prompt contracts, as-of interview evidence, structured stance collection, frozen pre-period text clusters, independent-ground-truth evaluation interface",
+  "simulation": {
+    "cohort_size": 7500,
+    "start": "2017-11-19",
+    "days": 28,
+    "pre_days": 14,
+    "post_days": 14,
+    "policy_date": "2017-12-03",
+    "end": "2017-12-16",
+    "arms": [
+      "off",
+      "on"
+    ]
+  },
+  "prompt_audit": {
+    "path": "output/no_smoking_zone/prompt_audit_v2/",
+    "manifest_sha256": "4f79f9ee3ad1aa1d732eaee90635e2f6e37cf91af41f9bd6a0ac2db3a52e944b",
+    "counts": {
+      "python_sources": 244,
+      "prompt_modules": 52,
+      "registered_variants": 23,
+      "generation_callsites": 15,
+      "stage1_rendered_cases": 24,
+      "stage2_rendered_cases": 4,
+      "night_rendered_cases": 4,
+      "interview_rendered_cases": 6
+    },
+    "all_static_checks_passed": true,
+    "exact_tokenizer_verified": true,
+    "all_representative_budgets_fit": true,
+    "rendered_cases": 38
+  },
+  "test_runs": [
+    {
+      "command": "python -m pytest tests/unit/sim -q",
+      "passed": 862,
+      "failed": 3,
+      "skipped": 7,
+      "log": "output/no_smoking_zone/prompt_evidence_sim_regression_v2.log",
+      "log_sha256": "df91214fbac4232b102ceb702b8deba3f375fc5f77ceff20722f53989a381faa"
+    },
+    {
+      "command": "python -m pytest tests/unit/persona/test_summary_model_selection.py tests/unit/deploy -q",
+      "passed": 36,
+      "failed": 0,
+      "subtests_passed": 7,
+      "log": "output/no_smoking_zone/prompt_evidence_deploy_regression_v2.log",
+      "log_sha256": "d5668f7855114387a9752ca895120b72ad27739ba4c048099b0c8a68ea2828a4"
+    }
+  ],
+  "preexisting_failures": [
+    "test_outside_need.py::test_it_picks_the_largest_service_share",
+    "test_outside_need.py::test_a_citizen_with_no_service_share_gets_no_errand",
+    "test_outside_need.py::test_only_home_impossible_activities_are_candidates"
+  ],
+  "real_gpu_inference_executed": false,
+  "real_cohort_evidence_census_executed": false,
+  "actual_stance_interviews_collected": 0,
+  "limitations": [
+    "Exact quote matching verifies the quoted input span, not semantic support or causal truth.",
+    "Stage 2 retains the existing paid-visit/positive-spend structural constraint; modeled proposals and corrections are separate from executed receipts.",
+    "Future/source/arm integrity checks and mocked engine tests are not an audit of nonexistent production records.",
+    "Smoking status is assigned from observed aggregate prevalence; individual smoking behavior is not observed.",
+    "Interview context is bounded with explicit whole-item selection and a separately retained full packet.",
+    "The study PDF has economic/exposure outcomes, not matched individual policy stance labels; attitude evaluation abstains without compatible independent truth.",
+    "Actual prompt/response quality, full-cohort input lengths, storage volume, throughput and costs need an LG SGLang GPU pilot."
+  ],
+  "preexisting_failure_reproduction": {
+    "path": "output/no_smoking_zone/baseline_outside_need_main_77ec86cf_20260922T140345Z/baseline_reproduction.json",
+    "sha256": "903a610a247b72da7ddfbb347b84a3e9e87d53af471a4e07123088107de2f304",
+    "isolated_baseline_tests_passed": 3,
+    "isolated_baseline_tests_failed": 3,
+    "same_failures_as_current": true
+  }
+}

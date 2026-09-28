@@ -6,6 +6,7 @@
 - 거대한 내장 JSON/JS 는 건드리지 않고, head(CSS override)·body(카피/라벨)만 교체
 - getElementById 가 참조하는 ID 는 전부 보존(숨김 포함) → JS 무손상
 - 템플릿이 둘이라 --profile 로 구분: dasol(사이드바형) / full(패널형 index.html)
+- 과거 모델 이름이 포함된 문자열은 기존 HTML을 찾는 선택자이며, 실행 모델 설정이 아니다.
 
 사용:
   python scripts/sim/make_client_report.py --in dasol.html --profile dasol

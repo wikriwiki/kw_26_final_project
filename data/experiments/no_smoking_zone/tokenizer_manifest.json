@@ -1,0 +1,11 @@
+{
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "revision": "31e6a965d0661bbe4a8b895e22a77f8271772ba0",
+  "text_only": true,
+  "enable_thinking": false,
+  "files": {
+    "tokenizer.json": "0bd798efa30739e209d51f36cfc2f0a636711e37ad9d69b77e4e5c8ca5f09fab",
+    "tokenizer_config.json": "032e35c1b75c9299e23a687b81c1e989f9b9d52c1e73640f29567b2d037b6945",
+    "chat_template.jinja": "e4ece7acc79ba82121d4d57791fb7ecb796e39185087197377da5d2286bec0e5"
+  }
+}

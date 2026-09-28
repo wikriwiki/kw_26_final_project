@@ -15,6 +15,9 @@ from validate_prompt_v4 import prepare, summarize
 from planning_contract import inspect_schedule, schedule_schema
 
 
+from llm_client import require_supported_model_id
+
+
 def invoke(job, config, systems, base):
     candidate, rep, cell = job
     seed = int(digest([rep, cell['aid'], cell['case']])[:8], 16) % 2147483647
@@ -22,7 +25,7 @@ def invoke(job, config, systems, base):
     out.update(variant=candidate['id'], replicate=rep, seed=seed,
                structured=True, thinking=candidate['thinking'])
     schema = schedule_schema(cell['zones'], date.fromisoformat(cell['date']).weekday() >= 5, cell['has_work'])
-    payload = dict(model=config['model'], messages=[
+    payload = dict(model=require_supported_model_id(config['model']), messages=[
         {'role': 'system', 'content': systems[candidate['id']]},
         {'role': 'user', 'content': cell['user']}],
         temperature=config['temperature'], top_p=config['top_p'],
@@ -59,6 +62,7 @@ def main():
     ap.add_argument('--out', required=True)
     args = ap.parse_args()
     config = json.loads(Path(args.config).read_text(encoding='utf-8'))
+    require_supported_model_id(config["model"])
     folder = Path(args.out)
     folder.mkdir(parents=True, exist_ok=False)
     inputs = prepare(args.source, config)
@@ -67,10 +71,12 @@ def main():
         cell['context_sha256'] = digest(cell['user'])
     base = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/')
     with urlopen(base + '/models', timeout=10) as response:
-        assert config['model'] in [m['id'] for m in json.load(response)['data']]
+        assert require_supported_model_id(config['model']) in [m['id'] for m in json.load(response)['data']]
     with urlopen(base.removesuffix('/v1') + '/server_info', timeout=10) as response:
         server = json.load(response)
-    assert server.get('reasoning_parser') == 'qwen3'
+    # Parser protocol name only: existing LG EXAONE runs use this SGLang
+    # think-tag parser. It does not select or download another model's weights.
+    assert server.get('reasoning_parser') == config.get('reasoning_parser', 'qwen3')
     files = [Path(__file__), ROOT/'scripts/sim/planning_contract.py', ROOT/'scripts/sim/validate_prompt_v3.py', ROOT/'scripts/sim/validate_prompt_v4.py']
     manifest = {'config':config, 'config_sha256':digest(config), 'inputs_sha256':digest(inputs),
                 'registered_at':datetime.now(timezone.utc).isoformat(),

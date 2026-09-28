@@ -15,16 +15,12 @@ CLI:
   python run_simulation.py --start 2026-05-01 --days 3 --workers 32
   python run_simulation.py --start 2026-05-01 --days 1 --gu 11680 --limit 100  # 강남 100명 1일
 
-권장 workers (A100 80GB + Qwen3-32B-AWQ 기준):
-  · 16: 안전 baseline, GPU 사용률 ~70%
-  · 32: sweet spot, throughput +30~50%, KV cache 안전
-  · 48: 최대치, throughput +50~80%, mem-fraction 0.88 거의 가득
-  · 64+: SGLang 의 KV pool 한계 도달 시 cache evict 발생 (역효과)
-  실제 sweet spot 은 `curl :30000/metrics` 의 `num_running_reqs` 모니터링으로 확인.
+workers는 GPU 메모리와 실제 파일럿 처리량으로 정한다.
+LG EXAONE-4.5-33B-AWQ 기본 실행은 낮은 동시성에서 시작한다.
 
 환경변수:
   SIM_OUTPUT_DIR  : 출력 디렉토리 (기본 ~/sim_output)
-  LLM_MODE        : qwen32b | qwen14b | qwen9b | exaone (기본 qwen32b)
+  LLM_MODE        : 기본 exaone_4_5 (LG EXAONE-4.5-33B-AWQ)
   SGLANG_BASE_URL : LLM 서버 URL (기본 http://localhost:30000/v1, vLLM 8000 폴백)
   NEO4J_POOL_SIZE : Neo4j 드라이버 connection pool 크기 (기본 100, workers 의 2~3배 권장)
   SIM_FAST_MODE   : off (기본) | record | shadow — 경량 판단 기록만; 기존 결과 유지
@@ -37,10 +33,11 @@ import json
 import copy
 import os
 import shutil
+import subprocess
 import sys
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from threading import Lock
@@ -57,13 +54,14 @@ from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import build_dawn_context  # noqa: E402
 from experience import receipts, observation_window, update_appraisals
 import agent_day_store
-from evidence_integrity import money
+from evidence_integrity import money, digest, seal, verify
 from experience_provenance import source_fingerprint, execution_fingerprint, atomic_json
 from environments import build_environment  # noqa: E402
+from no_smoking_context import configured_context, begin_llm_scope, clear_llm_scope  # noqa: E402
 
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
 _SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
-from stage1_intent import call_stage1, grant_style_to_use  # noqa: E402
+from stage1_intent import call_stage1, grant_style_to_use, Stage1Exhausted  # noqa: E402
 from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
 from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
@@ -114,6 +112,14 @@ def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[s
     모집단 분포를 재현하지 못한다. 분위별로 (limit × 분위비중)명씩 뽑아 전체 분포를 보존.
     seed 고정 → 같은 limit이면 항상 같은 표본(재현성).
     """
+    smoking_runtime = configured_context()
+    if smoking_runtime:
+        if limit is not None or gu_only is not None:
+            raise ValueError("No-smoking experiments use the complete frozen cohort; omit --limit/--gu")
+        with driver_session() as s:
+            rows = s.run("MATCH (a:Agent) WHERE a.id IN $ids AND (a)-[:LIVES_AT]->() "
+                         "RETURN DISTINCT a.id AS id", ids=smoking_runtime.agent_ids)
+            return smoking_runtime.require_graph_roster(r["id"] for r in rows)
     where_gu = ""
     if gu_only:
         where_gu = "AND (a)-[:LIVES_AT]->(:POI)-[:IN_DONG]->(:Dong)<-[:HAS_DONG]-(:District {code:$gu}) "
@@ -287,6 +293,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
     """
     t0 = time.time()
     timing: dict[str, float] = {}
+    evidence_token = None
     try:
         run_identity = os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve())
         completed = agent_day_store.load_completed(aid, today, run_identity)
@@ -306,6 +313,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         timing["t_dawn"] = round(time.time() - _t, 3)
         if not ctx.persona:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
+        smoking_runtime = configured_context()
+        if smoking_runtime:
+            smoking_runtime.apply(ctx, aid, today)
 
         # grant 정책 — effective_from 당일 지원금 수령.
         # ★ 정책지원금 = balance·daily_wd와 분리된 독립 지갑. grant_remaining에만 적립하고
@@ -403,7 +413,26 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 ctx.state["grant_days_since"] = _gdays
 
         _t = time.time()
-        s1, m1 = call_stage1(aid, today, ctx=ctx)
+        if smoking_runtime:
+            from interview_evidence import begin_evidence, set_evidence_stage
+            evidence_token = begin_evidence(
+                OUT_DIR, run_identity, smoking_runtime.arm, today.isoformat(), [aid],
+                digest(smoking_runtime.agent_ids), source_fingerprint(),
+                context=json.loads(json.dumps({
+                    'persona': ctx.persona, 'state': ctx.state, 'memory': ctx.memory,
+                    'appointment': ctx.appointment, 'policy': ctx.policy,
+                    'social': ctx.social, 'knows_poi_summary': ctx.knows_poi_summary,
+                    'no_smoking': smoking_runtime.context_for(aid, today),
+                }, ensure_ascii=False, default=str)),
+            )
+            set_evidence_stage('stage1')
+        begin_llm_scope(aid, today, "stage1")
+        # Stage1 needs corrective feedback on malformed JSON. Its six model
+        # calls consume the whole agent-day retry allowance if all fail.
+        if smoking_runtime:
+            s1, m1 = call_stage1(aid, today, ctx=ctx, max_retry=5)
+        else:
+            s1, m1 = call_stage1(aid, today, ctx=ctx)
         timing["t_s1"] = round(time.time() - _t, 3)
 
         # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출.
@@ -414,10 +443,14 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             # Existing Dawn data includes the memory/emotion/social evidence
             # required for routing, without additional DB reads.
             decision_kwargs["decision_context"] = ctx
+        begin_llm_scope(aid, today, "stage2")
+        if evidence_token is not None:
+            set_evidence_stage('stage2')
         s2, _cands, m2 = call_stage2(
             aid, s1, ctx.persona, today, state=ctx.state,
             active_policies=ctx.policy,
             grant_remaining=grant_avail_today,
+            max_retry=1 if smoking_runtime else 2,
             **decision_kwargs,
         )
         timing["t_s2"] = round(time.time() - _t, 3)
@@ -554,8 +587,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             (ctx.state or {}).get("observations_json"), execution_receipts,
         )
         day_type = "weekend" if today.weekday() >= 5 else "weekday"
-        tokens_in = m1["tokens_in"] + (m2.get("tokens_in") or 0)
-        tokens_out = m1["tokens_out"] + (m2.get("tokens_out") or 0)
+        tokens_in = m1.get('tokens_in_total', m1['tokens_in']) + (m2.get('tokens_in_total', m2.get('tokens_in')) or 0)
+        tokens_out = m1.get('tokens_out_total', m1['tokens_out']) + (m2.get('tokens_out_total', m2.get('tokens_out')) or 0)
         with agent_day_store.transaction(aid, today, run_identity) as tx:
             _t = time.time()
             _, n_inc = write_plan(
@@ -707,16 +740,34 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "fb_pool_split_groups": m2.get("pool_split_groups", 0),
                 "fb_pool_split_events": m2.get("pool_split_events", 0),
             }
+            if smoking_runtime:
+                result["no_smoking"] = smoking_runtime.summarize_receipts(execution_receipts, aid, today)
+                result["no_smoking"]["manifest_sha256"] = smoking_runtime.manifest_sha256
+                from interview_evidence import archive_agent_day
+                result['interview_evidence'] = archive_agent_day(
+                    result,
+                    decisions={'stage1': s1.model_dump(), 'stage2': s2.model_dump(),
+                               'stage1_meta': m1, 'stage2_meta': m2},
+                    executed_events=smoking_runtime.annotate_executed_events(events),
+                )
             return agent_day_store.save_result(tx, result)
     except agent_day_store.AlreadyCommitted as exc:
         return exc.result
     except Exception as e:
+        from execution_errors import transient_execution_error
         return {
             "aid": aid, "status": "error",
             "elapsed": round(time.time() - t0, 2),
             "error": str(e)[:200],
+            "retryable": transient_execution_error(e),
+            "attempts_consumed": e.attempts if isinstance(e, Stage1Exhausted) else 1,
             "trace": traceback.format_exc(limit=3)[-500:],
         }
+    finally:
+        clear_llm_scope()
+        if evidence_token is not None:
+            from interview_evidence import clear_evidence
+            clear_evidence(evidence_token)
 
 
 # =========================================================
@@ -844,6 +895,32 @@ def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None
 # =========================================================
 # Day 루프
 # =========================================================
+def record_skipped_agent_day(aid: str, today: date, attempts: int, last_error: str) -> dict:
+    """Seal an exhausted agent-day as missing behavior, then carry state forward."""
+    run_id = os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve())
+    runtime = configured_context()
+    result = {
+        "aid": aid, "status": "skipped", "skip_kind": "failed_after_retries",
+        "attempts": attempts, "max_retries": 5, "last_error": last_error[:300],
+        "experience_day": today.isoformat(), "experience_run_id": run_id,
+        "source_fingerprint": source_fingerprint(),
+        "execution_fingerprint": execution_fingerprint(),
+        "observed_behavior": False,
+    }
+    if runtime:
+        result["no_smoking"] = {
+            "arm": runtime.arm, "policy_active": runtime.is_active(today),
+            "smoking_status": runtime.people[aid],
+            "manifest_sha256": runtime.manifest_sha256,
+            "observed_behavior": False,
+        }
+    try:
+        with agent_day_store.transaction(aid, today, run_id) as tx:
+            return agent_day_store.save_skipped_day(tx, result)
+    except agent_day_store.AlreadyCommitted as exc:
+        return exc.result
+
+
 def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> dict:
     if not agents or any(not isinstance(a, str) or not a for a in agents) or len(set(agents)) != len(agents):
         raise ValueError("cohort must contain distinct nonempty agent IDs")
@@ -859,66 +936,156 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     failed_path = CHECK_DIR / f"failed_{day_str}.json"
     metrics_path = METRICS_DIR / f"day_{day_str}.jsonl"
 
-    # Checkpoints are advisory. Reconcile every agent against the transactional
-    # outbox in process_one; never erase evidence or trust a stale done list.
+    # The sealed metrics file is the completed-agent ledger. Failure attempts
+    # live separately, so a retry never leaves duplicate/error rows in the
+    # auditable day. The transactional outbox is checked by process_one.
     done_aids: set[str] = set()
-    remaining = list(agents)
+    skipped_aids: set[str] = set()
+    ok_count = 0
+    if metrics_path.exists():
+        from day_resume import read_metric_rows
+        for row in read_metric_rows(metrics_path):
+            if (row.get("status") not in {"ok", "skipped"} or row.get("aid") not in agents
+                    or row["aid"] in done_aids):
+                raise ValueError("Existing daily metrics contain invalid, foreign or duplicate rows")
+            if configured_context():
+                from evidence_integrity import verify
+                verify(row)
+                if (row.get("experience_day") != day_str
+                        or row.get("experience_run_id") != cohort["run_id"]):
+                    raise ValueError("Existing daily metrics have a foreign run identity")
+            done_aids.add(row["aid"])
+            if row["status"] == "skipped":
+                if (row.get("skip_kind") != "failed_after_retries"
+                        or row.get("attempts") != 6 or row.get("observed_behavior") is not False):
+                    raise ValueError("Existing skipped metric has an invalid retry receipt")
+                skipped_aids.add(row["aid"])
+            else:
+                ok_count += 1
+    remaining = [aid for aid in agents if aid not in done_aids]
     print(f"[Day {day_idx} {day_str}] processing {len(remaining)} agents with {workers} workers")
 
     # 메트릭 jsonl append 모드
     lock = Lock()
     fail_list: list[dict] = []
-    ok_count = 0
     err_count = 0
     t_start = time.time()
     last_progress = 0
 
     # write 실패 retry + 매 500 agent마다 checkpoint snapshot
     def _safe_write(fp, line):
-        for retry in range(3):
-            try:
-                fp.write(line)
-                fp.flush()
-                return True
-            except OSError as e:
-                if retry == 2:
-                    print(f"  [warn] file write failed 3x, dropping line: {e}")
-                    return False
-                time.sleep(0.5)
+        try:
+            fp.write(line)
+            fp.flush()
+            os.fsync(fp.fileno())
+            return True
+        except OSError:
+            # Never repeat an append that may already be partially written.
+            # Leave the DB outbox and original bytes for verified recovery.
+            return False
 
-    with ThreadPoolExecutor(max_workers=workers) as ex:
-        futures = {ex.submit(process_one, aid, today, day_idx): aid for aid in remaining}
-        # 각 결과마다 파일 open/close — Google Drive 등 sync 환경에서 핸들 깨짐 회피
-        for fut in as_completed(futures):
-            res = fut.result()
-            with lock:
-                try:
-                    with metrics_path.open("a", encoding="utf-8") as fp_m:
-                        if not _safe_write(fp_m, json.dumps(res, ensure_ascii=False) + "\n"):
-                            raise OSError("metrics write failed; committed result remains in DB outbox")
-                except OSError as e:
-                    raise RuntimeError("metrics persistence failed; resume from committed DB outbox") from e
-                if res["status"] == "ok":
-                    ok_count += 1
-                    done_aids.add(res["aid"])
-                else:
-                    err_count += 1
-                    fail_list.append(res)
-            total_done = ok_count + err_count
-            # 진행률
-            if total_done - last_progress >= max(20, len(remaining)//20):
-                elapsed = time.time() - t_start
-                rate = total_done / elapsed if elapsed > 0 else 0
-                eta = (len(remaining) - total_done) / rate if rate > 0 else 0
-                print(f"  {total_done}/{len(remaining)} (ok={ok_count}, err={err_count}) "
-                      f"@ {rate:.1f}/s, ETA {eta:.0f}s")
-                last_progress = total_done
-            # 500 agent마다 checkpoint snapshot (resume 안전)
-            if total_done % 500 == 0:
-                try:
+    attempt_path = CHECK_DIR / f"attempts_{day_str}.jsonl"
+    from collections import Counter
+    from day_resume import read_metric_rows
+    attempts = read_metric_rows(attempt_path)
+    attempt_counts = Counter()
+    last_errors = {}
+    for attempt in attempts:
+        if (attempt.get("aid") not in agents or attempt.get("status") not in {"error", "no_persona"}):
+            raise ValueError("Existing attempt log has an invalid agent or status")
+        consumed = attempt.get('attempts_consumed', 1)
+        if type(consumed) is not int or not 1 <= consumed <= 6:
+            raise ValueError('Existing attempt log has an invalid consumed budget')
+        attempt_counts[attempt["aid"]] = min(6, attempt_counts[attempt["aid"]] + consumed)
+        last_errors[attempt["aid"]] = attempt.get("error", attempt["status"])
+        if attempt_counts[attempt["aid"]] > 6:
+            raise ValueError("Existing attempt log exceeds the six-attempt budget")
+    # Grounded study decisions need exact evidence and per-order candidates.
+    # Retry only the failed agents at low concurrency; never invent a citation
+    # or silently substitute a POI. This also resolves transient DB deadlocks.
+    max_rounds = 6  # initial attempt plus at most five retries per agent-day
+    pending = remaining
+    import checkpoint_control
+    checkpoint_control.save_if_due(OUT_DIR, day_str)
+    for round_idx in range(max_rounds):
+        if not pending:
+            break
+        exhausted = [aid for aid in pending if attempt_counts[aid] >= max_rounds]
+        pending = [aid for aid in pending if attempt_counts[aid] < max_rounds]
+        for aid in exhausted:
+            skipped = record_skipped_agent_day(aid, today, attempt_counts[aid], last_errors[aid])
+            with metrics_path.open("a", encoding="utf-8") as fp:
+                if not _safe_write(fp, json.dumps(skipped, ensure_ascii=False) + "\n"):
+                    raise RuntimeError("skipped result persistence failed; reconcile database outbox")
+            done_aids.add(aid)
+            skipped_aids.add(aid)
+        if not pending:
+            break
+        fail_list = []
+        round_workers = workers if round_idx == 0 else min(workers, 2)
+        with ThreadPoolExecutor(max_workers=round_workers) as ex:
+            # Keep only a worker-sized queue so quiescent graph backup can run.
+            todo = iter(pending)
+            futures = {ex.submit(process_one, aid, today, day_idx): aid
+                       for aid in [next(todo, None) for _ in range(round_workers)] if aid is not None}
+            while futures:
+                ready, _ = wait(futures, return_when=FIRST_COMPLETED)
+                fut = next(iter(ready))
+                res = fut.result()
+                if res.get("aid") != futures.pop(fut):
+                    raise ValueError("Agent result identity mismatch")
+                with lock:
+                    try:
+                        path = metrics_path if res.get("status") == "ok" else attempt_path
+                        with path.open("a", encoding="utf-8") as fp:
+                            if not _safe_write(fp, json.dumps(res, ensure_ascii=False) + "\n"):
+                                raise OSError("agent result write failed")
+                    except OSError as e:
+                        raise RuntimeError("agent result persistence failed; reconcile database outbox") from e
+                    if res.get("status") == "ok":
+                        if res["aid"] in done_aids:
+                            raise ValueError("Duplicate completed agent result")
+                        ok_count += 1
+                        done_aids.add(res["aid"])
+                    else:
+                        fail_list.append(res)
+                        attempt_counts[res["aid"]] = min(
+                            max_rounds, attempt_counts[res["aid"]] + res.get('attempts_consumed', 1))
+                        last_errors[res["aid"]] = res.get("error", res["status"])
+                total_done = len(done_aids) + len(fail_list)
+                if round_idx == 0 and total_done - last_progress >= max(20, len(remaining)//20):
+                    elapsed = time.time() - t_start
+                    rate = (total_done - (len(agents) - len(remaining))) / elapsed if elapsed > 0 else 0
+                    eta = (len(remaining) - (total_done - (len(agents) - len(remaining)))) / rate if rate > 0 else 0
+                    print(f"  {total_done}/{len(agents)} (ok={ok_count}, retry={len(fail_list)}) "
+                          f"@ {rate:.1f}/s, ETA {eta:.0f}s")
+                    last_progress = total_done
+                if ok_count and ok_count % 500 == 0:
                     atomic_json(done_path, sorted(done_aids))
-                except OSError as e:
-                    print(f"  [warn] checkpoint snapshot failed: {e}")
+                if not checkpoint_control.due(OUT_DIR):
+                    aid = next(todo, None)
+                    if aid is not None:
+                        futures[ex.submit(process_one, aid, today, day_idx)] = aid
+                if not futures and checkpoint_control.due(OUT_DIR):
+                    checkpoint_control.save_if_due(OUT_DIR, day_str)
+                    for _ in range(round_workers):
+                        aid = next(todo, None)
+                        if aid is not None:
+                            futures[ex.submit(process_one, aid, today, day_idx)] = aid
+        pending = [res["aid"] for res in fail_list]
+        if pending:
+            if round_idx < max_rounds - 1:
+                print(f"  [retry {round_idx+1}/5] {len(pending)} agents remain", flush=True)
+    for aid in pending:
+        if attempt_counts[aid] != max_rounds:
+            raise RuntimeError("Agent retry accounting is inconsistent")
+        skipped = record_skipped_agent_day(aid, today, attempt_counts[aid], last_errors[aid])
+        with metrics_path.open("a", encoding="utf-8") as fp:
+            if not _safe_write(fp, json.dumps(skipped, ensure_ascii=False) + "\n"):
+                raise RuntimeError("skipped result persistence failed; reconcile database outbox")
+        done_aids.add(aid)
+        skipped_aids.add(aid)
+    err_count = len(skipped_aids)
 
     try:
         atomic_json(done_path, sorted(done_aids))
@@ -926,19 +1093,20 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     except OSError as e:
         print(f"  [warn] final checkpoint write failed: {e}")
 
-    if err_count or done_aids != set(agents):
-        raise RuntimeError(f"incomplete agent day {day_str}: {err_count} failed; resume this day before advancing")
+    if done_aids != set(agents):
+        raise RuntimeError(f"incomplete agent day {day_str}: terminal receipts are missing")
 
     agent_elapsed = time.time() - t_start
     print(
         f"[Day {day_idx} {day_str}] agent phase done in {agent_elapsed:.0f}s "
-        f"— ok={ok_count}, err={err_count}"
+        f"— ok={ok_count}, skipped={err_count}"
     )
     timing_report = _write_timing_diagnostics(day_str, metrics_path)
     day_result = {
         "day": day_str,
-        "ok": len(done_aids),
+        "ok": ok_count,
         "err": err_count,
+        "skipped": err_count,
         "agent_elapsed_sec": agent_elapsed,
         "night2_elapsed_sec": 0.0,
         "elapsed_sec": agent_elapsed,
@@ -961,14 +1129,35 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
             _n2_existing = _s.run(
                 "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
                 d=day_str).single()["n"]
+        if not marker_path.exists() and _n2_existing and configured_context():
+            import night_store
+            recovered = night_store.load(today, configured_context())
+            if recovered is not None:
+                # The DB transaction committed all night writes and this outbox
+                # together. Recreate only the lost local completion marker.
+                marker = seal({'cohort': cohort, 'conversation_count': _n2_existing,
+                    'run_id': recovered['run_id'], 'arm': recovered['arm'],
+                    'day': day_str, 'status': 'complete', 'evidence_ref': recovered['evidence_ref']})
+                atomic_json(marker_path, marker)
         if marker_path.exists():
             marker = json.loads(marker_path.read_text(encoding="utf-8"))
             if marker.get("cohort") != cohort or marker.get("conversation_count") != _n2_existing:
                 raise ValueError("Night2 completion record does not match current run/database")
+            if configured_context():
+                verify(marker)
+                if (marker.get('run_id') != (os.environ.get('SIM_RUN_ID') or str(OUT_DIR.resolve()))
+                        or marker.get('arm') != configured_context().arm or marker.get('day') != day_str
+                        or marker.get('status') != 'complete'):
+                    raise ValueError('Night2 evidence identity mismatch')
         else:
             if _n2_existing:
                 raise RuntimeError("partial or untracked Night2 writes; explicit recovery required")
-            pairs = select_interaction_pairs(today, verbose=False)
+            smoking_runtime = configured_context()
+            pair_options = ({"seed": smoking_runtime.stable_seed(today, "night_pairs")}
+                            if smoking_runtime else {})
+            pairs = select_interaction_pairs(today, verbose=False,
+                exclude_agents=skipped_aids, **pair_options)
+            n2_stats = {}
             if pairs:
                 print(f"  [Night2] {len(pairs)} pairs, classifying intents ...")
                 n2_stats = run_intent_classification(today, pairs, workers=workers, verbose=False)
@@ -982,13 +1171,25 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                       f"in {time.time()-t_n2:.0f}s")
             else:
                 print(f"  [Night2] no candidate pairs for {day_str}")
+                if smoking_runtime:
+                    from interview_evidence import commit_night_evidence
+                    n2_stats['evidence_ref'] = commit_night_evidence(
+                        OUT_DIR, os.environ.get('SIM_RUN_ID') or str(OUT_DIR.resolve()),
+                        smoking_runtime.arm, day_str, [],
+                    )
             with _n2_session() as _s:
                 final_count = _s.run(
                     "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
                     d=day_str).single()["n"]
             if final_count != len(pairs):
                 raise RuntimeError("Night2 persisted conversation count differs from planned pairs")
-            atomic_json(marker_path, {"cohort": cohort, "conversation_count": final_count})
+            marker = {"cohort": cohort, "conversation_count": final_count}
+            if smoking_runtime:
+                marker.update(run_id=os.environ.get('SIM_RUN_ID') or str(OUT_DIR.resolve()),
+                              arm=smoking_runtime.arm, day=day_str, status='complete',
+                              evidence_ref=n2_stats.get('evidence_ref'))
+                marker = seal(marker)
+            atomic_json(marker_path, marker)
         day_result["night2_elapsed_sec"] = time.time() - t_n2
     except Exception as e:
         raise RuntimeError(f"Night2 failed for {day_str}; refusing to advance") from e
@@ -1038,6 +1239,15 @@ def main():
     summary = []
     for i in range(args.days):
         today = start + timedelta(days=i)
+        runtime = configured_context()
+        if runtime:
+            from day_resume import verified_completed_day
+            previous = verified_completed_day(OUT_DIR, str(today), agents,
+                os.environ.get('SIM_RUN_ID') or str(OUT_DIR.resolve()), runtime.arm)
+            if previous is not None:
+                summary.append(previous)
+                print(f'[resume] verified completed day {today}; no model calls or graph writes')
+                continue
         s = run_day(agents, today, day_idx=i, workers=args.workers)
         summary.append(s)
         # 매일 최신 summary를 먼저 원자적으로 저장한 뒤 선택적 외부 백업.
@@ -1046,6 +1256,13 @@ def main():
             {"summary": summary, "args": vars(args), "updated_at": datetime.now().isoformat()},
         )
         _daily_backup(today.isoformat(), s, agents)
+        backup_hook = os.environ.get("SIM_POST_DAY_BACKUP_HOOK")
+        if backup_hook:
+            hook = Path(backup_hook)
+            if not hook.is_file() or hook.is_symlink():
+                raise RuntimeError("Required post-day backup hook is missing or a symlink")
+            subprocess.run([sys.executable, str(hook), today.isoformat(), str(OUT_DIR.resolve())],
+                           check=True, timeout=3 * 3600)
         print()
 
     print("=== 시뮬 종료 ===")

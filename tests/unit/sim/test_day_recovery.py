@@ -18,7 +18,7 @@ def output(tmp_path, monkeypatch):
         monkeypatch.setattr(runner, key, folder)
     return tmp_path
 
-def test_stale_done_checkpoint_never_skips_database_reconciliation(output, monkeypatch):
+def test_corrupt_metrics_rejected_even_with_stale_done_checkpoint(output, monkeypatch):
     (output/'check'/f'done_{DAY}.json').write_text('["A"]')
     evidence = output/'metrics'/f'day_{DAY}.jsonl'
     evidence.write_text('previous-corrupt-evidence\n')
@@ -27,15 +27,95 @@ def test_stale_done_checkpoint_never_skips_database_reconciliation(output, monke
         called.append(aid)
         return {'aid':aid, 'status':'error'}
     monkeypatch.setattr(runner, 'process_one', process)
-    with pytest.raises(RuntimeError, match='incomplete agent day'):
+    with pytest.raises(json.JSONDecodeError):
         runner.run_day(['A'], DAY, 0, workers=1)
-    assert called == ['A']
+    assert called == []
     assert evidence.read_text().startswith('previous-corrupt-evidence\n')
+
+
+def test_failed_agent_is_retried_without_error_or_duplicate_metric_row(output, monkeypatch):
+    import neo4j_load._common as common
+    monkeypatch.setattr(runner, 'configured_context', lambda: object())
+    monkeypatch.setattr(runner, '_write_timing_diagnostics', lambda *args: {})
+    calls = []
+    def process(aid, *args):
+        calls.append(aid)
+        return {'aid': aid, 'status': 'error' if len(calls) == 1 else 'ok'}
+    monkeypatch.setattr(runner, 'process_one', process)
+    class Partial(Session):
+        def run(self,*args,**kwargs):
+            class Count:
+                def single(self): return {'n':50}
+            return Count()
+    @contextmanager
+    def session(): yield Partial()
+    monkeypatch.setattr(common, 'driver_session', session)
+    with pytest.raises(RuntimeError, match='Night2 failed'):
+        runner.run_day(['A'], DAY, 0, workers=1)
+    assert calls == ['A', 'A']
+    metrics = [json.loads(x) for x in (output/'metrics'/f'day_{DAY}.jsonl').read_text().splitlines()]
+    attempts = [json.loads(x) for x in (output/'check'/f'attempts_{DAY}.jsonl').read_text().splitlines()]
+    assert [r['status'] for r in metrics] == ['ok']
+    assert [r['status'] for r in attempts] == ['error']
+    assert json.loads((output/'check'/f'done_{DAY}.json').read_text()) == ['A']
 
 @pytest.mark.parametrize('agents', [[], ['A', 'A'], ['']])
 def test_invalid_cohort_rejected_before_execution(output, agents):
     with pytest.raises(ValueError, match='cohort'):
         runner.run_day(agents, DAY, 0, workers=1)
+
+
+def test_failed_agent_gets_five_retries_then_is_skipped_without_blocking_others(output, monkeypatch):
+    import neo4j_load._common as common
+    import night_interaction
+    monkeypatch.setattr(runner, 'configured_context', lambda: None)
+    monkeypatch.setattr(runner, '_write_timing_diagnostics', lambda *args: {})
+    monkeypatch.setattr(runner, 'record_skipped_agent_day', lambda aid,day,attempts,error:
+                        {'aid':aid,'status':'skipped','attempts':attempts,'last_error':error})
+    @contextmanager
+    def session(): yield Session()
+    monkeypatch.setattr(common, 'driver_session', session)
+    monkeypatch.setattr(night_interaction, 'select_interaction_pairs', lambda *args,**kwargs: [])
+    calls = []
+    def process(aid, *args):
+        calls.append(aid)
+        return {'aid': aid, 'status': 'error' if aid == 'B' else 'ok',
+                'retryable': False, 'error': 'invalid request'}
+    monkeypatch.setattr(runner, 'process_one', process)
+    result = runner.run_day(['A', 'B', 'C', 'D'], DAY, 0, workers=1)
+    assert calls.count('B') == 6
+    assert {'A', 'C', 'D'} <= set(calls)
+    assert result['ok'] == 3 and result['skipped'] == 1
+    rows = [json.loads(line) for line in (output/'metrics'/f'day_{DAY}.jsonl').read_text().splitlines()]
+    assert {r['aid']:r['status'] for r in rows} == {'A':'ok','B':'skipped','C':'ok','D':'ok'}
+    attempts = [json.loads(line) for line in (output/'check'/f'attempts_{DAY}.jsonl').read_text().splitlines()]
+    assert len(attempts) == 6 and {r['aid'] for r in attempts} == {'B'}
+
+
+def test_stage1_six_feedback_attempts_consume_the_agent_day_budget(output, monkeypatch):
+    import neo4j_load._common as common
+    import night_interaction
+    monkeypatch.setattr(runner, 'configured_context', lambda: None)
+    monkeypatch.setattr(runner, '_write_timing_diagnostics', lambda *args: {})
+    monkeypatch.setattr(runner, 'record_skipped_agent_day', lambda aid, day, attempts, error:
+                        {'aid': aid, 'status': 'skipped', 'attempts': attempts, 'last_error': error})
+    @contextmanager
+    def session(): yield Session()
+    monkeypatch.setattr(common, 'driver_session', session)
+    monkeypatch.setattr(night_interaction, 'select_interaction_pairs', lambda *args, **kwargs: [])
+    calls = []
+    def process(aid, *args):
+        calls.append(aid)
+        return {'aid': aid, 'status': 'error', 'error': 'Stage1 invalid JSON',
+                'attempts_consumed': 6}
+    monkeypatch.setattr(runner, 'process_one', process)
+    result = runner.run_day(['A'], DAY, 0, workers=1)
+    assert calls == ['A']
+    assert result['skipped'] == 1
+    rows = [json.loads(line) for line in (output/'metrics'/f'day_{DAY}.jsonl').read_text().splitlines()]
+    assert rows[0]['attempts'] == 6 and rows[0]['status'] == 'skipped'
+    attempts = [json.loads(line) for line in (output/'check'/f'attempts_{DAY}.jsonl').read_text().splitlines()]
+    assert len(attempts) == 1 and attempts[0]['attempts_consumed'] == 6
 
 class Result:
     def single(self): return {'n':0}

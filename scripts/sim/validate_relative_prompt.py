@@ -13,10 +13,14 @@ from validate_prompt_v4 import prepare,post,summarize
 from relative_planning import relative_schema,decode,relative_user
 
 
+from llm_client import require_supported_model_id
+
+
 def main():
     ap=argparse.ArgumentParser(); ap.add_argument("--source"); ap.add_argument("--config",required=True)
     ap.add_argument("--out",required=True); ap.add_argument("--prepare-only",action="store_true")
     args=ap.parse_args(); config=json.loads(Path(args.config).read_text(encoding="utf-8"))
+    require_supported_model_id(config["model"])
     out=Path(args.out);out.mkdir(parents=True,exist_ok=True)
     if (out/"responses.jsonl").exists(): raise SystemExit("Existing run, refusing overwrite")
     hashes={n:hashlib.sha256((ROOT/"scripts/sim"/n).read_bytes()).hexdigest() for n in ["relative_planning.py","validate_relative_prompt.py","validate_prompt_v4.py","planning_contract.py","validate_prompt_v3.py"]}
@@ -33,7 +37,7 @@ def main():
     if args.prepare_only: print(f"Frozen {len(inputs['cells'])} contexts; no LLM calls."); return
     base=os.environ.get("LLM_BASE_URL","http://localhost:8000/v1")
     with urlopen(base+"/models",timeout=10) as r: models=json.load(r)
-    assert config["model"] in [m["id"] for m in models["data"]]
+    assert require_supported_model_id(config["model"]) in [m["id"] for m in models["data"]]
     def invoke(job):
         c,rep,cell=job;t=time.monotonic()
         result={k:cell[k] for k in ["aid","case","arm","date","context_sha256"]}
@@ -41,7 +45,7 @@ def main():
         result.update(variant=c["id"],replicate=rep,seed=seed)
         try:
             schema=relative_schema(cell)
-            payload={"model":config["model"],"messages":[{"role":"system","content":inputs["systems"][c["id"]]},
+            payload={"model":require_supported_model_id(config["model"]),"messages":[{"role":"system","content":inputs["systems"][c["id"]]},
                      {"role":"user","content":cell["user"]}],"temperature":config["temperature"],"top_p":config["top_p"],
                      "max_tokens":config["max_tokens"],"seed":seed,"chat_template_kwargs":{"enable_thinking":False},
                      "response_format":{"type":"json_schema","json_schema":{"name":"relative_citizen_schedule","schema":schema}}}

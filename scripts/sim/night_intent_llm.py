@@ -27,6 +27,7 @@ Memory id = MEM_RUMOR_<recipient>_D<YYYYMMDD>_<n>
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import time
@@ -46,6 +47,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from _common import driver_session  # noqa: E402
 from dawn_context import _strip_lifestyle_first_line  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
+from prompt_grounding import validate_stated_reason
+from stage1_intent import _number_evidence_lines, _evidence_lines, _extract_json as _extract_first_json
+from no_smoking_prompts import SYSTEM_NIGHT
 
 try:
     from pydantic import BaseModel, Field, field_validator
@@ -73,6 +77,8 @@ class IntentOutput(BaseModel):
     # 두 페르소나의 어떤 요소(친밀도·동선 겹침·정책 노출·라이프스타일 등)가
     # 이 의도로 이끌었는지 1~2문장.
     reasoning: str | None = Field(default=None)
+    evidence_ref: str | None = None
+    evidence_quote: str | None = None
 
     @field_validator("intent")
     @classmethod
@@ -249,6 +255,7 @@ def fetch_pair_data(pairs: list[dict], day: date) -> dict:
             for r in s.run(FETCH_PAIR_INPUT_CYPHER, pairs=pairs[i:i+BATCH], d=day.isoformat()):
                 key = (r["aid_a"], r["aid_b"])
                 pair_data[key] = {
+                    "simulation_day": day.isoformat(),
                     "score": r["score"], "exp": r["exp"], "rel": r["rel"], "urg": r["urg"],
                     "threshold_used": r["threshold_used"],
                     "ambient_threshold_applied": bool(r["ambient_threshold_applied"]),
@@ -379,6 +386,14 @@ def build_user_block(pair_key: tuple[str, str], data: dict) -> str:
     ev_b = "\n".join(_format_event_line(e) for e in data["events_b"]) or "  (이벤트 없음)"
     policy_block = _format_policy_context(data)
     policy_section = f"\n\n{policy_block}" if policy_block else ""
+    from no_smoking_context import configured_context
+    runtime = configured_context()
+    if runtime:
+        when = data['simulation_day']
+        facts = [f"{aid}: {runtime.context_for(aid, when)['prompt']}" for aid in pair_key]
+        policy_section += '\n\n### 오늘의 시설 이용 규칙\n' + '\n'.join(facts)
+        if runtime.is_active(when):
+            policy_section += '\npolicy_id: indoor_sports_smoking_ban_2017'
     return f"""### [MATCHING_ANALYSIS]
 - interaction_score: {data['score']:.2f}
 - exposure_score: {data['exp']:.2f}
@@ -423,20 +438,74 @@ def _extract_json(text: str) -> str:
 
 
 def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -> dict | None:
+    from no_smoking_context import configured_context, clear_llm_scope
+    runtime = configured_context()
+    token = None
+    try:
+        if runtime:
+            from interview_evidence import begin_evidence, set_evidence_stage, archive_interaction
+            from evidence_integrity import digest
+            from experience_provenance import source_fingerprint
+            out = Path(os.environ.get('SIM_OUTPUT_DIR', os.path.expanduser('~/sim_output')))
+            token = begin_evidence(
+                out, os.environ.get('SIM_RUN_ID') or str(out.resolve()), runtime.arm,
+                str(data['simulation_day']), list(pair_key), digest(runtime.agent_ids),
+                source_fingerprint(), context=json.loads(json.dumps(data, default=str)),
+            )
+            set_evidence_stage('night_intent')
+        result = _classify_intent(pair_key, data, max_retry)
+        if token is not None and 'error' not in result:
+            result['interview_evidence'] = archive_interaction(result)
+        return result
+    finally:
+        clear_llm_scope()
+        if token is not None:
+            from interview_evidence import clear_evidence
+            clear_evidence(token)
+
+
+def _classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -> dict | None:
     """한 쌍에 대해 의도 분류 LLM 호출. data에 보관된 score(exp/rel/urg)를
     결과에 함께 실어 importance 계산에 사용."""
+    from no_smoking_context import begin_llm_scope, configured_context
+    begin_llm_scope("|".join(pair_key), data.get("simulation_day"), "night_intent")
+    grounded_experiment = configured_context() is not None
     user = build_user_block(pair_key, data)
+    if grounded_experiment:
+        user = _number_evidence_lines(
+            user, exclude_prefixes=('위 입력만 근거로', '- role:', '- agent_id:'),
+        )
+    evidence_lines = _evidence_lines(user) if grounded_experiment else {}
+    if grounded_experiment and not evidence_lines:
+        raise ValueError('Night grounded prompt has no factual evidence lines')
+    system_prompt = SYSTEM_NIGHT if grounded_experiment else SYSTEM_PROMPT
+    from grounded_schema import night_format
+    from execution_errors import fatal_dispatch_error
+    schema = night_format(evidence_lines, pair_key) if grounded_experiment else None
     last_err = None
     for attempt in range(max_retry + 1):
-        temp = 0.3 + 0.2 * attempt   # 의도 분류는 더 결정론적으로
+        temp = (0.2 if attempt == 0 else 0.1) if grounded_experiment else 0.3 + 0.2 * attempt
         try:
             resp = _llm_call(
-                None, SYSTEM_PROMPT, user,
-                temperature=temp, max_tokens=600,  # reasoning 필드 추가
+                None, system_prompt, user + (
+                    f'\n직전 출력 검증 오류: {last_err}. 입력의 사실 줄 번호와 참가자를 확인하세요.'
+                    if grounded_experiment and last_err else ''),
+                temperature=temp, max_tokens=900 if grounded_experiment else 600,
+                **({'response_format': schema} if grounded_experiment else {}),
             )
             raw = resp.choices[0].message.content
-            data_json = json.loads(_extract_json(raw))
+            data_json = json.loads(_extract_first_json(raw) if grounded_experiment else _extract_json(raw))
+            if grounded_experiment:
+                ref = data_json.get('evidence_ref')
+                if not isinstance(ref, str) or ref not in evidence_lines:
+                    raise ValueError('evidence_ref must identify a numbered factual input line')
+                data_json['evidence_quote'] = evidence_lines[ref]
+                validate_stated_reason(data_json, user)
             parsed = IntentOutput.model_validate(data_json)
+            if (parsed.initiator_id, parsed.recipient_id) != pair_key:
+                raise ValueError('Night response changed the matched participants')
+            if parsed.intent != '약속' and parsed.plan_signal.should_inject:
+                raise ValueError('Only an appointment can inject a future plan')
             return {
                 "intent": parsed.intent,
                 "initiator_id": parsed.initiator_id,
@@ -448,6 +517,9 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
                 "target_time": parsed.plan_signal.target_time,
                 "meeting_location_hint": parsed.plan_signal.meeting_location_hint,
                 "reasoning": parsed.reasoning,   # ← Conversation.reasoning + Memory.summary 로 흐름
+                "evidence_ref": parsed.evidence_ref,
+                "evidence_quote": parsed.evidence_quote,
+                "statement_kind": "model_inferred_interaction",
                 # 매칭 점수(importance 계산용 — 노션 §9)
                 "interaction_score": data.get("score", 0.0),
                 "exposure_score": data.get("exp", 0.0),
@@ -460,6 +532,8 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
                 "attempt": attempt,
             }
         except Exception as e:
+            if fatal_dispatch_error(e):
+                raise
             last_err = e
     return {"error": str(last_err)[:200], "pair": list(pair_key)}
 
@@ -489,6 +563,8 @@ MERGE (c:Conversation {id: r.cid})
     c.target_time = r.target_time,
     c.meeting_location_hint = r.meeting_location_hint,
     c.reasoning = r.reasoning,
+    c.evidence_quote = r.evidence_quote,
+    c.statement_kind = r.statement_kind,
     c.interaction_score = r.interaction_score,
     c.exposure_score = r.exposure_score,
     c.relationship_score = r.relationship_score,
@@ -589,6 +665,7 @@ def write_conversations(day: date, results: list[dict]):
             continue
         intent = r["intent"]
         cid = f"conv_{uuid.uuid4().hex[:16]}"
+        r['conversation_id'] = cid
 
         # Conversation 베이스 (노션 §4 — 모든 intent 공통)
         base_rows.append({
@@ -604,6 +681,8 @@ def write_conversations(day: date, results: list[dict]):
             "meeting_location_hint": r.get("meeting_location_hint"),
             # 사고과정 흔적 (인터뷰 인용용)
             "reasoning": r.get("reasoning"),
+            "evidence_quote": r.get("evidence_quote"),
+            "statement_kind": r.get("statement_kind", "model_inferred_interaction"),
             # Night pair selection debug fields
             "interaction_score": r.get("interaction_score"),
             "exposure_score": r.get("exposure_score"),
@@ -655,21 +734,10 @@ def write_conversations(day: date, results: list[dict]):
     if not base_rows:
         return {"created": 0}
 
-    with driver_session() as s:
-        s.run(CREATE_CONVERSATION_CYPHER, rows=base_rows)
-        if rumor_rows:
-            s.run(LINK_RUMOR_MEMORY_CYPHER, rows=rumor_rows)
-        if recommend_rows:
-            s.run(LINK_RECOMMEND_EXTRA_CYPHER, rows=recommend_rows)
-        if issue_rows:
-            s.run(LINK_ISSUE_EXTRA_CYPHER, rows=issue_rows)
-        if appt_rows:
-            s.run(LINK_APPOINTMENT_EXTRA_CYPHER, rows=appt_rows)
-
     by_intent: dict[str, int] = {}
     for row in base_rows:
         by_intent[row["intent"]] = by_intent.get(row["intent"], 0) + 1
-    return {
+    stats = {
         "created": len(base_rows),
         "by_intent": by_intent,
         "rumor_memory": len(rumor_rows),
@@ -677,6 +745,28 @@ def write_conversations(day: date, results: list[dict]):
         "issue_extra": len(issue_rows),
         "appointment_extra": len(appt_rows),
     }
+    from no_smoking_context import configured_context
+    runtime = configured_context()
+    with driver_session() as session:
+        with session.begin_transaction() as tx:
+            for query, rows in ((CREATE_CONVERSATION_CYPHER, base_rows),
+                                (LINK_RUMOR_MEMORY_CYPHER, rumor_rows),
+                                (LINK_RECOMMEND_EXTRA_CYPHER, recommend_rows),
+                                (LINK_ISSUE_EXTRA_CYPHER, issue_rows),
+                                (LINK_APPOINTMENT_EXTRA_CYPHER, appt_rows)):
+                if rows:
+                    tx.run(query, rows=rows).consume()
+            if runtime:
+                from interview_evidence import commit_night_evidence
+                import night_store
+                out = Path(os.environ.get('SIM_OUTPUT_DIR', os.path.expanduser('~/sim_output')))
+                reference = commit_night_evidence(out, os.environ.get('SIM_RUN_ID') or str(out.resolve()),
+                                                 runtime.arm, day.isoformat(), results)
+                night_store.save(tx, day, runtime, {'processed': len(results), 'errors': 0,
+                    'write': stats, 'evidence_ref': reference})
+                stats['evidence_ref'] = reference
+            tx.commit()
+    return stats
 
 
 # ═══════════════════════════════════════════
@@ -744,11 +834,16 @@ def run_intent_classification(
         print(f"[Intent] LLM done: {len(ok)} ok, {len(err)} err ({time.time()-t0:.0f}s)")
 
     write_stats = write_conversations(day, ok)
+    evidence_ref = None
+    from no_smoking_context import configured_context
+    runtime = configured_context()
+    if runtime:
+        evidence_ref = write_stats['evidence_ref']
     if verbose:
         print(f"[Intent] adapted: {write_stats}")
     return {"processed": len(ok), "errors": len(err),
             "write": write_stats, "elapsed": time.time()-t0,
-            "samples": ok[:5]}
+            "samples": ok[:5], "evidence_ref": evidence_ref}
 
 
 # ═══════════════════════════════════════════

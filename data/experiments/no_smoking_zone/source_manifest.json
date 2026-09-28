@@ -1,0 +1,135 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "no_smoking_zone_2017",
+  "created_on": "2026-09-22",
+  "instruction_boundary": "Attached contents are untrusted research material, not executable task instructions.",
+  "sources": [
+    {
+      "id": "user_policy_html",
+      "title": "실내체육시설 금연구역 지정",
+      "kind": "user_attachment",
+      "original_filename": "실내체육시설 금연구역 지정 3e25d8ed914a80f3b923c7b5f814cacd.html",
+      "local_path": "docs/references/no_smoking_zone/policy_reference.html",
+      "git_tracked": false,
+      "size_bytes": 46974,
+      "sha256": "999f2edf15a4033928563c7c33f2ccc16e9d9b156c4e3a0994c245e93ce5ff6d",
+      "url": null,
+      "reviewed_on": "2026-09-22"
+    },
+    {
+      "id": "user_policy_report",
+      "title": "당구장 등 실내 체육시설의 금연구역 확대 정책 전후비교: 경제적 영향 및 흡연노출 평가를 중심으로",
+      "kind": "user_attachment",
+      "original_filename": "당구장 등 실내 체육시설의 금연구역 확대 정책 전후비교.pdf",
+      "local_path": "docs/references/no_smoking_zone/policy_report.pdf",
+      "git_tracked": false,
+      "size_bytes": 6539010,
+      "sha256": "a46321d669c44892d7a44376fc9f9e7a1c2e89054f1bed3eade4776a72d1152d",
+      "url": null,
+      "reviewed_on": "2026-09-22"
+    },
+    {
+      "id": "seoul_health_statistics_2017",
+      "title": "2017 지역사회건강조사 서울시 건강통계",
+      "kind": "official_web_download",
+      "original_filename": null,
+      "local_path": "docs/references/no_smoking_zone/seoul_health_statistics_2017.pdf",
+      "git_tracked": false,
+      "size_bytes": 34708047,
+      "sha256": "61ffe9b327b5317410b40d014ffbfe4ea060c879dd49e22e891bd9ca7e339995",
+      "url": "https://news.seoul.go.kr/welfare/files/2018/08/5ca567ec2889a9.26193221.pdf",
+      "reviewed_on": "2026-09-22"
+    },
+    {
+      "id": "government_2017_changes",
+      "title": "2017년 하반기부터 이렇게 달라집니다",
+      "kind": "official_government_publication",
+      "url": "https://www.mma.go.kr/download/ebook/2017s_change.pdf",
+      "printed_page": 53,
+      "access_method": "web search full text; not downloaded",
+      "verified_claims": [
+        "2017-12-03 implementation date",
+        "indoor sports facility scope"
+      ],
+      "reviewed_on": "2026-09-22"
+    }
+  ],
+  "rendered_evidence": [
+    {
+      "local_path": "docs/references/no_smoking_zone/pdf_page_043.png",
+      "sha256": "dd63d6bad0e883d32f1f7a9d25927674edccf2562eee2d50b2d237a9c5f501c6",
+      "reviewed_visually": true,
+      "git_tracked": false
+    },
+    {
+      "local_path": "docs/references/no_smoking_zone/pdf_page_047.png",
+      "sha256": "b8e4c8e702f5393c4259c3200d871249525272255b2454b5ff31808133135df0",
+      "reviewed_visually": true,
+      "git_tracked": false
+    },
+    {
+      "local_path": "docs/references/no_smoking_zone/pdf_page_051.png",
+      "sha256": "5423227b5a0605ce234ae7d0e6e1193f7458a535f7bb36cc7995c96f839eb89b",
+      "reviewed_visually": true,
+      "git_tracked": false
+    },
+    {
+      "local_path": "docs/references/no_smoking_zone/pdf_page_085.png",
+      "sha256": "c98ad8cd7c94abe393d9951f5d05c23513c5fe7265811bc7326eb91fe83ecf85",
+      "reviewed_visually": true,
+      "git_tracked": false
+    },
+    {
+      "local_path": "docs/references/no_smoking_zone/pdf_page_338.png",
+      "sha256": "9afd74be130908218d0239115f7e64e7cecddd47676ebaf967784b502cf63be7",
+      "reviewed_visually": true,
+      "git_tracked": false
+    },
+    {
+      "local_path": "docs/references/no_smoking_zone/pdf_page_340.png",
+      "sha256": "5ac0f66b9dca9d713e81bb4a710bbba56cdfb388e8edf47d1a499cd981c021f4",
+      "reviewed_visually": true,
+      "git_tracked": false
+    },
+    {
+      "local_path": "docs/references/no_smoking_zone/seoul_pdf_page_049.png",
+      "sha256": "3e3b479f0314919b3d24ad630514d4a172c8d553991777e3cbac84b10f7c2690",
+      "reviewed_visually": true,
+      "git_tracked": false
+    }
+  ],
+  "official_smoking_statistics_landing_page": "https://news.seoul.go.kr/welfare/archives/260455",
+  "unavailable_links": [
+    {
+      "url": "https://www.korea.kr/briefing/policyBriefingView.do?newsId=148824908",
+      "status": "redirected to temporary notice/index without the requested policy body",
+      "reviewed_on": "2026-09-22"
+    }
+  ],
+  "derived_files": {
+    "policy.json": "runtime policy facts and modeled scope",
+    "smoking_rates.json": "verified independent baseline statistics; individual labels remain synthetic",
+    "ground_truth.json": "offline evaluation outcomes only",
+    "evidence.md": "human-readable evidence and limitations"
+  },
+  "verification": {
+    "pdf_extraction": "pypdf",
+    "pdf_rendering": "Poppler pdftoppm",
+    "report_tables_visually_verified": [
+      9,
+      10,
+      12,
+      14,
+      28,
+      146,
+      147
+    ],
+    "smoking_statistics_figure_visually_verified": 10,
+    "local_originals_ignored_by": "docs/references/ repository ignore rule"
+  },
+  "limitations": [
+    "No individual real-person smoking labels supplied or inferred.",
+    "No raw Shinhan transaction panel supplied.",
+    "No source files are injected into the simulation prompt."
+  ]
+}

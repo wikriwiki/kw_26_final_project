@@ -62,7 +62,7 @@ $env:SIM_FAST_CAPTURE_PATH = 'sim_output/fast_decision/run-001/captures.jsonl'
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --limit 100 --workers 8
 ```
 
-실제 서빙 모델과 `LLM_MODE`가 일치해야 합니다. 대회에서 사용할 버전과 초기 DB 스냅샷도 고정하세요. 기록에 교사 모델 종류를 남기며, Qwen 교사 자료는 기본 학습 데이터에서 제외합니다.
+실제 서빙 모델과 `LLM_MODE`가 일치해야 합니다. 기본 모델은 SGLang의 `LGAI-EXAONE/EXAONE-4.5-33B-AWQ`입니다. 사용할 버전과 초기 DB 스냅샷도 고정하세요. 기록에 교사 모델 종류를 남기며, LG EXAONE 이외의 과거 교사 자료는 기본 학습 데이터에서 제외합니다. 과거 모델명은 결과의 출처 기록에만 보존됩니다.
 
 `captures.pending.jsonl`은 교사 호출 전 스냅샷, `captures.jsonl`은 최종 교사 결과까지 있는 완료 기록입니다. 학습에는 완료 기록을 사용합니다. 여러 프로세스가 같은 파일에 동시에 쓰지 않도록 실행마다 별도 경로를 사용합니다. 한 프로세스의 여러 worker는 쓰기 잠금으로 보호됩니다.
 
