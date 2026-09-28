@@ -56,6 +56,30 @@ def test_completed_suite_metadata_uses_october_denominators_without_rescoring():
     assert "2010년 지역 GRDP" in updated["exploratory_pairs"][0]["empirical_estimand"]
 
 
+def test_completed_suite_population_reference_records_current_source_hashes(tmp_path, monkeypatch):
+    monkeypatch.setattr(report, "ROOT", tmp_path)
+    folder = tmp_path / "experiments/population_matching_20260928"
+    folder.mkdir(parents=True)
+    audit = folder / "audit.json"
+    audit.write_text(json.dumps({"schema": "current_six_policy_population_audit_v1",
+                                 "official_four_field_frame_available_in_this_audit": False,
+                                 "model_calls_allowed": False, "new_model_calls": 0}),
+                     encoding="utf-8")
+    note = audit.with_suffix(".md")
+    note.write_text("소득·인구 실측분포를 맞춘 새 실험은 아직 없습니다.", encoding="utf-8")
+    original = {"experiment": "multi_policy_v53_20260928", "rows": [],
+                "run_evidence": [], "exploratory_pairs": []}
+    updated = report.apply_completed_20260928_display_opinions(original)
+    reference = updated["population_audit_reference"]
+    assert reference["json_sha256"] == report._sha(audit)
+    assert reference["sha256"] == report._sha(note)
+    assert reference["existing_cohorts_rerun"] is False
+    assert reference["model_calls_allowed"] is False
+    assert "population_audit_reference" not in original
+    assert "population_audit_reference" not in report.apply_completed_20260928_display_opinions(
+        {**original, "experiment": "another_suite"})
+
+
 def _ksic_failed_join_fixture(tmp_path):
     numeric = tmp_path / "numeric.json"
     numeric.write_text('{"frozen": true}', encoding="utf-8")

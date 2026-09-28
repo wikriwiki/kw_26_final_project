@@ -905,6 +905,21 @@ def apply_completed_20260928_display_opinions(report: dict) -> dict:
             "path": _display_path(screen_path), "sha256": _sha(screen_path),
             "title": "v54 출력 예시 기술 비교: 전체 형식 관문 실패, 미채택",
             "policy_effect_validation": False}
+    population_path = ROOT / "experiments/population_matching_20260928/audit.json"
+    population_note = population_path.with_suffix(".md")
+    if population_path.is_file() and population_note.is_file():
+        population = json.loads(population_path.read_text(encoding="utf-8"))
+        if population.get("schema") != "current_six_policy_population_audit_v1":
+            raise ValueError("unexpected completed-cohort population audit schema")
+        updated["population_audit_reference"] = {
+            "path": _display_path(population_note), "sha256": _sha(population_note),
+            "json_path": _display_path(population_path), "json_sha256": _sha(population_path),
+            "title": "여섯 정책의 실제 표본과 다음 실험의 4축 인구분포 관문",
+            "official_four_field_frame_available_in_this_audit":
+                population.get("official_four_field_frame_available_in_this_audit"),
+            "model_calls_allowed": population.get("model_calls_allowed"),
+            "new_model_calls": population.get("new_model_calls"),
+            "existing_cohorts_rerun": False}
     return updated
 
 
@@ -3417,6 +3432,13 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
         screen = report.get("technical_screen_reference")
         architecture = report.get("consumption_architecture_audit")
         architecture_html = _consumption_architecture_html(architecture) if architecture else ''
+        population = report.get("population_audit_reference")
+        population_html = (
+            '<p>실제 소득으로 검증되지 않은 생성 소득 등급이나 소비 예산을 소득 분포로 '
+            '간주하지 않습니다. 표본 거주동도 ID 코드와 실제 거주 앵커의 차이를 '
+            '감사해야 합니다. '
+            f'<a href="{_esc((ROOT / population["path"]).as_uri())}">'
+            f'{_esc(population["title"])}</a></p>' if population else '')
         screen_html = ''
         if screen:
             screen_html = (
@@ -3443,7 +3465,7 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         '정책별 약점과 측정 공백을 확인한 뒤, 같은 평가 설계로 후속 프롬프트 '
                         '후보를 비교해야 최적화를 주장할 수 있습니다. 정책별 표본 수가 다르며 '
                         '특히 12명 월간 실험은 방향·크기 모두 매우 불확실합니다.</p>'
-                        + architecture_html + screen_html + '</section>')
+                        + population_html + architecture_html + screen_html + '</section>')
     remaining_exploratory = [item for item in report.get("exploratory_pairs", [])
                              if item["policy"] not in inline_exploratory_policies]
     if remaining_exploratory or report.get("exploratory_uncomputed"):

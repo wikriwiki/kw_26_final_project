@@ -47,12 +47,20 @@ RAW_LABELS = {
     'won': '원화', 'count': '관측 수', 'share': '비중',
     'denominator_won': '원화 분모', 'grant_issued_won': '명목 지급액',
     'policy_funded_won': '정책지갑 결제액', 'total_won': '총액',
-    'recipients': '수령자 수', 'sample_citizens': '시민 수',
+    'recipients': '수령자 수(비중의 분모)', 'sample_citizens': '전체 시민 수',
     'citizen_days': '시민×일', 'positive_receipts': '양수 영수증 수',
     'unique_citizens': '고유 시민 수', 'percentage_points': '%p',
     'pre': '사전', 'post': '사후',
     'reason': '미산출 사유', 'bootstrap_valid_draws': '유효 재표집 수',
     'denominator': '분모', 'numerator': '분자',
+    'citizen_days_each_arm': '팔별 시민×일 관측 수',
+    'mapped_subclasses': '합산한 POI 하위 업종',
+    'total_cashback_accrual_won': '월말 캐시백 총 발생추정액',
+    'lower_won': '금액 구간 하한', 'upper_won': '금액 구간 상한',
+    'cashback_zero_citizens': '캐시백 발생추정이 0인 시민 수',
+    'all_policy_funded_won': '정책지갑 결제 총액',
+    'policy_funded_positive_citizen_days': '정책지갑 결제가 양수인 시민×일 수',
+    'catalog_poi_support_count': '고정 POI 자료의 해당 업종 판매처 수',
 }
 KOREAN_TEXT = {
     'v53 first round, Seoul 80 citizens; observed 2025-07-21..2025-07-23; wallet payments / issued grants.':
@@ -92,6 +100,19 @@ KOREAN_TEXT = {
         '결과 후 탐색이며 자기 선택과 가구·연도·도구변수에 대한 원문의 추정 절차를 재현하지 않았습니다.',
     'The denominator is rule-accrual not an actual payment transaction; no 2SLS accuracy or multiplier validation.':
         '분모는 실제 지급 거래가 아니라 규칙에 따른 발생추정액입니다. 2단계 최소제곱 추정의 정확도나 소비 배율 검증으로 읽지 않습니다.',
+    'First/second survey issuance-weighted item use or intended use':
+        '1·2차 설문을 지급액 비중으로 가중한 품목별 사용·사용 계획',
+    'First survey 2025-08-13..20; second 2025-10-27..11-07; realized plus planned voucher use':
+        '1차 설문 2025-08-13~20, 2차 설문 2025-10-27~11-07; 실제 사용과 사용 계획을 함께 관측',
+    'Total issued coupon amount, NOT total used amount.':
+        '총 쿠폰 지급액(실제 사용액이 아님)',
+    'Household triple difference: recipient × month × 2021 (vs 2019)':
+        '수급·비수급 가구 × 월 × 2021년(2019년 대비)의 삼중차분',
+    '2021-10; September is baseline; 2019 comparison year for DDD; July–December panel':
+        '2021년 10월 계수; 기준월은 9월, 비교연도는 2019년인 7~12월 가구 패널',
+    'Monthly household log card spending.': '가구의 월별 카드 지출 로그값',
+    'individual total spend.': '개인 시민의 총지출입니다.',
+    'individual online spend.': '개인 시민의 온라인 지출입니다.',
     'FIRST': '1차', 'SECOND': '2차', 'WEIGHTED': '1·2차 가중',
     'model': '모형',
 }
@@ -361,13 +382,15 @@ def _raw_html(values):
     def visit(value, parts):
         if isinstance(value, dict):
             for key, item in value.items():
+                if key in ('ci', 'citizen_bootstrap_95_interval'):
+                    continue  # The interval is already labelled above the raw amounts.
                 visit(item, parts + [RAW_LABELS.get(key, key)])
         elif isinstance(value, list):
             pieces.append('<li>' + _esc(' · '.join(parts)) + ': ' + _esc(_text(value)) + '</li>')
         elif value is not None:
             label = ' · '.join(parts)
             unit = '원' if any('원화' in part or '금액' in part or '지급액' in part or '결제액' in part
-                              or part.endswith('_won') for part in parts) else ''
+                              or part.endswith('_won') or part.endswith('추정액') for part in parts) else ''
             pieces.append('<li>' + _esc(label) + ': ' + _value(value, unit) + '</li>')
     visit(values, [])
     return '<ul class="raw-values">' + ''.join(pieces) + '</ul>' if pieces else ''
@@ -416,7 +439,7 @@ def policy_html(report, policy):
         notes = _human_text(proxy.get('quality_notes_ko') or proxy.get('quality_notes') or proxy.get('reason'))
         scope = _human_text(proxy.get('scope_note_ko') or proxy.get('scope_note') or proxy.get('scope'))
         count = proxy.get('sample_citizens', proxy.get('n'))
-        n_html = f'<span class="n">시뮬 시민 n={_esc(count)}</span>' if count is not None else ''
+        n_html = f'<span class="n">전체 시뮬 시민 n={_esc(count)} (해당 지표 분모는 원관측값 참조)</span>' if count is not None else ''
         interval = proxy.get('ci')
         ci_html = ('<p class="reason">시뮬 시민 재표집 95% 구간(모델·외부 표본 불확실성 미포함): '
                    + _value(interval[0], proxy['simulation_unit']) + ' ~ '
@@ -452,9 +475,9 @@ def policy_html(report, policy):
                       + '<div class="nums"><span class="tru">실측 ' + truth_html + _esc(approximate)
                       + '</span>' + headline + n_html + '</div>' + ci_html + family_note
                       + '<p class="reason">실측 정의: '
-                      + _esc(_text(empirical.get('method'))) + '; 기간 '
-                      + _esc(_text(empirical.get('period'))) + '; 분모 '
-                      + _esc(_text(empirical.get('denominator'))) + '.</p>'
+                      + _esc(_human_text(empirical.get('method'))) + '; 기간 '
+                      + _esc(_human_text(empirical.get('period'))) + '; 분모 '
+                      + _esc(_human_text(empirical.get('denominator'))) + '.</p>'
                       + ('<p class="reason">' + _esc(scope) + '</p>' if scope else '')
                       + _raw_html(raw)
                       + alternative_html
