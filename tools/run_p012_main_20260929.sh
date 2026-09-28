@@ -22,6 +22,20 @@ export P012M_ROSTER="$ROSTER"
 cd "$REPO"
 
 log() { printf '[%s] %s\n' "$(date -Is)" "$*" | tee -a /data/p012m.log; }
+NEO=/data/neo4j-community-5.26.0
+# tmux 세션이 끝나면 그 세션의 자식으로 뜬 Neo4j 도 함께 내려간다(검수 런에서 두 번
+# 확인: "shutdown initiated by request"). 보존은 그래프를 읽어야 하므로 그 앞에서
+# 살아 있는지 보고, 없으면 올린다.
+ensure_neo4j() {
+  if curl -fsS -m 5 -o /dev/null http://localhost:7474; then return 0; fi
+  log 'Neo4j 가 내려가 있다 — 올린다'
+  "$NEO/bin/neo4j" start >/dev/null 2>&1 || true
+  for _ in $(seq 1 60); do
+    curl -fsS -m 5 -o /dev/null http://localhost:7474 && return 0
+    sleep 2
+  done
+  log 'Neo4j 를 올리지 못했다'; return 1
+}
 trap 'log "FAILED at line $LINENO — 그래프/출력은 그대로 둔다"' ERR
 
 test -s "$ROSTER"
@@ -44,6 +58,7 @@ for arm in on off; do
   echo 0 > "$BASE/$arm/launch.exitcode"
   cp "/data/p012m_${arm}.launch.log" "$BASE/$arm/launch.log"
   log "=== $arm 팔 실행 완료 — 보존 시작 (덮이기 전에 뽑는다)"
+  ensure_neo4j
   bash tools/preserve_multi_v53_short_arm_20260928.sh p012m "$arm" \
     > "/data/p012m_${arm}.preserve.log" 2>&1
   # 보존이 남겨야 하는 것 — 하나라도 없으면 다음 팔로 넘어가지 않는다.
@@ -57,6 +72,7 @@ for arm in on off; do
   log "=== $arm 팔 보존 완료 (원장·dossier·그래프 덤프 검증)"
 done
 
+ensure_neo4j
 log "=== 채점"
 mkdir -p "$BASE/score"
 for arm in on off; do
