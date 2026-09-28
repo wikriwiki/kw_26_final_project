@@ -495,8 +495,11 @@ def main() -> int:
                  if (na_[i] - oa[i]) > (nb[i] - ob[i]))
         dn = sum(1 for i in range(len(aids))
                  if (na_[i] - oa[i]) < (nb[i] - ob[i]))
-        rows.append(verdict_of(iid, nm, tg, g, lo, hi, conf, up, dn,
-                               len(aids) - up - dn, unit="%p"))
+        r = verdict_of(iid, nm, tg, g, lo, hi, conf, up, dn,
+                       len(aids) - up - dn, unit="%p")
+        r["truth_gap"] = tg
+        r["unit"] = "%p"
+        rows.append(r)
 
     print()
     print("## 3. 수준 지표 — 비가 아니라 값 자체 (자가 달라 방향 셈에서 뺀다)")
@@ -648,7 +651,11 @@ def main() -> int:
 
     if a.json_out:
         io.open(ROOT / a.json_out, "w", encoding="utf-8", newline="\n").write(json.dumps(
-            {"n_agents": len(aids), "window": c["_sim_windows"]["on"], "rows": rows,
+            {"n_agents": len(aids),
+             # 계약서의 창이 아니라 **원장이 실제로 담은 창**을 적는다.
+             "window": "%s ~ %s" % (w0, w1), "window_days": wn,
+             "window_off": "%s ~ %s" % (v0, v1), "window_days_off": vn,
+             "rows": rows,
              "tally": {"일치": hit, "불일치": miss, "판정불가": undecid, "대조불가": na,
                        "두자통과": len(both)}},
             ensure_ascii=False, indent=1))
