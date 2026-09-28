@@ -142,6 +142,21 @@ def sign_split(off: list, on: list):
     return up, dn, len(off) - up - dn
 
 
+def needed_n(pct, lo, hi, n_now: int):
+    """이 지표를 판정 가능하게 만들 표본 크기.
+
+    구간 반폭은 √n 에 반비례한다. 지금 표본에서 잰 표준오차를 그 법칙으로
+    늘려, |효과| > 1.96·표준오차 가 되는 n 을 돌려준다. **효과 크기가
+    지금 값 그대로 유지된다는 가정**이고, 그 가정을 표에 함께 적는다.
+    """
+    if pct is None or lo is None or hi is None or pct == 0:
+        return None
+    se = (hi - lo) / 3.92
+    if se <= 0:
+        return n_now
+    return max(n_now, int(math.ceil(n_now * (1.96 * se / abs(pct)) ** 2)))
+
+
 def sign_test_p(up: int, dn: int) -> float | None:
     """쌍체부호검정 양측 p — 동점은 버린다(버린 수는 표에 함께 낸다).
 
@@ -351,9 +366,10 @@ def main() -> int:
     print()
     print("## 1. 비율 지표 — 두 팔의 차 (실측과 같은 자로 맞댄다)")
     print()
-    print("  %-4s %-20s %8s %10s %17s %11s %7s %6s %s"
-          % ("지표", "이름", "실측", "시뮬", "95% 구간", "증:감:동", "부호확실", "쌍체p", "판정"))
-    print("-" * 126)
+    print("  %-4s %-20s %8s %10s %17s %11s %7s %6s %6s %s"
+          % ("지표", "이름", "실측", "시뮬", "95% 구간", "증:감:동", "부호확실",
+             "쌍체p", "필요n", "판정"))
+    print("-" * 134)
 
     rows = []
     hit = miss = undecid = na = lvl_in = lvl_out = 0
@@ -389,24 +405,26 @@ def main() -> int:
         else:
             v, st_ = "방향 불일치", "불일치"
             miss += 1
-        print("  %-4s %-20s %8s %+9.2f%s %7.1f ~ %+7.1f %11s %6s %6s %s"
+        nn = needed_n(pct, lo, hi, len(aids))
+        print("  %-4s %-20s %8s %+9.2f%s %7.1f ~ %+7.1f %11s %6s %6s %6s %s"
               % (iid, nm, ("%+.2f" % tv) if isinstance(tv, (int, float)) else "없음",
                  pct, unit,
                  lo if lo is not None else float("nan"),
                  hi if hi is not None else float("nan"),
                  "%d:%d:%d" % (up, dn, eq),
                  ("%.1f%%" % (100 * conf)) if conf is not None else "-",
-                 ("%.3f" % p) if p is not None else "-", v))
+                 ("%.3f" % p) if p is not None else "-",
+                 ("%d명" % nn) if nn is not None else "-", v))
         return {"id": iid, "name": nm, "truth": tv, "sim": pct, "ci": [lo, hi],
                 "sign": [up, dn, eq], "sign_conf": conf, "sign_test_p": p,
-                "truth_in_band": inband, "status": st_}
+                "truth_in_band": inband, "needed_n": nn, "status": st_}
 
     def skip(iid, nm, tv, why, status):
         nonlocal na
         na += 1
-        print("  %-4s %-20s %8s %10s %17s %11s %7s %6s %s"
+        print("  %-4s %-20s %8s %10s %17s %11s %7s %6s %6s %s"
               % (iid, nm, ("%+.0f" % tv) if isinstance(tv, (int, float)) else "-",
-                 "-", "-", "-", "-", "-", why))
+                 "-", "-", "-", "-", "-", "-", why))
         rows.append({"id": iid, "name": nm, "truth": tv, "status": status, "why": why})
 
     ratio_ids = [i for i in c["indicators"] if i.get("sim_metric") in METRIC_KEY]

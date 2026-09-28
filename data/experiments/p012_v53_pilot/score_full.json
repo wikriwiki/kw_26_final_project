@@ -19,6 +19,7 @@
    "sign_conf": 1.0,
    "sign_test_p": 0.021484375,
    "truth_in_band": true,
+   "needed_n": 12,
    "status": "일치"
   },
   {
@@ -38,6 +39,7 @@
    "sign_conf": 0.9778393351800554,
    "sign_test_p": 0.125,
    "truth_in_band": true,
+   "needed_n": 138,
    "status": "일치"
   },
   {
@@ -57,6 +59,7 @@
    "sign_conf": 0.924,
    "sign_test_p": 1.0,
    "truth_in_band": false,
+   "needed_n": 21,
    "status": "판정불가"
   },
   {
@@ -76,6 +79,7 @@
    "sign_conf": 0.95725,
    "sign_test_p": 0.14599609375,
    "truth_in_band": true,
+   "needed_n": 23,
    "status": "판정불가"
   },
   {
@@ -95,6 +99,7 @@
    "sign_conf": 0.93125,
    "sign_test_p": 0.3876953125,
    "truth_in_band": false,
+   "needed_n": 18,
    "status": "판정불가"
   },
   {
@@ -114,6 +119,7 @@
    "sign_conf": 0.75675,
    "sign_test_p": 0.5078125,
    "truth_in_band": true,
+   "needed_n": 729,
    "status": "판정불가"
   },
   {
@@ -133,6 +139,7 @@
    "sign_conf": 0.528,
    "sign_test_p": 1.0,
    "truth_in_band": true,
+   "needed_n": 10305,
    "status": "판정불가"
   },
   {
@@ -152,6 +159,7 @@
    "sign_conf": 1.0,
    "sign_test_p": 0.00634765625,
    "truth_in_band": false,
+   "needed_n": 12,
    "status": "일치"
   },
   {
@@ -178,6 +186,7 @@
    "sign_conf": 0.50975,
    "sign_test_p": 0.00634765625,
    "truth_in_band": false,
+   "needed_n": 7756,
    "status": "판정불가"
   },
   {
@@ -197,6 +206,7 @@
    "sign_conf": 0.8894485016368673,
    "sign_test_p": 0.109375,
    "truth_in_band": true,
+   "needed_n": 167,
    "status": "판정불가"
   },
   {
