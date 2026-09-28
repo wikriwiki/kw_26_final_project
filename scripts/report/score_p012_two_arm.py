@@ -58,8 +58,20 @@ def load_kdi_map():
     return l1, sub
 
 
+def arm_window(d: Path, arm: str) -> tuple[str, str, int]:
+    """원장이 실제로 담은 (첫날, 마지막날, 날 수). **계약서의 창을 믿지 않는다.**"""
+    days = set()
+    for line in io.open(d / ("%s.sector.ledger.jsonl" % arm), encoding="utf-8"):
+        line = line.strip()
+        if line:
+            days.add(json.loads(line)["day"])
+    if not days:
+        return ("", "", 0)
+    return (min(days), max(days), len(days))
+
+
 def load_arm(d: Path, arm: str):
-    """(에이전트별 10월 합계, 에이전트별 캐시백 합계)."""
+    """(에이전트별 합계, 에이전트별 캐시백 합계) — 원장에 있는 날 전부."""
     l1map, submap = load_kdi_map()
     sec = defaultdict(lambda: defaultdict(float))
     cash = defaultdict(lambda: defaultdict(float))
@@ -368,7 +380,15 @@ def main() -> int:
     print("# P012 — 두 팔 대조 (정책 없음 vs 있음, 같은 사람)")
     print()
     print("  원장 %s · 짝지은 시민 **%d명**" % (a.dir, len(aids)))
-    print("  창   %s" % c["_sim_windows"]["on"])
+    w0, w1, wn = arm_window(d, "on")
+    v0, v1, vn = arm_window(d, "off")
+    print("  창   %s ~ %s · **%d일** (off 팔 %s ~ %s · %d일)" % (w0, w1, wn, v0, v1, vn))
+    if (w0, w1) != (v0, v1):
+        print("  ** 두 팔의 창이 다르다 — 이 대조는 무효다 **")
+    if wn != 31:
+        print("  ** 창이 31일이 아니다. 실측은 10월 한 달 누적이므로 비율 지표의 **크기**는")
+        print("     맞댈 수 없다(파일럿 측정: 7일 +18.9% / 14일 +15.5% / 31일 +11.3%,")
+        print("     실측 월 +11.25%). 방향·순위·재정배수(무차원)는 맞댈 수 있다. **")
     print()
     print("## 1. 비율 지표 — 두 팔의 차 (실측과 같은 자로 맞댄다)")
     print()
