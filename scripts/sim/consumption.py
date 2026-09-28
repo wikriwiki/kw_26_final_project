@@ -18,8 +18,12 @@ Stage2가 고른 POI 가격대로 정한다. 지원금은 총소비를 강제로
 """
 from __future__ import annotations
 
+import json
 import math
 import os
+import statistics
+from functools import lru_cache
+from pathlib import Path
 
 from instant_discount import settle_instant_discounts
 
@@ -85,6 +89,7 @@ ELIGIBLE_SHARE_SEOUL = float(os.environ.get("EXP_ELIGIBLE_SHARE", "0.2535"))
 # 기준 런에서 한 번 재고 얼린다** — 팔마다 다시 재면 정책이 만든 이동이
 # 정규화로 지워져 아무것도 안 한 것과 같아진다.
 EXP_SPLIT_ANCHOR = os.environ.get("EXP_SPLIT_ANCHOR", "0") == "1"
+
 ANCHOR_OVERSTATE = float(os.environ.get("EXP_ANCHOR_OVERSTATE", "2.40"))
 # 기본값은 **유도한다** — 0.608 처럼 적어 두면 0.608/2.40 = 0.2533 이라 현행
 # 0.2535 와 0.07% 어긋난다. 곱을 그대로 쓰면 기준 런이 현행과 정확히 항등이다.
@@ -94,6 +99,67 @@ SHARE_BASE = float(os.environ.get("EXP_SHARE_BASE")
 # online_share 가 없을 때(None)와 같은 결과가 나온다. 즉 **모르면 안 움직인다.**
 KEEP_MEAN = float(os.environ.get("EXP_KEEP_MEAN", "0.80"))
 SHARE_FLOOR = float(os.environ.get("EXP_SHARE_FLOOR", "0.05"))
+
+# [적립 몫을 상수에서 풀어 준다] data/experiments/P012_FORMAT.md 8절
+# 위 0.2535 가 상수인 한 정책은 **배분을 못 바꾼다**. 두 팔을 맞대면 적립 몫이
+# off 0.2456 → on 0.2454 로 불변이고, 그래서 총소비와 제외업종이 똑같이
+# +11.3% 오른다(실측은 적립 11.25 / 제외 2.85 로 갈린다). K9·K10·K11 이 구조적
+# 으로 0 인 이유다.
+#
+# 고치는 자리: 계획 반응(측정된 +9.76%, 위약 대조 −2.18%)을 **적립분에만** 싣는다.
+#
+#   비사용처 = (anchor / OVERSTATE) x (1 - s)          <- 계획이 실리지 않는다
+#   사용처   = (anchor / OVERSTATE) x s x plan_ratio    <- 정책이 여기로 온다
+#
+# s 는 동별 적립 몫이다(BDC dong_consumption 의 업종 구성). plan_ratio=1 이고
+# s 가 중앙값이면 현행과 **항등**이라 기준 런의 수준이 움직이지 않는다.
+#
+# 근거의 수렴: BDC 기지분 적립 몫 0.3995/(0.3995+0.2687) = 0.598 이고, 코드가
+# 서울시 상권분석서비스에서 유도한 SHARE_BASE = 0.2535 x 2.40 = 0.6084 다.
+# 두 경로가 1.7% 안에서 만난다 — 그래서 s 의 눈금을 SHARE_BASE 에 맞춘다.
+#
+# **한계**: 동별 '모름 몫' 중앙 0.3156 이다. 그만큼이 이 분해의 정확도 상한이고
+# 보고서에 적어야 한다. 모름은 적립/제외 비율대로 안분한다(따로 만들지 않는다).
+EXP_ELIGIBLE_CHANNEL = os.environ.get("EXP_ELIGIBLE_CHANNEL", "0") == "1"
+DONG_SHARE_FILE = os.environ.get(
+    "EXP_DONG_SHARE_FILE",
+    str(Path(__file__).resolve().parents[2] / "data/sangsaeng/dong_eligible_share.json"))
+
+
+@lru_cache(maxsize=1)
+def _dong_share() -> tuple[dict[str, float], dict[str, dict[str, float]], float]:
+    """(동별 정규화 적립 몫, 동별 제외업종 구성, 중앙값).
+
+    '모름' 은 적립/제외 비율대로 안분한다. 파일이 없으면 빈 표를 돌려주고,
+    그러면 호출부가 전국 상수로 되돌아간다 — **모르면 안 움직인다.**
+    """
+    try:
+        raw = json.loads(Path(DONG_SHARE_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ({}, {}, SHARE_BASE)
+    out: dict[str, float] = {}
+    for code, row in raw.items():
+        el, ex = float(row.get("eligible") or 0), float(row.get("excluded") or 0)
+        if el + ex > 0:
+            out[str(code)] = el / (el + ex)
+    if not out:
+        return ({}, {}, SHARE_BASE)
+    return (out, {}, statistics.median(out.values()))
+
+
+def _dong_of(aid: str | None) -> str | None:
+    """AGT_11140550_M_70대이상_001 -> 11140550. 형태가 다르면 None."""
+    parts = str(aid or "").split("_")
+    return parts[1] if len(parts) > 1 and parts[1].isdigit() else None
+
+
+def eligible_share_for_dong(dong_code: str | None) -> tuple[float, str]:
+    """(적립 몫, 출처). 눈금은 SHARE_BASE 에 맞춘다 — 중앙값 동이 현행과 같다."""
+    table, _, med = _dong_share()
+    key = str(dong_code or "")
+    if not table or key not in table or med <= 0:
+        return (SHARE_BASE, "share_base_constant")
+    return (max(SHARE_FLOOR, min(1.0, table[key] / med * SHARE_BASE)), "bdc_dong")
 
 # [계획이 총액에 닿게 한다] experiments/error_budget/diagnosis_05.md
 # 정책은 **계획 금액**으로 닿고 있었다 — P012 라운드2 런에서 정책 전/후 쌍을 맞대면
@@ -698,6 +764,9 @@ def apply_consumption_model(
     discount_used_before: dict[str, int] | None = None,
     # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
     aid: str | None = None,
+    # 동별 적립 몫을 쓰려면 어느 동인지 알아야 한다(EXP_ELIGIBLE_CHANNEL).
+    # 주지 않으면 aid 에서 읽는다.
+    dong_code: str | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
@@ -966,6 +1035,7 @@ def apply_consumption_model(
     # 앵커보다 낮게 잡으므로(구조적 저평가) 앵커가 그대로 유지되고, **특별한 날에만** 계획이
     # 총액을 끌어올린다. MPC 등 검증 대상 값이 입력으로 들어가지 않으므로 순환이 아니다 —
     # 증가분은 전적으로 에이전트 자신의 이벤트 계획에서 나온다.
+    _pr = 1.0                     # 계획 배수 — 기준 런에서 1.0 이라 수준이 안 움직인다
     _pbase = _plan_baseline().get(str(aid or "")) if EXP_PLAN_DRIVES_TOTAL else None
     if _pbase and _anchor_total > 0:
         # 계층·수준은 앵커가 잡고, **그 사람 자신의 평소 계획 대비 오늘의 변동**만
@@ -1032,9 +1102,26 @@ def apply_consumption_model(
     #  · LLM 판단(online_share): 계층 구분 없이 0.2 근처로 균일해 정보가 없었다(R82·R83 측정).
     #    필드는 진단용으로 남기고 비중 산정에는 쓰지 않는다.
     # EXP_ELIGIBLE_SHARE 로 민감도 실험 가능(기본값은 위 서울시 데이터 산출값).
-    online_planned = int(round(personal_total * _online_rate))
-    # 오프라인(가게 방문) 지출만 아래 POI 배분·지원금 정산을 거친다.
-    personal_total = max(0, personal_total - online_planned)
+    if EXP_ELIGIBLE_CHANNEL:
+        # [적립 몫을 정책에 반응하게 한다]
+        # 위 두 경로는 몫이 상수라 정책이 배분을 못 바꾼다. 여기서는 계획 배수를
+        # **적립분에만** 싣는다. 계획액은 정책에 반응하는 것이 이미 측정돼 있다
+        # (P012 +9.76%, 위약 대조 −2.18%). 비사용처는 계획이 닿지 않으므로
+        # 정책 전후로 거의 그대로다 — 실측의 제외업종 +2.85% 와 같은 모양이다.
+        #
+        # 기준 런과의 항등: _pr=1 이고 동이 중앙값이면 아래 두 항의 합이
+        # (anchor/OVERSTATE) 이고, 그 중 사용처 몫이 SHARE_BASE 다. 즉
+        # anchor x 0.2535 — 현행과 같다. **눈금을 옮기지 않는다.**
+        _lvl = _anchor_total / max(1e-6, ANCHOR_OVERSTATE)
+        _s, _s_src = eligible_share_for_dong(dong_code or _dong_of(aid))
+        online_planned = int(round(_lvl * (1.0 - _s)))
+        personal_total = max(0, int(round(_lvl * _s * _pr)))
+        _online_rate = (online_planned / max(1.0, online_planned + personal_total))
+        _online_src = "eligible_channel:" + _s_src
+    else:
+        online_planned = int(round(personal_total * _online_rate))
+        # 오프라인(가게 방문) 지출만 아래 POI 배분·지원금 정산을 거친다.
+        personal_total = max(0, personal_total - online_planned)
     wallet_specs = _policy_wallet_specs(grant_avail_alloc, envelopes_alloc)
 
     # 쿠폰은 먼저 '어차피 하려던 소비'를 대체한다(그만큼 현금이 굳는다). 오늘 쓰려는 지원금이

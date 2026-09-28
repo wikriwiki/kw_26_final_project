@@ -11,6 +11,7 @@ import json
 import os
 import sys
 from collections import defaultdict
+from functools import lru_cache
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -66,6 +67,30 @@ def _metrics(path: Path, roster: list[str]) -> tuple[dict[str, dict], str]:
     if set(seen) != set(roster):
         raise ValueError(f"incomplete metric roster: {path}")
     return seen, _sha(path)
+
+
+@lru_cache(maxsize=1)
+def _excluded_kdi() -> dict[str, dict[str, float]]:
+    """{동코드: {KDI업종: 제외분 중 몫}} — BDC dong_consumption 구성비.
+
+    적립 제외분(`online_spent`)은 한 덩어리로만 적혀 있어서 'KDI 제외업종 중
+    유통'(K10) 을 셀 수 없었다. 그 덩어리에 **BDC 의 업종 구성비를 입힌다.**
+
+    이것은 시뮬의 선택이 아니라 **자료에서 온 안분**이다. 그래서 이 항의 증가율은
+    제외분 전체의 증가율과 같고, 독립된 정보를 주지 않는다 — 채점표가 그렇게 적는다.
+    """
+    p = Path(__file__).resolve().parents[2] / "data/sangsaeng/dong_eligible_share.json"
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {str(k): dict(v.get("excluded_kdi") or {}) for k, v in raw.items()
+            if v.get("excluded_kdi")}
+
+
+def _dong_of(aid: str) -> str:
+    parts = str(aid or "").split("_")
+    return parts[1] if len(parts) > 1 and parts[1].isdigit() else ""
 
 
 def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
@@ -135,6 +160,10 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
                     "by_l1": dict(sorted(bucket["by_l1"].items())),
                     "eligible_by_sub": dict(sorted(bucket["eligible_by_sub"].items())),
                     "eligible_by_l1": dict(sorted(bucket["eligible_by_l1"].items())),
+                    # 제외분에 BDC 업종 구성비를 입힌 안분값 — 시뮬의 선택이 아니다.
+                    "online_by_kdi_attributed": {
+                        k: int(round(online * w))
+                        for k, w in sorted(_excluded_kdi().get(_dong_of(aid), {}).items())},
                     "funded_by_sub": dict(sorted(bucket["funded_by_sub"].items()))})
     return out
 

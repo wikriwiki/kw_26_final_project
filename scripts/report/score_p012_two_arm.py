@@ -77,6 +77,10 @@ def load_arm(d: Path, arm: str):
         s["offline"] += float(r.get("offline_spent") or 0)
         # KDI 업종 — sub 우선, 없으면 l1. 접두 kdi: 는 업종 총액,
         # kdiE: 는 그 중 적립대상분(제외분은 둘의 차로 낸다).
+        # 제외분에 BDC 구성비를 입힌 안분값 — K10 이 여기 걸려 있다.
+        for k, v in (r.get("online_by_kdi_attributed") or {}).items():
+            s["attr:" + k] += float(v or 0)
+            s["_has_attr"] = 1.0
         for pre, fs, fl in (("kdi:", "by_sub", "by_l1"),
                             ("kdiE:", "eligible_by_sub", "eligible_by_l1")):
             if pre == "kdiE:":
@@ -178,10 +182,12 @@ def series(sec, cash, aids, key):
         return [sec[a]["eligible"] for a in aids]
     if key == "excluded":
         return [sec[a]["total"] - sec[a]["eligible"] for a in aids]
-    if key.startswith("exclkdi:"):          # 그 업종 중 적립 제외분
-        k = "kdi:" + key.split(":", 1)[1]
-        e = "kdiE:" + key.split(":", 1)[1]
-        return [sec[a][k] - sec[a][e] for a in aids]
+    if key.startswith("exclkdi:"):
+        # 그 업종의 적립 제외분 = (오프라인 업종총액 - 오프라인 적립분)
+        #                        + (제외 채널에 BDC 구성비로 안분된 몫)
+        nm = key.split(":", 1)[1]
+        k, e, t = "kdi:" + nm, "kdiE:" + nm, "attr:" + nm
+        return [sec[a][k] - sec[a][e] + sec[a][t] for a in aids]
     if key.startswith("kdi:"):
         return [sec[a][key] for a in aids]
     if key == "cashback":
@@ -374,6 +380,8 @@ def main() -> int:
     rows = []
     hit = miss = undecid = na = lvl_in = lvl_out = 0
     has_elig = any(sec_off[a].get("_has_elig_sub") for a in aids)
+    has_attr = any(sec_off[a].get("_has_attr") for a in aids)
+    note_attributed: list[str] = []
 
     def verdict_of(iid, nm, tv, pct, lo, hi, conf, up, dn, eq, unit="%"):
         """한 줄 찍고 (판정, 행) 을 돌려준다 — 잡음 두 자를 함께 본다."""
@@ -437,6 +445,8 @@ def main() -> int:
             skip(iid, nm, tv, "출력부족 — 원장에 eligible_by_sub 가 없다(본런 원장에는 있다)",
                  "출력부족")
             continue
+        if key.startswith("exclkdi:") and has_attr:
+            note_attributed.append(iid)
         off = series(sec_off, cash_off, aids, key)
         on = series(sec_on, cash_on, aids, key)
         pct, lo, hi, conf = ratio_ci(off, on)
@@ -590,6 +600,14 @@ def main() -> int:
             print("     %-4s %-22s 확실 %.1f%%  p=%s"
                   % (r["id"], r["name"], 100 * (r.get("sign_conf") or 0),
                      ("%.3f" % r["sign_test_p"]) if r.get("sign_test_p") else "-"))
+
+    print()
+    if note_attributed:
+        print()
+        print("   * %s 의 제외분에는 BDC 업종 구성비를 **안분**한 몫이 들어 있다."
+              % ", ".join(note_attributed))
+        print("     안분값은 시뮬의 선택이 아니므로 증가율이 제외분 전체와 같다 —")
+        print("     값은 맞댈 수 있지만 **독립된 정보는 아니다.**")
 
     print()
     print("## 6. 합계")

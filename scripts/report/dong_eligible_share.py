@@ -71,10 +71,21 @@ def load_dongs(zip_path: Path, key: str = "industry_ratio") -> dict:
             if k.isdigit() and isinstance(v, dict)}
 
 
+# BDC 업종명 -> KDI 8분류. 제외업종 쪽만 필요하다(적립 쪽은 POI 가 이미 분류한다).
+# 'KDI 제외업종 중 유통'(K10) 을 세려면 제외분이 업종을 갖고 있어야 한다.
+KDI_OF_EXCLUDED = {
+    "할인점/슈퍼마켓": "유통", "양판점": "유통", "백화점": "유통", "면세점": "유통",
+    "슈퍼마켓": "유통", "대형마트": "유통", "편의점": "유통",
+    "가전": "가전·가구", "가전제품": "가전·가구", "가구": "가전·가구",
+    "인터넷상거래": "유통", "통신판매": "유통",
+    "여행사": "여행·레저", "항공사": "여행·레저", "면세점(공항)": "여행·레저",
+}
+
+
 def split(ratio: dict, arms: dict) -> dict:
     """한 동의 구성을 적립·제외·모름으로. 합은 원본 합을 보존한다."""
     out = {"eligible": 0.0, "excluded": 0.0, "unknown": 0.0, "total": 0.0}
-    miss = {}
+    miss, exk = {}, {}
     for name, w in ratio.items():
         try:
             w = float(w)
@@ -86,10 +97,17 @@ def split(ratio: dict, arms: dict) -> dict:
             out["eligible"] += w
         elif arm in EXCLUDED_ARMS:
             out["excluded"] += w
+            kdi = KDI_OF_EXCLUDED.get(name)
+            if kdi:
+                exk[kdi] = exk.get(kdi, 0.0) + w
         else:
             out["unknown"] += w
             if arm is None:
                 miss[name] = miss.get(name, 0.0) + w
+    # 제외분 안에서의 업종 몫(합이 1 이 아닐 수 있다 — 붙지 않은 것은 붙이지 않는다).
+    if out["excluded"] > 0:
+        out["excluded_kdi"] = {k: round(v / out["excluded"], 6)
+                               for k, v in sorted(exk.items())}
     out["_unmapped"] = miss
     return out
 
