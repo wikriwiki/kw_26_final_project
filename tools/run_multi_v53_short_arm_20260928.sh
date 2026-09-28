@@ -4,7 +4,7 @@
 set -Eeuo pipefail
 umask 077
 
-case_id=${1:?case id required: p010|distancing|p016|p014|p012}
+case_id=${1:?case id required: p010|distancing|p016|p014|p012|p012t}
 arm=${2:?arm required: on|off}
 [[ $arm == on || $arm == off ]] || { echo 'arm must be on or off' >&2; exit 2; }
 REPO=/data/pilot_repo_20260927
@@ -31,6 +31,13 @@ case "$case_id" in
   p012)
     START=2021-10-01; DAYS=31; DAY0=2021-09-30; N=12
     ENV_ID=covid_2021; POLICY=data/experiments/P012_v53_october_policy_20260928.json; PID=P012;;
+  p012t)
+    # 출력 배관 검수용. 창 7일 + 문턱·한도를 7/31 로 줄인 압축월이고, 적립 몫을
+    # 정책에 반응하게 한 경로를 켠다. **실측과 맞대지 않는다** — 값이 창 길이에
+    # 따라 움직이는 것이 이미 측정돼 있다(7일 +18.9% / 31일 +11.3%).
+    START=2021-10-01; DAYS=7; DAY0=2021-09-30; N=40
+    ENV_ID=covid_2021; POLICY=data/experiments/P012_v53_compressed7_TESTONLY.json; PID=P012
+    RUN_REVISION=eligible_channel_plumbing;;
   *) echo "unknown case $case_id" >&2; exit 2;;
 esac
 OUT=$BASE/$case_id
@@ -49,6 +56,7 @@ case "$case_id/$arm" in
   p016/off) previous=p016/on;;
   p014/on) previous=p016/off;;
   p014/off) previous=p014/on;;
+  p012t/on|p012t/off) previous='';;
 esac
 if [[ -n $previous ]]; then
   prevdir=$BASE/$previous
@@ -68,6 +76,10 @@ export EXP_SANGSAENG_BASE_RATIO=0.268 EXP_SEED_SANGSAENG=1 EXP_BALANCE_DAYS=39
 export EXP_DURABLES=1 EXP_CATLINE=fold EXP_POLICY_ANONYMOUS=1 POLICY_POI_SORT_BOOST=0
 export EXP_DAILY_INCOME=baseline EXP_DAILY_INCOME_MAP="$OUT/frozen_income.json"
 unset SIM_ALLOW_STAGE2_FALLBACK
+# [적립 몫을 정책에 반응하게 한다] 이 경로는 검수 케이스에서만 켠다. 동결된
+# 케이스들의 회계는 손대지 않는다 — 켜고 끔이 기준 런에서 항등임을 단위테스트가
+# 못 박고 있지만, 동결본은 바이트 단위로 같은 환경에서 돌아야 한다.
+if [[ $case_id == p012t ]]; then export EXP_ELIGIBLE_CHANNEL=1; else unset EXP_ELIGIBLE_CHANNEL; fi
 log() { printf '[%s] %s\n' "$(date -Is)" "$*" | tee -a "$ARM/arm.log"; }
 trap 'log "FAILED at line $LINENO; graph/output left intact"' ERR
 

@@ -17,6 +17,8 @@ case "$case_id" in
   p016) START=2020-07-28; END=2020-08-01; DAYS=5; POLICY=data/neo4j_load/policies/P016.json; PID=P016; FROM=2020-07-30; UNTIL=2020-11-30;;
   p014) START=2020-09-19; END=2020-09-23; DAYS=5; POLICY=data/neo4j_load/policies/P014.json; PID=P014; FROM=2020-09-21; UNTIL=2020-10-11;;
   p012) START=2021-10-01; END=2021-10-31; DAYS=31; N=12; POLICY=data/experiments/P012_v53_october_policy_20260928.json; PID=P012; FROM=2021-10-01; UNTIL=2021-11-30;;
+  # 출력 배관 검수용 압축월(7일). 실측 대조에 쓰지 않는다.
+  p012t) START=2021-10-01; END=2021-10-07; DAYS=7; N=40; POLICY=data/experiments/P012_v53_compressed7_TESTONLY.json; PID=P012; FROM=2021-10-01; UNTIL=2021-10-07;;
   *) echo "unknown case $case_id" >&2; exit 2;;
 esac
 cd "$REPO"
@@ -60,7 +62,7 @@ if [[ $case_id == p010 ]]; then
     --policy-id "$PID" --policy-file "$POLICY" \
     --metrics-dir "$ARM/metrics" --out "$ARM/policy.ledger.jsonl"
 fi
-if [[ $case_id == p012 ]]; then
+if [[ $case_id == p012 || $case_id == p012t ]]; then
   python scripts/report/export_cashback_month.py \
     --month 2021-10 --arm "$arm" --policy-id P012 --policy-file "$POLICY" \
     --base-ratio 0.268 --roster "$OUT/roster.json" \
@@ -128,7 +130,7 @@ sha256sum "$ARM/dossier.jsonl" "$ARM/dossier.jsonl.manifest.json" >> "$ARM/outpu
 if [[ $case_id == p010 ]]; then
   sha256sum "$ARM/policy.ledger.jsonl" "$ARM/policy.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
 fi
-if [[ $case_id == p012 ]]; then
+if [[ $case_id == p012 || $case_id == p012t ]]; then
   sha256sum "$ARM/cashback.ledger.jsonl" "$ARM/cashback.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
 fi
 if [[ $case_id == distancing ]]; then
