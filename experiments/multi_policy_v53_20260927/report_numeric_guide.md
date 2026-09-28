@@ -345,3 +345,28 @@ P010 등록 MPC 바로 뒤로 옮겨 같은 정책 아래 한 번만 표시합�
 실측 registry와 이 보고서는 실험 **평가 단계에서만** 읽습니다. 시민 프롬프트나
 모델 요청에는 주입하지 않습니다. 원시 원장과 정책별 scorer 산출물은 수정하지
 않고 정책별 파일 SHA256을 보고서 JSON에 보존합니다.
+
+원문 PDF의 추가 수치를 정책 안에서 빠짐없이 표시하려면
+`--benchmark-catalog <catalog.json>`을 반복해 전달합니다. 카탈로그 스키마는
+`pdf_benchmark_catalog_v1`이며 정책, 원문 파일 경로·SHA256·쪽수,
+`timing: "post-result exploratory"`, 지표별 숫자·단위·분모·모집단·기간·
+방법·PDF/인쇄 쪽·표 위치와 현재 계산 가능성/필요 데이터가 들어갑니다.
+실측이 숫자가 아닌 항목은 새 HTML 목록에서도 제외합니다. 숫자 또는
+원문 범위가 있어도 시뮬 자료가 아직 없으면 빈 비교 카드를 만들지 않고
+같은 정책의 **추가 원문 실측: 필요한 측정 데이터** 목록으로 표시합니다.
+원문 링크를 눌러 해당 PDF를 직접 열 수 있습니다.
+
+새 모델 호출 없이 보존된 원장을 CPU에서 집계한 값은
+`--benchmark-simulation <simulation.json>`을 반복해 연결합니다.
+`pdf_benchmark_simulation_v1`에는 `policy`, `catalog_path/catalog_sha256`,
+`source_evidence:[{path,sha256}]`, 선택적 기존 `numeric_path/numeric_sha256`,
+`rows:[{id,simulation,simulation_unit,formula,raw_components,sample_citizens,
+scope_note,quality_notes,direct_gap_allowed:false}]`가 필요합니다.
+원문, 카탈로그와 원장 파일 SHA를 확인하고 ID로 대응하며 P013/P014는
+내부 정책 키 `EMERGENCY_2020`/`LOCAL_VOUCHER`로 정규화합니다.
+원문 값과 산출값을 같은 정책 카드 안에 모으되 **결과 후 확장 탐색**으로
+표시합니다. null 값은 원금액·분모 등 실제 관측값과 이유를 보여 주며
+임의의 0%·성장률을 만들지 않습니다. 등록 주지표 14쌍과 원점수·관문은
+바꾸지 않으며 확장 입력으로 직접 오차·방향 적중을 승인할 수 없습니다.
+추가 값들은 기존의 비가중 소규모 시민 표본에서 계산한 것이므로 서울의
+성별·연령·행정동·소득 분포를 새로 교정한 실험 결과라고 설명하지 않습니다.

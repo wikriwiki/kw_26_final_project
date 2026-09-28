@@ -285,6 +285,43 @@ def test_generated_report_keeps_sources_and_machine_readable_coverage(tmp_path):
     assert "T-1" in out.read_text(encoding="utf-8")
 
 
+def test_pdf_catalog_and_sidecar_add_inside_policy_without_changing_registered_tally(tmp_path):
+    scoring, score = _synthetic(tmp_path)
+    source = tmp_path / "source.pdf"
+    source.write_bytes(b"source")
+    ledger = tmp_path / "ledger.jsonl"
+    ledger.write_bytes(b"ledger")
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps({
+        "schema": "pdf_benchmark_catalog_v1", "policy": "P010",
+        "timing": "post-result exploratory",
+        "source": {"path": str(source), "sha256": report._sha(source), "pages": 2},
+        "entries": [{"id": "P010-EXPANDED-TEST", "benchmark_kind": "share",
+                     "label": "추가 원문 숫자", "empirical": {"value": 4, "unit": "%",
+                         "period": "2025", "denominator": "전체 사용액", "method": "사용비중"},
+                     "simulation": {"feasibility": "supported_existing_ledger"},
+                     "direct_gap_allowed": False}]}), encoding="utf-8")
+    sidecar = tmp_path / "simulation.json"
+    sidecar.write_text(json.dumps({
+        "schema": "pdf_benchmark_simulation_v1", "policy": "P010",
+        "catalog_path": str(catalog), "catalog_sha256": report._sha(catalog),
+        "source_evidence": [{"path": str(ledger), "sha256": report._sha(ledger)}],
+        "rows": [{"id": "P010-EXPANDED-TEST", "simulation": 3, "simulation_unit": "%",
+                  "raw_components": {"on_won": 3, "off_won": 100}, "sample_citizens": 40,
+                  "scope_note": "업종 범위 다름", "direct_gap_allowed": False}]}), encoding="utf-8")
+    out, _, built = report.generate([score], out=tmp_path / "report.html",
+                                    scoring_path=scoring, numeric_only=True,
+                                    benchmark_catalogs=[catalog], benchmark_simulations=[sidecar])
+    assert built["indicator_count"] == 1
+    assert built["direct_gap_count"] == 1  # only the original independently audited fixture
+    markup = out.read_text(encoding="utf-8")
+    policy = markup.split('<section class="pol" id="policy-p010">', 1)[1].split('</section>', 1)[0]
+    assert 'class="id">P010-EXPANDED-TEST<' in policy
+    assert markup.count('class="id">P010-EXPANDED-TEST<') == 1
+    assert "PDF 추가 원문 1" in markup
+    assert "정식 오차·방향 적중·프롬프트 점수를 계산하지 않습니다" in markup
+
+
 def test_paired_pilot_proxies_never_become_empirical_gaps(tmp_path):
     effect = tmp_path / "paired.json"
     effect.write_text(json.dumps({

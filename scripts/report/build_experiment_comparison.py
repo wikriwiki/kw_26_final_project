@@ -39,6 +39,10 @@ from scripts.report.all_indicators_table import (  # noqa: E402
     direct_comparison_audited, truth_gap, truth_of,
 )
 from scripts.report.sign_scoreboard import direction_comparison_audited  # noqa: E402
+from scripts.report.pdf_benchmark_catalog import (  # noqa: E402
+    apply_catalogs as apply_pdf_benchmark_catalogs,
+    policy_html as pdf_benchmark_policy_html,
+)
 
 EXPECT = {"+": "증가", "-": "감소", "0": "무반응", "rank": "순위", "info": "참고"}
 POLICY_NAMES = {
@@ -2319,7 +2323,8 @@ def _track(row):
 
 
 def _coverage_html(coverage: list[dict], unregistered_count: int = 0,
-                   p014_posthoc: dict | None = None) -> str:
+                   p014_posthoc: dict | None = None,
+                   pdf_counts: dict | None = None) -> str:
     body = []
     included = [item for item in coverage if item["empirical_numeric_count"]]
     exploratory_only = [item for item in coverage
@@ -2358,6 +2363,15 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0,
                       f'업종 사용비중 {extra_count}개를 함께 표시합니다. '
                       '주지표와 업종 사용비중의 추가 탐색 실측을 구분하며 '
                       '상단 등록지표 합계에는 추가 탐색을 합산하지 않습니다.')
+        expanded = (pdf_counts or {}).get(item['policy'])
+        if expanded:
+            empirical_label += f' + PDF 추가 원문 {expanded["empirical"]}'
+            simulation_label += (f' + PDF 추가 수치 {expanded["numeric_pairs"]}'
+                                 f' / 원관측 {expanded["raw_only"]}')
+            paired_label += f' / PDF 추가 {expanded["numeric_pairs"]}'
+            action += (f' 같은 정책 카드에 추가 원문 숫자쌍 {expanded["numeric_pairs"]}개, '
+                       f'비율 없는 원관측 {expanded["raw_only"]}개, '
+                       f'자료 필요 {expanded["needs_data"]}개를 구분해 표시합니다.')
         body.append(
             '<tr>'
             f'<th scope="row">{policy_label}</th>'
@@ -2412,7 +2426,8 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0,
 
 
 def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None,
-                      p014_posthoc: dict | None = None, *, embedded: bool = False) -> str:
+                      p014_posthoc: dict | None = None, *, embedded: bool = False,
+                      pdf_report: dict | None = None) -> str:
     cards_by_policy: dict[str, list[str]] = {}
     policy_names = {}
     contexts = {}
@@ -2607,7 +2622,10 @@ def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None,
                          '후속 KSIC 집계로 원점수·관문·선택을 대체하지 않았고, '
                          '독립 검증지표를 추가한 것으로 세지 않습니다.</p>'
                          + card_html + '</details>')
-        group += card_html + '</div>'
+        group += card_html
+        if pdf_report:
+            group += pdf_benchmark_policy_html(pdf_report, policy)
+        group += '</div>'
         groups.append(group)
     grouped = ''.join(groups)
     if embedded:
@@ -3187,6 +3205,7 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
     p010_extra = [item for item in report.get("exploratory_pairs", [])
                   if item["policy"] == "P010"] if numeric_only else []
     inline_exploratory_policies = set()
+    inline_catalog_policies = set()
     for policy in dict.fromkeys(r["policy"] for r in rows):
         rs = [r for r in rows if r["policy"] == policy]
         score_line = next((f'{r["score_label"] or "무명"}'
@@ -3198,8 +3217,10 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
         p010_summary = ''
         if policy == "P010" and p010_extra:
             main_label = "MPC" if any(row["id"] == "P010-1" for row in rs) else "등록 지표"
+            count_label = ('기존 기준선의 수치 ' if report.get('pdf_benchmark_counts', {}).get(policy)
+                           else '실측이 있는 수치 ')
             p010_summary = (
-                '<p class="policy-count"><strong>실측이 있는 수치 '
+                '<p class="policy-count"><strong>' + count_label +
                 f'{len(rs) + len(p010_extra)}개: {main_label} {len(rs)}개 + '
                 f'업종 사용비중 {len(p010_extra)}개</strong>. '
                 '바로 아래에서 같은 정책의 수치를 모두 확인할 수 있습니다. '
@@ -3323,6 +3344,9 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
         if policy == "P010" and p010_extra:
             parts.append(_exploratory_html(p010_extra, embedded=True))
             inline_exploratory_policies.add(policy)
+        if report.get('pdf_benchmark_catalogs'):
+            parts.append(pdf_benchmark_policy_html(report, policy))
+            inline_catalog_policies.add(policy)
         parts.append('</section>')
         sections.append(''.join(parts))
     if numeric_only:
@@ -3379,7 +3403,8 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
     if numeric_only:
         sections.insert(0, _coverage_html(report["policy_coverage"],
                                           len(report.get("unregistered_policies") or []),
-                                          report.get("p014_ksic_posthoc")))
+                                          report.get("p014_ksic_posthoc"),
+                                          report.get("pdf_benchmark_counts")))
     if numeric_only and report.get("prompt_variant") == "v53":
         prompt_note = (
             '모든 정책 팔의 범용 v53 프롬프트 SHA256 지문이 일치합니다. '
@@ -3407,6 +3432,11 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         '아닙니다. 원시 모델 출력은 앵커·계획 처리, 소비성향 제한, 온라인 비중 '
                         '배분, 장소 보정과 결제 정산을 거칩니다. 이 결과는 고정된 실행 엔진 '
                         '안에서의 v53 기준선이며 프롬프트 단독 효과를 분리한 실험이 아닙니다.</p>'
+                        '<p><strong>새 모집단 표집 요구의 적용 여부:</strong> 이 보고서의 기존 '
+                        '시민 표본은 서울의 성별·나이대·행정동·소득 실측 분포를 모두 맞춘 '
+                        '대표 표본이 아닙니다. 현재 추가 숫자는 보존된 원장을 다시 집계한 '
+                        '것이며 새 분포 일치 표본으로 재실행한 결과가 아닙니다. '
+                        '4축 표본화와 해당 표본의 새로운 정책 실험은 별도 후속 단계입니다.</p>'
                         '<p>이 보고서는 현재 범용 프롬프트가 정책별로 어떤 방향과 대략적인 '
                         '크기의 숫자를 내는지 확인하는 출발점입니다. 실측과 시뮬의 기간·모집단·'
                         '분모·대조군이 다른 행은 정식 효과 오차로 채점하지 않습니다. '
@@ -3419,7 +3449,15 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
     if remaining_exploratory or report.get("exploratory_uncomputed"):
         sections.append(_exploratory_html(remaining_exploratory,
                                          report.get("exploratory_uncomputed"),
-                                         report.get("p014_ksic_posthoc")))
+                                         report.get("p014_ksic_posthoc"),
+                                         pdf_report=report))
+        inline_catalog_policies.update(row['policy'] for row in remaining_exploratory)
+        inline_catalog_policies.update(row['policy'] for row in report.get('exploratory_uncomputed') or []
+                                       if row.get('p014_food_zero_display_audit'))
+    for policy in dict.fromkeys(item['policy'] for item in report.get('pdf_benchmark_catalogs') or []):
+        if policy not in inline_catalog_policies:
+            sections.append('<section class="pol"><h2>' + _esc(POLICY_NAMES.get(policy, policy))
+                            + '</h2>' + pdf_benchmark_policy_html(report, policy) + '</section>')
     tally_html = ''.join(f'<div class="stat"><span class="v">{v}</span><span class="k">{_esc(k)}</span></div>'
                          for v, k in stats)
     unregistered = report.get("unregistered_policies") or []
@@ -3493,7 +3531,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
              p014_catalog_audit: Path | None = None,
              p014_ksic_proxy: Path | None = None,
              consumption_architecture_audit: Path | None = None,
-             in_progress_policies: list[str] | None = None) -> tuple[Path, Path, dict]:
+             in_progress_policies: list[str] | None = None,
+             benchmark_catalogs: list[Path] | None = None,
+             benchmark_simulations: list[Path] | None = None) -> tuple[Path, Path, dict]:
     multi_paths = ([multi_policy_pairs] if isinstance(multi_policy_pairs, Path)
                    else list(multi_policy_pairs or []))
     if sum((bool(score_paths), bool(paired_effect), bool(multi_paths))) != 1:
@@ -3566,7 +3606,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
                                                            *([p014_ksic_proxy]
                                                              if p014_ksic_proxy else []),
                                                            *([consumption_architecture_audit]
-                                                             if consumption_architecture_audit else [])]):
+                                                             if consumption_architecture_audit else []),
+                                                           *(benchmark_catalogs or []),
+                                                           *(benchmark_simulations or [])]):
         raise ValueError("report paths must not overwrite source scores or each other")
     if multi_paths:
         report = build_multi_policy_pairs(multi_paths, scoring_path, suite=experiment)
@@ -3623,6 +3665,9 @@ def generate(score_paths: list[Path], *, experiment: str = "", out: Path | None 
         if unknown:
             raise ValueError(f"unknown in-progress policy: {sorted(unknown)}")
         report = numeric_pair_view(report, in_progress_policies=progress)
+    if benchmark_catalogs or benchmark_simulations:
+        report = apply_pdf_benchmark_catalogs(report, benchmark_catalogs or [],
+                                             benchmark_simulations or [], ROOT)
     _atomic_write(json_out, json.dumps(report, ensure_ascii=False, indent=2) + "\n")
     _atomic_write(out, render(report))
     return out, json_out, report
@@ -3671,6 +3716,10 @@ def main() -> int:
                     help="optional completed-run postprocessing attribution audit; preserves all scores")
     ap.add_argument("--in-progress-policy", action="append", default=[],
                     help="explicit policy still running; show progress without empty numeric rows")
+    ap.add_argument("--benchmark-catalog", type=Path, action="append", default=[],
+                    help="SHA-checked post-result PDF numerical benchmarks; leaves registered scores unchanged")
+    ap.add_argument("--benchmark-simulation", type=Path, action="append", default=[],
+                    help="catalog-bound CPU ledger proxy sidecar; no direct gaps or registered hits")
     ap.add_argument("--experiment", default="")
     ap.add_argument("--out", type=Path)
     ap.add_argument("--json-out", type=Path)
@@ -3701,7 +3750,9 @@ def main() -> int:
                                          p014_catalog_audit=a.p014_catalog_audit,
                                          p014_ksic_proxy=a.p014_ksic_proxy,
                                          consumption_architecture_audit=a.consumption_architecture_audit,
-                                         in_progress_policies=a.in_progress_policy)
+                                         in_progress_policies=a.in_progress_policy,
+                                         benchmark_catalogs=a.benchmark_catalog,
+                                         benchmark_simulations=a.benchmark_simulation)
     except (ValueError, OSError, KeyError, json.JSONDecodeError) as exc:
         ap.error(str(exc))
     print(f"{out} | {json_out} | indicators={report['indicator_count']} "
