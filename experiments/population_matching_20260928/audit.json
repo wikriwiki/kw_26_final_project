@@ -5430,6 +5430,10 @@
     {
       "path": "docs/INCOME_ASSIGNMENT_PLAN.md",
       "sha256": "dee30d4ff35d9dafe37557319b13d8aadb340521f35992925c150f6c6407f4f6"
+    },
+    {
+      "path": "scripts/sim/dawn_context.py",
+      "sha256": "160e6cb14e3b22b53974e6c898a13186bb9a85f96a7e563f0997269786874eca"
     }
   ],
   "official_four_field_frame_available_in_this_audit": false,
@@ -5443,5 +5447,13 @@
     "ID 10대 includes people below 20; its relation to each empirical paper adult/household population needs a declared eligibility mapping.",
     "Resident-person margins cannot be taken from household-income percentages without documented expansion weights.",
     "Matching four marginals does not establish the sex-age-dong-income joint distribution."
-  ]
+  ],
+  "runtime_income_binding": {
+    "current_field": "Agent.p_income_level",
+    "model_persona_alias": "income",
+    "new_income_assignment_bound": false,
+    "income_field_v2_found_in_active_sources": false,
+    "proposed_cohort_alone_updates_persona_or_policy_income": false,
+    "graph_or_runtime_code_changed": false
+  }
 }
