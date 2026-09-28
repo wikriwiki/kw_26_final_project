@@ -64,16 +64,34 @@ def demographic_counts(records, period):
     return counts, joint, totals.pop()
 
 
-def build(policy, period, source_dir, out, manifest, alignment_path):
+def build(policy, period, source_dir, out, manifest, alignment_path, source_kind='datahub'):
     source_entry = next(r for r in manifest['results'] if r['policy'] == policy)
-    if source_entry['period'] != period:
+    source_period = source_entry['reference_month'] if source_kind == 'mois' else source_entry['period']
+    if source_period != period:
         raise ValueError('Source manifest period mismatch')
-    csv_path = source_dir / f'official_resident_sex_age_dong_{period}.from_json.csv'
-    source_record = next(r for r in source_entry['files'] if r['path'].endswith('.from_json.csv'))
+    if source_kind == 'mois':
+        csv_path = source_dir/f'official_mois_age_seoul_{period}.long.from_csv.csv'
+        source_record = next(r for r in source_entry['source_evidence'] if r['path'].endswith('.long.from_csv.csv'))
+        source_page = manifest['page_url']
+        code_system = f'MOIS_admin10_actual_at_reference_month_{period}'
+        manifest_name = 'official_mois_population_months_manifest.json'
+    else:
+        csv_path = source_dir / f'official_resident_sex_age_dong_{period}.from_json.csv'
+        source_record = next(r for r in source_entry['files'] if r['path'].endswith('.from_json.csv'))
+        source_page = source_entry['source_page']
+        code_system = f'SeoulDataHub_KOSIS_DT_1B04005N_native_10digit_{period}'
+        manifest_name = 'official_population_months_manifest.json'
     if sha(csv_path) != source_record['sha256']:
         raise ValueError('Official derived CSV SHA mismatch')
     with csv_path.open(encoding='utf-8-sig', newline='') as stream:
-        counts, joint, total = demographic_counts(list(csv.DictReader(stream)), period)
+        records = list(csv.DictReader(stream))
+    if source_kind == 'mois':
+        records = [{**r,'stats_ym':r['reference_month'],'admdong_cd':r['mois_admin_code10']}
+                   for r in records]
+    counts, joint, total = demographic_counts(records, period)
+    expected_dongs = source_entry['seoul_dongs'] if source_kind == 'mois' else source_entry['audit']['administrative_dongs']
+    if len(counts['admin_dong']) != expected_dongs:
+        raise ValueError('Adult dong support differs from preserved source universe')
     year = int(period[:4])
     targets = {}
     for field, counter in counts.items():
@@ -81,9 +99,9 @@ def build(policy, period, source_dir, out, manifest, alignment_path):
                           'source':evidence(csv_path),'population_unit':'resident_person',
                           'reference_year':year,'source_population_unit':'resident_person',
                           'source_reference_year':year,'source_reference_period':period,
-                          'source_url':source_entry['source_page'],
+                          'source_url':source_page,
                           'field_definition':f'{period} 서울 내국인 주민등록 인구 중 20세 이상 {field}'}
-    targets['admin_dong']['code_system'] = f'SeoulDataHub_KOSIS_DT_1B04005N_native_10digit_{period}'
+    targets['admin_dong']['code_system'] = code_system
     income_year = INCOME_YEARS[policy]
     income_path = out / f'income_distribution_{income_year}.json'
     income = json.loads(income_path.read_text(encoding='utf-8'))
@@ -97,13 +115,14 @@ def build(policy, period, source_dir, out, manifest, alignment_path):
                              'population_alignment':{
                                  'method':'시행 이전에 측정된 연간 소득 주변분포를 초기 공변량으로 사용하는 명시적 시점 이월 가정. 시행 전월 소득분포 실측으로 간주하지 않음.',
                                  'source_evidence':[evidence(alignment_path)]}}
-    path = out / f'policy_population_targets_{policy}_{period}.json'
+    prefix = 'policy_mois_population_targets' if source_kind == 'mois' else 'policy_population_targets'
+    path = out / f'{prefix}_{policy}_{period}.json'
     write(path, {'schema':'population_calibration_frame_v1','policy':policy,
                  'reference_year':year,'reference_period':period,
                  'population_unit':'resident_person','age_scope':'20세 이상 내국인 주민등록 시민',
                  'resident_count':total,'administrative_dong_count':len(counts['admin_dong']),
                  'targets':targets,'demographic_joint_counts':joint,
-                 'source_manifest_evidence':evidence(source_dir/'official_population_months_manifest.json'),
+                 'source_manifest_evidence':evidence(source_dir/manifest_name),
                  'status':'official_targets_ready_not_a_calibrated_cohort',
                  'model_calls_allowed':False,
                  'limitations':[
@@ -121,8 +140,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--source-dir',type=Path,default=ROOT/'output/population_frame_sources_20260928')
     parser.add_argument('--out',type=Path,default=ROOT/'output/population_matching_20260928')
+    parser.add_argument('--source-kind',choices=['datahub','mois'],default='datahub')
     args = parser.parse_args()
-    manifest = json.loads((args.source_dir/'official_population_months_manifest.json').read_text(encoding='utf-8'))
+    manifest_name = 'official_mois_population_months_manifest.json' if args.source_kind == 'mois' else 'official_population_months_manifest.json'
+    manifest = json.loads((args.source_dir/manifest_name).read_text(encoding='utf-8'))
     alignment_path = args.out/'prepolicy_income_alignment.json'
     write(alignment_path, {'schema':'annual_income_population_alignment_v1',
                           'income_definition':'개인 근로소득이나 지출 분위가 아닌 세전 월평균 총 가구소득',
@@ -135,9 +156,10 @@ def main():
                           'source_evidence':[evidence(args.out/f'income_distribution_{y}.json')
                                              for y in sorted(set(INCOME_YEARS.values()))],
                           'policy_outcome_used':False,'model_calls_allowed':False})
-    results = [build(policy,period,args.source_dir,args.out,manifest,alignment_path)
+    results = [build(policy,period,args.source_dir,args.out,manifest,alignment_path,args.source_kind)
                for policy,period in PERIODS.items()]
-    write(args.out/'policy_population_targets_manifest.json',
+    output_name = 'policy_mois_population_targets_manifest.json' if args.source_kind == 'mois' else 'policy_population_targets_manifest.json'
+    write(args.out/output_name,
           {'schema':'six_policy_population_target_manifest_v1','results':results,
            'calibrated_cohort_completed':False,'population_matched_simulation_completed':False,
            'model_calls_allowed':False})

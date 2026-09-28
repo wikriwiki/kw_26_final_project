@@ -11,6 +11,7 @@ from collections import Counter, defaultdict
 import csv
 import hashlib
 import json
+import math
 from pathlib import Path
 import re
 import zipfile
@@ -164,8 +165,8 @@ def survey_income(source, out, year):
             continue
         sex = {1:'M', 2:'F'}[int(row[sex_key])]
         weight = float(row['wtb1'])
-        if not weight > 0:
-            raise ValueError('nonpositive member expansion weight')
+        if not math.isfinite(weight) or not weight > 0:
+            raise ValueError('nonfinite/nonpositive member expansion weight')
         gu = str(row[gu_key])
         band = choices[int(income)]
         counts[band] += weight

@@ -19,6 +19,8 @@
 
 인구 원본·파생 CSV·페이지 종료 증거는 [원문 매니페스트](<G:/내 드라이브/Kw/final_project/output/population_frame_sources_20260928/official_population_months_manifest.json>)에 있다. 동 코드는 원본의 10자리를 유지했다. KOSIS 제공 코드와 현재 그래프의 행정안전부 코드가 항상 같다고 가정하지 않는다.
 
+추가로 [행정안전부 주민등록 원천](https://jumin.mois.go.kr/ageStatMonth.do)의 같은 6개월 공개 CSV도 직접 보존했다. 서울의 동별 성별×나이 66개 숫자 벡터가 두 공식 자료에서 전수 일치한다. 일부 제공 코드 표기가 달라, 후속 준비에는 명칭으로 억지 대응한 파일 대신 행정안전부의 해당 월 원천 코드를 유지하는 [MOIS 직접 목표 매니페스트](<G:/내 드라이브/Kw/final_project/output/population_matching_20260928/policy_mois_population_targets_manifest.json>)를 사용할 수 있다. 원래 KOSIS 목표는 그대로 보존했다. 등록인구 총계에는 거주자·거주불명자·재외국민 등록이 포함되며 실제 서울 거주만을 확정한 수혜자 명부는 아니다. 과거 경계와 현재 거주 위치 정합은 원천 코드 확보와 별도 관문이다.
+
 ## 소득은 가구원 원가중치로 연결했다
 
 [공식 서울서베이 원자료](https://data.seoul.go.kr/dataList/OA-15564/F/1/datasetView.do)의 가구주·가구원 원문 XLSX를 수정 없이 읽었다. 가구 ID로 월평균 총 가구소득 구간을 가구원에 연결하고, 가구원 원가중치 `wtb1`로 20세 이상 시민이 어느 소득 구간의 가구에 사는지 계산했다. 가구주 원가중치 `wta1`로 가구 분포를 구해 개인 분포라고 부르는 방법을 쓰지 않았다. 원문 집계에서 소득 ID 연결 실패는 없다.
@@ -55,6 +57,6 @@
 
 ## 보존과 재현
 
-원문 ZIP은 바이트 그대로 보존했다. 초기 공변량에 사용하는 2019·2021·2024년 ZIP과 목표·소득 집계 JSON은 C:와 G: 복사본의 SHA256이 일치한다. [보존 매니페스트](<G:/내 드라이브/Kw/final_project/output/population_matching_20260928/source_targets_preservation_manifest.json>)에 파일별 지문이 있다. 전체 원문은 공개 자료이며 Git에는 큰 원자료나 개인별 원시 조사 행을 올리지 않는다.
+원문 ZIP은 바이트 그대로 보존했다. 초기 공변량에 사용하는 2019·2021·2024년 ZIP과 목표·소득 집계 JSON은 C:와 G: 복사본의 SHA256이 일치한다. [첫 보존 매니페스트](<G:/내 드라이브/Kw/final_project/output/population_matching_20260928/source_targets_preservation_manifest.json>)와 [MOIS 목표까지 포함한 후속 매니페스트](<G:/내 드라이브/Kw/final_project/output/population_matching_20260928/source_targets_preservation_mois_manifest.json>)에 파일별 지문이 있다. 전체 원문은 공개 자료이며 Git에는 큰 원자료나 개인별 원시 조사 행을 올리지 않는다.
 
 집계 도구는 `tools/build_seoul_population_frames_20260928.py`, `tools/build_policy_population_targets_20260928.py`이다. 후자는 출처 지문·기준월·허용 성별과 나이 코드·동별 남녀×17개 성인 나이 구간의 완전성을 확인하고 동·구·시 합계가 중복되지 않도록 집계한다. 기존 정책 실험 숫자와 동결 입력은 변경하지 않았다.
