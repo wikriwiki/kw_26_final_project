@@ -1,5 +1,13 @@
 # 실내 금연구역 실험 인수인계
 
+### 2026-09-29 GitHub 코드 게시
+
+- 사용자 요청으로 누적된 금연 실험 코드·실험 명세·표본 ID·Vast 배포/백업/복구·런타임 패치·테스트·문서 200개 파일을 코드 커밋 `8f543bda` (`feat(no-smoking): add grounded experiment and resilient Vast execution`)으로 저장했다. `git push -u origin No_SmokingZone_EXP`가 성공했고 `wikriwiki/kw_26_final_project`의 같은 이름 원격 브랜치와 upstream이 생성됐다. 이 절은 게시 결과와 검사 내역을 남기는 후속 문서 커밋이다.
+- 실제 로컬 검사: 변경/신규 테스트 27개 파일을 그룹별로 실행해 시뮬레이션 **376 passed**, 배포 **44 passed + 7 subtests passed**, persona 모델 선택 **5 passed**; 합계 **425 passed + 7 subtests passed**. 최초 한 프로세스에서 27개 파일을 함께 수집한 시도는 persona와 Neo4j의 `_common` 모듈 이름 충돌로 수집 오류 1건이 발생했다. 그룹별 실행은 통과했지만 이 공통 모듈 namespace 문제 자체를 수정한 것은 아니다. 전체 저장소 테스트와 새 실제 모델/성능평가는 이번 게시 작업에서 실행하지 않았다.
+- 비밀정보 패턴과 게시 파일 크기를 검사했으며 실제 인증정보·개인키·환경 파일·덤프·결과 아카이브는 추가하지 않았다. 공개 저장소에 불필요한 개인 결제/정산 내역은 `deploy/vast/local/billing_handoff_20260928.md`에 바이트 단위로 원문을 보존하고 이 문서에는 참조만 남겼다. 해당 경로와 `ACTIVE_DEPLOYMENT.json`의 Git 제외를 확인했다.
+- `deploy/vast/.gitattributes`에서 배포 Python 파일의 LF를 고정했다. 이전 retry 패치의 `frozen_source/stage1_intent.py`는 SHA256에 묶인 혼합 줄바꿈을 그대로 보존하도록 예외를 지정했다. 런타임 패치 13개 파일의 Git 저장 바이트와 로컬 바이트/해시 일치를 확인했고, 해당 CR 줄바꿈을 인식하는 속성 적용 후 staged `git diff --check`를 통과했다.
+- 이번 작업은 로컬 코드 게시이며 Vast의 실행·활성 frozen v22/패치·연구 조건·6시간 감시는 변경하지 않았다. 다음 실험 점검은 아래의 최근 실제 서버 상태와 로컬 `ACTIVE_DEPLOYMENT.json`을 읽고 진행한다. 전체 pytest 단일 수집의 `_common` 충돌은 별도 정리 대상이다.
+
 ### 2026-09-28 23:07 KST 6시간 감시 — Day4 완료·백업, Day5 진행
 
 - 14:06~14:07 UTC 기존 Vast `52220534` SSH 점검: v22 pipeline `running/shared-pre`, supervisor PID 12757·simulator 12963·no-auto-stop watcher 12956 생존, 모델 `/health` HTTP 200, Neo4j 정상, `/workspace` 여유 약 9.53GB. 활성 grounding 패치 SHA256 `7dd2a8a425724ba5c8c658c04a0fdfd9190ec3b21d06be8b23350c9844eb97d5`와 launcher SHA256 `d99dc2c989025de2ba5726a121b3bde46cc3ba9a5b5eb5804c5cb195c7c28fa2`를 원격 파일에서 재확인했다. 코드·조건·프로세스 재시작 없이 계속 진행 중이다.
