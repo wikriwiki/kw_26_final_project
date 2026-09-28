@@ -68,6 +68,25 @@ if [[ $case_id == p012 ]]; then
 fi
 log 'Completed read-only graph ledger exports'
 
+# 기억·스케줄·지출 내역은 그래프 안에만 있고, 다음 팔이 그래프를 덮는다. 덮이기
+# 전에 사람 단위로 빼 둔다 — 1대1 인터뷰가 덤프 복원 없이 읽을 수 있어야 한다.
+# 날이 하나라도 빠지면 이 스크립트가 여기서 멈춘다(반쪽 보존을 남기지 않는다).
+python scripts/report/export_agent_dossier.py \
+  --roster "$OUT/roster.json" --start "$START" --end "$END" --arm "$arm" \
+  --out "$ARM/dossier.jsonl"
+test -s "$ARM/dossier.jsonl"
+test -s "$ARM/dossier.jsonl.manifest.json"
+python - "$ARM/dossier.jsonl.manifest.json" "$DAYS" "$N" <<'PY'
+import json, sys
+m = json.load(open(sys.argv[1]))
+assert m["expected_days"] == int(sys.argv[2]), m["expected_days"]
+assert m["agents"] == int(sys.argv[3]), m["agents"]
+assert not m["state_day_gaps"], m["state_day_gaps"][:1]
+assert m["totals"]["states"] == m["agents"] * m["expected_days"], m["totals"]
+assert m["totals"]["memories"] > 0 and m["totals"]["plan_items"] > 0, m["totals"]
+PY
+log "Agent dossier preserved: memories, schedules, spending, wallet states"
+
 DEST=$ARM/graph_backup
 mkdir -p "$DEST"
 chmod 700 "$DEST"
@@ -105,6 +124,7 @@ sha256sum "$ARM/summary.json" "$ARM/sector.ledger.jsonl" \
   "$ARM/sector.ledger.jsonl.manifest.json" "$ARM/stage2.json" \
   "$ARM/run_manifest.json" > "$ARM/outputs.sha256"
 sha256sum "$ARM/served_model_evidence.json" >> "$ARM/outputs.sha256"
+sha256sum "$ARM/dossier.jsonl" "$ARM/dossier.jsonl.manifest.json" >> "$ARM/outputs.sha256"
 if [[ $case_id == p010 ]]; then
   sha256sum "$ARM/policy.ledger.jsonl" "$ARM/policy.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
 fi
