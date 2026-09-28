@@ -1,0 +1,270 @@
+{
+  "schema": "policy_eligibility_audit_v1",
+  "created_at_kst": "2026-09-28T10:30:12",
+  "status": "read-only post-result architecture audit; not a new experiment or policy-effect pass",
+  "scope": [
+    "P010 first-round 2025 actual preserved policy",
+    "P010 second-round distinctions only; not implemented in July pilot",
+    "P013 final May 2020 scheme"
+  ],
+  "population_distribution_match_does_not_prove_policy_eligibility": true,
+  "existing_policy_eligibility_gate_pass": false,
+  "existing_code_policy_inputs_numeric_outputs_unchanged": true,
+  "new_model_calls": 0,
+  "source_evidence": [
+    {
+      "id": "p010_first_qa",
+      "url": "https://www.korea.kr/news/policyNewsView.do?newsId=148953447",
+      "path": "output/population_matching_20260928/eligibility_sources/p010_first_qa.html",
+      "sha256": "bb22731e4058d107216d64d29705e0b8c091001d992e56e7bafc6ba5bb99bbad",
+      "bytes": 187955,
+      "status": 200,
+      "retrieved_at_kst": "2026-09-28T10:27:49"
+    },
+    {
+      "id": "p010_first_overview",
+      "url": "https://www.mois.go.kr/frt/bbs/type002/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000205&nttId=118706",
+      "path": "output/population_matching_20260928/eligibility_sources/p010_first_overview.html",
+      "sha256": "3ac99da469a38568be9b41bfd0f5b878e319aebd43ad125895c38485c1164dac",
+      "bytes": 165807,
+      "status": 200,
+      "retrieved_at_kst": "2026-09-28T10:27:48"
+    },
+    {
+      "id": "p010_second_briefing",
+      "url": "https://m.korea.kr/briefing/policyBriefingView.do?newsId=156721839",
+      "path": "output/population_matching_20260928/eligibility_sources/p010_second_briefing.html",
+      "sha256": "6b4694c0ed59d391e099fec89e20f5d86a915b54a5f3567337ae54582fe19268",
+      "bytes": 236036,
+      "status": 200,
+      "retrieved_at_kst": "2026-09-28T10:27:49"
+    },
+    {
+      "id": "p013_final_briefing",
+      "url": "https://www.korea.kr/news/policyNewsView.do?newsId=156388381",
+      "path": "output/population_matching_20260928/eligibility_sources/p013_final_briefing.html",
+      "sha256": "f8322422558e708113baca8f641f05eddab3d099f6982dfa75040848e5008491",
+      "bytes": 166001,
+      "status": 200,
+      "retrieved_at_kst": "2026-09-28T10:27:48"
+    },
+    {
+      "id": "p013_final_guide",
+      "url": "https://www.mois.go.kr/frt/bbs/type002/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000205&nttId=76963",
+      "path": "output/population_matching_20260928/eligibility_sources/p013_final_guide.html",
+      "sha256": "c972f827162f84cef584ecb98f047a0a9bf5ecd650f9d869061194e44d01be85",
+      "bytes": 167724,
+      "status": 200,
+      "retrieved_at_kst": "2026-09-28T10:27:48"
+    }
+  ],
+  "local_evidence": [
+    {
+      "path": "data/experiments/P010_v53_policy_20260927.json",
+      "sha256": "09c54cdfaf26a00f6e4ee91e2d51947b71f75800066c765e6b439c3e9ad1a3ba",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "data/experiments/P013_v53_policy_20260926.json",
+      "sha256": "ce775342019f6ae82194d82c59723a0423eebab19b8a90d42674d8068247f744",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "scripts/sim/plan_writer.py",
+      "sha256": "80c797a4c22728e991b58166155250ad8e7139d2327e9e1c285142a1718782c5",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "scripts/sim/run_simulation.py",
+      "sha256": "20a619c7451f80e998b8fea3b6c9df610f531d9a22bc6c6aefe3c5cd67ea27cc",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "scripts/sim/dawn_context.py",
+      "sha256": "ba3b221cafc1345f9108f98e6260833408a73bc6ecd1cecb4f2865d83d48e7b5",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "scripts/sim/population_profile.py",
+      "sha256": "30710d2c0904abf50dc0287e280434418f91d8ff1ce531425f2aebe5fc5fc913",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "output/population_matching_20260928/legacy_runtime_sources/run_simulation.py",
+      "sha256": "7e8313ba3fb0cd0923ef3e5ca2a09607cd974938a1c3bb7648a8966832e3bfd4",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "output/population_matching_20260928/legacy_runtime_sources/dawn_context.py",
+      "sha256": "160e6cb14e3b22b53974e6c898a13186bb9a85f96a7e563f0997269786874eca",
+      "role": "local policy or code; new profile attachment is opt-in preparation, not deployed to preserved runs"
+    },
+    {
+      "path": "output/recovery_20260928/multipolicy_v53/p010/on/on/sector.ledger.jsonl.manifest.json",
+      "sha256": "75b95dfdf85e60a69c51d9901fa20a032cd55c0617c1909a31fc830663475cae",
+      "role": "preserved policy input fingerprint from completed ON run"
+    },
+    {
+      "path": "output/p013_v53_pilot_20260927/on.ledger.jsonl.manifest.json",
+      "sha256": "25ef5b551f9f1df2b6f9bfd6902d2da24773ab009a7242a72f76c00048868e74",
+      "role": "preserved policy input fingerprint from completed ON run"
+    }
+  ],
+  "runtime_findings": {
+    "grant_unit": "Agent individual wallet",
+    "grant_timing": "once on effective_from, if policy ID not previously received",
+    "decile_grants_priority": "nonempty decile_grants is evaluated before income_grants; a new household-income profile cannot override this branch",
+    "legacy_persona_income": "generated income tier is not verified income",
+    "new_profile_preparation": "explicit opt-in same profile for Dawn and eligibility; not deployed; preserves household income definition and requires documented band-to-tier mapping",
+    "no_implemented_recipient_gate_in_inspected_path": [
+      "citizenship or residence-permit class",
+      "reference-date resident or domestic-stay verification",
+      "actual welfare-recipient status",
+      "household member and head linkage",
+      "health-insurance premium/type and dependency linkage",
+      "application and payment date verification"
+    ]
+  },
+  "policies": [
+    {
+      "policy": "P010",
+      "phase": "first",
+      "official_sources": [
+        "p010_first_qa",
+        "p010_first_overview",
+        "p010_second_briefing"
+      ],
+      "official_rules": {
+        "entitlement_unit": "individual; minors generally apply and receive through resident-register head",
+        "means_test_exclusion_of_top_decile": false,
+        "base_won": 150000,
+        "nearpoor_or_single_parent_won": 300000,
+        "basic_livelihood_recipient_won": 400000,
+        "seoul_regional_supplement_won": 0,
+        "first_application_start": "2025-07-21",
+        "reference_date": "2025-06-18",
+        "nationality": "nationals; foreigner exceptions require specific residence/register and health-insurance or medical-aid conditions",
+        "minor_rule_source_note": "September official briefing explicitly says same application rule as first round; not evidence minors have no entitlement"
+      },
+      "implemented_policy": {
+        "path": "data/experiments/P010_v53_policy_20260927.json",
+        "sha256": "09c54cdfaf26a00f6e4ee91e2d51947b71f75800066c765e6b439c3e9ad1a3ba",
+        "grant_key": "spend_decile",
+        "decile_grants": {
+          "1": 400000,
+          "2": 300000,
+          "3": 150000,
+          "4": 150000,
+          "5": 150000,
+          "6": 150000,
+          "7": 150000,
+          "8": 150000,
+          "9": 150000,
+          "10": 150000
+        },
+        "excluded_deciles": [],
+        "actual_status_substitution": "consumption decile 1 substitutes basic welfare status, decile 2 substitutes nearpoor/single-parent status, deciles 3-10 general category",
+        "preserved_run_policy_sha256": "09c54cdfaf26a00f6e4ee91e2d51947b71f75800066c765e6b439c3e9ad1a3ba",
+        "frozen_bytes_match": true
+      },
+      "household_income_band_alone_sufficient": false,
+      "why_not": [
+        "low consumption is not legal welfare-recipient status",
+        "household income band does not establish assets, recognized income, recipient certification or household rules used by welfare programs",
+        "income profile does not replace decile_grants priority",
+        "citizenship, reference residence, adult/head application and actual take-up are separate conditions"
+      ],
+      "needed_fields": [
+        "nationality",
+        "residence_permit_class if foreign national",
+        "reference_date_residence and domestic_stay/appeal status",
+        "verified basic_livelihood_recipient/nearpoor/single_parent_status with reference date",
+        "exact birth date and minor applicant/head relation",
+        "policy_household_id and household_head_agent_id for minor routing",
+        "application/submission/payment date and instrument"
+      ],
+      "interpretation": "existing pilot is a consumption-decile grant scenario, not an individually verified reconstruction of first-round recipients"
+    },
+    {
+      "policy": "P010",
+      "phase": "second",
+      "official_sources": [
+        "p010_second_briefing"
+      ],
+      "not_part_of_preserved_july_pilot": true,
+      "official_rules": {
+        "selection_unit": "household",
+        "selection_reference_date": "2025-06-18",
+        "health_premium_reference": "2025-06 assessed household aggregate; thresholds depend on insurance type, household size and multi-earner treatment",
+        "high_asset_exclusion": "household 2024 property-tax base > 1.2 billion won or 2024 financial income > 20 million won",
+        "entitlement_unit": "100000 won per eligible individual",
+        "application_start": "2025-09-22"
+      },
+      "household_income_band_alone_sufficient": false,
+      "needed_fields": [
+        "policy household membership and spouse/child health dependent links across addresses",
+        "June 2025 actual assessed health premium and job/regional/mixed insurance class",
+        "number of income earners and applicable household-size adjustment",
+        "2024 household property-tax base and financial income",
+        "nationality/residence conditions and application/payment records"
+      ],
+      "warning": "do not add second-round top-decile or health-premium rules to the first-round July policy"
+    },
+    {
+      "policy": "P013",
+      "phase": "final May 2020",
+      "official_sources": [
+        "p013_final_briefing",
+        "p013_final_guide"
+      ],
+      "official_rules": {
+        "selection_scope": "final scheme expanded to all national households, unlike preliminary bottom-70-percent proposal",
+        "entitlement_unit": "household",
+        "household_definition": "resident-register household with health-insurance dependent concept",
+        "household_amount_won": {
+          "1": 400000,
+          "2": 600000,
+          "3": 800000,
+          "4+": 1000000
+        },
+        "card_application": "head-of-household card; online applications from May 11; actual credit generally around two days after application",
+        "cash_payment": "eligible vulnerable households received automatic cash from May 4",
+        "local_adjustment": "some prior local-government payments may alter amount"
+      },
+      "implemented_policy": {
+        "path": "data/experiments/P013_v53_policy_20260926.json",
+        "sha256": "ce775342019f6ae82194d82c59723a0423eebab19b8a90d42674d8068247f744",
+        "grant_key": "spend_decile",
+        "flat_individual_grant_won": 280000,
+        "grant_effective_date": "2020-05-11",
+        "amount_conversion_status": "policy-file claimed average conversion, not an entitlement rule or empirically linked household assignment",
+        "preserved_run_policy_sha256": "ea88686fbfc6f966b27bc112b8dc129d56aef953a599c76c1f43b19fc894bdb1",
+        "local_crlf_to_lf_sha256": "ea88686fbfc6f966b27bc112b8dc129d56aef953a599c76c1f43b19fc894bdb1",
+        "byte_difference": "local Windows CRLF vs preserved LF; 66 CRLF pairs; LF-normalized bytes match preserved SHA exactly",
+        "frozen_bytes_match_after_line_ending_normalization": true
+      },
+      "household_income_band_alone_sufficient": false,
+      "needed_fields": [
+        "policy household ID and members including minor dependents",
+        "resident-register and health-dependent relationship rules",
+        "household size and head-of-household recipient",
+        "vulnerable automatic-cash eligibility or chosen application/payment path",
+        "actual application and payment date",
+        "local-government prior-payment adjustment if applicable"
+      ],
+      "unverified_details": [
+        "2020 foreign-national, overseas-stay and household-reference-date edge-case rules were not fully verified in this time-limited audit; do not assume 2025 rules apply"
+      ],
+      "interpretation": "individual 280000-won wallets replace household amount, recipient, timing and intra-household allocation; matching individual age/sex/dong/income margins does not restore these rights"
+    }
+  ],
+  "recommended_gates": [
+    "population_distribution_gate: only sample calibration evidence",
+    "runtime_input_binding_gate: same frozen individual profile reaches Dawn and eligibility",
+    "policy_eligibility_gate: policy-version-specific verified or transparently imputed recipient fields plus documented assumptions",
+    "mechanism_gate: household/individual benefit unit, payment date, wallet routing and merchant eligibility are represented",
+    "effect_validation_gate: empirical estimand, paired run quality and uncertainty remain separate"
+  ],
+  "allowed_future_assumptions": "An explicitly declared conditional scenario may assume eligible nationals and complete application, but it must not be labelled empirically verified recipient matching. Missing nationality/welfare/household fields cannot silently become inferred eligibility from consumption decile or income tier.",
+  "prompt_leakage_boundary": "actual policy benefit amounts, eligibility thresholds and dates are allowed rule inputs; measured MPC, expenditure effects, sector shares or desired answers stay evaluator-only."
+}
