@@ -78,12 +78,33 @@ def inputs(root, policy):
         proofs.extend([evidence(path, root), evidence(path.with_suffix(path.suffix + '.manifest.json'), root)])
     if {(x['aid'], x['day']) for x in ledgers['on']} != {(x['aid'], x['day']) for x in ledgers['off']}:
         raise ValueError('Paired roster/date support differs')
-    for key in ['cohort_sha256', 'roster_sha256']:
+    for key in ['roster_sha256']:
         if manifests['on'][key] != manifests['off'][key]:
             raise ValueError(f'Paired {key} mismatch')
-    for key in ['system_prompt_sha256', 'stage2_system_prompt_sha256', 'baseline_income_map_sha256']:
+    # Per-day cohort file bytes include run_id, so ON/OFF file hashes must
+    # differ. Verify each against its own manifest plus identical roster IDs.
+    for arm in ['on','off']:
+        roster={x['aid'] for x in ledgers[arm]}
+        days={x['day'] for x in ledgers[arm]}
+        hashes=manifests[arm]['cohort_sha256']
+        if set(hashes)!=days:
+            raise ValueError('Incomplete per-day cohort SHA map')
+        for day,digest in hashes.items():
+            path=paths[arm].parent/f'cohort_{day}.json'
+            if sha(path)!=digest:
+                raise ValueError('Per-day cohort SHA mismatch')
+            cohort=json.loads(path.read_text(encoding='utf-8'))
+            if len(cohort['agent_ids'])!=len(roster) or set(cohort['agent_ids'])!=roster:
+                raise ValueError('Per-day roster IDs mismatch')
+            for key in ['run_id','prompt_variant','system_prompt_sha256','stage2_system_prompt_sha256','baseline_income_map_sha256','execution_fingerprint']:
+                if cohort.get(key)!=manifests[arm]['prompt_provenance'].get(key):
+                    raise ValueError(f'Per-day provenance {key} mismatch')
+            proofs.append(evidence(path,root))
+    for key in ['system_prompt_sha256', 'stage2_system_prompt_sha256', 'baseline_income_map_sha256','execution_fingerprint']:
         if manifests['on']['prompt_provenance'].get(key) != manifests['off']['prompt_provenance'].get(key):
             raise ValueError(f'Paired {key} mismatch')
+    if manifests['on']['prompt_provenance']['run_id']==manifests['off']['prompt_provenance']['run_id']:
+        raise ValueError('Paired arms require distinct run IDs')
     if any(manifests[a]['prompt_provenance'].get('prompt_variant') != 'v53' for a in ['on', 'off']):
         raise ValueError('Expected v53 pair')
     numeric_path = root / f'output/multi_policy_v53_20260928/{policy.lower()}/numeric.json'
