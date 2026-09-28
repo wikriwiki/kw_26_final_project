@@ -360,6 +360,39 @@ def test_numeric_only_view_keeps_policy_coverage_but_hides_unpaired_rows(tmp_pat
     assert "시뮬−실측" in markup  # only the audited T-1 has a direct gap
 
 
+def test_p010_policy_shows_registered_mpc_and_all_six_shares_once(tmp_path):
+    scoring, score = _synthetic(tmp_path)
+    original = report.build([score], scoring)
+    original["rows"][0]["id"] = "P010-1"
+    extras = []
+    ids = ("P010-BOK-RESTAURANT", "P010-BOK-MART_FOOD", "P010-BOK-MEDICAL",
+           "P010-BOK-BEAUTY", "P010-BOK-ACADEMY", "P010-BOK-PHARMACY")
+    for key, truth in zip(ids, (46.0, 21.6, 6.2, 5.1, 4.0, 3.9)):
+        extras.append({"id": key, "policy": "P010", "policy_name": "민생회복소비쿠폰 P010",
+                       "truth": truth, "truth_unit": "%", "simulation": 0.0,
+                       "simulation_unit": "%", "ci": None, "n": 80, "source": "BOK table 3",
+                       "policy_funded_positive_citizen_days": 2,
+                       "policy_funded_observed_citizen_days": 240,
+                       "policy_funded_total_won": 45672, "full_run_citizen_days": 400})
+    original["exploratory_pairs"] = extras
+    before = deepcopy(original)
+    view = report.numeric_pair_view(original)
+    markup = report.render(view)
+    assert view["indicator_count"] == 1  # registered tally never absorbs the six shares
+    assert view["policy_coverage"][0]["exploratory_numeric_count"] == 6
+    assert view["exploratory_pairs"] == before["exploratory_pairs"]
+    assert "MPC 1 + 업종 사용비중 6" in markup
+    assert "실측이 있는 수치 7개: MPC 1개 + 업종 사용비중 6개" in markup
+    policy_section = markup.split('<section class="pol" id="policy-p010">', 1)[1].split('</section>', 1)[0]
+    assert 'class="id">P010-1<' in policy_section
+    for key in ids:
+        marker = 'class="id">' + key + '<'
+        assert marker in policy_section
+        assert markup.count(marker) == 1
+    assert "정책결제 총액 45,672원" in policy_section
+    assert "등록 MPC나 종합 주 검증지표 합계" in markup
+
+
 def test_numeric_only_cli_output_preserves_source_and_direct_gap(tmp_path):
     scoring, score = _synthetic(tmp_path)
     out, json_out, result = report.generate([score], scoring_path=scoring,

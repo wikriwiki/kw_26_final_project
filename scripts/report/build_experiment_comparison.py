@@ -442,8 +442,10 @@ def numeric_pair_view(report: dict, *, in_progress_policies: set[str] | None = N
     in_progress_policies = in_progress_policies or set()
     coverage = []
     exploratory_by_policy = {}
+    exploratory_ids_by_policy = {}
     for entry in report.get("exploratory_pairs", []):
         exploratory_by_policy[entry["policy"]] = exploratory_by_policy.get(entry["policy"], 0) + 1
+        exploratory_ids_by_policy.setdefault(entry["policy"], []).append(entry["id"])
     for policy in dict.fromkeys(row["policy"] for row in original):
         rows = [row for row in original if row["policy"] == policy]
         measured = [row for row in rows if _number(row["truth"])]
@@ -455,8 +457,10 @@ def numeric_pair_view(report: dict, *, in_progress_policies: set[str] | None = N
         coverage.append({
             "policy": policy, "policy_name": rows[0]["policy_name"],
             "registered_count": len(rows), "empirical_numeric_count": len(measured),
+            "registered_empirical_numeric_ids": [row["id"] for row in measured],
             "simulation_numeric_count": len(simulated), "paired_numeric_count": len(paired),
             "exploratory_numeric_count": exploratory_by_policy.get(policy, 0),
+            "exploratory_numeric_ids": exploratory_ids_by_policy.get(policy, []),
             "sample_citizens": max(sample_sizes) if sample_sizes else None,
             "in_progress": policy in in_progress_policies,
             "unmeasured_count": len(rows) - len(measured),
@@ -2338,13 +2342,29 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0,
                    + '</ul></details>') if missing and not in_progress else ''
         sample = (str(item["sample_citizens"]) + "명" if item["sample_citizens"] else
                   "진행 중" if in_progress else "미실행")
+        extra_count = item.get("exploratory_numeric_count", 0) if item["policy"] == "P010" else 0
+        empirical_label = str(item["empirical_numeric_count"])
+        simulation_label = str(item["simulation_numeric_count"])
+        paired_label = str(item["paired_numeric_count"])
+        policy_label = _esc(item["policy_name"])
+        if extra_count:
+            main_label = ("MPC" if "P010-1" in item.get("registered_empirical_numeric_ids", [])
+                          else "등록 지표")
+            empirical_label = f'{main_label} {item["empirical_numeric_count"]} + 업종 사용비중 {extra_count}'
+            simulation_label = f'{main_label} {item["simulation_numeric_count"]} + 업종 사용비중 {extra_count}'
+            paired_label = f'{item["paired_numeric_count"]} + {extra_count} = {item["paired_numeric_count"] + extra_count}'
+            policy_label = f'<a href="#policy-p010">{policy_label}</a>'
+            action = (f'아래 같은 정책 카드에서 {main_label} {item["paired_numeric_count"]}개와 '
+                      f'업종 사용비중 {extra_count}개를 함께 표시합니다. '
+                      '주지표와 업종 사용비중의 추가 탐색 실측을 구분하며 '
+                      '상단 등록지표 합계에는 추가 탐색을 합산하지 않습니다.')
         body.append(
             '<tr>'
-            f'<th scope="row">{_esc(item["policy_name"])}</th>'
+            f'<th scope="row">{policy_label}</th>'
             f'<td>{_esc(sample)}</td>'
-            f'<td>{item["empirical_numeric_count"]}</td>'
-            f'<td>{item["simulation_numeric_count"]}</td>'
-            f'<td>{item["paired_numeric_count"]}</td>'
+            f'<td>{_esc(empirical_label)}</td>'
+            f'<td>{_esc(simulation_label)}</td>'
+            f'<td>{_esc(paired_label)}</td>'
             f'<td>{_esc(action)}{details}</td>'
             '</tr>'
         )
@@ -2383,7 +2403,8 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0,
             + (f'검증지표가 등록되지 않은 정책 파일 {unregistered_count}개도 '
                '숫자 비교 대상에서 제외했습니다. ' if unregistered_count else '')
             + '수치 쌍이 '
-            '측정 정의까지 일치한다는 뜻은 아닙니다.</p>'
+            '측정 정의까지 일치한다는 뜻은 아닙니다. 정책에 추가 탐색 실측이 있으면 '
+            '등록 지표와 별도 개수를 함께 표시합니다.</p>'
             '<div class="coverage-scroll"><table class="coverage"><thead><tr>'
             '<th>정책</th><th>시뮬 시민</th><th>실측 수치</th><th>시뮬 수치</th><th>나란히 표시</th><th>남은 작업</th>'
             '</tr></thead><tbody>' + ''.join(body) + '</tbody></table></div>'
@@ -2391,7 +2412,7 @@ def _coverage_html(coverage: list[dict], unregistered_count: int = 0,
 
 
 def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None,
-                      p014_posthoc: dict | None = None) -> str:
+                      p014_posthoc: dict | None = None, *, embedded: bool = False) -> str:
     cards_by_policy: dict[str, list[str]] = {}
     policy_names = {}
     contexts = {}
@@ -2567,7 +2588,9 @@ def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None,
         p014 = policy == POLICY_ID_TO_SCORE["P014"]
         group = ('<div class="exploratory-group"'
                  + (' id="p014-exploratory"' if p014 else '') + '>'
-                 + f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>')
+                 + (f'<h3>추가 실측: 쿠폰 사용처 업종별 비중 {len(cards)}개</h3>'
+                    if embedded and policy == "P010" else
+                    f'<h3>{_esc(policy_names[policy])} <small>{_esc(policy)}</small></h3>'))
         if p014:
             group += ('<p class="balance">이 정책의 시뮬 입력은 price_discount와 지역 가맹점 '
                       '적격 표시를 사용합니다. 할인 정산과 상품권 지갑·구매·잔액·상환 원장이 '
@@ -2587,6 +2610,13 @@ def _exploratory_html(pairs: list[dict], uncomputed: list[dict] | None = None,
         group += card_html + '</div>'
         groups.append(group)
     grouped = ''.join(groups)
+    if embedded:
+        return ('<div class="policy-extra"><h3>등록 38개 지표 밖의 탐색 참고값</h3>'
+                '<p class="runline">위 등록 지표와 같은 정책의 추가 실측 자료입니다. '
+                '업종별 사용액의 구성비를 보여 주며 소비 증가율과 다른 숫자입니다. '
+                '결과 후 추가한 탐색 참조이고 등록 MPC나 종합 주 검증지표 합계에 '
+                '더하지 않습니다. 아래 수치는 원래 숫자·산식·관문을 그대로 표시합니다.</p>'
+                + grouped + '</div>')
     return ('<section class="pol"><h2>등록 38개 지표 밖의 탐색 참고값</h2>'
             '<p class="runline">실측 참조와 시뮬 관측을 병렬 표시하지만 정책 효과 채점표의 검증지표가 아닙니다. '
             '표본·기간·추정량이 달라 외부 효과 오차 또는 적중률에 포함하지 않습니다.</p>'
@@ -3154,6 +3184,9 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
     sections = []
     rows = report["rows"]
     numeric_only = report.get("report_kind") == "numeric_pairs"
+    p010_extra = [item for item in report.get("exploratory_pairs", [])
+                  if item["policy"] == "P010"] if numeric_only else []
+    inline_exploratory_policies = set()
     for policy in dict.fromkeys(r["policy"] for r in rows):
         rs = [r for r in rows if r["policy"] == policy]
         score_line = next((f'{r["score_label"] or "무명"}'
@@ -3162,9 +3195,19 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                            + f' · OFF {r["off"]} · ON {r["on"]}'
                            for r in rs if r["off"]), "이 실험에서 미실행")
         context_line = _run_context_html(rs[0].get("run_context")) if numeric_only else ""
-        parts = [f'<section class="pol"><h2>{_esc(rs[0]["policy_name"])} '
+        p010_summary = ''
+        if policy == "P010" and p010_extra:
+            main_label = "MPC" if any(row["id"] == "P010-1" for row in rs) else "등록 지표"
+            p010_summary = (
+                '<p class="policy-count"><strong>실측이 있는 수치 '
+                f'{len(rs) + len(p010_extra)}개: {main_label} {len(rs)}개 + '
+                f'업종 사용비중 {len(p010_extra)}개</strong>. '
+                '바로 아래에서 같은 정책의 수치를 모두 확인할 수 있습니다. '
+                '등록 주지표와 추가 탐색 업종자료를 구분하며 원래 산식·관문은 그대로입니다.</p>')
+        policy_anchor = ' id="policy-p010"' if policy == "P010" else ''
+        parts = [f'<section class="pol"{policy_anchor}><h2>{_esc(rs[0]["policy_name"])} '
                  f'<small>{_esc(policy)}</small></h2><p class="runline">{_esc(score_line)}</p>'
-                 + context_line,
+                 + p010_summary + context_line,
                  '<div class="rows">']
         for r in rs:
             cl = ("ok" if r["gap"] is not None else
@@ -3276,7 +3319,11 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                          + (f'<p class="reason source">원문 위치: {_esc(r["source_locator"])}</p>'
                             if r.get("source_locator") else '')
                          + (_technical_details(r) if numeric_only else '') + '</div>')
-        parts.append('</div></section>')
+        parts.append('</div>')
+        if policy == "P010" and p010_extra:
+            parts.append(_exploratory_html(p010_extra, embedded=True))
+            inline_exploratory_policies.add(policy)
+        parts.append('</section>')
         sections.append(''.join(parts))
     if numeric_only:
         measured_policies = sum(item["empirical_numeric_count"] > 0
@@ -3367,8 +3414,10 @@ def render(report: dict, template_path: Path = TEMPLATE) -> str:
                         '후보를 비교해야 최적화를 주장할 수 있습니다. 정책별 표본 수가 다르며 '
                         '특히 12명 월간 실험은 방향·크기 모두 매우 불확실합니다.</p>'
                         + architecture_html + screen_html + '</section>')
-    if report.get("exploratory_pairs") or report.get("exploratory_uncomputed"):
-        sections.append(_exploratory_html(report.get("exploratory_pairs") or [],
+    remaining_exploratory = [item for item in report.get("exploratory_pairs", [])
+                             if item["policy"] not in inline_exploratory_policies]
+    if remaining_exploratory or report.get("exploratory_uncomputed"):
+        sections.append(_exploratory_html(remaining_exploratory,
                                          report.get("exploratory_uncomputed"),
                                          report.get("p014_ksic_posthoc")))
     tally_html = ''.join(f'<div class="stat"><span class="v">{v}</span><span class="k">{_esc(k)}</span></div>'
