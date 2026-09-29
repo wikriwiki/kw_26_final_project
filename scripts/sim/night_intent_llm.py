@@ -437,7 +437,7 @@ def _extract_json(text: str) -> str:
     return text[s:e+1]
 
 
-def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -> dict | None:
+def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 5) -> dict | None:
     from no_smoking_context import configured_context, clear_llm_scope
     runtime = configured_context()
     token = None
@@ -464,7 +464,7 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
             clear_evidence(token)
 
 
-def _classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -> dict | None:
+def _classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 5) -> dict | None:
     """한 쌍에 대해 의도 분류 LLM 호출. data에 보관된 score(exp/rel/urg)를
     결과에 함께 실어 importance 계산에 사용."""
     from no_smoking_context import begin_llm_scope, configured_context
@@ -483,12 +483,18 @@ def _classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) 
     from execution_errors import fatal_dispatch_error
     schema = night_format(evidence_lines, pair_key) if grounded_experiment else None
     last_err = None
+    raw = ''
+    from night_recovery import ATTEMPT_OFFSET
+    from grounded_schema import rejected_response_feedback
     for attempt in range(max_retry + 1):
         temp = (0.2 if attempt == 0 else 0.1) if grounded_experiment else 0.3 + 0.2 * attempt
         try:
             resp = _llm_call(
                 None, system_prompt, user + (
-                    f'\n직전 출력 검증 오류: {last_err}. 입력의 사실 줄 번호와 참가자를 확인하세요.'
+                    f'\n[야간 분류 시도 {ATTEMPT_OFFSET.get() + attempt + 1}/6]\n'
+                    + rejected_response_feedback(raw, last_err,
+                        'evidence_ref에는 입력에 있는 사실 줄 번호 한 개만 쓰세요. '
+                        '쉼표로 여러 번호를 합치지 마세요. 참가자 두 명을 바꾸지 마세요.')
                     if grounded_experiment and last_err else ''),
                 temperature=temp, max_tokens=900 if grounded_experiment else 600,
                 **({'response_format': schema} if grounded_experiment else {}),
@@ -498,7 +504,7 @@ def _classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) 
             if grounded_experiment:
                 ref = data_json.get('evidence_ref')
                 if not isinstance(ref, str) or ref not in evidence_lines:
-                    raise ValueError('evidence_ref must identify a numbered factual input line')
+                    raise ValueError(f'evidence_ref={ref!r}: exactly one numbered factual input line is required')
                 data_json['evidence_quote'] = evidence_lines[ref]
                 validate_stated_reason(data_json, user)
             parsed = IntentOutput.model_validate(data_json)
@@ -642,7 +648,7 @@ FOREACH (_ IN CASE WHEN poi IS NOT NULL THEN [1] ELSE [] END |
 """
 
 
-def write_conversations(day: date, results: list[dict]):
+def write_conversations(day: date, results: list[dict], skipped=None):
     """의도 분류 결과 → Conversation 노드 + intent별 후속 엣지·노드 (노션 §4·§5·§9·§10).
 
     intent별 처리:
@@ -731,9 +737,6 @@ def write_conversations(day: date, results: list[dict]):
             })
         # "기타"는 base만 — 노션 §4
 
-    if not base_rows:
-        return {"created": 0}
-
     by_intent: dict[str, int] = {}
     for row in base_rows:
         by_intent[row["intent"]] = by_intent.get(row["intent"], 0) + 1
@@ -761,8 +764,9 @@ def write_conversations(day: date, results: list[dict]):
                 import night_store
                 out = Path(os.environ.get('SIM_OUTPUT_DIR', os.path.expanduser('~/sim_output')))
                 reference = commit_night_evidence(out, os.environ.get('SIM_RUN_ID') or str(out.resolve()),
-                                                 runtime.arm, day.isoformat(), results)
+                                                 runtime.arm, day.isoformat(), results, skipped=skipped)
                 night_store.save(tx, day, runtime, {'processed': len(results), 'errors': 0,
+                    'skipped': len(skipped or []), 'matched': len(results) + len(skipped or []),
                     'write': stats, 'evidence_ref': reference})
                 stats['evidence_ref'] = reference
             tx.commit()
@@ -809,6 +813,8 @@ def run_intent_classification(
     if verbose:
         print(f"[Intent] fetching pair data for {len(pairs)} pairs ...")
     pair_data = fetch_pair_data(pairs, day)
+    if len(pair_data) != len(pairs):
+        raise RuntimeError('Night pair input is missing or duplicated; cannot account for every pair')
     if verbose:
         print(f"  pair data fetched: {len(pair_data)}")
 
@@ -819,21 +825,23 @@ def run_intent_classification(
     with ThreadPoolExecutor(max_workers=workers) as ex:
         futs = {}
         for (a, b), d in pair_data.items():
-            futs[ex.submit(classify_intent, (a, b), d)] = (a, b)
+            from night_recovery import classify_recoverable
+            futs[ex.submit(classify_recoverable, classify_intent, (a, b), d)] = (a, b)
         for fut in as_completed(futs):
             results.append(fut.result())
             completed += 1
             if verbose and completed % max(10, len(pair_data)//10) == 0:
                 print(f"  {completed}/{len(pair_data)} ({time.time()-t0:.0f}s)")
 
-    ok = [r for r in results if "error" not in r]
-    err = [r for r in results if "error" in r]
-    if strict and (err or len(ok) != len(pairs)):
-        raise RuntimeError(f"Night2 incomplete before writing: {len(ok)}/{len(pairs)}, errors={len(err)}")
+    ok = [r for r in results if "error" not in r and r.get('status') != 'skipped']
+    skipped = [r for r in results if r.get('status') == 'skipped']
+    err = [r for r in results if r not in ok and r not in skipped]
+    if err or len(ok) + len(skipped) != len(pairs):
+        raise RuntimeError(f'Unaccounted Night pair results: {len(err)}')
     if verbose:
         print(f"[Intent] LLM done: {len(ok)} ok, {len(err)} err ({time.time()-t0:.0f}s)")
 
-    write_stats = write_conversations(day, ok)
+    write_stats = write_conversations(day, ok, skipped=skipped)
     evidence_ref = None
     from no_smoking_context import configured_context
     runtime = configured_context()
@@ -841,7 +849,7 @@ def run_intent_classification(
         evidence_ref = write_stats['evidence_ref']
     if verbose:
         print(f"[Intent] adapted: {write_stats}")
-    return {"processed": len(ok), "errors": len(err),
+    return {"processed": len(ok), "errors": 0, 'skipped': len(skipped), 'matched': len(pairs),
             "write": write_stats, "elapsed": time.time()-t0,
             "samples": ok[:5], "evidence_ref": evidence_ref}
 
