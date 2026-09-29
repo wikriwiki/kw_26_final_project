@@ -441,10 +441,21 @@ def classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) -
             raw = resp.choices[0].message.content
             data_json = json.loads(_extract_json(raw))
             parsed = IntentOutput.model_validate(data_json)
+            # [기본키는 입력에서 쓴다 — 모델에게 베끼게 하지 않는다]
+            # 프롬프트가 "initiator_id: AGENT_A 의 agent_id" 를 **그대로 돌려 달라**고
+            # 하고, 적재는 그 값으로 에이전트를 MATCH 한다. 긴 id(AGT_11530560_F_50대_001)를
+            # 하루 1,500번 넘게 베끼면 가끔 한 글자가 틀리고, 그 행은 MATCH 에서 조용히
+            # 사라진다. 3,000명 런에서 세 번의 서로 다른 쌍 집합이 **세 번 다** 정확히
+            # 하나씩 빠져 하루를 버렸다. 쌍은 이미 안다 — 판단(의도·주제·이유)만 모델에서
+            # 받는다. 모델의 베끼기가 틀린 횟수는 덮지 않고 센다.
+            aid_a, aid_b = pair_key
+            echo_ok = (parsed.initiator_id == aid_a and parsed.recipient_id == aid_b)
             return {
                 "intent": parsed.intent,
-                "initiator_id": parsed.initiator_id,
-                "recipient_id": parsed.recipient_id,
+                "initiator_id": aid_a,
+                "recipient_id": aid_b,
+                "id_echo_ok": echo_ok,
+                "id_echo_raw": None if echo_ok else [parsed.initiator_id, parsed.recipient_id],
                 "topic_type": parsed.topic_type,
                 "topic_value": parsed.topic_value,
                 "should_inject": parsed.plan_signal.should_inject,
@@ -501,6 +512,7 @@ MERGE (c:Conversation {id: r.cid})
     c.ambient_threshold_applied = r.ambient_threshold_applied
 MERGE (a)-[:PARTICIPATES_IN {role:'initiator'}]->(c)
 MERGE (b)-[:PARTICIPATES_IN {role:'recipient'}]->(c)
+RETURN collect(c.id) AS cids
 """
 
 # 이슈·추천 공통 — Memory{rumor} + REMEMBERS + FROM_CONVERSATION (노션 §5)
@@ -660,7 +672,13 @@ def write_conversations(day: date, results: list[dict]):
         return {"created": 0}
 
     with driver_session() as s:
-        s.run(CREATE_CONVERSATION_CYPHER, rows=base_rows)
+        # [적재 수를 입력 길이로 세지 않는다]
+        # 위 Cypher 는 `MATCH (a) MATCH (b)` 라서 에이전트가 안 맞는 행을 **조용히
+        # 버린다**. 입력 길이를 created 로 돌려주면 그 손실이 보이지 않고, 뒤에서
+        # "계획 쌍과 적재 수가 다르다" 는 말만 남아 하루치가 날아간다(라이브에서
+        # 1,547 중 1,546 만 적재돼 3시간치 런이 죽었다). 그래서 DB 가 준 id 를 센다.
+        _rec = s.run(CREATE_CONVERSATION_CYPHER, rows=base_rows).single()
+        stored = set(_rec["cids"] or []) if _rec else set()
         if rumor_rows:
             s.run(LINK_RUMOR_MEMORY_CYPHER, rows=rumor_rows)
         if recommend_rows:
@@ -673,8 +691,13 @@ def write_conversations(day: date, results: list[dict]):
     by_intent: dict[str, int] = {}
     for row in base_rows:
         by_intent[row["intent"]] = by_intent.get(row["intent"], 0) + 1
+    # 버려진 행을 지목한다 — 어느 쌍의 어느 사람이 안 맞았는지 알아야 고칠 수 있다.
+    dropped = [{"cid": r["cid"], "initiator": r["initiator"], "recipient": r["recipient"]}
+               for r in base_rows if r["cid"] not in stored]
     return {
-        "created": len(base_rows),
+        "created": len(stored),
+        "planned": len(base_rows),
+        "dropped": dropped,
         "by_intent": by_intent,
         "rumor_memory": len(rumor_rows),
         "recommend_extra": len(recommend_rows),
@@ -750,8 +773,12 @@ def run_intent_classification(
     write_stats = write_conversations(day, ok)
     if verbose:
         print(f"[Intent] adapted: {write_stats}")
+    # 모델이 id 를 틀리게 베낀 횟수 — 이제 적재에는 영향이 없지만 모델의 행동으로 기록한다.
+    echo_bad = [r for r in ok if r.get("id_echo_ok") is False]
     return {"processed": len(ok), "errors": len(err),
             "write": write_stats, "elapsed": time.time()-t0,
+            "id_echo_mismatch": len(echo_bad),
+            "id_echo_examples": [r.get("id_echo_raw") for r in echo_bad[:3]],
             "samples": ok[:5]}
 
 
