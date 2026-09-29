@@ -164,7 +164,12 @@ def main() -> int:
         if r.get("why"):
             st = r["why"][:60]
         if r.get("status") == "이질성":
-            if r.get("dir_total"):
+            if r.get("proxy") == "household_composition":
+                sim_s = "다인 %+.2f%% · 소 %+.2f%% (격차 %+.2f%%p, 제외 %d명)" % (
+                    r["large_pct"], r["small_pct"], r["gap"], r["n_excluded"])
+                st = ("구성 대리 · " + ("방향 일치" if r.get("dir_ok") else
+                      ("방향 불일치" if r.get("dir_total") else "판정불가")))
+            elif r.get("dir_total"):
                 sim_s = "방향 %s/%s 칸" % (r.get("dir_ok"), r.get("dir_total"))
             elif r.get("spread") is not None:
                 sim_s = "퍼짐 %.1f%%p (영분포 p=%s)" % (

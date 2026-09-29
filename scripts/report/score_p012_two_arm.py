@@ -328,6 +328,43 @@ def income_sector_grid(sec_off, sec_on, cash_off, aids):
     return cells, ok, tot, len(hi), len(lo), med
 
 
+# [K18 가구 규모 — 구성에서 인원이 분명한 것만 쓴다]
+# 에이전트에는 가구원 **수**가 없고 **구성**(Agent.nvidia_family_type)만 있다. KDI 는
+# '4인 이상 vs 1~3인' 인데, 우리 가장 큰 범주 '배우자·자녀와 거주' 는 3인일 수도 4인
+# 이상일 수도 있다 — 그것을 4인 이상으로 넣으면 값을 지어내는 것이다. 그래서 인원이
+# 분명한 범주만 두 칸으로 나누고 나머지는 빼서 그 수를 적는다. 기준선이 KDI(3|4)와
+# 다르게 2|3 이라는 사실도 표에 적는다.
+HH_SMALL = {"혼자 거주", "혼자 거주 (배우자 별거)", "배우자와 거주"}          # 1~2인
+HH_LARGE = {"배우자·자녀와 거주", "배우자·자녀·어머니와 거주",               # 3인 이상
+            "배우자·자녀·아버지와 거주", "배우자·자녀·부모와 거주",
+            "기타3세대"}
+
+
+def household_split(sec_off, sec_on, aids, family, n=4000, seed=20260928):
+    """(다인 증가율, 소 증가율, 격차, 구간 lo, hi, 부호확실성, 다인 n, 소 n, 제외 n)."""
+    large = [a for a in aids if family.get(a) in HH_LARGE]
+    small = [a for a in aids if family.get(a) in HH_SMALL]
+    excl = len(aids) - len(large) - len(small)
+    pl = arm_pct(sec_off, sec_on, large, "total")
+    ps = arm_pct(sec_off, sec_on, small, "total")
+    if pl is None or ps is None:
+        return None
+    gap = pl - ps
+    rnd, out = random.Random(seed), []
+    for _ in range(n):
+        bl = [large[rnd.randrange(len(large))] for _ in large]
+        bs = [small[rnd.randrange(len(small))] for _ in small]
+        a, b = arm_pct(sec_off, sec_on, bl, "total"), arm_pct(sec_off, sec_on, bs, "total")
+        if a is not None and b is not None:
+            out.append(a - b)
+    out.sort()
+    if not out:
+        return (pl, ps, gap, None, None, None, len(large), len(small), excl)
+    same = sum(1 for v in out if (v > 0) == (gap > 0)) / len(out)
+    return (pl, ps, gap, out[int(len(out) * 0.025)], out[int(len(out) * 0.975)], same,
+            len(large), len(small), excl)
+
+
 def region_evenness(sec_off, sec_on, aids, n=2000, seed=20260928):
     """K19 — 자치구별 증가율의 퍼짐이 **무작위로 갈랐을 때보다 큰가**.
 
@@ -369,10 +406,16 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--dir", default="data/experiments/p012_v53_pilot")
     ap.add_argument("--json-out", default="")
+    ap.add_argument("--family-map", default="",
+                    help="{aid: 가구구성} (roster_family_type.json). 주면 K18 을 구성 대리로 계산한다.")
     a = ap.parse_args()
     d = ROOT / a.dir
     c = json.loads(CONTRACT.read_text(encoding="utf-8"))
 
+    family = {}
+    if a.family_map:
+        _fm = json.loads(Path(a.family_map).read_text(encoding="utf-8"))
+        family = _fm.get("family_type_by_aid") or _fm
     sec_off, cash_off = load_arm(d, "off")
     sec_on, cash_on = load_arm(d, "on")
     aids = sorted(set(sec_off) & set(sec_on))
@@ -590,6 +633,37 @@ def main() -> int:
             rows.append({"id": ind["id"], "name": ind["name"], "status": "이질성",
                          "n_gu": ngu, "spread": spread, "null_p95": p95, "p": p})
             na += 1
+        elif m == "heterogeneity_household_size" and family:
+            hs = household_split(sec_off, sec_on, aids, family)
+            print("  %-4s %s — **구성 대리**" % (ind["id"], ind["name"]))
+            if hs is None:
+                print("       판정불가 — 한쪽 칸의 off 지출이 0 이다")
+                rows.append({"id": ind["id"], "name": ind["name"], "status": "관측없음"})
+                na += 1
+            else:
+                pl, ps, gap, lo, hi, conf, nl, nsm, ex = hs
+                print("       다인(3인 이상 · %d명) %+.2f%% · 소(1~2인 · %d명) %+.2f%% · 제외 %d명"
+                      % (nl, pl, nsm, ps, ex))
+                print("       격차 %+.2f%%p · 구간 %s · 부호확실 %s"
+                      % (gap, ("%.1f ~ %+.1f" % (lo, hi)) if lo is not None else "-",
+                         ("%.1f%%" % (100 * conf)) if conf is not None else "-"))
+                decided = conf is not None and conf >= 0.975
+                if not decided:
+                    v = "판정불가 (부호확실 97.5% 미만)"
+                elif gap > 0:
+                    v = "**방향 일치** — 다인가구가 더 올랐다(원문: 4인 > 1~3인)"
+                else:
+                    v = "방향 불일치 — 소가구가 더 올랐다"
+                print("       → %s" % v)
+                print("       주의: 가구원 수가 아니라 구성이다. 기준선이 원문(3|4)과 달리 2|3 이고,")
+                print("             Nemotron 매칭 합성 속성이라 %d명(구성 불명확·미기재)을 뺐다." % ex)
+                rows.append({"id": ind["id"], "name": ind["name"], "status": "이질성",
+                             "proxy": "household_composition", "large_pct": pl, "small_pct": ps,
+                             "gap": gap, "ci": [lo, hi], "sign_conf": conf,
+                             "n_large": nl, "n_small": nsm, "n_excluded": ex,
+                             "dir_ok": 1 if (decided and gap > 0) else 0,
+                             "dir_total": 1 if decided else 0})
+                na += 1
         elif m in NO_COUNTERPART:
             print("  %-4s %-28s %s" % (ind["id"], ind["name"][:28], NO_COUNTERPART[m]))
             rows.append({"id": ind["id"], "name": ind["name"], "status": "해당없음",

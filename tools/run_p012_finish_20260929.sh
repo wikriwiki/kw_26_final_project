@@ -21,6 +21,13 @@ verdict=0
 
 test -s "$BASE/score/score_full.json"
 
+# 가구 구성 지도가 있으면 다시 채점한다 — K18 을 '자료없음' 대신 구성 대리로 맞댄다.
+# (러너의 채점은 지도 없이 돌았다. 러너 파일은 실행 중이라 고치지 않았다.)
+if [[ -s "$BASE/roster_family_type.json" ]]; then
+  log '=== 0. 가구 구성 지도로 다시 채점 (K18)'
+  python scripts/report/score_p012_two_arm.py --dir "$BASE/score"     --family-map "$BASE/roster_family_type.json"     --json-out "$BASE/score/score_full.json" | tee /data/p012m.score.txt
+fi
+
 log '=== 1. 보존 검사 (그래프 · 메모리 · 원장, 두 팔)'
 if python scripts/report/verify_p012_preservation.py --base "$BASE" --days "$DAYS" \
      --json-out "$BASE/preservation_check.json" | tee "$BASE/preservation_check.txt"; then
