@@ -55,6 +55,9 @@ def main() -> int:
     ap.add_argument("--dossier-manifest", default="")
     ap.add_argument("--interviews", default="")
     ap.add_argument("--window-days", type=int, default=0)
+    ap.add_argument("--preservation", default="", help="verify_p012_preservation.py 의 json")
+    ap.add_argument("--restore-dir", default="", help="verify_graph_restore 의 결과 디렉터리")
+    ap.add_argument("--interview-check", default="", help="interview_agents.py --check-all 출력 파일")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -188,6 +191,47 @@ def main() -> int:
     w("따라서 옛 런의 총액·제외분·재정배수 값은 이 표와 **같은 표에 놓을 수 없다**(SUSPECT).")
     w("")
 
+    pres = load(a.preservation) if a.preservation else None
+    if pres:
+        w("## 보존 — 검사로 확인한 것")
+        w("")
+        w("검증지표 비교는 아래 세 가지가 지켜졌을 때만 믿을 수 있다. 각각 **검사**로 확인했다.")
+        w("")
+        w("| 팔 | 그래프 | 메모리·1대1 인터뷰 | 업종 원장 | 캐시백 원장 |")
+        w("|---|---|---|---|---|")
+        for arm in ("on", "off"):
+            x = (pres.get("arms") or {}).get(arm) or {}
+            def cell(k):
+                v = x.get(k) or {}
+                return ("통과 — " if v.get("ok") else "**실패** — ") + " · ".join(v.get("notes") or [])[:90]
+            w("| %s | %s | %s | %s | %s |" % (arm, cell("그래프"), cell("메모리·인터뷰"),
+                                               cell("업종 원장"), cell("캐시백 원장")))
+        w("")
+        w("결론: **%s**" % ("세 가지 모두 보존됐다" if pres.get("ok") else "보존 실패 — 아래 비교를 믿을 수 없다"))
+        w("")
+    rdir = Path(a.restore_dir) if a.restore_dir else None
+    if rdir and rdir.is_dir():
+        w("### 덤프를 실제로 복원해 대조했다")
+        w("")
+        w("체크섬은 파일이 그대로라는 것만 말한다. 그래서 각 팔의 덤프를 **복원**하고, 기억 수")
+        w("분포 전체에서 고르게 뽑은 에이전트의 기억·계획항목·상태 날짜를 dossier 와 맞댔다.")
+        w("")
+        for arm in ("on", "off"):
+            r = load(str(rdir / ("%s.json" % arm)))
+            if r:
+                w("- %s 팔: 대조 %d명 · 불일치 **%d명**" % (arm, len(r.get("sampled") or []),
+                                                    len(r.get("mismatch") or [])))
+        w("")
+    ic = Path(a.interview_check) if a.interview_check else None
+    if ic and ic.is_file():
+        w("### 1대1 인터뷰 가능성 — 명부 전원")
+        w("")
+        for line in ic.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("#") and ("가능" in line or "기억 0건" in line or "불가" in line):
+                w("- " + line.strip())
+        w("")
+        w("아무 에이전트나 지목해 인터뷰할 수 있다: `interview_agents.py --aid <id>`.")
+        w("")
     if rman or dman:
         w("## 보존 — 시뮬 뒤 남은 것")
         w("")

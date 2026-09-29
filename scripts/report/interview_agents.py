@@ -189,6 +189,41 @@ def context_for(on: dict, off: dict) -> str:
     return "\n".join(head + body)
 
 
+def interviewable(rec: dict | None) -> list[str]:
+    """이 사람을 인터뷰할 수 없게 만드는 이유 목록. 비어 있으면 가능하다."""
+    if rec is None:
+        return ["dossier 에 없다"]
+    why = []
+    if not rec.get("profile"):
+        why.append("프로필 없음")
+    if not rec.get("states"):
+        why.append("상태 없음")
+    if not rec.get("plans"):
+        why.append("계획 없음")
+    return why
+
+
+def check_all(on: dict[str, dict], off: dict[str, dict]) -> int:
+    """명부 전원이 **두 팔 모두에서** 인터뷰 가능한가. 기억 0건은 불가 사유가 아니다
+    (그날 외출이 없으면 정상) — 대신 그 수를 따로 낸다."""
+    everyone = sorted(set(on) | set(off))
+    bad = {}
+    for x in everyone:
+        w = ["on: " + y for y in interviewable(on.get(x))] +             ["off: " + y for y in interviewable(off.get(x))]
+        if w:
+            bad[x] = w
+    no_mem = sum(1 for x in everyone
+                 if not (on.get(x) or {}).get("memories") and not (off.get(x) or {}).get("memories"))
+    print("# 1대1 인터뷰 가능성 — 명부 전원")
+    print()
+    print("  두 팔에 나온 사람 %d명" % len(everyone))
+    print("  인터뷰 **가능 %d명** · 불가 %d명" % (len(everyone) - len(bad), len(bad)))
+    print("  두 팔 모두 기억 0건인 사람 %d명 (불가 사유 아님 — 외출이 없던 사람)" % no_mem)
+    for x, w in list(bad.items())[:10]:
+        print("     불가 %s: %s" % (x, ", ".join(w)))
+    return 0 if not bad else 1
+
+
 def cells(on: dict[str, dict], off: dict[str, dict]) -> tuple[dict, dict]:
     """(칸 -> 사람 목록, 사람 -> 지표). 반응 5분위 x 소비수준 3분단."""
     common = sorted(set(on) & set(off))
@@ -232,6 +267,10 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true", help="맥락만 만들고 모델을 부르지 않는다")
     ap.add_argument("--max-tokens", type=int, default=500)
     ap.add_argument("--limit-agents", type=int, default=0, help="앞에서 N명만 (배선 확인용)")
+    ap.add_argument("--aid", action="append", default=[],
+                    help="이 에이전트를 인터뷰한다(여러 번 줄 수 있다). 주면 칸 표집 대신 이 사람들만.")
+    ap.add_argument("--check-all", action="store_true",
+                    help="명부 전원이 인터뷰 가능한지만 검사하고 끝낸다(모델을 부르지 않는다).")
     ap.add_argument("--limit-questions", type=int, default=0, help="앞에서 N문항만 (배선 확인용)")
     a = ap.parse_args()
 
@@ -246,6 +285,17 @@ def main() -> int:
         rnd.shuffle(ids)
         for x in ids[:a.per_cell]:
             picked.append((cell, x))
+
+    if a.check_all:
+        return check_all(on, off)
+    if a.aid:
+        missing = [x for x in a.aid if x not in on or x not in off]
+        if missing:
+            raise SystemExit("두 팔 dossier 에 없는 사람: %s" % missing)
+        picked = [(("지정",), x) for x in a.aid]
+        for x in a.aid:
+            met["resp"].setdefault(x, 0.0)
+            met["lvl"].setdefault(x, 0)
 
     print("# 1대1 인터뷰 — 같은 사람의 두 팔")
     print()
