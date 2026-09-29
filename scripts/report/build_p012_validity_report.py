@@ -165,7 +165,11 @@ def main() -> int:
             tv = ind.get("truth_gap")
             if tv is not None:
                 unit = ind.get("unit") or "%p"
-        if not isinstance(tv, (int, float)):
+        if r.get("truth_window") is not None and r.get("window_days"):
+            # 금액 지표는 시뮬 기간 길이에 맞춘 기준과 맞댄다 — 두 수를 함께 보인다.
+            tv_s = "{:,.0f}{} → {}일 기준 **{:,.0f}{}**".format(
+                tv, unit, r["window_days"], r["truth_window"], unit)
+        elif not isinstance(tv, (int, float)):
             tv_s = "없음"
         elif unit in ("%", "%p"):
             tv_s = "%+.2f%s" % (tv, unit)
@@ -191,6 +195,8 @@ def main() -> int:
             st += " · 수준 안"
         elif decided and r.get("truth_in_band") is False:
             st += " · 수준 밖"
+        if r.get("ratio") is not None and r.get("truth_window") is not None:
+            st = "실측의 %.2f배" % r["ratio"]
         if r.get("why"):
             st = r["why"][:60]
         if r.get("status") == "이질성":

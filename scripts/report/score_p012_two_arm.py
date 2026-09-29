@@ -545,6 +545,7 @@ def main() -> int:
         rows.append(r)
 
     print()
+    level_extra: dict[str, dict] = {}
     print("## 3. 수준 지표 — 비가 아니라 값 자체 (자가 달라 방향 셈에서 뺀다)")
     print()
     for ind in other:
@@ -579,9 +580,18 @@ def main() -> int:
                 extra += "  → 판정불가 (구간이 100% 를 지난다)"
                 undecid += 1
         elif m == "cashback_per_capita":
-            half = (tv or 0) / 2.0
-            extra = ("실측은 10·11월 **두 달 합**이다. 10월만 돌렸으니 균등가정 월평균 "
-                     "{:,.0f}원과 본다 (배 {:.2f})".format(half, val / half if half else 0))
+            # 실측 47,880원은 10·11월 **두 달 합**이다. 시뮬은 wn 일이고, 짧은 기간이면
+            # 문턱·한도를 wn/31 로 줄였으므로 캐시백도 한 달치의 wn/31 이 된다. 그래서
+            # 비교 기준은 (두 달 합 / 2) x (wn / 31) 이다 — 한 달이 고르다고 가정한다.
+            # (이전 판은 7일치를 한 달치와 맞대 기간 차이만으로 31/7 배 어긋났다.)
+            month = (tv or 0) / 2.0
+            target = month * (wn / 31.0) if wn else month
+            ratio = (val / target) if target else None
+            extra = ("실측은 10·11월 두 달 합이다 → 월평균 {:,.0f}원 → 시뮬 기간 {}일로 나누면 "
+                     "**{:,.0f}원** 과 본다 (배 {})".format(
+                         month, wn, target, ("%.2f" % ratio) if ratio is not None else "-"))
+            level_extra[iid] = {"truth_month": month, "truth_window": target,
+                                "window_days": wn, "ratio": ratio}
             na += 1
         elif m == "cap_reach_rate":
             extra = "원문에 도달률 수치가 없다(한도값 10만원만). 장치 확인용."
@@ -594,8 +604,8 @@ def main() -> int:
         print("  %-4s %-24s 실측 %13s   시뮬 %13s  %s"
               % (iid, nm, "{:,}{}".format(int(tv), tunit) if isinstance(tv, (int, float)) else "없음",
                  shown, extra))
-        rows.append({"id": iid, "name": nm, "truth": tv, "sim": val, "unit": unit,
-                     "status": "수준", "note": extra})
+        rows.append(dict({"id": iid, "name": nm, "truth": tv, "sim": val, "unit": unit,
+                          "status": "수준", "note": extra}, **level_extra.get(iid, {})))
 
     print()
     print("## 4. 이질성 지표 — 미시 반응이 계층·지역별로 갈라지나 (원문은 방향만 적었다)")
