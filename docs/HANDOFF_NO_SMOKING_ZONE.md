@@ -2,9 +2,11 @@
 
 ### 2026-09-30 코드 게시 검사 — 재시도·야간 복구·Colab 인수인계
 
+- **게시 완료:** 코드 커밋 `679b17af73c5b5ab4bcfb38b40cd3dc7aa12ded2` (`fix(no-smoking): preserve retry progress and add Colab handoff`), 46개 파일을 `origin/No_SmokingZone_EXP`에 push했고 `git ls-remote`의 실제 브랜치 SHA가 일치했다. 이 게시 결과 기록은 후속 문서 커밋으로 남긴다. 서버 실행·활성 패치·모델·DB·감시는 변경하지 않았다.
 - 사용자 요청으로 `No_SmokingZone_EXP`의 누적 Stage1/Stage2 재시도 계약 수정, 야간 성공 캐시/소진 pair skipped 처리, persistent recovery controller, 관련 테스트 및 Colab 조회 노트북·Claude 인수인계 문서를 게시 대상으로 정리했다. 원격 `origin/No_SmokingZone_EXP`를 fetch했고 시작 HEAD `7e9cc723`과 동일했다.
 - 실제 로컬 검사: persistent recovery, retry handoff, grounded retry contract, night progress, runtime day gate, interview evidence, evidence contract, prompt grounding **8개 테스트 파일 79 passed**. 두 runtime manifest의 모든 payload SHA256도 로컬 파일과 일치했다. 전체 저장소 테스트·새 실제 모델/Colab 성능시험·서버 배포는 이번 게시 작업에서 하지 않았다.
 - 새 runtime manifest 두 개는 고정 SHA256을 보존하도록 Git 줄바꿈을 LF로 지정했다. 코드·테스트·문서를 선별 게시하고 실험 데이터·비밀 설정·임시 PDF 검수 이미지·개인 정산 기록은 로컬에 보존한다. 정산 검수 절은 작업 파일에 남기되 이번 Git index의 문서 사본에서는 제외한다.
+- 실제 Git index의 두 runtime 전체 바이트 및 manifest payload SHA256, Python·노트북 문법, 게시 파일 경로/크기·비밀정보 패턴 검사를 통과했다. 패턴 검사 후보1개는 테스트용 `not-a-real-password`였고 확인 후 제외했다. 고정 해시 launcher의 기존 마지막 빈 줄은 바이트를 수정하지 않고 해당 파일만 whitespace 예외로 명시해 `git diff --cached --check`를 통과했다. 기존 미커밋 정산 절과 `tmp/`는 게시하지 않고 보존했다.
 
 ### 2026-09-30 00:37 KST 서버 확인 및 Claude Colab 인수인계 작성
 
