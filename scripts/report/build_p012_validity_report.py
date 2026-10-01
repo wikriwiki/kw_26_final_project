@@ -60,6 +60,8 @@ def main() -> int:
     ap.add_argument("--preservation", default="", help="verify_p012_preservation.py 의 json")
     ap.add_argument("--restore-dir", default="", help="verify_graph_restore 의 결과 디렉터리")
     ap.add_argument("--interview-check", default="", help="interview_agents.py --check-all 출력 파일")
+    ap.add_argument("--cashback-manifest", action="append", default=[],
+                    help="캐시백 원장 manifest (두 시뮬레이션 각각) — 기준액 없는 시민 명단")
     ap.add_argument("--out", required=True)
     a = ap.parse_args()
 
@@ -238,6 +240,29 @@ def main() -> int:
     w("그래서 이전 시뮬레이션의 총소비·적립 제외 소비·재정 배수(K15) 값은 이 보고서의 값과")
     w("**같은 표에 놓고 비교하면 안 된다.** 비율(증가율)은 금액 기준과 무관하므로 비교할 수 있다.")
     w("")
+
+    # 소비 기준액이 없는 시민 — 원장 manifest 가 명단을 갖는다. 두 시뮬레이션의 명단이
+    # 다르면 그 자체가 이상이므로 둘 다 적는다.
+    na_by = {}
+    for mp in a.cashback_manifest:
+        m = load(mp) or {}
+        na_by[m.get("arm") or mp] = sorted(m.get("no_anchor_citizens") or [])
+    na = sorted({x for v in na_by.values() for x in v})
+    if na:
+        w("## 소비 기준액이 없는 시민 %d명" % len(na))
+        w("")
+        w("명부 %s명 중 %d명은 BDC 소비 기준액이 없다: %s."
+          % ("{:,}".format(sc["n_agents"]), len(na), ", ".join("`%s`" % x for x in na)))
+        w("")
+        w("- 명부에서 빼지 않고 두 결제원장에 그대로 남겼다. 빼면 '명부 전원 보존' 이 깨진다.")
+        w("- 캐시백 문턱은 기준액에서 나오므로 정할 근거가 없다 — 문턱은 '없음', 캐시백은 0원.")
+        w("  0 을 기준액으로 넣으면 문턱이 0 이 되어 1원만 써도 적립되는 가짜 값이 된다.")
+        w("- 두 시뮬레이션 모두에서 이들의 적립 대상 지출은 0원이었다. 0원이 아니었다면 원장")
+        w("  추출이 멈추도록 되어 있다.")
+        w("- 소득 상·하 구분(K17)에서는 어느 쪽에도 넣지 않았다.")
+        if len({tuple(v) for v in na_by.values()}) > 1:
+            w("- **두 시뮬레이션의 명단이 다르다**: %s" % na_by)
+        w("")
 
     pres = load(a.preservation) if a.preservation else None
     if pres:

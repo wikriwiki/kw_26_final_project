@@ -78,6 +78,8 @@ python scripts/report/build_p012_validity_report.py \
   --preservation "$BASE/preservation_check.json" \
   --restore-dir "$BASE/restore_check" \
   --interview-check "$BASE/interview_check.txt" \
+  --cashback-manifest "$BASE/on/cashback.ledger.jsonl.manifest.json" \
+  --cashback-manifest "$BASE/off/cashback.ledger.jsonl.manifest.json" \
   ${IV:+--interviews "$IV"} \
   --out "$BASE/P012_VALIDITY.md"
 test -s "$BASE/P012_VALIDITY.md"
