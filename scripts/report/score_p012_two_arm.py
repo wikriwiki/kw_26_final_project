@@ -309,10 +309,12 @@ def income_sector_grid(sec_off, sec_on, cash_off, aids):
     앵커는 BDC 에서 온 정책 전 값이고 두 팔에서 같다. 정책 결과로 계층을
     가르면 순환이 되므로 **정책 전 값**만 쓴다.
     """
-    anc = {a: cash_off[a]["anchor"] for a in aids}
+    # 기준액이 없는 사람(원장에 anchor_won=None, 3,000명 중 2명)은 어느 쪽에도 넣지 않는다 —
+    # 0 으로 두면 '저소득' 으로 지어내는 것이다.
+    anc = {a: cash_off[a]["anchor"] for a in aids if cash_off[a].get("anchor", 0) > 0}
     med = st.median(anc.values()) if anc else 0
-    hi = [a for a in aids if anc[a] > med]
-    lo = [a for a in aids if anc[a] <= med]
+    hi = [a for a in anc if anc[a] > med]
+    lo = [a for a in anc if anc[a] <= med]
     cells = {}
     for nm in ("가전·가구", "학원", "요식", "유통"):
         cells[nm] = (arm_pct(sec_off, sec_on, hi, "kdi:" + nm),

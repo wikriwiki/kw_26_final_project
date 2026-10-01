@@ -82,7 +82,7 @@ def load_policy(path: Path, month: str, policy_id: str, *, partial_ok: bool = Fa
     return policy
 
 
-def monthly_anchor(agent: dict, base_ratio: float) -> tuple[int, str]:
+def monthly_anchor(agent: dict, base_ratio: float) -> tuple[int | None, str]:
     measured = agent.get("sangsaeng_base_daily")
     if measured is not None:
         try:
@@ -96,7 +96,9 @@ def monthly_anchor(agent: dict, base_ratio: float) -> tuple[int, str]:
     if wd <= 0:
         wd = we
     if wd <= 0 or we <= 0:
-        raise ValueError(f"citizen has no positive daily spending anchor: {agent.get('aid')}")
+        # 소비 기준액이 없는 시민은 시뮬에서도 예산이 없어 지출이 0 이다(3,000명 중 2명 확인).
+        # 문턱을 지어내지 않고 '없음' 으로 돌려준다 — 적립 대상 지출이 있었다면 아래에서 멈춘다.
+        return None, "no_anchor"
     return round((wd * 5 + we * 2) / 7 * 30 * base_ratio), "total_daily_scaled"
 
 
@@ -176,9 +178,13 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
         if not isinstance(fingerprint, str) or not fingerprint:
             raise ValueError(f"execution fingerprint missing: {day}")
         fingerprints.add(fingerprint)
+        # 소득을 고정표(baseline)로 넣은 런은 표의 해시가 있어야 한다. 앵커 비례 소득
+        # (EXP_DAILY_INCOME=anchor:<k>)으로 넣은 런은 표가 없고, 그 설정은 실행 지문에
+        # 들어 있다(아래에서 지문이 런 내내 같은지 따로 본다). 그래서 '없음'도 하나의
+        # 값으로 센다 — 어떤 날은 있고 어떤 날은 없으면 아래 검사가 거부한다.
         income_map = cohort.get("baseline_income_map_sha256")
-        if not isinstance(income_map, str) or not income_map:
-            raise ValueError(f"frozen baseline income map missing: {day}")
+        if income_map is not None and (not isinstance(income_map, str) or not income_map):
+            raise ValueError(f"baseline income map hash is malformed: {day}")
         income_maps.add(income_map)
         run_id = cohort.get("run_id")
         if not isinstance(run_id, str) or not run_id:
@@ -203,8 +209,11 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
             or len(prompt_variants) != 1 or len(system_prompt_hashes) != 1
             or len(stage2_prompt_hashes) != 1):
         raise ValueError("run ID, execution fingerprint, income map or prompt changed within run")
+    _imap = next(iter(income_maps))
     result = {"execution_fingerprint": next(iter(fingerprints)),
-            "baseline_income_map_sha256": next(iter(income_maps)),
+            "baseline_income_map_sha256": _imap,
+            "income_mode": ("baseline map" if _imap else
+                            "no map — income setting recorded in the execution fingerprint"),
             "run_id": next(iter(run_ids)),
             "prompt_variant": next(iter(prompt_variants)),
             "system_prompt_sha256": next(iter(system_prompt_hashes))}
@@ -279,11 +288,19 @@ def export(*, partial_month_ok: bool = False,
                 for row in records:
                     row["s2_choice_status"] = choice_by_day[day][row["aid"]]
                     anchor, source_name = anchors[row["aid"]]
-                    threshold = round(anchor * float(policy["threshold_ratio"]))
-                    payout = (min(int(policy["cap_per_agent"]),
-                                  max(0.0, (row["eligible_cumulative"] - threshold)
-                                      * float(policy["benefit_rate"])))
-                              if arm == "on" and day == days[-1] else 0.0)
+                    if anchor is None:
+                        # 기준액이 없으면 문턱도 없다. 그런 사람이 적립 대상에서 돈을 썼다면
+                        # 캐시백을 정할 근거가 없으므로 멈춘다 — 0 으로 덮지 않는다.
+                        if row["eligible_cumulative"] > 0:
+                            raise ValueError("citizen with no spending anchor spent at "
+                                             "eligible venues: %s" % row["aid"])
+                        threshold, payout = None, 0.0
+                    else:
+                        threshold = round(anchor * float(policy["threshold_ratio"]))
+                        payout = (min(int(policy["cap_per_agent"]),
+                                      max(0.0, (row["eligible_cumulative"] - threshold)
+                                          * float(policy["benefit_rate"])))
+                                  if arm == "on" and day == days[-1] else 0.0)
                     row.update({"arm": arm, "policy_id": policy_id, "month": month,
                                 "anchor_won": anchor, "anchor_source": source_name,
                                 "threshold_won": threshold,
@@ -310,6 +327,7 @@ def export(*, partial_month_ok: bool = False,
         "generation_totals": audit["totals"],
         **cohort,
         "citizens": len(roster), "days": len(days), "rows": len(roster) * len(days),
+        "no_anchor_citizens": sorted(a for a, (v, _) in anchors.items() if v is None),
         "output_sha256": output_sha,
     }
     manifest_path = out.with_name(out.name + ".manifest.json")

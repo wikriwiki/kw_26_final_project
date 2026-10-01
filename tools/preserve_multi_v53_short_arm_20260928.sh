@@ -48,6 +48,51 @@ if [[ $case_id == distancing ]]; then
   test -s "$ARM/receipt_coordinates.jsonl.manifest.json"
   test -s "$ARM/poi_coordinates.json"
 fi
+# 덤프 뒤 묶음·체크섬. 전체 보존과 '꼬리만 다시' 가 같은 코드를 쓴다.
+archive_tail() {
+  # p012m 은 소득을 앵커 비례(EXP_DAILY_INCOME=anchor)로 넣어 소득표가 없다 — 러너와
+  # 같은 분기다. 다른 케이스는 소득표가 입력이므로 없으면 tar 가 실패해 멈춘다.
+  bundle=("$arm" roster.json)
+  if [[ $case_id != p012m ]]; then bundle+=(frozen_income.json); fi
+  tar --exclude='graph_backup' -C "$OUT" -czf "$OUT/${arm}_artifacts.tar.gz" "${bundle[@]}"
+  (cd "$OUT" && sha256sum "${arm}_artifacts.tar.gz" > "${arm}_artifacts.sha256")
+  sha256sum "$ARM/summary.json" "$ARM/sector.ledger.jsonl" \
+    "$ARM/sector.ledger.jsonl.manifest.json" "$ARM/stage2.json" \
+    "$ARM/run_manifest.json" > "$ARM/outputs.sha256"
+  sha256sum "$ARM/served_model_evidence.json" >> "$ARM/outputs.sha256"
+  sha256sum "$ARM/dossier.jsonl" "$ARM/dossier.jsonl.manifest.json" >> "$ARM/outputs.sha256"
+  if [[ $case_id == p010 ]]; then
+    sha256sum "$ARM/policy.ledger.jsonl" "$ARM/policy.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
+  fi
+  if [[ $case_id == p012 || $case_id == p012t || $case_id == p012m ]]; then
+    sha256sum "$ARM/cashback.ledger.jsonl" "$ARM/cashback.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
+  fi
+  if [[ $case_id == distancing ]]; then
+    # Geography is a descriptive proxy. Require its graph-backed input archive
+    # before this graph may be reset for the next arm.
+    sha256sum "$ARM/receipt_coordinates.jsonl" \
+      "$ARM/receipt_coordinates.jsonl.manifest.json" \
+      "$ARM/poi_coordinates.json" >> "$ARM/outputs.sha256"
+  fi
+  log 'PRESERVED_ON_SERVER: copy both archives/manifests outside A100 and verify before any next restore'
+}
+
+# 덤프까지 끝나고 묶음 단계에서 멈췄다면 그 꼬리만 다시 한다. 덤프를 다시 뜨지 않는다 —
+# 덤프 체크섬과 원장·기억 모음이 모두 있는지 먼저 확인한다.
+if [[ ${PRESERVE_TAIL_ONLY:-0} == 1 ]]; then
+  test -s "$ARM/graph_backup/SHA256SUMS"
+  (cd "$ARM/graph_backup" && sha256sum -c SHA256SUMS)
+  for f in sector.ledger.jsonl sector.ledger.jsonl.manifest.json dossier.jsonl dossier.jsonl.manifest.json; do
+    test -s "$ARM/$f"
+  done
+  if [[ $case_id == p012 || $case_id == p012t || $case_id == p012m ]]; then
+    test -s "$ARM/cashback.ledger.jsonl"
+    test -s "$ARM/cashback.ledger.jsonl.manifest.json"
+  fi
+  log 'Tail only: dump, ledgers and dossier present; dump SHA256 verified'
+  archive_tail
+  exit 0
+fi
 test ! -e "$ARM/graph_backup/SHA256SUMS" || { log 'Graph already dumped; refusing duplicate'; exit 1; }
 python - "$ARM/summary.json" "$DAYS" "$N" <<'PY'
 import json,sys
@@ -132,25 +177,4 @@ trap - EXIT
 (cd "$DEST" && sha256sum -c SHA256SUMS)
 log 'Full restore graph backup completed and SHA256 verified'
 
-tar --exclude='graph_backup' -C "$OUT" -czf "$OUT/${arm}_artifacts.tar.gz" \
-  "$arm" roster.json frozen_income.json
-(cd "$OUT" && sha256sum "${arm}_artifacts.tar.gz" > "${arm}_artifacts.sha256")
-sha256sum "$ARM/summary.json" "$ARM/sector.ledger.jsonl" \
-  "$ARM/sector.ledger.jsonl.manifest.json" "$ARM/stage2.json" \
-  "$ARM/run_manifest.json" > "$ARM/outputs.sha256"
-sha256sum "$ARM/served_model_evidence.json" >> "$ARM/outputs.sha256"
-sha256sum "$ARM/dossier.jsonl" "$ARM/dossier.jsonl.manifest.json" >> "$ARM/outputs.sha256"
-if [[ $case_id == p010 ]]; then
-  sha256sum "$ARM/policy.ledger.jsonl" "$ARM/policy.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
-fi
-if [[ $case_id == p012 || $case_id == p012t || $case_id == p012m ]]; then
-  sha256sum "$ARM/cashback.ledger.jsonl" "$ARM/cashback.ledger.jsonl.manifest.json" >> "$ARM/outputs.sha256"
-fi
-if [[ $case_id == distancing ]]; then
-  # Geography is a descriptive proxy. Require its graph-backed input archive
-  # before this graph may be reset for the next arm.
-  sha256sum "$ARM/receipt_coordinates.jsonl" \
-    "$ARM/receipt_coordinates.jsonl.manifest.json" \
-    "$ARM/poi_coordinates.json" >> "$ARM/outputs.sha256"
-fi
-log 'PRESERVED_ON_SERVER: copy both archives/manifests outside A100 and verify before any next restore'
+archive_tail
