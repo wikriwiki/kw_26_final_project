@@ -89,16 +89,4 @@ cp "$BASE/roster.json" "$BASE/score/roster.json"
 PYTHONIOENCODING=utf-8 python scripts/report/score_p012_two_arm.py \
   --dir "$BASE/score" --json-out "$BASE/score/score_full.json" \
   | tee /data/p012m.score.txt
-
-# 인터뷰 — 쌓인 기억으로. 칸(반응 5분위 x 소비수준 3분단)마다 뽑으므로 비반응자가
-# 표본에 남는다. 원장에 없는 숫자를 말한 답변은 도구가 표시한다.
-log "=== 인터뷰"
-mkdir -p "$BASE/dossier"
-for arm in on off; do cp "$BASE/$arm/dossier.jsonl" "$BASE/dossier/$arm.dossier.jsonl"; done
-PYTHONIOENCODING=utf-8 LLM_BASE_URL=http://localhost:8000/v1 LLM_MODE=exaone_4_5   python scripts/report/interview_agents.py --dir "$BASE/dossier" --per-cell 1   --out "$BASE/interviews" | tee /data/p012m.interviews.txt
-
-log "=== 보고서"
-python scripts/report/build_p012_validity_report.py   --score "$BASE/score/score_full.json"   --roster-manifest "$BASE/roster.manifest.json"   --dossier-manifest "$BASE/on/dossier.jsonl.manifest.json"   --interviews "$BASE/interviews/interviews.jsonl"   --out "$BASE/P012_VALIDITY.md"
-test -s "$BASE/P012_VALIDITY.md"
-
-log "DONE — $BASE/P012_VALIDITY.md · /data/p012m.score.txt · $BASE/interviews/"
+log "DONE — /data/p012m.score.txt 와 $BASE/score/score_full.json"
