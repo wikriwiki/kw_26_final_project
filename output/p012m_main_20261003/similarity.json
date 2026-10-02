@@ -1,0 +1,615 @@
+{
+ "n_agents": 3000,
+ "window": "2021-10-01 ~ 2021-10-07",
+ "window_days": 7,
+ "n_effect": 9,
+ "n_direction": 11,
+ "boot": 2000,
+ "headline": {
+  "magnitude_similarity": 0.39463300950068075,
+  "magnitude_similarity_ci": [
+   0.30356068908939904,
+   0.47124192086984085
+  ],
+  "direction_agreement": 0.8181818181818182,
+  "direction_agreement_ci": [
+   0.7272727272727273,
+   0.8181818181818182
+  ],
+  "direction_matched": 9,
+  "direction_certain_matched": 6,
+  "direction_certain_mismatched": 2,
+  "rank_correlation": -0.016666666666666666,
+  "rank_correlation_ci": [
+   -0.06666666666666667,
+   0.21666666666666667
+  ],
+  "rank_correlation_p": 0.5258046737213404,
+  "mae_pp": 15.10894420648639,
+  "mae_pp_ci": [
+   12.232858748911262,
+   19.053775264315604
+  ],
+  "truth_in_ci": 2,
+  "truth_in_ci_of": 9
+ },
+ "indicators": [
+  {
+   "id": "K1",
+   "name": "총소비 진작 (삼중차분, 10월)",
+   "group": "총량",
+   "truth": 11.25,
+   "truth_significant": true,
+   "sim": 1.3803255489472033,
+   "ci": [
+    1.1105257027794968,
+    1.6369186082984877
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 1.4871039084363049e-05,
+   "status": "일치",
+   "similarity": 0.2185732336982018,
+   "similarity_ci": [
+    0.1829034505663344,
+    0.25556671983476864
+   ],
+   "abs_error_pp": 9.869674451052797,
+   "truth_in_ci": false,
+   "direction_match": true,
+   "direction_certain": true
+  },
+  {
+   "id": "K3",
+   "name": "가전·가구 (10월)",
+   "group": "업종",
+   "truth": 36.23,
+   "truth_significant": true,
+   "sim": 70.0882895447476,
+   "ci": [
+    43.52510210919169,
+    101.87760761609938
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 7.17075372902522e-23,
+   "status": "일치",
+   "similarity": 0.6815384287150593,
+   "similarity_ci": [
+    0.5309053307196324,
+    0.9069562362887222
+   ],
+   "abs_error_pp": 33.8582895447476,
+   "truth_in_ci": false,
+   "direction_match": true,
+   "direction_certain": true
+  },
+  {
+   "id": "K4",
+   "name": "여행·레저 (10월)",
+   "group": "업종",
+   "truth": 14.27,
+   "truth_significant": true,
+   "sim": -33.63766239303888,
+   "ci": [
+    -36.65186821524783,
+    -30.5385303580069
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 2.742626567273819e-63,
+   "status": "불일치",
+   "similarity": 0.0,
+   "similarity_ci": [
+    0.0,
+    0.0
+   ],
+   "abs_error_pp": 47.907662393038876,
+   "truth_in_ci": false,
+   "direction_match": false,
+   "direction_certain": true
+  },
+  {
+   "id": "K5",
+   "name": "유통 (10월, 적립)",
+   "group": "업종",
+   "truth": 13.82,
+   "truth_significant": true,
+   "sim": 8.050979015500893,
+   "ci": [
+    5.6763553392823685,
+    10.433172216225106
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 3.1880874848508286e-11,
+   "status": "일치",
+   "similarity": 0.7362248402135836,
+   "similarity_ci": [
+    0.5904020928849858,
+    0.8530376593514265
+   ],
+   "abs_error_pp": 5.769020984499107,
+   "truth_in_ci": false,
+   "direction_match": true,
+   "direction_certain": true
+  },
+  {
+   "id": "K6",
+   "name": "요식 (10월)",
+   "group": "업종",
+   "truth": 13.33,
+   "truth_significant": true,
+   "sim": -8.251313409852191,
+   "ci": [
+    -9.659604616134176,
+    -6.779315249505224
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 1.2716467236240792e-23,
+   "status": "불일치",
+   "similarity": 0.0,
+   "similarity_ci": [
+    0.0,
+    0.0
+   ],
+   "abs_error_pp": 21.581313409852193,
+   "truth_in_ci": false,
+   "direction_match": false,
+   "direction_certain": true
+  },
+  {
+   "id": "K7",
+   "name": "학원 (10월)",
+   "group": "업종",
+   "truth": 6.3,
+   "truth_significant": false,
+   "sim": 11.217042687799772,
+   "ci": [
+    -0.4908611709999122,
+    24.05859322437136
+   ],
+   "sign_conf": 0.9675,
+   "sign_test_p": 6.277884353669557e-12,
+   "status": "판정불가",
+   "similarity": 0.7192994973275721,
+   "similarity_ci": [
+    0.014915872560785193,
+    0.9770035437100141
+   ],
+   "abs_error_pp": 4.917042687799772,
+   "truth_in_ci": true,
+   "direction_match": true,
+   "direction_certain": false
+  },
+  {
+   "id": "K8",
+   "name": "이·미용 (10월)",
+   "group": "업종",
+   "truth": 2.8,
+   "truth_significant": false,
+   "sim": 8.913719897954797,
+   "ci": [
+    -2.8488332093125956,
+    21.876686237459154
+   ],
+   "sign_conf": 0.9325,
+   "sign_test_p": 3.902974276067042e-06,
+   "status": "판정불가",
+   "similarity": 0.4780718720257049,
+   "similarity_ci": [
+    0.0,
+    0.9499984094757798
+   ],
+   "abs_error_pp": 6.113719897954797,
+   "truth_in_ci": true,
+   "direction_match": true,
+   "direction_certain": false
+  },
+  {
+   "id": "K9",
+   "name": "제외업종 총 결제금액 (10월)",
+   "group": "제외업종",
+   "truth": 2.85,
+   "truth_significant": false,
+   "sim": 1.0377944228401992,
+   "ci": [
+    0.7128925234737737,
+    1.3526273719637327
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 0.012333124746258507,
+   "status": "일치",
+   "similarity": 0.53387309614074,
+   "similarity_ci": [
+    0.4042277824182984,
+    0.6479209989133506
+   ],
+   "abs_error_pp": 1.812205577159801,
+   "truth_in_ci": false,
+   "direction_match": true,
+   "direction_certain": true
+  },
+  {
+   "id": "K10",
+   "name": "제외업종 중 유통 (10월)",
+   "group": "제외업종",
+   "truth": 4.62,
+   "truth_significant": false,
+   "sim": 0.4684310877274278,
+   "ci": [
+    -0.37929608973062967,
+    1.2950928096740588
+   ],
+   "sign_conf": 0.863,
+   "sign_test_p": 0.00013425722058886858,
+   "status": "판정불가",
+   "similarity": 0.18411611738526512,
+   "similarity_ci": [
+    0.0,
+    0.44188476032004576
+   ],
+   "abs_error_pp": 4.151568912272572,
+   "truth_in_ci": false,
+   "direction_match": true,
+   "direction_certain": false
+  }
+ ],
+ "rank_indicators": [
+  {
+   "id": "K11",
+   "name": "적립업종 > 제외업종",
+   "truth_gap": 8.4,
+   "sim_gap": 0.5943377164975727,
+   "ci": [
+    0.29151778752898316,
+    0.8960439265897069
+   ],
+   "sign_conf": 1.0,
+   "status": "일치",
+   "direction_match": true,
+   "direction_certain": true
+  },
+  {
+   "id": "K12",
+   "name": "가전·가구 > 이·미용",
+   "truth_gap": 33.43,
+   "sim_gap": 61.1745696467928,
+   "ci": [
+    31.219378635207185,
+    95.55446201377474
+   ],
+   "sign_conf": 1.0,
+   "status": "일치",
+   "direction_match": true,
+   "direction_certain": true
+  }
+ ],
+ "score_rows": [
+  {
+   "id": "K1",
+   "name": "총소비 진작 (삼중차분, 10월)",
+   "truth": 11.25,
+   "sim": 1.3803255489472033,
+   "ci": [
+    1.1105257027794968,
+    1.6369186082984877
+   ],
+   "sign": [
+    1618,
+    1380,
+    2
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 1.4871039084363049e-05,
+   "truth_in_band": false,
+   "needed_n": 3000,
+   "status": "일치"
+  },
+  {
+   "id": "K3",
+   "name": "가전·가구 (10월)",
+   "truth": 36.23,
+   "sim": 70.0882895447476,
+   "ci": [
+    43.52510210919169,
+    101.87760761609938
+   ],
+   "sign": [
+    630,
+    327,
+    2043
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 7.17075372902522e-23,
+   "truth_in_band": false,
+   "needed_n": 3000,
+   "status": "일치"
+  },
+  {
+   "id": "K4",
+   "name": "여행·레저 (10월)",
+   "truth": 14.27,
+   "sim": -33.63766239303888,
+   "ci": [
+    -36.65186821524783,
+    -30.5385303580069
+   ],
+   "sign": [
+    1020,
+    1925,
+    55
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 2.742626567273819e-63,
+   "truth_in_band": false,
+   "needed_n": 3000,
+   "status": "불일치"
+  },
+  {
+   "id": "K5",
+   "name": "유통 (10월, 적립)",
+   "truth": 13.82,
+   "sim": 8.050979015500893,
+   "ci": [
+    5.6763553392823685,
+    10.433172216225106
+   ],
+   "sign": [
+    1681,
+    1317,
+    2
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 3.1880874848508286e-11,
+   "truth_in_band": false,
+   "needed_n": 3000,
+   "status": "일치"
+  },
+  {
+   "id": "K6",
+   "name": "요식 (10월)",
+   "truth": 13.33,
+   "sim": -8.251313409852191,
+   "ci": [
+    -9.659604616134176,
+    -6.779315249505224
+   ],
+   "sign": [
+    1225,
+    1773,
+    2
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 1.2716467236240792e-23,
+   "truth_in_band": false,
+   "needed_n": 3000,
+   "status": "불일치"
+  },
+  {
+   "id": "K7",
+   "name": "학원 (10월)",
+   "truth": 6.3,
+   "sim": 11.217042687799772,
+   "ci": [
+    -0.4908611709999122,
+    24.05859322437136
+   ],
+   "sign": [
+    826,
+    569,
+    1605
+   ],
+   "sign_conf": 0.9675,
+   "sign_test_p": 6.277884353669557e-12,
+   "truth_in_band": true,
+   "needed_n": 3593,
+   "status": "판정불가"
+  },
+  {
+   "id": "K8",
+   "name": "이·미용 (10월)",
+   "truth": 2.8,
+   "sim": 8.913719897954797,
+   "ci": [
+    -2.8488332093125956,
+    21.876686237459154
+   ],
+   "sign": [
+    740,
+    572,
+    1688
+   ],
+   "sign_conf": 0.9325,
+   "sign_test_p": 3.902974276067042e-06,
+   "truth_in_band": true,
+   "needed_n": 5771,
+   "status": "판정불가"
+  },
+  {
+   "id": "K9",
+   "name": "제외업종 총 결제금액 (10월)",
+   "truth": 2.85,
+   "sim": 1.0377944228401992,
+   "ci": [
+    0.7128925234737737,
+    1.3526273719637327
+   ],
+   "sign": [
+    1568,
+    1430,
+    2
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 0.012333124746258507,
+   "truth_in_band": false,
+   "needed_n": 3000,
+   "status": "일치"
+  },
+  {
+   "id": "K10",
+   "name": "제외업종 중 유통 (10월)",
+   "truth": 4.62,
+   "sim": 0.4684310877274278,
+   "ci": [
+    -0.37929608973062967,
+    1.2950928096740588
+   ],
+   "sign": [
+    1604,
+    1394,
+    2
+   ],
+   "sign_conf": 0.863,
+   "sign_test_p": 0.00013425722058886858,
+   "truth_in_band": false,
+   "needed_n": 9583,
+   "status": "판정불가"
+  },
+  {
+   "id": "K11",
+   "name": "적립업종 > 제외업종",
+   "truth": 8.4,
+   "sim": 0.5943377164975727,
+   "ci": [
+    0.29151778752898316,
+    0.8960439265897069
+   ],
+   "sign": [
+    1621,
+    1375,
+    4
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 7.51946512428692e-06,
+   "truth_in_band": false,
+   "needed_n": 3000,
+   "status": "일치",
+   "truth_gap": 8.4,
+   "unit": "%p"
+  },
+  {
+   "id": "K12",
+   "name": "가전·가구 > 이·미용",
+   "truth": 33.43,
+   "sim": 61.1745696467928,
+   "ci": [
+    31.219378635207185,
+    95.55446201377474
+   ],
+   "sign": [
+    1000,
+    812,
+    1188
+   ],
+   "sign_conf": 1.0,
+   "sign_test_p": 1.0989672139420425e-05,
+   "truth_in_band": true,
+   "needed_n": 3000,
+   "status": "일치",
+   "truth_gap": 33.43,
+   "unit": "%p"
+  },
+  {
+   "id": "K13",
+   "name": "1인당 평균 캐시백 (사업 전체)",
+   "truth": 47880,
+   "sim": 397.65456666666665,
+   "unit": "원",
+   "status": "수준",
+   "note": "실측은 10·11월 두 달 합이다 → 월평균 23,940원 → 시뮬 기간 7일로 나누면 **5,406원** 과 본다 (배 0.07)",
+   "truth_month": 23940.0,
+   "truth_window": 5405.806451612903,
+   "window_days": 7,
+   "ratio": 0.07356063710864462
+  },
+  {
+   "id": "K14",
+   "name": "월 한도 10만원",
+   "truth": 100000,
+   "sim": 0.0,
+   "unit": "% 도달",
+   "status": "수준",
+   "note": "원문에 도달률 수치가 없다(한도값 10만원만). 장치 확인용."
+  },
+  {
+   "id": "K15",
+   "name": "투입재원 대비 소비진작 배수",
+   "truth": 165,
+   "sim": 1150.0453031387292,
+   "unit": "%",
+   "status": "수준",
+   "note": "구간 928 ~ 1368%  → 방향만 일치 · **실측 165% 가 구간 밖** — 시뮬이 7.0배 과대"
+  },
+  {
+   "id": "K20",
+   "name": "지급 인원·총액",
+   "truth": 16800000,
+   "sim": 32.56666666666667,
+   "unit": "%",
+   "status": "수준",
+   "note": "전국 인원(16,800,000명)과 직접 비교 못 한다. 분모를 우리가 붙인 참고값."
+  },
+  {
+   "id": "K2",
+   "name": "총소비 진작 (삼중차분, 11월)",
+   "status": "해당없음",
+   "why": "미측정 — 11월을 돌리지 않았다(10월만)"
+  },
+  {
+   "id": "K16",
+   "name": "정책 직전(9월) 수급-미수급 소비 격차",
+   "status": "해당없음",
+   "why": "해당없음 — 같은 사람을 두 팔로 돌려 정책 전 격차가 0 이다(설계의 장점)"
+  },
+  {
+   "id": "K17",
+   "name": "고소득: 가전·가구·학원 / 저소득: 요식·유통",
+   "status": "이질성",
+   "cells": {
+    "가전·가구": [
+     62.22996350997314,
+     100.58996239660756
+    ],
+    "학원": [
+     6.65818710745083,
+     27.131886232373258
+    ],
+    "요식": [
+     -6.662122017917593,
+     -12.128142213718629
+    ],
+    "유통": [
+     8.869735003815693,
+     6.063158224443921
+    ]
+   },
+   "dir_ok": 0,
+   "dir_total": 4
+  },
+  {
+   "id": "K18",
+   "name": "4인 가구 > 1~3인 가구",
+   "status": "이질성",
+   "proxy": "household_composition",
+   "large_pct": 1.322870761155559,
+   "small_pct": 1.9833213547907347,
+   "gap": -0.6604505936351757,
+   "ci": [
+    -1.3618001122550183,
+    0.03439226704016196
+   ],
+   "sign_conf": 0.97,
+   "n_large": 766,
+   "n_small": 706,
+   "n_excluded": 1528,
+   "dir_ok": 0,
+   "dir_total": 0
+  },
+  {
+   "id": "K19",
+   "name": "지역별로 고르게",
+   "status": "이질성",
+   "n_gu": 25,
+   "spread": 1.3179759001488225,
+   "null_p95": 1.133962368404228,
+   "p": 0.0085
+  }
+ ]
+}

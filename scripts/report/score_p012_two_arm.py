@@ -182,7 +182,9 @@ def sign_test_p(up: int, dn: int) -> float | None:
     if m == 0:
         return None
     k = min(up, dn)
-    tail = sum(math.comb(m, i) for i in range(0, k + 1)) / (2.0 ** m)
+    # 정수로 셈한다 — 2.0**m 은 m > 1023 에서 넘친다(3,000명 본런에서 터졌다).
+    # 큰 정수끼리의 / 는 파이썬이 정확히 반올림한다.
+    tail = sum(math.comb(m, i) for i in range(0, k + 1)) / (1 << m)
     return min(1.0, 2.0 * tail)
 
 

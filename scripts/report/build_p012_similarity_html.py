@@ -150,6 +150,7 @@ td .s{display:block; font-size:12.5px; color:var(--muted)}
 .chip.bad::before{content:"✕"}
 .chip.unsure::before{content:"○"}
 .grid2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+.grid2 > .card:last-child:nth-child(odd){grid-column:1 / -1}
 @media (max-width:760px){.grid2{grid-template-columns:1fr}}
 .card{background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:10px}
 .card .big{font-family:var(--display); font-size:26px; font-weight:600; font-variant-numeric:tabular-nums}
@@ -365,9 +366,9 @@ def main() -> int:
       '실측이 시뮬레이션의 95% 구간 안에 든 지표는 {}개 중 <b>{}개</b>다.</div>'
       .format(s["boot"], h["truth_in_ci_of"], h["truth_in_ci"]))
     w('<div class="note"><b>시뮬레이션 기간의 한계.</b> 실측은 10월 한 달 누적이고 시뮬레이션은 {}일이다. '
-      '이것은 시뮬레이션 시간의 물리적 한계다. 같은 조건의 앞선 시뮬레이션에서 총소비 증가율은 7일 +18.9%, '
-      '14일 +15.5%, 31일 +11.3%로 기간이 짧을수록 크게 나왔다. 그래서 크기는 실측보다 크게 나올 수 있고, '
-      '방향과 순위가 이 기간에서 더 믿을 만한 비교다. 값을 기간에 맞춰 고치지 않았다.</div>'.format(days or "-"))
+      '이것은 시뮬레이션 시간의 물리적 한계다. 앞선 시뮬레이션에서는 같은 정책의 총소비 증가율이 7일 +18.9%, '
+      '14일 +15.5%, 31일 +11.3%로 기간에 따라 달랐다. 그래서 {}일 값의 크기를 한 달 실측과 그대로 맞대면 기간 차이가 '
+      '섞인다. 방향은 기간의 영향을 덜 받는다. 값을 기간에 맞춰 고치지 않았다.</div>'.format(days or "-", days or "-"))
     w("</section>")
 
     # 지표별 그림
@@ -430,11 +431,16 @@ def main() -> int:
         tw = k13.get("truth_window")
         ratio = k13.get("ratio")
         lsim = (min(ratio, 1 / ratio) if ratio and ratio > 0 else None)
+        k20, k14 = rows.get("K20") or {}, rows.get("K14") or {}
+        extra13 = ""
+        if k20.get("sim") is not None and k14.get("sim") is not None:
+            extra13 = (" 캐시백을 조금이라도 받은 사람은 시민의 %.1f%%, 한도(기간에 맞춰 줄인 값)에 닿은 사람은 %.1f%%다."
+                       % (k20["sim"], k14["sim"]))
         w('<div class="card"><h3>K13 1인당 캐시백</h3><div class="big">%s</div>'
           '<p>실측 {:,}원은 10·11월 두 달 합이다. 한 달 평균 {:,.0f}원을 시뮬레이션 {}일로 나눈 <b>{}</b>과 비교한다. '
-          '시뮬레이션은 그 <b>%s배</b>다 (유사도 %s).</p></div>'
+          '시뮬레이션은 그 <b>%s배</b>다 (유사도 %s).%s</p></div>'
           .format(int(k13["truth"]), k13.get("truth_month") or 0, k13.get("window_days") or days, won(tw))
-          % (won(k13["sim"]), num(ratio), num(lsim)))
+          % (won(k13["sim"]), num(ratio), num(lsim), E(extra13)))
     k15 = rows.get("K15")
     if k15 and k15.get("sim") is not None:
         r15 = (k15["sim"] / k15["truth"]) if k15.get("truth") else None
@@ -455,10 +461,15 @@ def main() -> int:
           % (k17.get("dir_ok", 0), k17.get("dir_total", 0), trs))
     k18 = rows.get("K18")
     if k18 and k18.get("gap") is not None:
-        w('<div class="card"><h3>K18 가구 규모별 반응</h3><div class="big">%s</div>'
+        c18 = (k18.get("sign_conf") or 0) >= 0.975
+        chip18 = ('<span class="chip %s">%s</span>' % (
+            ("good", "방향 일치 · 확실") if (c18 and k18["gap"] > 0) else
+            ("bad", "방향 반대 · 확실") if c18 else
+            ("unsure", "방향 같음 · 불확실") if k18["gap"] > 0 else ("unsure", "방향 다름 · 불확실")))
+        w('<div class="card"><h3>K18 가구 규모별 반응</h3><div class="big">%s</div><div>%s</div>'
           '<p>가구 구성으로 인원이 분명한 사람만 썼다: 3인 이상 %d명 %s, 1~2인 %d명 %s (제외 %d명). '
           '실측은 4인 이상이 1~3인보다 컸다. 부호 확실성 %s.</p></div>'
-          % (pct(k18["gap"], 1).replace("%", "%p"), k18["n_large"], pct(k18["large_pct"], 1),
+          % (pct(k18["gap"], 1).replace("%", "%p"), chip18, k18["n_large"], pct(k18["large_pct"], 1),
              k18["n_small"], pct(k18["small_pct"], 1), k18["n_excluded"],
              ("%.1f%%" % (100 * k18["sign_conf"])) if k18.get("sign_conf") is not None else "–"))
     k19 = rows.get("K19")
