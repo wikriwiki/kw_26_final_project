@@ -85,6 +85,7 @@ def main() -> int:
     ap.add_argument("--off", required=True)
     ap.add_argument("--on-policy")
     ap.add_argument("--off-policy")
+    ap.add_argument("--subs", help="소분류별 차이를 낼 업종, 쉼표로(예: 슈퍼마켓,종합소매,한식)")
     ap.add_argument("--draws", type=int, default=2000)
     ap.add_argument("--seed", type=int, default=20261005)
     ap.add_argument("--out", required=True)
@@ -94,9 +95,23 @@ def main() -> int:
     n = len(days)
     res = {"people": len(people), "days": days,
            "definition": "1인 1일 평균, 정책 있음 - 없음(같은 사람·같은 날)", "measures": {}}
-    for field in ("total_spent", "offline_spent", "online_spent", "policy_funded_won"):
+    for field in ("total_spent", "offline_spent", "online_spent", "policy_funded_won",
+                  "instant_discount_won", "policy_rebate_won"):
+        if not any(field in r for r in on):
+            continue        # 옛 원장에는 할인·환급 칸이 없다
         res["measures"][field] = contrast(per_person(on, field), per_person(off, field),
                                           people, n, a.draws, a.seed)
+    if a.subs:
+        # "슈퍼마켓" 처럼 하나, 또는 "식품전문=식료품+정육+청과" 처럼 묶음(이름=소분류+소분류)
+        on_sub, off_sub = per_person_map(on, "by_sub"), per_person_map(off, "by_sub")
+        res["by_sub"] = {}
+        for item in [x.strip() for x in a.subs.split(",") if x.strip()]:
+            label, _, members = item.partition("=")
+            parts = [m.strip() for m in (members or label).split("+") if m.strip()]
+            res["by_sub"][label.strip()] = dict(
+                contrast({p: sum(on_sub[p].get(k, 0) for k in parts) for p in people},
+                         {p: sum(off_sub[p].get(k, 0) for k in parts) for p in people},
+                         people, n, a.draws, a.seed), members=parts)
     on_l1, off_l1 = per_person_map(on, "by_l1"), per_person_map(off, "by_l1")
     sectors = sorted({k for m in list(on_l1.values()) + list(off_l1.values()) for k in m})
     res["by_l1"] = {k: contrast({p: on_l1[p].get(k, 0) for p in people},
