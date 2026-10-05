@@ -54,11 +54,12 @@ def _interval(values: list[float]) -> list[float] | None:
 
 
 def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list[str],
-          days: list[str], draws: int = 2000, seed: int = 20260926) -> dict:
+          days: list[str], draws: int = 2000, seed: int = 20260926,
+          control_arm: str = "control") -> dict:
     if not roster or len(set(roster)) != len(roster) or not days or draws < 0:
         raise ValueError("nonempty unique roster, dates and nonnegative draws required")
     on = _index(restricted_rows, roster=roster, days=days, arm="restricted")
-    off = _index(control_rows, roster=roster, days=days, arm="control")
+    off = _index(control_rows, roster=roster, days=days, arm=control_arm)
     citizens = []
     for aid in roster:
         sums = {arm: {key: 0 for key in (*SECTORS, "offline_spent", "online_spent",
@@ -72,6 +73,9 @@ def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list
                 choice_repaired |= row["s2_choice_status"] not in CLEAN_CHOICES
                 old_month, old_value = previous[arm]
                 prior = old_value if old_month == day[:7] else 0
+                if day == days[0] and "previous_month_cumulative" in row:
+                    # 3주 A/B: 정책 전 주가 같은 달이다 — 원장이 전날 State 에서 연 값을 쓴다.
+                    prior = row["previous_month_cumulative"]
                 if row["self_month_cumulative"] - prior != (row["offline_spent"]
                                                               + row["online_spent"]):
                     raise ValueError(f"monthly State ledger mismatch: {aid} {day} {arm}")
@@ -141,11 +145,11 @@ def score(restricted_rows: list[dict], control_rows: list[dict], *, roster: list
 
 
 def verify_manifests(restricted_path: Path, control_path: Path, *, roster: list[str],
-                     days: list[str]) -> dict:
+                     days: list[str], control_arm: str = "control") -> dict:
     expected_roster_sha = hashlib.sha256(json.dumps(sorted(roster), ensure_ascii=False).encode(
         "utf-8")).hexdigest()
     manifests = []
-    for arm, path in (("restricted", restricted_path), ("control", control_path)):
+    for arm, path in (("restricted", restricted_path), (control_arm, control_path)):
         manifest = json.loads(path.with_name(path.name + ".manifest.json").read_text(
             encoding="utf-8"))
         with path.open("rb") as stream:
@@ -162,6 +166,9 @@ def verify_manifests(restricted_path: Path, control_path: Path, *, roster: list[
     for key in ("mapping_sha256", "paired_environment_fingerprint",
                 "baseline_income_map_sha256", "prompt_variant",
                 "system_prompt_sha256"):
+        # 소득을 앵커 비례로 넣는 런(EXP_DAILY_INCOME=anchor)은 소득표가 없어 두 갈래 모두 None 이다 — 같으면 통과.
+        if key == "baseline_income_map_sha256" and manifests[0].get(key) is None and manifests[1].get(key) is None:
+            continue
         if not manifests[0].get(key) or manifests[0][key] != manifests[1].get(key):
             raise ValueError(f"paired arms differ in {key}")
     full_fingerprints = [item.get("execution_fingerprint") for item in manifests]
@@ -169,10 +176,13 @@ def verify_manifests(restricted_path: Path, control_path: Path, *, roster: list[
             or full_fingerprints[0] == full_fingerprints[1]):
         raise ValueError("environment arms need distinct full execution fingerprints")
     run_ids = [item.get("run_id") for item in manifests]
-    if (any(not isinstance(v, str) or not v for v in run_ids)
-            or run_ids[0] == run_ids[1]):
+    if any(not isinstance(v, str) or not v for v in run_ids):
+        raise ValueError("paired arms need run IDs")
+    # 실행 ID 는 같아도 된다(3주 A/B 는 같은 정책 전 주의 기억을 이어받는다). 같은 런끼리의 짝은 위의
+    # '실행 지문이 달라야 한다' 검사가 막는다 — 사회 배경 ID 가 지문에 들어간다.
+    if run_ids[0] == run_ids[1] and control_arm == "control":
         raise ValueError("paired arms need distinct run IDs")
-    return pair_provenance(manifests, ("restricted", "control"))
+    return pair_provenance(manifests, ("restricted", control_arm))
 
 
 def main() -> int:
@@ -183,14 +193,16 @@ def main() -> int:
     parser.add_argument("--start", required=True)
     parser.add_argument("--end", required=True)
     parser.add_argument("--draws", type=int, default=2000)
+    parser.add_argument("--control-arm", choices=("control", "control_hold"), default="control",
+                        help="control_hold = 3주 A/B 대조(11-23 의 1.5단계 유지)")
     parser.add_argument("--json-out", type=Path, required=True)
     args = parser.parse_args()
     roster = roster_file(args.roster)
     days = dates(args.start, args.end)
     provenance = verify_manifests(args.restricted, args.control,
-                                  roster=roster, days=days)
+                                  roster=roster, days=days, control_arm=args.control_arm)
     result = score(read_jsonl(args.restricted), read_jsonl(args.control),
-                   roster=roster, days=days, draws=args.draws)
+                   roster=roster, days=days, draws=args.draws, control_arm=args.control_arm)
     result["provenance"] = provenance
     args.json_out.parent.mkdir(parents=True, exist_ok=True)
     partial = args.json_out.with_name(args.json_out.name + f".tmp.{os.getpid()}")

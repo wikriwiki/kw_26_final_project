@@ -68,6 +68,8 @@ CREATE (p)-[:INCLUDES {
   // 분석 시: 정책별 사용처/누적 사용액 추적 가능
   spent_from_policy: coalesce(ev.spent_from_policy_json, '{}'),
   instant_discount: coalesce(ev.instant_discount_json, '{}'),
+  // 나중에 돌려받는 환급(외식 횟수 환급·체육 환급 등) — 오늘 자기부담에는 들어가지 않는다
+  policy_rebate: coalesce(ev.policy_rebate_json, '{}'),
   // 사고과정 흔적 (인터뷰 가능성 확보용)
   reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
   trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/mood/none
@@ -109,6 +111,8 @@ def write_plan(
         discount = ev.get("instant_discount") or {}
         ev["instant_discount_json"] = (_json.dumps(discount, ensure_ascii=False)
                                         if discount else "{}")
+        rebate = ev.get("policy_rebate") or {}
+        ev["policy_rebate_json"] = _json.dumps(rebate, ensure_ascii=False) if rebate else "{}"
     # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
     reviews_seen_json = _json.dumps(reviews_seen, ensure_ascii=False) if reviews_seen else "{}"
     review_changed_count = sum(1 for ev in valid_events if ev.get("review_changed"))

@@ -16,9 +16,14 @@ from typing import Callable
 from .covid_2021 import build as _covid_2021
 from .covid_no_distancing import build as _covid_no_distancing
 
+# 2020-11-24 2단계 격상의 대조 환경: 11-23 의 규칙(1.5단계)을 그대로 이어 간다. 확진 소식은 그날 것.
+# 11-23 까지는 covid_2021 과 똑같다. 실제로 있었던 단계를 유지할 뿐 '비교 조건'이라 적지 않는다.
+_HOLD_1123 = date(2020, 11, 23)
+
 _REGISTRY: dict[str, Callable[[date], dict]] = {
     "covid_2021": _covid_2021,
     "covid_no_distancing": _covid_no_distancing,
+    "covid_2020_hold_1123": lambda day: _covid_2021(day, rule_day=min(day, _HOLD_1123)),
 }
 
 
