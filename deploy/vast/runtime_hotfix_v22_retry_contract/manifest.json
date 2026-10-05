@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "name": "v22-retry-contract",
+  "activation_day": "2017-11-24",
+  "frozen_source_sha256": "e6ab8021766613426a615de4f1322b2d315864b857080d4fe047c5e2e4277f7f",
+  "files": {
+    "stage1_intent.py": "21e725285d8a0c20052842bc2777a004ccc6a3504ff63a5448aa7f6d7cfe3645",
+    "stage2_poi.py": "a546f76bfbd93245a90b6e52da74ee4ffd8890361db911a80d72d2ec0e95cbc3",
+    "grounded_schema.py": "4d7192019c857375e65c1d3ff16f065f847eeb65f0213bde1af58c9766b73457",
+    "runtime.py": "f4a784899ef3f5b747c82b03f944dec868a15e6454a2666c2ff39ca4d858e731"
+  }
+}
