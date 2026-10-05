@@ -218,9 +218,12 @@ def disease_facts(day: date) -> list[str]:
     return facts
 
 
-def build(day: date) -> dict:
-    """그날의 사회 배경. 규제 구간을 못 찾으면 {} 를 돌려 섹션을 생략한다."""
-    reg = _regime_for(day)
+def build(day: date, rule_day: date | None = None) -> dict:
+    """그날의 사회 배경. 규제 구간을 못 찾으면 {} 를 돌려 섹션을 생략한다.
+
+    rule_day 가 주어지면 규제는 그날 것으로, 확진 소식은 day 로 만든다(규제를 붙잡아 두는 대조 환경).
+    """
+    reg = _regime_for(rule_day or day)
     if reg is None:
         return {}
 
@@ -234,7 +237,9 @@ def build(day: date) -> dict:
         cutoff = _effective(reg, "dine_in_cutoff")
     if cutoff:
         after = _effective(reg, "after_cutoff") or "매장 취식 불가"
-        facts.append(f"식당·카페 매장 취식 {cutoff}까지. 이후 {after}")
+        # 카페가 종일 포장·배달만인 구간에서는 시간제한 줄이 식당만 말한다(바로 아래 카페 줄과 모순되지 않게).
+        _venue = "식당" if _effective(reg, "cafe_takeout_only_all_day") else "식당·카페"
+        facts.append(f"{_venue} 매장 취식 {cutoff}까지. 이후 {after}")
         # 같은 시간제한이 걸린 다른 시설. 학원·영화관·PC방은 소비처라 행동에 직접 닿는다.
         others = (_effective(reg, "other_22h_restricted_examples")
                   or _effective(reg, "other_21h_restricted_examples"))
