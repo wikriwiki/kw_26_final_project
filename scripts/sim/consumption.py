@@ -189,21 +189,33 @@ PLAN_SCALE = float(os.environ.get("EXP_PLAN_SCALE", "0.88144"))
 _PLAN_BASELINE: dict | None = None
 
 
+import threading as _threading
+_PLAN_BASELINE_LOCK = _threading.Lock()
+
+
 def _plan_baseline() -> dict:
-    """{에이전트: 기준 계획액}. 한 번만 읽는다. 없으면 빈 dict — 그러면 현행 그대로다."""
+    """{에이전트: 기준 계획액}. 한 번만 읽는다. 없으면 빈 dict — 그러면 현행 그대로다.
+
+    [2026-10-06] 다 읽은 뒤에 공개한다(잠금). 예전에는 빈 표를 먼저 공개해, 여러 스레드가 처음 부를 때
+    일부 사람-날이 기준선 없이 옛 공식으로 계산됐다(doinggyu 검토 5.1).
+    """
     global _PLAN_BASELINE
-    if _PLAN_BASELINE is None:
-        _PLAN_BASELINE = {}
-        if PLAN_BASELINE_FILE and os.path.exists(PLAN_BASELINE_FILE):
-            import json as _json
-            try:
-                with open(PLAN_BASELINE_FILE, encoding="utf-8") as fh:
-                    _PLAN_BASELINE = {
-                        str(k): float(v) for k, v in _json.load(fh).items()
-                        if isinstance(v, (int, float)) and float(v) > 0
-                    }
-            except (OSError, ValueError):
-                _PLAN_BASELINE = {}
+    if _PLAN_BASELINE is not None:
+        return _PLAN_BASELINE
+    with _PLAN_BASELINE_LOCK:
+        if _PLAN_BASELINE is None:
+            table: dict = {}
+            if PLAN_BASELINE_FILE and os.path.exists(PLAN_BASELINE_FILE):
+                import json as _json
+                try:
+                    with open(PLAN_BASELINE_FILE, encoding="utf-8") as fh:
+                        table = {
+                            str(k): float(v) for k, v in _json.load(fh).items()
+                            if isinstance(v, (int, float)) and float(v) > 0
+                        }
+                except (OSError, ValueError):
+                    table = {}
+            _PLAN_BASELINE = table
     return _PLAN_BASELINE
 # 1층까지 여는 전환 — 수준이 +40.7% 오르므로 기본은 꺼 둔다(위 주석).
 EXP_ANCHOR_BEFORE_MAX = os.environ.get("EXP_ANCHOR_BEFORE_MAX", "0") == "1"
