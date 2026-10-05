@@ -15,6 +15,9 @@ from forced_no_purchase import resolve as resolve_forced
 from validate_prompt_v3 import atomic, digest
 
 
+from llm_client import require_supported_model_id
+
+
 def factual_errors(ledger, expected):
     from paired_asset_score import METRICS
     if set(expected)-set(METRICS):raise ValueError('Unknown factual ledger requirement')
@@ -95,6 +98,7 @@ def main():
     ap.add_argument('--out',type=Path,required=True);ap.add_argument('--tokenizer',required=True);args=ap.parse_args()
     blocked=[]
     config=json.loads(args.config.read_bytes()); raw=args.source.read_bytes()
+    require_supported_model_id(config["model"])
     if hashlib.sha256(raw).hexdigest()!=config['source_sha256']:raise ValueError('Input hash mismatch')
     source=json.loads(raw);cells=source['cells'];_,system_prompt=protocol_modules(config)
     if any('daily_conditions' in c['transaction_case'] for c in cells):
@@ -126,7 +130,7 @@ def main():
     atomic(folder/'frozen_inputs.json',source);(folder/'system.txt').write_text(system_prompt,encoding='utf-8')
     base=os.environ.get('LLM_BASE_URL','http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
     with urlopen(base+'/v1/models',timeout=10) as response:
-        if config['model'] not in [m['id'] for m in json.load(response)['data']]:raise ValueError('Model mismatch')
+        if require_supported_model_id(config['model']) not in [m['id'] for m in json.load(response)['data']]:raise ValueError('Model mismatch')
     jobs=[(s,c) for s in config['seeds'] for c in cells];random.Random(config['order_seed']).shuffle(jobs);rows=[]
     with (folder/'responses.jsonl').open('x',encoding='utf-8') as fp,ThreadPoolExecutor(max_workers=config['workers']) as pool:
         pending=[pool.submit(invoke,j,config,base,prefixes,folder) for j in jobs]

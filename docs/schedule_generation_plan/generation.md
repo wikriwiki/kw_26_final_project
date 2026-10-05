@@ -259,7 +259,7 @@ class DailySchedule(BaseModel):
 
 구조화 출력 강제 방식:
 - **vLLM**: `guided_json={"schema": Stage1Output.schema()}` / `Stage2Output.schema()`
-- **Qwen API**: `response_format={"type":"json_object"}` + Pydantic 재검증
+- **검증**: LG EXAONE 응답도 Pydantic으로 재검증한다. API 응답 형식 지원은 사용 엔진 버전에 맞춰 확인한다.
 
 ---
 

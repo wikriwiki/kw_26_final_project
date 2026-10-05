@@ -217,7 +217,7 @@ def build(limit: int = 0, seed: int = 42,
         print(f"[LLM 5줄 요약] {len(out):,}명 / workers={max_workers}", file=sys.stderr, flush=True)
 
         def _summarize_one(p: dict) -> None:
-            summary = summarize_persona_llm(p, llm_mode=llm_mode or "qwen8b")
+            summary = summarize_persona_llm(p, llm_mode=llm_mode)
             # personality_lifestyle_raw 를 5줄 요약으로 교체
             if "personality" not in p:
                 p["personality"] = {}
@@ -432,11 +432,13 @@ _SUMMARY_SYSTEM_PROMPT = (
 )
 
 
-def summarize_persona_llm(agent: dict, llm_mode: str = "qwen8b") -> str:
+def summarize_persona_llm(agent: dict, llm_mode: str | None = None) -> str:
     """BDC 정량을 기준으로 NVIDIA 자연어 페르소나를 조정 + 5줄 요약."""
     import sys
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "sim"))
-    from llm_client import call_chat
+    from llm_client import call_chat, resolve_mode
+    # Invalid/removed model selections must fail before the text-only fallback.
+    resolved_mode = resolve_mode(llm_mode)
 
     prompt_data = _build_persona_summary_prompt(agent)
     user = (
@@ -445,7 +447,7 @@ def summarize_persona_llm(agent: dict, llm_mode: str = "qwen8b") -> str:
     )
 
     try:
-        resp = call_chat(None, _SUMMARY_SYSTEM_PROMPT, user, temperature=0.7, max_tokens=400)
+        resp = call_chat(resolved_mode, _SUMMARY_SYSTEM_PROMPT, user, temperature=0.7, max_tokens=400)
         result = (resp.choices[0].message.content or "").strip()
         # think 토큰 흔적 제거
         if "</think>" in result:
@@ -468,8 +470,8 @@ def main() -> int:
                     help="NVIDIA 전체 필드 → vLLM 5줄 요약 (llm_reconcile 대체)")
     ap.add_argument("--llm-stub", action="store_true",
                     help="LLM 서버 없이 결정적 stub fixer 사용 (테스트/오프라인)")
-    ap.add_argument("--llm-mode", default="qwen8b",
-                    help="LLM 모드 (qwen32b/qwen14b/qwen8b/exaone). 기본값: qwen8b")
+    ap.add_argument("--llm-mode", default=None,
+                    help="공유 레지스트리의 LLM 모드. 미지정 시 LLM_MODE 또는 LG EXAONE 기본값")
     ap.add_argument("--jsonl", action="store_true",
                     help="JSONL 라인 출력 (대용량 권장 — 메모리 절약)")
     args = ap.parse_args()

@@ -338,6 +338,7 @@ def select_interaction_pairs(
     temperature: float = DEFAULT_TEMPERATURE,
     seed: int | None = None,
     verbose: bool = True,
+    exclude_agents: set[str] | None = None,
 ) -> list[dict]:
     """Night Phase 2 — 후보 추출 + 3축 점수 + 매칭.
 
@@ -358,6 +359,15 @@ def select_interaction_pairs(
     if verbose:
         print(f"  [candidates] 추출 중 ...")
     cands = find_candidate_pairs(data)
+    if exclude_agents:
+        cands = {(a, b) for a, b in cands
+                 if a not in exclude_agents and b not in exclude_agents}
+    from no_smoking_context import configured_context
+    smoking_runtime = configured_context()
+    if smoking_runtime:
+        roster = set(smoking_runtime.agent_ids)
+        # A seed cannot stabilize iteration over the candidate set by itself.
+        cands = sorted((a, b) for a, b in cands if a in roster and b in roster)
     if verbose:
         print(f"  candidates: {len(cands):,}")
     if not cands:

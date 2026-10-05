@@ -1,0 +1,28 @@
+{
+  "stage": "S6",
+  "contract_version": "s1.0.0",
+  "status": "passed",
+  "round": 1,
+  "lead_decision": "open-final-smoothing",
+  "builder_report": "docs/gauntlet/builders/S6-round1.md",
+  "critic_report": "docs/gauntlet/critics/S6-1.md",
+  "tests": [
+    {"command": "npm run typecheck", "exit_code": 0},
+    {"command": "npm run build", "exit_code": 0},
+    {"command": "style forbidden-token audit", "gradient": 0, "backdrop_filter": 0, "box_shadow": 0, "radius_over_4px": 0}
+  ],
+  "changed_files": [
+    "web/ui/src/shell/nav.ts",
+    "web/ui/src/shell/NavRail.tsx",
+    "web/ui/src/App.tsx",
+    "web/ui/src/routes/DataContractPage.tsx",
+    "web/ui/src/styles/tokens.css",
+    "web/ui/src/styles/workspaces.css",
+    "web/ui/src/main.tsx",
+    "docs/gauntlet/contracts/S6.md",
+    "docs/gauntlet/builders/S6-round1.md",
+    "docs/gauntlet/critics/S6-1.md",
+    "docs/gauntlet/gates/S6.json"
+  ],
+  "protected_paths": ["scripts/sim", "scripts/neo4j_load"]
+}

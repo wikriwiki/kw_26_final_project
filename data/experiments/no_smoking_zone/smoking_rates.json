@@ -1,0 +1,55 @@
+{
+  "schema_version": "1.0",
+  "purpose": "Baseline population initialization, independent of the policy evaluation outcomes.",
+  "source": {
+    "source_id": "seoul_health_statistics_2017",
+    "title": "2017 지역사회건강조사 서울시 건강통계",
+    "year": 2017,
+    "primary_source_url": "https://news.seoul.go.kr/welfare/archives/260455",
+    "pdf_url": "https://news.seoul.go.kr/welfare/files/2018/08/5ca567ec2889a9.26193221.pdf",
+    "printed_pages": [30, 31],
+    "table": 14,
+    "figure": 10,
+    "pdf_pages": [48, 49],
+    "transcribed_from": "user_policy_html, cross-checked against the official Seoul PDF figure 10",
+    "primary_source_verified": true,
+    "verification_date": "2026-09-22",
+    "verification_note": "서울시 공식 배포 PDF 인쇄 p30 정의/표14와 p31 그림10을 확인했고 모든 성별×연령 값은 그림 렌더링으로 대조했다. 첨부된 금연구역 정책 평가 PDF와는 별개 자료다."
+  },
+  "definition": "조사대상 응답자 중 평생 담배 5갑(100개비) 이상을 피웠고 현재 매일 또는 가끔 담배를 피우는 사람의 분율",
+  "minimum_age": 19,
+  "unit": "probability",
+  "rate_type": "crude prevalence for Seoul sex/age strata; district map intervals are age-standardized and are not applied as quotas",
+  "survey": {
+    "dates": ["2017-08-16", "2017-10-31"],
+    "method": "Trained interviewers visited sampled households and conducted one-to-one CAPI interviews.",
+    "target_population": "Residents aged 19 or older in sampled households",
+    "completed_respondents": 22956,
+    "sampled_households": 11611,
+    "district_completed_respondents": {"노원구": 924, "서초구": 917, "송파구": 936},
+    "denominator": "Respondents to the indicator, with nonresponses excluded and survey weights applied; not all lifetime smokers.",
+    "weighting": "Household and person nonresponse weights, calibrated to July 2017 resident-register sex/age structure, with extreme-weight adjustment.",
+    "exact_smoking_indicator_unweighted_n": null,
+    "source_locations": {"survey_method_printed_page": 10, "survey_n_printed_page": 17, "survey_n_table": 5, "weighting_printed_pages": [22, 23, 24], "pdf_page_offset": 18}
+  },
+  "overall": {"all": 0.188, "male": 0.351, "female": 0.033},
+  "age_bands": [
+    {"min_age": 19, "max_age": 29, "all": 0.196, "male": 0.336, "female": 0.057},
+    {"min_age": 30, "max_age": 39, "all": 0.228, "male": 0.418, "female": 0.039},
+    {"min_age": 40, "max_age": 49, "all": 0.241, "male": 0.451, "female": 0.033},
+    {"min_age": 50, "max_age": 59, "all": 0.191, "male": 0.363, "female": 0.027},
+    {"min_age": 60, "max_age": 69, "all": 0.120, "male": 0.247, "female": 0.016},
+    {"min_age": 70, "max_age": null, "all": 0.076, "male": 0.150, "female": 0.015}
+  ],
+  "assignment": {
+    "recommended_method": "seeded quota within sex and age band",
+    "unknown_sex": "use age-band all rate",
+    "unknown_age": "reject or record an explicit imputation; never silently use age 19",
+    "under_19": "outside adult baseline scope",
+    "district_adjustment": false,
+    "same_assignment_in_both_arms": true,
+    "label_provenance": "synthetic_label_from_observed_population_statistics",
+    "individual_smoking_status_observed": false,
+    "note": "These are observed population prevalence rates. Individual simulated smoking labels are assigned, not measured for real named persons; they are not facility-user smoking prevalence or behavioral response coefficients."
+  }
+}

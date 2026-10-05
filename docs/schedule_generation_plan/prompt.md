@@ -182,9 +182,9 @@ C_051237|투썸플레이스 역삼역점|카페|0.3km
 | 대상 에이전트 | **300명** (행정동×나이대×성별 cell당 1~2명 샘플링) |
 | 기간 | **7일** (2026-05-04 월 ~ 2026-05-10 일) |
 | 정책 투입 | **D+3 (2026-05-07 목) 에 P001 강남 소비쿠폰 발표** |
-| 모델 | Gemma-4-26B-A4B, Qwen2.5-7B, EXAONE-3.5-7.8B 3종 병렬 비교 |
+| 모델 | LGAI-EXAONE/EXAONE-4.5-33B-AWQ, 고정 revision |
 | GPU | 단일 A100 80GB (공유) |
-| 예상 벽시계 | 모델별 4~8시간 × 3 = 1일 내 완료 |
+| 예상 벽시계 | 50~100명 소량 실행에서 측정한 처리량으로 산정 |
 
 ### 3.2 정책 P001 정의
 
@@ -220,15 +220,16 @@ initial_awareness_channels: ["news","sns"]
 - **보류**: 환각율은 0이나 정책 반응이 미미 → 프롬프트 튜닝 후 재POC
 - **실패**: 환각율 > 0 또는 스키마 통과율 < 90% → 모델 교체 또는 후보 포맷 재설계
 
-### 3.5 비교 관찰 대상 (모델 3종)
+### 3.5 현재 모델의 검증 항목
 
-| 항목 | Gemma-4-26B-A4B | Qwen2.5-7B | EXAONE-3.5-7.8B |
-|---|---|---|---|
-| 한국어 POI명 정확도 (수동 50샘플) | ? | ? | ? |
-| 서사성 (purpose 필드 자연스러움) | ? | ? | ? |
-| 평균 응답 시간 | ? | ? | ? |
-| JSON 재시도율 | ? | ? | ? |
-| **최종 채택** | POC 후 결정 |
+| 항목 | EXAONE 4.5 33B AWQ |
+|---|---|
+| 한국어 POI명 정확도 (수동 50샘플) | 측정 필요 |
+| 페르소나 반영 (purpose) | 측정 필요 |
+| 평균 응답 시간·처리량 | 측정 필요 |
+| JSON 재시도율 | 측정 필요 |
+
+측정 결과에 모델·revision·서빙 버전·GPU·동시성을 함께 남긴다.
 
 ---
 
@@ -243,7 +244,7 @@ initial_awareness_channels: ["news","sns"]
 | 에이전트 페르소나 | `prototype/generate_agents.py` 산출 | 거주·직장 행정동 필드만 참조 |
 | 행정동 통계 | `workplace_population`, `residence_population`, `consumption_detail` | 후보 가중치·검증 기준 |
 | 저장 백엔드 | [`architecture_plan.md`](../../architecture_plan.md) | **Neo4j 그래프 일원화**: `:DailyPlan` 노드·`:VISITED` 엣지로 저장(구 3-DB 설계 대체) |
-| vLLM 실행 | `run_vllm.sh` | 현 설정(Gemma-4-26B-A4B) 유지 |
+| SGLang 실행 | `scripts/serve/serve_exaone45_sglang_a100x2.sh` | LG EXAONE 4.5 AWQ 기본 진입점 |
 
 ---
 

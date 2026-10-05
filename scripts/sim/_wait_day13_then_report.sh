@@ -4,7 +4,7 @@
 
 cd "/g/내 드라이브/Kw/final_project"
 set -a; . data/neo4j_load/.env; set +a
-export LLM_MODE=qwen36_35b_a3b_awq
+export LLM_MODE=exaone_4_5
 
 LOG="/c/Users/Administrator/sim_output_9d/wait_day13_report.log"
 SIM_LOG="/c/Users/Administrator/sim_output_9d/sim_9d.log"

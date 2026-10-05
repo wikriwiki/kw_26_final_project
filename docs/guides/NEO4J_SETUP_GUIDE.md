@@ -10,7 +10,7 @@
 - **목적**: 60일 시뮬을 위한 Day 0 그래프 적재 (Agent ~15K, POI ~54만, 엣지 ~220만)
 - **저장소**: Neo4j Community 5.x **단일** (PostgreSQL/Graphiti 미사용)
 - **쿼리 방식**: agentic RAG 아님 — Python 컨텍스트 빌더가 Cypher 사전 조회 → LLM 프롬프트 주입
-- **LLM**: vLLM + Qwen3-32B 단일 인스턴스 (시뮬 단계에서만)
+- **LLM**: SGLang + LG EXAONE-4.5-33B-AWQ 단일 인스턴스 (시뮬 단계에서만)
 
 ---
 
@@ -373,7 +373,7 @@ RETURN path;
 
 Day 0 적재가 끝났으면 다음:
 1. **Dawn 컨텍스트 빌더** — 7종 Cypher를 Python으로 구현 (페르소나·State·Memory·약속큐·정책·지인·KNOWS_POI)
-2. **Stage 1 의도 LLM 호출** — Qwen3-32B에 페르소나 + 컨텍스트 주입 → 시간대별 (anchor, category) 이벤트 시퀀스
+2. **Stage 1 의도 LLM 호출** — LG EXAONE-4.5-33B-AWQ에 페르소나 + 컨텍스트 주입 → 시간대별 (anchor, category) 이벤트 시퀀스
 3. **Stage 2 POI 확정 LLM 호출** — 같은 모델에 Stage 1 출력 + Stage 2 candidate Cypher 결과 주입 → `poi_id` 결정
 4. **Night Phase** — 3축 점수 (Exposure/Relationship/Urgency) → 상대 선정 → Intent 분류 → Conversation·Memory·State 적재
 5. **정책 비동기 파이프라인** — 자연어 정책 파일 → LangChain LLM 추출 → `:Policy` + `[:applied_to]` + `[:targets]`

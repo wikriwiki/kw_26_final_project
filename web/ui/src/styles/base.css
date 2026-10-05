@@ -1,0 +1,181 @@
+/* 모션 토큰과 라우트 전환. @import 는 다른 규칙보다 앞에 와야 한다.
+   여기서 들여오면 뒤따르는 layout·components·screens·shell 전부가 같은 눈금을 쓴다 */
+@import "./motion.css";
+
+/* ==========================================================================
+   리셋 + 문서 기본값.
+   가로 스크롤은 어디서도 만들지 않는다 — 가로 방향 overflow 속성 자체를 쓰지 않는다.
+   ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html {
+  /* 100vw 는 스크롤바를 포함해 가로 넘침을 만든다. 절대 쓰지 않는다 */
+  max-width: 100%;
+}
+
+body {
+  margin: 0;
+  max-width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  font-weight: var(--fw-regular);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* 한국어 조판: 어절 단위로 줄바꿈한다. 기본값(break-word 계열)은
+     "채웁니 / 다" 처럼 단어 중간을 잘라 조판이 무너진다.
+     긴 URL·식별자만 .wrap 의 overflow-wrap 으로 강제 분해된다. */
+  word-break: keep-all;
+}
+
+h1,
+h2,
+h3,
+h4,
+p,
+figure,
+blockquote,
+dl,
+dd {
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-tight);
+  letter-spacing: -0.01em;
+}
+
+h1 {
+  font-size: var(--fs-xl);
+}
+
+h2 {
+  font-size: var(--fs-lg);
+}
+
+h3 {
+  font-size: var(--fs-body);
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: var(--info);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  /* 기본 상태 = 커서가 떠난 뒤 = 이탈. 짧게, ease-in (§7 exit-faster-than-enter) */
+  transition: color var(--dur-exit-micro) var(--ease-in);
+}
+
+a:hover {
+  transition: color var(--dur-micro) var(--ease-out);
+}
+
+img,
+svg {
+  max-width: 100%;
+}
+
+svg {
+  display: block;
+  flex: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+/* §8 — 포커스 링은 모든 인터랙티브 요소에 보인다. 제거 금지 */
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
+/* 마우스 클릭에도 링을 숨기지 않는다: :focus-visible 이 없는 브라우저 대비 */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* 모든 수치는 mono + tabular-nums (§3) */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* 긴 텍스트는 자르지 않고 흘린다 — 가로 스크롤의 원인을 없앤다.
+   단 한글은 어절 단위로 끊는다. anywhere 를 쓰면 "없습니 / 다" 처럼
+   단어 중간이 잘려 조판이 무너진다. keep-all + break-word 조합이면
+   긴 URL·식별자만 강제 분해되고 한국어 문장은 온전히 흐른다. */
+.wrap {
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--sp-2);
+  top: var(--sp-2);
+  z-index: 60;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--fg);
+  transform: translateY(-200%);
+  /* 물러날 때 — 짧게, ease-in */
+  transition: transform var(--dur-exit-base) var(--ease-in);
+}
+
+.skip-link:focus-visible {
+  transform: translateY(0);
+  /* 나타날 때 — 길게, ease-out */
+  transition: transform var(--dur-base) var(--ease-out);
+}

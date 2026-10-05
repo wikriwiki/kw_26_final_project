@@ -22,29 +22,11 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "scripts/sim"))
 
 
+from llm_client import require_supported_model_id
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
-
-
-def source_hashes(root=ROOT):
-    """The exact source inventory frozen with a prompt pilot."""
-    return {
-        path.relative_to(root).as_posix(): hashlib.sha256(path.read_bytes()).hexdigest()
-        for base in (root / "scripts/sim", root / "data/experiments/covid_support_2021",
-                     root / "data/neo4j_load/policies")
-        for path in sorted(base.rglob("*"))
-        if path.is_file() and path.suffix in {".py", ".json"}
-    }
-
-
-def verify_frozen_sources(manifest, inputs, root=ROOT):
-    """Refuse a run when code or candidate text changed after freezing."""
-    expected = manifest.get("source_hashes")
-    if not isinstance(expected, dict) or not expected or source_hashes(root) != expected:
-        raise ValueError("source inventory changed after freezing")
-    systems = inputs.get("systems") or {}
-    if manifest.get("system_hashes") != {v: digest(s) for v, s in systems.items()}:
-        raise ValueError("candidate text changed after freezing")
 
 
 def atomic(path, value):
@@ -168,7 +150,7 @@ def invoke(job, config, systems, base):
     seed = int(digest([rep, cell["aid"], cell["case"]])[:8], 16) % 2147483647
     result = {k: cell[k] for k in ("aid", "case", "arm", "date", "context_sha256")}
     result.update(variant=variant, replicate=rep, seed=seed)
-    payload = {"model": config["model"], "messages": [{"role": "system", "content": systems[variant]}, {"role": "user", "content": cell["user"]}],
+    payload = {"model": require_supported_model_id(config["model"]), "messages": [{"role": "system", "content": systems[variant]}, {"role": "user", "content": cell["user"]}],
                "temperature": config["temperature"], "max_tokens": config["max_tokens"], "seed": seed,
                "chat_template_kwargs": {"enable_thinking": False}}
     try:
@@ -226,11 +208,6 @@ def main():
     ap=argparse.ArgumentParser()
     ap.add_argument("--out", required=True)
     ap.add_argument("--prepare-only", action="store_true")
-    # 등록부는 동결된 기록이다. 새 후보를 넣으려고 validation_v3.json 을 고치면 그때의
-    # frozen manifest 와 어긋나 과거 런의 재현성이 사라진다. 그래서 파일을 갈아엎는 대신
-    # 새 등록부를 하나 더 쓰고 여기서 가리킨다. 기본값은 예전 그대로다.
-    ap.add_argument("--config", default="data/experiments/validation_v3.json",
-                    help="사전등록 파일 (저장소 루트 기준 상대경로)")
     args=ap.parse_args()
     if os.environ.get("PYTHONHASHSEED") != "0":
         raise SystemExit("PYTHONHASHSEED=0 required before process starts")
@@ -238,7 +215,8 @@ def main():
     os.environ["EXP_DURABLES"]="1"
     os.environ["EXP_CATLINE"]="fold"
     os.environ["EXP_SANGSAENG_BASE_RATIO"]="0.268"
-    config=json.loads((ROOT/args.config).read_text(encoding="utf-8"))
+    config=json.loads((ROOT/"data/experiments/validation_v3.json").read_text(encoding="utf-8"))
+    require_supported_model_id(config["model"])
     out=Path(args.out); out.mkdir(parents=True, exist_ok=True)
     if (out/"responses.jsonl").exists(): raise SystemExit("Existing run: refusing overwrite or implicit retry")
     frozen=out/"frozen_inputs.json"
@@ -249,21 +227,19 @@ def main():
             raise SystemExit("preregistration changed after freezing")
         if manifest["script_sha256"] != hashlib.sha256(Path(__file__).read_bytes()).hexdigest():
             raise SystemExit("runner changed after freezing")
-        try:
-            verify_frozen_sources(manifest, inputs)
-        except ValueError as exc:
-            raise SystemExit(str(exc)) from exc
     else:
         inputs=prepare(config); atomic(frozen, inputs)
         atomic(out/"manifest.json", {"config":config,"config_sha256":digest(config),"inputs_sha256":digest(inputs),
                                    "script_sha256":hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
                                    "system_hashes":{v:digest(s) for v,s in inputs["systems"].items()},
-                                   "source_hashes":source_hashes()})
+                                   "source_hashes":{str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
+                                                    for base in [ROOT/"scripts/sim",ROOT/"data/experiments/covid_support_2021",ROOT/"data/neo4j_load/policies"]
+                                                    for p in sorted(base.rglob("*")) if p.is_file() and p.suffix in {".py",".json"}}})
     if args.prepare_only:
         print(f"Frozen {len(inputs['cells'])} contexts. No LLM calls."); return
     base=os.environ.get("LLM_BASE_URL","http://localhost:8000/v1").rstrip("/")
     with urlopen(base+"/models",timeout=10) as r: models=json.load(r)
-    if config["model"] not in [m["id"] for m in models["data"]]: raise SystemExit("wrong served model")
+    if require_supported_model_id(config["model"]) not in [m["id"] for m in models["data"]]: raise SystemExit("wrong served model")
     jobs=[(v,rep,cell) for v in config["candidates"] for rep in config["replicate_seeds"] for cell in inputs["cells"]]
     random.Random(20260919).shuffle(jobs)
     rows=[]

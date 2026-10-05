@@ -10,21 +10,14 @@ from __future__ import annotations
 
 import functools
 import json
-import os
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(os.environ.get(
-    "KAKAO_REVIEW_DB", "C:/Users/Administrator/naver_crawl/sqlite/kakao_enrich.db"))
+DB_PATH = Path("C:/Users/Administrator/naver_crawl/sqlite/kakao_enrich.db")
 
 
 @functools.lru_cache(maxsize=1)
-def _conn() -> sqlite3.Connection | None:
-    # sqlite3.connect creates a new empty database when the file is absent.
-    # On A100 the Windows-only default path has no database: optional review
-    # lookups must not trigger an OperationalError and a fresh LLM call.
-    if not DB_PATH.is_file():
-        return None
+def _conn() -> sqlite3.Connection:
     c = sqlite3.connect(str(DB_PATH), check_same_thread=False)
     c.row_factory = sqlite3.Row
     return c
@@ -51,10 +44,7 @@ def lookup_review(neo4j_poi_id: str, *, max_reviews: int = 3) -> dict | None:
     com_id = neo4j_poi_id_to_com_id(neo4j_poi_id)
     if not com_id:
         return None
-    conn = _conn()
-    if conn is None:
-        return None
-    row = conn.execute(
+    row = _conn().execute(
         "SELECT s.kakao_pid, p.raw_json FROM poi_status s "
         "JOIN panel3_raw p ON s.kakao_pid = p.kakao_pid "
         "WHERE s.poi_id = ? AND s.status = 'fetched' LIMIT 1",

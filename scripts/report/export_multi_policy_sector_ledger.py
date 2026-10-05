@@ -15,7 +15,7 @@ from functools import lru_cache
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from export_policy_daily_ledger import STATE_QUERY, driver_session
+from export_policy_daily_ledger import STATE_QUERY, driver_session, receipt_days
 from export_cashback_month import verify_cohorts, verify_metric_provenance
 from paired_grant_effect import dates, roster_file
 
@@ -193,6 +193,8 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str | Non
         policy_input = {"path": str(policy_file), "sha256": _sha(policy_file)}
     elif policy_file is not None:
         raise ValueError("control or environment-only arm must not supply a policy input file")
+    # 지급 일정이 있으면 사람마다 받는 날부터만 정책이 보인다(dawn_context.visible_from_receipt)
+    receipt_day = receipt_days(raw_policy, roster) if policy_input else None
     rows: list[dict] = []
     metrics_hashes = {}
     cohort = verify_cohorts(metrics_dir, days, roster)
@@ -235,6 +237,9 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str | Non
                 requested_models.add(requested_model)
                 exposed = row.get("experience_policy_ids")
                 active = (not effective_from or effective_from <= day <= effective_until)
+                if active and receipt_day is not None and arm == "on":
+                    due = receipt_day.get(aid)
+                    active = due is not None and due <= day
                 expected = [policy_id] if arm == "on" and policy_id and active else []
                 if not isinstance(exposed, list) or sorted(exposed) != expected:
                     raise ValueError(f"policy exposure mismatch: {aid} {day}")

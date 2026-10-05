@@ -76,17 +76,9 @@ def assigned_service_shares(cell):
     return {a: parts.get(name, 0) for a, name in SERVICE.items()}
 
 
-def chosen_errand(cell, forced=None):
-    """The service category this citizen actually spends the most on, or None if none.
-
-    `forced` overrides the rule and gives every citizen the same category. That is a
-    louder assumption than the own-largest rule, so it is recorded as one: the citizen's
-    own share of the forced category is still reported, including when it is zero. It is
-    given identically to both arms, so it cannot create a direction - only a denominator.
-    """
+def chosen_errand(cell):
+    """The service category this citizen actually spends the most on, or None if none."""
     shares = assigned_service_shares(cell)
-    if forced:
-        return (forced, shares.get(forced, 0))
     best = max(shares, key=lambda a: (shares[a], a))
     return (best, shares[best]) if shares[best] > 0 else (None, 0)
 
@@ -116,7 +108,7 @@ def add_evidence_line(user):
     return user[:brace] + EVIDENCE + '\n' + user[brace:]
 
 
-def add(source, mandatory=False, forced=None):
+def add(source, mandatory=False):
     result = copy.deepcopy(source)
     picks = {}
     for cell in result['cells']:
@@ -125,7 +117,7 @@ def add(source, mandatory=False, forced=None):
             raise ValueError('Source has no daily conditions to extend')
         if any(n['id'] == 'errand' for n in cond['needs']):
             raise ValueError('Errand need already present')
-        activity, share = chosen_errand(cell, forced)
+        activity, share = chosen_errand(cell)
         picks[cell['aid']] = {'activity': activity, 'assigned_share_percent': share}
         if activity is None:
             continue
@@ -145,13 +137,9 @@ def add(source, mandatory=False, forced=None):
         cell['context_sha256'] = hashlib.sha256(cell['user'].encode('utf-8')).hexdigest()
     result['errand_provenance'] = {
         'kind': 'synthetic_assumption',
-        'rule': ("Every citizen gets the same category: %s. Assigned uniformly, not read "
-                 "from the citizen's own mix." % forced) if forced else
-                ("For each citizen, the service category with the largest share in that "
-                 "citizen's own assigned spending mix. Zero share means no errand."),
-        'forced_activity': forced,
+        'rule': "For each citizen, the service category with the largest share in that "
+                "citizen's own assigned spending mix. Zero share means no errand.",
         'blind_to': 'No answer-key indicator was consulted when choosing.',
-        'both_arms_identical': True,
         'picks': picks,
     }
     return result
@@ -163,11 +151,9 @@ def main():
     ap.add_argument('--out', required=True)
     ap.add_argument('--mandatory', action='store_true',
                     help='볼일을 의무로 준다 (근무 일정과 같은 층위)')
-    ap.add_argument('--activity', choices=sorted(SERVICE),
-                    help='전원에게 같은 업종을 준다. 규칙이 아니라 지정임을 출처에 적는다.')
     args = ap.parse_args()
     source = json.loads(Path(args.source).read_text(encoding='utf-8'))
-    result = add(source, mandatory=args.mandatory, forced=args.activity)
+    result = add(source, mandatory=args.mandatory)
     io.open(args.out, 'w', encoding='utf-8', newline='\n').write(
         json.dumps(result, ensure_ascii=False, indent=1))
     print('wrote', args.out)
@@ -176,9 +162,6 @@ def main():
     import collections
     print('  고른 활동:', dict(collections.Counter(
         v['activity'] or '(없음)' for v in picks.values())))
-    if args.activity:
-        z = sum(1 for v in picks.values() if not v['assigned_share_percent'])
-        print('  지정판 - 본인 지출에 그 업종이 0%%인 시민 %d / %d' % (z, len(picks)))
     return 0
 
 

@@ -88,7 +88,8 @@ def test_policy_prompt_keeps_consumption_and_payment_autonomous():
     assert "정책지갑 잔액 120,000원" in text
     assert "소비 필요·시점·총액·POI" in text
     assert "결제 건마다 본인이 정한다" in text
-    assert "소비 자체를 새로 만들라는 뜻은 아니다" in text
+    # [KW26 2026-10-05] 소비를 늘리지 말라는 쪽으로 미는 문장이라 뺐다 — 결제 규칙만 남는다.
+    assert "소비 자체를 새로 만들라는 뜻은 아니다" not in text
     for directed in (
         "무조건 이득",
         "남기면 손해",

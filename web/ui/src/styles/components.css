@@ -1,0 +1,836 @@
+/* ==========================================================================
+   공통 컴포넌트 — 스펙 §8.
+   규칙: 클릭 요소 44×44, 포커스 링 유지, 라디우스 6/4/0, 그림자 1단계,
+   전환 150~200ms 이며 transform·opacity·색만 건드린다.
+   ========================================================================== */
+
+/* --- 버튼 ----------------------------------------------------------------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  line-height: 1.4;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+/* 비활성 — 흐리게 보이되 글자는 읽힌다 (--fg-muted on --surface = 7.6:1) */
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  cursor: not-allowed;
+  color: var(--fg-muted);
+  background: var(--surface);
+  border-color: var(--border);
+  border-style: dashed;
+}
+
+.btn--primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: var(--on-primary);
+}
+
+.btn--primary:hover:not(:disabled) {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.btn--secondary {
+  background: var(--surface);
+  border-color: var(--border-strong);
+  color: var(--fg);
+}
+
+.btn--secondary:hover:not(:disabled) {
+  background: var(--surface-sunken);
+}
+
+.btn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--fg-muted);
+  padding-inline: var(--sp-3);
+}
+
+.btn--ghost:hover:not(:disabled) {
+  background: var(--surface-sunken);
+  color: var(--fg);
+}
+
+.btn--block {
+  width: 100%;
+}
+
+.btn__spinner {
+  animation: spin 900ms linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn__spinner {
+    animation-duration: 3s;
+  }
+}
+
+/* --- 카드 ----------------------------------------------------------------- */
+/* §7b — 테두리 하나로 끝낸다. 그림자로 한 번 더 띄우지 않고, 안에 또 상자를 넣지 않는다 */
+
+.card {
+  background: var(--surface);
+  border: var(--hairline);
+  border-radius: var(--radius);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.card--flush {
+  padding: 0;
+  gap: 0;
+}
+
+.card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.card__title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+
+.card__note {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+  line-height: var(--lh-body);
+}
+
+.card--flush > .card__head {
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+}
+
+/* --- 지표(스탯) ----------------------------------------------------------- */
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  justify-content: flex-start;
+}
+
+.stat__label {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+
+.stat__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-xl);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+  line-height: 1.2;
+}
+
+/* "알 수 없음"은 수치가 아니다 — mono/tabular 를 쓰면 한글 자간이 벌어진다 */
+.stat__value--unknown {
+  color: var(--fg-muted);
+  font-size: var(--fs-lg);
+  font-family: var(--font-sans);
+  font-variant-numeric: normal;
+}
+
+.stat__unit {
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  margin-left: var(--sp-1);
+}
+
+.stat__hint {
+  font-size: var(--fs-sm);
+  color: var(--fg-muted);
+}
+
+/* --- 뱃지 ----------------------------------------------------------------- */
+
+/* §7b — 상태가 정상일 때는 뱃지를 그리지 않는다. 그래서 뱃지는 사실상 "이상함" 표시다.
+   라벨 글자는 항상 --fg 로 둔다. 상태는 배경 tint + 아이콘 색이 전달한다.
+   상태색(특히 --warn)을 12px 글자에 쓰면 대비가 7:1 아래로 떨어진다 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 2px var(--sp-2);
+  border-radius: var(--radius-badge);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+/* 상태 뱃지는 tint 면 하나로 말한다 — 테두리를 겹치지 않는다 */
+.badge--ok,
+.badge--warn,
+.badge--danger,
+.badge--info {
+  border-color: transparent;
+  color: var(--fg);
+}
+
+.badge > svg {
+  flex: none;
+}
+
+.badge--ok {
+  background: var(--ok-bg);
+}
+
+.badge--ok > svg {
+  color: var(--ok);
+}
+
+.badge--warn {
+  background: var(--warn-bg);
+}
+
+.badge--warn > svg {
+  color: var(--warn);
+}
+
+.badge--danger {
+  background: var(--danger-bg);
+}
+
+.badge--danger > svg {
+  color: var(--danger);
+}
+
+.badge--info {
+  background: var(--info-bg);
+}
+
+.badge--info > svg {
+  color: var(--info);
+}
+
+/* --- 입력 ----------------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.field__label {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+
+.field__control {
+  min-height: var(--hit);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--fg);
+  font-size: var(--fs-md);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+
+.field__control:hover:not(:disabled) {
+  border-color: var(--fg-subtle);
+}
+
+.field__control:disabled {
+  background: var(--surface-sunken);
+  color: var(--fg-muted);
+  cursor: not-allowed;
+}
+
+.field__control::placeholder {
+  color: var(--fg-muted);
+}
+
+textarea.field__control {
+  min-height: 96px;
+  resize: vertical;
+  line-height: var(--lh-body);
+  /* 브라우저 기본값이 auto(양방향)라 가로를 hidden 으로 못 박는다 */
+  overflow: hidden auto;
+}
+
+select.field__control {
+  appearance: none;
+  background: var(--surface);
+  padding-right: var(--sp-6);
+}
+
+.field__select {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.field__select > svg {
+  position: absolute;
+  right: var(--sp-3);
+  top: 50%;
+  margin-top: -8px;
+  color: var(--fg-muted);
+  pointer-events: none;
+}
+
+.field__help {
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+  line-height: var(--lh-body);
+}
+
+/* 오류는 해당 필드 바로 아래. 원인 + 해결 방법 */
+.field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  font-size: var(--fs-caption);
+  color: var(--danger);
+  line-height: var(--lh-body);
+}
+
+.field--invalid .field__control {
+  border-color: var(--danger);
+}
+
+/* --- 표 ------------------------------------------------------------------- */
+/* 가로 스크롤 금지. table-layout: fixed + 열 우선순위로 좁은 폭에서 열을 접는다 */
+
+.table-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+
+.table th,
+.table td {
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: var(--hairline);
+  border-radius: 0;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 첫 열(이름·일자)만 넓게. 나머지는 균등 분배된다.
+   colgroup 을 쓰지 않는 이유: 숨긴 열의 <col> 폭이 그대로 남아 빈 공간이 생긴다.
+   table-layout: fixed + display:none 조합에서는 숨긴 칸이 열 자체를 만들지 않으므로
+   이 방식이 열 우선순위 축소와 정확히 맞물린다. */
+.table--lead thead th:first-child {
+  width: 56%;
+}
+
+@media (min-width: 768px) {
+  .table--lead thead th:first-child {
+    width: 42%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .table--lead thead th:first-child {
+    width: 34%;
+  }
+}
+
+/* §7b — 표는 가로선만, 그것도 --border 한 톤. 헤더에 배경면을 깔지 않는다 */
+.table thead th {
+  color: var(--fg-muted);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.02em;
+  white-space: normal;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.table .n {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.table__rowbtn {
+  display: block;
+  width: 100%;
+  min-height: var(--hit);
+  padding: var(--sp-2) var(--sp-3);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+/* 선택된 행은 배경면 대신 좌측 3px 인디케이터로 — 사이드바의 현재 위치 표시와 같은 어법.
+   선택되지 않은 행도 같은 두께의 투명 테두리를 가져 글자가 밀리지 않는다 */
+.table tbody th:first-child,
+.table tbody td:first-child {
+  border-left: 3px solid transparent;
+}
+
+.table tbody tr[data-selected="true"] td:first-child,
+.table tbody tr[data-selected="true"] th:first-child {
+  border-left-color: var(--primary);
+}
+
+.table tbody tr.is-clickable:hover {
+  background: var(--surface-sunken);
+}
+
+/* 열 우선순위: 폭이 좁으면 부차 열을 감춘다 (스크롤 대신) */
+.col-md {
+  display: none;
+}
+
+.col-lg {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .col-md {
+    display: table-cell;
+  }
+}
+
+@media (min-width: 1024px) {
+  .col-lg {
+    display: table-cell;
+  }
+}
+
+/* 좁은 폭에서 숨긴 값은 행 안에 보조 줄로 되돌려 준다 */
+.cell-sub {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+}
+
+@media (min-width: 1024px) {
+  .cell-sub--lg {
+    display: none;
+  }
+}
+
+@media (min-width: 768px) {
+  .cell-sub--md {
+    display: none;
+  }
+}
+
+/* --- 막대(데이터) --------------------------------------------------------- */
+
+.meter {
+  display: block;
+  width: 100%;
+  height: 8px;
+  border-radius: var(--radius-badge);
+  background: var(--bar-track);
+}
+
+.meter__fill {
+  display: block;
+  height: 100%;
+  border-radius: var(--radius-badge);
+  background: var(--bar);
+  transition: width var(--dur) var(--ease);
+}
+
+.meter__fill--alt {
+  background: var(--bar-alt);
+}
+
+.barlist {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* 375: 이름·값이 한 줄, 막대가 그 아래 줄 (좁은 폭에서 이름을 자르지 않기 위함) */
+.barrow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--sp-1) var(--sp-3);
+  align-items: baseline;
+}
+
+.barrow__name {
+  font-size: var(--fs-md);
+  color: var(--fg);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+.barrow__value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-md);
+  color: var(--fg);
+}
+
+.barrow__track {
+  grid-column: 1 / -1;
+}
+
+/* 768 이상: 이름 | 막대 | 값 한 줄. 카드 높이가 절반으로 줄어 옆 카드와 맞는다 */
+@media (min-width: 768px) {
+  .barlist {
+    gap: var(--sp-2);
+  }
+
+  .barrow {
+    grid-template-columns: minmax(56px, 26%) minmax(0, 1fr) max-content;
+    gap: var(--sp-3);
+    align-items: center;
+    min-height: 28px;
+  }
+
+  .barrow__name {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .barrow__track {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .barrow__value {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+/* --- 로딩(스켈레톤) ------------------------------------------------------- */
+
+.skeleton {
+  background: var(--surface-sunken);
+  border-radius: var(--radius-badge);
+  animation: pulse 1.4s var(--ease) infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+/* --- 빈 상태 / 오류 ------------------------------------------------------- */
+
+/* §7b — 빈 상태는 점선 상자로 가두지 않는다. 여백과 정렬만으로 "여기는 비었다"를 말한다 */
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-4) 0;
+  color: var(--fg-muted);
+  text-align: left;
+}
+
+/* 옆 카드 높이에 맞춰 늘어난 카드 안에서 내용을 가운데로 — 빈 공간이 의도로 보이게 */
+.notice--fill {
+  flex: 1;
+  justify-content: center;
+}
+
+.notice__title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+  color: var(--fg);
+}
+
+.notice__body {
+  font-size: var(--fs-md);
+  color: var(--fg-muted);
+  max-width: 60ch;
+}
+
+/* 오류만은 면을 쓴다 — 놓치면 안 되는 상태다 */
+.notice--error {
+  padding: var(--sp-4);
+  border-radius: var(--radius);
+  background: var(--danger-bg);
+}
+
+.notice--error .notice__icon {
+  color: var(--danger);
+}
+
+.notice--error .notice__body {
+  color: var(--fg);
+}
+
+/* 인라인 안내 배너 — tint 면 하나로 말한다. 테두리를 겹치지 않는다 (§7b) */
+.callout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--radius);
+  background: var(--info-bg);
+  color: var(--fg);
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+}
+
+.callout > svg {
+  color: var(--info);
+  margin-top: 3px;
+}
+
+.callout--warn {
+  background: var(--warn-bg);
+}
+
+.callout--warn > svg {
+  color: var(--warn);
+}
+
+/* --- 접기 (progressive disclosure) ---------------------------------------- */
+
+/* §7b — 상자를 겹치지 않는다. 접기 항목은 헤어라인으로 구분되는 목록이다 */
+.disclosure {
+  border-top: var(--hairline);
+}
+
+.disclosure:last-of-type {
+  border-bottom: var(--hairline);
+}
+
+.disclosure__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  padding: var(--sp-2) var(--sp-1);
+  cursor: pointer;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  color: var(--fg);
+  list-style: none;
+  border-radius: var(--radius);
+}
+
+.disclosure__summary::-webkit-details-marker {
+  display: none;
+}
+
+.disclosure__summary:hover {
+  background: var(--surface-sunken);
+}
+
+.disclosure__chevron {
+  color: var(--fg-muted);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.disclosure[open] > .disclosure__summary .disclosure__chevron {
+  transform: rotate(90deg);
+}
+
+.disclosure__count {
+  margin-left: auto;
+  font-size: var(--fs-caption);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.disclosure__body {
+  padding: 0 var(--sp-1) var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* 원문(로그·JSON·프롬프트) — 잘리지 않게 흘리고, 세로로만 스크롤 */
+.code {
+  margin: 0;
+  padding: var(--sp-3);
+  background: var(--surface-sunken);
+  border-radius: var(--radius);
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  color: var(--fg);
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+  max-height: 420px;
+  overflow: hidden auto;
+}
+
+/* --- 정의 목록 (키-값) ---------------------------------------------------- */
+
+.dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-3);
+}
+
+@media (min-width: 768px) {
+  .dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.dl__item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.dl__k {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
+}
+
+.dl__v {
+  font-size: var(--fs-md);
+  color: var(--fg);
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* --- 검사 결과 목록 ------------------------------------------------------- */
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* §7b — 항목마다 테두리와 tint 를 두르면 목록이 아니라 상자 더미가 된다.
+   아이콘 모양(체크·삼각·원)과 글자가 이미 상태를 말하므로 면과 선을 걷어낸다.
+   색은 그 화면에서 가장 나쁜 상태 하나에만 쓴다 (`check--lead`) — 유채색 3개 이상 금지 */
+.check {
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: start;
+  font-size: var(--fs-md);
+  line-height: var(--lh-body);
+  color: var(--fg);
+}
+
+.check > svg {
+  margin-top: 4px;
+  color: var(--fg-muted);
+}
+
+.check--pass.check--lead > svg {
+  color: var(--ok);
+}
+
+.check--warn.check--lead > svg {
+  color: var(--warn);
+}
+
+.check--fail.check--lead > svg {
+  color: var(--danger);
+}
+
+/* --- 세그먼트 선택 (run/정책 전환) ---------------------------------------- */
+
+.segment {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.segment__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--hit);
+  padding: var(--sp-2) var(--sp-4);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--fg-muted);
+  font-size: var(--fs-md);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+  transition: background-color var(--dur-fast) var(--ease),
+    border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.segment__btn:hover {
+  background: var(--surface-sunken);
+  color: var(--fg);
+}
+
+/* 완료되지 않은 실행에만 붙는 한마디. 정상일 때는 아예 그리지 않는다 (§7b) */
+.segment__note {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-regular);
+  color: var(--fg-muted);
+}
+
+.segment__btn[aria-pressed="true"] {
+  border-color: var(--primary);
+  color: var(--primary);
+}

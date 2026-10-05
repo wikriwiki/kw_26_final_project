@@ -1,0 +1,471 @@
+{
+  "kind": "synthetic_heldout_fixture",
+  "synthetic_fixture": true,
+  "warning": "No GPU/model/human data. Literal test examples, not empirical accuracy.",
+  "design": {
+    "schema_version": 1,
+    "policy_id": "indoor_sports_smoking_ban_2017",
+    "question_id": "synthetic_heldout_question",
+    "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+    "population_id": "synthetic_fixture_population",
+    "population_role": "synthetic_residents",
+    "population": {
+      "a": {
+        "smoking_status": "smoker",
+        "sex": "female"
+      },
+      "b": {
+        "smoking_status": "non_smoker",
+        "sex": "male"
+      },
+      "c": {
+        "smoking_status": "smoker",
+        "sex": "male"
+      },
+      "d": {
+        "smoking_status": "unknown",
+        "sex": "female"
+      }
+    },
+    "runs": {
+      "off": "fixture_off",
+      "on": "fixture_on"
+    },
+    "policy_effective_date": "2017-12-03",
+    "periods": {
+      "pre": {
+        "start": "2017-11-19",
+        "end": "2017-12-02"
+      },
+      "post": {
+        "start": "2017-12-03",
+        "end": "2017-12-16"
+      }
+    },
+    "group_attributes_as_of": "2017-11-18",
+    "group_by": [
+      "smoking_status",
+      "sex"
+    ],
+    "synthetic_fixture": true
+  },
+  "training_records": [
+    {
+      "schema_version": 1,
+      "record_id": "fixture_off_pre_a_2017-12-02",
+      "run_id": "fixture_off",
+      "arm": "off",
+      "agent_id": "a",
+      "policy_id": "indoor_sports_smoking_ban_2017",
+      "as_of_day": "2017-12-02",
+      "period": "pre",
+      "question_id": "synthetic_heldout_question",
+      "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+      "measurement_context": "hypothetical",
+      "response_status": "answered",
+      "response": {
+        "stance": "support",
+        "answer": "Clean air health protection breathing",
+        "stance_quote": "Clean air health protection breathing",
+        "confidence": 0.9,
+        "reasons": []
+      },
+      "evidence_packet": {
+        "schema_version": 1,
+        "kind": "grounded_interview_packet",
+        "run_id": "fixture_off",
+        "arm": "off",
+        "agent_id": "a",
+        "through_day": "2017-12-02",
+        "days": [
+          "2017-12-02"
+        ],
+        "cohort_sha256": "bb037af03d977ec8488207ae0d6362cf88fe3c93e1459b8435a47d04168549af",
+        "source_sha256": "da44526eeb7afeb37f7fa16e99abb554a520403b261c8a49a719139126ff4f3c",
+        "evidence_items": [
+          {
+            "evidence_id": "fixture_off_pre_a_2017-12-02_e",
+            "day": "2017-12-02",
+            "kind": "stated_rationale",
+            "text": "Public modeled statement: the room air was noticeable.",
+            "value": {
+              "subjective_unverified": true
+            },
+            "source_ref": "synthetic_fixture"
+          }
+        ],
+        "missing_days": [],
+        "limitations": [
+          "Synthetic test fixture only"
+        ],
+        "integrity_sha256": "da6cad929415a11fc1ee5de2937afa5b900ed7f8531b98b27ec6a4b25ce86df5"
+      },
+      "provenance": {
+        "model_id": "synthetic_fixture_no_model_executed",
+        "call_id": "fixture_off_pre_a_2017-12-02",
+        "prompt_sha256": "194713ad972b9125a463802fa203cc68e814e7b681bece09a1975df5efd0fa11",
+        "request_sha256": "2fe784b0d2911744e76efa456fb28b13ee979cbf0e84cb44272c3cbcc1e8a823",
+        "response_sha256": "367cc2ec72f0b8063e8587c97fc4a5bf15b37997994c4e690488f236cae0dc16",
+        "source": "structured_policy_feedback",
+        "synthetic_fixture": true
+      }
+    },
+    {
+      "schema_version": 1,
+      "record_id": "fixture_off_pre_b_2017-12-02",
+      "run_id": "fixture_off",
+      "arm": "off",
+      "agent_id": "b",
+      "policy_id": "indoor_sports_smoking_ban_2017",
+      "as_of_day": "2017-12-02",
+      "period": "pre",
+      "question_id": "synthetic_heldout_question",
+      "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+      "measurement_context": "hypothetical",
+      "response_status": "answered",
+      "response": {
+        "stance": "uncertain",
+        "answer": "Clean air health protection comfort",
+        "stance_quote": "Clean air health protection comfort",
+        "confidence": 0.9,
+        "reasons": []
+      },
+      "evidence_packet": {
+        "schema_version": 1,
+        "kind": "grounded_interview_packet",
+        "run_id": "fixture_off",
+        "arm": "off",
+        "agent_id": "b",
+        "through_day": "2017-12-02",
+        "days": [
+          "2017-12-02"
+        ],
+        "cohort_sha256": "bb037af03d977ec8488207ae0d6362cf88fe3c93e1459b8435a47d04168549af",
+        "source_sha256": "da44526eeb7afeb37f7fa16e99abb554a520403b261c8a49a719139126ff4f3c",
+        "evidence_items": [
+          {
+            "evidence_id": "fixture_off_pre_b_2017-12-02_e",
+            "day": "2017-12-02",
+            "kind": "stated_rationale",
+            "text": "Public modeled statement: the room air was noticeable.",
+            "value": {
+              "subjective_unverified": true
+            },
+            "source_ref": "synthetic_fixture"
+          }
+        ],
+        "missing_days": [],
+        "limitations": [
+          "Synthetic test fixture only"
+        ],
+        "integrity_sha256": "33dd325cb7fe0b3f14ed3da4b63a294082365cb93f95b813ab0f89f6facc1e57"
+      },
+      "provenance": {
+        "model_id": "synthetic_fixture_no_model_executed",
+        "call_id": "fixture_off_pre_b_2017-12-02",
+        "prompt_sha256": "194713ad972b9125a463802fa203cc68e814e7b681bece09a1975df5efd0fa11",
+        "request_sha256": "2fe784b0d2911744e76efa456fb28b13ee979cbf0e84cb44272c3cbcc1e8a823",
+        "response_sha256": "367cc2ec72f0b8063e8587c97fc4a5bf15b37997994c4e690488f236cae0dc16",
+        "source": "structured_policy_feedback",
+        "synthetic_fixture": true
+      }
+    },
+    {
+      "schema_version": 1,
+      "record_id": "fixture_off_pre_c_2017-12-02",
+      "run_id": "fixture_off",
+      "arm": "off",
+      "agent_id": "c",
+      "policy_id": "indoor_sports_smoking_ban_2017",
+      "as_of_day": "2017-12-02",
+      "period": "pre",
+      "question_id": "synthetic_heldout_question",
+      "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+      "measurement_context": "hypothetical",
+      "response_status": "answered",
+      "response": {
+        "stance": "oppose",
+        "answer": "Autonomy choice freedom restriction",
+        "stance_quote": "Autonomy choice freedom restriction",
+        "confidence": 0.9,
+        "reasons": []
+      },
+      "evidence_packet": {
+        "schema_version": 1,
+        "kind": "grounded_interview_packet",
+        "run_id": "fixture_off",
+        "arm": "off",
+        "agent_id": "c",
+        "through_day": "2017-12-02",
+        "days": [
+          "2017-12-02"
+        ],
+        "cohort_sha256": "bb037af03d977ec8488207ae0d6362cf88fe3c93e1459b8435a47d04168549af",
+        "source_sha256": "da44526eeb7afeb37f7fa16e99abb554a520403b261c8a49a719139126ff4f3c",
+        "evidence_items": [
+          {
+            "evidence_id": "fixture_off_pre_c_2017-12-02_e",
+            "day": "2017-12-02",
+            "kind": "stated_rationale",
+            "text": "Public modeled statement: the room air was noticeable.",
+            "value": {
+              "subjective_unverified": true
+            },
+            "source_ref": "synthetic_fixture"
+          }
+        ],
+        "missing_days": [],
+        "limitations": [
+          "Synthetic test fixture only"
+        ],
+        "integrity_sha256": "c6366c5373671a8c8f519e2b172b24ace976cf90a3726d590c0730a2b45cb427"
+      },
+      "provenance": {
+        "model_id": "synthetic_fixture_no_model_executed",
+        "call_id": "fixture_off_pre_c_2017-12-02",
+        "prompt_sha256": "194713ad972b9125a463802fa203cc68e814e7b681bece09a1975df5efd0fa11",
+        "request_sha256": "2fe784b0d2911744e76efa456fb28b13ee979cbf0e84cb44272c3cbcc1e8a823",
+        "response_sha256": "367cc2ec72f0b8063e8587c97fc4a5bf15b37997994c4e690488f236cae0dc16",
+        "source": "structured_policy_feedback",
+        "synthetic_fixture": true
+      }
+    },
+    {
+      "schema_version": 1,
+      "record_id": "fixture_off_pre_d_2017-12-02",
+      "run_id": "fixture_off",
+      "arm": "off",
+      "agent_id": "d",
+      "policy_id": "indoor_sports_smoking_ban_2017",
+      "as_of_day": "2017-12-02",
+      "period": "pre",
+      "question_id": "synthetic_heldout_question",
+      "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+      "measurement_context": "hypothetical",
+      "response_status": "answered",
+      "response": {
+        "stance": "mixed",
+        "answer": "Autonomy choice freedom inconvenience",
+        "stance_quote": "Autonomy choice freedom inconvenience",
+        "confidence": 0.9,
+        "reasons": []
+      },
+      "evidence_packet": {
+        "schema_version": 1,
+        "kind": "grounded_interview_packet",
+        "run_id": "fixture_off",
+        "arm": "off",
+        "agent_id": "d",
+        "through_day": "2017-12-02",
+        "days": [
+          "2017-12-02"
+        ],
+        "cohort_sha256": "bb037af03d977ec8488207ae0d6362cf88fe3c93e1459b8435a47d04168549af",
+        "source_sha256": "da44526eeb7afeb37f7fa16e99abb554a520403b261c8a49a719139126ff4f3c",
+        "evidence_items": [
+          {
+            "evidence_id": "fixture_off_pre_d_2017-12-02_e",
+            "day": "2017-12-02",
+            "kind": "stated_rationale",
+            "text": "Public modeled statement: the room air was noticeable.",
+            "value": {
+              "subjective_unverified": true
+            },
+            "source_ref": "synthetic_fixture"
+          }
+        ],
+        "missing_days": [],
+        "limitations": [
+          "Synthetic test fixture only"
+        ],
+        "integrity_sha256": "ad2a24a47dc10b137e23dfa97c90061381fb2ceef1065a4e599fbf6a48680712"
+      },
+      "provenance": {
+        "model_id": "synthetic_fixture_no_model_executed",
+        "call_id": "fixture_off_pre_d_2017-12-02",
+        "prompt_sha256": "194713ad972b9125a463802fa203cc68e814e7b681bece09a1975df5efd0fa11",
+        "request_sha256": "2fe784b0d2911744e76efa456fb28b13ee979cbf0e84cb44272c3cbcc1e8a823",
+        "response_sha256": "367cc2ec72f0b8063e8587c97fc4a5bf15b37997994c4e690488f236cae0dc16",
+        "source": "structured_policy_feedback",
+        "synthetic_fixture": true
+      }
+    }
+  ],
+  "heldout_records": [
+    {
+      "schema_version": 1,
+      "record_id": "fixture_on_post_a_2017-12-16",
+      "run_id": "fixture_on",
+      "arm": "on",
+      "agent_id": "a",
+      "policy_id": "indoor_sports_smoking_ban_2017",
+      "as_of_day": "2017-12-16",
+      "period": "post",
+      "question_id": "synthetic_heldout_question",
+      "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+      "measurement_context": "experienced",
+      "response_status": "answered",
+      "response": {
+        "stance": "support",
+        "answer": "Clean air health",
+        "stance_quote": "Clean air health",
+        "confidence": 0.9,
+        "reasons": []
+      },
+      "evidence_packet": {
+        "schema_version": 1,
+        "kind": "grounded_interview_packet",
+        "run_id": "fixture_on",
+        "arm": "on",
+        "agent_id": "a",
+        "through_day": "2017-12-16",
+        "days": [
+          "2017-12-16"
+        ],
+        "cohort_sha256": "bb037af03d977ec8488207ae0d6362cf88fe3c93e1459b8435a47d04168549af",
+        "source_sha256": "da44526eeb7afeb37f7fa16e99abb554a520403b261c8a49a719139126ff4f3c",
+        "evidence_items": [
+          {
+            "evidence_id": "fixture_on_post_a_2017-12-16_e",
+            "day": "2017-12-16",
+            "kind": "stated_rationale",
+            "text": "Public modeled statement: the room air was noticeable.",
+            "value": {
+              "subjective_unverified": true
+            },
+            "source_ref": "synthetic_fixture"
+          }
+        ],
+        "missing_days": [],
+        "limitations": [
+          "Synthetic test fixture only"
+        ],
+        "integrity_sha256": "5923ddbc66e3f9e637523b1879c419cc1a4d75a8de22df6cfd221aeee6f6611a"
+      },
+      "provenance": {
+        "model_id": "synthetic_fixture_no_model_executed",
+        "call_id": "fixture_on_post_a_2017-12-16",
+        "prompt_sha256": "194713ad972b9125a463802fa203cc68e814e7b681bece09a1975df5efd0fa11",
+        "request_sha256": "2fe784b0d2911744e76efa456fb28b13ee979cbf0e84cb44272c3cbcc1e8a823",
+        "response_sha256": "367cc2ec72f0b8063e8587c97fc4a5bf15b37997994c4e690488f236cae0dc16",
+        "source": "structured_policy_feedback",
+        "synthetic_fixture": true
+      }
+    },
+    {
+      "schema_version": 1,
+      "record_id": "fixture_on_post_b_2017-12-16",
+      "run_id": "fixture_on",
+      "arm": "on",
+      "agent_id": "b",
+      "policy_id": "indoor_sports_smoking_ban_2017",
+      "as_of_day": "2017-12-16",
+      "period": "post",
+      "question_id": "synthetic_heldout_question",
+      "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+      "measurement_context": "experienced",
+      "response_status": "answered",
+      "response": {
+        "stance": "oppose",
+        "answer": "Autonomy choice",
+        "stance_quote": "Autonomy choice",
+        "confidence": 0.1,
+        "reasons": []
+      },
+      "evidence_packet": {
+        "schema_version": 1,
+        "kind": "grounded_interview_packet",
+        "run_id": "fixture_on",
+        "arm": "on",
+        "agent_id": "b",
+        "through_day": "2017-12-16",
+        "days": [
+          "2017-12-16"
+        ],
+        "cohort_sha256": "bb037af03d977ec8488207ae0d6362cf88fe3c93e1459b8435a47d04168549af",
+        "source_sha256": "da44526eeb7afeb37f7fa16e99abb554a520403b261c8a49a719139126ff4f3c",
+        "evidence_items": [
+          {
+            "evidence_id": "fixture_on_post_b_2017-12-16_e",
+            "day": "2017-12-16",
+            "kind": "stated_rationale",
+            "text": "Public modeled statement: the room air was noticeable.",
+            "value": {
+              "subjective_unverified": true
+            },
+            "source_ref": "synthetic_fixture"
+          }
+        ],
+        "missing_days": [],
+        "limitations": [
+          "Synthetic test fixture only"
+        ],
+        "integrity_sha256": "a86dea3ae17560d35b88c1c94916f3201008e5305ff85a79c3cf1358e15fb3fa"
+      },
+      "provenance": {
+        "model_id": "synthetic_fixture_no_model_executed",
+        "call_id": "fixture_on_post_b_2017-12-16",
+        "prompt_sha256": "194713ad972b9125a463802fa203cc68e814e7b681bece09a1975df5efd0fa11",
+        "request_sha256": "2fe784b0d2911744e76efa456fb28b13ee979cbf0e84cb44272c3cbcc1e8a823",
+        "response_sha256": "367cc2ec72f0b8063e8587c97fc4a5bf15b37997994c4e690488f236cae0dc16",
+        "source": "structured_policy_feedback",
+        "synthetic_fixture": true
+      }
+    }
+  ],
+  "independent_test_annotations": {
+    "kind": "individual_stance_labels",
+    "independent": true,
+    "partition_role": "holdout",
+    "synthetic_fixture": true,
+    "source": {
+      "id": "literal_synthetic_holdout_annotations_v1",
+      "sha256": "3e2b90784b0b2e115f0a928983fe41fd6d012f4b3daa5b02cdfbaf3dc5ed8e17",
+      "annotation_or_measurement_protocol": "Literal held-out synthetic assertions; not measured empirical accuracy"
+    },
+    "estimand": {
+      "measure": "simulated_explicit_policy_stance",
+      "unit": "agent_period_latest_response",
+      "policy_id": "indoor_sports_smoking_ban_2017",
+      "question_id": "synthetic_heldout_question",
+      "question_sha256": "385637f1dca76c2d525c1d12c34db003a4f3f5365aa8538b32215ee523a2df9d",
+      "population_id": "synthetic_fixture_population",
+      "population_role": "synthetic_residents",
+      "periods": {
+        "pre": {
+          "start": "2017-11-19",
+          "end": "2017-12-02"
+        },
+        "post": {
+          "start": "2017-12-03",
+          "end": "2017-12-16"
+        }
+      },
+      "weighting": "unweighted_frozen_cohort",
+      "hypothetical_vs_experienced_kept_separate": true
+    },
+    "label_basis": "independent_annotation_of_same_responses",
+    "classes": [
+      "support",
+      "oppose"
+    ],
+    "labels": [
+      {
+        "agent_id": "a",
+        "arm": "on",
+        "period": "post",
+        "stance": "support",
+        "record_id": "fixture_on_post_a_2017-12-16",
+        "measurement_context": "experienced"
+      },
+      {
+        "agent_id": "b",
+        "arm": "on",
+        "period": "post",
+        "stance": "oppose",
+        "record_id": "fixture_on_post_b_2017-12-16",
+        "measurement_context": "experienced"
+      }
+    ]
+  }
+}

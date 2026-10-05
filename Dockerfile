@@ -19,7 +19,7 @@ COPY . /app
 
 ENV SIM_OUTPUT_DIR=/output \
     PYTHONUNBUFFERED=1 \
-    LLM_MODE=qwen8b
+    LLM_MODE=exaone_4_5
 RUN mkdir -p /output
 
 # ENTRYPOINT=python → 인자로 임의 스크립트 실행 가능.

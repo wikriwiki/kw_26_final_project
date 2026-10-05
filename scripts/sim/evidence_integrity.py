@@ -112,3 +112,61 @@ def checked_claims(claims, ids, policy_id, evidence):
             raise EvidenceError('claim does not match executed fact')
         result.append(dict(claim))
     return result
+
+
+def checked_evidence_citations(citations, packet):
+    """Validate exposed exact quotations or typed JSON-pointer values.
+
+    This verifies attribution only. A quotation of a model's public rationale
+    remains an unverified subjective statement, never an executed experience.
+    """
+    verify(packet)
+    if packet.get('kind') != 'grounded_interview_packet' or packet.get('schema_version') != 1:
+        raise EvidenceError('unsupported interview packet')
+    through = iso_day(packet.get('through_day'))
+    evidence = {}
+    for item in packet.get('evidence_items', []):
+        eid = item.get('evidence_id')
+        if (not isinstance(eid, str) or not eid or eid in evidence
+                or iso_day(item.get('day')) > through or item.get('agent_id') != packet.get('agent_id')):
+            raise EvidenceError('invalid or future exposed interview evidence')
+        evidence[eid] = item
+    if not isinstance(citations, list) or len(citations) > 20:
+        raise EvidenceError('citations must be a bounded list')
+    result = []
+    for citation in citations:
+        if not isinstance(citation, dict) or citation.get('evidence_id') not in evidence:
+            raise EvidenceError('citation names unexposed evidence')
+        item = evidence[citation['evidence_id']]
+        if set(citation) == {'evidence_id', 'quote', 'start', 'end'}:
+            text = item.get('text')
+            start, end, quote = citation['start'], citation['end'], citation['quote']
+            if (not isinstance(text, str) or not isinstance(quote, str) or not quote
+                    or type(start) is not int or type(end) is not int
+                    or not 0 <= start < end <= len(text) or text[start:end] != quote):
+                raise EvidenceError('citation quote is not an exact exposed text span')
+        elif set(citation) == {'evidence_id', 'pointer', 'value'}:
+            pointer = citation['pointer']
+            if not isinstance(pointer, str) or (pointer and not pointer.startswith('/')):
+                raise EvidenceError('invalid citation JSON pointer')
+            actual = item['value']
+            try:
+                for segment in pointer.split('/')[1:] if pointer else []:
+                    segment = segment.replace('~1', '/').replace('~0', '~')
+                    if isinstance(actual, list):
+                        if not segment.isdigit() or str(int(segment)) != segment:
+                            raise ValueError('invalid list index')
+                        actual = actual[int(segment)]
+                    elif isinstance(actual, dict):
+                        actual = actual[segment]
+                    else:
+                        raise ValueError('not a container')
+            except (IndexError, KeyError, ValueError, TypeError) as exc:
+                raise EvidenceError('citation pointer is not exposed') from exc
+            if type(citation['value']) is not type(actual) or canonical(citation['value']) != canonical(actual):
+                raise EvidenceError('citation value does not match exposed evidence')
+        else:
+            raise EvidenceError('unsupported citation shape')
+        result.append({**citation, 'source_kind': item['kind'],
+                       'validation': 'exact_source_match_only'})
+    return result

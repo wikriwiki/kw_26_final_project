@@ -17,7 +17,7 @@ export FLASHINFER_DISABLE=1
 # - --enable-prefix-caching 명시 (시스템 prompt + 페르소나 prefix 캐시 적중)
 # - gpu-memory-utilization 0.92 → 0.95 (KV cache 추가 확보)
 exec python -m vllm.entrypoints.openai.api_server \
-    --model "${MODEL:-K-intelligence/Midm-2.0-Base-Instruct}" \
+    --model "K-intelligence/Midm-2.0-Base-Instruct" \
     --host 0.0.0.0 --port 8000 \
     --max-model-len 6144 \
     --gpu-memory-utilization 0.95 \

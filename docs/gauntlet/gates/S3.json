@@ -1,0 +1,25 @@
+{
+  "stage": "S3",
+  "contract_version": "s1.0.0",
+  "status": "passed",
+  "round": 1,
+  "lead_decision": "open-S4",
+  "builder_report": "docs/gauntlet/builders/S3-round1.md",
+  "critic_report": "docs/gauntlet/critics/S3-1.md",
+  "tests": [
+    {"command": "npm run typecheck", "exit_code": 0},
+    {"command": "npm run build", "exit_code": 0},
+    {"command": "python -m unittest tests.unit.test_s1_contract tests.unit.test_s2_api -v", "passed": 16, "failed": 0, "exit_code": 0}
+  ],
+  "changed_files": [
+    "web/ui/src/lib/api.ts",
+    "web/ui/src/routes/PolicyPage.tsx",
+    "web/ui/src/styles/workspaces.css",
+    "web/ui/src/main.tsx",
+    "docs/gauntlet/contracts/S3.md",
+    "docs/gauntlet/builders/S3-round1.md",
+    "docs/gauntlet/critics/S3-1.md",
+    "docs/gauntlet/gates/S3.json"
+  ],
+  "protected_paths": ["scripts/sim", "scripts/neo4j_load"]
+}

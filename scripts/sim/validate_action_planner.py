@@ -16,6 +16,9 @@ from bounded_reasoning import post, run
 from validate_prompt_v3 import atomic, digest
 
 
+from llm_client import require_supported_model_id
+
+
 def invoke(job, config, base, prefixes, folder):
     candidate, seed, cell = job; key = digest([candidate['id'], seed, cell['aid'], cell['case'], cell['arm']])
     row = {k: cell[k] for k in ['aid','case','arm','date']}
@@ -102,6 +105,7 @@ def main():
     ap.add_argument('--resume', action='store_true',
                     help='이미 있는 폴더에 이어 쓴다. 끝난 칸은 건너뛴다')
     args = ap.parse_args(); config = json.loads(Path(args.config).read_text(encoding='utf-8')); raw = Path(args.source).read_bytes()
+    require_supported_model_id(config["model"])
     import importlib
     if config.get('prompt_module','v22') not in {'v22','v23','v24','v25','v26','v27','v28','v29','v30','v31','v32','v33','v34','v35','v36','v37','v38','v39'}: raise ValueError('Unregistered prompt module')
     system_prompt = importlib.import_module('prompts.' + config.get('prompt_module','v22')).SYSTEM_PROMPT
@@ -178,7 +182,7 @@ def main():
            'prefix_sha256': {'|'.join(k): digest(v) for k,v in prefixes.items()}, 'template_sha256': digest(tokenizer.chat_template)})
     atomic(folder/'frozen_inputs.json', {'personas': inputs['personas'], 'cells': frozen}); (folder/'system.txt').write_text(system_prompt, encoding='utf-8')
     base = os.environ.get('LLM_BASE_URL', 'http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
-    with urlopen(base + '/v1/models', timeout=10) as response: assert config['model'] in [m['id'] for m in json.load(response)['data']]
+    with urlopen(base + '/v1/models', timeout=10) as response: assert require_supported_model_id(config['model']) in [m['id'] for m in json.load(response)['data']]
     jobs = [(c, seed, cell) for c in config['candidates'] for seed in config['seeds'] for cell in inputs['cells']]
     random.Random(config['order_seed']).shuffle(jobs)
     # 순서는 order_seed 로 고정된 뒤에 걸러낸다. 건너뛰는 칸이 순서를 바꾸지 않는다.

@@ -10,6 +10,8 @@ Conversation 적재(Night Phase 2)는 별도 night_phase.py로 (LLM 의도 분�
 """
 from __future__ import annotations
 
+import os
+
 import sys
 from contextlib import nullcontext
 import uuid
@@ -67,7 +69,6 @@ CREATE (p)-[:INCLUDES {
   // 정책 지원금에서 사용한 금액 JSON 형태 ({"P009": 5000})
   // 분석 시: 정책별 사용처/누적 사용액 추적 가능
   spent_from_policy: coalesce(ev.spent_from_policy_json, '{}'),
-  instant_discount: coalesce(ev.instant_discount_json, '{}'),
   // 사고과정 흔적 (인터뷰 가능성 확보용)
   reasoning: ev.reasoning,           // Stage 1: 왜 이 시간·카테고리·anchor
   trigger: ev.trigger,               // Stage 1: appointment/rumor/policy/lifestyle/mood/none
@@ -106,9 +107,6 @@ def write_plan(
     for ev in valid_events:
         ps = ev.get("policy_spend") or {}
         ev["spent_from_policy_json"] = _json.dumps(ps, ensure_ascii=False) if ps else "{}"
-        discount = ev.get("instant_discount") or {}
-        ev["instant_discount_json"] = (_json.dumps(discount, ensure_ascii=False)
-                                        if discount else "{}")
     # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
     reviews_seen_json = _json.dumps(reviews_seen, ensure_ascii=False) if reviews_seen else "{}"
     review_changed_count = sum(1 for ev in valid_events if ev.get("review_changed"))
@@ -209,6 +207,7 @@ def grant_lookup_key(pol: dict, income: str, spend_decile=None) -> str:
     return income or ""
 
 
+# [KW26 이식 2026-10-05] 지급일을 날짜로 비교하고 지급 일정을 지원한다.
 def as_date(v):
     """문자열·date·Neo4j Date 를 모두 `datetime.date` 로. 못 바꾸면 None.
 
@@ -240,8 +239,51 @@ def as_date(v):
         return None
 
 
+def _receipt_schedule(pol: dict):
+    """정책의 지급 일정(receipt_schedule). 그래프에서는 mech_params JSON 안에 들어 있다."""
+    import json as _json
+    sched = pol.get("receipt_schedule")
+    if sched is None and pol.get("mech_params"):
+        try:
+            raw = pol["mech_params"]
+            sched = (_json.loads(raw) if isinstance(raw, str) else dict(raw)).get("receipt_schedule")
+        except Exception:
+            sched = None
+    if isinstance(sched, str):
+        sched = _json.loads(sched)
+    return sched or None
+
+
+def grant_receipt_date(pol: dict, aid: str | None):
+    """이 사람이 지원금을 받는(쓸 수 있게 되는) 날.
+
+    정책에 receipt_schedule 이 없거나 aid 가 없으면 시행일(effective_from) — 일시금, 기존과 같다.
+    있으면 [{from, to, share}, ...] 의 누적 비율에 사람을 고정 해시로 배정하고, 구간 안에서도
+    고르게 나눈다. 해시는 (정책ID, aid) 로만 정해 런·시뮬레이션이 달라도 같은 사람은 같은 날 받는다.
+    일정 비율의 합이 1 보다 작으면 남는 사람은 관측 기간 안에 받지 않는다(None).
+    """
+    import hashlib as _hl
+    eff = as_date(pol.get("effective_from"))
+    sched = _receipt_schedule(pol)
+    if not sched or not aid:
+        return eff
+    u = int(_hl.sha256(("%s|%s" % (pol.get("id") or "", aid)).encode("utf-8")).hexdigest()[:13], 16) / float(16 ** 13)
+    acc = 0.0
+    for seg in sched:
+        share = float(seg["share"])
+        if share <= 0:
+            continue
+        if u < acc + share:
+            d0, d1 = as_date(seg["from"]), as_date(seg["to"])
+            n = (d1 - d0).days + 1
+            k = min(n - 1, int((u - acc) / share * n))
+            return d0 + timedelta(days=k)
+        acc += share
+    return None
+
+
 def grants_to_apply(policies, today, prev_received=None, income="",
-                    spend_decile=None) -> dict:
+                    spend_decile=None, aid=None) -> dict:
     """오늘 **새로 지급될** {정책ID: 금액}. 런타임과 예비점검이 같이 쓴다.
 
     `run_simulation` 안에 인라인으로 있던 세 줄짜리 게이트를 꺼냈다. 인라인이면
@@ -251,6 +293,8 @@ def grants_to_apply(policies, today, prev_received=None, income="",
       · `type == "grant"` 인 정책만
       · 이미 받은 정책은 건너뛴다 (resume 멱등)
       · `effective_from` 이 **오늘인 날 하루만** 지급 (1차 지원금은 일시금이다)
+        — 정책에 지급 일정(receipt_schedule)이 있고 aid 가 주어지면 그 사람의 지급일
+        (grant_receipt_date)이 오늘인 날 하루만 지급한다(P013: 실제 신청·충전 일정).
     """
     prev = prev_received or {}
     today_d = as_date(today)
@@ -261,12 +305,13 @@ def grants_to_apply(policies, today, prev_received=None, income="",
         pid = pol.get("id") or ""
         if pid in prev:
             continue
-        if as_date(pol.get("effective_from")) != today_d:
+        if grant_receipt_date(pol, aid) != today_d:
             continue
         amt = _grant_for_single_policy(income, pol, spend_decile=spend_decile)
         if amt > 0:
             out[pid] = amt
     return out
+
 
 
 def _grant_for_single_policy(income: str, pol: dict, spend_decile=None) -> int:
@@ -528,12 +573,9 @@ WITH a, prev,
      coalesce(prev.energy, 0.8) AS prev_energy,
      coalesce(prev.mood, 0.5) AS prev_mood,
      coalesce(prev.fatigue, 0.3) AS prev_fatigue,
-     // 다음 달 첫날에는 전월 실적을 이어받지 않는다. 잔액·정책 인지 등은 계속 유지.
-     CASE WHEN date($today).day = 1 THEN 0
-          ELSE coalesce(prev.month_spent, 0) END AS prev_month_spent,
-     // 상생 캐시백 문턱도 달력 월별. 정책 수치가 아닌 공통 회계 규칙이다.
-     CASE WHEN date($today).day = 1 THEN 0
-          ELSE coalesce(prev.sangsaeng_month_spent, 0) END AS prev_sangsaeng_month_spent
+     coalesce(prev.month_spent, 0) * $month_carry AS prev_month_spent,
+     // 상생 캐시백 실적 문턱용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 0.
+     coalesce(prev.sangsaeng_month_spent, 0) * $month_carry AS prev_sangsaeng_month_spent
 
 // 오늘 INCLUDES 누적: 실제 actual_spent 합산 (외출 commerce만).
 // ip:POI 조인으로 적립업종(sangsaeng_eligible=true) 지출만 따로 합산.
@@ -572,23 +614,20 @@ SET s.agent_id = $aid,
     // 신용이 없는 모형에서 잔고는 0 아래로 갈 수 없다. 음수 잔고가 그대로 Stage1·Stage2
     // 프롬프트의 '잔액(내 돈)'으로 노출되어 소비성향 판단을 오염시키고 있었다.
     // consumption.py가 이미 own_balance = max(0, balance)로 같은 하한을 쓰므로 소비는 불변.
-    // 오늘 자기 돈으로 나간 금액 = (가게 매출 - 지원금 결제분 - 즉시 할인) + 배송 주문.
+    // 오늘 자기 돈으로 나간 금액 = (가게 지출 - 지원금 결제분) + 배송 주문.
     // 배송 주문은 POI 방문이 없어 INCLUDES(today_spent)에 잡히지 않고, 소비쿠폰으로는
     // 결제할 수 없으므로(P010 사용처 조건) 전액 자기 돈에서 빠진다.
-    // $today_income 은 기본 0 이다. 소득이 꺼져 있으면 이 식은 예전과 글자 하나 다르지
-    // 않다. 켜면 지갑이 정상상태가 된다 — 소득이 없으면 28일에 3분의 2가 빈털터리가
-    // 되고, 그 붕괴가 정책 효과로 읽힌다 (experiments/THE_PURSE_RUNS_DRY.md).
-    s.balance = CASE WHEN prev_balance + $today_income - (today_spent - $today_policy_spent - $today_instant_discount) - $today_online_spent < 0
+    // [KW26] $today_income 은 기본 0 — 소득이 꺼져 있으면 예전과 같은 값이다.
+    s.balance = CASE WHEN prev_balance + $today_income - (today_spent - $today_policy_spent) - $today_online_spent < 0
                      THEN 0
-                     ELSE prev_balance + $today_income - (today_spent - $today_policy_spent - $today_instant_discount) - $today_online_spent END,
+                     ELSE prev_balance + $today_income - (today_spent - $today_policy_spent) - $today_online_spent END,
     s.income_today = $today_income,
     s.online_spent = $today_online_spent,
-    s.instant_discount_today = $today_instant_discount,
     s.energy = 0.8,
     s.yesterday_satisfaction = today_avg_sat,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
-    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent - $today_instant_discount) + $today_online_spent,
+    s.month_spent = prev_month_spent + (today_spent - $today_policy_spent) + $today_online_spent,
     // 적립업종 누적은 실적(gross) 기준 — 캐시백은 지갑이 없어 policy_spent 차감 불필요.
     s.sangsaeng_month_spent = prev_sangsaeng_month_spent + today_sangsaeng_spent,
     s.policy_lifecycle = $policy_lifecycle_json,
@@ -617,10 +656,10 @@ def night_create_state(
     grant_received: dict[str, int] | str | None = None,
     grant_remaining: dict[str, int] | str | None = None,
     today_policy_spent: int = 0,
-    today_instant_discount: int = 0,
     grant_carry: int = 0,
     grant_plan_days: int = 0,
     today_online_spent: int = 0,
+    # [KW26] 오늘 들어온 소득(원). 기본 0.
     today_income: int = 0,
     execution_receipts: list | None = None,
     observations: list | None = None,
@@ -661,11 +700,12 @@ def night_create_state(
                   grant_received_json=grant_json,
                   grant_remaining_json=grant_rem_json,
                   today_policy_spent=int(today_policy_spent or 0),
-                  today_instant_discount=int(today_instant_discount or 0),
                   grant_carry=int(grant_carry or 0),
                   grant_plan_days=int(grant_plan_days or 0),
                   today_online_spent=int(today_online_spent or 0),
                   today_income=int(today_income or 0),
+                  # [KW26] 매달 1일이면 이번 달 누적을 0 부터 센다(EXP_MONTH_RESET=1 일 때만).
+                  month_carry=(0 if (os.environ.get("EXP_MONTH_RESET", "0") == "1" and today.day == 1) else 1),
                   execution_receipts_json=_json.dumps(execution_receipts or [], ensure_ascii=False),
                   observations_json=_json.dumps(observations or [], ensure_ascii=False),
                   policy_appraisals_json=_json.dumps(policy_appraisals or {}, ensure_ascii=False),

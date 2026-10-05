@@ -22,6 +22,19 @@
 동 안에서는 프레임의 **결합 칸**(동 x 성별 x 연령대)을 쓴다. 주변분포만 맞추는 것보다
 강하다 — 다만 후보가 얇아 칸을 다 채우지 못하면 **채운 척하지 않고 부족분을 적는다.**
 
+## 배분 방식 두 가지 (`--allocation`)
+
+    coarse_first     (기본, P012 명부) 성별x연령대 10칸을 먼저 정확히 맞추고, 동은 그 안에서
+                     큰 나머지로 나눈다. 동마다 1명이 안 되는 칸이 많아 **작은 동이 통째로
+                     빠진다** (2,000명에서 425개 동 중 325개, 빠진 동 인구 13.7%).
+    dong_controlled  표를 **두 방향으로 동시에** 반올림한다(통제 반올림), 두 단계로:
+                       1) 구 x (성별,연령대) 250칸 — 구 합계와 (성별,연령대) 합계를 동시에
+                       2) 구마다 동 x (성별,연령대) — 1)의 칸 합계와 동 합계를 동시에
+                     모든 칸이 기대치의 내림 또는 올림이다. 어느 칸을 올릴지는 최대 흐름으로
+                     고르고, 탐색 순서를 씨앗으로 섞어 코드 순서가 성별·연령을 몰지 않게 한다
+                     (섞지 않으면 앞 번호 구에 여성 20대가 몰렸다 — 측정: 구x성x연령 칸 오차 0.84%p).
+                     후보가 없는 칸은 **같은 구** 같은 (성별,연령대)에서 꺼내고 그 수를 적는다.
+
 ## 모르는 것을 지어내지 않는다
 
   · 후보에 없는 동(빈 동)은 **대체하지 않고** 부족분으로 적는다.
@@ -64,6 +77,87 @@ def largest_remainder(weights: dict[str, float], total: int) -> dict[str, int]:
     return out
 
 
+def controlled_round(cells: dict[tuple[str, str], float],
+                     row_tot: dict[str, int], col_tot: dict[str, int],
+                     rnd: random.Random | None = None) -> tuple[dict, int]:
+    """2차원 표의 통제 반올림. cells[(행,열)] = 기대 인원(실수).
+
+    각 칸 = 내림 또는 올림, 행 합 = row_tot, 열 합 = col_tot. 어느 칸을 올릴지는
+    (출발 -> 행 [남은 몫] -> 열 [소수부가 있는 칸마다 1] -> 도착 [남은 몫]) 최대 흐름으로 고른다.
+    흐름이 모자라면 기대치가 0 인 칸도 1 까지 열고, 그렇게 연 칸 수를 돌려준다.
+    rnd 를 주면 행과 칸의 탐색 순서를 섞는다 — 코드 순서가 어느 칸을 올릴지 정하지 않게.
+    """
+    import math
+    out = {k: int(math.floor(v)) for k, v in cells.items()}
+    rows = sorted(row_tot)
+    cols = sorted(col_tot)
+    if rnd is not None:
+        rnd.shuffle(rows)
+    r_need = {r: row_tot[r] - sum(out.get((r, c), 0) for c in cols) for r in rows}
+    c_need = {c: col_tot[c] - sum(out.get((r, c), 0) for r in rows) for c in cols}
+    if min(r_need.values(), default=0) < 0 or min(c_need.values(), default=0) < 0:
+        raise SystemExit("통제 반올림: 내림 합이 목표보다 크다 — 목표가 반올림이 아니다")
+    if sum(r_need.values()) != sum(c_need.values()):
+        raise SystemExit("통제 반올림: 행 합과 열 합이 다르다")
+
+    def flow(edges: set) -> dict:
+        used: dict = {}
+        rleft, cleft = dict(r_need), dict(c_need)
+        adj = {r: sorted(c for (rr, c) in edges if rr == r) for r in rows}
+        if rnd is not None:
+            for r in rows:
+                rnd.shuffle(adj[r])
+        while True:
+            # 너비 우선 증가 경로: 남은 행 -> (안 쓴 칸) 열 -> (쓴 칸을 되돌려) 행 -> ... -> 남은 열
+            prev: dict = {}
+            queue = [("r", r) for r in rows if rleft[r] > 0]
+            for q in queue:
+                prev[q] = None
+            end = None
+            i = 0
+            while i < len(queue) and end is None:
+                kind, x = queue[i]
+                i += 1
+                if kind == "r":
+                    for c in adj[x]:
+                        if used.get((x, c), 0) == 0 and ("c", c) not in prev:
+                            prev[("c", c)] = (kind, x)
+                            if cleft[c] > 0:
+                                end = ("c", c)
+                                break
+                            queue.append(("c", c))
+                else:
+                    for r in rows:
+                        if used.get((r, x), 0) == 1 and ("r", r) not in prev:
+                            prev[("r", r)] = (kind, x)
+                            queue.append(("r", r))
+            if end is None:
+                return used
+            node = end
+            cleft[end[1]] -= 1
+            while prev[node] is not None:
+                p = prev[node]
+                if node[0] == "c":
+                    used[(p[1], node[1])] = 1
+                else:
+                    used[(node[1], p[1])] = 0
+                node = p
+            rleft[node[1]] -= 1
+
+    frac = {k for k, v in cells.items() if v - math.floor(v) > 1e-12}
+    used = flow(frac)
+    opened = 0
+    if sum(used.values()) < sum(r_need.values()):
+        used = flow({(r, c) for r in rows for c in cols})
+        opened = sum(1 for k, v in used.items() if v and k not in frac)
+        if sum(used.values()) < sum(r_need.values()):
+            raise SystemExit("통제 반올림: 행 합과 열 합을 동시에 맞출 수 없다")
+    for k, v in used.items():
+        if v:
+            out[k] = out.get(k, 0) + 1
+    return out, opened
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--frame", required=True)
@@ -74,6 +168,10 @@ def main() -> int:
     ap.add_argument("--eligible-ids", default=None,
                     help="그래프가 실제로 가진 에이전트 id 목록(JSON 배열). 주면 이 안에서만 "
                          "뽑는다 — 후보 목록이 다른 그래프에서 만들어졌을 수 있다.")
+    ap.add_argument("--allocation", choices=["coarse_first", "dong_controlled"],
+                    default="coarse_first",
+                    help="coarse_first: P012 명부 방식(기본). dong_controlled: 동 x (성별,연령대) "
+                         "통제 반올림 — 작은 동이 빠지지 않는다.")
     ap.add_argument("--max-margin-error", type=float, default=0.02,
                     help="주변분포 최대 절대오차. 넘으면 쓰지 않고 멈춘다.")
     a = ap.parse_args()
@@ -132,7 +230,84 @@ def main() -> int:
     picked: list[str] = []
     short_cell: dict[str, int] = {}
     subs = 0
-    for (sx, ab), want in sorted(want_coarse.items()):
+    subs_same_gu = 0
+    opened = 0
+    if a.allocation == "dong_controlled":
+        # 동 x (성별,연령대) 결합 칸에서 기대 인원을 만들고 두 방향으로 동시에 반올림한다.
+        jt: dict[tuple[str, str], float] = defaultdict(float)
+        for (sx, ab), dc in joint.items():
+            for dong, cnt in dc.items():
+                jt[(dong, sx + "|" + ab)] += cnt
+        jsum = sum(jt.values()) or 1.0
+        cells = {k: a.citizens * v / jsum for k, v in jt.items()}
+        # 1단 — 구 x (성별,연령대)
+        gcells: dict[tuple[str, str], float] = defaultdict(float)
+        for (d, c), v in cells.items():
+            gcells[(d[:5], c)] += v
+        gsum: dict[str, float] = defaultdict(float)
+        csum: dict[str, float] = defaultdict(float)
+        for (g, c), v in gcells.items():
+            gsum[g] += v
+            csum[c] += v
+        g_tot = largest_remainder({k: v / a.citizens for k, v in gsum.items()}, a.citizens)
+        col_tot = largest_remainder({k: v / a.citizens for k, v in csum.items()}, a.citizens)
+        galloc, opened = controlled_round(dict(gcells), g_tot, col_tot, rnd)
+        # 2단 — 구마다 동 x (성별,연령대). 칸 합계는 1단 결과, 동 합계는 그 안의 큰 나머지
+        alloc: dict[tuple[str, str], int] = {}
+        for g in sorted(g_tot):
+            sub = {k: v for k, v in cells.items() if k[0][:5] == g}
+            ccol: dict[str, float] = defaultdict(float)
+            for (d, c), v in sub.items():
+                ccol[c] += v
+            want_c = {c: galloc.get((g, c), 0) for c in ccol}
+            if sum(want_c.values()) != g_tot[g]:
+                raise SystemExit("2단 배분: 구 %s 의 칸 합계가 1단과 다르다" % g)
+            e = {(d, c): (want_c[c] * v / ccol[c] if ccol[c] > 0 else 0.0)
+                 for (d, c), v in sub.items()}
+            drow: dict[str, float] = defaultdict(float)
+            for (d, c), v in e.items():
+                drow[d] += v
+            gt = sum(want_c.values())
+            d_tot = (largest_remainder({k: v / gt for k, v in drow.items()}, gt)
+                     if gt > 0 else {k: 0 for k in drow})
+            sa, op2 = controlled_round(e, d_tot, want_c, rnd)
+            opened += op2
+            alloc.update(sa)
+        want_coarse = {tuple(c.split("|")): n for c, n in col_tot.items()}
+        used_ids: set[str] = set()
+        short: list[tuple[str, str, str, int]] = []
+        for (dong, c), n in sorted(alloc.items()):
+            if n <= 0:
+                continue
+            sx, ab = c.split("|")
+            avail = [x for x in pool.get((dong, sx, ab), []) if x not in used_ids]
+            rnd.shuffle(avail)
+            got = avail[:n]
+            used_ids.update(got)
+            picked.extend(got)
+            if len(got) < n:
+                short.append((dong, sx, ab, n - len(got)))
+        # 후보가 없어 못 채운 몫은 같은 구 -> 서울 전체 순으로, 같은 (성별,연령대) 안에서 꺼낸다
+        for dong, sx, ab, k in short:
+            for scope in ("gu", "seoul"):
+                if k <= 0:
+                    break
+                rest = [x for key, v in pool.items()
+                        if key[1] == sx and key[2] == ab
+                        and (scope == "seoul" or key[0][:5] == dong[:5])
+                        for x in v if x not in used_ids]
+                rnd.shuffle(rest)
+                add = rest[:k]
+                used_ids.update(add)
+                picked.extend(add)
+                subs += len(add)
+                if scope == "gu":
+                    subs_same_gu += len(add)
+                k -= len(add)
+            if k > 0:
+                key = "%s/%s" % (sx, ab)
+                short_cell[key] = short_cell.get(key, 0) + k
+    for (sx, ab), want in (sorted(want_coarse.items()) if a.allocation == "coarse_first" else []):
         if want <= 0:
             continue
         dcnt = joint.get((sx, ab)) or Counter()
@@ -180,6 +355,13 @@ def main() -> int:
                        for k, v in tg["age_band"]["proportions"].items()}
     dmax = max((abs(got_dong[dong8(k)] / n - float(v))
                 for k, v in tg["admin_dong"]["proportions"].items()), default=0.0)
+    gu_tgt: dict[str, float] = defaultdict(float)
+    for k, v in tg["admin_dong"]["proportions"].items():
+        gu_tgt[dong8(k)[:5]] += float(v)
+    got_gu = Counter(d[:5] for d in got_dong.elements())
+    gmax = max((abs(got_gu[g] / n - v) for g, v in gu_tgt.items()), default=0.0)
+    empty_dong_share = sum(float(v) for k, v in tg["admin_dong"]["proportions"].items()
+                           if got_dong[dong8(k)] == 0)
     worst = max(max(abs(x) for x in err["sex"].values()),
                 max(abs(x) for x in err["age_band"].values()))
 
@@ -201,6 +383,9 @@ def main() -> int:
         print("  %-10s %9.4f %10.4f %+9.4f" % (k, v, got_age[k] / n, err["age_band"][k]))
     print("  행정동     동 %d개 중 %d개에 배정 · 최대 동별 오차 %.5f"
           % (len(tg["admin_dong"]["proportions"]), len(got_dong), dmax))
+    print("  사람이 없는 동의 인구 몫 %.3f · 자치구 %d/%d개 · 최대 구별 오차 %.5f"
+          % (empty_dong_share, len(got_gu), len(gu_tgt), gmax))
+    print("  배분 방식 %s" % a.allocation)
     print()
     print("  주변분포 최대 오차 **%.5f** (문턱 %.3f)" % (worst, a.max_margin_error))
     if short_dong:
@@ -208,6 +393,8 @@ def main() -> int:
               % (len(short_dong), sum(short_dong.values())))
     if subs:
         print("  같은 (성별/연령대) 안의 다른 동에서 꺼낸 횟수 **%d** (빈 동이 있다)" % subs)
+    if a.allocation == "dong_controlled":
+        print("  그중 같은 구 안에서 %d · 기대치 0 칸을 연 횟수 %d" % (subs_same_gu, opened))
     print("  소득 분포는 **맞추지 않았다** — 후보의 소득이 공식 원자료로 검증되지 않았다")
 
     if worst > a.max_margin_error:
@@ -230,9 +417,15 @@ def main() -> int:
             "out_of_scope_dropped": dropped,
            "not_in_graph_dropped": not_in_graph,
            "eligible_ids": a.eligible_ids,
+            "allocation": a.allocation,
             "margin_error": err, "dong_max_error": round(dmax, 6),
+            "gu_max_error": round(gmax, 6),
+            "empty_dong_population_share": round(empty_dong_share, 6),
+            "dongs_with_people": len(got_dong),
             "worst_margin_error": round(worst, 6),
             "unfilled_coarse_cells": short_dong, "cross_dong_substitutions": subs,
+            "cross_dong_substitutions_same_gu": subs_same_gu if a.allocation == "dong_controlled" else None,
+            "zero_expectation_cells_opened": opened if a.allocation == "dong_controlled" else None,
             "frame": {"path": a.frame, "sha256": sha256(fp)},
             "candidates": {"path": a.candidates, "sha256": sha256(cp)},
             "roster_sha256": hashlib.sha256(out.read_bytes()).hexdigest(),

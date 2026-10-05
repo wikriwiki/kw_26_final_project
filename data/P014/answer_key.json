@@ -1,0 +1,45 @@
+{
+ "policy_id": "P014",
+ "title": "지역사랑상품권 (할인 구매)",
+ "kind": "policy",
+ "cell_date": "2020-09-23",
+ "real_world_counterpart": "지역사랑상품권 할인발행",
+ "answer_key_source": "조세재정연구원 (2020)",
+ "mechanism": "price_discount",
+ "indicators": [
+  {
+   "id": "LV-1",
+   "description": "소비지출 규모 무반응 — 방어선",
+   "expected_sign": "0",
+   "expected_meaning": "무반응 (방어선)",
+   "measured_value": 0.0,
+   "measured_unit": "%",
+   "scale": "short",
+   "metric": "total_spend_paired",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "LV-2",
+   "description": "거주 행정동 소비 비중 증가",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "home_dong_spend_share",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "LV-3",
+   "description": "타 자치구 소비 비중 감소",
+   "expected_sign": "-",
+   "expected_meaning": "감소",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "out_district_spend_share",
+   "simulation_cannot_produce": null
+  }
+ ],
+ "note": "실측값과 기대부호는 공개된 연구의 결과다. 프롬프트에는 들어가지 않는다 — 검사로 고정돼 있다."
+}

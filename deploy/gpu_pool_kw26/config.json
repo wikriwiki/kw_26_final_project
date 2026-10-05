@@ -1,0 +1,77 @@
+{
+ "local_url": "http://127.0.0.1:8000",
+ "listen_host": "127.0.0.1",
+ "listen_port": 30000,
+ "log_path": "/data/gpu_pool/pool_requests.jsonl",
+ "remotes": [
+  {
+   "name": "colab1-a",
+   "url": "http://127.0.0.1:18011",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab1-b",
+   "url": "http://127.0.0.1:18012",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab2-a",
+   "url": "http://127.0.0.1:18021",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab2-b",
+   "url": "http://127.0.0.1:18022",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab3-a",
+   "url": "http://127.0.0.1:18031",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab3-b",
+   "url": "http://127.0.0.1:18032",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab4-a",
+   "url": "http://127.0.0.1:18041",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab4-b",
+   "url": "http://127.0.0.1:18042",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab5-a",
+   "url": "http://127.0.0.1:18051",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab5-b",
+   "url": "http://127.0.0.1:18052",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab6-a",
+   "url": "http://127.0.0.1:18061",
+   "capacity": 1.0
+  },
+  {
+   "name": "colab6-b",
+   "url": "http://127.0.0.1:18062",
+   "capacity": 1.0
+  }
+ ],
+ "local_routing": false,
+ "local_max_inflight": 4,
+ "health_interval": 5.0,
+ "health_timeout": 4.0,
+ "unhealthy_after": 3,
+ "remote_timeout": 900.0,
+ "local_timeout": 1800.0,
+ "connect_timeout": 5.0,
+ "_note": "P013 본런이 A100 을 쓰는 동안: Colab 에만 일을 준다(local_routing false). Colab 이 전부 없을 때·원격 실패 대체만 A100 으로, 동시 4개까지. P013 이 끝나면 local_routing true, local_max_inflight 제거."
+}

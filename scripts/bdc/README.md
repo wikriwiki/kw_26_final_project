@@ -52,11 +52,11 @@ python scripts/bdc/analyze_stats.py --source original
 
 ### 3. `generate_agents.py` — LLM 기반 에이전트 생성
 
-vLLM 서버(Qwen3-32B-AWQ)를 호출하여 통계 기반의 소비자 에이전트 페르소나를 대량 생성합니다.
+SGLang 서버(LG EXAONE-4.5-33B-AWQ)를 호출하여 통계 기반의 소비자 에이전트 페르소나를 대량 생성합니다.
 
 - **입력**: `output/stats/` 내 통계 JSON 파일들
 - **출력**: `output/agents/agents_final.json`
-- **사전 조건**: WSL에서 vLLM 서버가 실행 중이어야 함 (`scripts/serve/serve_qwen32b.sh`)
+- **사전 조건**: GPU 호스트에서 SGLang 서버가 실행 중이어야 함 (`scripts/serve/serve_exaone45_sglang_a100x2.sh`)
 - **주요 기능**:
   - 그룹별(행정동×성별×연령대) 통계를 프롬프트로 구성
   - 비동기 병렬 요청으로 대량 생성
@@ -96,7 +96,7 @@ python scripts/bdc/validate_vs_raw.py --agents output/agents/agents_final.json
 ```
 1. scripts/bdc/preprocess_join.py   →  원본 데이터 전처리 및 조인
 2. scripts/bdc/analyze_stats.py     →  통계 JSON 생성
-3. scripts/bdc/generate_agents.py   →  vLLM으로 에이전트 대량 생성
+3. scripts/bdc/generate_agents.py   →  SGLang으로 에이전트 대량 생성
 4. scripts/bdc/validate_vs_raw.py   →  생성 결과 검증
 ```
 

@@ -3,7 +3,7 @@
 # EXP-001 SGLang 설치 — EXAONE-4.5-33B-AWQ 서빙용 별도 venv(/data/venv_sgl)
 #
 # 표준 SGLang은 EXAONE-4.5 아키텍처를 아직 지원하지 않아, add-exaone4_5 포크를
-# 설치한다. transformers는 EXAONE-4.5 config를 읽을 수 있는 최신(>=5.8.0)이 필요.
+# 설치한다. 모델 카드가 안내한 포크의 commit과 기존 작동 의존성 조합을 고정한다.
 #
 # 사용: bash scripts/deploy/install_sglang_exaone45.sh
 # 이후: bash scripts/serve/serve_exaone45_sglang_a100x2.sh 로 기동.
@@ -14,8 +14,9 @@ VENV="${VENV:-/data/venv_sgl}"
 python3 -m venv "$VENV"
 source "$VENV/bin/activate"
 pip install -q -U pip
-# EXAONE-4.5 지원 SGLang 포크 (표준 릴리스에 병합 전)
-pip install "sglang[all] @ git+https://github.com/lkm2835/sglang.git@add-exaone4_5#subdirectory=python"
+# LG 모델 카드의 add-exaone4_5 포크: 2026-05-07 commit, 검토일 2026-09-22.
+# 브랜치 이름 대신 commit을 사용하여 재설치 시 코드가 바뀌지 않게 한다.
+pip install "sglang[all] @ git+https://github.com/lkm2835/sglang.git@6757c9f904cdb8ae9028a394a2108d079b9e088c#subdirectory=python"
 # ── 버전 핀 (2026-07-20 실측으로 확정한 유일 작동 조합) ────────────────────
 # SGLang 포크가 고정하는 transformers==5.3.0 은 exaone4_5 아키텍처를 모른다.
 # → transformers 를 5.8.0 으로 올려야 EXAONE-4.5 config 를 인식한다.

@@ -87,7 +87,11 @@ def _policy_amount(value: object, policy_id: str) -> int:
 def verify_metrics(path: Path, roster: list[str], arm: str,
                    policy_id: str | None = None,
                    effective_from: str | None = None,
-                   effective_until: str | None = None) -> dict[str, dict]:
+                   effective_until: str | None = None,
+                   receipt_day: dict[str, str | None] | None = None) -> dict[str, dict]:
+    """receipt_day: 지급 일정이 있는 정책에서 사람별로 지원금을 받는 날(관측창 안에 못 받으면 None).
+    그 사람에게는 받는 날부터만 정책이 보인다(dawn_context.visible_from_receipt) — 그 전에는 노출도,
+    정책 활동도 없어야 한다."""
     if (effective_from is None) != (effective_until is None):
         raise ValueError("both policy effective dates are required together")
     if effective_from is not None:
@@ -119,9 +123,17 @@ def verify_metrics(path: Path, roster: list[str], arm: str,
         if policy_id is not None:
             if not isinstance(exposed, list):
                 raise ValueError(f"missing policy exposure evidence: {path} {aid}")
-            expected = {policy_id} if arm == "on" and active else set()
+            received = True
+            if receipt_day is not None and arm == "on" and active:
+                due = receipt_day.get(aid)
+                received = due is not None and due <= observed_day
+            expected = {policy_id} if arm == "on" and active and received else set()
             if set(exposed) != expected:
                 raise ValueError(f"wrong policy exposure: {path} {aid}")
+            if arm == "on" and active and not received and any(row.get(key) for key in
+                                                                ("policy_hits", "grant_applied_today",
+                                                                 "policy_spend_today")):
+                raise ValueError(f"policy activity before receipt: {path} {aid}")
         if arm == "on" and not active and any(row.get(key) for key in
                                                ("policy_hits", "grant_applied_today",
                                                 "policy_spend_today")):
@@ -181,6 +193,10 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
         for row in eligibility_rows:
             row["elig"] = True
     totals = defaultdict(lambda: [0, 0, 0])
+    # 업종(소분류)별 총액과 그 중 이 정책 사용처 몫 — 정답지의 업종 묶음 효과를 재려면
+    # 정책 자체의 적격 규칙으로 나눈 업종 금액이 필요하다(대형마트는 '슈퍼마켓' 안에 섞여 있다).
+    by_sub = defaultdict(lambda: defaultdict(int))
+    eligible_by_sub = defaultdict(lambda: defaultdict(int))
     for row in eligibility_rows:
         aid = row.get("aid")
         if aid not in by_aid:
@@ -196,6 +212,10 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
         totals[aid][0] += amt
         totals[aid][1] += amt if row.get("elig") else 0
         totals[aid][2] += funded
+        sub = row.get("sub") or row.get("l1") or "(분류없음)"
+        by_sub[aid][sub] += amt
+        if row.get("elig"):
+            eligible_by_sub[aid][sub] += amt
     out = []
     for aid in roster:
         state = by_aid[aid]
@@ -214,7 +234,23 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
             "grant_spent_today": totals[aid][2],
             "grant_received_cumulative": _policy_amount(state.get("grant_received"), policy_id),
             "grant_remaining": _policy_amount(state.get("grant_remaining"), policy_id),
+            "by_sub": dict(by_sub[aid]),
+            "eligible_by_sub": dict(eligible_by_sub[aid]),
         })
+    return out
+
+
+def receipt_days(policy: dict, roster: list[str]) -> dict[str, str | None] | None:
+    """지급 일정이 있으면 사람별 지급일(엔진과 같은 함수), 없으면 None(모두 시행일).
+
+    정책 파일의 receipt_schedule 을 본다. 일정이 없는 정책은 엔진 버전과 무관하게 지금처럼 동작한다."""
+    if not policy.get("receipt_schedule"):
+        return None
+    from plan_writer import grant_receipt_date
+    out = {}
+    for aid in roster:
+        due = grant_receipt_date(policy, aid)
+        out[aid] = due.isoformat() if due is not None else None
     return out
 
 
@@ -236,7 +272,8 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
     metrics_by_day = {day: verify_metrics(metrics_dir / f"day_{day}.jsonl",
                                           roster, arm, policy_id,
                                           policy.get("effective_from"),
-                                          policy.get("effective_until"))
+                                          policy.get("effective_until"),
+                                          receipt_days(policy, roster))
                       for day in days}
     audit = inspect({day: list(metrics_by_day[day].values()) for day in days},
                     expected_per_day=len(roster))

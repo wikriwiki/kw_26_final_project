@@ -19,6 +19,9 @@ from planning_contract import schedule_schema, inspect_schedule
 from prompts import get
 
 
+from llm_client import require_supported_model_id
+
+
 def post(base, payload):
     req = Request(base + "/chat/completions", data=json.dumps(payload).encode(), headers={"Content-Type":"application/json"})
     try:
@@ -53,7 +56,7 @@ def invoke(job, config, systems, base):
     seed = int(digest([rep,cell["aid"],cell["case"]])[:8],16) % 2147483647
     out = {k:cell[k] for k in ["aid","case","arm","date","context_sha256"]}
     out.update(variant=candidate["id"], replicate=rep, seed=seed, structured=candidate["structured"])
-    payload = {"model":config["model"],"messages":[{"role":"system","content":systems[candidate["id"]]},
+    payload = {"model":require_supported_model_id(config["model"]),"messages":[{"role":"system","content":systems[candidate["id"]]},
                {"role":"user","content":cell["user"]}],"temperature":config["temperature"],
                "top_p":config["top_p"],"max_tokens":config["max_tokens"],"seed":seed,
                "chat_template_kwargs":{"enable_thinking":False}}
@@ -105,10 +108,11 @@ def main():
     ap.add_argument("--probe",action="store_true")
     args=ap.parse_args()
     config=json.loads(Path(args.config).read_text(encoding="utf-8"))
+    require_supported_model_id(config["model"])
     base=os.environ.get("LLM_BASE_URL","http://localhost:8000/v1").rstrip("/")
     folder=Path(args.out); folder.mkdir(parents=True,exist_ok=True)
     if args.probe:
-        result=post(base,{"model":config["model"],"messages":[{"role":"user","content":"Return a JSON object with ok=true."}],
+        result=post(base,{"model":require_supported_model_id(config["model"]),"messages":[{"role":"user","content":"Return a JSON object with ok=true."}],
                          "temperature":0,"max_tokens":40,"chat_template_kwargs":{"enable_thinking":False},
                          "response_format":{"type":"json_schema","json_schema":{"name":"probe","schema":{
                              "type":"object","properties":{"ok":{"type":"boolean","enum":[True]}},"required":["ok"],"additionalProperties":False}}}})
@@ -134,7 +138,7 @@ def main():
     if args.prepare_only:
         print(f"Frozen {len(inputs['cells'])} contexts; no policy LLM calls."); return
     with urlopen(base+"/models",timeout=10) as r: models=json.load(r)
-    assert config["model"] in [m["id"] for m in models["data"]]
+    assert require_supported_model_id(config["model"]) in [m["id"] for m in models["data"]]
     jobs=[(c,rep,cell) for c in config["candidates"] for rep in config["replicate_seeds"] for cell in inputs["cells"]]
     random.Random(20260920).shuffle(jobs)
     rows=[]

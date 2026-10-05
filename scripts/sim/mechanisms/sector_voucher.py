@@ -25,9 +25,6 @@
 """
 from __future__ import annotations
 
-import os
-import json
-
 PTYPE = "sector_voucher"
 
 
@@ -67,40 +64,6 @@ def facts(row: dict) -> list[str]:
 
 def status(pid: str, row: dict, persona: dict, state: dict,
            today=None) -> str:
-    """개인별 한 줄 — 업종 이름만이 아니라 **본인에게 걸리는 한도**까지 적는다.
-
-    업종 이름만 적으면 1인 누적 한도가 있는 정책에서 모델이 제약을 못 본다.
-    한도는 정책 JSON 의 sectors 에서 읽는다 — 특정 정책을 하드코딩하지 않는다.
-    """
     sectors = row.get("sectors") or {}
-    if not sectors:
-        return f"- {pid}: 적용 업종 — 없음"
-    raw_used = (state or {}).get("policy_used") or {}
-    try:
-        used = json.loads(raw_used) if isinstance(raw_used, str) else dict(raw_used)
-        used_amount = max(0, int(used.get(pid, 0) or 0))
-    except (ValueError, TypeError):
-        used_amount = 0
-    parts = []
-    for name, spec in sectors.items():
-        cap = int((spec or {}).get("cap") or 0)
-        if cap > 0 and (spec or {}).get("mode") == "rate" and len(sectors) == 1:
-            parts.append(f"{name}(1인 할인 한도 {cap:,}원, 남은 할인 "
-                         f"{max(0, cap - used_amount):,}원)")
-        else:
-            parts.append(f"{name}(1인 누적 {cap:,}원 한도)" if cap > 0 else name)
-    line = f"- {pid}: 적용 업종 — {', '.join(parts)}"
-    # [EXP_SCOPE_FACT] 범위의 산술 한 줄. **행동 방향이 아니라 계산이다.**
-    #
-    # 혜택은 위 업종에서만 붙는다. 그러므로 대상이 아닌 업종에서 줄여도 받는
-    # 혜택은 한 푼도 늘지 않는다 — 제도의 정의에서 바로 나오는 사실이다.
-    # 모델은 이것을 스스로 세우지 못하는 것으로 보인다: 위약에서 대상이 아닌
-    # 업종이 함께 빠졌고(PL-2 -4.4%), 캐시백에서도 제외업종이 -13.9% 로
-    # 동등성 밴드를 251% 넘었다. 하루 총액이 한 스칼라에 묶여 있어 한 업종이
-    # 오르면 다른 업종이 내려가는 자리다.
-    #
-    # 무엇을 하라고 말하지 않는다. 대상 아닌 업종을 늘리라는 뜻이 아니다.
-    if os.environ.get("EXP_SCOPE_FACT", "0") == "1":
-        line += (" | 혜택은 위 업종에서만 붙는다 — 그 밖의 업종에서 줄여도 "
-                 "받는 혜택이 늘지 않고, 거기서 쓴 돈이 혜택을 깎지도 않는다")
-    return line
+    names = ", ".join(sectors) if sectors else "없음"
+    return f"- {pid}: 적용 업종 — {names}"

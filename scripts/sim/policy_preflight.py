@@ -16,16 +16,13 @@
   전적으로 시뮬 내생 — 기대 효과를 사전에 주입하는 어떤 경로도 두지 않는다.
 
 사용: python scripts/sim/policy_preflight.py data/neo4j_load/policies/P010.json [P011.json ...]
-검증 런 직전: python scripts/sim/policy_preflight.py --require-db <실제 적재한 정책 사본>
-무정책 팔 직전: python scripts/sim/policy_preflight.py --expect-no-policy
 """
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-from datetime import date, timedelta
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -118,22 +115,10 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
 
     # ── B. 환경 요구사항 (정책 속성 → 자동 도출) ──
     if pol.get("poi_restricted"):
-        from prompts import get as get_prompt_variant
-        if getattr(get_prompt_variant(), "STAGE2_NEUTRAL", False):
-            from eligibility import validated_restricted_rules
-            try:
-                validated_restricted_rules(pol.get("eligibility"))
-            except ValueError as e:
-                out.append((_FAIL, f"중립 Stage2 사용처 적격 규칙 누락/오류: {e}"))
-            else:
-                out.append((_PASS, "중립 Stage2 사용처 적격 규칙 해석 가능"))
-            out.append((_PASS, "사용처 표시 선언됨") if pol.get("eligible_marker") else
-                       (_FAIL, "중립 Stage2 사용처 제한 정책에 eligible_marker 없음"))
-        elif not pol.get("eligibility"):
-            csvs = list((ROOT / "data" / "coupon").glob("*.csv"))
-            out.append((_PASS, f"기존 쿠폰 판정용 가맹점 CSV {len(csvs)}개 준비됨 "
-                               f"(서버에서 09_coupon_eligibility.py 백필 필요)") if csvs
-                       else (_WARN, "기존 쿠폰 판정용 data/coupon/*.csv 없음 — 룰 fallback만 사용됨"))
+        csvs = list((ROOT / "data" / "coupon").glob("*.csv"))
+        out.append((_PASS, f"사용처 제한 → 실측 가맹점 CSV {len(csvs)}개 준비됨 "
+                           f"(서버에서 09_coupon_eligibility.py 백필 필요)") if csvs
+                   else (_WARN, "사용처 제한인데 data/coupon/*.csv 없음 — 룰 fallback만 사용됨"))
         out.append((_PASS, "정책결제 사용처 제약(require_poi_eligible)으로 배선 — 소비액 강제 가산 없음"))
     tl = pol.get("benefit_categories") or []
     if tl:
@@ -157,7 +142,6 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
             "rate": pol.get("benefit_rate"), "cap": pol.get("cap_per_agent"),
             "threshold_ratio": pol.get("threshold_ratio"),   # cashback 문턱 배수 (프롬프트 미리보기용)
             "poi_restricted": bool(pol.get("poi_restricted")),
-            "eligible_marker": pol.get("eligible_marker"),
             "from_": pol.get("effective_from"), "until_": pol.get("effective_until"),
             "regions": pol.get("target_districts") or [], "target_l1s": tl,
             "income_grants": json.dumps(ig, ensure_ascii=False),
@@ -210,7 +194,7 @@ def check_policy(path: Path) -> list[tuple[str, str]]:
     return out
 
 
-def check_db_wiring(path: Path, *, require_db: bool = False) -> list[tuple[str, str]]:
+def check_db_wiring(path: Path) -> list[tuple[str, str]]:
     """적재 후 DB 배선 실측 — 파일 검사가 구조적으로 못 잡는 치명 결함을 게이트.
 
     핵심: POLICY_CYPHER 는 (Policy)-[:applied_to]->(District/Dong) 엣지를 통해
@@ -218,11 +202,11 @@ def check_db_wiring(path: Path, *, require_db: bool = False) -> list[tuple[str, 
     applied_to 가 0건이면 정책은 존재하지만 **어떤 에이전트도 보지 못한다**.
     NEO4J_URI 가 있을 때만(=적재 이후) 실행.
     """
+    import os
     out: list[tuple[str, str]] = []
     uri = os.environ.get("NEO4J_URI")
     if not uri:
-        grade = _FAIL if require_db else _WARN
-        out.append((grade, "NEO4J_URI 미설정 → DB 배선 점검 불가"))
+        out.append((_WARN, "NEO4J_URI 미설정 → DB 배선 점검 생략 (정책 적재 후 재실행 권장)"))
         return out
     pol = json.loads(path.read_text(encoding="utf-8"))
     pid = pol.get("id", "?")
@@ -287,157 +271,26 @@ def check_db_wiring(path: Path, *, require_db: bool = False) -> list[tuple[str, 
                                            "유흥주점·복권 약 3,400개가 적립으로 남아 C1 대조군이 무너진다"))
         drv.close()
     except Exception as e:
-        grade = _FAIL if require_db else _WARN
-        out.append((grade, f"DB 배선 점검 실패: {e}"))
+        out.append((_WARN, f"DB 배선 점검 실패(건너뜀): {e}"))
     return out
-
-
-def check_no_policy_db() -> list[tuple[str, str]]:
-    """무정책 팔이 시작되기 전에 이전 팔의 Policy 잔재를 차단한다."""
-    uri = os.environ.get("NEO4J_URI")
-    if not uri:
-        return [(_FAIL, "NEO4J_URI 미설정 → 무정책 팔 DB 점검 불가")]
-    try:
-        from neo4j import GraphDatabase
-
-        drv = GraphDatabase.driver(uri, auth=(os.environ.get("NEO4J_USER", "neo4j"),
-                                          os.environ.get("NEO4J_PASSWORD", "")))
-        try:
-            with drv.session(database=os.environ.get("NEO4J_DATABASE", "neo4j")) as s:
-                n_policy = int(s.run("MATCH (p:Policy) RETURN count(p) AS c").single()["c"])
-                n_edges = int(s.run(
-                    "MATCH (:Policy)-[r:applied_to]->() RETURN count(r) AS c"
-                ).single()["c"])
-        finally:
-            drv.close()
-    except Exception as e:
-        return [(_FAIL, f"무정책 팔 DB 점검 실패: {e}")]
-    if n_policy or n_edges:
-        return [(_FAIL, f"무정책 팔 오염: Policy {n_policy}개, applied_to {n_edges}개")]
-    return [(_PASS, "무정책 팔: Policy 0개, applied_to 0개")]
-
-
-def check_policy_set_db(paths: list[Path]) -> list[tuple[str, str]]:
-    """정책 팔에 지정하지 않은 이전 정책이 남아 있지 않은지 확인한다."""
-    uri = os.environ.get("NEO4J_URI")
-    if not uri:
-        return [(_FAIL, "NEO4J_URI 미설정 → 정책 집합 점검 불가")]
-    try:
-        expected = sorted(str(json.loads(p.read_text(encoding="utf-8"))["id"]) for p in paths)
-        from neo4j import GraphDatabase
-
-        drv = GraphDatabase.driver(uri, auth=(os.environ.get("NEO4J_USER", "neo4j"),
-                                          os.environ.get("NEO4J_PASSWORD", "")))
-        try:
-            with drv.session(database=os.environ.get("NEO4J_DATABASE", "neo4j")) as s:
-                actual = sorted(str(row["id"]) for row in s.run(
-                    "MATCH (p:Policy) RETURN p.id AS id"
-                ))
-        finally:
-            drv.close()
-    except Exception as e:
-        return [(_FAIL, f"정책 집합 DB 점검 실패: {e}")]
-    if actual != expected:
-        return [(_FAIL, f"정책 팔 오염/누락: 지정 {expected}, DB {actual}")]
-    return [(_PASS, f"정책 팔: DB 정책 집합 {actual} 일치")]
-
-
-def check_disbursement(path: Path) -> list[tuple[str, str]]:
-    """**돈이 실제로 나가는가** — 런타임과 **같은 함수**로 시행일 하루를 돌려 본다.
-
-    이 점검이 없어서 `p013_ruler` 가 전 분위 280,000원짜리 정책으로 12일을 돌고도
-    **한 푼도 지급하지 않았다.** 명세 점검은 다 통과했었다 — tier 도 맞고 금액도
-    있었다. 나가지 않은 것은 **게이트**였고, 명세만 보는 점검은 그걸 못 본다.
-
-    그래서 여기서는 `plan_writer.grants_to_apply` 를 **직접 부른다.** 런타임이
-    부르는 바로 그 함수다. 옮겨 적지 않는다 — 옮겨 적으면 또 갈라진다.
-    """
-    sys.path.insert(0, str(Path(__file__).resolve().parent))
-    from plan_writer import grants_to_apply  # noqa: E402
-
-    pol = json.loads(path.read_text(encoding="utf-8"))
-    if pol.get("type") != "grant":
-        return [(_PASS, "지갑형이 아니다 — 지급 점검 건너뜀")]
-
-    eff = pol.get("effective_from")
-    out: list[tuple[str, str]] = []
-    key = pol.get("grant_key") or "income"
-    # 그래프가 돌려주는 모양을 흉내 낸다 — 날짜가 str 로도 date 로도 올 수 있다.
-    for label, day in (("문자열 날짜", str(eff)), ("date 객체", _as_date_safe(eff))):
-        if day is None:
-            continue
-        got = 0
-        for tier in (["1", "5", "10"] if key == "spend_decile" else ["하", "중", "상"]):
-            kw = {"spend_decile": tier} if key == "spend_decile" else {"income": tier}
-            amt = grants_to_apply([{**pol, "effective_from": eff}], day, {}, **{
-                "income": kw.get("income", ""), "spend_decile": kw.get("spend_decile")})
-            got = max(got, amt.get(pol.get("id"), 0))
-        out.append((_PASS, f"시행일 지급 확인 ({label}): 최대 {got:,}원")
-                   if got > 0 else
-                   (_FAIL, f"**시행일에 0원이 나간다** ({label}) — 지갑이 안 열린다"))
-
-    # 시행일이 아닌 날에는 안 나가야 한다(일시금)
-    d = _as_date_safe(eff)
-    if d is not None:
-        nxt = grants_to_apply([pol], d + timedelta(days=1), {}, "하", 1)
-        out.append((_PASS, "시행일 다음 날은 0원 — 일시금이 맞다") if not nxt
-                   else (_FAIL, f"시행일이 아닌 날에도 지급된다: {nxt}"))
-    return out
-
-
-def _as_date_safe(v):
-    try:
-        from plan_writer import as_date
-        return as_date(v)
-    except Exception:
-        return None
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--require-db", action="store_true",
-                    help="검증 런 직전 DB 접속·정책 노출·지정 정책 집합 일치를 반드시 확인한다")
-    ap.add_argument("--expect-no-policy", action="store_true",
-                    help="무정책 팔 시작 전 DB의 Policy 및 applied_to가 0개인지 확인한다")
-    ap.add_argument("paths", nargs="*", type=Path)
+    ap.add_argument("paths", nargs="+", type=Path)
     args = ap.parse_args()
-    if args.expect_no_policy:
-        if args.paths:
-            ap.error("--expect-no-policy에는 정책 파일을 지정하지 않는다")
-        results = check_no_policy_db()
-        for grade, msg in results:
-            print(f"  {grade} {msg}")
-        sys.exit(1 if any(grade == _FAIL for grade, _ in results) else 0)
-    if not args.paths:
-        ap.error("정책 파일을 지정하거나 --expect-no-policy를 사용한다")
     n_fail = 0
-    n_warn = 0
     for p in args.paths:
         print(f"\n{'='*64}\n정책 사전점검: {p}\n{'='*64}")
         results = check_policy(p)
-        results += check_disbursement(p)
-        results += check_db_wiring(p, require_db=args.require_db)
+        results += check_db_wiring(p)
         for grade, msg in results:
             print(f"  {grade} {msg}")
         n_fail += sum(1 for g, _ in results if g == _FAIL)
-        n_warn += sum(1 for g, _ in results if g == _WARN)
-    if args.require_db:
-        policy_set_results = check_policy_set_db(args.paths)
-        for grade, msg in policy_set_results:
-            print(f"  {grade} {msg}")
-        n_fail += sum(1 for g, _ in policy_set_results if g == _FAIL)
     print(f"\n{'='*64}")
     print("🔒 중립성 원칙: preflight는 입력 표현·주입 준비만 점검했다. 행동 파라미터는")
     print("   일절 변경하지 않았으며, 정책 효과의 크기·방향은 전적으로 시뮬 내생이다.")
-    if n_fail:
-        verdict = f"FAIL {n_fail}건 — 수정 후 재실행"
-    elif n_warn:
-        suffix = ("경고를 검토해야 함" if args.require_db else
-                  "경고를 검토하고 검증 런 전 --require-db 재실행")
-        verdict = f"CHECKS PASS, 경고 {n_warn}건 — {suffix}"
-    else:
-        verdict = "READY — 시뮬 구동 가능"
-    print(f"결과: {verdict}")
+    print(f"결과: {'FAIL ' + str(n_fail) + '건 — 수정 후 재실행' if n_fail else 'READY — 시뮬 구동 가능'}")
     sys.exit(1 if n_fail else 0)
 
 

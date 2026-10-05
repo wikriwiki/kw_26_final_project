@@ -21,7 +21,7 @@ from __future__ import annotations
 import os
 from types import ModuleType
 
-from . import p010, p012
+from . import p010, p012, no_smoking_v1
 
 from . import v1, v2, v3, v4, v5, v6  # noqa: E402
 from . import v7, v8, v9  # noqa: E402  (2차 후보, 사전등록 2026-09-18)
@@ -35,25 +35,12 @@ from . import v17  # noqa: E402  (first-person grounded choices)
 from . import v18  # noqa: E402  (verbatim evidence protocol)
 from . import v19  # noqa: E402  (grounded v11 with explicit place/time semantics)
 from . import v20, v21  # noqa: E402  (fact/choice separation and contrastive review)
-from . import v40  # noqa: E402  (v5 minus cashback contamination; format examples kept)
-from . import v42  # noqa: E402  (v40 plus the three contract defects found in raw output)
-from . import v45  # noqa: E402  (v42 with the remaining wallet-policy vocabulary removed)
-from . import v46  # noqa: E402  (v45 with the time rule stated as checked and the example sorted)
-from . import v47  # noqa: E402  (v46 with a closing residence event in the example)
-from . import v48  # noqa: E402  (v45 with only the closing example event)
-from . import v49  # noqa: E402  (v45 with only the time-gap rule sentence)
-from . import v51  # noqa: E402  (v45 with the work-anchor boundary at the work_dong line)
-from . import v5online  # noqa: E402  (v5 + 배송 몫 한 항목 — diagnosis_04)
-from . import v5offsite  # noqa: E402  (질문 범위를 회계와 맞춘 판 — calib_01)
-from . import v5own  # noqa: E402  (후보 2 — 결정이 어디서 일어나는지)
-from . import v5when  # noqa: E402  (후보 4 — 적립형은 때가 달라지는 제도다)
-from . import v52  # noqa: E402  (v45 with the reasoning requirement widened to evening events)
-from . import v53  # noqa: E402  (v51 with policy-specific defaults removed)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
 # v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
 # v7~v9 는 2차 후보 — 훈련 정책에서 드러난 결함 둘을 겨냥하는 문장을 더한다.
 _VARIANTS: dict[str, ModuleType] = {
+    "no_smoking_v1": no_smoking_v1,
     "p010": p010, "p012": p012,
     "v1": v1, "v2": v2, "v3": v3, "v4": v4, "v5": v5, "v6": v6,
     "v7": v7, "v8": v8, "v9": v9,
@@ -68,20 +55,6 @@ _VARIANTS: dict[str, ModuleType] = {
     "v19": v19,
     "v20": v20,
     "v21": v21,
-    "v40": v40,
-    "v42": v42,
-    "v45": v45,
-    "v46": v46,
-    "v47": v47,
-    "v48": v48,
-    "v49": v49,
-    "v51": v51,
-    "v52": v52,
-    "v53": v53,
-    "v5online": v5online,
-    "v5offsite": v5offsite,
-    "v5own": v5own,
-    "v5when": v5when,
 }
 DEFAULT = "p010"
 

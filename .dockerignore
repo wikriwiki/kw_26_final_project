@@ -4,11 +4,19 @@
 .gitignore
 .github/
 .claude/
+.agents/
 **/__pycache__/
 **/*.pyc
+**/node_modules/
+web/ui/dist/
+web/ui/test-results/
+web/ui/public/agent-console/
 .pytest_cache/
 .venv/
 venv/
+.env
+.env.local
+.env.*.local
 
 # ── 런타임에 불필요 ──
 tests/
@@ -20,5 +28,6 @@ docs/
 agents.zip
 output/sim/
 sim_output/
+web/viz_store/
 
 # (유지: scripts/, data/, output/stats/, output/personas/, requirements.txt)

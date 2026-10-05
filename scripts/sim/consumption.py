@@ -19,13 +19,10 @@ Stage2가 고른 POI 가격대로 정한다. 지원금은 총소비를 강제로
 from __future__ import annotations
 
 import json
-import math
 import os
 import statistics
 from functools import lru_cache
 from pathlib import Path
-
-from instant_discount import settle_instant_discounts
 
 ANCHOR_PROPENSITY = 0.70   # p0: 지원금 無·평상일에 이 값이면 지출 = daily_wd (BDC 앵커)
 INTERNAL_CATS = {"집", "직장"}   # 머무름 — 소비 대상 아님
@@ -71,55 +68,16 @@ ONLINE_SHARE_CAP = float(os.environ.get("EXP_ONLINE_SHARE_CAP", "0.85"))
 # BOK 실측과 무관한 값이며, 앵커 과대와 비사용처 미분리를 함께 보정한다.
 ELIGIBLE_SHARE_SEOUL = float(os.environ.get("EXP_ELIGIBLE_SHARE", "0.2535"))
 
-# [한 상수가 두 일을 한다 — 가르는 길] experiments/error_budget/diagnosis_04.md
-# 위 0.2535 는 '앵커 과대'(정책과 무관한 수준 교정)와 '비사용처 분리'(정책이
-# 움직여야 할 행동)를 **함께** 하고 있다. 묶여 있으므로 뒤쪽을 행동으로 풀면
-# 앞쪽 교정이 깨지고, 그래서 상수일 수밖에 없었다 — 정책이 닿지 못한 이유다.
-#
-#   현재   offline = anchor x 0.2535
-#   분리   offline = (anchor / OVERSTATE) x share      share0 = 0.2535 x OVERSTATE
-#
-# 기준값에서 두 식은 **항등**이다. 수준을 건드리지 않고 레버만 생긴다.
-# OVERSTATE 2.40 은 코드 주석의 교차검증을 라이브 2,977건으로 재현한 값이다
-# (총액 평균 125,915원/일 → 서울 환산 연 432조 대 개인카드 실적 약 180조).
-#
-# share 는 Stage1 의 online_share 로 움직이되 **수준이 아니라 편차만** 받는다.
-# 예시 숫자로 쏠리는 것이 이미 측정돼 있으므로(daily_propensity 가 0.68 에 54%),
-# 기준 런에서 잰 평균 KEEP_MEAN 으로 나눠 쏠림을 지운다. KEEP_MEAN 은 **무정책
-# 기준 런에서 한 번 재고 얼린다** — 팔마다 다시 재면 정책이 만든 이동이
-# 정규화로 지워져 아무것도 안 한 것과 같아진다.
-EXP_SPLIT_ANCHOR = os.environ.get("EXP_SPLIT_ANCHOR", "0") == "1"
-
-ANCHOR_OVERSTATE = float(os.environ.get("EXP_ANCHOR_OVERSTATE", "2.40"))
-# 기본값은 **유도한다** — 0.608 처럼 적어 두면 0.608/2.40 = 0.2533 이라 현행
-# 0.2535 와 0.07% 어긋난다. 곱을 그대로 쓰면 기준 런이 현행과 정확히 항등이다.
-SHARE_BASE = float(os.environ.get("EXP_SHARE_BASE")
-                   or ELIGIBLE_SHARE_SEOUL * ANCHOR_OVERSTATE)
-# 기준 런의 mean(1 - online_share). 측정 전에는 1.0 — 그러면 편차 보정이 항등이 되어
-# online_share 가 없을 때(None)와 같은 결과가 나온다. 즉 **모르면 안 움직인다.**
-KEEP_MEAN = float(os.environ.get("EXP_KEEP_MEAN", "0.80"))
-SHARE_FLOOR = float(os.environ.get("EXP_SHARE_FLOOR", "0.05"))
-
-# [적립 몫을 상수에서 풀어 준다] data/experiments/P012_FORMAT.md 8절
-# 위 0.2535 가 상수인 한 정책은 **배분을 못 바꾼다**. 두 팔을 맞대면 적립 몫이
-# off 0.2456 → on 0.2454 로 불변이고, 그래서 총소비와 제외업종이 똑같이
-# +11.3% 오른다(실측은 적립 11.25 / 제외 2.85 로 갈린다). K9·K10·K11 이 구조적
-# 으로 0 인 이유다.
-#
-# 고치는 자리: 계획 반응(측정된 +9.76%, 위약 대조 −2.18%)을 **적립분에만** 싣는다.
-#
+# ---------------------------------------------------------------------------
+# [KW26 이식 2026-10-05] 캐시백 인정 업종 몫을 상수에서 풀어 준다 (EXP_ELIGIBLE_CHANNEL)
+# 0.2535 가 상수인 한 정책은 인정/제외 배분을 못 바꾼다(P012 두 팔에서 인정 몫 0.2456 -> 0.2454 불변,
+# 총소비와 제외업종이 똑같이 움직였다 — 실측은 인정 11.25 / 제외 2.85 로 갈린다).
 #   비사용처 = (anchor / OVERSTATE) x (1 - s)          <- 계획이 실리지 않는다
 #   사용처   = (anchor / OVERSTATE) x s x plan_ratio    <- 정책이 여기로 온다
-#
-# s 는 동별 적립 몫이다(BDC dong_consumption 의 업종 구성). plan_ratio=1 이고
-# s 가 중앙값이면 현행과 **항등**이라 기준 런의 수준이 움직이지 않는다.
-#
-# 근거의 수렴: BDC 기지분 적립 몫 0.3995/(0.3995+0.2687) = 0.598 이고, 코드가
-# 서울시 상권분석서비스에서 유도한 SHARE_BASE = 0.2535 x 2.40 = 0.6084 다.
-# 두 경로가 1.7% 안에서 만난다 — 그래서 s 의 눈금을 SHARE_BASE 에 맞춘다.
-#
-# **한계**: 동별 '모름 몫' 중앙 0.3156 이다. 그만큼이 이 분해의 정확도 상한이고
-# 보고서에 적어야 한다. 모름은 적립/제외 비율대로 안분한다(따로 만들지 않는다).
+# s = 동네별 인정 몫(BDC 업종 구성), 눈금은 SHARE_BASE 에 맞춘다(중앙값 동 = 현행).
+ANCHOR_OVERSTATE = float(os.environ.get("EXP_ANCHOR_OVERSTATE", "2.40"))
+SHARE_BASE = float(os.environ.get("EXP_SHARE_BASE") or ELIGIBLE_SHARE_SEOUL * ANCHOR_OVERSTATE)
+SHARE_FLOOR = float(os.environ.get("EXP_SHARE_FLOOR", "0.05"))
 EXP_ELIGIBLE_CHANNEL = os.environ.get("EXP_ELIGIBLE_CHANNEL", "0") == "1"
 DONG_SHARE_FILE = os.environ.get(
     "EXP_DONG_SHARE_FILE",
@@ -127,24 +85,20 @@ DONG_SHARE_FILE = os.environ.get(
 
 
 @lru_cache(maxsize=1)
-def _dong_share() -> tuple[dict[str, float], dict[str, dict[str, float]], float]:
-    """(동별 정규화 적립 몫, 동별 제외업종 구성, 중앙값).
-
-    '모름' 은 적립/제외 비율대로 안분한다. 파일이 없으면 빈 표를 돌려주고,
-    그러면 호출부가 전국 상수로 되돌아간다 — **모르면 안 움직인다.**
-    """
+def _dong_share() -> tuple[dict[str, float], float]:
+    """(동별 정규화 인정 몫, 중앙값). 파일이 없으면 빈 표 — 그러면 상수로 되돌아간다."""
     try:
         raw = json.loads(Path(DONG_SHARE_FILE).read_text(encoding="utf-8"))
     except (OSError, ValueError):
-        return ({}, {}, SHARE_BASE)
+        return ({}, SHARE_BASE)
     out: dict[str, float] = {}
     for code, row in raw.items():
         el, ex = float(row.get("eligible") or 0), float(row.get("excluded") or 0)
         if el + ex > 0:
             out[str(code)] = el / (el + ex)
     if not out:
-        return ({}, {}, SHARE_BASE)
-    return (out, {}, statistics.median(out.values()))
+        return ({}, SHARE_BASE)
+    return (out, statistics.median(out.values()))
 
 
 def _dong_of(aid: str | None) -> str | None:
@@ -154,33 +108,21 @@ def _dong_of(aid: str | None) -> str | None:
 
 
 def eligible_share_for_dong(dong_code: str | None) -> tuple[float, str]:
-    """(적립 몫, 출처). 눈금은 SHARE_BASE 에 맞춘다 — 중앙값 동이 현행과 같다."""
-    table, _, med = _dong_share()
+    """(인정 몫, 출처). 눈금은 SHARE_BASE 에 맞춘다 — 중앙값 동이 현행과 같다."""
+    table, med = _dong_share()
     key = str(dong_code or "")
     if not table or key not in table or med <= 0:
         return (SHARE_BASE, "share_base_constant")
     return (max(SHARE_FLOOR, min(1.0, table[key] / med * SHARE_BASE)), "bdc_dong")
 
-# [계획이 총액에 닿게 한다] experiments/error_budget/diagnosis_05.md
-# 정책은 **계획 금액**으로 닿고 있었다 — P012 라운드2 런에서 정책 전/후 쌍을 맞대면
-# Stage2 계획액이 69,839 -> 76,652 (**+9.76%**, 286:214, p=0.0015) 로 움직인다.
-# 소비성향 스칼라는 +0.34%(p=0.712) 로 꿈쩍도 안 한다. 그런데 총액은 +2.37% 밖에
-# 안 움직인다 — `max(앵커, 계획)` 에서 계획이 이기는 경우가 23.7% 뿐이라
-# 반응의 4분의 3 이 앵커에 먹히기 때문이다(0.237 x 9.76% = 2.31% ~ 관측 +2.37%).
-#
-#   현재   total = max(anchor, planned)
-#   고침   total = anchor x clamp(planned / 그 사람의 기준 계획액) x SCALE
-#
-# **수준·계층은 앵커가, 변동은 계획이.** 기준선을 `REF x anchor` 로 잡으면 앵커가
-# **약분돼 사라진다**(anchor x plan/(REF x anchor) = plan/REF) — 처음에 그렇게 짰다가
-# 시험에 걸렸다. 기준선은 반드시 **그 사람 자신의 과거 계획액**이어야 한다.
-#
-# 앵커를 지키는 이유: BDC 소비분위에 묶인 값이고 이 시뮬의 실증 근거가 거기 걸려
-# 있다. LLM 계획액의 계층 상관은 r=0.53 뿐이라 수준을 섞으면 계층이 무너진다
-# (측정: 레벨 블렌드 w=0.9 에서 앵커 순위상관이 0.86 -> 0.29).
-#
-# 클램프는 **정답지를 안 보고** 정했다 — 앵커와의 순위상관을 현행의 90% 이상
-# 지키는 가장 넓은 구간이 [0.5, 2.0] 이다(92% 보존, 전달 +5.41%).
+
+# [KW26 이식 2026-10-05] 계획이 결제 총액에 닿게 한다 (EXP_PLAN_DRIVES_TOTAL)
+# 현행 total = max(평소, 계획) 에서 계획이 이기는 경우가 23.7% 뿐이라 정책 반응의 4분의 3 이 사라졌다
+# (P012 라운드2: 계획 69,839 -> 76,652 +9.76% 인데 총액은 +2.37%).
+#   고침   total = 평소 x clamp(오늘 계획 / 그 사람의 평소 계획, 0.5, 2.0) x SCALE
+# 수준·계층은 평소 소비액(BDC)이, 변동은 계획이 정한다. 기준선은 반드시 그 사람 자신의
+# 정책 전 계획액이어야 한다(평일/주말 'aid|wd'·'aid|we' 또는 'aid'). 클램프는 정답지를 보지 않고
+# 평소 소비액 순위를 90% 이상 지키는 가장 넓은 구간으로 정했다.
 EXP_PLAN_DRIVES_TOTAL = os.environ.get("EXP_PLAN_DRIVES_TOTAL", "0") == "1"
 PLAN_BASELINE_FILE = os.environ.get("EXP_PLAN_BASELINE_FILE", "")
 PLAN_CLAMP_LO = float(os.environ.get("EXP_PLAN_CLAMP_LO", "0.5"))
@@ -190,23 +132,21 @@ _PLAN_BASELINE: dict | None = None
 
 
 def _plan_baseline() -> dict:
-    """{에이전트: 기준 계획액}. 한 번만 읽는다. 없으면 빈 dict — 그러면 현행 그대로다."""
+    """{'aid' 또는 'aid|wd'·'aid|we': 평소 계획액}. 한 번만 읽는다. 없으면 빈 dict — 현행 그대로."""
     global _PLAN_BASELINE
     if _PLAN_BASELINE is None:
         _PLAN_BASELINE = {}
         if PLAN_BASELINE_FILE and os.path.exists(PLAN_BASELINE_FILE):
-            import json as _json
             try:
                 with open(PLAN_BASELINE_FILE, encoding="utf-8") as fh:
                     _PLAN_BASELINE = {
-                        str(k): float(v) for k, v in _json.load(fh).items()
+                        str(k): float(v) for k, v in json.load(fh).items()
                         if isinstance(v, (int, float)) and float(v) > 0
                     }
             except (OSError, ValueError):
                 _PLAN_BASELINE = {}
     return _PLAN_BASELINE
-# 1층까지 여는 전환 — 수준이 +40.7% 오르므로 기본은 꺼 둔다(위 주석).
-EXP_ANCHOR_BEFORE_MAX = os.environ.get("EXP_ANCHOR_BEFORE_MAX", "0") == "1"
+# ---------------------------------------------------------------------------
 
 # [폐기 2026-07-30] 소비수준별 '쿠폰 불가 업종' 지출 비중 표(BDC_OFFSITE_BY_LEVEL)는
 # 업종 분류가 시뮬의 실제 사용처 판정(coupon_eligibility.py — 상호명 기준)과 어긋나 폐기했다.
@@ -279,28 +219,6 @@ def propensity_center(
     return max(HARD_LO, min(HARD_HI, center))
 
 
-def propensity_mode(mode: str | None = None) -> str:
-    """Explicit opt-in; unset/empty retains the completed-run behavior."""
-    selected = os.environ.get("EXP_PROPENSITY_MODE", "") if mode is None else mode
-    selected = selected.strip() or "legacy"
-    if selected not in {"legacy", "llm_budget_only"}:
-        raise ValueError(f"unknown EXP_PROPENSITY_MODE: {selected!r}")
-    return selected
-
-
-def _finite_budget_propensity(p) -> float:
-    # This is the value passed by Stage1, not a guarantee about its raw response.
-    if p is None or isinstance(p, bool):
-        raise ValueError("llm_budget_only requires a finite daily_propensity")
-    try:
-        value = float(p)
-    except (TypeError, ValueError, OverflowError) as exc:
-        raise ValueError("llm_budget_only requires a finite daily_propensity") from exc
-    if not math.isfinite(value):
-        raise ValueError("llm_budget_only requires a finite daily_propensity")
-    return max(0.0, min(1.0, value))
-
-
 def clamp_propensity(
     p: float | None,
     income_tier: str | None,
@@ -308,15 +226,11 @@ def clamp_propensity(
     daily_wd: float | int | None = None,
     tendency: str | None = None,
     band: float | None = None,
-    *,
-    mode: str | None = None,
 ) -> float:
     """LLM 소비성향 출력을 prior 중심 ± BAND 로 클램프. None이면 중심값 사용.
 
     통계 prior(소득별 MPC 골격)를 벗어나지 못하게 가드 → LLM 노이즈에도 MPC 순서 보존.
     """
-    if propensity_mode(mode) == "llm_budget_only":
-        return _finite_budget_propensity(p)
     center = propensity_center(income_tier, balance, daily_wd, tendency)
     _b = BAND if band is None else float(band)
     lo = max(HARD_LO, center - _b)
@@ -687,56 +601,6 @@ def settle_policy_spend_priority(
     return allocation
 
 
-def settled_mpc_measure(events: list[dict], stage2_amounts: list[float]) -> dict:
-    """최종 정책결제 원장에 자기보고 신규소비 몫을 적용한다.
-
-    계획한 거래가 잔액 제약으로 줄었다면 어느 부분이 취소됐는지 알 수 없다.
-    그 정책결제액은 임의로 분류하지 않고 0~1 경계에 남긴다.
-    """
-    # 이벤트-원금 행 수가 어긋나면 zip()이 뒤 거래를 조용히 버리지 않게 전액 미분류.
-    if len(events) != len(stage2_amounts):
-        stage2_amounts = [0.0] * len(events)
-    total_paid = known_paid = known_new = 0.0
-    for event, stage2_amount in zip(events, stage2_amounts):
-        ps = event.get("policy_spend") or {}
-        if not isinstance(ps, dict):
-            continue
-        try:
-            paid = sum(max(0.0, float(v or 0)) for v in ps.values())
-        except (TypeError, ValueError):
-            continue
-        if paid <= 0:
-            continue
-        total_paid += paid
-        actual = float(event.get("actual_spent") or 0)
-        desired = float(event.get("desired_spent") or 0)
-        if (stage2_amount <= 0 or actual <= 0 or actual != desired
-                or paid > actual):
-            continue
-        extra = event.get("extra_spent")
-        if extra is None:
-            anyway = event.get("would_buy_anyway")
-            if not isinstance(anyway, bool):
-                continue
-            new_share = 0.0 if anyway else 1.0
-        else:
-            try:
-                new_share = max(0.0, min(1.0, float(extra) / stage2_amount))
-            except (TypeError, ValueError):
-                continue
-        known_paid += paid
-        known_new += paid * new_share
-    unresolved = max(0.0, total_paid - known_paid)
-    if total_paid <= 0:
-        return {"share": None, "lower": None, "upper": None,
-                "paid_won": 0, "unresolved_won": 0, "coverage": None}
-    return {"share": round(known_new / total_paid, 4) if unresolved == 0 else None,
-            "lower": round(known_new / total_paid, 4),
-            "upper": round((known_new + unresolved) / total_paid, 4),
-            "paid_won": round(total_paid), "unresolved_won": round(unresolved),
-            "coverage": round(known_paid / total_paid, 6)}
-
-
 def apply_consumption_model(
     events: list[dict],
     *,
@@ -760,12 +624,10 @@ def apply_consumption_model(
     spending_level: int | None = None,
     # 캐시백형 정책(지갑 없음) 활성 여부. 소비성향 밴드 확장에만 쓴다.
     cashback_active: bool = False,
-    instant_discount_specs: list[dict] | None = None,
-    discount_used_before: dict[str, int] | None = None,
-    # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
+    # [KW26] 평소 계획 기준선을 찾으려면 누구인지, 오늘이 주말인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
     aid: str | None = None,
-    # 동별 적립 몫을 쓰려면 어느 동인지 알아야 한다(EXP_ELIGIBLE_CHANNEL).
-    # 주지 않으면 aid 에서 읽는다.
+    is_weekend: bool | None = None,
+    # [KW26] 동네별 인정 몫(EXP_ELIGIBLE_CHANNEL). 주지 않으면 aid 에서 읽는다.
     dong_code: str | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
@@ -799,13 +661,6 @@ def apply_consumption_model(
 
     events 를 in-place 수정(actual_spent, policy_spend). 반환: 메타 dict.
     """
-    # Reject an unknown mode or missing/nonfinite passed scalar before mutating
-    # events, including a no-commerce day. Legacy retains its prior fallback.
-    _propensity_mode = propensity_mode()
-    _budget_propensity = (
-        _finite_budget_propensity(llm_propensity)
-        if _propensity_mode == "llm_budget_only" else None
-    )
     grant_avail = {k: int(v) for k, v in (grant_avail or {}).items() if int(v) > 0}
     grant_total = sum(grant_avail.values())
     envelopes = [e for e in (restricted_envelopes or []) if int(e.get("amount") or 0) > 0]
@@ -897,10 +752,6 @@ def apply_consumption_model(
             "personal_total": 0,
             "grant_carry_in": _carry,
             "grant_carry_out": 0 if (_choice_mode or _intensity_mode) else min(int(wallet_total), int(intended_grant_today)),
-            **({"propensity_mode": _propensity_mode,
-                "propensity_input_value": float(llm_propensity),
-                "propensity": _budget_propensity}
-               if _propensity_mode == "llm_budget_only" else {}),
         }
 
     # Stage2가 정한 절대 계획금액.
@@ -956,7 +807,7 @@ def apply_consumption_model(
     # Stage2 절대 계획금액을 보존하되, POI 가격대 효과는 기존 BASKET_CLAMP 범위에서 반영한다.
     planned_total = int(round(sum(weights) * basket_idx))
 
-    center = ANCHOR_PROPENSITY if _propensity_mode == "llm_budget_only" else propensity_center(
+    center = propensity_center(
         income_tier,
         balance=balance,
         daily_wd=daily,
@@ -979,7 +830,6 @@ def apply_consumption_model(
         daily_wd=daily,
         tendency=tendency,
         band=_band,
-        mode=_propensity_mode,
     )
     day_multiplier = p / center if center > 0 else 1.0
 
@@ -1035,11 +885,16 @@ def apply_consumption_model(
     # 앵커보다 낮게 잡으므로(구조적 저평가) 앵커가 그대로 유지되고, **특별한 날에만** 계획이
     # 총액을 끌어올린다. MPC 등 검증 대상 값이 입력으로 들어가지 않으므로 순환이 아니다 —
     # 증가분은 전적으로 에이전트 자신의 이벤트 계획에서 나온다.
-    _pr = 1.0                     # 계획 배수 — 기준 런에서 1.0 이라 수준이 안 움직인다
-    _pbase = _plan_baseline().get(str(aid or "")) if EXP_PLAN_DRIVES_TOTAL else None
+    # [KW26 이식] 계획 비율 경로 — 켜져 있고 이 사람의 평소 계획이 있으면 비율로, 아니면 현행 그대로.
+    _pr = 1.0
+    _pbase = None
+    _pb = _plan_baseline() if EXP_PLAN_DRIVES_TOTAL else {}
+    if _pb:
+        if is_weekend is not None:
+            _pbase = _pb.get("%s|%s" % (aid, "we" if is_weekend else "wd"))
+        if _pbase is None:
+            _pbase = _pb.get(str(aid or ""))
     if _pbase and _anchor_total > 0:
-        # 계층·수준은 앵커가 잡고, **그 사람 자신의 평소 계획 대비 오늘의 변동**만
-        # 총액에 실린다. 정책 반응이 계획액에 실려 있으므로 이 경로로 통과한다.
         _pr = max(PLAN_CLAMP_LO, min(PLAN_CLAMP_HI, planned_total / _pbase))
         personal_total = int(round(_anchor_total * _pr * PLAN_SCALE))
     else:
@@ -1063,39 +918,9 @@ def apply_consumption_model(
     #   두 경로가 30,000원대로 수렴한다.
     # 이 값은 '앵커 과대'와 '비사용처 미분리'를 함께 보정한다. 둘을 분리하려면 BDC 동별 절대
     # 매출이 필요한데 확보되지 않았다(b069_sales는 지수값). 그 한계를 보고서에 명시할 것.
-    if EXP_SPLIT_ANCHOR:
-        # 수준 교정을 앵커에서 직접 걷어내고, 남은 몫은 행동으로 둔다.
-        #
-        # **나누는 자리가 둘이고, 둘은 다른 실험이다.**
-        #  · 여기(max 뒤) — 어느 항이 이기는지가 안 변하므로 기준 런이 현행과
-        #    **항등**이다. 2층만 연다. 이것이 기본값이다.
-        #  · BEFORE_MAX(max 앞) — 앵커가 작아져 계획이 이기기 시작한다.
-        #    라이브 3,090건 기준 계획이 이기는 비율 0.7% → **63.9%**. 1층이
-        #    열리지만 수준이 +40.7% 오르고, 그러면 참 앵커(서울 개인카드
-        #    실적으로 잡은 52,462원/일)를 41% 넘어선다. 즉 이 전환은 계획
-        #    단가 자체를 다시 보지 않고는 채택할 수 없다. 재려고만 열어 둔다.
-        if EXP_ANCHOR_BEFORE_MAX:
-            personal_total = max(
-                int(round(_anchor_total / max(1e-6, ANCHOR_OVERSTATE))),
-                int(round(planned_total)),
-            )
-        else:
-            personal_total = int(round(personal_total / max(1e-6, ANCHOR_OVERSTATE)))
-        _keep = None
-        if online_share is not None:
-            try:
-                _keep = 1.0 - max(0.0, min(1.0, float(online_share)))
-            except (TypeError, ValueError):
-                _keep = None
-        # 편차만 받는다. online_share 가 없으면 배수 1.0 — 기준값 그대로다.
-        _mult = (_keep / KEEP_MEAN) if (_keep is not None and KEEP_MEAN > 0) else 1.0
-        _share = max(SHARE_FLOOR, min(1.0, SHARE_BASE * _mult))
-        _off = 1.0 - _share
-        _online_src = "split_behavioral" if _keep is not None else "split_base"
-    else:
-        _off = 1.0 - ELIGIBLE_SHARE_SEOUL
-        _online_src = "seoul_smallbiz"
+    _off = 1.0 - ELIGIBLE_SHARE_SEOUL
     _online_rate = max(0.0, min(ONLINE_SHARE_CAP, _off))
+    _online_src = "seoul_smallbiz"
     # [이전 경로 폐기 기록]
     #  · 소비수준별 BDC 업종 비중 표: 업종 분류가 사용처 판정 규칙(상호명 기준)과 어긋나 폐기.
     #    '할인점/슈퍼마켓'(14.45%)은 동네 슈퍼가 대부분 사용 가능인데 전부 불가로 넣었었다.
@@ -1103,20 +928,12 @@ def apply_consumption_model(
     #    필드는 진단용으로 남기고 비중 산정에는 쓰지 않는다.
     # EXP_ELIGIBLE_SHARE 로 민감도 실험 가능(기본값은 위 서울시 데이터 산출값).
     if EXP_ELIGIBLE_CHANNEL:
-        # [적립 몫을 정책에 반응하게 한다]
-        # 위 두 경로는 몫이 상수라 정책이 배분을 못 바꾼다. 여기서는 계획 배수를
-        # **적립분에만** 싣는다. 계획액은 정책에 반응하는 것이 이미 측정돼 있다
-        # (P012 +9.76%, 위약 대조 −2.18%). 비사용처는 계획이 닿지 않으므로
-        # 정책 전후로 거의 그대로다 — 실측의 제외업종 +2.85% 와 같은 모양이다.
-        #
-        # 기준 런과의 항등: _pr=1 이고 동이 중앙값이면 아래 두 항의 합이
-        # (anchor/OVERSTATE) 이고, 그 중 사용처 몫이 SHARE_BASE 다. 즉
-        # anchor x 0.2535 — 현행과 같다. **눈금을 옮기지 않는다.**
+        # [KW26 이식] 계획 비율은 인정분에만 싣는다. _pr=1 이고 중앙값 동이면 현행과 같은 눈금이다.
         _lvl = _anchor_total / max(1e-6, ANCHOR_OVERSTATE)
         _s, _s_src = eligible_share_for_dong(dong_code or _dong_of(aid))
         online_planned = int(round(_lvl * (1.0 - _s)))
         personal_total = max(0, int(round(_lvl * _s * _pr)))
-        _online_rate = (online_planned / max(1.0, online_planned + personal_total))
+        _online_rate = online_planned / max(1.0, online_planned + personal_total)
         _online_src = "eligible_channel:" + _s_src
     else:
         online_planned = int(round(personal_total * _online_rate))
@@ -1147,8 +964,34 @@ def apply_consumption_model(
         substituted = min(intended_grant_today, eligible_base)
     # 굳은 현금 중 오늘 더 쓰는 데 돌리는 비율은 본인 판단(grant_extra_spend).
     # 값이 없으면 굳은 돈을 그냥 남겨 두는 것으로 본다(추가 소비 없음).
-    # MPC는 최종 거래·정책결제가 확정된 뒤에만 측정한다. 여기의 선택 비율과
-    # _base_spends는 계획 단계이므로 최종 원장의 분모로 섞어 쓰지 않는다.
+    # [MPC 산출 — 참고3 ⑤와 같은 형태] 지원금으로 결제한 건마다 '없었어도 했을 지출인가'를
+    # 0/1로 받아, 결제금액으로 가중평균한 것이 그날의 신규 소비 유발 비중 m이다.
+    #   m = Σ(그 건의 지원금 결제액 × 신규여부) / Σ(지원금 결제액)
+    # 스칼라 하나(grant_kept_share)로 물으면 LLM이 계층 구분 없이 같은 값을 답한다(R84~R86
+    # 측정). 건별 0/1은 각 지출을 실제로 들여다보게 하므로 형편 차이가 값에 남는다.
+    # **이 값은 측정 전용이다.** 아래 소비 총액 계산에 들어가지 않는다(순환 방지).
+    # BOK도 자기보고 서베이로 같은 값을 얻었고 그 한계를 34항에 명시했다 — 도구와 한계가 같다.
+    # MPC = Σ(정책지갑 결제분 중 신규 소비) / Σ(정책지갑 결제액).
+    # 신규분은 건별 참/거짓이 아니라 **금액**(extra_spent)으로 받는다. 같은 결제 안에서도
+    # '평소 쓰던 만큼'과 '이 돈이 있어 더 쓴 만큼'이 섞이는데, 참/거짓으로 받으면 후자가
+    # 통째로 0으로 버려져 생필품·외식 비중이 높은 우리 구성에서 체계적으로 과소 측정된다.
+    # extra_spent는 결제 전체 기준이므로 정책 결제 비중만큼 안분한다.
+    _mpc_new: float | None = None
+    if _choice_shares:
+        _w_tot = 0.0; _w_new = 0.0
+        for _i, _e in enumerate(commerce):
+            _amt = max(0.0, float(_base_spends[_i]))
+            _c = _amt * max(0.0, min(1.0, _choice_shares[_i]))
+            if _c <= 0: continue
+            _ex = _e.get("extra_spent")
+            if _ex is None:
+                _wba = _e.get("would_buy_anyway")
+                if _wba is None: continue
+                _ex = 0.0 if _wba else _amt
+            _ex = max(0.0, min(_amt, float(_ex)))
+            _w_tot += _c
+            _w_new += _ex * (_c / _amt if _amt > 0 else 0.0)
+        if _w_tot > 0: _mpc_new = _w_new / _w_tot
 
     # ─────────────────────────────────────────────────────────────────────────
     # [폐기 — 순환 구조] 예전에는 여기서 MPC(또는 grant_kept_share)를 받아
@@ -1188,12 +1031,7 @@ def apply_consumption_model(
         online_spent = online_planned
         affordability_cap = None
 
-    instant_specs = instant_discount_specs or []
-    if instant_specs:
-        # 할인액은 실제 거래액에 따라 달라진다. 원래 계획을 먼저 놓고 아래에서
-        # 할인 후 자기부담을 검사해야 감당 가능한 할인 거래를 미리 잘라내지 않는다.
-        spends = desired_spends
-    elif own_balance is None:
+    if own_balance is None:
         spends = desired_spends
     else:
         # 정책으로 결제 가능한 거래분을 먼저 보존하고 자기자금 필요분만 잔액에 맞춰
@@ -1217,14 +1055,10 @@ def apply_consumption_model(
         grant_use=grant_use,
         choice_shares=_choice_shares if _choice_mode else None,
     )
-    discount_settlement = settle_instant_discounts(
-        commerce, [int(e.get("actual_spent") or 0) for e in commerce],
-        instant_specs, discount_used_before)
 
     # The final payment choice, not theoretical wallet capacity, must fund purchases.
     # Keep the chosen shares and conservatively shrink the basket when cash is insufficient.
-    cash_required = (sum(int(e["actual_spent"]) for e in commerce)
-                     - int(allocation["total"]) - discount_settlement["total"])
+    cash_required = sum(int(e["actual_spent"]) for e in commerce) - int(allocation["total"])
     affordability_corrected = own_balance is not None and cash_required > own_balance
     if affordability_corrected:
         original = [int(e["actual_spent"]) for e in commerce]
@@ -1243,24 +1077,13 @@ def apply_consumption_model(
         while low < high:
             mid = (low + high + 1) // 2
             candidate = settle_scaled(mid)
-            candidate_discount = settle_instant_discounts(
-                commerce, [int(e.get("actual_spent") or 0) for e in commerce],
-                instant_specs, discount_used_before)
-            required = (sum(e["actual_spent"] for e in commerce)
-                        - candidate["total"] - candidate_discount["total"])
+            required = sum(e["actual_spent"] for e in commerce) - candidate["total"]
             if required <= own_balance:
                 low = mid
             else:
                 high = mid - 1
         allocation = settle_scaled(low)
         total_adj = sum(e["actual_spent"] for e in commerce)
-        discount_settlement = settle_instant_discounts(
-            commerce, [int(e.get("actual_spent") or 0) for e in commerce],
-            instant_specs, discount_used_before)
-
-    if instant_specs:
-        for event, discount in zip(commerce, discount_settlement["by_event"]):
-            event["instant_discount"] = discount
 
     # A generated appraisal of a larger purchase is not an observed appraisal of
     # the reduced purchase. Preserve it as an expectation, not as actual feedback.
@@ -1273,7 +1096,6 @@ def apply_consumption_model(
         if event["actual_spent"] < desired:
             event["expected_satisfaction"] = event.get("actual_satisfaction")
             event["actual_satisfaction"] = None
-    mpc_measure = settled_mpc_measure(commerce, weights)
     normal_budget = spend_today(p, daily)
     allocated_total = int(allocation["total"])
     payment_coverage = (
@@ -1286,9 +1108,6 @@ def apply_consumption_model(
     return {
         "applied": True,
         "propensity": p,
-        **({"propensity_mode": _propensity_mode,
-            "propensity_input_value": float(llm_propensity)}
-           if _propensity_mode == "llm_budget_only" else {}),
         "grant_spread_days": int(grant_spread_days) if grant_spread_days else None,
         "intended_grant_today": intended_grant_today,
         "grant_carry_in": _carry,
@@ -1309,15 +1128,7 @@ def apply_consumption_model(
         # 참고3 ⑤ 형태로 산출한 그날의 신규 소비 유발 비중(= MPC). None이면 판단 누락.
         # 사후 측정값. 소비 생성에 쓰이지 않는다(순환 방지). 보고서의 MPC는 이 값을
         # 지원금 결제액으로 가중해 집계한 것이다.
-        "mpc_new_share": mpc_measure["share"],
-        "mpc_lower": mpc_measure["lower"],
-        "mpc_upper": mpc_measure["upper"],
-        "mpc_paid_won": mpc_measure["paid_won"],
-        "mpc_unresolved_won": mpc_measure["unresolved_won"],
-        "mpc_coverage": mpc_measure["coverage"],
-        # 후단 사용처/잔액 검증에서 정책결제가 바뀔 수 있다. 실행기에서 최종
-        # 영수증 기준 MPC를 다시 계산할 때 Stage2 최초 금액을 사용한다.
-        "mpc_stage2_amounts": weights,
+        "mpc_new_share": (round(_mpc_new, 4) if _mpc_new is not None else None),
         "additional_from_grant": additional_from_grant,
         "personal_total": personal_total,
         "anchor_total": _anchor_total,
@@ -1325,15 +1136,14 @@ def apply_consumption_model(
         "propensity_center": round(center, 4),
         "day_multiplier": round(day_multiplier, 4),
         "planned_total": planned_total,
+        "plan_ratio": round(_pr, 4),
+        "plan_baseline": _pbase,
         "today_total": total_adj,
         "affordability_corrected": affordability_corrected,
         "grant_part": allocated_total,
         "normal_budget": normal_budget["total"],
         "available": normal_budget["available"],
-        "affordability_cap": (affordability_cap + discount_settlement["total"]
-                               if affordability_cap is not None else None),
-        "instant_discount_total": discount_settlement["total"],
-        "instant_discount_eligible_gross": discount_settlement["eligible_gross"],
+        "affordability_cap": affordability_cap,
         "selected_policy_liquidity": eligible_policy_liquidity,
         "selected_policy_liquidity_by_pid": capacity["by_pid"],
         "policy_spend_allocated": allocation["by_pid"],

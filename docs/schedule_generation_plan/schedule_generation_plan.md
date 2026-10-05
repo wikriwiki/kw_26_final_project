@@ -369,13 +369,14 @@ Prefix cache 대상: Stage 1 ①②③④ (~700) + Stage 2 ⓐ (~450) = **~1,150
 
 ## 7. 인프라와 비용
 
-| | **Mode A (권장)** | Mode B (fallback) |
-|---|---|---|
-| 실행 | vLLM (`run_vllm.sh`) | Qwen Turbo API |
-| 모델 | Gemma-4-26B-A4B 또는 EXAONE-3.5-7.8B | qwen-turbo |
-| 전제 | A100 80GB (공짜 렌탈) | API Key |
-| **60K × 60일 비용** | **$0** | ~$700~775 |
-| 1일치 처리 | ~3~8 hr (단일 A100) | API rate limit 의존 |
+| 항목 | 현재 실행 설정 |
+|---|---|
+| 실행 | 기존 SGLang (`scripts/serve/serve_exaone45_sglang_a100x2.sh`) |
+| 모델 | LGAI-EXAONE/EXAONE-4.5-33B-AWQ |
+| 모드 | `exaone_4_5` |
+| GPU | 실제 문맥·동시성에 맞춰 적재 검증 후 선택 |
+| 비용 | 실측 점유 시간 × 계약 요금 + 스토리지·전송 |
+| 처리량 | 동일 입력·GPU·서빙 버전의 소량 실행으로 측정 |
 
 상세: [`infra.md`](./infra.md)
 

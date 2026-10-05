@@ -1,14 +1,12 @@
 """
 generate_agents.py
 ======================
-Phase 2: vLLM (Qwen3-32B-AWQ) 기반 소비자 에이전트 ~5,000명 대량 생성
+Phase 2: SGLang/OpenAI 호환 API (LG EXAONE 기본) 기반 소비자 에이전트 ~5,000명 대량 생성
 
 이전 검증된 코드의 안정적 인프라 + 이번 stats 구조에 맞는 프롬프트
 
 사전 조건:
-  1. WSL에서 vLLM 서버 실행 중:
-     conda activate vllm
-     vllm serve Qwen/Qwen3-32B-AWQ --gpu-memory-utilization 0.90 --max-model-len 4096 --port 8000 --trust-remote-code
+  1. SGLang에서 LG EXAONE 서버 실행 후 SGLANG_BASE_URL 지정
   2. pip install openai tqdm
 
 사용법:
@@ -24,6 +22,7 @@ import argparse
 import time
 import random
 import re
+import os
 from pathlib import Path
 
 # 이 파일은 scripts/bdc/ 안에 있음 — 프로젝트 루트는 두 단계 위
@@ -33,8 +32,7 @@ from typing import Any
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-DEFAULT_VLLM_URL = "http://localhost:8000/v1"
-MODEL_NAME = "Qwen/Qwen3-32B-AWQ"
+DEFAULT_LLM_URL = os.environ.get("SGLANG_BASE_URL") or os.environ.get("LLM_BASE_URL") or "http://localhost:30000/v1"
 
 STATS_DIR = PROJECT_ROOT / "output" / "stats"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "agents"
@@ -142,7 +140,8 @@ SYSTEM_PROMPT = """\
 # ---------------------------------------------------------------------------
 def parse_args():
     p = argparse.ArgumentParser(description="LLM 기반 에이전트 대량 생성")
-    p.add_argument("--vllm-url", default=DEFAULT_VLLM_URL)
+    p.add_argument("--llm-url", "--vllm-url", dest="vllm_url", default=DEFAULT_LLM_URL,
+                   help="SGLang/OpenAI 호환 API 주소 (--vllm-url은 기존 호환 별칭)")
     p.add_argument("--stats-dir", type=Path, default=STATS_DIR)
     p.add_argument("--output-dir", type=Path, default=OUTPUT_DIR)
     p.add_argument("--max-concurrent", type=int, default=8,
@@ -489,16 +488,23 @@ def build_user_prompt(
 # ---------------------------------------------------------------------------
 # LLM Caller
 # ---------------------------------------------------------------------------
-async def call_vllm(client, system_prompt: str, user_prompt: str, max_tokens: int, model: str = MODEL_NAME) -> str:
+async def call_vllm(client, system_prompt: str, user_prompt: str, max_tokens: int, model: str | None = None) -> str:
+    import sys
+    sys.path.insert(0, str(PROJECT_ROOT / "scripts/sim"))
+    from llm_client import MODELS, _extra_body_for, get_spec
+    spec = get_spec() if model is None else next((s for s in MODELS.values() if s.hf_id == model), None)
+    if spec is None:
+        raise ValueError("Unregistered model ID; select a supported model from llm_client")
     response = await asyncio.to_thread(
         client.chat.completions.create,
-        model=model,
+        model=spec.hf_id,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
         temperature=TEMPERATURE,
         max_tokens=max_tokens,
+        extra_body=_extra_body_for(spec.family) or None,
     )
     return response.choices[0].message.content
 
@@ -588,6 +594,11 @@ async def generate_group(
 # Main Pipeline
 # ---------------------------------------------------------------------------
 async def run(args):
+    if not args.dry_run:
+        import sys
+        sys.path.insert(0, str(PROJECT_ROOT / "scripts/sim"))
+        from llm_client import resolve_mode
+        resolve_mode()  # Reject removed model modes before batches/retry fallbacks.
     # --- Load stats ---
     print("Loading stats...")
     profiles = load_json(args.stats_dir / "agent_profiles.json")

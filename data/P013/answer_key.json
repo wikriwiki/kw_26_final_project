@@ -1,0 +1,45 @@
+{
+ "policy_id": "P013",
+ "title": "긴급재난지원금 1차 (정책지갑 지급)",
+ "kind": "policy",
+ "cell_date": "2020-05-14",
+ "real_world_counterpart": "2020 1차 긴급재난지원금",
+ "answer_key_source": "KDI FOCUS",
+ "mechanism": "wallet",
+ "indicators": [
+  {
+   "id": "EM-2",
+   "description": "사용가능업종 순효과 (+11.1%p)",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": 11.1,
+   "measured_unit": "%",
+   "scale": "short",
+   "metric": "elig_spend_post",
+   "simulation_cannot_produce": "실측은 지급 전(−4.0%)과 지급 후(+7.1%)의 차이인데, **우리 off 팔이 곧 지급 전**이라 견줄 기준선이 없다 (`scoring_table` 에 `not_scorable` 로 기록돼 있다)"
+  },
+  {
+   "id": "EM-3",
+   "description": "전체 카드매출 증가 (+7.3%)",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": 7.3,
+   "measured_unit": "%",
+   "scale": "short",
+   "metric": "total_spend_paired",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "EM-4",
+   "description": "준내구재 > 대면서비스 (+10.8 vs +3.0%p)",
+   "expected_sign": "rank",
+   "expected_meaning": "순위",
+   "measured_value": 7.8,
+   "measured_unit": "%",
+   "scale": "main",
+   "metric": "sector_rank",
+   "simulation_cannot_produce": "카탈로그에 **준내구재·대면서비스 구분이 없다**"
+  }
+ ],
+ "note": "실측값과 기대부호는 공개된 연구의 결과다. 프롬프트에는 들어가지 않는다 — 검사로 고정돼 있다."
+}

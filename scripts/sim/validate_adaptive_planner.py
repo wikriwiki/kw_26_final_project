@@ -19,6 +19,9 @@ from validate_action_planner import invoke
 from validate_prompt_v3 import atomic,digest
 
 
+from llm_client import require_supported_model_id
+
+
 def prefix_for(cell,tokenizer):
     user=cell['user'].replace('/no_think','').replace('/think','')
     user+='\n\n## 선택 가능한 활동 사전\n'+json.dumps(list(catalog(cell).values()),ensure_ascii=False)
@@ -57,6 +60,7 @@ def main():
     ap=argparse.ArgumentParser();ap.add_argument('--source',type=Path,required=True);ap.add_argument('--config',type=Path,required=True)
     ap.add_argument('--out',type=Path,required=True);ap.add_argument('--tokenizer',required=True);args=ap.parse_args()
     config=json.loads(args.config.read_bytes());raw=args.source.read_bytes()
+    require_supported_model_id(config["model"])
     if hashlib.sha256(raw).hexdigest()!=config['source_sha256']:raise ValueError('Source hash mismatch')
     source=json.loads(raw);people={p['id']:p for p in source['personas']}
     for c in source['cells']:c['has_work']=bool(people[c['aid']].get('work_poi_id'))
@@ -71,7 +75,7 @@ def main():
     atomic(folder/'frozen_inputs.json',source);(folder/'system.txt').write_text(SYSTEM_PROMPT,encoding='utf-8')
     base=os.environ.get('LLM_BASE_URL','http://localhost:8000/v1').rstrip('/').removesuffix('/v1')
     with urlopen(base+'/v1/models',timeout=10) as r:
-        if config['model'] not in [m['id'] for m in json.load(r)['data']]:raise ValueError('Model mismatch')
+        if require_supported_model_id(config['model']) not in [m['id'] for m in json.load(r)['data']]:raise ValueError('Model mismatch')
     jobs=[(s,c) for s in config['seeds'] for c in source['cells']];random.Random(config['order_seed']).shuffle(jobs);rows=[]
     with (folder/'responses.jsonl').open('x',encoding='utf-8') as fp,ThreadPoolExecutor(max_workers=config['workers']) as pool:
         pending=[pool.submit(run_cell,j,config,base,tokenizer,prefixes,folder) for j in jobs]

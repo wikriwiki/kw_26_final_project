@@ -1,0 +1,197 @@
+{
+  "schema_version": "1.0",
+  "experiment_id": "no_smoking_zone_2017",
+  "usage": "OFFLINE EVALUATION ONLY. Do not inject into runtime prompts, behavior rules, POI prices or calibration objectives.",
+  "study": {
+    "source_id": "user_policy_report",
+    "title": "당구장 등 실내 체육시설의 금연구역 확대 정책 전후비교: 경제적 영향 및 흡연노출 평가를 중심으로",
+    "principal_investigator": "노진원 (을지대학교)",
+    "submitted_to": "보건복지부",
+    "report_date": "2018-11-30",
+    "pdf_page_count": 420,
+    "page_number_mapping": "본문 인쇄면 + 16 = 1-based PDF page",
+    "card_data": {
+      "provider": "신한카드 빅데이터센터",
+      "districts": ["노원구", "서초구", "송파구"],
+      "facility_types": ["billiard", "indoor_golf"],
+      "start_month": "2017-01",
+      "end_month": "2018-09",
+      "unit_of_analysis": "행정동-월 (보고서 표기)",
+      "measurement": "신한카드 건수/금액을 기반으로 시장전체 카드건수/금액으로 환산한 추정값",
+      "revenue_unit": "10000 KRW",
+      "transactions_unit": "card payment events",
+      "includes_cash": false,
+      "transactions_are_unique_visitors": false,
+      "regression_observation_count": null,
+      "sample_size_note": "핵심 회귀표 12/14에는 패널 관측 수 N이 제시되지 않는다. 전체 카드사 고객 수나 설문 표본을 회귀 N으로 사용하지 않는다.",
+      "policy_indicator": {"2017": 0, "2018": 1},
+      "policy_indicator_cutoff": "2018-01-01",
+      "legal_effective_date": "2017-12-03",
+      "method": "Linear regression with administrative-dong fixed effects and panel-corrected standard errors, AR(1); Stata 13 xtpcse correlation(ar1)",
+      "billiard_controls": ["season", "log total local card sales", "coincident business cycle index", "number of merchants", "days at moderate-or-higher heat risk", "days at high frostbite risk"],
+      "indoor_golf_controls": ["log total local card sales", "number of merchants", "number of public holidays"],
+      "data_anomaly": "잠실 실내골프 업소의 2018-06 온라인 매출 혼입에 대해 잠실 제외 및 대체값 분석을 수행했다(인쇄 p19).",
+      "sources": [{"printed_pages": [15, 16, 17, 18, 19], "pdf_pages": [31, 32, 33, 34, 35], "table": 6}]
+    },
+    "survey": {
+      "before_dates": ["2017-08-16", "2017-08-31"],
+      "after_dates": ["2018-08-13", "2018-08-24"],
+      "minimum_age": 19,
+      "per_wave": {"owners_and_workers": 300, "users": 600, "billiard_owners_and_workers": 200, "billiard_users": 400, "indoor_golf_owners_and_workers": 100, "indoor_golf_users": 200},
+      "method": "Owners/workers: site visits; users: online survey panel; self-reported answers.",
+      "linkage": "Individual before/after respondent linkage is not established in the cited methods; do not assume a paired individual panel.",
+      "source": {"printed_page": 41, "pdf_page": 57}
+    },
+    "environment_monitoring": {
+      "per_wave_facilities": 6,
+      "billiard_facilities": 3,
+      "indoor_golf_facilities": 3,
+      "points_per_facility": 2,
+      "per_wave_sampling_points": 12,
+      "pairing": "The three billiard facilities were retained. Two indoor golf facilities were replaced after closure/business changes/remodeling; only the Seocho golf facility was retained.",
+      "geography": "Before: billiards in Seocho/Nowon/Songpa, golf in Seocho/Songpa/Guro. After: billiards in the same locations, golf in Seocho/Nowon/Songpa.",
+      "source": {"printed_page": 301, "pdf_page": 317, "table": 140}
+    }
+  },
+  "metrics": [
+    {
+      "id": "V1",
+      "facility_type": "billiard",
+      "measure": "revenue",
+      "benchmark_role": "primary_holdout_reference",
+      "estimand": "Adjusted year-indicator association in log card-market revenue, not an unadjusted before/after ratio or proven policy causal effect.",
+      "reported_percent_change": 13.54,
+      "direction": "positive",
+      "statistically_significant": true,
+      "regression": {"coefficient": 0.127, "t_statistic": 2.85, "p_value": 0.004, "p_value_source_table": 11, "significance_marker": "**", "significance_threshold": 0.01, "standard_error": null, "confidence_interval": null},
+      "conversion": "100 * (exp(beta) - 1); 13.54 is the report's rounded result. Do not replace it by beta * 100.",
+      "before": null,
+      "after": null,
+      "source": {"pdf_page": 47, "printed_page": 31, "table": 12, "image_verified": true},
+      "comparison_rule": "Report direction and percentage-point distance descriptively after freezing the first simulation. A counterfactual AB estimate differs from this observational estimand; no pass/fail accuracy tolerance is asserted."
+    },
+    {
+      "id": "S1",
+      "facility_type": "billiard",
+      "measure": "transactions",
+      "benchmark_role": "secondary_holdout_diagnostic",
+      "estimand": "Adjusted year-indicator association in log card payment events.",
+      "reported_percent_change": null,
+      "direction": "not_established",
+      "statistically_significant": false,
+      "regression": {"coefficient": 0.0795, "t_statistic": 1.87, "p_value": 0.062, "p_value_source_table": 11, "significance_threshold": 0.05},
+      "before": null,
+      "after": null,
+      "source": {"pdf_page": 47, "printed_page": 31, "table": 12, "image_verified": true},
+      "comparison_rule": "Non-significance is not a zero effect, equivalence margin or measured visit count. Do not score against zero."
+    },
+    {
+      "id": "S2_revenue",
+      "facility_type": "indoor_golf",
+      "measure": "revenue",
+      "benchmark_role": "secondary_holdout_diagnostic",
+      "estimand": "Adjusted year-indicator association in log card-market revenue.",
+      "reported_percent_change": null,
+      "direction": "not_established",
+      "statistically_significant": false,
+      "regression": {"coefficient": 0.00487, "t_statistic": 0.07, "p_value": 0.944, "p_value_source_table": 13, "significance_threshold": 0.05},
+      "before": null,
+      "after": null,
+      "source": {"pdf_page": 51, "printed_page": 35, "table": 14, "image_verified": true},
+      "comparison_rule": "Use as diagnostic context; do not score against a zero target."
+    },
+    {
+      "id": "S2_transactions",
+      "facility_type": "indoor_golf",
+      "measure": "transactions",
+      "benchmark_role": "secondary_holdout_diagnostic",
+      "estimand": "Adjusted year-indicator association in log card payment events.",
+      "reported_percent_change": null,
+      "direction": "not_established",
+      "statistically_significant": false,
+      "regression": {"coefficient": 0.0420, "t_statistic": 0.40, "p_value": 0.689, "p_value_source_table": 13, "significance_threshold": 0.05},
+      "before": null,
+      "after": null,
+      "source": {"pdf_page": 51, "printed_page": 35, "table": 14, "image_verified": true},
+      "comparison_rule": "Use as diagnostic context; do not score against a zero target or treat events as unique people."
+    }
+  ],
+  "descriptive_before_after": {
+    "purpose": "Separate unadjusted descriptive card-data summaries; not the regression benchmark or causal effects.",
+    "before_period": ["2017-01", "2017-09"],
+    "after_period": ["2018-01", "2018-09"],
+    "aggregation": "dong-month means within district",
+    "revenue_unit": "10000 KRW",
+    "transactions_unit": "card payment events",
+    "rows": [
+      {"facility_type": "billiard", "district": "노원구", "revenue_before_mean": 4477.3, "revenue_before_sd": 2972.5, "revenue_after_mean": 4841.8, "revenue_after_sd": 3432.7, "revenue_p": 0.592, "transactions_before_mean": 4149.8, "transactions_before_sd": 2962.9, "transactions_after_mean": 4285.8, "transactions_after_sd": 3154.1, "transactions_p": 0.834},
+      {"facility_type": "billiard", "district": "서초구", "revenue_before_mean": 7271.1, "revenue_before_sd": 6143.7, "revenue_after_mean": 6915.0, "revenue_after_sd": 5959.7, "revenue_p": 0.760, "transactions_before_mean": 4742.1, "transactions_before_sd": 4030.0, "transactions_after_mean": 4457.9, "transactions_after_sd": 3924.4, "transactions_p": 0.711},
+      {"facility_type": "billiard", "district": "송파구", "revenue_before_mean": 3475.3, "revenue_before_sd": 2860.5, "revenue_after_mean": 3434.9, "revenue_after_sd": 2789.7, "revenue_p": 0.917, "transactions_before_mean": 2402.1, "transactions_before_sd": 1913.2, "transactions_after_mean": 2311.2, "transactions_after_sd": 1845.5, "transactions_p": 0.723},
+      {"facility_type": "indoor_golf", "district": "노원구", "revenue_before_mean": 9954.8, "revenue_before_sd": 5771.2, "revenue_after_mean": 10217.9, "revenue_after_sd": 6121.3, "revenue_p": 0.834, "transactions_before_mean": 2334.9, "transactions_before_sd": 1229.3, "transactions_after_mean": 2500.4, "transactions_after_sd": 1497.2, "transactions_p": 0.568},
+      {"facility_type": "indoor_golf", "district": "서초구", "revenue_before_mean": 33476.6, "revenue_before_sd": 18576.3, "revenue_after_mean": 23072.6, "revenue_after_sd": 11058.6, "revenue_p": 0.002, "transactions_before_mean": 5297.7, "transactions_before_sd": 2021.3, "transactions_after_mean": 4875.2, "transactions_after_sd": 1784.1, "transactions_p": 0.296},
+      {"facility_type": "indoor_golf", "district": "송파구", "revenue_before_mean": 9960.6, "revenue_before_sd": 11812.1, "revenue_after_mean": 9663.7, "revenue_after_sd": 8595.9, "revenue_p": 0.836, "transactions_before_mean": 1566.3, "transactions_before_sd": 1606.2, "transactions_after_mean": 1773.4, "transactions_after_sd": 1467.1, "transactions_p": 0.335}
+    ],
+    "source": {"printed_page": 27, "pdf_page": 43, "tables": [9, 10], "image_verified": true},
+    "source_discrepancy": "Narrative p26 gives Seocho billiard 2018 revenue as 7278.6; table 9 gives 6915.0. This transcription follows the visually verified table and flags the inconsistency."
+  },
+  "context_only": [
+    {
+      "id": "owner_worker_sales_perception",
+      "measurement_type": "subjective_response",
+      "before_question": "Expected revenue change after the policy",
+      "after_question": "Perceived revenue change after the policy",
+      "same_construct_before_after": false,
+      "response_order": ["decrease", "increase", "unchanged", "unknown"],
+      "rows": [
+        {"group": "all", "n_before": 300, "n_after": 300, "counts_before": [159, 30, 92, 19], "counts_after": [107, 5, 181, 7], "percent_before": [53.0, 10.0, 30.7, 6.3], "percent_after": [35.7, 1.7, 60.3, 2.3]},
+        {"group": "billiard", "n_before": 200, "n_after": 200, "counts_before": [103, 24, 56, 17], "counts_after": [91, 3, 105, 1], "percent_before": [51.5, 12.0, 28.0, 8.5], "percent_after": [45.5, 1.5, 52.5, 0.5]},
+        {"group": "indoor_golf", "n_before": 100, "n_after": 100, "counts_before": [56, 6, 36, 2], "counts_after": [16, 2, 76, 6], "percent_before": [56.0, 6.0, 36.0, 2.0], "percent_after": [16.0, 2.0, 76.0, 6.0]}
+      ],
+      "source": {"printed_page": 69, "pdf_page": 85, "table": 28, "image_verified": true},
+      "evaluation_use": "Do not convert response shares into revenue changes or use them as simulated transaction targets."
+    },
+    {
+      "id": "air_quality_pm10",
+      "measurement_type": "instrument_measurement",
+      "unit": "micrograms/m3",
+      "method": "Indoor primary test method; distinct from real-time monitor results.",
+      "n_facilities_per_wave": 6,
+      "n_sampling_points_per_wave": 12,
+      "rows": [
+        {"group": "all", "mean_before": 77.9, "sd_before": 48.1, "mean_after": 28.7, "sd_after": 9.8},
+        {"group": "billiard", "mean_before": 54.9, "sd_before": 27.0, "mean_after": 28.1, "sd_after": 11.4},
+        {"group": "indoor_golf", "mean_before": 100.8, "sd_before": 55.7, "mean_after": 29.4, "sd_after": 9.9}
+      ],
+      "reported_reduction_percent": 63.2,
+      "source": {"printed_page": 322, "pdf_page": 338, "table": 146, "image_verified": true},
+      "evaluation_use": "Out of scope for an economic/mobility simulation without an exposure/ventilation model; partially replaced golf facilities preclude a fully paired facility interpretation."
+    },
+    {
+      "id": "air_quality_pm25",
+      "measurement_type": "instrument_measurement",
+      "unit": "micrograms/m3",
+      "method": "Indoor primary test method; distinct from real-time monitor results.",
+      "n_facilities_per_wave": 6,
+      "n_sampling_points_per_wave": 12,
+      "rows": [
+        {"group": "all", "mean_before": 42.8, "sd_before": 30.4, "mean_after": 18.6, "sd_after": 8.7},
+        {"group": "billiard", "mean_before": 37.2, "sd_before": 18.9, "mean_after": 20.9, "sd_after": 9.1},
+        {"group": "indoor_golf", "mean_before": 48.4, "sd_before": 40.0, "mean_after": 16.4, "sd_after": 8.5}
+      ],
+      "source": {"printed_page": 324, "pdf_page": 340, "table": 147, "image_verified": true},
+      "evaluation_use": "Not a spending target and not directly derivable from simulated visits or smoking status."
+    }
+  ],
+  "validation_design": {
+    "calibration_allowed": ["policy definition", "pre-policy demographic and smoking prevalence", "independently sourced pre-policy POIs, prices and activity rates"],
+    "holdout": ["all policy outcome regression coefficients", "all post-policy card summaries", "survey outcome changes", "environmental outcome changes"],
+    "seeds_are_not_empirical_holdout": true,
+    "first_run": "Freeze model/version, inputs, assignment seed and run seeds before opening evaluator output; preserve the first outcome unchanged.",
+    "after_tuning": "If outcomes guide a later model revision, mark that revision calibrated on this report; it no longer has independent holdout validity against the same targets.",
+    "ab_comparability": "Same-period policy OFF/ON simulations estimate a modeled counterfactual. Report results beside the study's adjusted observational association with the estimand mismatch explicitly stated.",
+    "baseline_zero": "Return undefined for percent change when OFF spending or transactions equals zero; do not insert an epsilon and claim a percentage effect.",
+    "uncertainty": "Summarize paired seed effects and Monte Carlo variability separately from the empirical study's sampling uncertainty.",
+    "not_available": ["individual card microdata", "unique visitor outcomes", "smoker/non-smoker revenue effect targets", "district-specific causal policy effects", "unreported confidence intervals", "raw merchant panel"],
+    "limitations": ["Three purposively selected Seoul districts; no citywide representativeness claim", "No untreated comparison group establishing a policy-only causal effect", "Time trends and billiard popularity may explain the adjusted increase", "Cash expenditure unavailable", "Study policy coding starts January 2018, after the December 2017 legal start", "Contemporary POIs/personas are not a reconstructed 2017 population", "Survey expectations and perceived changes differ from realized card outcomes"]
+  }
+}

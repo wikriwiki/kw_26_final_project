@@ -67,3 +67,29 @@ def save_result(tx, result):
     if not row or row['n'] != 1:
         raise EvidenceError('State missing while committing metrics outbox')
     return result
+
+
+def save_skipped_day(tx, result):
+    """Carry the last observed state forward without inventing a plan or purchase.
+
+    A skipped day is missing behavioral data, not an observed zero.  The State
+    exists only so the following day's Dawn can read the last known balance and
+    other persistent context.  Its sealed outbox makes crash recovery idempotent.
+    """
+    aid, day = result['aid'], result['experience_day']
+    from datetime import date, timedelta
+    previous = (date.fromisoformat(day) - timedelta(days=1)).isoformat()
+    row = tx.run('''MATCH (a:Agent {id:$aid})-[:HAS_STATE {day:date($previous)}]->(prev:State)
+        CREATE (s)
+        SET s = properties(prev), s.id=$sid, s.agent_id=$aid, s.day=date($day),
+            s.execution_receipts_json='[]', s.appraisal_changes_json='[]',
+            s.online_spent=null, s.skipped_agent_day=true,
+            s.skip_attempts=$attempts, s.skip_error=$error
+        SET s:State
+        MERGE (a)-[:HAS_STATE {day:date($day)}]->(s)
+        RETURN count(s) AS n''', aid=aid, previous=previous, day=day,
+        sid=f'{aid}_{day}', attempts=result['attempts'],
+        error=result['last_error']).single()
+    if not row or row['n'] != 1:
+        raise EvidenceError('Previous State missing while recording skipped agent day')
+    return save_result(tx, result)

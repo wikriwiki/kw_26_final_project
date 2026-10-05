@@ -2,7 +2,7 @@
 
 > 작성일: 2026-07-03 (v1.1: 행동공간 전면 정밀화 — 실제 소상공인 행동 실태 기반 5행동 + 간이 손익 제약)
 > 대상 독자: 구현 담당 에이전트/개발자
-> 전제: 현행 시뮬(소비자 15,000 에이전트, Qwen3, Neo4j, Stage1/Stage2 2단 LLM, Huff 광역이동)을 **변경 최소·성능 불변**으로 확장
+> 전제: 현행 시뮬(소비자 15,000 에이전트, LG EXAONE 4.5, Neo4j, Stage1/Stage2 2단 LLM, Huff 광역이동)을 **변경 최소·성능 불변**으로 확장
 > 관련 문서: `docs/VALIDATION_METHODOLOGY.md`, `docs/REVIEW_EFFECT_ANALYSIS.md`
 
 ---

@@ -132,9 +132,15 @@ def prompt_block(state, today):
     if not observations:
         return ''
     relevant = {pid for row in observations for pid in row['policy_facts']}
-    prior = {pid: {'stance': value['stance'], 'as_of': value['as_of']}
-             for pid, value in decode((state or {}).get('policy_appraisals_json'), {}).items()
-             if pid in relevant}
+    prior = {}
+    for pid, value in decode((state or {}).get('policy_appraisals_json'), {}).items():
+        verify(value)
+        as_of = iso_day(value.get('as_of'))
+        if (value.get('agent_id') != (state or {}).get('_experience_agent_id', value.get('agent_id'))
+                or value.get('policy_id') != pid):
+            raise EvidenceError('foreign appraisal in personal memory')
+        if pid in relevant and as_of < str(today):
+            prior[pid] = {'stance':value['stance'], 'as_of':as_of}
     return '\n\n[실행된 거래 관측과 기존 정책 입장]\n' + json.dumps({
         'observations': observations, 'prior_appraisals': prior,
     }, ensure_ascii=False) + '''

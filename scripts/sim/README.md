@@ -7,11 +7,13 @@ Neo4j Day 0 그래프가 준비된 다음, **매일 시뮬을 돌리는 본체**
 ```bash
 # 0. 사전 조건
 #    - Neo4j 5.x 실행 중 + Day 0 적재 완료 (scripts/neo4j_load/run_all.py)
-#    - SGLang 또는 vLLM 서버 가동 중 (Qwen3-32B-AWQ 기본)
+#    - SGLang 또는 vLLM 서버 가동 중 (LG EXAONE-4.5-33B-AWQ 기본)
 #    - .env에 NEO4J_URI / NEO4J_USER / NEO4J_PASSWORD
 
 # 1. LLM 서버 띄우기
-bash scripts/serve/serve_qwen32b.sh    # 또는 qwen9b / exaone
+bash scripts/serve/serve_exaone45_sglang_a100x2.sh
+export LLM_MODE=exaone_4_5
+export LLM_BASE_URL=http://127.0.0.1:8000/v1
 
 # 2. (선택) 정책 주입 — 자연어 .txt 또는 JSON 한 건 적재
 #    Dawn POLICY_CYPHER가 자동 픽업, Stage 1 프롬프트에 description 그대로 주입
@@ -24,7 +26,7 @@ python -m scripts.policy_pipeline.watch
 # 3. 시뮬 (테스트: 강남구 100명 × 3일)
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --gu 11680 --limit 100 --workers 16
 
-# 4. 풀런 (14,560 agent × 3일, ~13–22시간)
+# 4. 풀런 (14,560 agent × 3일; 소량 실행으로 소요시간 측정 후 확대)
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --workers 16
 
 # 5. KPI 평가 (DID·환각·만족도)
@@ -82,7 +84,7 @@ python scripts/sim/build_standalone_html.py
 | `stage1_intent.py` | Stage 1 LLM — 의도 시퀀스 + 카테고리 + anchor 생성 |
 | `stage2_poi.py` | Stage 2 LLM — 각 이벤트의 구체 POI 확정 (KNOWS_POI + 거리 기반) |
 | `plan_writer.py` | Plan 적재 + 만족도 룰 + Night Phase 1·3 (visited Memory, State CREATE) |
-| `llm_client.py` | SGLang/vLLM 자동감지 + 모델 레지스트리 (qwen32b/qwen9b/exaone) |
+| `llm_client.py` | SGLang/vLLM 자동감지 + 모델 레지스트리 (LG EXAONE 계열) |
 
 ### Night (상호작용) — 노션 다이어그램 12박스 ↔ 코드 1:1 정합
 
@@ -130,7 +132,7 @@ python scripts/sim/build_standalone_html.py
 | `NEO4J_USER` / `NEO4J_PASSWORD` | (필수) | 인증 |
 | `SIM_OUTPUT_DIR` | `~/sim_output` | 체크포인트·메트릭·interactions_<day>.json 저장 |
 | `VIZ_OUT_DIR` | `<프로젝트루트>/output/sim/visualization` | 시각화 JSON 저장 |
-| `LLM_MODE` | `qwen32b` | `qwen9b` (개발) / `exaone` (대회용) 전환 |
+| `LLM_MODE` | `exaone_4_5` | LG EXAONE-4.5-33B-AWQ; 서버가 제공하는 체크포인트와 일치시킨다 |
 | `SGLANG_BASE_URL` | auto (30000 → 8000) | LLM 서버 URL 명시 |
 
 > **Google Drive 경로 주의**: `G:\내 드라이브\...` 같은 Drive Stream 가상 파일시스템에 `SIM_OUTPUT_DIR`를 두면 ~7,000 write 이후 OSError 22 발생. 로컬 디스크(`C:\Users\<user>\sim_output\`)에 두는 것을 권장.
@@ -213,10 +215,9 @@ python scripts/sim/night_intent_llm.py \
 
 ## 알려진 한계
 
-- 14,560 agent × 3일 풀런 기준 SGLang(Qwen3-32B-AWQ) ~13–15시간, vLLM ~22시간, Qwen3-14B-AWQ ~13시간
-- `LLM_MODE=qwen9b`는 토큰량 60% 절감되나 의도 분류 정확도 약간 낮음 (개발·디버그 권장)
-- `LLM_MODE=exaone`은 한국어 자연스러움 최상 (대회·시연 권장), 추론 속도는 Qwen3-32B와 유사
-- `LLM_MODE=qwen14b`은 32B 대비 38% 단축, 토큰 인풋 2배 (페르소나·정책·KNOWS_POI 누적). order 매핑 오류 빈도가 14B에서 약간 증가 → `fb_order_mismatch` 카운터로 모니터링 필수
+- 현재 EXAONE 체크포인트의 처리량은 GPU·배치·문맥 길이에 따라 달라지므로 50~100명 실행으로 측정 후 확대한다.
+- 이전 체크포인트의 측정값은 `docs/archive/`에서 확인하며 현재 LG 모델의 예상 성능으로 대입하지 않는다.
+- 소량 검증과 본실험은 동일 모델·revision·프롬프트로 실행하고 `fb_order_mismatch` 및 JSON 실패를 함께 점검한다.
 - KNOWS_POI 단일 직접 엣지 캐시 사용 — 시뮬 도중 in-place 갱신만 (`visit_count`, `affinity`)되고 신규 인지는 추천 의도 분류에서만 추가됨
 
 ## 디버깅 메모 — Stage 2 환각·order 매핑
