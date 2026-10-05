@@ -323,6 +323,10 @@ def fetch_candidates_for_events(
             _home_gu = str(persona.get("home_dong_code") or "")[:5]
             _same_gu = (bool(_home_gu)
                         and str(dong_code or "")[:5] == _home_gu)
+            # [2026-10-06] 발행 구 상품권(P014): 어느 구 상품권이든 살 수 있어 직장 구도 쓸 수 있다(서울시 2019-12-19).
+            if persona.get("voucher_scope") == "issuing_district":
+                _work_gu = str(persona.get("work_dong_code") or "")[:5]
+                _same_gu = str(dong_code or "")[:5] in {g for g in (_home_gu, _work_gu) if g}
             _rules = neutral_rules
             _spec = persona.get("poi_eligibility_spec")
             if _rules is None and _spec:
@@ -342,6 +346,8 @@ def fetch_candidates_for_events(
                 _own_sub = c.get("poi_sub_category") or sub_cat
                 _own_l1 = (c.get("poi_l1") or l1) if _own_sub != sub_cat else l1
                 c["poi_sub_category"], c["poi_l1"] = _own_sub, _own_l1
+                c["poi_same_gu"] = bool(_same_gu) if _home_gu else None
+                c["poi_gu"] = str(dong_code or "")[:5] or None
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
                 c["durable_anchor"] = bool(_dur_anchor)
@@ -889,7 +895,8 @@ def call_stage2(
     }
     # POI → (가게 자신의 업종, 그 상위 업종, 가게 이름, 세부업종 코드) — 즉시 할인 판정이 계획 업종이 아니라 이것을 쓴다.
     poi_cat_by_poi: dict[str, tuple] = {
-        c["poi_id"]: (c.get("poi_sub_category"), c.get("poi_l1"), c.get("name"), c.get("upjong_l3"))
+        c["poi_id"]: (c.get("poi_sub_category"), c.get("poi_l1"), c.get("name"), c.get("upjong_l3"),
+                      c.get("poi_same_gu"), c.get("poi_gu"))
         for cs in cands_by_order.values() for c in cs
     }
     timing["t_price_maps"] = time.perf_counter() - started
@@ -1531,7 +1538,9 @@ def merge_to_final_events(
             "poi_sub_category": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[0] if poi_id else None,
             "poi_category": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[1] if poi_id else None,
             "poi_name": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[2] if poi_id else None,
-            "upjong_l3": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[3] if poi_id else None,
+            "upjong_l3": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 5)[3] if poi_id else None,
+            "poi_same_gu": (((poi_cat_by_poi or {}).get(poi_id) or (None,) * 6) + (None,) * 2)[4] if poi_id else None,
+            "poi_gu": (((poi_cat_by_poi or {}).get(poi_id) or (None,) * 6) + (None,) * 2)[5] if poi_id else None,
             # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
             "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
             # 지원금 결제건의 "없었어도 했을 지출인가"(참고3 ④ 문항 형태). MPC 산출 입력.

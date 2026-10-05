@@ -31,14 +31,44 @@ import json
 PTYPE = "sector_voucher"
 
 
+_WEEKDAYS = "월화수목금토일"
+
+
+def _window_text(w) -> str:
+    if not w:
+        return ""
+    if isinstance(w, str):
+        return w
+    return (f"{_WEEKDAYS[int(w['from_weekday'])]} {w['from_time']} ~ "
+            f"{_WEEKDAYS[int(w['to_weekday'])]} {w['to_time']}")
+
+
+def _dates_text(spec: dict) -> str:
+    frm, until = spec.get("from"), spec.get("until")
+    if frm and until:
+        return f" [{str(frm)[5:].replace('-', '/')}~{str(until)[5:].replace('-', '/')}]"
+    if frm:
+        return f" [{str(frm)[5:].replace('-', '/')}부터]"
+    if until:
+        return f" [{str(until)[5:].replace('-', '/')}까지]"
+    return ""
+
+
 def _one(name: str, spec: dict) -> str:
+    return _one_body(name, spec) + _dates_text(spec)
+
+
+def _one_body(name: str, spec: dict) -> str:
     mode = (spec.get("mode") or "").strip()
     if mode == "count_rebate":
         lo = int(spec.get("min_amount") or 0)
         n = int(spec.get("count") or 0)
         rb = int(spec.get("rebate") or 0)
-        s = f"{name} {lo:,}원 이상 {n}회 결제하면 다음 결제에서 {rb:,}원 환급"
-        w = spec.get("window")
+        if spec.get("on_next"):
+            s = f"{name} {lo:,}원 이상 {n}회 결제하면 {n + 1}번째 결제에서 {rb:,}원 환급(나중에 돌려받음)"
+        else:
+            s = f"{name} {lo:,}원 이상 결제를 {n}회 채우면 {rb:,}원 환급(나중에 돌려받음)"
+        w = _window_text(spec.get("window"))
         return s + (f" ({w} 결제만 인정)" if w else "")
     if mode in ("rate", "rate_rebate"):
         r = float(spec.get("rate") or 0) * 100
@@ -49,9 +79,25 @@ def _one(name: str, spec: dict) -> str:
         s = f"{name} {r:.0f}% {verb}"
         return s + (f" (최대 {cap:,}원)" if cap else "")
     if mode == "flat":
+        tiers = spec.get("tiers") or []
+        if tiers:
+            parts = []
+            for t in tiers:
+                if t.get("max") is not None:
+                    parts.append(f"{int(t['max']):,}원 이하 {int(t['amount']):,}원")
+                else:
+                    prev = [x for x in tiers if x.get("max") is not None]
+                    over = f"{int(prev[-1]['max']):,}원 초과 " if prev else ""
+                    parts.append(f"{over}{int(t['amount']):,}원")
+            return f"{name} 결제 1건 할인: " + ", ".join(parts)
         return f"{name} {int(spec.get('amount') or 0):,}원 할인"
     if mode == "rebate":
-        return f"{name} 이용료 {int(spec.get('amount') or 0):,}원 환급"
+        lo = int(spec.get("min_amount") or 0)
+        if spec.get("cumulative"):
+            cond = f"기간 중 합계 {lo:,}원 이상 쓰면 " if lo else ""
+        else:
+            cond = f"{lo:,}원 이상 결제하면 " if lo else ""
+        return f"{name} {cond}{int(spec.get('amount') or 0):,}원 환급(나중에 돌려받음)"
     return name
 
 
@@ -83,6 +129,18 @@ def status(pid: str, row: dict, persona: dict, state: dict,
         used_amount = 0
     parts = []
     for name, spec in sectors.items():
+        if (spec or {}).get("mode") == "count_rebate":
+            # 지금까지 인정된 결제 횟수(사용량 열쇠 <정책>:<업종>[@기간]#n). 기간 열쇠는 오늘로 맞춘다.
+            n_now = 0
+            try:
+                from instant_discount import _period_suffix
+                key = f"{pid}:{name}" + _period_suffix((spec or {}).get("per"), today) + "#n"
+                used_all = json.loads(raw_used) if isinstance(raw_used, str) else dict(raw_used)
+                n_now = max(0, int(used_all.get(key, 0) or 0))
+            except (ValueError, TypeError):
+                n_now = 0
+            parts.append(f"{name}(지금까지 인정된 결제 {n_now}회)")
+            continue
         cap = int((spec or {}).get("cap") or 0)
         if cap > 0 and (spec or {}).get("mode") == "rate" and len(sectors) == 1:
             parts.append(f"{name}(1인 할인 한도 {cap:,}원, 남은 할인 "

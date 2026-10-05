@@ -10,5 +10,7 @@ base = json.load(open(sys.argv[1], encoding="utf-8"))
 ids = json.load(open(sys.argv[2], encoding="utf-8"))
 have = sum(1 for a in ids if a in base)
 print("  기준선이 있는 사람 %d/%d (%.1f%%)" % (have, len(ids), 100 * have / len(ids)))
-if have < 0.9 * len(ids):
-    raise SystemExit("기준선이 90% 미만이다 — 정책 전 주 출력을 먼저 본다")
+# 빠져도 되는 사람 수: 10% (명부가 작으면 최소 1명) — 10명 시험에서 한 명 때문에 멈추지 않게.
+allowed = max(1, int(0.1 * len(ids)))
+if len(ids) - have > allowed:
+    raise SystemExit("기준선이 없는 사람이 %d명(허용 %d명) — 정책 전 주 출력을 먼저 본다" % (len(ids) - have, allowed))

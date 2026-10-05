@@ -27,6 +27,7 @@ OPTIONAL MATCH (p)-[:IN_CATEGORY]->(c:Category)
 WITH a, i, p, head(collect(c)) AS c
 RETURN a.id AS aid, i.actual_spent AS amt,
        i.spent_from_policy AS spent_from_policy,
+       i.instant_discount AS instant_discount, i.policy_rebate AS policy_rebate,
        p.sangsaeng_eligible AS sangsaeng_eligible,
        c.name AS sub, c.parent AS l1
 """
@@ -103,6 +104,8 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
                      "by_l1": defaultdict(int), "funded_by_sub": defaultdict(int),
                      "eligible_by_sub": defaultdict(int),
                      "eligible_by_l1": defaultdict(int),
+                     "discount_by_sub": defaultdict(int), "rebate_by_sub": defaultdict(int),
+                     "instant_discount_won": 0, "policy_rebate_won": 0,
                      "policy_funded_won": 0} for aid in roster}
     for spend in spends:
         aid = spend.get("aid")
@@ -134,6 +137,18 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
             if eligible:
                 bucket["eligible_by_l1"][str(l1)] += amount
         bucket["policy_funded_won"] += funded
+        # 결제 즉시 할인(자기부담이 준 금액)과 나중 환급 — 정책 갈래에서만 0 이 아닐 수 있다.
+        discount = sum(_funding(spend.get("instant_discount")).values())
+        rebate = sum(_funding(spend.get("policy_rebate")).values())
+        if policy_id is None and (discount or rebate):
+            raise ValueError(f"control transaction has a policy discount or rebate: {aid} {day}")
+        if discount > amount:
+            raise ValueError(f"discount exceeds gross: {aid} {day}")
+        bucket["instant_discount_won"] += discount
+        bucket["policy_rebate_won"] += rebate
+        if sub:
+            bucket["discount_by_sub"][str(sub)] += discount
+            bucket["rebate_by_sub"][str(sub)] += rebate
     out = []
     for aid in roster:
         state = state_by_aid[aid]
@@ -154,6 +169,10 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
                     "sangsaeng_eligible_offline_spent": bucket["sangsaeng_eligible_offline_spent"],
                     "unclassified_won": bucket["unclassified_won"],
                     "policy_funded_won": bucket["policy_funded_won"],
+                    "instant_discount_won": bucket["instant_discount_won"],
+                    "policy_rebate_won": bucket["policy_rebate_won"],
+                    "discount_by_sub": dict(sorted((k, v) for k, v in bucket["discount_by_sub"].items() if v)),
+                    "rebate_by_sub": dict(sorted((k, v) for k, v in bucket["rebate_by_sub"].items() if v)),
                     "grant_received_cumulative": received.get(policy_id, 0) if policy_id else 0,
                     "grant_remaining": remaining.get(policy_id, 0) if policy_id else 0,
                     "by_sub": dict(sorted(bucket["by_sub"].items())),
