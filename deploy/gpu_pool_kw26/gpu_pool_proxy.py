@@ -326,7 +326,12 @@ class Pool:
     def forward(self, method, path, headers, body):
         request_id = sha256(os.urandom(16))[:16]
         routed = method == 'POST' and path.split('?')[0] in ROUTED_PATHS
-        backend, identity = self.choose() if routed else self.take_local()
+        if not routed:
+            # [2026-10-06] 생성이 아닌 요청(모델 목록·상태 확인)은 A100 생성 자리를 차지하지 않는다(doinggyu 검토 5.5).
+            # 예전에는 local_max_inflight 자리를 기다려, 실행기의 모델 서버 확인이 생성 요청 뒤에 줄을 섰다.
+            status, rheaders, data = self._send_raw(self.local, method, path, headers, body)
+            return status, rheaders, data, self.local.name
+        backend, identity = self.choose()
         started = time.monotonic()
         fallback_from = error = None
         try:
