@@ -25,7 +25,9 @@ from report.export_cashback_month import (verify_cohorts,
 from report.paired_grant_effect import dates, read_jsonl, roster_file  # noqa: E402
 
 
-ENVIRONMENTS = {"restricted": "covid_2021", "control": "covid_no_distancing"}
+ENVIRONMENTS = {"restricted": "covid_2021", "control": "covid_no_distancing",
+                # 3주 A/B 대조: 2020-11-23 의 1.5단계를 이어 간다(확진 소식은 그날 것)
+                "control_hold": "covid_2020_hold_1123"}
 DEFAULT_MAPPING = ROOT / "data/neo4j_load/mapping/mapping_upjong_to_sub.json"
 
 STATE_QUERY = """
@@ -123,7 +125,7 @@ def aggregate_day(states: list[dict], spends: list[dict], *, roster: list[str],
         if cumulative - prior != totals[aid]["offline_spent"] + online:
             raise ValueError(f"State spending disagrees with realized ledger: {aid} {day}")
         previous[aid] = (month, cumulative)
-        record = {"aid": aid, "day": day, "arm": arm}
+        record = {"aid": aid, "day": day, "arm": arm, "previous_month_cumulative": prior}
         record.update({key: (online if key == "online_spent" else cumulative
                              if key == "self_month_cumulative" else totals[aid][key])
                        for key in MONEY_FIELDS})

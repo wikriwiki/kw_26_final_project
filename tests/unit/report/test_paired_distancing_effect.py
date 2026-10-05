@@ -203,3 +203,17 @@ def test_environment_exposure_and_stage2_fallback_block_export(tmp_path):
                     encoding="utf-8")
     with pytest.raises(ValueError, match="quality gate failed"):
         exporter.verify_metrics(metrics_dir, [day], ["a"], "covid_2021")
+
+
+def test_hold_control_arm_uses_opening_month_value():
+    """3주 A/B: 대조 갈래는 control_hold, 정책 전 주가 같은 달이라 전날 월 누적에서 연다(2026-10-05)."""
+    day = "2020-11-24"
+    on = [ledger_row("a", day, "restricted", restaurant=80, retail=30)]
+    off = [ledger_row("a", day, "control_hold", restaurant=100, retail=20)]
+    for row, opening in ((on[0], 500), (off[0], 500)):
+        row["previous_month_cumulative"] = opening
+        row["self_month_cumulative"] += opening
+    result = paired.score(on, off, roster=["a"], days=[day], draws=0, control_arm="control_hold")
+    assert result["sectors"]["restaurant_won"]["relative_change"] == pytest.approx(-.2)
+    with pytest.raises(ValueError, match="wrong arm"):
+        paired.score(on, off, roster=["a"], days=[day], draws=0)
