@@ -64,7 +64,8 @@ def test_적격_구매가_없는_날도_활성_할인정책_잔액을_기록한�
 
 def test_지원되지_않는_할인방식은_조용히_정책효과로_채우지_않는다():
     policy = _policy()
-    policy["sectors"]["식재료"]["mode"] = "count_rebate"
+    # count_rebate 는 2026-10-06 부터 지원한다(P015 외식). 정의되지 않은 방식은 여전히 멈춘다.
+    policy["sectors"]["식재료"]["mode"] = "bogus_mode"
     with pytest.raises(ValueError, match="지원되지 않는"):
         active_rate_discounts([policy])
 

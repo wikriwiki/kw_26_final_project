@@ -9,7 +9,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts/sim"))
 from eligibility import Rules  # noqa: E402
 from instant_discount import settle_instant_discounts  # noqa: E402
 
-SPEC = [{"id": "P016", "rate": 0.2, "cap": 10000,
+SPEC = [{"id": "P016", "key": "P016", "mode": "rate", "sector": "농산물", "window": None,
+         "require_same_district": False, "rate": 0.2, "cap": 10000,
          "rules": Rules({"mode": "include", "include": {"subs": ["청과", "정육", "슈퍼마켓", "식료품"]}})}]
 
 
