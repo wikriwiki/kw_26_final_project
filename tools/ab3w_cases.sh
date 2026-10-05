@@ -14,7 +14,8 @@ case "$AB_CASE" in
     # 압축월 파일과 짝이다(창과 파일은 함께 움직인다 — 섞으면 문턱이 창에 비해 너무 높아 정책이 사라진다).
     START=2021-10-01; PID=P012
     POLICY=data/experiments/P012_v53_compressed7_main_20260929.json
-    [[ $AB_POST_DAYS == 7 ]] || { echo "P012 압축월 파일은 7일 창 전용이다 (AB_POST_DAYS=$AB_POST_DAYS)" >&2; exit 2; }
+    # 시험(AB_TEST_SHORT=1)은 짧은 창을 허용한다 — 문턱에 못 닿아 캐시백이 0 이어도 배관 확인은 된다.
+    [[ $AB_POST_DAYS == 7 || ${AB_TEST_SHORT:-0} == 1 ]] || { echo "P012 압축월 파일은 7일 창 전용이다 (AB_POST_DAYS=$AB_POST_DAYS)" >&2; exit 2; }
     ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
     LEDGERS="sector cashback"
     CASE_EXPORTS=();;
@@ -57,9 +58,30 @@ case "$AB_CASE" in
     ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2020_hold_1123
     LEDGERS="sector distancing"
     CASE_EXPORTS=();;
-  p014|p015)
-    echo "$AB_CASE 는 지금 실측과 맞댈 수 없다(검수 2026-10-05: P014 할인이 결제에 적용되지 않고 정답지가 서울 밖 연간 자료,
-P015 엔진이 여러 업종 쿠폰을 처리하지 못하고 실측이 농수산물뿐) — 사용자 결정 전에는 돌리지 않는다" >&2
-    exit 2;;
+  p014)
+    # 서울사랑상품권(2020). 상시 제도라 시작일 2020-09-21 은 반사실 발효일이다(9/14 부터 2단계 구간).
+    # 할인율은 발행 구마다(기본 7%, 8개 구 10%), 구별 월 70만원, 사는 구·직장 구 상품권 모두 사용 —
+    # 엔진이 결제 즉시 할인으로 회계한다. 모든 사람이 상품권을 쓰는 세상 vs 없는 세상이다.
+    # 정답지(조세재정연구원 2020)는 서울 밖 시군구 연간 자료라 업종별 방향만 맞댄다.
+    START=2020-09-21; PID=P014
+    POLICY=data/experiments/P014_ab3w_policy_20261006.json
+    ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
+    LEDGERS="sector"
+    CASE_EXPORTS=();;
+  p015)
+    # 8대 소비쿠폰 재개분 중 그래프에서 잴 수 있는 외식·숙박·체육(2020-10-30 외식 재개, 11-02 체육, 11-04 숙박).
+    # 업종별 시작일·조건은 정책 사본의 sectors 에 있고 엔진이 날짜별로 켠다. 여행(온라인 상품만)·공연·영화·전시
+    # (가게 없음)·농수산물(이 기간 쿠폰 출처 없음)은 넣지 않았다. 모두 응모·당첨된 세상 vs 쿠폰이 없는 세상이다.
+    START=2020-10-30; PID=P015
+    POLICY=data/experiments/P015_ab3w_policy_20261006.json
+    ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
+    LEDGERS="sector"
+    CASE_EXPORTS=();;
   *) echo "정책 설정이 없다: $AB_CASE" >&2; exit 2;;
 esac
+# 시험 전용: 시작일을 옮긴다(예: P013 은 지급이 05-12 부터라 하루 시험이면 05-13, P015 는 세 업종이 모두 켜진 11-06).
+# 실행 기록(run_manifest.json 의 start)에 옮긴 날짜가 남는다. 본런에는 쓰지 않는다.
+if [[ -n ${AB_START_OVERRIDE:-} ]]; then
+  echo "[시험] 시작일 $START → $AB_START_OVERRIDE" >&2
+  START=$AB_START_OVERRIDE
+fi
