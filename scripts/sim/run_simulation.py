@@ -239,11 +239,18 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
                     parts.append(f"평소 하루 씀씀이로 약 {max(1, round(rem / _ds))}일치")
             except (TypeError, ValueError):
                 pass
+            from mechanisms import payment_choice_mode as _pcm
+            if _pcm():
+                _pay = ("쓸 수 있는 매장에서 이 지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
+                        "본인이 정하며, policy_spend에 적은 금액이 실제로 이 지갑에서 나간다.")
+            else:
+                # 카드 충전형(자동 차감) — 결제 규칙만 바꿔 말한다. 기본 문구는 그대로다.
+                _pay = ("쓸 수 있는 매장에서 결제하면 이 지갑에서 자동으로 먼저 빠져나가고 "
+                        "모자란 만큼만 본인 돈으로 낸다.")
             lines.append(
                 f"{pid} {name} [정책 지갑] — {' / '.join(parts)}. "
                 "소비 필요·시점·총액·POI는 평소 습관, 자산과 일정에 따라 판단한다. "
-                "쓸 수 있는 매장에서 이 지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
-                "본인이 정하며, policy_spend에 적은 금액이 실제로 이 지갑에서 나간다."
+                + _pay
             )
             continue
         # cashback — 상생소비지원금. 정책지갑 없음(익월 환급). 소비 예산 미증가.
@@ -351,14 +358,15 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         # 따라 조용히 어긋났고, 전 분위 280,000원 정책이 한 푼도 지급되지 않은 것을
         # 몇 달 몰랐다(experiments/plan_channel/P013_evidence_is_weaker.md).
         grants_applied_today = grants_to_apply(
-            ctx.policy, today, prev_grant_received, income, spend_decile)
+            ctx.policy, today, prev_grant_received, income, spend_decile, aid=aid)
 
         # 시행일인데 0원이면 **그 자리에서 말한다.** 조용히 지나가면 런이 다 끝나고
         # 원장을 볼 때에야 알게 되고, 그때는 그래프가 이미 덮여 원인을 못 찾는다.
         # 실제로 그렇게 됐다 — 12일 × 700명을 돌고 한 푼도 안 나간 것을 몇 달 몰랐다.
+        from plan_writer import grant_receipt_date as _grd
         _due = [p for p in (ctx.policy or [])
                 if p.get("type") == "grant"
-                and as_date(p.get("effective_from")) == as_date(today)
+                and _grd(p, aid) == as_date(today)
                 and (p.get("id") or "") not in prev_grant_received]
         grant_due_but_zero = ([p.get("id") for p in _due]
                               if (_due and not grants_applied_today) else None)
@@ -542,6 +550,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 discount_used_before=prev_used_for_budget,
                 # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
                 aid=aid,
+                is_weekend=_is_weekend,
             )
         else:
             # legacy는 총소비액을 건드리지 않되 결제수단은 동일한 우선 정산을 적용한다.

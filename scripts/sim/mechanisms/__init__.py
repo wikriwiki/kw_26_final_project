@@ -69,6 +69,13 @@ _PRINCIPLE: dict[str, str] = {
     "wallet": _COMMON + (
         "정책 사용처에서 정책지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
         "본인이 정한다. 정책이 있다는 것이 소비 자체를 새로 만들라는 뜻은 아니다."),
+    # 2020 긴급재난지원금(P013) 같은 카드 충전형: "평소 카드 사용방법과 동일하게 가맹점에서
+    # 결제하면 카드 청구액에서 자동으로 차감된다"(정책브리핑 2020-05). 결제 규칙만 말한다.
+    # "정책이 있다는 것이 소비 자체를 새로 만들라는 뜻은 아니다"는 넣지 않는다 — 소비를 늘리지
+    # 말라는 쪽으로 미는 문장이라 중립이 아니다(2026-10-05 사용자 결정, P013 파일럿 300f 로 확인).
+    "wallet_auto": _COMMON + (
+        "정책 사용처에서 이 카드로 결제하면 지원금이 자동으로 먼저 차감되고, 모자란 만큼만 "
+        "본인 돈으로 낸다."),
     "cashback": _COMMON + (
         "캐시백은 지금 쓸 수 있는 돈이 아니라 다음 달에 돌려받는 것이므로, "
         "이번 달 소비 예산을 늘려주지 않는다."),
@@ -202,6 +209,12 @@ def poi_restriction(policies, balances=None):
     return ids, spec, marker
 
 
+def payment_choice_mode() -> bool:
+    """정책지갑 결제가 건별 선택인가(기본, P010) 아니면 사용처 자동 차감인가(EXP_PAYMENT_CHOICE=0)."""
+    import os
+    return os.environ.get("EXP_PAYMENT_CHOICE", "1") not in ("0", "false", "False")
+
+
 def principle(ptypes) -> str:
     """활성 기전들에 맞는 판단 원칙. 지갑이 하나라도 있으면 지갑 원칙이 우선한다.
 
@@ -212,6 +225,10 @@ def principle(ptypes) -> str:
     """
     ts = {t for t in ptypes if t}
     if has_wallet(ts):
+        # 결제 규칙이 '사용처에서 자동 차감'인 정책(EXP_PAYMENT_CHOICE=0)은 건별 선택이라고
+        # 말하면 거짓이다. 기본값(선택 모드)의 문구는 바이트 단위로 그대로다 — P010 재현.
+        if not payment_choice_mode():
+            return _PRINCIPLE["wallet_auto"]
         return _PRINCIPLE["wallet"]
     for t in ("cashback", "sector_voucher", "price_discount",
               "hours_limit", "gathering_limit"):

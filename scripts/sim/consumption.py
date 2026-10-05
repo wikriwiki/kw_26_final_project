@@ -767,6 +767,9 @@ def apply_consumption_model(
     # 동별 적립 몫을 쓰려면 어느 동인지 알아야 한다(EXP_ELIGIBLE_CHANNEL).
     # 주지 않으면 aid 에서 읽는다.
     dong_code: str | None = None,
+    # 계획 기준선을 평일·주말로 갈라 찾으려면 오늘이 주말인지 알아야 한다.
+    # 계획/앵커 비가 요일종류에 따라 반대로 움직인다(금 0.500 · 토 1.568).
+    is_weekend: bool | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
@@ -1036,7 +1039,14 @@ def apply_consumption_model(
     # 총액을 끌어올린다. MPC 등 검증 대상 값이 입력으로 들어가지 않으므로 순환이 아니다 —
     # 증가분은 전적으로 에이전트 자신의 이벤트 계획에서 나온다.
     _pr = 1.0                     # 계획 배수 — 기준 런에서 1.0 이라 수준이 안 움직인다
-    _pbase = _plan_baseline().get(str(aid or "")) if EXP_PLAN_DRIVES_TOTAL else None
+    _pb = _plan_baseline() if EXP_PLAN_DRIVES_TOTAL else {}
+    _pbase = None
+    if _pb:
+        # 요일종류별 기준선('aid|wd' · 'aid|we')이 있으면 그것을, 없으면 사람 하나의 값을 쓴다.
+        if is_weekend is not None:
+            _pbase = _pb.get("%s|%s" % (aid, "we" if is_weekend else "wd"))
+        if _pbase is None:
+            _pbase = _pb.get(str(aid or ""))
     if _pbase and _anchor_total > 0:
         # 계층·수준은 앵커가 잡고, **그 사람 자신의 평소 계획 대비 오늘의 변동**만
         # 총액에 실린다. 정책 반응이 계획액에 실려 있으므로 이 경로로 통과한다.

@@ -240,8 +240,51 @@ def as_date(v):
         return None
 
 
+def _receipt_schedule(pol: dict):
+    """정책의 지급 일정(receipt_schedule). 그래프에서는 mech_params JSON 안에 들어 있다."""
+    import json as _json
+    sched = pol.get("receipt_schedule")
+    if sched is None and pol.get("mech_params"):
+        try:
+            raw = pol["mech_params"]
+            sched = (_json.loads(raw) if isinstance(raw, str) else dict(raw)).get("receipt_schedule")
+        except Exception:
+            sched = None
+    if isinstance(sched, str):
+        sched = _json.loads(sched)
+    return sched or None
+
+
+def grant_receipt_date(pol: dict, aid: str | None):
+    """이 사람이 지원금을 받는(쓸 수 있게 되는) 날.
+
+    정책에 receipt_schedule 이 없거나 aid 가 없으면 시행일(effective_from) — 일시금, 기존과 같다.
+    있으면 [{from, to, share}, ...] 의 누적 비율에 사람을 고정 해시로 배정하고, 구간 안에서도
+    고르게 나눈다. 해시는 (정책ID, aid) 로만 정해 런·시뮬레이션이 달라도 같은 사람은 같은 날 받는다.
+    일정 비율의 합이 1 보다 작으면 남는 사람은 관측 기간 안에 받지 않는다(None).
+    """
+    import hashlib as _hl
+    eff = as_date(pol.get("effective_from"))
+    sched = _receipt_schedule(pol)
+    if not sched or not aid:
+        return eff
+    u = int(_hl.sha256(("%s|%s" % (pol.get("id") or "", aid)).encode("utf-8")).hexdigest()[:13], 16) / float(16 ** 13)
+    acc = 0.0
+    for seg in sched:
+        share = float(seg["share"])
+        if share <= 0:
+            continue
+        if u < acc + share:
+            d0, d1 = as_date(seg["from"]), as_date(seg["to"])
+            n = (d1 - d0).days + 1
+            k = min(n - 1, int((u - acc) / share * n))
+            return d0 + timedelta(days=k)
+        acc += share
+    return None
+
+
 def grants_to_apply(policies, today, prev_received=None, income="",
-                    spend_decile=None) -> dict:
+                    spend_decile=None, aid=None) -> dict:
     """오늘 **새로 지급될** {정책ID: 금액}. 런타임과 예비점검이 같이 쓴다.
 
     `run_simulation` 안에 인라인으로 있던 세 줄짜리 게이트를 꺼냈다. 인라인이면
@@ -251,6 +294,8 @@ def grants_to_apply(policies, today, prev_received=None, income="",
       · `type == "grant"` 인 정책만
       · 이미 받은 정책은 건너뛴다 (resume 멱등)
       · `effective_from` 이 **오늘인 날 하루만** 지급 (1차 지원금은 일시금이다)
+        — 정책에 지급 일정(receipt_schedule)이 있고 aid 가 주어지면 그 사람의 지급일
+        (grant_receipt_date)이 오늘인 날 하루만 지급한다(P013: 실제 신청·충전 일정).
     """
     prev = prev_received or {}
     today_d = as_date(today)
@@ -261,7 +306,7 @@ def grants_to_apply(policies, today, prev_received=None, income="",
         pid = pol.get("id") or ""
         if pid in prev:
             continue
-        if as_date(pol.get("effective_from")) != today_d:
+        if grant_receipt_date(pol, aid) != today_d:
             continue
         amt = _grant_for_single_policy(income, pol, spend_decile=spend_decile)
         if amt > 0:

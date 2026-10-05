@@ -893,10 +893,17 @@ def _format_policy_status(
     if has_wallet:
         # P010 BOK 대조 검증을 통과한 문구. 결제수단 선택은 건별로 에이전트가
         # 정한다(EXP_PAYMENT_CHOICE=1). 수정하면 P010 재현이 깨진다.
+        import os as _os
+        _choice = _os.environ.get("EXP_PAYMENT_CHOICE", "1") not in ("0", "false", "False")
+        _pay = ("정책 사용처에서 정책지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 본인이 정한다. "
+                "정책이 있다는 것이 소비 자체를 새로 만들라는 뜻은 아니다."
+                if _choice else
+                # 자동 차감(P013)은 결제 규칙만 말한다 — mechanisms._PRINCIPLE['wallet_auto'] 와 같다.
+                "정책 사용처에서 이 카드로 결제하면 지원금이 자동으로 먼저 차감되고, 모자란 만큼만 "
+                "본인 돈으로 낸다.")
         lines.append(
             "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
-            "판단한다. 정책 사용처에서 정책지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
-            "본인이 정한다. 정책이 있다는 것이 소비 자체를 새로 만들라는 뜻은 아니다."
+            "판단한다. " + _pay
         )
     else:
         # cashback류: 정책지갑이 없다. 캐시백은 이번 달에 미리 주는 돈이 아니라
@@ -1067,6 +1074,29 @@ def _cache_policy(today: date, persona: dict, rows: list[dict]) -> None:
         _POLICY_CACHE.setdefault(key, [dict(x) for x in rows])
 
 
+def visible_from_receipt(policy: list[dict], aid: str, today: date) -> list[dict]:
+    """지급 일정이 있는 정책은 그 사람이 지원금을 받는 날부터 보인다.
+
+    일시금 정책은 시행일 = 받는 날이라 '정책이 보이는 날 = 돈이 들어오는 날'이었다. 지급 일정
+    (receipt_schedule)으로 사람마다 받는 날을 나누자 이 둘이 어긋났다 — 시행일부터 모든 사람에게
+    정책(금액·사용처 표시)이 보이는데 지갑은 비어 있었다. P013 파일럿 300c 에서 아직 받지 않은
+    사람의 사용처 지출이 +11.4% 였고 2주 효과의 절반이 그들에게서 나왔다(KDI 정답지에는 지급 전
+    선반영이 거의 없다). 발표~시행 전 날들에 정책을 보여 주지 않는 것과 같은 원칙으로, 받기 전에는
+    보여 주지 않는다. 일정이 없는 정책은 받는 날 = 시행일이라 지금과 같다. 관측창 안에 받지 않는
+    사람(일정 비율 합 < 1)에게는 보이지 않는다.
+    """
+    from plan_writer import _receipt_schedule, as_date as _as_date, grant_receipt_date
+    out = []
+    for pol in policy or []:
+        if not _receipt_schedule(pol):
+            out.append(pol)
+            continue
+        due = grant_receipt_date(pol, aid)
+        if due is not None and due <= _as_date(today):
+            out.append(pol)
+    return out
+
+
 def monthly_state_for_today(state: dict, today: date) -> dict:
     """어제의 월 누적을 오늘 프롬프트에 넣기 전에 달 경계를 반영한다."""
     if today.day != 1:
@@ -1132,6 +1162,7 @@ def build_dawn_context(
         if policy is None:
             policy = [dict(r) for r in s.run(POLICY_CYPHER, aid=aid, today=today)]
             _cache_policy(today, persona, policy)
+        policy = visible_from_receipt(policy, aid, today)   # 캐시는 동네 단위 — 사람별로 거른다
         tm["t_policy"] = time.perf_counter() - started
 
         started = time.perf_counter()

@@ -575,9 +575,28 @@ def _build_neutral_stage2_system() -> str:
 SYSTEM_S2_NEUTRAL = _build_neutral_stage2_system()
 
 
+_AUTO_PAY_OLD = (
+    "- 실제 방문·금액·결제수단은 오늘의 필요, 평소 습관, 잔액, 일정, 후보 가격과 정책 블록의 적용 조건을 "
+    "함께 보고 건별로 정합니다. 정책이 있다는 사실만으로 구매나 방문을 만들지 않습니다.\n")
+_AUTO_PAY_NEW = (
+    "- 실제 방문·금액은 오늘의 필요, 평소 습관, 잔액, 일정, 후보 가격과 정책 블록의 적용 조건을 "
+    "함께 보고 건별로 정합니다. 정책이 있다는 사실만으로 구매나 방문을 만들지 않습니다.\n"
+    "- 결제: 정책 지갑이 있는 시민이 그 지갑의 사용 가능 매장에서 결제하면 지갑에서 자동으로 먼저 "
+    "빠져나가고 모자란 만큼만 본인 돈으로 냅니다. 이 경우 `policy_spend`는 null 로 두어도 됩니다.\n")
+
+
 def active_stage2_system() -> str:
-    """Historical variants keep their original Stage2 prompt byte for byte."""
-    return SYSTEM_S2_NEUTRAL if active_stage2_is_neutral() else SYSTEM_S2
+    """Historical variants keep their original Stage2 prompt byte for byte.
+
+    결제 규칙이 사용처 자동 차감인 정책(EXP_PAYMENT_CHOICE=0)에서는 중립 프롬프트의
+    결제 문장만 그 규칙으로 바꾼다. 기본값에서는 아무것도 바뀌지 않는다.
+    """
+    text = SYSTEM_S2_NEUTRAL if active_stage2_is_neutral() else SYSTEM_S2
+    from mechanisms import payment_choice_mode
+    if not payment_choice_mode() and text is SYSTEM_S2_NEUTRAL:
+        assert text.count(_AUTO_PAY_OLD) == 1
+        text = text.replace(_AUTO_PAY_OLD, _AUTO_PAY_NEW, 1)
+    return text
 
 
 def active_stage2_is_neutral() -> bool:
