@@ -24,8 +24,8 @@ from deploy.vast.backup_checkpoint import hash_file, require, upload_verified, r
 from experience_provenance import atomic_json
 
 
-def call(argv, *, env, log=None, timeout=None):
-    kwargs = {'stdout': log, 'stderr': subprocess.STDOUT} if log is not None else {}
+def call(argv, *, env, log=None, timeout=None, err=None):
+    kwargs = {'stdout': log, 'stderr': err if err is not None else subprocess.STDOUT} if log is not None else {}
     child = subprocess.Popen([str(arg) for arg in argv], cwd=ROOT, env=env,
                              start_new_session=True, **kwargs)
     try:
@@ -44,9 +44,31 @@ def call(argv, *, env, log=None, timeout=None):
         raise
 
 
+def acquire_supervisor_lock(results, prefix):
+    """Hold a per-prefix lock for the supervisor's lifetime.
+
+    The pipeline status file records this PID only after the source and baseline
+    hashes are checked, so two manual launches could otherwise both pass the
+    'another supervisor' check during that window.
+    """
+    try:
+        import fcntl
+    except ImportError:          # non-POSIX test hosts
+        return None
+    results.mkdir(exist_ok=True)
+    handle = (results / f'{prefix}-supervisor.lock').open('a')
+    try:
+        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        handle.close()
+        raise RuntimeError('Another supervisor is still running')
+    return handle
+
+
 def run(config):
     prefix = config['prefix']
     require(bool(re.fullmatch(r'(integration|main)-[a-z0-9-]+', prefix)), 'Invalid run prefix')
+    _lock = acquire_supervisor_lock(Path('/workspace/no-smoking-results'), prefix)
     require(hash_file(Path(config['source_archive'])) == config['source_sha256'], 'Source archive changed')
     source = json.loads((ROOT / 'deployment-manifest.json').read_text(encoding='utf-8'))
     for name, digest in source['file_sha256'].items():
@@ -168,9 +190,13 @@ def run(config):
         audit = output / 'evidence-audit.json'
         if not audit.exists():
             pending_audit = audit.with_suffix('.pending.json')
-            with pending_audit.open('wb') as log:
+            # stdout carries the JSON report only; any warning on stderr goes to a
+            # side log, and the report must parse before it becomes the gate file,
+            # otherwise one stray line would block every later resume.
+            with pending_audit.open('wb') as log, audit.with_suffix('.stderr.log').open('ab') as err:
                 call([sys.executable, ROOT/'scripts/sim/interview_evidence.py', '--run-dir', output,
-                      '--audit-all', '--through-day', end], env=child, log=log, timeout=3600)
+                      '--audit-all', '--through-day', end], env=child, log=log, timeout=3600, err=err)
+            json.loads(pending_audit.read_text(encoding='utf-8'))
             pending_audit.replace(audit)
         report = json.loads(audit.read_text(encoding='utf-8'))
         require(report.get('status') == 'passed', 'Evidence census did not pass')

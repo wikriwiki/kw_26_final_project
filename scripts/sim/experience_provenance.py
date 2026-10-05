@@ -21,8 +21,11 @@ def _settings():
     # All EXP_* settings can alter a citizen's state or decisions. A fixed
     # shortlist silently omitted income, the cashback base ratio and the
     # plan-to-total switch; a resumed run could then mix two experiments.
-    settings = {k: v for k, v in os.environ.items() if k.startswith('EXP_')}
-    for key in ('LLM_MODE', 'LLM_BASE_URL', 'SIM_ENVIRONMENT',
+    # [2026-10-06] 결정에 닿지 않는 운영 설정은 뺀다: 시도 예산(EXP_AGENT_DAY_MAX_ATTEMPTS), 모델 서버 주소(LLM_BASE_URL).
+    # 본런 도중 예산을 늘리거나 A100 직접↔GPU 풀 중계를 바꾸면 재개가 거부됐다. 같은 모델인지는 중계가 확인한다.
+    settings = {k: v for k, v in os.environ.items()
+                if k.startswith('EXP_') and k != 'EXP_AGENT_DAY_MAX_ATTEMPTS'}
+    for key in ('LLM_MODE', 'SIM_ENVIRONMENT',
                 'SIM_PROMPT_VARIANT', 'CONSUMPTION_MODEL',
                 'POLICY_BACKTEST_DETERMINISTIC', 'POLICY_POI_SORT_BOOST',
                 'SIM_ALLOW_STAGE2_FALLBACK', 'PYTHONHASHSEED',
