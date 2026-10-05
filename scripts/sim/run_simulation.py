@@ -1322,86 +1322,9 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
         "timing_top": (timing_report.get("bottleneck_rank") or [])[:10],
     }
 
-    # ═══════════════════════════════════════════
-    # Night Phase 2 — 상호작용 대상 선정 + 의도 분류 LLM
-    # (노션 다이어그램 Phase 2: 매일 자정 자동 동작 → Phase 3로 D+1 Plan에 영향)
-    # ═══════════════════════════════════════════
-    try:
-        from night_interaction import select_interaction_pairs
-        from night_intent_llm import run_intent_classification
-        t_n2 = time.time()
-        # A row count is not proof that all social interactions completed.
-        # Only a matching completion record permits skipping this phase.
-        marker_path = OUT_DIR / f"night2_completed_{day_str}.json"
-        from neo4j_load._common import driver_session as _n2_session
-        with _n2_session() as _s:
-            _n2_existing = _s.run(
-                "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
-                d=day_str).single()["n"]
-        if not marker_path.exists() and _n2_existing and configured_context():
-            import night_store
-            recovered = night_store.load(today, configured_context())
-            if recovered is not None:
-                # The DB transaction committed all night writes and this outbox
-                # together. Recreate only the lost local completion marker.
-                marker = seal({'cohort': cohort, 'conversation_count': _n2_existing,
-                    'run_id': recovered['run_id'], 'arm': recovered['arm'],
-                    'day': day_str, 'status': 'complete', 'evidence_ref': recovered['evidence_ref']})
-                atomic_json(marker_path, marker)
-        if marker_path.exists():
-            marker = json.loads(marker_path.read_text(encoding="utf-8"))
-            if marker.get("cohort") != cohort or marker.get("conversation_count") != _n2_existing:
-                raise ValueError("Night2 completion record does not match current run/database")
-            if configured_context():
-                verify(marker)
-                if (marker.get('run_id') != (os.environ.get('SIM_RUN_ID') or str(OUT_DIR.resolve()))
-                        or marker.get('arm') != configured_context().arm or marker.get('day') != day_str
-                        or marker.get('status') != 'complete'):
-                    raise ValueError('Night2 evidence identity mismatch')
-        else:
-            if _n2_existing:
-                raise RuntimeError("partial or untracked Night2 writes; explicit recovery required")
-            smoking_runtime = configured_context()
-            pair_options = ({"seed": smoking_runtime.stable_seed(today, "night_pairs")}
-                            if smoking_runtime else {})
-            pairs = select_interaction_pairs(today, verbose=False,
-                exclude_agents=skipped_aids, **pair_options)
-            n2_stats = {}
-            if pairs:
-                print(f"  [Night2] {len(pairs)} pairs, classifying intents ...")
-                n2_stats = run_intent_classification(today, pairs, workers=workers, verbose=False)
-                if n2_stats.get("skipped") or n2_stats.get("errors", 0) or n2_stats.get("processed") != len(pairs):
-                    raise RuntimeError("incomplete Night2 classification")
-                wstats = n2_stats.get("write", {})
-                by_intent = wstats.get("by_intent", {})
-                print(f"  [Night2] Conversation +{wstats.get('created',0)} "
-                      f"(약속={by_intent.get('약속',0)}, 이슈={by_intent.get('이슈',0)}, "
-                      f"추천={by_intent.get('추천',0)}, 기타={by_intent.get('기타',0)}) "
-                      f"in {time.time()-t_n2:.0f}s")
-            else:
-                print(f"  [Night2] no candidate pairs for {day_str}")
-                if smoking_runtime:
-                    from interview_evidence import commit_night_evidence
-                    n2_stats['evidence_ref'] = commit_night_evidence(
-                        OUT_DIR, os.environ.get('SIM_RUN_ID') or str(OUT_DIR.resolve()),
-                        smoking_runtime.arm, day_str, [],
-                    )
-            with _n2_session() as _s:
-                final_count = _s.run(
-                    "MATCH (c:Conversation) WHERE c.day = date($d) RETURN count(c) AS n",
-                    d=day_str).single()["n"]
-            if final_count != len(pairs):
-                raise RuntimeError("Night2 persisted conversation count differs from planned pairs")
-            marker = {"cohort": cohort, "conversation_count": final_count}
-            if smoking_runtime:
-                marker.update(run_id=os.environ.get('SIM_RUN_ID') or str(OUT_DIR.resolve()),
-                              arm=smoking_runtime.arm, day=day_str, status='complete',
-                              evidence_ref=n2_stats.get('evidence_ref'))
-                marker = seal(marker)
-            atomic_json(marker_path, marker)
-        day_result["night2_elapsed_sec"] = time.time() - t_n2
-    except Exception as e:
-        raise RuntimeError(f"Night2 failed for {day_str}; refusing to advance") from e
+    # Terminal night skips are missing interactions; they do not block the date.
+    from night_completion import complete_night
+    day_result.update(complete_night(today, cohort, skipped_aids, workers, OUT_DIR))
 
     day_result["elapsed_sec"] = time.time() - t_start
     print(

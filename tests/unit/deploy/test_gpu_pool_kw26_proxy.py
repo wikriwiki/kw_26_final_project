@@ -298,3 +298,16 @@ def test_default_config_still_uses_local_like_before(cluster):
     with ThreadPoolExecutor(4) as ex:
         list(ex.map(lambda i: post(port, json.dumps({'n': i}).encode()), range(4)))
     assert len(local.calls) >= 1 and len(remote.calls) >= 1
+
+
+def test_non_generation_request_does_not_take_local_slot(monkeypatch):
+    """모델 목록·상태 확인은 A100 생성 자리를 기다리지 않는다(2026-10-06)."""
+    import importlib
+    proxy = importlib.import_module("deploy.gpu_pool_kw26.gpu_pool_proxy")
+    pool = proxy.Pool("http://127.0.0.1:9", [], "/dev/null", local_max_inflight=1)
+    pool.local.inflight = 1          # 생성 요청이 자리를 다 쓰고 있다
+    calls = []
+    monkeypatch.setattr(pool, "_send_raw", lambda b, m, p, h, body: calls.append((b.name, m, p)) or (200, [], b"{}"))
+    monkeypatch.setattr(pool, "log", lambda **kw: None)
+    status, _h, _d, name = pool.forward("GET", "/v1/models", {}, None)
+    assert status == 200 and name == pool.local.name and pool.local.inflight == 1

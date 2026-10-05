@@ -35,3 +35,17 @@ def test_lodging_under_other_is_not_counted_twice(tmp_path):
     sec, _ = S.load_arm(tmp_path, "off")
     assert sec["B"]["kdi:여행·레저"] == 50000
     assert sec["B"]["kdi:기타"] == 0
+
+
+def test_eligible_sector_keys_are_readable():
+    """K3~K8 은 적립 대상분(kdiE:)으로 잰다 — series 가 그 키를 읽어야 한다(2026-10-06)."""
+    import importlib
+    import sys
+    from collections import defaultdict
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "scripts" / "report"))
+    s = importlib.import_module("score_p012_two_arm")
+    sec = defaultdict(lambda: defaultdict(float))
+    sec["a"]["kdiE:요식"] = 5.0
+    assert s.series(sec, {}, ["a"], "kdiE:요식") == [5.0]
+    assert s.METRIC_KEY["sector_arm_diff:요식"] == "kdiE:요식"

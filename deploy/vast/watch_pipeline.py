@@ -98,14 +98,37 @@ def active_simulation_pids():
     return found
 
 
+def supervisor_running():
+    """True while any run_shared.py supervisor lives (e.g. one a controller just restarted)."""
+    for folder in Path('/proc').glob('[0-9]*'):
+        try:
+            argv = (folder / 'cmdline').read_bytes().split(b'\0')
+        except OSError:
+            continue
+        if any(arg.endswith(b'deploy/vast/run_shared.py') for arg in argv):
+            return True
+    return False
+
+
 def quiesce_orphan_workers(log):
+    """Stop simulators left behind by a dead supervisor; True only if none remain.
+
+    run_simulation.py is not a process-group leader (no_smoking_zone.py starts it
+    with plain subprocess.run inside the group run_shared created), so signal its
+    actual group instead of treating its PID as a group ID.
+    """
     pids = active_simulation_pids()
     if not pids:
-        return
+        return True
     write_event(log, 'terminating_orphan_simulation', pids=pids)
+    own_group = os.getpgrp()
     for pid in pids:
         try:
-            os.killpg(pid, signal.SIGTERM)
+            group = os.getpgid(pid)
+            if group == own_group:
+                os.kill(pid, signal.SIGTERM)
+            else:
+                os.killpg(group, signal.SIGTERM)
         except ProcessLookupError:
             pass
     deadline = time.monotonic() + 45
@@ -113,6 +136,16 @@ def quiesce_orphan_workers(log):
         time.sleep(1)
     if active_simulation_pids():
         write_event(log, 'orphan_simulation_did_not_stop')
+        return False
+    return True
+
+
+def quiesce_then_backup(config, phase, log):
+    # A checkpoint stops Neo4j; never take one under a simulator that is still writing.
+    if quiesce_orphan_workers(log):
+        backup_on_failure(config, phase, log)
+    else:
+        write_event(log, 'backup_skipped_live_simulator', phase=phase)
 
 
 def model_alive():
@@ -179,6 +212,9 @@ def backup_on_failure(config, phase, log):
         write_event(log, 'partial_backup_failed', error=str(exc)[:400])
 
 
+FAILED_GRACE_SECONDS = 180
+
+
 def watch(config_path, poll_seconds=30):
     config = json.loads(config_path.read_text(encoding='utf-8'))
     if (config.get('instance_id') != INSTANCE_ID
@@ -189,6 +225,7 @@ def watch(config_path, poll_seconds=30):
     write_event(log, 'watcher_started', pipeline=str(pipeline))
     missing_since = None
     unhealthy_since = None
+    failed_since = None
     start = time.monotonic()
     while True:
         try:
@@ -213,15 +250,24 @@ def watch(config_path, poll_seconds=30):
                 stop_instance(log, 'pipeline_complete')
                 return
             elif state.get('status') == 'failed':
-                quiesce_orphan_workers(log)
-                backup_on_failure(config, state.get('phase'), log)
-                stop_instance(log, 'pipeline_failed')
-                return
+                # A recovery controller restarts the supervisor within seconds, and the
+                # status file says 'failed' until the new supervisor finishes hashing.
+                # Act only on a failure that persists with no supervisor alive.
+                if supervisor_running():
+                    failed_since = None
+                else:
+                    failed_since = failed_since or time.monotonic()
+                    if time.monotonic() - failed_since >= FAILED_GRACE_SECONDS:
+                        latest = json.loads(pipeline.read_text(encoding='utf-8'))
+                        if latest.get('status') == 'failed' and not supervisor_running():
+                            quiesce_then_backup(config, latest.get('phase'), log)
+                            stop_instance(log, 'pipeline_failed')
+                            return
+                        failed_since = None
             elif not process_alive(state.get('pid')):
                 missing_since = missing_since or time.monotonic()
                 if time.monotonic() - missing_since >= 90:
-                    quiesce_orphan_workers(log)
-                    backup_on_failure(config, state.get('phase'), log)
+                    quiesce_then_backup(config, state.get('phase'), log)
                     stop_instance(log, 'supervisor_missing')
                     return
             else:
@@ -235,8 +281,7 @@ def watch(config_path, poll_seconds=30):
                         except ProcessLookupError:
                             pass
                         time.sleep(35)
-                        quiesce_orphan_workers(log)
-                        backup_on_failure(config, state.get('phase'), log)
+                        quiesce_then_backup(config, state.get('phase'), log)
                         stop_instance(log, 'model_server_unhealthy')
                         return
                 else:

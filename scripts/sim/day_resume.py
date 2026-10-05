@@ -1,4 +1,5 @@
 """Verify completed dates before skipping them; recover only torn append tails."""
+import os
 import json
 from pathlib import Path
 
@@ -47,7 +48,7 @@ def verified_completed_day(root, day, agents, run_id, arm):
         if (row.get('aid') in seen or row.get('status') not in {'ok', 'skipped'}
                 or row.get('experience_run_id') != run_id or row.get('experience_day') != day):
             raise ValueError('Cannot resume from incomplete or foreign metrics')
-        if row['status'] == 'skipped' and (row.get('attempts') != 6
+        if row['status'] == 'skipped' and (row.get('attempts') != int(os.environ.get('EXP_AGENT_DAY_MAX_ATTEMPTS', '6'))
                 or row.get('skip_kind') != 'failed_after_retries'
                 or row.get('observed_behavior') is not False
                 or row.get('no_smoking', {}).get('arm') != arm):

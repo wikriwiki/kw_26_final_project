@@ -293,7 +293,7 @@ def archive_interview_answer(answer):
             'integrity_sha256':record['integrity_sha256']}
 
 
-def commit_night_evidence(run_dir, run_id, arm, day, results):
+def commit_night_evidence(run_dir, run_id, arm, day, results, skipped=None):
     """Called only after successful DB writes; never mutates a graph itself."""
     root = Path(run_dir).resolve()
     day = iso_day(str(day))
@@ -319,9 +319,18 @@ def commit_night_evidence(run_dir, run_id, arm, day, results):
         if original != archived["interaction"]:
             raise EvidenceError("night result changed after classification archive")
         result["evidence_agent_ids"] = archived["agent_ids"]
+    from night_recovery import verify_skipped
+    missing = [verify_skipped(root, value) for value in (skipped or [])]
+    if any((v['run_id'], v['arm'], v['day']) != (run_id, arm, day) for v in missing):
+        raise EvidenceError('Foreign skipped night interaction')
+    success_pairs = {tuple(sorted(v['evidence_agent_ids'])) for v in clean}
+    skip_pairs = {tuple(sorted(v['pair'])) for v in missing}
+    if len(skip_pairs) != len(missing) or success_pairs & skip_pairs:
+        raise EvidenceError('Duplicate terminal night pair')
     record = seal({"schema_version": 1, "kind": "completed_night_evidence",
                    "record_id": "EV_" + uuid4().hex, "recorded_at": now(),
-                   "run_id": run_id, "arm": arm, "day": day, "results": clean})
+                   "run_id": run_id, "arm": arm, "day": day, "results": clean,
+                   "skipped": missing})
     relative = f"evidence/night/{day}_{record['record_id']}.json"
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -436,6 +445,17 @@ def _night_items(root, agent_id, day, identity, night_reader=None):
         items.append({"evidence_id": archived["record_id"], "agent_id": agent_id, "day": day,
                       "kind": "social_interaction", "text": canonical(value), "value": value,
                       "source_ref": result["interview_evidence"]})
+    from night_recovery import verify_skipped
+    for skipped in index.get('skipped', []):
+        if agent_id not in skipped['pair']:
+            continue
+        value = verify_skipped(root, skipped)
+        if (value['run_id'], value['arm'], value['cohort_sha256'], value['source_sha256']) != identity or value['day'] != day:
+            raise EvidenceError('Foreign skipped night receipt')
+        items.append({'evidence_id': 'NS_' + value['integrity_sha256'],
+                      'agent_id': agent_id, 'day': day, 'kind': 'skipped_social_interaction',
+                      'text': canonical(value), 'value': value,
+                      'source_ref': {'journal_refs': value['journals']}})
     return items, True
 
 
