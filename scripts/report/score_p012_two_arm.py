@@ -235,7 +235,7 @@ def series(sec, cash, aids, key):
         nm = key.split(":", 1)[1]
         k, e, t = "kdi:" + nm, "kdiE:" + nm, "attr:" + nm
         return [sec[a][k] - sec[a][e] + sec[a][t] for a in aids]
-    if key.startswith("kdi:"):
+    if key.startswith(("kdi:", "kdiE:")):     # 업종 총액 / 그 중 적립 대상분
         return [sec[a][key] for a in aids]
     if key == "cashback":
         return [cash[a]["cashback"] for a in aids]
@@ -243,15 +243,18 @@ def series(sec, cash, aids, key):
 
 
 # 계약서의 sim_metric -> 원장 키 (팔 사이 비를 내는 것들)
+# [2026-10-06] 업종 지표(K3~K8)는 적립 대상분(kdiE:)으로 잰다. KDI 표 4-7 은 업종마다 캐시백 실적 적립 가능 업종과
+# 제외 업종을 나눠 추정했고(가전·가구 36.23% 는 적립 가능분, 유통 제외분 4.62% 는 K10), 예전에는 업종 전체(kdi:)를
+# 써서 제외 매장 지출까지 섞였다(doinggyu 검토 5.3, 원문 PDF 52쪽 대조).
 METRIC_KEY = {
     "total_spend_arm_diff": "total",
     "excluded_spend_arm_diff": "excluded",
-    "sector_arm_diff:가전·가구": "kdi:가전·가구",
-    "sector_arm_diff:여행·레저": "kdi:여행·레저",
-    "sector_arm_diff:유통": "kdi:유통",
-    "sector_arm_diff:요식": "kdi:요식",
-    "sector_arm_diff:학원": "kdi:학원",
-    "sector_arm_diff:이·미용": "kdi:이·미용",
+    "sector_arm_diff:가전·가구": "kdiE:가전·가구",
+    "sector_arm_diff:여행·레저": "kdiE:여행·레저",
+    "sector_arm_diff:유통": "kdiE:유통",
+    "sector_arm_diff:요식": "kdiE:요식",
+    "sector_arm_diff:학원": "kdiE:학원",
+    "sector_arm_diff:이·미용": "kdiE:이·미용",
     "excluded_sector_arm_diff:유통": "exclkdi:유통",
 }
 
@@ -259,7 +262,7 @@ METRIC_KEY = {
 LEVEL_METRIC = {"cashback_per_capita", "cap_reach_rate", "fiscal_multiplier",
                 "recipient_rate"}
 RANK_METRIC = {"rank:eligible_vs_excluded": ("eligible", "excluded"),
-               "rank:가전·가구_vs_이·미용": ("kdi:가전·가구", "kdi:이·미용")}
+               "rank:가전·가구_vs_이·미용": ("kdiE:가전·가구", "kdiE:이·미용")}
 # 우리 설계·자료에 대응물이 없는 것 — '미구현' 이 아니라 이유를 적는다
 NO_COUNTERPART = {
     "pre_policy_group_gap": "해당없음 — 같은 사람을 두 팔로 돌려 정책 전 격차가 0 이다(설계의 장점)",
@@ -272,7 +275,10 @@ def level_value(metric, sec_off, sec_on, cash_on, aids):
     """(값, 표시단위, 실측과 맞댈 수 있는가)."""
     n = len(aids) or 1
     if metric == "cashback_per_capita":
-        return sum(cash_on[a]["cashback"] for a in aids) / n, "원", True
+        # [2026-10-06] 실측 47,880원은 지급 인원(1,680만 명) 기준이다(계약서 K13 note) — 받은 사람으로 나눈다.
+        # 예전에는 전체 시민으로 나눠 실측 대비 배수가 작게 나왔다(doinggyu 검토 5.3).
+        got = [cash_on[a]["cashback"] for a in aids if cash_on[a]["cashback"] > 0]
+        return (sum(got) / len(got) if got else 0.0), "원", True
     if metric == "cap_reach_rate":
         # 실측은 한도값(원)이고 우리는 도달률(%)이다 — 자가 다르니 단위를 함께 적는다.
         return 100 * sum(1 for a in aids if cash_on[a].get("cap")) / n, "% 도달", False
@@ -624,7 +630,7 @@ def main() -> int:
             month = (tv or 0) / 2.0
             target = month * (wn / 31.0) if wn else month
             ratio = (val / target) if target else None
-            extra = ("실측은 10·11월 두 달 합이다 → 월평균 {:,.0f}원 → 시뮬 기간 {}일로 나누면 "
+            extra = ("받은 사람 1인 기준(실측도 지급 인원 기준). 실측은 10·11월 두 달 합이다 → 월평균 {:,.0f}원 → 시뮬 기간 {}일로 나누면 "
                      "**{:,.0f}원** 과 본다 (배 {})".format(
                          month, wn, target, ("%.2f" % ratio) if ratio is not None else "-"))
             level_extra[iid] = {"truth_month": month, "truth_window": target,
@@ -729,7 +735,7 @@ def main() -> int:
     print("     자 3  실측이 시뮬 95% 구간 안 (방향보다 강하다 — 수준까지 맞았다는 말이다)")
     print()
     both = [r for r in rows if r.get("sign_conf") is not None
-            and r["sign_conf"] >= 0.975 and (r.get("sign_test_p") or 1) < 0.05
+            and r["sign_conf"] >= 0.975 and r.get("sign_test_p") is not None and r["sign_test_p"] < 0.05
             and r.get("status") in ("일치", "불일치")]
     one = [r for r in rows if r.get("status") in ("일치", "불일치") and r not in both]
     for r in both:
@@ -743,7 +749,7 @@ def main() -> int:
         for r in one:
             print("     %-4s %-22s 확실 %.1f%%  p=%s"
                   % (r["id"], r["name"], 100 * (r.get("sign_conf") or 0),
-                     ("%.3f" % r["sign_test_p"]) if r.get("sign_test_p") else "-"))
+                     ("%.3g" % r["sign_test_p"]) if r.get("sign_test_p") is not None else "-"))
 
     print()
     if note_attributed:

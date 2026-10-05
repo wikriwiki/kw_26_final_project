@@ -48,5 +48,8 @@ case $c in
       --control "$S/off.distancing.ledger.jsonl" --control-arm control_hold --roster "$B/roster.json" \
       --start "$START" --end "$POST_END" --json-out "$S/distancing_score.json" > "$S/distancing_score.txt" 2>&1 || rc=1;;
 esac
+# 출력 점검표 — 실측 비교에 쓸 출력이 빠짐없이 나왔는지(1순위). 하나라도 실패면 종료 코드 1.
+python tools/ab3w_check_outputs.py "$B" > "$S/check_outputs.txt" 2>&1 || rc=1
+grep -E "^==|\[실패\]" "$S/check_outputs.txt"
 ls "$S"
 exit $rc

@@ -1,7 +1,7 @@
 {
  "local_url": "http://127.0.0.1:8000",
  "listen_host": "127.0.0.1",
- "listen_port": 30000,
+ "listen_port": 30100,
  "log_path": "/data/gpu_pool/pool_requests.jsonl",
  "remotes": [
   {
@@ -65,13 +65,12 @@
    "capacity": 1.0
   }
  ],
- "local_routing": false,
- "local_max_inflight": 4,
+ "local_routing": true,
  "health_interval": 5.0,
  "health_timeout": 4.0,
  "unhealthy_after": 3,
  "remote_timeout": 900.0,
  "local_timeout": 1800.0,
  "connect_timeout": 5.0,
- "_note": "P013 본런이 A100 을 쓰는 동안: Colab 에만 일을 준다(local_routing false). Colab 이 전부 없을 때·원격 실패 대체만 A100 으로, 동시 4개까지. P013 이 끝나면 local_routing true, local_max_inflight 제거."
+ "_note": "2026-10-06 본런용: A100 도 생성에 참여(local_routing true), 동시 한도 없음. 포트 30100 — llm_client 기본 포트(30000)와 겹치지 않게 옮겼다(주소를 안 준 프로세스가 의도치 않게 중계를 타지 않도록). 실행기는 AB_LLM_BASE_URL=http://127.0.0.1:30100/v1 로 부른다."
 }

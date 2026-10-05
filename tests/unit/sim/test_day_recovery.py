@@ -17,6 +17,10 @@ def output(tmp_path, monkeypatch):
     for key, folder in [('OUT_DIR', tmp_path), ('CHECK_DIR', tmp_path/'check'), ('METRICS_DIR', tmp_path/'metrics')]:
         folder.mkdir(exist_ok=True)
         monkeypatch.setattr(runner, key, folder)
+    # [2026-10-06] 밤 단계는 night_completion.complete_night 로 옮겨졌다. 빈 밤도 write_conversations 를 부르므로
+    # 가짜 DB 시험에서는 그 쓰기만 대신한다(대화 0건). 밤 단계 자체는 test_night_progress.py 가 본다.
+    monkeypatch.setattr(night, 'write_conversations',
+                        lambda day, rows, skipped=None: {'created': len(rows), 'evidence_ref': None})
     return tmp_path
 
 def test_corrupt_metrics_rejected_even_with_stale_done_checkpoint(output, monkeypatch):
@@ -57,7 +61,8 @@ def test_failed_agent_is_retried_without_error_or_duplicate_metric_row(output, m
     @contextmanager
     def session(): yield Partial()
     monkeypatch.setattr(common, 'driver_session', session)
-    with pytest.raises(RuntimeError, match='Night2 failed'):
+    # 그래프에 완료 표지 없는 대화가 있으면 밤을 다시 쓰지 않고 멈춘다(새 밤 단계의 오류 문구).
+    with pytest.raises(RuntimeError, match='Night'):
         runner.run_day(['A'], DAY, 0, workers=1)
     assert calls == ['A', 'A']
     metrics = [json.loads(x) for x in (output/'metrics'/f'day_{DAY}.jsonl').read_text().splitlines()]
@@ -142,8 +147,8 @@ def test_single_pair_is_classified_when_database_empty(monkeypatch):
     def session(): yield Session()
     monkeypatch.setattr(night, 'driver_session', session)
     monkeypatch.setattr(night, 'fetch_pair_data', lambda *args: {('A','B'): {}})
-    monkeypatch.setattr(night, 'classify_intent', lambda *args: {'initiator_id':'A','recipient_id':'B'})
-    monkeypatch.setattr(night, 'write_conversations', lambda day, rows: {'created':len(rows)})
+    monkeypatch.setattr(night, 'classify_intent', lambda *args, **kwargs: {'initiator_id':'A','recipient_id':'B'})
+    monkeypatch.setattr(night, 'write_conversations', lambda day, rows, skipped=None: {'created':len(rows)})
     result = night.run_intent_classification(DAY, [{'a':'A','b':'B'}], workers=1)
     assert result['processed'] == 1
     assert result['write']['created'] == 1
@@ -161,7 +166,7 @@ def test_partial_night_does_not_advance_day(output, monkeypatch):
     @contextmanager
     def session(): yield Partial()
     monkeypatch.setattr(common,'driver_session',session)
-    with pytest.raises(RuntimeError, match='Night2 failed'):
+    with pytest.raises(RuntimeError, match='Night'):
         runner.run_day(['A'], DAY, 0, workers=1)
     assert not (output/f'night2_completed_{DAY}.json').exists()
 
@@ -172,7 +177,8 @@ def test_missing_pair_or_failed_classification_never_writes_partial_night(monkey
     def session(): yield Session()
     monkeypatch.setattr(night, 'driver_session', session)
     monkeypatch.setattr(night, 'fetch_pair_data', lambda *args: {} if missing else {('A','B'): {}})
-    monkeypatch.setattr(night, 'classify_intent', lambda *args: {'error':'injected'})
+    # 금연 실험이 아닌 런: 쌍이 실패하면 건너뛰지 않고 오류를 올린다(그날을 다시 돈다 — 대화가 조용히 빠지지 않는다).
+    monkeypatch.setattr(night, 'classify_intent', lambda *args, **kwargs: {'error':'injected'})
     monkeypatch.setattr(night, 'write_conversations', lambda *args: pytest.fail('partial night written'))
     with pytest.raises(RuntimeError):
         night.run_intent_classification(DAY, [{}], workers=1)

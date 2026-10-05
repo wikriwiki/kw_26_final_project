@@ -120,15 +120,20 @@ def offline_dump(home, dump_dir, bolt_port):
     for name in list(env):
         if any(term in name.upper() for term in ("PASSWORD", "TOKEN", "SECRET", "API_KEY")):
             env.pop(name, None)
-    stopped = False
+    stop_attempted = False
     try:
+        # Mark the attempt first: a stop that fails or times out may still have
+        # stopped the database, and it must never be left down.
+        stop_attempted = True
         run_quiet([str(neo4j), "stop"], env=env, timeout=180)
-        stopped = True
         run_quiet([str(admin), "database", "dump", "neo4j", "--to-path=" + str(dump_dir)],
                   env=env, timeout=3600)
     finally:
-        if stopped:
-            run_quiet([str(neo4j), "start"], env=env, timeout=180)
+        if stop_attempted:
+            try:
+                run_quiet([str(neo4j), "start"], env=env, timeout=180)
+            except (RuntimeError, subprocess.TimeoutExpired):
+                pass   # e.g. it was never stopped; the Bolt check below decides
             deadline = time.monotonic() + 180
             while True:
                 try:
@@ -187,6 +192,27 @@ def checkpoint(day, run_dir, *, partial=False):
     work = root / run_dir.name / (('progress-' + day) if partial else day) / attempt
     work.mkdir(parents=True, mode=0o700)
     archive = work / "run-day.tar.gz"
+    try:
+        _checkpoint_attempt(run_dir, day, partial, manifest, home, config, rclone, remote, attempt, work, archive)
+    except BaseException:
+        discard_uncommitted_payload(work, archive)
+        raise
+
+
+def discard_uncommitted_payload(work, archive):
+    """Drop an uncommitted attempt's multi-GB payload so repeated failures cannot
+    fill the disk. A committed attempt (e.g. the retained Dec-2 branch dump) is kept,
+    and the small JSON files stay for diagnosis."""
+    if (work / "committed.json").exists():
+        return
+    for leftover in (archive, work / "neo4j.dump"):
+        try:
+            leftover.unlink()
+        except FileNotFoundError:
+            pass
+
+
+def _checkpoint_attempt(run_dir, day, partial, manifest, home, config, rclone, remote, attempt, work, archive):
     count = make_archive(run_dir, day, archive, partial=partial)
     port = int(os.environ["BACKUP_NEO4J_BOLT_PORT"])
     require(1024 <= port <= 65535, "Invalid Neo4j port")
