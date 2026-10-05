@@ -124,3 +124,13 @@ def test_all_skipped_transaction_still_writes_night_outbox(monkeypatch):
     result = night.write_conversations(date.fromisoformat(DAY), [], skipped=[{'status':'skipped'}])
     assert result['created'] == 0 and result['evidence_ref'] == {'ref':1}
     assert actions[1]['processed'] == 0 and actions[1]['skipped'] == 1 and actions[-1] == 'commit'
+
+
+def test_night_answer_evidence_ref_is_zero_padded_like_the_live_runtime():
+    import json
+    import night_intent_llm
+    raw = 'note {"intent": "기타", "evidence_ref": "E12", "reason": "r"} trailing'
+    parsed = json.loads(night_intent_llm._extract_first_json(raw))
+    assert parsed["evidence_ref"] == "E0012"
+    kept = json.loads(night_intent_llm._extract_first_json('{"evidence_ref": "E0007"}'))
+    assert kept["evidence_ref"] == "E0007"

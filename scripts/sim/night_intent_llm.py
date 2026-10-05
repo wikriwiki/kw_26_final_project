@@ -48,7 +48,23 @@ from _common import driver_session  # noqa: E402
 from dawn_context import _strip_lifestyle_first_line  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 from prompt_grounding import validate_stated_reason
-from stage1_intent import _number_evidence_lines, _evidence_lines, _extract_json as _extract_first_json
+from stage1_intent import _number_evidence_lines, _evidence_lines, _extract_json as _extract_stage1_json
+
+
+def _extract_first_json(raw):
+    """First JSON object of a grounded Night2 answer, with evidence_ref zero-padded.
+
+    The live v22 run applies this through the night2-recovery runtime layer: the
+    model often writes "E12" for the numbered line "E0012". Folded in here so the
+    repository runs the same logic as the deployed experiment.
+    """
+    parsed = json.loads(_extract_stage1_json(raw))
+    ref = parsed.get("evidence_ref") if isinstance(parsed, dict) else None
+    if isinstance(ref, str) and re.fullmatch(r"E[0-9]+", ref):
+        canonical = "E" + str(int(ref[1:])).zfill(4)
+        if canonical != ref:
+            parsed["evidence_ref"] = canonical
+    return json.dumps(parsed, ensure_ascii=False)
 from no_smoking_prompts import SYSTEM_NIGHT
 
 try:
