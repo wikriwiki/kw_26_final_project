@@ -1,0 +1,59 @@
+# 3주 A/B 실행기(tools/run_ab3w.sh)의 정책별 설정. 실행기가 source 한다 — 직접 실행하지 않는다.
+#
+# 정할 것: START(정책 시작일 = 두 갈래가 갈리는 날), POLICY(정책 있음 쪽에만 넣는 파일, 환경형은 비움),
+# ENV_PRE·ENV_ON·ENV_OFF(사회 배경 ID), LEDGERS(뽑을 원장), CASE_EXPORTS(이 정책에만 필요한 결제 규칙).
+# 결제 규칙은 두 갈래에 똑같이 넣는다 — 정책 없는 쪽에는 지갑이 없어 닿지 않고, 실행 지문이 같아야 짝이 된다.
+# 정책 기간(FROM/UNTIL)은 정책 파일의 effective_from/until 을 그대로 쓴다(실행기가 읽는다).
+#
+# 발표일 효과: 정책은 복제 뒤 정책 있음 쪽에만 들어가므로, 발표~시행 사이의 선반영은 두 갈래 모두 없다
+# (사용자 설계 2026-10-05: 정책 주입 전 1주 공통 → 주입 시점부터 적용/미적용).
+case "$AB_CASE" in
+  p012)
+    # 상생소비지원금(카드 캐시백). 정책 전 주(9월)의 지출은 10월 누적에 섞이지 않는다 — 엔진이 매달 1일에
+    # 월 누적을 0 으로 되돌린다(plan_writer, date($today).day = 1). 7일 창은 문턱·한도를 7/31 로 줄인
+    # 압축월 파일과 짝이다(창과 파일은 함께 움직인다 — 섞으면 문턱이 창에 비해 너무 높아 정책이 사라진다).
+    START=2021-10-01; PID=P012
+    POLICY=data/experiments/P012_v53_compressed7_main_20260929.json
+    [[ $AB_POST_DAYS == 7 ]] || { echo "P012 압축월 파일은 7일 창 전용이다 (AB_POST_DAYS=$AB_POST_DAYS)" >&2; exit 2; }
+    ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
+    LEDGERS="sector cashback"
+    CASE_EXPORTS=();;
+  p013)
+    # 1차 긴급재난지원금(카드 충전). 사람마다 실제 신청·충전 일정대로 받는 날이 다르고(receipt_schedule,
+    # 05-12~06-03), 받은 날부터 정책이 보인다. 카드 충전형이라 사용처 결제에서 자동 차감(EXP_PAYMENT_CHOICE=0,
+    # 하루 인출 상한 없음 EXP_SPREAD_DAYS=1). 지원금 카드로 낸 몫 0.5617 은 전국 5/24 누적 소진율(행안부 M2)에
+    # 맞춘 보정값이다(P013_indicator_contract.json _calibration) — U1 2주차는 독립 검증에서 뺀다.
+    # 1주 창(05-11~05-17)에서 받는 사람은 약 절반이다(일정 비율 0.0956 + 0.5094 x 5/6).
+    START=2020-05-11; PID=P013
+    POLICY=data/experiments/P013_v53_policy_20261003.json
+    ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
+    LEDGERS="sector policy"
+    CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_GRANT_USE=0.5617 EXP_SPREAD_DAYS=1);;
+  p010)
+    # 민생회복 소비쿠폰 1차(2025-07-21 신청·지급 시작). 사회 배경 없음(평시).
+    # 결제 규칙: 신용·체크카드 충전분(수령자의 69.2%, 집행결과 p2)은 사용처 결제에서 자동 차감됐다(정책원문 p3).
+    # 건별 선택(엔진 기본값)은 P013 에서 사용 0.1% 로 정책의 결제 규칙과 달랐다 — 자동 차감으로 둔다.
+    # 쿠폰은 개인 단위라 P013 의 가구 단위 보정(0.5617)은 쓰지 않는다(엔진 기본 1.0). 하루 인출 상한 없음.
+    START=2025-07-21; PID=P010
+    POLICY=data/experiments/P010_v53_policy_20260927.json
+    ENV_PRE=''; ENV_ON=''; ENV_OFF=''
+    LEDGERS="sector policy"
+    CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_SPREAD_DAYS=1);;
+  p016)
+    # 농축산물 할인쿠폰 1차(2020-07-30 시작, 결제 즉시 20%, 1인 누적 1만원). 정답지 C1(대형 유통 5사 신선식품
+    # 매출)의 대리 지표만 잴 수 있다 — 그래프에 대형마트·온라인몰이 없고(실제 쿠폰 사용의 80%), 시뮬의 할인은
+    # 동네 청과·정육·슈퍼·식료품 가게에서만 일어난다. C2·C3 는 정의대로 셀 수 없다(검수 2026-10-05).
+    START=2020-07-30; PID=P016
+    POLICY=data/neo4j_load/policies/P016.json
+    ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
+    LEDGERS="sector"
+    CASE_EXPORTS=();;
+  distancing)
+    echo "거리두기는 정책 없음 쪽 사회 배경(11-23 의 1.5단계 유지)과 규칙 집행(후보 가게 거르기)을 먼저 고쳐야 한다 — 검수 2026-10-05" >&2
+    exit 2;;
+  p014|p015)
+    echo "$AB_CASE 는 지금 실측과 맞댈 수 없다(검수 2026-10-05: P014 할인이 결제에 적용되지 않고 정답지가 서울 밖 연간 자료,
+P015 엔진이 여러 업종 쿠폰을 처리하지 못하고 실측이 농수산물뿐) — 사용자 결정 전에는 돌리지 않는다" >&2
+    exit 2;;
+  *) echo "정책 설정이 없다: $AB_CASE" >&2; exit 2;;
+esac

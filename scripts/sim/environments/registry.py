@@ -14,9 +14,11 @@ from datetime import date
 from typing import Callable
 
 from .covid_2021 import build as _covid_2021
+from .covid_no_distancing import build as _covid_no_distancing
 
 _REGISTRY: dict[str, Callable[[date], dict]] = {
     "covid_2021": _covid_2021,
+    "covid_no_distancing": _covid_no_distancing,
 }
 
 

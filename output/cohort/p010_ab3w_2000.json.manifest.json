@@ -1,0 +1,49 @@
+{
+ "schema": "demographic_matched_cohort_v1",
+ "citizens": 2000,
+ "requested": 2000,
+ "seed": 20261005,
+ "matched_fields": [
+  "sex",
+  "age_band",
+  "admin_dong"
+ ],
+ "income_calibrated": false,
+ "income_note": "후보의 소득이 공식 원자료로 검증되지 않아(income_verified=false) 소득 분포는 맞추지 않았다. 보고서에 명시할 것.",
+ "age_scope": "20세 이상 내국인 주민등록 시민",
+ "out_of_scope_dropped": 798,
+ "not_in_graph_dropped": 303,
+ "eligible_ids": "output/cohort/graph_resident_agents.json",
+ "allocation": "dong_controlled",
+ "margin_error": {
+  "sex": {
+   "F": -2e-05,
+   "M": 2e-05
+  },
+  "age_band": {
+   "20대": -0.00023,
+   "30대": -5e-05,
+   "40대": 0.00033,
+   "50대": -4e-05,
+   "60세 이상": -0.0
+  }
+ },
+ "dong_max_error": 0.004319,
+ "gu_max_error": 0.00029,
+ "empty_dong_population_share": 0.03597,
+ "dongs_with_people": 408,
+ "worst_margin_error": 0.00033,
+ "unfilled_coarse_cells": {},
+ "cross_dong_substitutions": 74,
+ "cross_dong_substitutions_same_gu": 74,
+ "zero_expectation_cells_opened": 0,
+ "frame": {
+  "path": "output/population_matching_20260928/policy_population_targets_P010_202506.json",
+  "sha256": "70c72800430c52587a364669adbfffc40340b022013b0a8b556b53f6bae4f48d"
+ },
+ "candidates": {
+  "path": "output/population_frame_sources_20260928/graph_full_population_code_projection_20260928.json",
+  "sha256": "c6bd2a4fb5e543a6b17dcabf2db07aae6a3716dda672ec9c04f08a58c031b653"
+ },
+ "roster_sha256": "cf71ab1f456d2aa38f49f7e91b2cbd948ff7922ee765a18f0a3df970e180225c"
+}

@@ -54,6 +54,7 @@ RETURN
   a.nvidia_career_goals AS nv_career,
   a.nvidia_skills AS nv_skills,
   a.s_daily_wd AS daily_wd,
+  a.sangsaeng_base_daily AS sangsaeng_base_daily,
   a.cat_ratio_wd AS cat_ratio_wd,
   a.cat_ratio_we AS cat_ratio_we,
   a.s_daily_we AS daily_we,
@@ -225,6 +226,9 @@ RETURN p.id AS poi_id, p.name AS name,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
+       p.upjong_l3 AS upjong_l3,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.name]) AS poi_sub_category,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.parent]) AS poi_l1,
        km
 ORDER BY km ASC, poi_id ASC LIMIT $limit
 """
@@ -243,6 +247,9 @@ RETURN DISTINCT p.id AS poi_id, p.name AS name,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
+       p.upjong_l3 AS upjong_l3,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.name]) AS poi_sub_category,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.parent]) AS poi_l1,
        NULL AS km
 ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
@@ -261,6 +268,9 @@ RETURN DISTINCT p.id AS poi_id, p.name AS name,
        kp.last_visit AS last_visit,
        p.coupon_eligible AS coupon_eligible,
        p.sangsaeng_eligible AS sangsaeng_eligible,
+       p.upjong_l3 AS upjong_l3,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.name]) AS poi_sub_category,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.parent]) AS poi_l1,
        NULL AS km
 ORDER BY known DESC, poi_id ASC LIMIT $limit
 """
@@ -578,10 +588,23 @@ def _format_cashback_status(
         status = f"문턱 초과 {over:,}원 — 현재 기준 예상 캐시백 약 {est:,}원"
         if cap_over and est < cap:
             status += f" (한도 {cap:,}원까지 {cap_over - over:,}원 여지)"
+    # [EXP_SCOPE_FACT] 제도의 산술 한 줄. **행동 방향이 아니라 계산이다.**
+    #
+    # 문턱은 적립업종 지출만 센다(spent_elig 가 그 값이다). 그러므로 제외업종에서
+    # 줄여도 문턱은 한 푼도 가까워지지 않는다 — 제도의 정의에서 바로 나오는 사실이다.
+    # 모델은 이것을 스스로 세우지 못하는 것으로 보인다: 제외업종이 −13.9% 로 움직여
+    # 동등성 밴드를 251% 넘었다(P012-2). 위약에서도 대상 아닌 업종이 함께 빠졌다.
+    #
+    # 무엇을 하라고 말하지 않는다. "줄여도 가까워지지 않는다" 는 문턱 산식의 성질이고,
+    # 제외업종을 늘리라는 뜻이 아니다. 판단은 그대로 에이전트가 한다.
+    scope = ""
+    if os.environ.get("EXP_SCOPE_FACT", "0") == "1":
+        scope = (" | 문턱은 적립업종 지출만 센다 — 제외업종(대형마트·백화점·온라인 등)에서 "
+                 "줄여도 문턱은 가까워지지 않고, 거기서 쓴 돈이 환급을 깎지도 않는다")
     return (
         f"- {pid}: 적립업종 이번달 누적 {spent_elig:,}원 / 2분기 월평균 약 {anchor:,}원 / "
         f"{(ratio-1)*100:.3g}% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
-        f"{status} | 못 넘기면 이번 달 혜택은 사라짐"
+        f"{status}{scope} | 못 넘기면 이번 달 혜택은 사라짐"
     )
 
 
@@ -846,7 +869,15 @@ def _format_policy_status(
             )
         elif ptype == "cashback":
             # 상생소비지원금 — 정책지갑 없음. 개인별 실적 문턱·근접도만 고지(§4.5 ②).
-            lines.append(_format_cashback_status(pid, r, p, st, today))
+            _cb = _format_cashback_status(pid, r, p, st, today)
+            lines.append(_cb)
+            # Stage2 도 쓸 수 있게 남긴다 — **금액을 정하는 것은 Stage2 인데**
+            # 문턱 정보가 Stage1 에만 있었다(experiments/plan_channel/s2_threshold.md).
+            # 새 사실을 만드는 것이 아니라 이미 만든 사실을 한 곳 더 보낸다.
+            try:
+                p["sangsaeng_status_line"] = _cb
+            except TypeError:
+                pass
         elif ptype == "subsidy":
             cap = int(r.get("cap") or 0)
             spent = int(used.get(pid, 0) or 0)
@@ -876,16 +907,23 @@ def _format_policy_status(
         pass
     has_wallet = bool(ptypes & {"grant", "subsidy", "voucher"})
     if has_wallet:
-        # 결제수단 선택은 건별로 에이전트가 정한다(EXP_PAYMENT_CHOICE=1).
+        # P010 BOK 대조 검증을 통과한 문구. 결제수단 선택은 건별로 에이전트가
+        # 정한다(EXP_PAYMENT_CHOICE=1). 수정하면 P010 재현이 깨진다.
+        import os as _os
+        _choice = _os.environ.get("EXP_PAYMENT_CHOICE", "1") not in ("0", "false", "False")
         # [KW26 2026-10-05] 소비를 늘리지 말라는 쪽의 마지막 문장을 뺐다(mechanisms 와 같은 문구).
+        _pay = ("정책 사용처에서 정책지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 본인이 정한다."
+                if _choice else
+                # 자동 차감(P013)은 결제 규칙만 말한다 — mechanisms._PRINCIPLE['wallet_auto'] 와 같다.
+                "정책 사용처에서 이 카드로 결제하면 지원금이 자동으로 먼저 차감되고, 모자란 만큼만 "
+                "본인 돈으로 낸다.")
         lines.append(
             "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
-            "판단한다. 정책 사용처에서 정책지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
-            "본인이 정한다."
+            "판단한다. " + _pay
         )
     else:
-        # cashback류: 정책지갑이 없다. 캐시백은 다음 달에 돌려받는다는 사실만 적는다.
-        # [KW26 2026-10-05] "이번 달 소비 예산을 늘려주지 않는다" 는 방향을 미는 문장이라 뺐다.
+        # cashback류: 정책지갑이 없다. 캐시백은 이번 달에 미리 주는 돈이 아니라
+        # 다음 달에 돌려받는 것 — 지금 소비 예산을 부풀리지 않는다.
         lines.append(
             "- 판단 원칙: 소비 필요·시점·총액·POI는 본인의 평소 습관, 자산, 일정에 따라 "
             "판단한다. 캐시백은 지금 쓸 수 있는 돈이 아니라 다음 달에 돌려받는 것이다."
@@ -1056,11 +1094,15 @@ def _cache_policy(today: date, persona: dict, rows: list[dict]) -> None:
 
 
 def visible_from_receipt(policy: list[dict], aid: str, today: date) -> list[dict]:
-    """[KW26 이식] 지급 일정이 있는 정책은 그 사람이 지원금을 받는 날부터 보인다.
+    """지급 일정이 있는 정책은 그 사람이 지원금을 받는 날부터 보인다.
 
-    일정이 없으면 받는 날 = 시행일이라 지금과 같다. 일정이 있는데 아직 받지 않은 사람에게
-    정책(금액·사용처)이 보이면 지갑은 비어 있는데 정책만 보인다 — P013 파일럿에서 아직 받지 않은
-    사람의 사용처 지출이 +11.4% 였고 2주 효과의 절반이 거기서 나왔다.
+    일시금 정책은 시행일 = 받는 날이라 '정책이 보이는 날 = 돈이 들어오는 날'이었다. 지급 일정
+    (receipt_schedule)으로 사람마다 받는 날을 나누자 이 둘이 어긋났다 — 시행일부터 모든 사람에게
+    정책(금액·사용처 표시)이 보이는데 지갑은 비어 있었다. P013 파일럿 300c 에서 아직 받지 않은
+    사람의 사용처 지출이 +11.4% 였고 2주 효과의 절반이 그들에게서 나왔다(KDI 정답지에는 지급 전
+    선반영이 거의 없다). 발표~시행 전 날들에 정책을 보여 주지 않는 것과 같은 원칙으로, 받기 전에는
+    보여 주지 않는다. 일정이 없는 정책은 받는 날 = 시행일이라 지금과 같다. 관측창 안에 받지 않는
+    사람(일정 비율 합 < 1)에게는 보이지 않는다.
     """
     from plan_writer import _receipt_schedule, as_date as _as_date, grant_receipt_date
     out = []
@@ -1072,6 +1114,16 @@ def visible_from_receipt(policy: list[dict], aid: str, today: date) -> list[dict
         if due is not None and due <= _as_date(today):
             out.append(pol)
     return out
+
+
+def monthly_state_for_today(state: dict, today: date) -> dict:
+    """어제의 월 누적을 오늘 프롬프트에 넣기 전에 달 경계를 반영한다."""
+    if today.day != 1:
+        return state
+    current = dict(state)
+    current["month_spent"] = 0
+    current["sangsaeng_month_spent"] = 0
+    return current
 
 
 def build_dawn_context(
@@ -1099,6 +1151,10 @@ def build_dawn_context(
         started = time.perf_counter()
         state = s.run(STATE_CYPHER, aid=aid, yesterday=yesterday).single()
         state = dict(state) if state else {}
+        # Dawn은 어제 State를 읽는다. 새 달 첫날에는 프롬프트에도 전월 누적을
+        # 이번 달 금액처럼 보이지 않게 한다. Night의 월별 회계 초기화와 짝이다.
+        if today.day == 1 and yesterday.month != today.month:
+            state = monthly_state_for_today(state, today)
         tm["t_state"] = time.perf_counter() - started
 
         started = time.perf_counter()
@@ -1125,7 +1181,7 @@ def build_dawn_context(
         if policy is None:
             policy = [dict(r) for r in s.run(POLICY_CYPHER, aid=aid, today=today)]
             _cache_policy(today, persona, policy)
-        policy = visible_from_receipt(policy, aid, today)   # [KW26] 캐시는 동네 단위 — 사람별로 거른다
+        policy = visible_from_receipt(policy, aid, today)   # 캐시는 동네 단위 — 사람별로 거른다
         tm["t_policy"] = time.perf_counter() - started
 
         started = time.perf_counter()

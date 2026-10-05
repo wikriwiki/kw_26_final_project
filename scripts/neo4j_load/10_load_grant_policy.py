@@ -58,7 +58,7 @@ CALL (p) {
   WHERE d.name = dname OR dname IN ['서울특별시', '서울', '서울시', '전체']
   MERGE (p)-[:applied_to]->(d)
 }
-RETURN p.id AS id
+RETURN p.id AS id, count { (p)-[:applied_to]->() } AS n_applied
 """
 
 
@@ -114,7 +114,19 @@ def main() -> None:
             basis = f"decile_grants={params['decile_grants_json']}"
         else:
             basis = f"income_grants={params['income_grants_json']}"
-        print(f"적재 완료: {r['id']}  (poi_restricted={params['poi_restricted']}, {basis})")
+        # **applied_to 가 0 이면 정책이 아무에게도 안 보인다.** POLICY_CYPHER 가
+        # 에이전트의 동·자치구에 걸린 정책만 돌려주므로, 엣지가 없으면 프롬프트에도
+        # 안 뜨고 지갑도 안 열린다 — 그런데 적재는 "완료" 라고 찍힌다. 조용하다.
+        # p013_ruler 가 12일 × 700명을 돌고 한 푼도 지급하지 않은 사고가 있었고
+        # (원인 미상·재현 불가), 이 수가 찍혔다면 첫날에 알았을 것이다.
+        n_applied = r["n_applied"]
+        print(f"적재 완료: {r['id']}  (poi_restricted={params['poi_restricted']}, {basis}, "
+              f"applied_to={n_applied}개 지역)")
+        if not n_applied:
+            print(f"  ** 거부: {r['id']} 가 어느 지역에도 안 걸렸다 — "
+                  f"target_districts={pol.get('target_districts')!r}")
+            print("     이대로 런을 걸면 정책이 프롬프트에 안 뜨고 지갑도 안 열린다.")
+            sys.exit(2)
 
 
 if __name__ == "__main__":

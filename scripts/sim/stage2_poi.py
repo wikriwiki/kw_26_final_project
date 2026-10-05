@@ -36,6 +36,7 @@ from dawn_context import (  # noqa: E402
     build_stage2_candidates,
     build_stage2_candidates_l1_dong,
     build_stage2_candidates_l1_district,
+    _format_policy_facts, _format_policy_status, _json_dict,
 )
 from stage1_intent import Stage1Output, call_stage1, _extract_json, _number_evidence_lines, _evidence_lines  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
@@ -201,6 +202,13 @@ def fetch_candidates_for_events(
     from collections import defaultdict
     from neo4j_load._common import driver_session
 
+    neutral_rules = None
+    if active_stage2_is_neutral() and persona.get("coupon_poi_restricted"):
+        from eligibility import validated_restricted_rules
+        neutral_rules = validated_restricted_rules(persona.get("poi_eligibility_spec"))
+        if not persona.get("poi_eligible_marker"):
+            raise ValueError("사용처 제한 정책에 eligible_marker가 없습니다")
+
     out: dict[int, list[dict]] = {}
     s = stats if stats is not None else {}
     tm = timing if timing is not None else {}
@@ -315,9 +323,9 @@ def fetch_candidates_for_events(
             _home_gu = str(persona.get("home_dong_code") or "")[:5]
             _same_gu = (bool(_home_gu)
                         and str(dong_code or "")[:5] == _home_gu)
-            _rules = None
+            _rules = neutral_rules
             _spec = persona.get("poi_eligibility_spec")
-            if _spec:
+            if _rules is None and _spec:
                 try:
                     from eligibility import Rules as _ERules
                     _rules = _ERules(_spec)
@@ -330,24 +338,28 @@ def fetch_candidates_for_events(
             # 상생 캐시백 활성 시 적립업종에 [적립] 사실 표시 (정렬 가점 아님 — 표시만)
             sangsaeng_active = bool(persona.get("sangsaeng_active"))
             for c in cands or []:
+                # 판정은 고른 가게 자신의 업종으로 한다 — 상위 업종으로 넓혀 가져온 후보는 계획 업종과 다를 수 있다.
+                _own_sub = c.get("poi_sub_category") or sub_cat
+                _own_l1 = (c.get("poi_l1") or l1) if _own_sub != sub_cat else l1
+                c["poi_sub_category"], c["poi_l1"] = _own_sub, _own_l1
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
                 c["durable_anchor"] = bool(_dur_anchor)
                 # 쿠폰 사용처 판정 — DB 백필값(p.coupon_eligible) 우선, 없으면 룰 fallback
                 if _rules is not None:
-                    el = _rules.eligible(c.get("name"), sub_cat, l1,
+                    el = _rules.eligible(c.get("name"), _own_sub, _own_l1,
                                          c.get("upjong_l3"), _same_gu)[0]
                 else:
                     el = c.get("coupon_eligible")
                     if el is None:
-                        el = is_coupon_eligible(c.get("name"), sub_cat, l1)[0]
+                        el = is_coupon_eligible(c.get("name"), _own_sub, _own_l1)[0]
                 c["coupon_eligible"] = bool(el)
                 # 프롬프트 마커: 정책이 정한 표시. 활성 시에만 표기 (평시 토큰 0)
                 c["coupon_tag"] = _mk if (coupon_active and c["coupon_eligible"]) else ""
                 # 상생 적립 판정 — DB 백필값(p.sangsaeng_eligible) 우선, 없으면 룰 fallback
                 sel = c.get("sangsaeng_eligible")
                 if sel is None:
-                    sel = is_sangsaeng_eligible(c.get("name"), sub_cat, l1)[0]
+                    sel = is_sangsaeng_eligible(c.get("name"), _own_sub, _own_l1)[0]
                 c["sangsaeng_eligible"] = bool(sel)
                 # 프롬프트 마커: 캐시백 활성 시 적립업종만 표기 (평시 토큰 0)
                 c["sangsaeng_tag"] = "[적립]" if (sangsaeng_active and c["sangsaeng_eligible"]) else ""
@@ -401,6 +413,16 @@ def _guess_sub_from_l1(l1: str) -> str | None:
 # =========================================================
 # 프롬프트 빌더
 # =========================================================
+# 적립 문턱을 Stage2 의 금액 판단 자리로 보낼지 — experiments/plan_channel/s2_threshold.md
+EXP_S2_THRESHOLD = os.environ.get("EXP_S2_THRESHOLD", "0") == "1"
+# Stage1 이 붙인 trigger 를 Stage2 이벤트 줄로 넘길지 —
+# experiments/plan_channel/s2_trigger_candidate.md
+# **reasoning 은 안 넘긴다.** 거기엔 "캐시백까지 받겠다" 같은 문장이 있어
+# 방향을 지시하지 않아도 문장 자체가 미는 힘을 갖는다. trigger 는 에이전트가
+# 고른 분류 낱말 하나(policy·lifestyle·appointment·rumor·mood)라 그 위험이 작다.
+EXP_S2_TRIGGER = os.environ.get("EXP_S2_TRIGGER", "0") == "1"
+
+
 SYSTEM_S2 = """당신은 에이전트의 오늘 외출 이벤트에 대해 구체적인 방문 장소(POI)를 결정하고,
 소비 금액과 만족도를 설정하는 Daily Planner Stage 2입니다.
 
@@ -533,6 +555,74 @@ pick_factor enum 정의 (가장 결정적이었던 단일 요인 1개):
 /no_think"""
 
 
+def _build_neutral_stage2_system() -> str:
+    """Preserve the legacy spatial contract while removing its grant assumptions."""
+    start = "**소비액 설정 (actual_spent + policy_spend)**"
+    end = "**만족도 설정 (actual_satisfaction)**"
+    assert SYSTEM_S2.count(start) == SYSTEM_S2.count(end) == 1
+    before, rest = SYSTEM_S2.split(start, 1)
+    _, after = rest.split(end, 1)
+    neutral_money = """**소비액과 정책 결제**
+- 실제 방문·금액·결제수단은 오늘의 필요, 평소 습관, 잔액, 일정, 후보 가격과 정책 블록의 적용 조건을 함께 보고 건별로 정합니다. 정책이 있다는 사실만으로 구매나 방문을 만들지 않습니다.
+- `actual_spent`는 거래 총액(원)입니다. 모든 commerce 이벤트에 양수를 적습니다.
+- `policy_spend`는 별도로 지급된 정책 지갑에서 이 거래에 실제로 사용하기로 한 금액만 `{정책ID: 금액}`으로 적습니다. 그런 지갑이 없거나 쓰지 않으면 null 또는 빈 객체로 적습니다. 나중에 돌려받는 혜택이나 가격 할인액을 정책 지갑 지출로 적지 않습니다.
+- 정책 지갑을 쓴다면 입력에 나온 해당 정책 ID·잔액·사용 자격·장소 조건을 확인합니다. 정책별 사용액은 잔액을 넘지 않고 합계는 `actual_spent`를 넘지 않습니다. 후보의 자격 표시는 그 후보에만 적용합니다.
+- `would_buy_anyway`는 이 정책이 없었어도 오늘 이 구매를 했을지에 대한 건별 판단입니다. `extra_spent`는 같은 조건에서 오늘 쓰지 않았을 것으로 판단한 거래액 부분이며 0 이상 `actual_spent` 이하입니다. 정책과 무관하거나 근거가 없으면 null로 둡니다. 이 두 자기보고값을 먼저 정해 구매·장소를 맞추지 않습니다.
+- `pick_reason`에는 시민의 구체적인 필요·예산·기억·후보 특성과, 실제 관련될 때만 정책 조건을 적습니다. 입력에 없는 사용처나 결과를 만들지 않습니다.
+
+"""
+    text = before + neutral_money + end + after
+    example_start = '## 출력 형식 (JSON만, 다른 텍스트 금지)'
+    example_end = 'pick_factor enum 정의'
+    assert text.count(example_start) == text.count(example_end) == 1
+    prefix, suffix = text.split(example_start, 1)
+    _, tail = suffix.split(example_end, 1)
+    example = """## 출력 형식 (JSON만, 다른 텍스트 금지)
+{"picks": [
+  {"order": 0, "poi_id": "C_xxxxxx", "actual_spent": 12000,
+   "policy_spend": null, "would_buy_anyway": null, "extra_spent": null,
+   "actual_satisfaction": 0.71,
+   "pick_reason": "오늘 필요한 방문에 맞고 가깝고 평소 예산에도 맞음.",
+   "pick_factor": "distance"}
+], "review_lookup_requests": []}
+
+"""
+    return prefix + example + example_end + tail
+
+
+SYSTEM_S2_NEUTRAL = _build_neutral_stage2_system()
+
+
+_AUTO_PAY_OLD = (
+    "- 실제 방문·금액·결제수단은 오늘의 필요, 평소 습관, 잔액, 일정, 후보 가격과 정책 블록의 적용 조건을 "
+    "함께 보고 건별로 정합니다. 정책이 있다는 사실만으로 구매나 방문을 만들지 않습니다.\n")
+_AUTO_PAY_NEW = (
+    "- 실제 방문·금액은 오늘의 필요, 평소 습관, 잔액, 일정, 후보 가격과 정책 블록의 적용 조건을 "
+    "함께 보고 건별로 정합니다. 정책이 있다는 사실만으로 구매나 방문을 만들지 않습니다.\n"
+    "- 결제: 정책 지갑이 있는 시민이 그 지갑의 사용 가능 매장에서 결제하면 지갑에서 자동으로 먼저 "
+    "빠져나가고 모자란 만큼만 본인 돈으로 냅니다. 이 경우 `policy_spend`는 null 로 두어도 됩니다.\n")
+
+
+def active_stage2_system() -> str:
+    """Historical variants keep their original Stage2 prompt byte for byte.
+
+    결제 규칙이 사용처 자동 차감인 정책(EXP_PAYMENT_CHOICE=0)에서는 중립 프롬프트의
+    결제 문장만 그 규칙으로 바꾼다. 기본값에서는 아무것도 바뀌지 않는다.
+    """
+    text = SYSTEM_S2_NEUTRAL if active_stage2_is_neutral() else SYSTEM_S2
+    from mechanisms import payment_choice_mode
+    if not payment_choice_mode() and text is SYSTEM_S2_NEUTRAL:
+        assert text.count(_AUTO_PAY_OLD) == 1
+        text = text.replace(_AUTO_PAY_OLD, _AUTO_PAY_NEW, 1)
+    return text
+
+
+def active_stage2_is_neutral() -> bool:
+    """Use the variant's declared Stage2 contract, not its version label."""
+    from prompts import get
+    return bool(getattr(get(), "STAGE2_NEUTRAL", False))
+
+
 def _format_event_with_candidates(
     i: int, ev, cands: list[dict], recent_poi_ids: set[str] | None = None,
     modeled_prices: bool = False,
@@ -548,11 +638,18 @@ def _format_event_with_candidates(
         anchor_s = f" | 동네 평균단가 ~{anchor:,}원"
     else:
         anchor_s = ""
+    # Stage1 이 왜 이 이벤트를 넣었는지 — 한 낱말만 넘긴다. 새 사실이 아니라
+    # 이미 적힌 값을 다음 단계로 보내는 것이다(s2_trigger_candidate.md).
+    trig_s = ""
+    if EXP_S2_TRIGGER:
+        _t = str(getattr(ev, "trigger", "") or "")
+        if _t and _t != "none":
+            trig_s = f" | 계기:{_t}"
     if modeled_prices:
         anchor_s = anchor_s.replace('동네 평균단가', '모형 참고단가').replace('바꾸려는 물건 시세', '모형 물품 참고단가')
     lines = [
         f"### 이벤트 {i} | {ev.time} | {ev.anchor} | "
-        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}{anchor_s}"
+        f"{ev.category}/{ev.sub_category or _guess_sub_from_l1(ev.category)} | {ev.intent}{trig_s}{anchor_s}"
     ]
     recent = recent_poi_ids or set()
     for c in cands:
@@ -582,6 +679,9 @@ def build_stage2_prompt(
     persona: dict | None = None,
     recent_poi_ids: set[str] | None = None,
     state: dict | None = None,
+    active_policies: list[dict] | None = None,
+    today: date | None = None,
+    neutral: bool = False,
 ) -> str:
     # 페르소나 헤더
     grounded_experiment = bool((persona or {}).get('_no_smoking_prompt'))
@@ -597,6 +697,21 @@ def build_stage2_prompt(
         lifestyle = (persona.get("lifestyle") or "").strip()
         income = persona.get("income") or ""
         budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        # [적립 문턱을 금액 판단 자리로 보낸다] experiments/plan_channel/s2_threshold.md
+        # 금액(actual_spent)은 **여기서** 정해지는데 문턱 정보는 Stage1 에만 있었다.
+        # 새 사실이 아니라 Stage1 이 이미 받은 그 줄을 그대로 옮긴다 — 방향도
+        # 목표 수치도 붙이지 않는다. 받아들이는 방식은 형편에 달렸다고만 적는다.
+        if EXP_S2_THRESHOLD:
+            _ss = (
+                (persona.get("sangsaeng_status_line") or "") if not neutral else ""
+            ).strip().lstrip("- ")
+            if _ss:
+                budget_info += (
+                    "\n적립 정책 상태: " + _ss +
+                    "\n  (돌아오는 돈은 다음 달이므로 오늘 쓸 수 있는 돈이 는 것은 아니다."
+                    " 어차피 할 지출로 문턱이 저절로 넘어가는 사람도, 넘길 일이 없어"
+                    " 신경 쓰지 않는 사람도 있다.)"
+                )
         # 가용 자산 — 가격대(₩~₩₩₩) 선택의 예산 근거
         balance = (state or {}).get("balance")
         if balance is not None:
@@ -626,10 +741,24 @@ def build_stage2_prompt(
             _dur = ""
         header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}{_dur}")
     if persona:
-        # 활성 정책 (grant 위주, LLM이 policy_spend 책정 시 참조)
-        policy_budget = persona.get("policy_budget_summary") or ""
-        if policy_budget:
-            header_parts.append(f"## 활성 정책 (policy_spend 책정 시 참조)\n{policy_budget}")
+        if neutral:
+            policies = active_policies or []
+            status = (
+                _format_policy_status(
+                    policies, policy_used=_json_dict((state or {}).get("policy_used")),
+                    persona=persona, state=state, today=today,
+                ) if policies else "(오늘 적용 정책 없음)"
+            )
+            header_parts.append(
+                "## 오늘 활성 정책 — 공통 사실\n"
+                + _format_policy_facts(policies)
+                + "\n\n## 나에게 적용되는 정책 상태\n" + status
+            )
+        else:
+            # Historical variants retain their original wallet-oriented block.
+            policy_budget = persona.get("policy_budget_summary") or ""
+            if policy_budget:
+                header_parts.append(f"## 활성 정책 (policy_spend 책정 시 참조)\n{policy_budget}")
         from no_smoking_context import configured_context, prompt_for_persona
         smoking_context = prompt_for_persona(persona)
         if smoking_context:
@@ -686,9 +815,9 @@ def call_stage2(
     max_retry: int = 2,
     verbose: bool = False,
     state: dict | None = None,
-    # 기존 프롬프트는 persona 요약 사용; 원본 정책·잔액은 경량 판단 기록에 보존.
+    # v53 reads policy facts from active_policies; older variants keep the legacy summary.
     active_policies: list[dict] | None = None,
-    grant_remaining: dict[str, int] | None = None,
+    grant_remaining: dict[str, int] | None = None,  # noqa: ARG001
     decision_context: DawnContext | None = None,
 ) -> tuple[Stage2Output, dict[int, list[dict]], dict]:
     """Stage 2 LLM 호출. (picks, 사용된 candidates, meta) 반환.
@@ -758,6 +887,11 @@ def call_stage2(
         c["poi_id"]: bool(c.get("coupon_eligible"))
         for cs in cands_by_order.values() for c in cs
     }
+    # POI → (가게 자신의 업종, 그 상위 업종, 가게 이름, 세부업종 코드) — 즉시 할인 판정이 계획 업종이 아니라 이것을 쓴다.
+    poi_cat_by_poi: dict[str, tuple] = {
+        c["poi_id"]: (c.get("poi_sub_category"), c.get("poi_l1"), c.get("name"), c.get("upjong_l3"))
+        for cs in cands_by_order.values() for c in cs
+    }
     timing["t_price_maps"] = time.perf_counter() - started
 
     if not need_llm:
@@ -766,6 +900,7 @@ def call_stage2(
             "skipped": True,
             "price_by_poi": price_by_poi,
             "coupon_by_poi": coupon_by_poi,
+            "poi_cat_by_poi": poi_cat_by_poi,
             "s2_timing": timing_snapshot(),
             **fb_stats,
         }
@@ -789,11 +924,16 @@ def call_stage2(
     timing["t_recent_memory"] = time.perf_counter() - started
 
     started = time.perf_counter()
+    system_prompt = active_stage2_system()
+    neutral_stage2 = active_stage2_is_neutral()
     user_block = build_stage2_prompt(
         stage1.events, cands_by_order,
         persona=persona,
         recent_poi_ids=recent_poi_ids,
         state=state,
+        active_policies=active_policies,
+        today=today,
+        neutral=neutral_stage2,
     )
     if grounded_experiment:
         user_block = _number_evidence_lines(
@@ -925,9 +1065,13 @@ def call_stage2(
     raw = None
     review_lookup_used: dict[str, dict] = {}  # 첨부됐던 lookup 결과 (meta 출력용)
     pre_review_picks: dict[int, str] = {}     # 리뷰 보기 전(1차) 선택 {order: poi_id} — 사고변화 추적
+    prior_output_limited = False
+    total_tokens_in = 0
+    total_tokens_out = 0
     for attempt in range(retry_limit + 1):
         previous_raw = raw
         temp = (0.2 if attempt == 0 else (0.1 if attempt < 3 else 0.3)) if grounded_experiment else 0.7 + 0.1 * attempt
+        token_cap = 3200 if prior_output_limited else 2200
         attempt_started = time.perf_counter()
         attempt_timing: dict[str, float | int | str] = {"attempt": attempt}
         call_kind = "review" if review_lookup_used else ("initial" if attempt == 0 else "retry")
@@ -974,13 +1118,16 @@ def call_stage2(
         elapsed = time.perf_counter() - started
         timing["t_retry_prompt"] += elapsed
         attempt_timing["t_retry_prompt"] = elapsed
+        attempt_timing["max_tokens"] = token_cap
         error_stage = "llm"
+        finish = None
+        tokens_out = 0
         raw = None
         try:
             started = time.perf_counter()
             resp = _llm_call(
                 None, system_prompt, prompt_now,
-                temperature=temp, max_tokens=2400 if grounded_experiment else 1400,
+                temperature=temp, max_tokens=(2400 if grounded_experiment else token_cap),
                 response_format=response_schema,
             )
             elapsed = time.perf_counter() - started
@@ -989,14 +1136,24 @@ def call_stage2(
             timing["n_llm_calls"] += 1
             attempt_timing["t_llm"] = elapsed
             raw = resp.choices[0].message.content
+            finish = getattr(resp.choices[0], "finish_reason", None)
+            attempt_timing["finish_reason"] = finish
             attempt_timing["tokens_in"] = int(getattr(resp.usage, "prompt_tokens", 0) or 0)
-            attempt_timing["tokens_out"] = int(getattr(resp.usage, "completion_tokens", 0) or 0)
+            tokens_out = int(getattr(resp.usage, "completion_tokens", 0) or 0)
+            attempt_timing["tokens_out"] = tokens_out
+            total_tokens_in += attempt_timing["tokens_in"]
+            total_tokens_out += tokens_out
             if verbose:
                 print(f"--- attempt {attempt} (temp={temp}) ---")
                 print(raw[:600])
 
             error_stage = "json_extract"
             started = time.perf_counter()
+            # A length-terminated response can be syntactically valid while
+            # omitting later events. Do not let the missing-pick filler turn
+            # that partial generation into a successful citizen decision.
+            if finish == "length":
+                raise ValueError("Stage2 output reached the generation limit")
             json_str = _extract_json(raw)
             elapsed = time.perf_counter() - started
             timing["t_json_extract"] += elapsed
@@ -1043,7 +1200,14 @@ def call_stage2(
                 if valid_lookup_ids and attempt < max_retry:
                     error_stage = "review_lookup"
                     started = time.perf_counter()
-                    fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    try:
+                        fetched = lookup_reviews_batch(valid_lookup_ids[:8], max_reviews=3)
+                    except Exception as review_error:
+                        # Review is optional. A local SQLite fault is not a
+                        # reason to discard the already valid LLM picks.
+                        fetched = {}
+                        fb_stats["review_lookup_error"] = fb_stats.get("review_lookup_error", 0) + 1
+                        attempt_timing["review_lookup_error_type"] = type(review_error).__name__
                     elapsed = time.perf_counter() - started
                     timing["t_review_lookup"] += elapsed
                     attempt_timing["t_review_lookup"] = elapsed
@@ -1148,9 +1312,12 @@ def call_stage2(
                 i: bool(cs[0].get("durable_anchor")) if cs else False
                 for i, cs in cands_by_order.items()
             }
+            spend_amount_fallbacks = 0
             for pick in parsed.picks:
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
+                    if pick.actual_spent is None or pick.actual_spent <= 0:
+                        spend_amount_fallbacks += 1
                     pb, pf = price_by_poi.get(pick.poi_id) or (None, 1.0)
                     previous_spend = pick.actual_spent
                     _ensure_positive_spend(
@@ -1173,17 +1340,19 @@ def call_stage2(
             meta = {
                 "attempt": attempt,
                 "temp": temp,
-                "tokens_in": resp.usage.prompt_tokens,
-                "tokens_out": resp.usage.completion_tokens,
+                "tokens_in": total_tokens_in,
+                "tokens_out": total_tokens_out,
                 "tokens_in_total": sum(row.get('tokens_in', 0) for row in timing['attempts']),
                 "tokens_out_total": sum(row.get('tokens_out', 0) for row in timing['attempts']),
                 "hallucinations_corrected": hallucinations,
                 "hallucinations_dropped": hallucinations_dropped,
                 "order_mismatch": order_mismatch,
                 "missing_picks_filled": missing_filled,
+                "spend_amount_fallbacks": spend_amount_fallbacks,
                 "spend_imputed": spend_imputed,
                 "price_by_poi": price_by_poi,
                 "coupon_by_poi": coupon_by_poi,
+                "poi_cat_by_poi": poi_cat_by_poi,
                 "review_lookup_count": len(review_lookup_used),
                 # 리뷰 흔적 — 추가 LLM 호출 없이 기존 2-pass 데이터에서 캡처
                 "review_lookup_used": review_lookup_used,   # {poi_id: {rating, rating_count, reviews, category}}
@@ -1217,6 +1386,11 @@ def call_stage2(
                     timing[f"t_llm_{call_kind}"] += elapsed
                     timing["n_llm_calls"] += 1
             last_err = e
+            if error_stage in ("json_extract", "json_parse") and (
+                finish == "length" or tokens_out >= token_cap
+            ):
+                prior_output_limited = True
+                attempt_timing["output_limited"] = True
             attempt_timing["status"] = "error"
             attempt_timing["error_stage"] = error_stage
             attempt_timing["error_type"] = type(e).__name__
@@ -1230,17 +1404,25 @@ def call_stage2(
 
     if grounded_experiment:
         raise RuntimeError(f"Stage2 grounded decision failed after {retry_limit+1} attempts: {last_err}")
-    # 최종 retry 실패: LLM picks 빈 상태에서 candidates 첫 거 강제 fill
-    fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events, cands_by_order, aid=aid)
-    if fallback.picks:
-        meta = {
-            "fallback_only": True,
-            "price_by_poi": price_by_poi,
-            "coupon_by_poi": coupon_by_poi,
-            "last_err": str(last_err)[:200],
-            "s2_timing": timing_snapshot(),
-        }
-        return fallback, cands_by_order, finish_capture(fallback, meta)
+    # Full LLM failure cannot be scored as a citizen choice. The old runner
+    # silently used a top-5 POI fallback (106/500 citizens on P012 Oct16),
+    # making a completed day look valid despite having no Stage2 decision.
+    # Preserve that behavior only when explicitly requested for exploration.
+    if os.environ.get("SIM_ALLOW_STAGE2_FALLBACK") == "1":
+        fallback = _fill_missing_picks(Stage2Output(picks=[]), stage1.events,
+                                       cands_by_order, aid=aid)
+        if fallback.picks:
+            meta = {
+                "fallback_only": True,
+                "price_by_poi": price_by_poi,
+                "coupon_by_poi": coupon_by_poi,
+                "poi_cat_by_poi": poi_cat_by_poi,
+                "last_err": str(last_err)[:200],
+                "tokens_in": total_tokens_in,
+                "tokens_out": total_tokens_out,
+                "s2_timing": timing_snapshot(),
+            }
+            return fallback, cands_by_order, finish_capture(fallback, meta)
     raise RuntimeError(f"Stage2 failed after {max_retry+1} attempts: {last_err}")
 
 
@@ -1275,6 +1457,7 @@ def merge_to_final_events(
     price_by_poi: dict[str, tuple] | None = None,
     coupon_by_poi: dict[str, bool] | None = None,
     review_lookup_used: dict | None = None,
+    poi_cat_by_poi: dict[str, tuple] | None = None,
     pre_review_picks: dict | None = None,
 ) -> list[dict]:
     """Stage 1 + Stage 2 picks → 최종 events with poi_id.
@@ -1344,6 +1527,11 @@ def merge_to_final_events(
             "price_factor": float(_pb[1]) if _pb else 1.0,
             # 쿠폰 사용처 여부 (후보풀 밖 POI(anchor 등)는 None = 판정 불가)
             "coupon_eligible": (coupon_by_poi or {}).get(poi_id) if poi_id else None,
+            # 고른 가게 자신의 업종(후보풀 밖 POI 는 None) — 즉시 할인 판정용
+            "poi_sub_category": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[0] if poi_id else None,
+            "poi_category": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[1] if poi_id else None,
+            "poi_name": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[2] if poi_id else None,
+            "upjong_l3": ((poi_cat_by_poi or {}).get(poi_id) or (None,) * 4)[3] if poi_id else None,
             # 정책별 사용액 dict ({"P009": 5000}) — 분석 시 정책 사용처 추적
             "policy_spend": (pick_obj.policy_spend if pick_obj else None) or {},
             # 지원금 결제건의 "없었어도 했을 지출인가"(참고3 ④ 문항 형태). MPC 산출 입력.
@@ -1383,7 +1571,10 @@ if __name__ == "__main__":
     print(s1.model_dump_json(indent=2))
     print(f"\nmeta: {m1}")
 
-    s2, cands, m2 = call_stage2(args.aid, s1, ctx.persona, today, verbose=args.verbose)
+    s2, cands, m2 = call_stage2(
+        args.aid, s1, ctx.persona, today, verbose=args.verbose,
+        state=ctx.state, active_policies=ctx.policy,
+    )
     print("\n=== Stage 2 ===")
     print(s2.model_dump_json(indent=2))
     print(f"\nmeta: {m2}")

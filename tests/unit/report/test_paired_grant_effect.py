@@ -335,9 +335,13 @@ def test_exporter_writes_audited_ledger_and_manifest(tmp_path, monkeypatch):
         def __exit__(self, *_args):
             pass
 
-        def run(self, query, **_kwargs):
+        def run(self, query, **kwargs):
             if query == exporter.POLICY_QUERY:
                 return [{"policy": {**policy, "decile_grants": "{}"}}]
+            if query == exporter.STATE_QUERY and kwargs["day"] not in days:
+                # 시작일 전날(정책 전): 지급 없음, 월 누적 0
+                return [{"aid": aid, "online_spent": 0, "self_month_cumulative": 0,
+                         "grant_received": None, "grant_remaining": None} for aid in ("a", "b")]
             if query == exporter.STATE_QUERY:
                 return [{"aid": aid, "online_spent": 0,
                          "self_month_cumulative": 0,

@@ -160,12 +160,15 @@ def test_exporter_checks_environment_and_writes_manifest(tmp_path, monkeypatch):
         def __exit__(self, *_args):
             pass
 
-        def run(self, query, **_kwargs):
+        def run(self, query, **kwargs):
             if query == exporter.POLICY_QUERY:
                 return PolicyResult()
             if query == exporter.STATE_QUERY:
+                # 전날(정책 전 주의 마지막 날) 같은 달 누적 50 에서 연다 — 그날 지출 100+20 이 더해져 170.
+                if kwargs["day"] != day:
+                    return [{"aid": "a", "online_spent": 0, "self_month_cumulative": 50}]
                 return [{"aid": "a", "online_spent": 20,
-                         "self_month_cumulative": 120}]
+                         "self_month_cumulative": 170}]
             if query == exporter.SPEND_QUERY:
                 return [spend("a", 100, code="I20101", cat="식사", sub="한식")]
             raise AssertionError("unexpected query")
@@ -178,6 +181,7 @@ def test_exporter_checks_environment_and_writes_manifest(tmp_path, monkeypatch):
     manifest = json.loads((tmp_path / "restricted.jsonl.manifest.json").read_text(
         encoding="utf-8"))
     assert manifest["environment_id"] == "covid_2021"
+    assert manifest["opening_state_day"] == "2020-11-23"
     assert manifest["paired_environment_fingerprint"] == "shared-settings"
     assert manifest["output_sha256"] == hashlib.sha256(out.read_bytes()).hexdigest()
 

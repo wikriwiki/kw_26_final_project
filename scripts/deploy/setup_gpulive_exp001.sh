@@ -125,7 +125,7 @@ s7_llm() {  # EXAONE-4.5-33B-AWQ SGLang TP2 — 다른 모델 자동 폴백 금�
 s8_preflight() {  # 정책 사전점검 + LLM 헬스 (스모크)
   echo "══ s8: preflight ══"
   env_common; cd $REPO
-  python scripts/sim/policy_preflight.py data/neo4j_load/policies/P010.json
+  python scripts/sim/policy_preflight.py --require-db data/neo4j_load/policies/P010.json
   python - <<'PY'
 import sys; sys.path.insert(0, 'scripts/sim')
 from llm_client import call_chat

@@ -55,14 +55,20 @@ from dawn_context import build_dawn_context  # noqa: E402
 from experience import receipts, observation_window, update_appraisals
 import agent_day_store
 from evidence_integrity import money, digest, seal, verify
-from experience_provenance import source_fingerprint, execution_fingerprint, atomic_json
+from experience_provenance import (source_fingerprint, execution_fingerprint,
+                                   paired_environment_fingerprint, atomic_json)
 from environments import build_environment  # noqa: E402
+from mechanisms import poi_restriction  # noqa: E402
 from no_smoking_context import configured_context, begin_llm_scope, clear_llm_scope  # noqa: E402
 
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
 _SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
-from stage1_intent import call_stage1, grant_style_to_use, Stage1Exhausted  # noqa: E402
-from stage2_poi import call_stage2, merge_to_final_events  # noqa: E402
+from stage1_intent import (call_stage1, grant_style_to_use, Stage1Exhausted,  # noqa: E402
+                           SYSTEM_PROMPT as DAWN_SYSTEM_PROMPT)
+from prompts import active_name as active_prompt_name  # noqa: E402
+_ACTIVE_PROMPT_VARIANT = active_prompt_name()
+from stage2_poi import (call_stage2, merge_to_final_events, active_stage2_system,
+                        active_stage2_is_neutral)  # noqa: E402
 from plan_writer import (  # noqa: E402
     write_plan, track_policy_usage,
     night_finalize_yesterday, night_create_state,
@@ -80,7 +86,9 @@ from consumption import (  # noqa: E402
     apply_consumption_model,
     filter_active_grant_balances,
     settle_policy_spend_priority,
+    settled_mpc_measure,
 )
+from instant_discount import active_rate_discounts, settle_instant_discounts  # noqa: E402
 
 
 # Google Drive 동기화 폴더(G:\)는 file write 충돌 위험 → 로컬 디스크 사용
@@ -104,6 +112,32 @@ METRICS_DIR.mkdir(parents=True, exist_ok=True)
 # =========================================================
 # Agent 풀 (시뮬 대상)
 # =========================================================
+def fetch_roster(path: str) -> list[str]:
+    """명부 파일에 적힌 사람만 돌린다 — 표본을 다시 뽑지 않는다.
+
+    `--limit` 은 소비분위 층화표본을 **새로** 뽑는다. 인구 분포에 맞춰 얼린 명부가
+    있을 때 그것을 쓰면 명부가 조용히 버려진다. 그래서 명부는 따로 받고,
+    **그래프에 없거나 거주지가 없는 사람이 하나라도 있으면 멈춘다.**
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    ids = _json.loads(_Path(path).read_text(encoding="utf-8"))
+    if isinstance(ids, dict):
+        ids = list(ids)
+    ids = [str(x) for x in ids]
+    if not ids or len(set(ids)) != len(ids):
+        raise SystemExit("roster is empty or has duplicates: %s" % path)
+    with driver_session() as s:
+        ok = {r["id"] for r in s.run(
+            "MATCH (a:Agent) WHERE a.id IN $ids AND (a)-[:LIVES_AT]->() RETURN a.id AS id",
+            ids=ids)}
+    missing = [x for x in ids if x not in ok]
+    if missing:
+        raise SystemExit("roster has %d agent(s) absent or without a residence; first: %s"
+                         % (len(missing), missing[0]))
+    return sorted(ids)
+
+
 def fetch_agents(limit: int | None = None, gu_only: str | None = None) -> list[str]:
     """시뮬 대상 agent.
 
@@ -213,11 +247,18 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
                     parts.append(f"평소 하루 씀씀이로 약 {max(1, round(rem / _ds))}일치")
             except (TypeError, ValueError):
                 pass
+            from mechanisms import payment_choice_mode as _pcm
+            if _pcm():
+                _pay = ("쓸 수 있는 매장에서 이 지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
+                        "본인이 정하며, policy_spend에 적은 금액이 실제로 이 지갑에서 나간다.")
+            else:
+                # 카드 충전형(자동 차감) — 결제 규칙만 바꿔 말한다. 기본 문구는 그대로다.
+                _pay = ("쓸 수 있는 매장에서 결제하면 이 지갑에서 자동으로 먼저 빠져나가고 "
+                        "모자란 만큼만 본인 돈으로 낸다.")
             lines.append(
                 f"{pid} {name} [정책 지갑] — {' / '.join(parts)}. "
                 "소비 필요·시점·총액·POI는 평소 습관, 자산과 일정에 따라 판단한다. "
-                "쓸 수 있는 매장에서 이 지갑으로 낼지 늘 쓰던 카드로 낼지는 결제 건마다 "
-                "본인이 정하며, policy_spend에 적은 금액이 실제로 이 지갑에서 나간다."
+                + _pay
             )
             continue
         # cashback — 상생소비지원금. 정책지갑 없음(익월 환급). 소비 예산 미증가.
@@ -324,17 +365,25 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         prev_grant_received = _read_state_json(ctx.state, "grant_received")
         income = ctx.persona.get("income") or ctx.persona.get("p_income_level") or ""
         spend_decile = ctx.persona.get("spend_decile")   # 소비 10분위 — grant_key='spend_decile' 정책용
-        # [KW26 이식] 지급 게이트는 plan_writer.grants_to_apply 하나 — 날짜끼리 비교한다.
-        # 예전 `str(today) != eff` 는 effective_from 이 날짜 객체로 오면 조용히 어긋나 0원이 됐다.
+        # 게이트는 plan_writer.grants_to_apply 하나로 모았다 — **예비점검기가 같은
+        # 함수를 부른다.** 인라인이던 시절 `str(today) != eff` 문자열 비교가 타입에
+        # 따라 조용히 어긋났고, 전 분위 280,000원 정책이 한 푼도 지급되지 않은 것을
+        # 몇 달 몰랐다(experiments/plan_channel/P013_evidence_is_weaker.md).
         grants_applied_today = grants_to_apply(
             ctx.policy, today, prev_grant_received, income, spend_decile, aid=aid)
+
+        # 시행일인데 0원이면 **그 자리에서 말한다.** 조용히 지나가면 런이 다 끝나고
+        # 원장을 볼 때에야 알게 되고, 그때는 그래프가 이미 덮여 원인을 못 찾는다.
+        # 실제로 그렇게 됐다 — 12일 × 700명을 돌고 한 푼도 안 나간 것을 몇 달 몰랐다.
         from plan_writer import grant_receipt_date as _grd
         _due = [p for p in (ctx.policy or [])
                 if p.get("type") == "grant"
                 and _grd(p, aid) == as_date(today)
                 and (p.get("id") or "") not in prev_grant_received]
-        if _due and not grants_applied_today:
-            print(f"  !! {aid} {today} 지급일인데 0원 — 정책 {[p.get('id') for p in _due]} "
+        grant_due_but_zero = ([p.get("id") for p in _due]
+                              if (_due and not grants_applied_today) else None)
+        if grant_due_but_zero:
+            print(f"  !! {aid} {today} 지급일인데 0원 — 정책 {grant_due_but_zero} "
                   f"(분위={spend_decile!r} 소득={income!r}) — 지갑이 안 열린다", flush=True)
 
         # grant는 balance에 더하지 않는다 — grant_remaining 독립 지갑으로만 관리(회계 분리).
@@ -378,15 +427,31 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
 
         # 사용처 제한 정책(민생회복 소비쿠폰류, poi_restricted=true) 감지
-        # → 쿠폰 잔액이 있으면 Stage2에 [쿠폰] 사실 표시 + 정책사용 하드검증.
+        # → Stage2 에 사실 표시 + 정책사용 하드검증.
         # 후보 정렬 가점은 POLICY_POI_SORT_BOOST=1인 별도 민감도 실험에서만 활성화한다.
-        restricted_pids = {
-            p["id"] for p in (ctx.policy or [])
-            if p.get("poi_restricted") and grant_avail_today.get(p["id"], 0) > 0
-        }
+        #
+        # 지갑형은 잔액이 있어야 사용처 제한이 의미가 있다. 지갑이 없는 기전
+        # (sector_voucher·price_discount)은 잔액 개념 자체가 없으므로 발효 중이면
+        # 표시한다. 이 조건이 빠져 있어 "[환급] 표시 POI 에서만 사용"이라고 해놓고
+        # 실제로는 아무 POI 에도 표시가 안 붙었다 — 에이전트에게는 자격 있는 가게가
+        # 하나도 없는 셈이라, 위약에서 대상 업종이 오히려 -10.5% 로 줄었다.
+        #
+        # 이 고침은 fc91872 에 있었는데 병합(c47a904)이 조용히 되돌려 놓았다.
+        # 같은 일이 또 일어나지 않도록 판정을 기전 레지스트리로 옮기고
+        # tests/unit/sim/test_poi_restriction_wiring.py 로 못 박는다.
+        restricted_pids, _elig_spec, _elig_marker = poi_restriction(
+            ctx.policy, grant_avail_today)
+        if active_stage2_is_neutral() and len(restricted_pids) > 1:
+            raise ValueError(
+                "중립 Stage2는 사용처 제한 정책을 동시에 하나만 판정할 수 있습니다: "
+                + ", ".join(sorted(restricted_pids))
+            )
         ctx.persona["coupon_poi_restricted"] = bool(restricted_pids)
+        ctx.persona["poi_eligibility_spec"] = _elig_spec
+        ctx.persona["poi_eligible_marker"] = _elig_marker or "[쿠폰]"
         if restricted_pids and ctx.persona.get("policy_budget_summary"):
-            ctx.persona["policy_budget_summary"] += " (사용처 제한: [쿠폰] 표시 매장에서만 사용 가능)"
+            _mk = _elig_marker or "[쿠폰]"
+            ctx.persona["policy_budget_summary"] += f" (사용처 제한: {_mk} 표시 매장에서만 사용 가능)"
 
         # 상생 캐시백(cashback) 활성 여부 — Stage2에 적립업종 [적립] 사실 표시용.
         # 지갑·사용처 하드제한이 아니라 '적립 인정 업종' 표시일 뿐(POLICY_POI_SORT_BOOST=0 유지).
@@ -456,6 +521,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             s1, s2, ctx.persona,
             price_by_poi=m2.get("price_by_poi"),
             coupon_by_poi=m2.get("coupon_by_poi"),
+            poi_cat_by_poi=m2.get("poi_cat_by_poi"),
             review_lookup_used=m2.get("review_lookup_used"),
             pre_review_picks=m2.get("pre_review_picks"),
         )
@@ -483,6 +549,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 })
             elif int(amt) > 0:
                 _unrestricted_wallets[pid] = int(amt)
+        discount_specs = active_rate_discounts(ctx.policy)
+        if discount_specs and grant_avail_today:
+            raise ValueError("동시 지원금·즉시 할인 결제의 중복 적용 규칙이 정의되지 않았다")
+        if discount_specs and os.environ.get("CONSUMPTION_MODEL", "propensity") == "legacy":
+            raise ValueError("즉시 할인 정책에는 할인 후 잔액을 검증하는 propensity 소비모델이 필요하다")
 
         if os.environ.get("CONSUMPTION_MODEL", "propensity") != "legacy":
             _is_weekend = today.weekday() >= 5
@@ -517,7 +588,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 spending_level=ctx.persona.get("spend_decile"),
                 # 캐시백형은 지갑이 없어 총액을 끌어올릴 경로가 소비성향뿐이다.
                 cashback_active=bool(ctx.persona.get("sangsaeng_active")),
-                # [KW26] 평소 계획 기준선(EXP_PLAN_DRIVES_TOTAL)·동네 인정 몫(EXP_ELIGIBLE_CHANNEL)
+                instant_discount_specs=discount_specs,
+                discount_used_before=prev_used_for_budget,
+                # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
                 aid=aid,
                 is_weekend=_is_weekend,
             )
@@ -552,6 +625,29 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             events, policy_remaining=grant_avail_today, restricted_pids=restricted_pids,
         )
 
+        # 소비 모델의 정산 뒤에도 validator가 정책결제액을 줄일 수 있다.
+        # MPC의 분모·분자는 이 최종 결제 원장에서 같은 거래로 다시 계산한다.
+        commerce_events = [e for e in events
+                           if e.get("category") not in {"집", "직장"} and e.get("poi_id")]
+        stage2_amounts = cm_meta.pop("mpc_stage2_amounts", None)
+        if stage2_amounts is None:
+            stage2_amounts = [max(0.0, float(e.get("actual_spent") or 0))
+                              for e in commerce_events]
+        mpc = settled_mpc_measure(commerce_events, stage2_amounts)
+        cm_meta.update({"mpc_new_share": mpc["share"],
+                        "mpc_lower": mpc["lower"], "mpc_upper": mpc["upper"],
+                        "mpc_paid_won": mpc["paid_won"],
+                        "mpc_unresolved_won": mpc["unresolved_won"],
+                        "mpc_coverage": mpc["coverage"]})
+
+        discount_settlement = settle_instant_discounts(
+            commerce_events,
+            [int(e.get("actual_spent") or 0) for e in commerce_events],
+            discount_specs, prev_used_for_budget)
+        if discount_specs:
+            for event, amount in zip(commerce_events, discount_settlement["by_event"]):
+                event["instant_discount"] = amount
+
         # 오늘 거래별 policy_spend 집계 → 정책별 오늘 사용액
         today_policy_spend = aggregate_policy_spend(events)
 
@@ -562,6 +658,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             active_policies=ctx.policy,
             policy_used=prev_policy_used,
         )
+        for pid in discount_settlement["by_pid"]:
+            updated_policy_used[pid] = discount_settlement["used_after"][pid]
 
         # grant_remaining = 어제 잔여 + 오늘 받음 − 오늘 사용 (음수 방지)
         merged_grant_remaining: dict[str, int] = dict(grant_avail_today)
@@ -608,7 +706,6 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 (ctx.state or {}).get("policy_lc"),
                 ctx.policy,
             )
-            # [KW26] 하루 소득 — EXP_DAILY_INCOME 이 없으면 0(현행 그대로). income.py 참조.
             from income import daily_income as _daily_income
             _today_income = _daily_income((cm_meta or {}).get("anchor_total"),
                                           os.environ.get("EXP_DAILY_INCOME"),
@@ -621,6 +718,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 grant_received=merged_grant_received,
                 grant_remaining=merged_grant_remaining,
                 today_policy_spent=sum(today_policy_spend.values()),
+                today_instant_discount=discount_settlement["total"],
                 grant_carry=int((cm_meta or {}).get("grant_carry_out") or 0),
                 grant_plan_days=int((cm_meta or {}).get("grant_plan_days_effective") or 0),
                 # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
@@ -653,10 +751,12 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "experience_version": 2,
                 "source_fingerprint": source_fingerprint(),
                 "execution_fingerprint": execution_fingerprint(),
+                "paired_environment_fingerprint": paired_environment_fingerprint(),
                 "decision_provenance": {"prompt_sha256": m1.get("prompt_sha256"), "model_id": m1.get("model_id")},
                 "experience_run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
                 "experience_group": {k: ctx.persona.get(k) for k in ("income", "job", "life_stage")},
                 "experience_policy_ids": [p["id"] for p in ctx.policy if p.get("id")],
+                "experience_environment_id": _SIM_ENV,
                 "execution_receipts": execution_receipts,
                 "receipt_scope": "all_modeled_offline_commerce_v1",
                 "policy_appraisals": policy_appraisals,
@@ -675,8 +775,17 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "policy_hits": policy_hits,
                 # 정책 사용 트래킹 (옵션 A)
                 "grant_applied_today": sum(grants_applied_today.values()),
+                # 시행일인데 0원이면 정책 id 가 여기 남는다 — 원장만 봐도 잡힌다
+                "grant_due_but_zero": grant_due_but_zero,
                 "grant_expired_today": sum(inactive_grant_remaining.values()),
                 "policy_spend_today": sum(today_policy_spend.values()),
+                "instant_discount_today": discount_settlement["total"],
+                "instant_discount_by_pid": discount_settlement["by_pid"],
+                "instant_discount_eligible_gross": discount_settlement["eligible_gross"],
+                "instant_discount_eligible_gross_basis": discount_settlement[
+                    "eligible_gross_basis"],
+                "instant_discount_product_lines_observed": discount_settlement[
+                    "product_lines_observed"],
                 "grant_remaining_total": sum(merged_grant_remaining.values()),
                 "policy_spend_corrected": policy_spend_corrected,
                 "cm_propensity": cm_meta.get("propensity"),
@@ -696,15 +805,24 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "cm_additional_from_grant": cm_meta.get("additional_from_grant"),
                 "cm_personal_total": cm_meta.get("personal_total"),
                 "cm_anchor_total": cm_meta.get("anchor_total"),
+            "cm_income_today": _today_income,
                 "cm_plan_over_anchor": cm_meta.get("plan_over_anchor"),
                 "cm_propensity_center": cm_meta.get("propensity_center"),
                 "cm_day_multiplier": cm_meta.get("day_multiplier"),
                 "cm_planned_total": cm_meta.get("planned_total"),
+                "cm_plan_ratio": cm_meta.get("plan_ratio"),
+                "cm_plan_baseline": cm_meta.get("plan_baseline"),
+                "cm_plan_channel_on": cm_meta.get("plan_channel_on"),
                 "cm_today_total": cm_meta.get("today_total"),
                 "cm_grant_choice_mode": cm_meta.get("grant_choice_mode"),
                 "cm_grant_choice_share_mean": cm_meta.get("grant_choice_share_mean"),
                 "cm_grant_posture": cm_meta.get("grant_posture"),
                 "cm_mpc_new_share": cm_meta.get("mpc_new_share"),
+                "cm_mpc_lower": cm_meta.get("mpc_lower"),
+                "cm_mpc_upper": cm_meta.get("mpc_upper"),
+                "cm_mpc_paid_won": cm_meta.get("mpc_paid_won"),
+                "cm_mpc_unresolved_won": cm_meta.get("mpc_unresolved_won"),
+                "cm_mpc_coverage": cm_meta.get("mpc_coverage"),
                 "spend_decile": ctx.persona.get("spend_decile"),
                 "cm_mpc_new_share_effective": cm_meta.get("mpc_new_share_effective"),
                 "cm_grant_extra_rate": cm_meta.get("grant_extra_rate"),
@@ -731,6 +849,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "dawn_timing": dict(ctx.dawn_timing),
                 "s2_attempts": (m2.get("attempt", 0) or 0) + 1 if not m2.get("skipped") else 0,
                 "s2_timing": m2.get("s2_timing"),
+                "s2_skipped": bool(m2.get("skipped")),
+                "s2_fallback_only": bool(m2.get("fallback_only")),
+                "review_lookup_errors": m2.get("review_lookup_error", 0),
                 **({"acceleration": m2["acceleration"]} if "acceleration" in m2 else {}),
                 # Stage 2 fallback 카운트 (사후 분석용)
                 "review_lookup_count": m2.get("review_lookup_count", 0),
@@ -743,6 +864,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "fb_hallucinations_dropped": m2.get("hallucinations_dropped", 0),
                 "fb_order_mismatch": m2.get("order_mismatch", 0),
                 "fb_missing_picks_filled": m2.get("missing_picks_filled", 0),
+                "fb_spend_amount_fallbacks": m2.get("spend_amount_fallbacks", 0),
                 # 같은 (dong, sub_cat) 이벤트 후보 풀 분할 (같은 날 반복 방문 차단)
                 "fb_pool_split_groups": m2.get("pool_split_groups", 0),
                 "fb_pool_split_events": m2.get("pool_split_events", 0),
@@ -867,6 +989,8 @@ def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None
             OUT_DIR / "timing" / f"slow_{day_str}.json",
             OUT_DIR / "summary.json",
         ]
+        candidates.extend(sorted((METRICS_DIR / "attempts").glob(
+            f"day_{day_str}_*.jsonl")))
         for src in candidates:
             if not src.exists():
                 continue
@@ -905,7 +1029,7 @@ def _daily_backup(day_str: str, day_summary: dict, agent_ids: list[str]) -> None
 # [KW26 2026-10-05] 한 에이전트-일의 시도 예산과, 예산을 다 써도 건너뛰지 않는 선택.
 # 건너뛰면(skipped) 그 사람의 그날 행동·기억이 비어 다음 날로 넘어간다. EXP_NO_SKIP=1 이면
 # 건너뛰지 않고 그 날을 봉인하지 않은 채 멈춘다 — 예산을 늘려(EXP_AGENT_DAY_MAX_ATTEMPTS)
-# 같은 날을 이어 돌리면 남은 사람만 다시 시도한다. 기본값(6회·건너뜀)은 현행 그대로다.
+# 같은 날을 이어 돌리면 남은 사람만 다시 시도한다. 기본값(6회·건너뜀)은 doinggyu 원래 동작이다.
 AGENT_DAY_MAX_ATTEMPTS = int(os.environ.get("EXP_AGENT_DAY_MAX_ATTEMPTS", "6"))
 NO_SKIP = os.environ.get("EXP_NO_SKIP", "0") == "1"
 
@@ -943,10 +1067,25 @@ def record_skipped_agent_day(aid: str, today: date, attempts: int, last_error: s
 def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> dict:
     if not agents or any(not isinstance(a, str) or not a for a in agents) or len(set(agents)) != len(agents):
         raise ValueError("cohort must contain distinct nonempty agent IDs")
+    if active_prompt_name() != _ACTIVE_PROMPT_VARIANT:
+        raise ValueError("prompt variant changed after the Dawn system prompt was loaded")
     day_str = today.isoformat()
     cohort = {"run_id": os.environ.get("SIM_RUN_ID") or str(OUT_DIR.resolve()),
               "day": day_str, "agent_ids": sorted(agents),
-              "execution_fingerprint": execution_fingerprint()}
+              "environment_id": _SIM_ENV,
+              "prompt_variant": _ACTIVE_PROMPT_VARIANT,
+              "system_prompt_sha256": hashlib.sha256(
+                  DAWN_SYSTEM_PROMPT.encode("utf-8")).hexdigest(),
+              "stage2_system_prompt_sha256": hashlib.sha256(
+                  active_stage2_system().encode("utf-8")).hexdigest(),
+              "execution_fingerprint": execution_fingerprint(),
+              "paired_environment_fingerprint": paired_environment_fingerprint()}
+    from income import preflight_baseline_income
+    income_map = preflight_baseline_income(
+        os.environ.get("EXP_DAILY_INCOME"),
+        os.environ.get("EXP_DAILY_INCOME_MAP"), agents)
+    if income_map:
+        cohort["baseline_income_map_sha256"] = income_map["map_sha256"]
     cohort_path = OUT_DIR / f"cohort_{day_str}.json"
     if cohort_path.exists() and json.loads(cohort_path.read_text(encoding="utf-8")) != cohort:
         raise ValueError("cohort or execution settings changed; refusing to resume")
@@ -960,6 +1099,8 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
     # auditable day. The transactional outbox is checked by process_one.
     done_aids: set[str] = set()
     skipped_aids: set[str] = set()
+    # [KW26] 마지막에 한 사람 한 줄로 정리할 행 — 이어 돌릴 때 이미 봉인된 행도 넣는다.
+    completed_rows: dict[str, dict] = {}
     ok_count = 0
     if metrics_path.exists():
         from day_resume import read_metric_rows
@@ -974,6 +1115,7 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                         or row.get("experience_run_id") != cohort["run_id"]):
                     raise ValueError("Existing daily metrics have a foreign run identity")
             done_aids.add(row["aid"])
+            completed_rows[row["aid"]] = row
             if row["status"] == "skipped":
                 if (row.get("skip_kind") != "failed_after_retries"
                         or row.get("attempts") != AGENT_DAY_MAX_ATTEMPTS or row.get("observed_behavior") is not False):
@@ -1042,6 +1184,7 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                     raise RuntimeError("skipped result persistence failed; reconcile database outbox")
             done_aids.add(aid)
             skipped_aids.add(aid)
+            completed_rows[aid] = skipped
         if not pending:
             break
         fail_list = []
@@ -1070,6 +1213,7 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                             raise ValueError("Duplicate completed agent result")
                         ok_count += 1
                         done_aids.add(res["aid"])
+                        completed_rows[res["aid"]] = res
                     else:
                         fail_list.append(res)
                         attempt_counts[res["aid"]] = min(
@@ -1112,6 +1256,7 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
                 raise RuntimeError("skipped result persistence failed; reconcile database outbox")
         done_aids.add(aid)
         skipped_aids.add(aid)
+        completed_rows[aid] = skipped
     err_count = len(skipped_aids)
 
     try:
@@ -1122,6 +1267,24 @@ def run_day(agents: list[str], today: date, day_idx: int, workers: int = 64) -> 
 
     if done_aids != set(agents):
         raise RuntimeError(f"incomplete agent day {day_str}: terminal receipts are missing")
+
+    # A resumed day appends attempts to the raw metrics file. Preserve that raw
+    # evidence, then publish exactly one committed result per citizen at the
+    # path consumed by reports. Never canonicalize an incomplete day.
+    attempts_dir = METRICS_DIR / "attempts"
+    attempts_dir.mkdir(parents=True, exist_ok=True)
+    raw_snapshot = attempts_dir / f"day_{day_str}_{time.time_ns()}.jsonl"
+    shutil.copy2(metrics_path, raw_snapshot)
+    canonical_tmp = metrics_path.with_name(metrics_path.name + f".tmp.{os.getpid()}")
+    try:
+        with canonical_tmp.open("w", encoding="utf-8") as fp:
+            for aid in sorted(agents):
+                fp.write(json.dumps(completed_rows[aid], ensure_ascii=False) + "\n")
+            fp.flush()
+            os.fsync(fp.fileno())
+        canonical_tmp.replace(metrics_path)
+    finally:
+        canonical_tmp.unlink(missing_ok=True)
 
     agent_elapsed = time.time() - t_start
     print(
@@ -1238,6 +1401,8 @@ def main():
     ap.add_argument("--start", default="2026-05-01", help="시뮬 시작일")
     ap.add_argument("--days", type=int, default=3, help="시뮬 일수")
     ap.add_argument("--limit", type=int, default=None, help="agent 수 제한 (dry-run용)")
+    ap.add_argument("--roster", default=None,
+                    help="명부 파일(JSON 배열). 주면 --limit 대신 이 사람들만 돌린다.")
     ap.add_argument("--gu", default=None, help="자치구 코드 필터 (예: 11680 강남)")
     ap.add_argument("--environment", default=None,
                     help="사회 배경 id (예: covid_2021). 미지정 시 환경 블록 없음")
@@ -1257,7 +1422,19 @@ def main():
         print("[환경] 사회 배경 없음 (프롬프트에 해당 섹션 생략)")
 
     start = date.fromisoformat(args.start)
-    agents = fetch_agents(limit=args.limit, gu_only=args.gu)
+    if args.roster:
+        if args.gu:
+            raise SystemExit("--roster 와 --gu 를 함께 쓸 수 없다")
+        agents = fetch_roster(args.roster)
+    else:
+        agents = fetch_agents(limit=args.limit, gu_only=args.gu)
+    from income import preflight_baseline_income
+    income_map = preflight_baseline_income(
+        os.environ.get("EXP_DAILY_INCOME"),
+        os.environ.get("EXP_DAILY_INCOME_MAP"), agents)
+    if income_map:
+        print(f"[예산] 정책 전 고정 보충액 {income_map['citizens']}명 "
+              f"map_sha256={income_map['map_sha256']}")
     print(f"=== 시뮬 시작 ===")
     print(f"  agents: {len(agents)}, days: {args.days}, start: {start}, workers: {args.workers}")
     print(f"  output: {OUT_DIR}")

@@ -17,17 +17,23 @@ def source_fingerprint():
     return digest({p.relative_to(root).as_posix(): p.read_text(encoding='utf-8') for p in paths})
 
 
+def _settings():
+    # All EXP_* settings can alter a citizen's state or decisions. A fixed
+    # shortlist silently omitted income, the cashback base ratio and the
+    # plan-to-total switch; a resumed run could then mix two experiments.
+    settings = {k: v for k, v in os.environ.items() if k.startswith('EXP_')}
+    for key in ('LLM_MODE', 'LLM_BASE_URL', 'SIM_ENVIRONMENT',
+                'SIM_PROMPT_VARIANT', 'CONSUMPTION_MODEL',
+                'POLICY_BACKTEST_DETERMINISTIC', 'POLICY_POI_SORT_BOOST',
+                'SIM_ALLOW_STAGE2_FALLBACK', 'PYTHONHASHSEED',
+                # doinggyu 엔진이 지문에 넣던 설정(인터뷰 근거·토큰 상한·문맥 길이)
+                'SIM_INTERVIEW_EVIDENCE', 'SIM_PROMPT_TOKEN_GUARD', 'SIM_MODEL_CONTEXT_LENGTH'):
+        settings[key] = os.environ.get(key)
+    return settings
+
+
 def execution_fingerprint():
-    settings = ('LLM_MODE','SIM_ENVIRONMENT','SIM_PROMPT_VARIANT','CONSUMPTION_MODEL',
-                'EXP_PAYMENT_CHOICE','EXP_ELIGIBLE_SHARE','EXP_GRANT_USE',
-                'POLICY_BACKTEST_DETERMINISTIC','SIM_INTERVIEW_EVIDENCE',
-                'SIM_PROMPT_TOKEN_GUARD','SIM_MODEL_CONTEXT_LENGTH')
-    values = {k:os.environ.get(k) for k in settings}
-    # [KW26 2026-10-05] 모든 EXP_* 설정을 지문에 넣는다. 정해 둔 몇 개만 보면 계획 반영·인정 업종 몫·
-    # 하루 소득·월 경계·건너뛰기 설정이 바뀐 채 이어 돌려도 거부하지 않아 두 실험이 섞인다.
-    # 켜 둔 EXP_* 가 없으면 지문은 예전과 같다.
-    values.update({k: v for k, v in os.environ.items() if k.startswith('EXP_') and k not in values})
-    result = {'source':source_fingerprint(), 'settings':values}
+    result = {'source': source_fingerprint(), 'settings': _settings()}
     from no_smoking_context import configured_context
     smoking_runtime = configured_context()
     if smoking_runtime:
@@ -36,6 +42,13 @@ def execution_fingerprint():
                                'manifest_sha256': smoking_runtime.manifest_sha256,
                                'tokenizer_manifest_sha256': hashlib.sha256(MANIFEST.read_bytes()).hexdigest()}
     return digest(result)
+
+
+def paired_environment_fingerprint():
+    """Pair two runs whose sole intended setting difference is environment ID."""
+    settings = _settings()
+    settings.pop('SIM_ENVIRONMENT', None)
+    return digest({'source': source_fingerprint(), 'settings': settings})
 
 
 def atomic_json(path, value):

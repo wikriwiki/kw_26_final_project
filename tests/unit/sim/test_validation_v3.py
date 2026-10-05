@@ -1,6 +1,7 @@
 import importlib.util
 import json
 from pathlib import Path
+import pytest
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location("validate_prompt_v3", ROOT / "scripts/sim/validate_prompt_v3.py")
@@ -35,6 +36,23 @@ def test_incomplete_experiment_cannot_pass_gate():
     config=json.loads((ROOT/"data/experiments/validation_v3.json").read_text(encoding="utf-8"))
     result=pilot.summarize([], config)
     assert all(not v["rollout_gate_pass"] for v in result["variants"].values())
+
+
+def test_frozen_pilot_rejects_source_and_prompt_drift(tmp_path):
+    source = tmp_path / 'scripts/sim/runner.py'
+    source.parent.mkdir(parents=True)
+    source.write_text('original', encoding='utf-8')
+    inputs = {'systems': {'v': 'original prompt'}}
+    manifest = {'source_hashes': pilot.source_hashes(tmp_path),
+                'system_hashes': {'v': pilot.digest('original prompt')}}
+    pilot.verify_frozen_sources(manifest, inputs, tmp_path)
+    source.write_text('modified', encoding='utf-8')
+    with pytest.raises(ValueError, match='source inventory'):
+        pilot.verify_frozen_sources(manifest, inputs, tmp_path)
+    source.write_text('original', encoding='utf-8')
+    inputs['systems']['v'] = 'modified prompt'
+    with pytest.raises(ValueError, match='candidate text'):
+        pilot.verify_frozen_sources(manifest, inputs, tmp_path)
 
 
 def test_v10_has_no_fixed_policy_facts_or_historical_effect_targets():

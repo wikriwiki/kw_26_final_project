@@ -11,7 +11,7 @@ import json
 import os
 import sys
 from collections import defaultdict
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -286,9 +286,20 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
     tmp = out.with_name(out.name + f".tmp.{os.getpid()}")
     previous_receipts: dict[str, int] = {}
     previous_self_spend: dict[str, tuple[str, int]] = {}
+    opening_day = (date.fromisoformat(days[0]) - timedelta(days=1)).isoformat()
     try:
         with driver_session() as session, tmp.open("w", encoding="utf-8") as stream:
             verify_graph_policy([dict(r) for r in session.run(POLICY_QUERY)], arm, policy)
+            # [2026-10-05] 시작일 전날 State 에서 월 누적·지급 누적을 연다(정책 전 주가 같은 달일 수 있다).
+            for state in session.run(STATE_QUERY, day=opening_day, aids=roster):
+                state = dict(state)
+                previous_self_spend[state["aid"]] = (opening_day[:7], state["self_month_cumulative"])
+                previous_receipts[state["aid"]] = _policy_amount(state.get("grant_received"), policy_id)
+            if set(previous_self_spend) != set(roster) or any(
+                    isinstance(v, bool) or not isinstance(v, int) or v < 0
+                    for _, v in previous_self_spend.values()):
+                raise ValueError(f"opening State missing or invalid on {opening_day} — "
+                                 "the day before the export start must exist for every citizen")
             for day in days:
                 states = [dict(r) for r in session.run(STATE_QUERY, day=day, aids=roster)]
                 spends = [dict(r) for r in session.run(SPEND_QUERY, day=day, aids=roster)]
@@ -314,6 +325,7 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str,
         "quality_gate_pass": audit["quality_gate_pass"],
         "unrepaired_choice_trace_pass": audit["unrepaired_choice_trace_pass"],
         "generation_totals": audit["totals"], **cohort,
+        "opening_state_day": opening_day,
         "citizens": len(roster), "days": len(days),
         "rows": len(roster) * len(days), "output_sha256": output_sha,
     }

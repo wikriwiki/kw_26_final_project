@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+from datetime import date, timedelta
 import json
 import os
 import sys
@@ -194,10 +195,19 @@ def export(*, roster: list[str], days: list[str], arm: str, metrics_dir: Path,
     out.parent.mkdir(parents=True, exist_ok=True)
     tmp = out.with_name(out.name + f".tmp.{os.getpid()}")
     previous: dict[str, tuple[str, int]] = {}
+    opening_day = (date.fromisoformat(days[0]) - timedelta(days=1)).isoformat()
     try:
         with driver_session() as session, tmp.open("w", encoding="utf-8") as stream:
             if session.run(POLICY_QUERY).single()["n"] != 0:
                 raise ValueError("distancing graph contains a Policy node")
+            # [2026-10-05] 시작일 전날 State 에서 월 누적을 연다(정책 전 주가 같은 달이다).
+            for state in session.run(STATE_QUERY, day=opening_day, aids=roster):
+                state = dict(state)
+                previous[state["aid"]] = (opening_day[:7], _money(
+                    state.get("self_month_cumulative"), f"opening month_spent {state['aid']} {opening_day}"))
+            if set(previous) != set(roster):
+                raise ValueError(f"opening State missing on {opening_day} — "
+                                 "the day before the export start must exist for every citizen")
             for day in days:
                 states = [dict(row) for row in session.run(STATE_QUERY, day=day, aids=roster)]
                 spends = [dict(row) for row in session.run(SPEND_QUERY, day=day, aids=roster)]
@@ -219,6 +229,7 @@ def export(*, roster: list[str], days: list[str], arm: str, metrics_dir: Path,
         "output_sha256": output_sha, "quality_gate_pass": audit["quality_gate_pass"],
         "unrepaired_choice_trace_pass": audit["unrepaired_choice_trace_pass"],
         "generation_totals": audit["totals"], **cohort,
+        "opening_state_day": opening_day,
     }
     manifest_path = out.with_name(out.name + ".manifest.json")
     manifest_tmp = manifest_path.with_name(manifest_path.name + f".tmp.{os.getpid()}")

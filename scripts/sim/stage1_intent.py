@@ -507,7 +507,7 @@ def call_stage1(
             attempt_timing["t_llm"] = elapsed
             raw = resp.choices[0].message.content
             last_raw = raw
-            finish = resp.choices[0].finish_reason
+            finish = getattr(resp.choices[0], "finish_reason", None)
             tokens_in = int(getattr(resp.usage, "prompt_tokens", 0) or 0)
             tokens_out = int(getattr(resp.usage, "completion_tokens", 0) or 0)
             total_tokens_in += tokens_in
@@ -530,15 +530,23 @@ def call_stage1(
             try:
                 data = json.loads(json_str)
             except json.JSONDecodeError:
-                # Midm AWQ 특유 실수: `sub_category: "한식"` 처럼 key 앞 큰따옴표 누락 자동 보정
-                import re as _re
-                fixed = _re.sub(
-                    r'(?<=[,\{\s\n])([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)',
-                    r'"\1"\2', json_str
-                )
-                # 이미 큰따옴표로 감싸진 key는 이중 보정 방지
-                fixed = _re.sub(r'""([a-zA-Z_][a-zA-Z0-9_]*)""', r'"\1"', fixed)
-                data = json.loads(fixed)
+                # [뒤에 덧붙인 말을 버린다]
+                # 모델이 완전한 JSON 을 낸 뒤 설명이나 두 번째 객체를 덧붙이면
+                # "Extra data: line N" 으로 죽는다. 라이브에서 같은 시민이 이 이유로
+                # 사흘 연속 실패해 하루치를 세 번씩 다시 돌렸다(벽시계 2배).
+                # 첫 객체만 읽는다 — **모델의 판단을 바꾸지 않고** 덧붙인 말만 버린다.
+                try:
+                    data = json.JSONDecoder().raw_decode(json_str.lstrip())[0]
+                except json.JSONDecodeError:
+                    # Midm AWQ 특유 실수: `sub_category: "한식"` 처럼 key 앞 큰따옴표 누락 자동 보정
+                    import re as _re
+                    fixed = _re.sub(
+                        r'(?<=[,\{\s\n])([a-zA-Z_][a-zA-Z0-9_]*)(\s*:)',
+                        r'"\1"\2', json_str
+                    )
+                    # 이미 큰따옴표로 감싸진 key는 이중 보정 방지
+                    fixed = _re.sub(r'""([a-zA-Z_][a-zA-Z0-9_]*)""', r'"\1"', fixed)
+                    data = json.loads(fixed)
             elapsed = time.perf_counter() - started
             timing["t_json_parse"] += elapsed
             attempt_timing["t_json_parse"] = elapsed

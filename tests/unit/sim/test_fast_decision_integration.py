@@ -235,6 +235,8 @@ def test_review_second_pass_finishes_capture_once_with_review_evidence(monkeypat
 
 def test_teacher_fallback_is_captured_and_marked_without_student_replacement(monkeypatch, isolated):
     monkeypatch.setenv("SIM_FAST_MODE", "record")
+    # 대체 선택은 명시적으로 허용할 때만 쓴다(기본은 실패를 올려 같은 날 다시 시도).
+    monkeypatch.setenv("SIM_ALLOW_STAGE2_FALLBACK", "1")
     finished = []
 
     class Capture:

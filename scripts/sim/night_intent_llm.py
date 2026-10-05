@@ -42,9 +42,13 @@ try:
 except Exception:
     pass
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from _common import driver_session  # noqa: E402
+# `_common` 이라는 이름의 모듈이 저장소에 둘 있다 (neo4j_load, persona). 짧은 이름으로
+# 받으면 먼저 import 된 쪽이 sys.modules 에 남아 이긴다 — 페르소나 테스트가 앞서 돌면
+# 이 줄이 엉뚱한 모듈을 집어 9개 테스트가 수집조차 안 됐다. run_simulation 과 같은
+# 명시적 형태로 받는다.
+from neo4j_load._common import driver_session  # noqa: E402
 from dawn_context import _strip_lifestyle_first_line  # noqa: E402
 from llm_client import call_chat as _llm_call  # noqa: E402
 from prompt_grounding import validate_stated_reason
@@ -502,14 +506,20 @@ def _classify_intent(pair_key: tuple[str, str], data: dict, max_retry: int = 2) 
                 data_json['evidence_quote'] = evidence_lines[ref]
                 validate_stated_reason(data_json, user)
             parsed = IntentOutput.model_validate(data_json)
-            if (parsed.initiator_id, parsed.recipient_id) != pair_key:
-                raise ValueError('Night response changed the matched participants')
+            # [기본키는 입력에서 쓴다 — 모델에게 베끼게 하지 않는다]
+            # 긴 id 를 하루 1,500번 넘게 베끼면 가끔 한 글자가 틀리고, 그 행은 적재
+            # MATCH 에서 조용히 사라져 하루가 버려졌다(3,000명 런 세 번 연속).
+            # 쌍은 이미 안다 — 판단만 모델에서 받고, 베끼기가 틀린 횟수는 센다.
+            aid_a, aid_b = pair_key
+            echo_ok = (parsed.initiator_id == aid_a and parsed.recipient_id == aid_b)
             if parsed.intent != '약속' and parsed.plan_signal.should_inject:
                 raise ValueError('Only an appointment can inject a future plan')
             return {
                 "intent": parsed.intent,
-                "initiator_id": parsed.initiator_id,
-                "recipient_id": parsed.recipient_id,
+                "initiator_id": aid_a,
+                "recipient_id": aid_b,
+                "id_echo_ok": echo_ok,
+                "id_echo_raw": None if echo_ok else [parsed.initiator_id, parsed.recipient_id],
                 "topic_type": parsed.topic_type,
                 "topic_value": parsed.topic_value,
                 "should_inject": parsed.plan_signal.should_inject,
@@ -841,8 +851,11 @@ def run_intent_classification(
         evidence_ref = write_stats['evidence_ref']
     if verbose:
         print(f"[Intent] adapted: {write_stats}")
+    echo_bad = [r for r in ok if r.get("id_echo_ok") is False]
     return {"processed": len(ok), "errors": len(err),
             "write": write_stats, "elapsed": time.time()-t0,
+            "id_echo_mismatch": len(echo_bad),
+            "id_echo_examples": [r.get("id_echo_raw") for r in echo_bad[:3]],
             "samples": ok[:5], "evidence_ref": evidence_ref}
 
 
