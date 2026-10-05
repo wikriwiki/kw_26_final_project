@@ -77,3 +77,28 @@
 - **미검증/실패한 것:** Colab 세션이 09:25 UTC에 유휴로 끊겼다(실행 중 셀이 없었음 — 상태 루프 셀 안내 누락). 그래서 **두 GPU로 본 실험을 실제 처리한 구간은 아직 0**이고 합산 가속·오류율·Colab 종료 시 in-flight 복귀는 본 실험에서 미측정(프록시 단위 시험만 통과). 교체 후 요청 32건 전부 local, request_failed 0.
 - **운영 중 실수:** Vast `authorized_keys` 끝에 개행이 없어 제한 키가 기존 키 줄에 붙었다가 백업(`authorized_keys.bak-gpu-pool-20260930T071054Z`)에서 복원 후 재등록(기존 키 접속 확인).
 - **다음:** 사용자가 Colab을 다시 실행(상태 루프 셀을 계속 실행) → 터널 재연결 시 프록시가 identity 재검증 후 자동 투입. 그 뒤 백엔드별 처리량·fallback·날짜 소요시간을 측정해 기록. `runtime_changes/`에 gpu-pool 층 tarball·기록 추가, `No_SmokingZone_EXP`의 HANDOFF·`ACTIVE_DEPLOYMENT.json` 반영(이 세션은 그 워크트리에 쓸 수 없음). Codex `vast-drive` 감시에 새 복구기 경로 전달. 남은 위험: 프록시 프로세스 사망 시 1~2초간 in-flight 요청 실패(시도 1회 소모), post 전환 시 디스크 10GB 조건(pre pair 6.7GB 삭제 후 확보 예상, 미검증).
+
+## 10. 사용자 결정과 실측 갱신 (2026-10-01 00:2x KST)
+- **결정: "OFF/ON에서도 두 GPU 섞어서 돌려".** 설정 변경 없음(현재 프록시·런타임 층이 post-off/post-on에도 그대로 적용된다). `DISABLED` 플래그를 만들지 않는다. 요청별 처리 서버 기록으로 arm별 GPU 비율을 사후 점검할 수 있다.
+- Colab 재투입 11:30 UTC 이후 끊김 없음(15:22 UTC 기준), fallback 0, request_failed 0, 누적 요청 local 1,145 / colab 2,078.
+- 하루 단위 실측: Day8 `2017-11-26`(Vast 단독) agent 32,635s + Night2 2,514s = 35,150s. Day9 `2017-11-27`(교체 후 1,028명, 초반 약 25분은 Vast 단독) agent 13,216s + Night2 1,059s = 14,275s, ok 1,149 / skipped 5. Day9 완료 백업 Drive 검증 15:14:52 UTC.
+- 처리량: 풀 적용 구간 약 300명/시간(이전 120~127명/시간).
+- 관측: 백업 직후 Neo4j `defunct connection`으로 Day10 첫 시도 1건 실패(기존에도 12회 있던 현상, 재시도로 처리).
+- 세션 내 1시간 모니터링: `/workspace/no-smoking-gpu-pool/pool_monitor.py`(읽기 전용)를 매시 37분 실행.
+
+## 11. 디스크 정리 (2026-10-01 05:0x~05:43 UTC, 사용자 승인 "그래")
+- 이유: OFF/ON 전환 후 여유 약 6GB + 하루 0.4~0.6GB 증가 → post 도중 디스크 고갈 예상.
+- `/root/.cache/pip` 5.1GB 삭제(캐시).
+- 이전 시도 DB `no-smoking-neo4j-main-v15`, `-v17`(정지 상태)을 `deploy/gpu_pool/retire_old_pairs.py`로 arm별 오프라인 덤프 → Drive `no_smoking_drive:No_SmokingZone_EXP_Backups/retired/neo4j-main-v1{5,7}/{off,on}/neo4j.dump` 업로드·MD5 검증 → 두 arm 모두 검증 후 폴더 삭제. 영수증: 서버 `/workspace/no-smoking-checkpoints/retired-pairs/main-v1{5,7}.json`(Drive에도 업로드), 로그 `/workspace/no-smoking-results/retire-old-pairs.log`.
+  - v15 off 789,595,101B sha256 `84018be787600d4c671355a391e10769b3fb4b3c38f0f72b872ef03dfd39d8a9`; on 841,287,255B `03f3bcc5604bac7b3a4bb19a86577db9b673ff5d1a3ec798f0cfaafc7d9700da`
+  - v17 off 782,110,152B `7a60c23a03bdc1ffc19abe952cd4b28edd4c50c539121b1401317ae347c2576b`; on 841,287,171B `c9feb2793ff9bf5ea4441820c239bd7a57eee8539f78282511f54fe3ab85bb4c`
+- 결과: `/workspace` 여유 7GB → **30GB**. 실험 프로세스·현재 pre DB·모델 캐시·체크포인트는 건드리지 않음.
+- **주의(발견):** v17/off에 9-23 비정상 종료로 남은 `run/neo4j.pid`(29170)가 현재 simulator의 스레드 ID와 겹쳐 `neo4j status`가 "running"으로 오판했다. 이 상태에서 `neo4j stop`을 호출하면 실험 프로세스를 죽일 수 있다. 정리 스크립트는 pid 파일 대신 실제 JVM(argv[0]=java)의 경로 참조로 판정하고 `neo4j stop`을 호출하지 않는다. 다른 오래된 Neo4j 홈을 다룰 때도 같은 주의가 필요하다.
+
+## 12. 두 번째 Vast 인스턴스 (2026-10-05, 사용자 대여)
+- 인스턴스 `54298237`, L40S, $0.562/h, **기존 `52220534`와 같은 물리 머신 27249**(같은 공인 IP, SSH 포트 44660). 이미지 동일(`pytorch/pytorch@sha256:39236c0a…`), 드라이버 570.133.20, Python 3.11.14, nvcc 12.8 — 기존과 같음.
+- 설치: `/workspace/gpu-worker/setup.sh`(= `deploy/gpu_pool/vast_worker_setup.sh`)로 freeze `--no-deps` 설치 + 모델 revision 다운로드(10:38 UTC 완료). **추가로 `libnuma1 2.0.14-3ubuntu2`(기존 서버와 같은 버전) apt 설치가 필요했다**(없으면 `sgl_kernel` import 실패).
+- 실행: `/workspace/gpu-worker/keeper.sh`(= `deploy/gpu_pool/vast_worker_keeper.sh`)가 기존 서버의 recorded argv 그대로(mem 0.88, 포트 8000) SGLang을 유지하고 역방향 터널 `127.0.0.1:18003`을 연다. 같은 머신이라 공인 IP 헤어핀이 막혀 **내부 주소 `172.17.0.8:22`**로 접속(HostKeyAlias로 기존 호스트키 고정). keeper의 flock fd가 자식에게 상속돼 재기동이 막혔던 문제를 `9>&-`로 수정.
+- 검증: 기존 서버에서 `127.0.0.1:18003` identity diff **NONE**, KV 86,671 토큰(기존과 동일). 소량 시험(입력 6,567토큰, 동시 4, 워밍업 후) 합계 약 80 tok/s, 요청당 21.3 tok/s(같은 프롬프트라 prefix 캐시 영향 가능 — 실측은 본 실험에서).
+- **발견: 기존 서버 `/root/.ssh/authorized_keys`가 2026-10-01 21:12 UTC에 계정 키 1줄로 재작성돼 제한 키가 사라져 있었다**(Vast 키 동기화로 추정). 그 이후 Colab도 재접속 불가였다. 10-05 11:06 UTC 백업 후 같은 제한 옵션으로 재등록, 기본 키 접속·셸 차단 확인. 재발 가능 → 모니터링 시 확인 필요.
+- 프록시 등록: `reload_proxy_when_idle.sh config.v3-vast2.json`을 11:08:47 UTC에 예약(백업 중 + 전 백엔드 inflight 0 3회 확인 시에만 재시작). remotes에 `vast2-l40s`(18003, capacity 1.0) 추가. 로그 `…-gpu-pool-reload.log`.

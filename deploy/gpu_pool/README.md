@@ -121,9 +121,17 @@ python deploy/gpu_pool/build_colab_notebook.py                   # 노트북 다
 python deploy/vast/runtime_hotfix_v22_gpu_pool/build_manifest.py # 층 manifest·해시 다시 생성
 ```
 
+## 두 번째 Vast 워커 (2026-10-05 추가)
+
+Colab의 24시간 한도·컴퓨팅 단위 제약 없이 상시 쓰는 보조 GPU. 같은 이미지·드라이버의 L40S 인스턴스에 [`vast_worker_setup.sh`](vast_worker_setup.sh)로 같은 패키지·모델을 설치하고, [`vast_worker_keeper.sh`](vast_worker_keeper.sh)가 기존 서버와 같은 인자로 SGLang을 유지하며 역방향 터널(`127.0.0.1:18003`)을 연다. 프록시에는 `vast2-l40s`(capacity 1.0)로 등록하며, 설정 교체는 [`reload_proxy_when_idle.sh`](reload_proxy_when_idle.sh)로 **백업 중·진행 요청 0건일 때만** 프록시를 재시작한다.
+
+- 필요했던 것: OS 패키지 `libnuma1`(없으면 `sgl_kernel` import 실패), 같은 물리 머신이면 공인 IP 대신 **내부 주소**로 터널, keeper의 잠금 fd를 자식에 넘기지 않기(`9>&-`).
+- **주의:** Vast가 계정 키를 재동기화하면서 실험 서버의 `/root/.ssh/authorized_keys`를 덮어써 제한 키가 사라진 적이 있다(10-01). 원격 GPU가 `Permission denied`로 붙지 않으면 이것부터 확인한다.
+- 오래된 Neo4j 폴더 정리는 [`retire_old_pairs.py`](retire_old_pairs.py): 덤프 → Drive 업로드·MD5 검증 → 삭제. PID 파일 대신 실제 JVM으로 사용 여부를 판단하고 `neo4j stop`을 쓰지 않는다.
+
 ## 아직 확인하지 못한 것
 
-- 본 실험 도중 Colab이 끊겼을 때 진행 중 요청이 Vast로 넘어가는 동작(프록시 단위 시험은 통과, 실제 운영 구간에서는 미관측).
+- ~~본 실험 도중 Colab 끊김 시 Vast 복귀~~ → **확인됨**: 10-01 터널 순간 끊김(6건)과 24시간 한도 종료(6건) 모두 진행 중 요청이 Vast로 넘어가 성공, 실패 0.
 - 프록시 시험의 Linux/Python 3.11 실행(서버에서는 프록시 실제 동작과 재시작만 확인).
-- OFF/ON 단계 전환 시 Neo4j 복원에 필요한 디스크 10GB(선행 DB 삭제 후 확보될 것으로 예상, 미검증).
-- 서로 다른 GPU(L40S, Blackwell)는 같은 설정이어도 출력이 비트 단위로 같다는 보장이 없다. 공통 선행 구간에서만 섞어 썼으며, 요청별 처리 서버가 기록돼 있다. OFF/ON 구간에서도 섞을지는 별도 결정이 필요하다.
+- ~~OFF/ON 전환 디스크 10GB~~ → **통과**(10-01 디스크 정리로 여유 30GB 확보 후 전환, post DB 복원·마커 검증 완료).
+- 서로 다른 GPU(L40S, Blackwell)는 같은 설정이어도 출력이 비트 단위로 같다는 보장이 없다. **사용자 결정(2026-10-01): 공통 선행뿐 아니라 OFF/ON 구간에서도 두 GPU를 섞어 쓴다.** 요청별 처리 서버가 `…-gpu-pool.jsonl`에 기록되므로 필요하면 arm별 GPU 비율을 사후 점검할 수 있다(라우팅은 arm과 무관하게 부하 기준).
