@@ -166,6 +166,9 @@ def verify_manifests(restricted_path: Path, control_path: Path, *, roster: list[
     for key in ("mapping_sha256", "paired_environment_fingerprint",
                 "baseline_income_map_sha256", "prompt_variant",
                 "system_prompt_sha256"):
+        # 소득을 앵커 비례로 넣는 런(EXP_DAILY_INCOME=anchor)은 소득표가 없어 두 갈래 모두 None 이다 — 같으면 통과.
+        if key == "baseline_income_map_sha256" and manifests[0].get(key) is None and manifests[1].get(key) is None:
+            continue
         if not manifests[0].get(key) or manifests[0][key] != manifests[1].get(key):
             raise ValueError(f"paired arms differ in {key}")
     full_fingerprints = [item.get("execution_fingerprint") for item in manifests]

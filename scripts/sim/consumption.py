@@ -762,6 +762,7 @@ def apply_consumption_model(
     cashback_active: bool = False,
     instant_discount_specs: list[dict] | None = None,
     discount_used_before: dict[str, int] | None = None,
+    weekday: int | None = None,
     # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
     aid: str | None = None,
     # 동별 적립 몫을 쓰려면 어느 동인지 알아야 한다(EXP_ELIGIBLE_CHANNEL).
@@ -1229,7 +1230,7 @@ def apply_consumption_model(
     )
     discount_settlement = settle_instant_discounts(
         commerce, [int(e.get("actual_spent") or 0) for e in commerce],
-        instant_specs, discount_used_before)
+        instant_specs, discount_used_before, weekday=weekday)
 
     # The final payment choice, not theoretical wallet capacity, must fund purchases.
     # Keep the chosen shares and conservatively shrink the basket when cash is insufficient.
@@ -1255,7 +1256,7 @@ def apply_consumption_model(
             candidate = settle_scaled(mid)
             candidate_discount = settle_instant_discounts(
                 commerce, [int(e.get("actual_spent") or 0) for e in commerce],
-                instant_specs, discount_used_before)
+                instant_specs, discount_used_before, weekday=weekday)
             required = (sum(e["actual_spent"] for e in commerce)
                         - candidate["total"] - candidate_discount["total"])
             if required <= own_balance:
@@ -1266,7 +1267,7 @@ def apply_consumption_model(
         total_adj = sum(e["actual_spent"] for e in commerce)
         discount_settlement = settle_instant_discounts(
             commerce, [int(e.get("actual_spent") or 0) for e in commerce],
-            instant_specs, discount_used_before)
+            instant_specs, discount_used_before, weekday=weekday)
 
     if instant_specs:
         for event, discount in zip(commerce, discount_settlement["by_event"]):

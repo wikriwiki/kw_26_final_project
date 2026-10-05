@@ -449,6 +449,14 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         ctx.persona["coupon_poi_restricted"] = bool(restricted_pids)
         ctx.persona["poi_eligibility_spec"] = _elig_spec
         ctx.persona["poi_eligible_marker"] = _elig_marker or "[쿠폰]"
+        # [2026-10-06] 발행 구 상품권(P014)은 사는 구·직장 구 가게 모두에 표시한다(Stage2 후보 표시).
+        _scopes = []
+        for _pol in (ctx.policy or []):
+            if _pol.get("type") == "price_discount":
+                _mp = _pol.get("mech_params") or {}
+                _mp = json.loads(_mp) if isinstance(_mp, str) else dict(_mp)
+                _scopes.append(_pol.get("use_scope") or _mp.get("use_scope"))
+        ctx.persona["voucher_scope"] = next((x for x in _scopes if x), None)
         if restricted_pids and ctx.persona.get("policy_budget_summary"):
             _mk = _elig_marker or "[쿠폰]"
             ctx.persona["policy_budget_summary"] += f" (사용처 제한: {_mk} 표시 매장에서만 사용 가능)"
@@ -549,7 +557,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 })
             elif int(amt) > 0:
                 _unrestricted_wallets[pid] = int(amt)
-        discount_specs = active_rate_discounts(ctx.policy)
+        discount_specs = active_rate_discounts(
+            ctx.policy, today,
+            gus=[str(ctx.persona.get("home_dong_code") or "")[:5],
+                 str(ctx.persona.get("work_dong_code") or "")[:5]])
         if discount_specs and grant_avail_today:
             raise ValueError("동시 지원금·즉시 할인 결제의 중복 적용 규칙이 정의되지 않았다")
         if discount_specs and os.environ.get("CONSUMPTION_MODEL", "propensity") == "legacy":
@@ -590,6 +601,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 cashback_active=bool(ctx.persona.get("sangsaeng_active")),
                 instant_discount_specs=discount_specs,
                 discount_used_before=prev_used_for_budget,
+                weekday=today.weekday(),
                 # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
                 aid=aid,
                 is_weekend=_is_weekend,
@@ -643,10 +655,13 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         discount_settlement = settle_instant_discounts(
             commerce_events,
             [int(e.get("actual_spent") or 0) for e in commerce_events],
-            discount_specs, prev_used_for_budget)
+            discount_specs, prev_used_for_budget, weekday=today.weekday())
         if discount_specs:
-            for event, amount in zip(commerce_events, discount_settlement["by_event"]):
+            for event, amount, rebate in zip(commerce_events, discount_settlement["by_event"],
+                                             discount_settlement["rebate_by_event"]):
                 event["instant_discount"] = amount
+                # 나중에 돌려받는 돈(환급) — 오늘 자기부담에는 들어가지 않는다.
+                event["policy_rebate"] = rebate
 
         # 오늘 거래별 policy_spend 집계 → 정책별 오늘 사용액
         today_policy_spend = aggregate_policy_spend(events)
@@ -658,8 +673,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             active_policies=ctx.policy,
             policy_used=prev_policy_used,
         )
-        for pid in discount_settlement["by_pid"]:
-            updated_policy_used[pid] = discount_settlement["used_after"][pid]
+        # 할인·환급 사용량은 규칙별 열쇠(정책·업종·기간, 결제 횟수)로 남긴다.
+        for key, value in discount_settlement["used_after"].items():
+            if any(key == s["key"] or key.startswith(s["key"] + "#") for s in discount_specs):
+                updated_policy_used[key] = value
 
         # grant_remaining = 어제 잔여 + 오늘 받음 − 오늘 사용 (음수 방지)
         merged_grant_remaining: dict[str, int] = dict(grant_avail_today)
@@ -781,6 +798,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "policy_spend_today": sum(today_policy_spend.values()),
                 "instant_discount_today": discount_settlement["total"],
                 "instant_discount_by_pid": discount_settlement["by_pid"],
+                "policy_rebate_today": discount_settlement["rebate_total"],
+                "policy_rebate_by_pid": discount_settlement["rebate_by_pid"],
                 "instant_discount_eligible_gross": discount_settlement["eligible_gross"],
                 "instant_discount_eligible_gross_basis": discount_settlement[
                     "eligible_gross_basis"],

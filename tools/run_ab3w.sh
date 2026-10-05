@@ -75,6 +75,8 @@ common_env() {
   export EXP_PLAN_DRIVES_TOTAL=1 EXP_PLAN_BASELINE_FILE=$BASE/plan_baseline_live.json
   export EXP_NO_SKIP=1 EXP_AGENT_DAY_MAX_ATTEMPTS=$AB_MAX_ATTEMPTS
   unset SIM_ALLOW_STAGE2_FALLBACK EXP_PAYMENT_CHOICE EXP_GRANT_USE EXP_SPREAD_DAYS
+  # 운영자 셸에 남은 값이 런에 새지 않게 한다(사회 배경은 --environment 로만, 백업 경로는 갈래끼리 겹치면 덮어쓴다).
+  unset SIM_ENVIRONMENT BACKUP_DIR SIM_POST_DAY_BACKUP_HOOK
   local kv
   for kv in "${CASE_EXPORTS[@]}"; do export "$kv"; done
 }
@@ -118,10 +120,23 @@ graph_fingerprint() {   # 현재 NEO4J_URI 그래프의 라벨·관계 수와 �
 # 실행 ID 는 정책 전 주와 두 갈래가 같다(ab3w-<정책>-<태그>). 엔진은 전날 State·기억이 다른 실행 ID 에서 오면
 # 멈춘다(run_simulation 'previous State belongs to a different experience run', experience 'cannot mix runs') —
 # 두 갈래는 같은 정책 전 주의 기억을 이어받는 같은 경험이고, 서로 다른 그래프·출력 폴더에서 갈래 이름(on/off)으로 갈린다.
-# 하루씩 돈다. 한 날을 세 번까지 다시 부르되, 시도 예산을 다 쓴 사람이 있으면(AgentDayExhausted) 다시 불러도
-# 같으므로 바로 멈춘다. $1=출력 폴더 $2=첫날 $3=날 수 $4=사회 배경 ID $5=on|off(그래프) $6=실행 ID
+llm_wait() {   # 모델 서버가 답할 때까지 기다린다(최대 30분). 끊긴 사이 시도 예산이 닳지 않게 한다.
+  local i
+  for i in $(seq 1 180); do
+    curl -fsS -m 8 "$AB_LLM_BASE_URL/models" >/dev/null 2>&1 && return 0
+    (( i % 6 == 1 )) && log "  모델 서버가 답하지 않는다 — 기다린다 ($AB_LLM_BASE_URL)"
+    sleep 10
+  done
+  log "모델 서버가 30분 동안 답하지 않는다 — 멈춘다"; return 1
+}
+
+# 하루씩 돈다. 한 날을 세 번까지 다시 부른다. 시도 예산을 다 쓴 사람이 있으면(AgentDayExhausted):
+#  - 그날 로그에 모델 서버 연결 오류가 있으면 그 사람들의 실패 기록(checkpoints/attempts_<날>.jsonl)을 지우지 않고
+#    옆으로 옮긴 뒤 다시 부른다(하루 최대 2번). 서버가 잠깐 끊겨 예산이 닳은 것은 그 사람의 실패가 아니다.
+#  - 연결 오류가 없으면 진짜 실패라 건너뛰지 않고 멈춘다.
+# $1=출력 폴더 $2=첫날 $3=날 수 $4=사회 배경 ID $5=on|off(그래프) $6=실행 ID $7=1 이면 첫날 뒤 계획 통로 확인
 run_days() {
-  local dir=$1 first=$2 n=$3 env_id=$4 side=$5 run_id=$6
+  local dir=$1 first=$2 n=$3 env_id=$4 side=$5 run_id=$6 check_plan=${7:-0}
   local N
   N=$(python -c 'import json,sys; print(len(json.load(open(sys.argv[1]))))' "$BASE/roster.json")
   mkdir -p "$dir"
@@ -132,21 +147,34 @@ run_days() {
     for ((i=0; i<n; i++)); do
       day=$(date -d "$first + $i days" +%F)
       [[ -s $dir/day_$day.json ]] && continue
-      ok=0
-      for attempt in 1 2 3; do
+      ok=0; moved=0
+      for attempt in 1 2 3 4 5; do
+        llm_wait || exit 1
         args=(--start "$day" --days 1 --roster "$BASE/roster.json" --workers "$AB_WORKERS")
         if [[ -n $env_id ]]; then args+=(--environment "$env_id"); fi
         log "[$(basename "$dir")] $day 시도 $attempt"
-        if python -u scripts/sim/run_simulation.py "${args[@]}" > "$dir/day_${day}_attempt${attempt}.run.log" 2>&1 && \
+        runlog="$dir/day_${day}_attempt${attempt}.run.log"
+        if python -u scripts/sim/run_simulation.py "${args[@]}" > "$runlog" 2>&1 && \
            python tools/ab3w_check_day.py "$dir/summary.json" "$dir/day_$day.json" "$day" "$N"; then
           ok=1; break
         fi
-        if grep -q "AgentDayExhausted" "$dir/day_${day}_attempt${attempt}.run.log"; then
+        if grep -q "AgentDayExhausted" "$runlog"; then
+          if (( moved < 2 )) && grep -qiE "APIConnectionError|APITimeoutError|timed out|Connection refused|ConnectError|ConnectTimeout|ReadTimeout|RemoteDisconnected|Bad Gateway|Service Unavailable|ServerDisconnected" "$runlog"; then
+            moved=$((moved + 1))
+            mv "$dir/checkpoints/attempts_${day}.jsonl" "$dir/checkpoints/attempts_${day}.outage$(date +%s).jsonl"
+            log "[$(basename "$dir")] $day: 모델 서버 연결 오류로 시도 예산이 닳았다 — 실패 기록을 옮기고 다시 부른다 ($moved/2)"
+            continue
+          fi
           log "[$(basename "$dir")] $day: 시도 예산($AB_MAX_ATTEMPTS)을 다 쓴 사람이 있다 — 건너뛰지 않고 멈춘다"
           exit 1
         fi
+        (( attempt >= 3 && moved == 0 )) && break
       done
-      [[ $ok == 1 ]] || { log "[$(basename "$dir")] $day 세 번 실패"; exit 1; }
+      [[ $ok == 1 ]] || { log "[$(basename "$dir")] $day 실패 — 멈춘다"; exit 1; }
+      if [[ $check_plan == 1 && $i == 0 ]]; then
+        # 계획 통로가 첫날부터 켜졌는지 — 1주가 다 끝난 뒤가 아니라 첫날 뒤에 잡는다.
+        python tools/ab3w_plan_channel_check.py "$dir/metrics" | tee -a "$LOG" || exit 1
+      fi
     done
     python scripts/report/audit_stage2_generation.py --metrics-dir "$dir/metrics" \
       --expected-per-day "$N" --json-out "$dir/stage2.json" --strict >> "$dir/audit.log" 2>&1
@@ -166,8 +194,11 @@ if [[ ! -s $BASE/prepared.marker ]]; then
     ( common_env; SIM_OUTPUT_DIR="$BASE/preflight" NEO4J_URI='' python scripts/sim/policy_preflight.py "$POLICY" )
   fi
   ( common_env; python tools/ab3w_engine_record.py "$BASE/engine.json" )
+  # 실제 서빙 모델 증거(A100 의 SGLang 명령줄·모델 ID). 원장 내보내기가 각 출력 폴더에서 읽는다 — 없으면 멈춘다.
+  # 본런의 GPU 풀 중계는 A100 과 같은 모델인지 확인한 일꾼만 받는다(deploy/gpu_pool_kw26).
   python tools/capture_served_model_evidence_20260928.py --out "$BASE/served_model_evidence.json" \
-    || log "  (모델 증거 수집 실패 — 런은 계속한다, 모델 ID 는 위에서 확인했다)"
+    || { log '모델 증거 수집 실패 — 멈춘다'; exit 1; }
+  for sub in pre on off; do mkdir -p "$BASE/$sub"; cp "$BASE/served_model_evidence.json" "$BASE/$sub/"; done
   printf '{"case":"%s","tag":"%s","design":"pre_week_common_then_paired_on_off","pre_start":"%s","start":"%s","post_end":"%s","pre_days":%s,"post_days":%s,"day0":"%s","policy_file":"%s","policy_id":"%s","env_pre":"%s","env_on":"%s","env_off":"%s","served_model":"%s","llm_base_url":"%s","workers_per_arm":%s,"max_attempts":%s,"pre_graph":"%s","prepared_at":"%s"}\n' \
     "$AB_CASE" "$AB_TAG" "$PRE_START" "$START" "$POST_END" "$AB_PRE_DAYS" "$AB_POST_DAYS" "$DAY0" "$POLICY" "$PID" \
     "$ENV_PRE" "$ENV_ON" "$ENV_OFF" "$AB_MODEL_ID" "$AB_LLM_BASE_URL" "$AB_WORKERS" "$AB_MAX_ATTEMPTS" "$AB_PRE_GRAPH" "$(date -Is)" \
@@ -269,8 +300,8 @@ if [[ ! -s $BASE/arms_complete.marker ]]; then
   neo_up "$AB_NEO_ON" "$AB_HTTP_ON"
   neo_up "$AB_NEO_OFF" "$AB_HTTP_OFF"
   log "=== 7 두 갈래: $START 부터 ${AB_POST_DAYS}일, 갈래마다 동시 $AB_WORKERS"
-  run_days "$BASE/on"  "$START" "$AB_POST_DAYS" "$ENV_ON"  on  "ab3w-$AB_CASE-$AB_TAG"  & pid_on=$!
-  run_days "$BASE/off" "$START" "$AB_POST_DAYS" "$ENV_OFF" off "ab3w-$AB_CASE-$AB_TAG" & pid_off=$!
+  run_days "$BASE/on"  "$START" "$AB_POST_DAYS" "$ENV_ON"  on  "ab3w-$AB_CASE-$AB_TAG" 1 & pid_on=$!
+  run_days "$BASE/off" "$START" "$AB_POST_DAYS" "$ENV_OFF" off "ab3w-$AB_CASE-$AB_TAG" 1 & pid_off=$!
   rc_on=0; rc_off=0
   wait "$pid_on" || rc_on=$?
   wait "$pid_off" || rc_off=$?
@@ -315,7 +346,6 @@ preserve_arm() {   # $1=on|off
       --start "$PRE_START" --end "$POST_END" --arm "$arm" --out "$dir/dossier.jsonl"
     python tools/ab3w_dossier_check.py "$dir/dossier.jsonl.manifest.json" "$((AB_PRE_DAYS + AB_POST_DAYS))"
   ) 2>&1 | tee -a "$LOG"
-  [[ ${PIPESTATUS[0]} == 0 ]] || { log "$arm 원장·기억 모음 실패"; exit 1; }
   if [[ $arm == on ]]; then neo=$AB_NEO_ON; else neo=$AB_NEO_OFF; fi
   mkdir -p "$dir/graph_backup"
   if [[ ! -s $dir/graph_backup/SHA256SUMS ]]; then
@@ -330,7 +360,15 @@ preserve_arm() {   # $1=on|off
   printf 'verified_on=%s\n' "$(date -Is)" > "$dir/external_copy_verified.txt"
   log "=== 8 보존 $arm 완료"
 }
+# 보존 전에 두 인스턴스를 띄운다 — 재부팅·덤프 실패 뒤 다시 불러도 내보내기가 연결되게.
+neo_up "$AB_NEO_ON" "$AB_HTTP_ON"
+neo_up "$AB_NEO_OFF" "$AB_HTTP_OFF"
 preserve_arm on
 preserve_arm off
 (cd "$BASE/pre" && find . -path ./graph_backup -prune -o -type f -print0 | sort -z | xargs -0 sha256sum > ../pre_outputs.sha256)
-log "=== 끝: $BASE — 다음은 채점(두 갈래 원장을 같은 사람·같은 날로 맞대기)"
+# ---------------------------------------------------------------- 9 채점
+# 공통 채점(같은 사람·같은 날 정책 있음 - 없음) + 정책 전용 채점(P012·P013·거리두기). 결과는 $BASE/score/.
+log "=== 9 채점"
+( common_env; on_env; bash tools/ab3w_score.sh "$BASE" "$AB_CASE" ) >> "$LOG" 2>&1 \
+  || { log '채점 실패 — 원장·덤프는 보존돼 있다. tools/ab3w_score.sh 로 다시 채점한다'; exit 1; }
+log "=== 끝: $BASE (채점 $BASE/score)"
