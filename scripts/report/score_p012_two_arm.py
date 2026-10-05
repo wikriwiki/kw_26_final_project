@@ -58,6 +58,25 @@ def load_kdi_map():
     return l1, sub
 
 
+# 세부업종 -> L1. 지도는 "L1 기본값 위에 sub_override 가 우선한다"고 정한다. 그러려면
+# 덮어쓴 세부업종의 금액을 그 L1 기본값에서 **빼야** 한다. 2026-10-05 까지는 빼지 않아
+# 가전·가구(쇼핑 아래)가 유통에도 한 번 더 세어졌다(P012 본런: 지원금 없는 쪽 1인당
+# 업종 합 196,279원 > 오프라인 지출 192,430원, 차이 3,849원 = 가전·가구 전액).
+CATS = ROOT / "data/neo4j_load/categories/categories.yaml"
+
+
+def load_sub_parent() -> dict[str, str]:
+    import yaml
+    d = yaml.safe_load(CATS.read_text(encoding="utf-8"))
+    out: dict[str, str] = {}
+    for e in d["categories"]:
+        for sname in e.get("sub") or []:
+            if sname in out and out[sname] != e["name"]:
+                raise SystemExit("세부업종 %r 가 두 L1 에 있다" % sname)
+            out[sname] = e["name"]
+    return out
+
+
 def arm_window(d: Path, arm: str) -> tuple[str, str, int]:
     """원장이 실제로 담은 (첫날, 마지막날, 날 수). **계약서의 창을 믿지 않는다.**"""
     days = set()
@@ -73,6 +92,7 @@ def arm_window(d: Path, arm: str) -> tuple[str, str, int]:
 def load_arm(d: Path, arm: str):
     """(에이전트별 합계, 에이전트별 캐시백 합계) — 원장에 있는 날 전부."""
     l1map, submap = load_kdi_map()
+    parent = load_sub_parent()
     sec = defaultdict(lambda: defaultdict(float))
     cash = defaultdict(lambda: defaultdict(float))
 
@@ -99,16 +119,29 @@ def load_arm(d: Path, arm: str):
                 if fs not in r:
                     continue      # 구버전 원장 — 없으면 '출력부족' 으로 표에 적힌다
                 s["_has_elig_sub"] = 1.0
+            over: dict[str, float] = defaultdict(float)   # L1 별로 세부 덮어쓰기로 이미 센 금액
+            row_kdi = 0.0
             for k, v in (r.get(fs) or {}).items():
                 kdi = submap.get(k)
                 if kdi:
+                    if k not in parent:
+                        raise SystemExit("세부업종 %r 의 L1 을 모른다 — 두 번 셀 수 있다" % k)
                     s[pre + kdi] += float(v or 0)
+                    over[parent[k]] += float(v or 0)
+                    row_kdi += float(v or 0)
             for k, v in (r.get(fl) or {}).items():
                 if k in submap:
                     continue
                 kdi = l1map.get(k)
                 if kdi:
-                    s[pre + kdi] += float(v or 0)
+                    rest = float(v or 0) - over.get(k, 0.0)
+                    if rest < -1.0:
+                        raise SystemExit("%s %s: L1 %s 금액이 그 아래 세부업종 합보다 작다" % (a, r.get("day"), k))
+                    s[pre + kdi] += rest
+                    row_kdi += rest
+            # 업종 합은 그 줄의 L1 합을 넘을 수 없다 — 넘으면 같은 돈을 두 번 센 것이다
+            if row_kdi > sum(float(x or 0) for x in (r.get(fl) or {}).values()) + 1.0:
+                raise SystemExit("%s %s: 업종 합이 L1 합을 넘는다(두 번 셈)" % (a, r.get("day")))
 
     for line in io.open(d / ("%s.cashback.ledger.jsonl" % arm), encoding="utf-8"):
         line = line.strip()
