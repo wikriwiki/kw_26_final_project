@@ -67,3 +67,45 @@ def test_checkpoint_rejects_incomplete_or_foreign_day(tmp_path, change):
         (run / f"night2_completed_{day}.json").unlink()
     with pytest.raises((ValueError, FileNotFoundError)):
         backup.validate_day(run, day, manifest)
+
+
+def test_failed_attempt_payload_is_discarded_but_committed_one_is_kept(tmp_path):
+    work = tmp_path / "attempt"
+    work.mkdir()
+    archive, dump = work / "run-day.tar.gz", work / "neo4j.dump"
+    for path in (archive, dump, work / "checkpoint.json"):
+        path.write_text("x")
+    backup.discard_uncommitted_payload(work, archive)
+    assert not archive.exists() and not dump.exists()
+    assert (work / "checkpoint.json").exists()
+    dump.write_text("branch dump")
+    (work / "committed.json").write_text("{}")
+    backup.discard_uncommitted_payload(work, archive)
+    assert dump.exists()
+
+
+def test_neo4j_is_restarted_even_when_stop_fails(tmp_path, monkeypatch):
+    home = tmp_path / "neo4j"
+    (home / "bin").mkdir(parents=True)
+    for name in ("neo4j", "neo4j-admin"):
+        (home / "bin" / name).write_text("")
+    calls = []
+
+    def fake_run(argv, env=None, timeout=3600):
+        calls.append(argv[1])
+        if argv[1] == "stop":
+            raise RuntimeError("Backup command neo4j failed with exit 1")
+        return ""
+
+    class FakeSocket:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(backup, "run_quiet", fake_run)
+    monkeypatch.setattr(backup.socket, "create_connection", lambda *a, **k: FakeSocket())
+    with pytest.raises(RuntimeError, match="exit 1"):
+        backup.offline_dump(home, tmp_path / "dump", 17791)
+    assert calls == ["stop", "start"]
