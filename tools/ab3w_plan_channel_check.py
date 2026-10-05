@@ -13,5 +13,6 @@ for d in sys.argv[1:]:
     based = sum(1 for r in spend if r.get("cm_plan_baseline"))
     print("  %s: 소비가 있는 사람-날 %d 중 계획 기준선이 쓰인 것 %d (%.1f%%)"
           % (d, len(spend), based, 100 * based / max(1, len(spend))))
-    if not spend or based < 0.9 * len(spend):
+    allowed = max(1, int(0.1 * len(spend)))     # 작은 명부는 최소 1건 허용
+    if not spend or len(spend) - based > allowed:
         raise SystemExit("계획 통로가 꺼져 있다 — 기준선 파일 경로(EXP_PLAN_BASELINE_FILE)를 본다: " + d)

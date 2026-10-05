@@ -37,3 +37,17 @@ def test_mismatched_people_refused(tmp_path):
                         "--off", str(tmp_path / "off.jsonl"), "--out", str(tmp_path / "s.json")],
                        capture_output=True)
     assert r.returncode != 0
+
+
+def test_sub_groups(tmp_path):
+    def row(aid, day, a, b):
+        return {"aid": aid, "day": day, "total_spent": a + b, "offline_spent": a + b, "online_spent": 0,
+                "policy_funded_won": 0, "by_l1": {"마트": a + b}, "by_sub": {"정육": a, "청과": b}}
+    _write(tmp_path / "on.jsonl", [row("a", "2020-09-21", 300, 100), row("b", "2020-09-21", 300, 100)])
+    _write(tmp_path / "off.jsonl", [row("a", "2020-09-21", 200, 100), row("b", "2020-09-21", 200, 100)])
+    subprocess.run([sys.executable, str(SCRIPT), "--on", str(tmp_path / "on.jsonl"), "--off", str(tmp_path / "off.jsonl"),
+                    "--subs", "식품전문=정육+청과,청과", "--draws", "50", "--out", str(tmp_path / "s.json")],
+                   check=True, capture_output=True)
+    s = json.loads((tmp_path / "s.json").read_text(encoding="utf-8"))
+    assert s["by_sub"]["식품전문"]["diff"] == 100 and s["by_sub"]["식품전문"]["members"] == ["정육", "청과"]
+    assert s["by_sub"]["청과"]["diff"] == 0
