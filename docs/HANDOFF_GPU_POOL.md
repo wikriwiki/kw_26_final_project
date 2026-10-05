@@ -102,3 +102,4 @@
 - 검증: 기존 서버에서 `127.0.0.1:18003` identity diff **NONE**, KV 86,671 토큰(기존과 동일). 소량 시험(입력 6,567토큰, 동시 4, 워밍업 후) 합계 약 80 tok/s, 요청당 21.3 tok/s(같은 프롬프트라 prefix 캐시 영향 가능 — 실측은 본 실험에서).
 - **발견: 기존 서버 `/root/.ssh/authorized_keys`가 2026-10-01 21:12 UTC에 계정 키 1줄로 재작성돼 제한 키가 사라져 있었다**(Vast 키 동기화로 추정). 그 이후 Colab도 재접속 불가였다. 10-05 11:06 UTC 백업 후 같은 제한 옵션으로 재등록, 기본 키 접속·셸 차단 확인. 재발 가능 → 모니터링 시 확인 필요.
 - 프록시 등록: `reload_proxy_when_idle.sh config.v3-vast2.json`을 11:08:47 UTC에 예약(백업 중 + 전 백엔드 inflight 0 3회 확인 시에만 재시작). remotes에 `vast2-l40s`(18003, capacity 1.0) 추가. 로그 `…-gpu-pool-reload.log`.
+- **등록 완료 (2026-10-05 14:35:58 UTC):** OFF 9일차(`2017-12-11`) 백업 중 inflight 0을 확인하고 프록시 27072 → 64880으로 재시작했다. `vast2-l40s`는 14:36:01 UTC에 admit됐고, 이전 설정은 `config.json.pre-reload-*`로 보관. OFF 10일차(`2017-12-12`)부터 local 4 / vast2 4로 분배하며 fallback 0, failed 0이다(15:02 UTC 기준). 프록시 재시작으로 백엔드별 누적 카운터는 0부터 다시 센다.
