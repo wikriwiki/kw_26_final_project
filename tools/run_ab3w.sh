@@ -256,6 +256,7 @@ if [[ ! -s $BASE/policy.marker ]]; then
     )
   else
     log "=== 6 정책: 환경형 — 정책 있음 '$ENV_ON' / 정책 없음 '$ENV_OFF'"
+    ( common_env; on_env; SIM_OUTPUT_DIR="$BASE/on/preflight" python scripts/sim/policy_preflight.py --expect-no-policy )
   fi
   ( common_env; off_env; SIM_OUTPUT_DIR="$BASE/off/preflight" python scripts/sim/policy_preflight.py --expect-no-policy )
   date -Is > "$BASE/policy.marker"
@@ -298,6 +299,10 @@ preserve_arm() {   # $1=on|off
         policy)   python scripts/report/export_policy_daily_ledger.py --roster "$BASE/roster.json" \
                     --start "$START" --end "$POST_END" --arm "$arm" --policy-id "$PID" --policy-file "$POLICY" \
                     --metrics-dir "$dir/metrics" --out "$dir/policy.ledger.jsonl";;
+        distancing)
+                  if [[ $arm == on ]]; then darm=restricted; else darm=control_hold; fi
+                  python scripts/report/export_distancing_daily_ledger.py --arm "$darm" --roster "$BASE/roster.json" \
+                    --start "$START" --end "$POST_END" --metrics-dir "$dir/metrics" --out "$dir/distancing.ledger.jsonl";;
         cashback) python scripts/report/export_cashback_month.py --allow-partial-month \
                     --month "${START:0:7}" --arm "$arm" --policy-id "$PID" --policy-file "$POLICY" \
                     --base-ratio 0.268 --roster "$BASE/roster.json" \
