@@ -441,6 +441,12 @@ def make_handler(pool):
     return Handler
 
 
+class PoolHTTPServer(ThreadingHTTPServer):
+    # [2026-10-06] 본런은 시뮬 여러 개가 수백 개 요청을 동시에 연다. 기본 대기열 5 칸이면 접속이 밀린다.
+    request_queue_size = 1024
+    daemon_threads = True
+
+
 def serve(config):
     pool = Pool(config['local_url'], config.get('remotes', []), config['log_path'],
                 **{k: config[k] for k in ('health_interval', 'health_timeout', 'unhealthy_after',
@@ -458,8 +464,7 @@ def serve(config):
                 raise
             time.sleep(2)
     host = config.get('listen_host', '127.0.0.1')
-    server = ThreadingHTTPServer((host, int(config['listen_port'])), make_handler(pool))
-    server.daemon_threads = True
+    server = PoolHTTPServer((host, int(config['listen_port'])), make_handler(pool))
     threading.Thread(target=pool.health_loop, daemon=True).start()
     pool.log(event='proxy_started', pid=os.getpid(), listen=f"{host}:{config['listen_port']}",
              remotes=[r['name'] for r in config.get('remotes', [])])

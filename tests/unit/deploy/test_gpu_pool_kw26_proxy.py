@@ -311,3 +311,17 @@ def test_non_generation_request_does_not_take_local_slot(monkeypatch):
     monkeypatch.setattr(pool, "log", lambda **kw: None)
     status, _h, _d, name = pool.forward("GET", "/v1/models", {}, None)
     assert status == 200 and name == pool.local.name and pool.local.inflight == 1
+
+
+def test_burst_of_many_connections_all_answered_once(cluster):
+    # [2026-10-06] 본런은 시뮬 여러 개가 수백 개 요청을 동시에 연다 — 대기열(request_queue_size)이 작으면 접속이 밀린다.
+    assert gp.PoolHTTPServer.request_queue_size >= 1024
+    pool, port, local, remote = cluster()
+    assert wait_for(lambda: pool.remotes[0].healthy)
+    local.delay = remote.delay = 0.3
+    n = 300
+    with ThreadPoolExecutor(n) as ex:
+        results = list(ex.map(lambda i: post(port, json.dumps({'i': i}).encode(), timeout=60), range(n)))
+    assert all(r[0] == 200 for r in results)
+    assert len(local.calls) + len(remote.calls) == n          # 요청마다 정확히 한 번
+    assert len({gp.sha256(b) for b in local.calls + remote.calls}) == n
