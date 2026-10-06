@@ -24,6 +24,11 @@ import { ReportScreen } from './screens/ReportScreen';
 import { ResultsScreen } from './screens/ResultsScreen';
 import { VisualizationScreen } from './screens/VisualizationScreen';
 import { NotFoundScreen } from './screens/NotFoundScreen';
+import { ExperimentAgents } from './screens/experiment/ExperimentAgents';
+import { ExperimentOverview } from './screens/experiment/ExperimentOverview';
+import { ExperimentQuery } from './screens/experiment/ExperimentQuery';
+import { ExperimentResults } from './screens/experiment/ExperimentResults';
+import { ExperimentWorkspace } from './screens/experiment/ExperimentWorkspace';
 import { isRunId } from './lib/fixtures';
 import { READ_ONLY } from './lib/runtime';
 
@@ -171,6 +176,44 @@ export function App() {
               </RouteTransition>
             }
           />
+        </Route>
+
+        {/* 실험 작업공간 — 여러 팔을 가진 실험 하나. 실행(run) 셸과 따로 둔다:
+            run 셸은 아직 픽스처 기반이고, 실험은 API 의 실제 기록을 읽는다 */}
+        <Route path="/experiments/:experimentId" element={<ExperimentWorkspace />}>
+          <Route
+            index
+            element={
+              <RouteTransition>
+                <ExperimentOverview />
+              </RouteTransition>
+            }
+          />
+          <Route
+            path="results"
+            element={
+              <RouteTransition>
+                <ExperimentResults />
+              </RouteTransition>
+            }
+          />
+          <Route
+            path="agents"
+            element={
+              <RouteTransition>
+                <ExperimentAgents />
+              </RouteTransition>
+            }
+          />
+          <Route
+            path="query"
+            element={
+              <RouteTransition>
+                <ExperimentQuery />
+              </RouteTransition>
+            }
+          />
+          <Route path="*" element={<NotFoundScreen />} />
         </Route>
 
         {/* 구 경로 — 공유된 링크가 죽으면 안 된다 */}

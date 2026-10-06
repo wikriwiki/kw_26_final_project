@@ -1,0 +1,54 @@
+/**
+ * 홈의 실험 목록 — 레지스트리에 등록된 실험과 팔마다의 진행.
+ *
+ * API 가 없으면(픽스처만으로 띄운 개발 화면) 이 묶음을 그리지 않는다. 없는 실험을 그린 척하지 않는다.
+ */
+import { Link } from 'react-router-dom';
+import { Badge } from '../../components/Badge';
+import { Meter } from '../../components/Meter';
+import { int } from '../../lib/format';
+import { experimentsApi, PHASE_TEXT, useResource } from '../../lib/experiments';
+
+export function ExperimentList() {
+  const list = useResource(() => experimentsApi.list(), 'experiments');
+  if (list.loading || list.error || !list.data || list.data.items.length === 0) return null;
+  return (
+    <section className="section" aria-labelledby="experiments-title">
+      <header className="section__head">
+        <h2 className="section__title" id="experiments-title">
+          실험
+        </h2>
+        <p className="section__note">여러 팔(공통 사전 → 정책 OFF/ON)로 나뉜 실험입니다. 실험 서버의 기록을 읽기 전용으로 받아 봅니다.</p>
+      </header>
+      <ul className="explist">
+        {list.data.items.map((experiment) => (
+          <li key={experiment.experiment_id}>
+            <Link className="exprow" to={`/experiments/${experiment.experiment_id}`}>
+              <span className="exprow__title">{experiment.title}</span>
+              <span className="exprow__meta">
+                {experiment.window.start ? `${experiment.window.start}부터 ${int(experiment.window.days)}일 · ` : ''}
+                {int(experiment.cohort_size)}명{experiment.source_branch ? ` · ${experiment.source_branch}` : ''}
+              </span>
+              <span className="exprow__arms">
+                {experiment.arms.map((arm) => (
+                  <span key={arm.arm_id} className="exprow__arm">
+                    <span className="exprow__armhead">
+                      <span>{arm.label}</span>
+                      <Badge tone={arm.phase === 'complete' ? 'ok' : arm.phase === 'running' ? 'info' : 'neutral'} plain>
+                        {PHASE_TEXT[arm.phase]}
+                      </Badge>
+                    </span>
+                    <Meter ratio={arm.days ? arm.days_complete / arm.days : 0} label={`${arm.label} 완료 일수`} />
+                    <span className="num">
+                      {int(arm.days_complete)} / {int(arm.days)}일
+                    </span>
+                  </span>
+                ))}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

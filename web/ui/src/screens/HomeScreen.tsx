@@ -14,6 +14,7 @@ import { PHASE_LABEL, useRunSummaries } from '../app/RunContext';
 import type { RunPhase, RunSummary } from '../app/RunContext';
 import { EMPTY, int, shortTime } from '../lib/format';
 import { READ_ONLY } from '../lib/runtime';
+import { ExperimentList } from './experiment/ExperimentList';
 
 /** 진행중 → 완료 → 중단. 비어 있는 묶음은 그리지 않는다 */
 const GROUP_ORDER: RunPhase[] = ['running', 'completed', 'stopped'];
@@ -119,6 +120,9 @@ export function HomeScreen() {
             </div>
           ) : null}
         </header>
+
+        {/* 레지스트리에 등록된 실험(분기 팔 포함). API 가 없으면 그리지 않는다 */}
+        <ExperimentList />
 
         {groups.length === 0 ? (
           <EmptyState

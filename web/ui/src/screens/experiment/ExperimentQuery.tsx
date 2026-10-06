@@ -1,0 +1,232 @@
+/**
+ * 집단 질의 — 조건으로 집단을 고르고 (1) 기록 통계를 바로 보거나 (2) 표본에게 같은 질문을 한다.
+ *
+ * 통계는 LLM 없이 봉인된 하루 집계로 계산한다. 집단 인터뷰는 1대1 인터뷰와 같은 근거 규칙으로 한 명씩 묻고,
+ * 끝나면 답들을 모델이 요약한다 — 요약은 확인되지 않은 정리라서 개별 답과 나눠 보여 준다.
+ */
+import { useEffect, useMemo, useState } from 'react';
+import type { FormEvent } from 'react';
+import { Badge } from '../../components/Badge';
+import { Button } from '../../components/Button';
+import { Card, Stat } from '../../components/Card';
+import { Callout, ErrorState } from '../../components/Feedback';
+import { SelectField, TextAreaField, TextField } from '../../components/Field';
+import { dec, int, percent } from '../../lib/format';
+import { experimentsApi, SMOKING_TEXT, useResource } from '../../lib/experiments';
+import type { GroupDescribe, GroupFilters, GroupJob, GroupStats, RosterAgent } from '../../lib/experiments';
+import { READ_ONLY } from '../../lib/runtime';
+import { useExperiment } from './ExperimentWorkspace';
+
+type FilterKey = 'gu' | 'smoking_status' | 'sex' | 'age_group' | 'income_level';
+const FILTERS: Array<{ key: FilterKey; label: string; text?: (value: string) => string }> = [
+  { key: 'gu', label: '사는 구' },
+  { key: 'smoking_status', label: '흡연', text: (v) => SMOKING_TEXT[v] ?? v },
+  { key: 'sex', label: '성별', text: (v) => (v === 'F' ? '여' : v === 'M' ? '남' : v) },
+  { key: 'age_group', label: '연령대' },
+  { key: 'income_level', label: '소득' },
+];
+const BREAKDOWN_LABEL: Record<string, string> = { smoking_status: '흡연 여부', gu: '사는 구', sex: '성별', age_group: '연령대' };
+
+/** 집단끼리 견줄 때는 만원 단위로 뭉개지 않는다 */
+function won(value: number | null | undefined): string {
+  return value === null || value === undefined ? '—' : `${int(value)}원`;
+}
+
+const SEX_TEXT: Record<string, string> = { F: '여', M: '남' };
+
+function groupName(key: string, name: string): string {
+  if (key === 'smoking_status') return SMOKING_TEXT[name] ?? name;
+  if (key === 'sex') return SEX_TEXT[name] ?? name;
+  return name;
+}
+
+function values(agents: RosterAgent[], key: FilterKey): string[] {
+  return Array.from(new Set(agents.map((a) => (a[key] ?? 'unknown') as string))).sort();
+}
+
+function DescribeRow({ name, d }: { name: string; d: GroupDescribe }) {
+  return (
+    <tr>
+      <th scope="row">{name}</th>
+      <td className="n num">{int(d.agents)}</td>
+      <td className="n num">{won(d.spend_per_observed_day)}</td>
+      <td className="n num">{dec(d.receipts_per_observed_day, 2)}</td>
+      <td className="n num">{int(d.target_payments)}</td>
+      <td className="n num">{percent(d.agents ? d.agents_with_target_visit / d.agents : null)}</td>
+      <td className="n num">{dec(d.mood_mean, 3)}</td>
+      <td className="n num">{int(d.skipped_agent_days)}</td>
+    </tr>
+  );
+}
+
+function StatsView({ stats }: { stats: GroupStats }) {
+  const o = stats.overall;
+  return (
+    <div className="stack">
+      <div className="grid">
+        <Stat className="c3" label="고른 대상자" value={int(o.agents)} unit="명" hint={`${stats.through_day ?? ''}까지 ${int(stats.days)}일`} />
+        <Stat className="c3" label="관측된 날 평균 오프라인 소비" value={won(o.spend_per_observed_day)} />
+        <Stat className="c3" label="정책 대상 시설 결제" value={int(o.target_payments)} unit="건" hint={`${int(o.agents_with_target_visit)}명이 한 번 이상`} />
+        <Stat className="c3" label="건너뛴 대상자-일(결측)" value={int(o.skipped_agent_days)} />
+      </div>
+      {Object.entries(stats.breakdowns).map(([key, groups]) => (
+        <div key={key} className="table-wrap">
+          <table className="table">
+            <caption className="table__caption">{BREAKDOWN_LABEL[key] ?? key}별</caption>
+            <thead>
+              <tr>
+                <th scope="col">묶음</th>
+                <th scope="col" className="n">인원</th>
+                <th scope="col" className="n">하루 소비</th>
+                <th scope="col" className="n">하루 영수증</th>
+                <th scope="col" className="n">대상 시설 결제</th>
+                <th scope="col" className="n">이용한 사람 비율</th>
+                <th scope="col" className="n">평균 기분</th>
+                <th scope="col" className="n">결측 일</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(groups).map(([name, d]) => (
+                <DescribeRow key={name} name={groupName(key, name)} d={d} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ))}
+      <ul className="plainlist card__note">
+        {stats.notes.map((note) => (
+          <li key={note}>{note}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function JobView({ job }: { job: GroupJob }) {
+  return (
+    <div className="stack">
+      <p className="card__note">
+        조건에 맞는 {int(job.matched)}명 중 {int(job.sampled.length)}명에게 물었습니다 · {int(job.done)} / {int(job.sampled.length)} 완료
+      </p>
+      {job.summary?.text ? (
+        <Callout tone="info">
+          <strong>모델 요약(확인되지 않은 정리) · {job.summary.model_label}</strong>
+          <span className="pre-line">{job.summary.text}</span>
+        </Callout>
+      ) : null}
+      {job.summary?.error ? <Callout tone="warn">요약 실패: {job.summary.error}</Callout> : null}
+      <ul className="answers">
+        {job.results.map((r) => (
+          <li key={r.agent_id} className="answers__item">
+            <p className="answers__who">
+              <span className="num">{r.agent_id}</span> · {r.gu ?? ''} · {r.age_group ?? ''} · {SMOKING_TEXT[r.smoking_status ?? 'unknown']}
+            </p>
+            {r.error ? <Callout tone="warn">{r.error}</Callout> : <p>{r.answer}</p>}
+            {r.warnings?.length ? <p className="answers__warn">⚠ {r.warnings.join(' · ')}</p> : null}
+            {r.citations?.length ? <p className="card__note">근거 {r.citations.length}개 인용 · {r.through_day}까지 기록</p> : null}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function ExperimentQuery() {
+  const { experiment } = useExperiment();
+  const id = experiment.experiment_id;
+  const roster = useResource(() => experimentsApi.roster(id), id);
+  const agents = useMemo(() => roster.data?.items ?? [], [roster.data]);
+  const defaultArm = [...experiment.arms].reverse().find((arm) => arm.days_present > 0)?.arm_id ?? experiment.arms[0].arm_id;
+  const [armId, setArmId] = useState(defaultArm);
+  const [filters, setFilters] = useState<Record<FilterKey, string[]>>({ gu: [], smoking_status: [], sex: [], age_group: [], income_level: [] });
+  const [stats, setStats] = useState<GroupStats | null>(null);
+  const [statsError, setStatsError] = useState<string | null>(null);
+  const [question, setQuestion] = useState('');
+  const [sample, setSample] = useState('8');
+  const [job, setJob] = useState<GroupJob | null>(null);
+  const [jobError, setJobError] = useState<string | null>(null);
+
+  const payloadFilters: GroupFilters = Object.fromEntries(
+    Object.entries(filters).filter(([, list]) => list.length).map(([key, list]) => [key, list]),
+  );
+  const matched = agents.filter((a) =>
+    (Object.entries(filters) as Array<[FilterKey, string[]]>).every(([key, list]) => !list.length || list.includes((a[key] ?? 'unknown') as string)),
+  ).length;
+
+  function toggle(key: FilterKey, value: string) {
+    setFilters((prev) => {
+      const list = prev[key].includes(value) ? prev[key].filter((v) => v !== value) : [...prev[key], value];
+      return { ...prev, [key]: list };
+    });
+  }
+
+  function runStats() {
+    setStatsError(null);
+    experimentsApi.groupStats(id, { arm_id: armId, filters: payloadFilters }).then(setStats, (e) => setStatsError(e.message));
+  }
+
+  function startInterview(event: FormEvent) {
+    event.preventDefault();
+    setJobError(null);
+    experimentsApi
+      .groupInterview(id, { arm_id: armId, filters: payloadFilters, question: question.trim(), sample: Number(sample) || 8, seed: 0 })
+      .then(setJob, (e) => setJobError(e.message));
+  }
+
+  useEffect(() => {
+    if (!job || job.state !== 'running') return;
+    const timer = window.setTimeout(() => {
+      experimentsApi.groupInterviewStatus(id, job.job_id).then(setJob, (e) => setJobError(e.message));
+    }, 2000);
+    return () => window.clearTimeout(timer);
+  }, [id, job]);
+
+  if (roster.error) return <ErrorState title="명단을 불러오지 못했습니다" body={roster.error.message} />;
+
+  return (
+    <div className="stack">
+      <Card title="집단 고르기" note={`지금 조건에 맞는 사람 ${int(matched)}명`}>
+        <div className="querybuilder">
+          <SelectField label="어느 팔의 기록으로" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
+          {FILTERS.map((filter) => (
+            <fieldset key={filter.key} className="querybuilder__set">
+              <legend className="field__label">{filter.label}</legend>
+              {values(agents, filter.key).map((value) => (
+                <label key={value} className="chip">
+                  <input type="checkbox" checked={filters[filter.key].includes(value)} onChange={() => toggle(filter.key, value)} />
+                  <span>{filter.text ? filter.text(value) : value}</span>
+                </label>
+              ))}
+            </fieldset>
+          ))}
+        </div>
+        <div className="querybuilder__actions">
+          <Button variant="secondary" onClick={runStats} disabled={!matched}>
+            기록 통계 보기
+          </Button>
+        </div>
+        {statsError ? <Callout tone="warn">{statsError}</Callout> : null}
+      </Card>
+      {stats ? (
+        <Card title="기록 통계" aside={<Badge>LLM 없음</Badge>}>
+          <StatsView stats={stats} />
+        </Card>
+      ) : null}
+      <Card title="집단 인터뷰" note="고른 집단에서 표본을 뽑아 한 명씩 같은 질문을 합니다. 한 번에 30명까지." aside={<Badge tone="warn">콘솔 탐색용</Badge>}>
+        {!READ_ONLY ? (
+          <form className="queryform" onSubmit={startInterview}>
+            <TextAreaField label="질문" value={question} rows={2} maxLength={500} onChange={(e) => setQuestion(e.target.value)} />
+            <TextField label="표본 수" type="number" min={1} max={30} value={sample} onChange={(e) => setSample(e.target.value)} />
+            <Button type="submit" variant="primary" disabled={!question.trim() || !matched || job?.state === 'running'} busy={job?.state === 'running'} busyLabel="묻는 중">
+              묻기
+            </Button>
+          </form>
+        ) : (
+          <p className="card__note">읽기 전용 배포에서는 집단 인터뷰를 할 수 없습니다.</p>
+        )}
+        {jobError ? <Callout tone="warn">{jobError}</Callout> : null}
+        {job ? <JobView job={job} /> : null}
+      </Card>
+    </div>
+  );
+}

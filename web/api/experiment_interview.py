@@ -32,6 +32,7 @@ MAX_PROMPT_CHARS = 16000
 FOCUS_RECENT_DAYS = 3
 TARGET_WORDS = ("당구", "골프", "스크린", "금연", "흡연", "담배", "실내체육")
 SMOKING_LABEL = {"smoker": "흡연함", "non_smoker": "흡연 안 함", "unknown": "흡연 여부 미상"}
+PURCHASE_STATUS = {"not_purchased": "계획했지만 결제 안 함"}
 FACILITY_LABEL = {"billiard": "당구장", "indoor_golf": "실내골프장"}
 NUMBER = re.compile(r"\d[\d,]*(?:\.\d+)?")
 CITE = re.compile(r"\[E(\d{1,4})\]")
@@ -212,7 +213,7 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             status = receipt.get("purchase_status")
             text = f"영수증: {receipt.get('scheduled_time') or ''} {receipt.get('category') or ''} {won(receipt.get('amount'))}"
             if status != "purchased":
-                text += f" ({status})"
+                text += f" ({PURCHASE_STATUS.get(str(status), str(status))})"
             items.append(Item(receipt.get("event_id") or f"{step.arm_id}:{day}:receipt:{index}", day, "executed_receipt", text.strip(), receipt))
         no_smoking = row.get("no_smoking") if isinstance(row.get("no_smoking"), dict) else {}
         aliases = (experiment.analysis or {}).get("facility_aliases") or {}
