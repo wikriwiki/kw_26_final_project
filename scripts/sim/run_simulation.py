@@ -265,6 +265,15 @@ def _build_policy_budget_summary(policies: list[dict] | None, prev_policy_used: 
         if ptype == "cashback":
             rate = pol.get("rate") or 0.0
             cap = pol.get("cap") or 0
+            # [2026-10-06] 실적 기간이 그 달 말일보다 먼저 끝나는 사본(7일 압축월)은 그 기간의 문턱·한도로 적는다.
+            from dawn_context import _cashback_period_end
+            if _cashback_period_end(pol) is not None:
+                lines.append(
+                    f"{pid}({name}) [캐시백 {int(rate*100)}%]: 적립업종에서 이번 실적 기간 문턱을 넘겨 쓴 "
+                    f"만큼 다음 달 환급(이번 실적 기간 최대 {cap:,}원). 캐시백은 이번 소비 예산이 아니다 — "
+                    "소비는 평소 습관·자산·필요로 판단한다."
+                )
+                continue
             lines.append(
                 f"{pid}({name}) [캐시백 {int(rate*100)}%]: 적립업종에서 2분기 월평균보다 더 쓴 "
                 f"만큼 다음 달 환급(월 최대 {cap:,}원). 캐시백은 이번 소비 예산이 아니다 — "
