@@ -39,16 +39,14 @@ EXPECTED = {
 }
 
 INTRO = """
-# KW26 — Colab 보조 추론 워커 (GPU 만 빌려준다)
+# KW26 — Colab 보조 추론 워커 · 계정 __ACCOUNT__ (GPU 만 빌려준다)
 
 이 노트북은 **언어모델 계산만** 한다. 시뮬레이션·DB·기록은 모두 우리 A100 서버에 있고, 이 노트북은 그것들에 접근할 수 없다.
 
 ## 실행 방법
 1. **런타임 → 런타임 유형 변경 → G4** (없으면 A100/H100, GPU 메모리 40GB 이상).
-2. 왼쪽 🔑 **보안 비밀(Secrets)** 에 두 개를 등록하고 **노트북 액세스**를 켠다.
-   - `KW26_POOL_ACCOUNT` : 이 계정에 정해진 번호 **1~6** (계정마다 다른 번호)
-   - `KW26_POOL_KEY` : 그 번호의 키 파일 내용 전체 (`kw26_colab_pool_<번호>`, BEGIN 줄부터 END 줄까지)
-   - 키는 메신저·GitHub·채팅에 붙여 넣지 않는다. 키 파일에서 Secrets 로 바로 옮긴다.
+2. **Secrets 는 쓰지 않는다.** 이 노트북은 계정 __ACCOUNT__ 전용이다(계정 번호가 박혀 있다).
+   키는 이 런타임 안에서 만들어지고, 마지막 셀이 찍는 `KW26_PUBKEY` 줄(공개 쪽)을 운영자가 서버에 등록한다.
 3. **런타임 → 모두 실행**. 처음에는 설치·모델 내려받기로 15~25분 걸린다.
 4. **마지막 셀은 끝나지 않고 계속 돈다. 멈추지 말 것.** 실행 중인 셀이 없으면 Colab 이 약 90분 뒤 세션을 끊는다.
 5. Colab 은 연속 **최대 24시간**이다. 끊기면 **모두 실행**을 다시 누른다. 끊겨 있는 동안 시뮬레이션은 멈추지 않는다(느려질 뿐).
@@ -66,9 +64,10 @@ out = subprocess.run(['nvidia-smi', '--query-gpu=name,memory.total,driver_versio
 print(out, '| CPU cores', os.cpu_count())
 GPU_NAME, GPU_MIB = out.splitlines()[0].split(',')[0].strip(), int(out.splitlines()[0].split(',')[1])
 assert GPU_MIB >= 40000, f'{GPU_NAME} {GPU_MIB}MiB: G4/H100/A100 런타임으로 바꿔 주세요.'
-# 96GB(G4) 이면 서버 2개, 그보다 작으면 1개. 두 번째가 메모리 부족으로 안 뜨면 1개로 계속한다.
-N_SERVERS = 2 if GPU_MIB >= 72000 else 1
-PER_SERVER_MIB = 40000 if N_SERVERS == 2 else int(GPU_MIB * 0.85)
+# [2026-10-06] GPU 한 장에 서버 하나. G4 에 서버 둘을 올렸더니(43GB+51GB) 실행 중 쓸 여유가 없어 서버 하나가
+# 메모리 부족으로 죽고 자동 재시작도 같은 이유로 실패했다(본런 첫 30분). 둘의 이득은 약 16%뿐이었다(doinggyu 기록).
+N_SERVERS = 1
+PER_SERVER_MIB = int(GPU_MIB * 0.85)
 PORTS = [8000 + i for i in range(N_SERVERS)]
 print('model servers:', PORTS, '| per-server budget MiB', PER_SERVER_MIB)
 """
@@ -171,18 +170,17 @@ print(sh(['nvidia-smi', '--query-gpu=memory.used,memory.total', '--format=csv,no
 CELL_TUNNEL = """
 # 5) 우리 서버로 역방향 터널 + 상태 루프.  ★ 이 셀은 끝나지 않는다 — 멈추지 말 것 ★
 import pathlib, re
-from google.colab import userdata
-ACCOUNT = int(str(userdata.get('KW26_POOL_ACCOUNT')).strip())
-assert 1 <= ACCOUNT <= 6, 'KW26_POOL_ACCOUNT 는 1~6'
-raw = userdata.get('KW26_POOL_KEY')
-# Secrets 는 여러 줄 값을 한 줄로 합쳐 저장한다 → 개인키의 줄바꿈을 복원한다. 키 본문은 출력하지 않는다.
-m = re.search(r'-----BEGIN OPENSSH PRIVATE KEY-----(.*?)-----END OPENSSH PRIVATE KEY-----', raw, re.S)
-assert m, 'KW26_POOL_KEY 에 키 파일 전체(BEGIN~END)를 넣어 주세요.'
-body = re.sub(r'\\s+', '', m.group(1))
+# [2026-10-06] Secrets 를 쓰지 않는다 — 탭이 닫힌 채 이 칸에 오면 Secrets 를 읽지 못해 멈추고(TimeoutException),
+# 새 노트북마다 '보안 비밀 액세스' 창이 떠서 사람이 눌러야 했다. 계정 번호는 계정별 노트북에 박혀 있고,
+# 키는 이 런타임 안에서 만든다. 비밀 쪽은 Colab 밖으로 나가지 않고 KW26_PUBKEY 줄(공개 쪽)만 운영자가
+# 서버에 이 계정 포트로 제한해 등록한다(register_colab_key.sh). 등록 전까지 터널은 5초마다 다시 시도한다.
+ACCOUNT = __ACCOUNT__
+assert 1 <= ACCOUNT <= 6, '계정 번호는 1~6'
 ssh_dir = pathlib.Path('/root/.ssh'); ssh_dir.mkdir(mode=0o700, exist_ok=True)
-(ssh_dir / 'kw26_pool').write_text('-----BEGIN OPENSSH PRIVATE KEY-----\\n'
-    + '\\n'.join(body[i:i + 70] for i in range(0, len(body), 70)) + '\\n-----END OPENSSH PRIVATE KEY-----\\n')
-os.chmod(ssh_dir / 'kw26_pool', 0o600)
+if not (ssh_dir / 'kw26_pool').exists():   # 같은 런타임에서 다시 돌리면 이 키를 그대로 쓴다
+    sh(['ssh-keygen', '-q', '-t', 'ed25519', '-N', '', '-C',
+        f'kw26-colab-session-{ACCOUNT}-{time.strftime("%Y%m%d%H%M%S")}', '-f', str(ssh_dir / 'kw26_pool')])
+print('KW26_PUBKEY', ACCOUNT, (ssh_dir / 'kw26_pool.pub').read_text().strip(), flush=True)
 print('key fingerprint:', sh(['ssh-keygen', '-lf', '/root/.ssh/kw26_pool']).strip())
 (ssh_dir / 'known_hosts').write_text('__HOST_KEY__\\n')
 # 이 키는 우리 서버에서 셸이 막혀 있고, 이 계정 번호의 포트 두 개(180N1, 180N2)만 열 수 있다.
@@ -217,7 +215,7 @@ while True:
                 print('restart failed:', str(exc)[:200], flush=True)
     ssh_up = bool(subprocess.run(['pgrep', '-f', 'ssh -N -i /root/.ssh/kw26_pool'], capture_output=True).stdout)
     tail = open('/content/tunnel.log', errors='replace').read()[-400:]
-    why = '키 거부됨 — Secrets 확인' if 'Permission denied' in tail else ('포트 거부 — 계정 번호 확인' if 'forwarding failed' in tail else 'DOWN(재시도 중)')
+    why = '키 거부됨 — 서버 등록 대기(KW26_PUBKEY)' if 'Permission denied' in tail else ('포트 거부 — 계정 번호 확인' if 'forwarding failed' in tail else 'DOWN(재시도 중)')
     print(time.strftime('%H:%M:%S'), 'health', {p: healthy(p) for p in PORTS},
           '| tunnel', 'UP' if ssh_up else why, '|', [last_rate(p) for p in PORTS],
           '| gpu', sh(['nvidia-smi', '--query-gpu=utilization.gpu,memory.used', '--format=csv,noheader'], check=False).strip(), flush=True)
@@ -233,23 +231,26 @@ def code(text):
             'source': text.strip('\n').splitlines(True)}
 
 
-def build():
+def build(account):
     freeze = FREEZE.read_text(encoding='utf-8')
     freeze_sha = hashlib.sha256(freeze.encode()).hexdigest()
     install = (CELL_INSTALL.replace('__MODEL__', MODEL).replace('__REVISION__', REVISION)
                .replace('__SEED__', str(SEED)))
-    tunnel = (CELL_TUNNEL.replace('__HOST_KEY__', SERVER_HOST_KEY).replace('__SERVER_PORT__', str(SERVER_PORT))
+    tunnel = (CELL_TUNNEL.replace('__ACCOUNT__', str(int(account))).replace('__HOST_KEY__', SERVER_HOST_KEY).replace('__SERVER_PORT__', str(SERVER_PORT))
               .replace('__SERVER_USER__', SERVER_USER).replace('__SERVER_HOST__', SERVER_HOST))
-    cells = [md(INTRO), code(CELL_GPU),
+    cells = [md(INTRO.replace('__ACCOUNT__', str(int(account)))), code(CELL_GPU),
              code(CELL_FREEZE.replace('__FREEZE_SHA__', freeze_sha).replace('__FREEZE__', repr(freeze))),
              code(install), code(CELL_SERVERS.replace('__EXPECTED__', repr(EXPECTED))), code(tunnel)]
     nb = {'cells': cells, 'metadata': {'accelerator': 'GPU', 'colab': {'provenance': []},
                                        'kernelspec': {'name': 'python3', 'display_name': 'Python 3'}},
           'nbformat': 4, 'nbformat_minor': 5}
-    OUT.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
-    return OUT, freeze_sha
+    out = HERE / f'kw26_colab_sglang_worker_acct{int(account)}.ipynb'
+    out.write_text(json.dumps(nb, ensure_ascii=False, indent=1) + '\n', encoding='utf-8')
+    return out, freeze_sha
 
 
 if __name__ == '__main__':
-    path, digest = build()
-    print(path.name, 'freeze_sha256', digest, 'notebook_sha256', hashlib.sha256(path.read_bytes()).hexdigest())
+    # 계정별 노트북 1~6 (Secrets 없이 계정 번호가 박힌다)
+    for n in range(1, 7):
+        path, digest = build(n)
+        print(path.name, 'freeze_sha256', digest, 'notebook_sha256', hashlib.sha256(path.read_bytes()).hexdigest())
