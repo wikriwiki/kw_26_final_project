@@ -12,8 +12,9 @@ case "$AB_CASE" in
     # 상생소비지원금(카드 캐시백). 정책 전 주(9월)의 지출은 10월 누적에 섞이지 않는다 — 엔진이 매달 1일에
     # 월 누적을 0 으로 되돌린다(plan_writer, date($today).day = 1). 7일 창은 문턱·한도를 7/31 로 줄인
     # 압축월 파일과 짝이다(창과 파일은 함께 움직인다 — 섞으면 문턱이 창에 비해 너무 높아 정책이 사라진다).
+    # [2026-10-06] 사본 P012_ab3w_policy_20261006 = compressed7_main 과 규칙이 같고, 설명만 압축월 숫자로 맞춘 판(본런 전 프롬프트 점검).
     START=2021-10-01; PID=P012
-    POLICY=data/experiments/P012_v53_compressed7_main_20260929.json
+    POLICY=data/experiments/P012_ab3w_policy_20261006.json
     # 시험(AB_TEST_SHORT=1)은 짧은 창을 허용한다 — 문턱에 못 닿아 캐시백이 0 이어도 배관 확인은 된다.
     [[ $AB_POST_DAYS == 7 || ${AB_TEST_SHORT:-0} == 1 ]] || { echo "P012 압축월 파일은 7일 창 전용이다 (AB_POST_DAYS=$AB_POST_DAYS)" >&2; exit 2; }
     ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
@@ -25,8 +26,9 @@ case "$AB_CASE" in
     # 하루 인출 상한 없음 EXP_SPREAD_DAYS=1). 지원금 카드로 낸 몫 0.5617 은 전국 5/24 누적 소진율(행안부 M2)에
     # 맞춘 보정값이다(P013_indicator_contract.json _calibration) — U1 2주차는 독립 검증에서 뺀다.
     # 1주 창(05-11~05-17)에서 받는 사람은 약 절반이다(일정 비율 0.0956 + 0.5094 x 5/6).
+    # [2026-10-06] 사본 P013_ab3w_policy_20261006 = v53 사본과 규칙이 같고, 설명에서 '서울 시뮬레이션 … 환산' 문장만 뺀 판.
     START=2020-05-11; PID=P013
-    POLICY=data/experiments/P013_v53_policy_20261003.json
+    POLICY=data/experiments/P013_ab3w_policy_20261006.json
     ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
     LEDGERS="sector policy"
     CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_GRANT_USE=0.5617 EXP_SPREAD_DAYS=1);;
@@ -35,8 +37,9 @@ case "$AB_CASE" in
     # 결제 규칙: 신용·체크카드 충전분(수령자의 69.2%, 집행결과 p2)은 사용처 결제에서 자동 차감됐다(정책원문 p3).
     # 건별 선택(엔진 기본값)은 P013 에서 사용 0.1% 로 정책의 결제 규칙과 달랐다 — 자동 차감으로 둔다.
     # 쿠폰은 개인 단위라 P013 의 가구 단위 보정(0.5617)은 쓰지 않는다(엔진 기본 1.0). 하루 인출 상한 없음.
+    # [2026-10-06] 사본 P010_ab3w_policy_20261006 = v53 사본과 규칙이 같고, 설명에서 '서울 시뮬레이션 … 소비 10분위' 문장만 뺀 판.
     START=2025-07-21; PID=P010
-    POLICY=data/experiments/P010_v53_policy_20260927.json
+    POLICY=data/experiments/P010_ab3w_policy_20261006.json
     ENV_PRE=''; ENV_ON=''; ENV_OFF=''
     LEDGERS="sector policy"
     CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_SPREAD_DAYS=1);;
