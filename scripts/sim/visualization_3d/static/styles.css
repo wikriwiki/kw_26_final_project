@@ -691,3 +691,24 @@ select:focus-visible {
   }
 }
 
+
+/* Hover tooltip for agent dots (deck.gl getTooltip). */
+.sim-tip-wrap {
+  background: rgba(10, 14, 24, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+  padding: 8px 10px !important;
+  pointer-events: none;
+}
+
+.sim-tip {
+  color: #eef4fb;
+  font: 12px/1.5 "Segoe UI", system-ui, sans-serif;
+  max-width: 260px;
+}
+
+.sim-tip b {
+  color: #72efdd;
+  font-weight: 600;
+}

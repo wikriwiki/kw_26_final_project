@@ -170,34 +170,53 @@
     });
   }
 
-  Sim3D.setFrame = function setFrame(frameIndex, frameT) {
+  function updateFrameHud(index) {
     const state = Sim3D.state;
-    const maxFrame = Math.max(0, (state.timeline || []).length - 1);
-    state.frameIndex = Math.max(0, Math.min(maxFrame, Number(frameIndex) || 0));
-    state.frameT = Math.max(0, Math.min(0.999, Number(frameT) || 0));
-
-    const frame = state.timeline[state.frameIndex];
-    const summary = state.meta && state.meta.frame_summaries ? state.meta.frame_summaries[state.frameIndex] : null;
-    const label = frame && frame.label ? frame.label : "Frame " + state.frameIndex;
+    const frame = state.timeline[index];
+    const summary = state.meta && state.meta.frame_summaries ? state.meta.frame_summaries[index] : null;
+    const label = frame && frame.label ? frame.label : "Frame " + index;
 
     const frameSlider = byId("frame-slider");
-    if (frameSlider) frameSlider.value = String(state.frameIndex);
+    if (frameSlider) frameSlider.value = String(index);
     const frameLabel = byId("frame-label");
     if (frameLabel) frameLabel.textContent = label;
     const sceneClock = byId("scene-clock");
     if (sceneClock) sceneClock.textContent = label;
-    const activeValue = String(summary ? summary.active_agents : (frame && frame.agents ? frame.agents.length : 0));
+    const activeValue = summary && summary.active_agents != null ? Number(summary.active_agents).toLocaleString() : "-";
     const infoFrameLabel = byId("info-frame-label");
     if (infoFrameLabel) infoFrameLabel.textContent = label;
     const infoActive = byId("info-active-cnt");
     if (infoActive) infoActive.textContent = activeValue;
+    return frame;
+  }
 
-    setChapterActive(state.frameIndex);
-    Sim3D.checkStoryNews(frame);
-    if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
-    if (state.selectedAgentId && typeof Sim3D.renderSelectedAgent === "function") {
-      Sim3D.renderSelectedAgent();
+  // 재생 중에는 매 애니메이션 프레임마다 불린다. DOM·상세 카드·챕터 갱신은 시(hour)가
+  // 바뀔 때만 하고, 그 사이에는 점 위치 보간만 한다.
+  Sim3D.setFrame = function setFrame(frameIndex, frameT) {
+    const state = Sim3D.state;
+    const total = (state.timeline || []).length;
+    const playable = typeof Sim3D.loadedFrameCount === "function" ? Sim3D.loadedFrameCount() : total;
+    const maxFrame = Math.max(0, Math.min(total, playable) - 1);
+    const index = Math.max(0, Math.min(maxFrame, Number(frameIndex) || 0));
+    state.frameIndex = index;
+    state.frameT = Math.max(0, Math.min(0.999, Number(frameT) || 0));
+
+    if (index !== state.hudFrameIndex) {
+      state.hudFrameIndex = index;
+      const frame = updateFrameHud(index);
+      setChapterActive(index);
+      Sim3D.checkStoryNews(frame);
+      if (state.selectedAgentId && typeof Sim3D.renderSelectedAgent === "function") {
+        Sim3D.renderSelectedAgent();
+      }
     }
+    if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
+  };
+
+  // 타임라인을 하루치씩 받는 동안 정보 패널에 진행을 적는다.
+  Sim3D.showLoadState = function showLoadState(text) {
+    const el = byId("info-load-state");
+    if (el) el.textContent = text;
   };
 
   Sim3D.showNews = function showNews(message) {
@@ -246,7 +265,13 @@
       frameSlider.addEventListener("input", function (event) {
         state.playing = false;
         if (playButton) playButton.textContent = "▶";
-        Sim3D.setFrame(Number(event.target.value), 0);
+        const wanted = Number(event.target.value);
+        Sim3D.setFrame(wanted, 0);
+        if (wanted > state.frameIndex && typeof Sim3D.showNews === "function") {
+          Sim3D.showNews("그 시각의 기록을 아직 불러오는 중입니다.");
+        }
+        // setFrame 이 받은 구간까지만 옮긴다. 슬라이더도 그 위치로 되돌린다.
+        event.target.value = String(state.frameIndex);
       });
     }
 

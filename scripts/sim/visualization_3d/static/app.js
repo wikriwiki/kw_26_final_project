@@ -48,10 +48,9 @@
   }
 
   Sim3D.state = {
+    pack: null,
     agents: [],
     timeline: [],
-    memories: {},
-    events: {},
     meta: {},
     agentById: new Map(),
     frameIndex: 0,
@@ -82,26 +81,61 @@
       "</main>";
   };
 
+  function now() {
+    return window.performance && window.performance.now ? window.performance.now() : Date.now();
+  }
+
+  function describeLoad(pack) {
+    const days = pack.chunks.length;
+    const loadedDays = pack.chunkLoaded.reduce(function (sum, value) {
+      return sum + value;
+    }, 0);
+    return loadedDays >= days ? "준비됨" : "불러오는 중 " + loadedDays + "/" + days + "일";
+  }
+
   Sim3D.boot = async function boot() {
     const state = Sim3D.state;
-    state.agents = Array.isArray(window.__AGENTS__) ? window.__AGENTS__ : [];
-    state.timeline = Array.isArray(window.__TIMELINE__) ? window.__TIMELINE__ : [];
-    state.memories = window.__MEMORIES__ || {};
-    state.events = window.__EVENTS__ || {};
-    state.meta = window.__VIZ_META__ || {};
+    const started = now();
+    const marks = (Sim3D.bootMarks = { started: started });
+
+    const pack = await Sim3D.openPack();
+    marks.manifest = now() - started;
+    state.pack = pack;
+    state.agents = pack.agents;
+    // 예전 코드가 기대하던 프레임 목록(일자·시각·라벨). 대상자 위치는 pack.columns 에 있다.
+    state.timeline = pack.frames;
+    state.meta = pack.meta || {};
     state.agentById = new Map(
-      state.agents
-        .filter(function (agent) {
-          return agent && agent.id != null;
-        })
-        .map(function (agent) {
-          return [agent.id, agent];
-        })
+      pack.agents.map(function (agent) {
+        return [agent.id, agent];
+      })
     );
 
     if (!state.timeline.length) {
       throw new Error("timeline data is empty");
     }
+
+    callOptional("initDataModel");
+
+    // 타임라인은 하루치씩 받는다. 첫날이 오면 바로 그리고, 나머지는 재생하는 동안 채운다.
+    let firstDayReady;
+    const firstDay = new Promise(function (resolve) {
+      firstDayReady = resolve;
+    });
+    const timelineDone = pack.loadTimeline(function (loadedPack) {
+      if (isFunction("showLoadState")) Sim3D.showLoadState(describeLoad(loadedPack));
+      if (loadedPack.loadedFrames > 0) firstDayReady();
+    });
+    timelineDone.then(
+      function () {
+        marks.timeline = now() - started;
+      },
+      function (error) {
+        console.error(error);
+        if (isFunction("showNews")) Sim3D.showNews("타임라인 일부를 불러오지 못했습니다: " + (error && error.message ? error.message : error));
+        if (isFunction("showLoadState")) Sim3D.showLoadState("일부만 불러옴");
+      }
+    );
 
     const totals = isFunction("computeMemoryTotals")
       ? Sim3D.computeMemoryTotals()
@@ -127,14 +161,27 @@
       detailCard.hidden = true;
     }
 
-    callOptional("initDataModel");
-    if (isFunction("initMapScene")) {
-      await Sim3D.initMapScene();
+    // 지도 타일과 타임라인 첫날을 동시에 받는다.
+    const mapReady = isFunction("initMapScene") ? Sim3D.initMapScene() : Promise.resolve();
+    await Promise.all([
+      mapReady.then(function () {
+        marks.map = now() - started;
+      }),
+      Promise.race([firstDay, timelineDone]).then(function () {
+        marks.firstDay = now() - started;
+      })
+    ]);
+    if (!pack.loadedFrames) {
+      throw new Error("타임라인을 불러오지 못했습니다");
     }
+
     callOptional("initHud");
     callOptional("initDetail");
-    refreshOrSetFrame(0, 0);
+    // 자정 프레임은 모두 집에 있어 지도가 비어 보인다. 처음 활동이 있는 시각에서 시작한다.
+    const firstActive = Number(pack.manifest.first_active_frame) || 0;
+    refreshOrSetFrame(Math.min(firstActive, pack.loadedFrames - 1), 0);
     Sim3D.startRenderLoop();
+    marks.interactive = now() - started;
   };
 
   Sim3D.startRenderLoop = function startRenderLoop() {
@@ -154,12 +201,18 @@
       if (state.playing && state.timeline.length) {
         const speed = Number.isFinite(Number(state.speed)) ? Number(state.speed) : 1;
         const lastFrameIndex = Math.max(0, state.timeline.length - 1);
+        const loaded = isFunction("loadedFrameCount") ? Sim3D.loadedFrameCount() : state.timeline.length;
+        const lastLoaded = Math.max(0, Math.min(lastFrameIndex, loaded - 1));
         const nextT = state.frameT + (delta / 1200) * speed;
         const step = Math.floor(nextT);
-        const frameT = nextT - step;
+        let frameT = nextT - step;
         let frameIndex = state.frameIndex + step;
 
-        if (lastFrameIndex === 0 || frameIndex >= lastFrameIndex) {
+        if (lastLoaded < lastFrameIndex && frameIndex >= lastLoaded) {
+          // 다음 날 기록이 아직 오는 중이다. 처음으로 되감지 않고 그 자리에서 기다린다.
+          frameIndex = lastLoaded;
+          frameT = 0;
+        } else if (lastFrameIndex === 0 || frameIndex >= lastFrameIndex) {
           frameIndex = 0;
         }
 

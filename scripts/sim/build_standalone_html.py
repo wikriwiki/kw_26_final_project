@@ -1,6 +1,16 @@
-"""Build the 3D simulation visualization as a single offline-friendly HTML file."""
+"""Build the 3D simulation visualization as a single offline-friendly HTML file.
+
+데이터는 JS 리터럴로 박지 않는다. ``visualization_3d/pack.py`` 의 팩(열 단위 바이너리
+타임라인 + 대상자별 기억·일정 묶음)을 gzip·base64 로 ``<script type="application/octet-stream">``
+에 담는다. 브라우저는 이 태그를 실행하지 않으므로 HTML 을 여는 데 JS 파싱 비용이 들지 않고,
+뷰어가 필요한 순간에 풀어 쓴다. 예전 133MB 파일이 같은 데이터로 약 17MB 가 된다.
+"""
 from __future__ import annotations
 
+import argparse
+import base64
+import gzip
+import hashlib
 import json
 import os
 import re
@@ -19,6 +29,7 @@ try:
         style_tag,
     )
     from scripts.sim.visualization_3d.derive import build_viz_meta
+    from scripts.sim.visualization_3d.pack import build_pack, write_pack
 except ModuleNotFoundError:  # pragma: no cover - supports direct script execution.
     from visualization_3d.assets import (  # type: ignore[no-redef]
         CHART_JS_URL,
@@ -30,6 +41,7 @@ except ModuleNotFoundError:  # pragma: no cover - supports direct script executi
         style_tag,
     )
     from visualization_3d.derive import build_viz_meta  # type: ignore[no-redef]
+    from visualization_3d.pack import build_pack, write_pack  # type: ignore[no-redef]
 
 try:
     sys.stdout.reconfigure(encoding="utf-8")
@@ -63,6 +75,7 @@ JSON_INPUTS = {
     "__EVENTS__": "events.json",
 }
 STATIC_JS_FILES = (
+    "pack_loader.js",
     "data_model.js",
     "map_scene.js",
     "layers.js",
@@ -117,9 +130,19 @@ def render_template(template: str, replacements: dict[str, str]) -> str:
     return rendered
 
 
-def build_3d_standalone(viz_dir: Path | None = None) -> Path:
+def build_3d_standalone(
+    viz_dir: Path | None = None,
+    *,
+    include_detail: bool = True,
+    pack_dir: Path | None = None,
+) -> Path:
+    """``viz_dir`` 의 JSON 4종으로 단일 HTML 을 만든다.
+
+    ``include_detail=False`` 면 대상자별 기억·일정을 빼서 파일을 더 줄인다(지도·궤적만).
+    ``pack_dir`` 를 주면 같은 팩을 폴더로도 써서 서버(``/viz/packs/<id>/``)가 바로 내보낼 수 있다.
+    """
     viz_dir = Path(viz_dir) if viz_dir is not None else _resolve_viz_dir()
-    payload = _load_json_payload(viz_dir)
+    payload, source = _load_json_payload(viz_dir)
     viz_meta = build_viz_meta(
         payload["__AGENTS__"],
         payload["__TIMELINE__"],
@@ -127,13 +150,25 @@ def build_3d_standalone(viz_dir: Path | None = None) -> Path:
         payload["__EVENTS__"],
         fetch_policy_dongs_safe(),
     )
+    manifest, files = build_pack(
+        payload["__AGENTS__"],
+        payload["__TIMELINE__"],
+        payload["__MEMORIES__"],
+        payload["__EVENTS__"],
+        viz_meta=viz_meta,
+        pack_id=viz_dir.name,
+        source=source,
+    )
+    if pack_dir is not None:
+        write_pack(Path(pack_dir), manifest, files)
+        print(f"  -> pack: {pack_dir}")
 
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     html = render_template(
         template,
         {
             "styles": _load_styles(),
-            "data": _build_data_script(payload, viz_meta),
+            "data": _build_pack_script(manifest, files, include_detail=include_detail),
             "scripts": _load_runtime_assets(),
         },
     )
@@ -144,8 +179,13 @@ def build_3d_standalone(viz_dir: Path | None = None) -> Path:
     return out_path
 
 
-def main() -> None:
-    build_3d_standalone()
+def main(argv: list[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description="3D 시각화 단일 HTML 을 만든다")
+    parser.add_argument("--viz-dir", type=Path, help="JSON 4종이 있는 폴더 (기본: VIZ_OUT_DIR)")
+    parser.add_argument("--no-detail", action="store_true", help="대상자별 기억·일정을 넣지 않는다")
+    parser.add_argument("--pack-dir", type=Path, help="같은 팩을 폴더로도 쓴다 (서버 서빙용)")
+    args = parser.parse_args(argv)
+    build_3d_standalone(args.viz_dir, include_detail=not args.no_detail, pack_dir=args.pack_dir)
 
 
 def _resolve_viz_dir() -> Path:
@@ -166,14 +206,16 @@ def _template_replacement(marker: str, replacements: dict[str, str]) -> str:
     raise RuntimeError(f"missing template replacement: {marker}")
 
 
-def _load_json_payload(viz_dir: Path) -> dict[str, object]:
+def _load_json_payload(viz_dir: Path) -> tuple[dict[str, object], dict[str, dict[str, object]]]:
     payload: dict[str, object] = {}
+    source: dict[str, dict[str, object]] = {}
     for key, filename in JSON_INPUTS.items():
         path = viz_dir / filename
-        size_kb = path.stat().st_size / 1024
-        print(f"  loading {filename} ({size_kb:.0f} KB)")
-        payload[key] = json.loads(path.read_text(encoding="utf-8"))
-    return payload
+        raw = path.read_bytes()
+        print(f"  loading {filename} ({len(raw) / 1024:.0f} KB)")
+        source[filename] = {"bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest()}
+        payload[key] = json.loads(raw.decode("utf-8"))
+    return payload, source
 
 
 def _load_styles() -> str:
@@ -211,12 +253,28 @@ def _load_runtime_assets() -> str:
     return "\n".join(scripts)
 
 
-def _build_data_script(payload: dict[str, object], viz_meta: dict[str, object]) -> str:
+def _build_pack_script(manifest: dict, files: dict[str, bytes], *, include_detail: bool = True) -> str:
+    """팩을 HTML 에 싣는다.
+
+    대상자 표와 화면 메타는 예전과 같은 전역(``window.__AGENTS__``, ``window.__VIZ_META__``)으로,
+    타임라인·기억 묶음은 실행되지 않는 ``application/octet-stream`` 태그에 base64 로 둔다.
+    """
+    manifest = json.loads(json.dumps(manifest))
+    if not include_detail:
+        manifest["detail"] = {**manifest["detail"], "shards": [], "omitted": True}
+    roster = json.loads(gzip.decompress(files[manifest["agents"]["file"]]).decode("utf-8"))
+
     lines = ['<script id="__SIM_DATA__">']
-    for key in JSON_INPUTS:
-        lines.append(f"window.{key} = {_safe_json(payload[key])};")
-    lines.append(f"window.__VIZ_META__ = {_safe_json(viz_meta)};")
+    lines.append(f"window.__AGENTS__ = {_safe_json(roster)};")
+    lines.append(f"window.__VIZ_META__ = {_safe_json(manifest.get('meta') or {})};")
+    lines.append(f"window.__SIM_PACK__ = {_safe_json(manifest)};")
     lines.append("</script>")
+
+    embedded = [chunk["file"] for chunk in manifest["chunks"]]
+    embedded += [shard["file"] for shard in manifest["detail"]["shards"]]
+    for name in embedded:
+        encoded = base64.b64encode(files[name]).decode("ascii")
+        lines.append(f'<script type="application/octet-stream" data-pack-file="{name}">{encoded}</script>')
     return "\n".join(lines)
 
 

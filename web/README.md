@@ -33,6 +33,7 @@ npm run dev
 | `SIM_LOCK_PATH` | 실행 lock 파일 (기본 `web/.run.lock`) |
 | `WEB_CORS_ORIGINS` | 프런트 개발 서버 주소 |
 | `SIM_VIZ_FILE` | 운영자가 직접 걸어 둔 3D 지도 파일. `SIM_VIZ_STANDALONE` → `SIM_DATA_ROOT/viz/sim_demo.html` 순으로 물러난다 |
+| `SIM_VIZ_PACKS_DIR` | 3D 지도 데이터 팩 폴더들의 부모(`<팩>/manifest.json`). 없으면 `SIM_DATA_ROOT/viz/packs` → `web/viz_store/packs` 순으로 찾는다. 팩은 `python -m scripts.sim.visualization_3d.pack --src <JSON 4종 폴더> --out <부모>/<팩 이름>` 으로 만든다 |
 | `GEMINI_API_KEY` | 보고서 해설 LLM. 없으면 해설만 규칙 기반으로 대체된다. **인터뷰 화면도 같은 키를 쓴다** |
 | `INTERVIEW_BASE_URL` / `_MODEL` / `_API_KEY` | 인터뷰 전용 엔드포인트(K-EXAONE). 셋이 다 있으면 이쪽을 먼저 쓴다 |
 

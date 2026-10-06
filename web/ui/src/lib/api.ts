@@ -327,6 +327,31 @@ export interface ReportJob extends UnknownResource {
   policy_sha256?: string;
 }
 
+/** 3D 지도 데이터 팩 — `scripts/sim/visualization_3d/pack.py` 산출물 하나 */
+export interface VizPack {
+  pack_id: string;
+  label: string | null;
+  run_id: string | null;
+  agent_count: number | null;
+  frame_count: number | null;
+  first_day: string | null;
+  last_day: string | null;
+  day_count: number;
+  created_at: string | null;
+  /** 지도를 처음 그리는 데 받는 양(바이트) */
+  boot_bytes: number;
+  /** 사람을 고를 때 나눠 받는 기억·일정 전체(바이트) */
+  detail_bytes: number;
+  shell_url: string;
+  /** manifest 를 읽지 못한 팩 */
+  error?: string;
+}
+
+export interface VizPacks extends UnknownResource {
+  total: number;
+  items: VizPack[];
+}
+
 const API_BASE = (import.meta.env.VITE_API_BASE ?? '/api').replace(/\/$/, '');
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -401,6 +426,7 @@ export const api = {
   getFailed: (id: string, day: string) =>
     request<FailedPage>(`/runs/${encodeURIComponent(id)}/days/${encodeURIComponent(day)}/failed`),
   getEventsSummary: (id: string) => request<Record<string, unknown>>(`/runs/${encodeURIComponent(id)}/events/summary`),
+  listVizPacks: () => request<VizPacks>('/viz/packs'),
   listArtifacts: () => request<{ total: number; items: Array<{ path: string; bytes: number }>; unknown: string[] }>('/artifacts'),
   getLock: () => request<LockStatus>('/runner/lock'),
   /**

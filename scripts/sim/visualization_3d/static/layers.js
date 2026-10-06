@@ -1,140 +1,120 @@
 (function () {
   const Sim3D = (window.Sim3D = window.Sim3D || {});
 
-  function zoom() {
+  // 레이어 객체는 매 프레임 새로 만들어도 싸다(deck.gl 이 props 를 얕게 비교한다).
+  // 비싼 것은 data 가 바뀌어 속성을 다시 계산·업로드하는 일이다. 그래서
+  //   · 점 위치만 매 프레임 새 버퍼 래퍼로 넘기고
+  //   · 색·반지름·히트맵·궤적은 시(hour)·필터·모드가 바뀔 때만 새 data 를 넘기며
+  //   · 줌에 따라 달라지는 값은 카메라가 멈췄을 때(settledZoom)만 바꾼다.
+
+  function liveZoom() {
     const state = Sim3D.state || {};
     return state.map && typeof state.map.getZoom === "function" ? state.map.getZoom() : 11;
   }
 
-  function activeTrips(agents) {
-    const limit = zoom() >= 12 ? 900 : 220;
-    return agents
-      .filter(function (item) {
-        return item.frame && item.frame.anchor !== "residence";
-      })
-      .slice(0, limit)
-      .map(function (item) {
-        const home = [
-          item.agent && item.agent.home_lon != null ? item.agent.home_lon : item.position[0],
-          item.agent && item.agent.home_lat != null ? item.agent.home_lat : item.position[1],
-          6
-        ];
-        return { id: item.id, path: [home, item.position], color: item.color };
-      });
+  function settledZoom() {
+    const state = Sim3D.state || {};
+    return Number.isFinite(state.settledZoom) ? state.settledZoom : liveZoom();
   }
 
-  function safeColor(color, fallback) {
-    return Array.isArray(color) ? color : fallback;
+  const DOT_LINE_COLOR = [230, 248, 255, 90];
+  const TRAIL_COLOR = [57, 215, 255];
+  const ZONE_FILL = [0, 0, 0, 0];
+  const ZONE_LINE = [255, 191, 90, 150];
+  const ROUTE_COLOR = [255, 196, 64, 110];
+  const ROUTE_PROGRESS_COLOR = [255, 176, 32, 235];
+  const ROUTE_STOP_COLOR = [255, 214, 120, 230];
+  const HEAD_FILL = [255, 255, 255, 40];
+  const HEAD_LINE = [255, 176, 32, 255];
+
+  function onDotClick(info) {
+    if (!info || !(info.index >= 0) || typeof Sim3D.selectAgent !== "function") return;
+    const agentId = Sim3D.agentIdAtVisible(info.index);
+    if (agentId != null) Sim3D.selectAgent(agentId);
   }
 
-  function makeCityDotLayer(agents, z) {
+  function makeCityDotLayer(z) {
     return new deck.ScatterplotLayer({
       id: "agent-city-dots",
-      data: agents,
+      data: Sim3D.dotsData(),
       pickable: true,
       opacity: z < 12 ? 0.9 : 0.35,
       radiusUnits: "meters",
-      getPosition: function (item) {
-        return item.position;
-      },
-      getRadius: function (item) {
-        return item.frame && Number(item.frame.spent || 0) > 0 ? 26 : 15;
-      },
-      getFillColor: function (item) {
-        return safeColor(item.color, [154, 169, 190, 180]);
-      },
       stroked: true,
-      getLineColor: [230, 248, 255, 90],
+      getLineColor: DOT_LINE_COLOR,
       lineWidthUnits: "pixels",
       getLineWidth: 1,
-      onClick: function (info) {
-        if (info.object && typeof Sim3D.selectAgent === "function") {
-          Sim3D.selectAgent(info.object.id);
-        }
-      }
-    });
-  }
-
-  function makeTripLayer(agents) {
-    return new deck.PathLayer({
-      id: "commute-light-trips",
-      data: activeTrips(agents),
-      widthUnits: "pixels",
-      getPath: function (item) {
-        return item.path;
-      },
-      getColor: function (item) {
-        const color = safeColor(item.color, [57, 215, 255, 120]);
-        return [color[0], color[1], color[2], 95];
-      },
-      getWidth: 1.4,
-      rounded: true
+      onClick: onDotClick
     });
   }
 
   function currentDay() {
-    const state = Sim3D.state || {};
-    const timeline = Array.isArray(state.timeline) ? state.timeline : [];
-    const frame = timeline[state.frameIndex];
+    const frame = typeof Sim3D.frameInfo === "function" ? Sim3D.frameInfo((Sim3D.state || {}).frameIndex) : null;
     return frame ? String(frame.day || "") : "";
+  }
+
+  const zoneCache = { day: null, source: null, data: [] };
+
+  function zonePosition(item) {
+    return [item.lon, item.lat, 2];
+  }
+
+  function onZoneClick(info) {
+    if (info.object && typeof Sim3D.showNews === "function") {
+      Sim3D.showNews(info.object.policy_name + ": " + info.object.dong_name);
+    }
   }
 
   function makePolicyZoneLayers() {
     const state = Sim3D.state || {};
     const zones = (state.meta && state.meta.policy_zones) || [];
     const day = currentDay();
-    const activeZones = zones.filter(function (zone) {
-      if (!day) return true;
-      if (zone.effective_from && day < zone.effective_from) return false;
-      if (zone.effective_until && day > zone.effective_until) return false;
-      return true;
-    });
+    if (zoneCache.day !== day || zoneCache.source !== zones) {
+      zoneCache.day = day;
+      zoneCache.source = zones;
+      zoneCache.data = zones.filter(function (zone) {
+        if (!day) return true;
+        if (zone.effective_from && day < zone.effective_from) return false;
+        if (zone.effective_until && day > zone.effective_until) return false;
+        return true;
+      });
+    }
 
     // Thin translucent amber outline (no fill) so policy zones read as
     // boundaries without obscuring the spending heatmap underneath.
     return [
       new deck.ScatterplotLayer({
         id: "policy-zone-markers",
-        data: activeZones,
+        data: zoneCache.data,
         radiusUnits: "meters",
-        getPosition: function (item) {
-          return [item.lon, item.lat, 2];
-        },
+        getPosition: zonePosition,
         getRadius: 220,
-        getFillColor: [0, 0, 0, 0],
+        getFillColor: ZONE_FILL,
         stroked: true,
-        getLineColor: [255, 191, 90, 150],
+        getLineColor: ZONE_LINE,
         lineWidthUnits: "pixels",
         getLineWidth: 1,
         pickable: true,
-        onClick: function (info) {
-          if (info.object && typeof Sim3D.showNews === "function") {
-            Sim3D.showNews(info.object.policy_name + ": " + info.object.dong_name);
-          }
-        }
+        onClick: onZoneClick
       })
     ];
   }
 
-  function makeTripsLayer() {
-    const z = zoom();
-    const windowSize = z >= 12 ? 8 : 4;
-    const trails = typeof Sim3D.getAgentTrails === "function" ? Sim3D.getAgentTrails(windowSize) : [];
+  function makeTripsLayer(zq, t) {
+    const windowSize = zq >= 12 ? 8 : 4;
+    const trails = Sim3D.trailsData(windowSize);
     return new deck.TripsLayer({
       id: "agent-move-trails",
-      data: trails,
-      getPath: function (item) {
-        return item.path;
-      },
-      getTimestamps: function (item) {
-        return item.timestamps;
-      },
+      data: trails.data,
+      _pathType: "open",
       trailLength: windowSize,
-      currentTime: windowSize,
-      opacity: 0.6,
+      currentTime: trails.baseTime + t,
+      // 꼬리 끝이 움직이는 점에 붙으면서 한 칸만큼 더 진해졌다. 예전 평균 밝기에 맞춘다.
+      opacity: 0.45,
       widthMinPixels: 2,
-      getColor: [57, 215, 255],
-      rounded: true
+      getColor: TRAIL_COLOR,
+      capRounded: true,
+      jointRounded: true
     });
   }
 
@@ -178,65 +158,159 @@
     return Math.max(2.4, Math.min(5.2, 3.6 + (z - 12.5) * 0.6));
   }
 
-  function makeHeatmapLayer(agents, visible) {
-    const state = Sim3D.state || {};
-    const heatMode = state.heatMode || "spending";
-    const z = zoom();
+  const colorDomains = new Map();
+
+  function colorDomainForZoom(z) {
+    let domain = colorDomains.get(z);
+    if (!domain) {
+      // Raise the floor (0.75) so the single-point / pass-through cells that
+      // dominate the map -- the ones that used to flood it violet -- fall below
+      // the ramp and stay nearly transparent, leaving violet only as a thin
+      // rim around real clusters.
+      domain = [0.75, heatColorMaxForZoom(z)];
+      colorDomains.set(z, domain);
+    }
+    return domain;
+  }
+
+  // 가중치 텍스처 한 변의 크기. 기본값 2048 이면 갱신할 때마다 최대값을 찾느라 4M 개의 점을
+  // 그린다. 커널 반경이 58px 이상이라 1024 로 줄여도 화면 차이는 보이지 않는다.
+  const HEAT_TEXTURE_SIZE = 1024;
+
+  let hiddenHeatData = null;
+
+  function makeHeatmapLayer(visible, zq) {
+    // 꺼져 있을 때는 마지막 data 를 그대로 둔다 — 보이지 않는 텍스처를 다시 그리지 않는다.
+    const data = visible || !hiddenHeatData ? Sim3D.heatData() : hiddenHeatData;
+    hiddenHeatData = data;
     return new deck.HeatmapLayer({
       id: "agent-density-heatmap",
-      data: agents,
+      data: data,
       visible: !!visible,
-      getPosition: function (item) {
-        return item.position;
-      },
-      getWeight: function (item) {
-        if (heatMode === "spending") {
-          return Math.max(0.22, Number((item.frame && item.frame.spent) || 0) / 9000);
-        }
-        return 1;
-      },
-      updateTriggers: { getWeight: heatMode },
       aggregation: "SUM",
       colorRange: HEATMAP_COLOR_RANGE,
       // Pin the colour scale (instead of HeatmapLayer's default per-frame
       // re-normalisation to the on-screen max, which made the heatmap fade out
       // on zoom-in) but float the ceiling with zoom so the same cluster keeps a
       // consistent hot/cool reading across zoom levels.
-      // Raise the floor (0.75) so the single-point / pass-through cells that
-      // dominate the map -- the ones that used to flood it violet -- fall below
-      // the ramp and stay nearly transparent, leaving violet only as a thin
-      // rim around real clusters. The remaining 0.75..max range then spreads
-      // across the cyan/green/yellow mids instead of jumping violet -> red.
-      colorDomain: [0.75, heatColorMaxForZoom(z)],
-      radiusPixels: heatmapRadiusForZoom(z),
+      colorDomain: colorDomainForZoom(zq),
+      radiusPixels: heatmapRadiusForZoom(zq),
       intensity: 1.05,
-      threshold: 0.04
+      threshold: 0.04,
+      weightsTextureSize: HEAT_TEXTURE_SIZE
     });
+  }
+
+  function routePath(item) {
+    return item.path;
+  }
+
+  function stopPosition(item) {
+    return item;
+  }
+
+  function makeSelectionLayers() {
+    const selection = typeof Sim3D.selectionData === "function" ? Sim3D.selectionData() : null;
+    if (!selection) return [];
+    return [
+      new deck.PathLayer({
+        id: "selected-agent-route",
+        data: selection.route,
+        getPath: routePath,
+        getColor: ROUTE_COLOR,
+        widthUnits: "pixels",
+        getWidth: 3,
+        capRounded: true,
+        jointRounded: true
+      }),
+      new deck.ScatterplotLayer({
+        id: "selected-agent-stops",
+        data: selection.stops,
+        getPosition: stopPosition,
+        radiusUnits: "pixels",
+        getRadius: 3.5,
+        getFillColor: ROUTE_STOP_COLOR
+      }),
+      new deck.PathLayer({
+        id: "selected-agent-progress",
+        data: selection.progress,
+        getPath: routePath,
+        getColor: ROUTE_PROGRESS_COLOR,
+        widthUnits: "pixels",
+        getWidth: 4,
+        capRounded: true,
+        jointRounded: true
+      }),
+      new deck.ScatterplotLayer({
+        id: "selected-agent-head",
+        data: { length: 1, attributes: { getPosition: { value: new Float64Array([selection.head[0], selection.head[1], 14]), size: 3 } } },
+        radiusUnits: "pixels",
+        getRadius: 11,
+        getFillColor: HEAD_FILL,
+        stroked: true,
+        getLineColor: HEAD_LINE,
+        lineWidthUnits: "pixels",
+        getLineWidth: 2.5
+      })
+    ];
   }
 
   Sim3D.makeLayers = function makeLayers() {
     if (!window.deck) return [];
-    const z = zoom();
-    const toggles = (Sim3D.state && Sim3D.state.layerToggles) || {};
-    const agents = typeof Sim3D.getInterpolatedAgents === "function" ? Sim3D.getInterpolatedAgents() : [];
+    const state = Sim3D.state || {};
+    const toggles = state.layerToggles || {};
+    const t = Math.max(0, Math.min(1, Number(state.frameT) || 0));
+    const zq = settledZoom();
     const layers = [];
 
-    layers.push(makeCityDotLayer(agents, z));
+    layers.push(makeCityDotLayer(liveZoom()));
 
     // 잔상(연하늘색 이동 궤적) 토글. 켜져 있을 때만 애니메이션 궤적을 그리고,
-    // 끄면 완전히 사라진다. (기존 고배율 fallback인 commute-light-trips는
-    // trails 키가 항상 undefined라 실제로는 렌더된 적이 없어 제거했다.)
+    // 끄면 완전히 사라진다.
     if (toggles.trails !== false) {
-      layers.push(makeTripsLayer());
+      layers.push(makeTripsLayer(zq, t));
     }
 
-    layers.push(makeHeatmapLayer(agents, toggles.heatmap));
+    layers.push(makeHeatmapLayer(toggles.heatmap, zq));
 
     if (toggles.policyZones !== false) {
       layers.push.apply(layers, makePolicyZoneLayers());
     }
 
+    layers.push.apply(layers, makeSelectionLayers());
     return layers;
+  };
+
+  function esc(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  // 점에 마우스를 올리면 그 사람이 지금 무엇을 하는지 바로 보인다.
+  Sim3D.tooltipFor = function tooltipFor(info) {
+    if (!info || !info.layer || info.layer.id !== "agent-city-dots" || !(info.index >= 0)) return null;
+    const agentIndex = Sim3D.agentIndexAtVisible(info.index);
+    const agent = Sim3D.state && Sim3D.state.pack ? Sim3D.state.pack.agents[agentIndex] : null;
+    if (!agent) return null;
+    const frame = Sim3D.agentFrame(agentIndex);
+    const district = (Sim3D.DIST_NAMES || {})[String(agent.dist_code)] || agent.district || "";
+    let doing = "집에 있음";
+    if (frame) {
+      const what = [frame.l1 || frame.cat, frame.intent].filter(Boolean).join(" · ");
+      doing = (what || frame.anchor || "활동 중") + (frame.dong ? " @ " + frame.dong : "");
+    }
+    const spent = frame && frame.spent > 0 ? "<div>💰 " + esc(Sim3D.formatWon(frame.spent)) + "</div>" : "";
+    return {
+      html:
+        '<div class="sim-tip"><b>' + esc(agent.id) + "</b>" +
+        "<div>" + esc([agent.age, agent.gender, district].filter(Boolean).join(" · ")) + "</div>" +
+        "<div>" + esc(doing) + "</div>" + spent + "</div>",
+      className: "sim-tip-wrap"
+    };
   };
 
   // Exposed so the map-click hotspot handler can size its aggregation circle to

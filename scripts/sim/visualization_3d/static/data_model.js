@@ -133,43 +133,19 @@
   vivifyPalette(CAT_COLORS);
   vivifyPalette(DIST_COLORS);
 
-  function frameMap(frame) {
-    const map = new Map();
-    const agents = frame && Array.isArray(frame.agents) ? frame.agents : [];
-    agents.forEach(function (agentFrame) {
-      if (agentFrame && agentFrame.id != null) {
-        map.set(agentFrame.id, agentFrame);
-        if (typeof agentFrame.id !== "string") {
-          map.set(String(agentFrame.id), agentFrame);
-        }
-      }
-    });
-    return map;
-  }
-
-  function clamp01(value) {
-    const number = Number(value);
-    if (!Number.isFinite(number)) return 0;
-    return Math.max(0, Math.min(1, number));
-  }
-
-  function lerp(start, end, t) {
-    const from = finiteNumber(start, 0);
-    const to = finiteNumber(end, from);
-    return from + (to - from) * clamp01(t);
-  }
-
-  function formatWon(value) {
-    return Math.round(Math.max(0, finiteNumber(value, 0))).toLocaleString("ko-KR") + "원";
-  }
+  const NO_FRAME = -1;
+  const COLOR_APPT_ON = [157, 78, 221, 220];
+  const COLOR_APPT_OFF = [136, 136, 136, 150];
+  const COLOR_ABSENT = [98, 115, 134, 120];
+  const COLOR_GREY = [136, 136, 136];
 
   function finiteNumber(value, fallback) {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   }
 
-  function intOrZero(value) {
-    return Math.trunc(finiteNumber(value, 0));
+  function formatWon(value) {
+    return Math.round(Math.max(0, finiteNumber(value, 0))).toLocaleString("ko-KR") + "원";
   }
 
   function getState() {
@@ -177,244 +153,474 @@
     return Sim3D.state;
   }
 
-  function timelineFrames(state) {
-    return Array.isArray(state.timeline) ? state.timeline : [];
-  }
+  // 모든 렌더 입력을 대상자 수만큼 미리 잡아 둔 typed array 에 담는다. 재생 중 매 프레임은
+  // 보간(interpolate)만 하고 객체를 만들지 않는다 — 예전에는 매 프레임 대상자마다 객체·배열을
+  // 새로 만들고 히트맵까지 다시 집계해서 GC 와 GPU 가 번갈아 멈췄다.
+  let model = null;
 
-  function ensureFrameMaps(state) {
-    const timeline = timelineFrames(state);
-    if (!Array.isArray(state.frameMaps) || state.frameMaps.length !== timeline.length) {
-      state.frameMaps = timeline.map(frameMap);
-    }
-    return state.frameMaps;
-  }
-
-  function safeFrameIndex(state) {
-    const timeline = timelineFrames(state);
-    if (!timeline.length) return 0;
-    const index = intOrZero(state.frameIndex);
-    return Math.max(0, Math.min(timeline.length - 1, index));
-  }
-
-  function getFrameFromMap(map, id) {
-    if (!(map instanceof Map) || id == null) return null;
-    if (map.has(id)) return map.get(id);
-    const stringId = String(id);
-    return map.has(stringId) ? map.get(stringId) : null;
-  }
-
-  function agentLookup(state) {
-    if (state.agentById instanceof Map) return state.agentById;
-
-    const map = new Map();
-    if (state.agentById && typeof state.agentById === "object") {
-      Object.keys(state.agentById).forEach(function (id) {
-        const agent = state.agentById[id];
-        if (agent) {
-          map.set(agent.id != null ? agent.id : id, agent);
-          map.set(id, agent);
-        }
-      });
-    }
-
-    const agents = Array.isArray(state.agents) ? state.agents : [];
-    agents.forEach(function (agent) {
-      if (agent && agent.id != null) {
-        map.set(agent.id, agent);
-        if (typeof agent.id !== "string") {
-          map.set(String(agent.id), agent);
-        }
-      }
+  function paletteForDict(values) {
+    const palette = new Array(values.length + 1).fill(null);
+    values.forEach(function (value, index) {
+      palette[index + 1] = CAT_COLORS[value] || null;
     });
-    return map;
+    return palette;
   }
 
-  function getAgentFromLookup(lookup, id) {
-    if (!(lookup instanceof Map) || id == null) return null;
-    if (lookup.has(id)) return lookup.get(id);
-    const stringId = String(id);
-    return lookup.has(stringId) ? lookup.get(stringId) : null;
+  function clampFrame(index) {
+    if (!model) return 0;
+    const last = Math.max(0, model.F - 1);
+    const value = Math.trunc(finiteNumber(index, 0));
+    return Math.max(0, Math.min(last, value));
   }
 
-  function collectAgents(state, currentMap, nextMap) {
-    const agents = [];
-    const seen = new Set();
-    const lookup = agentLookup(state);
-
-    function add(agent, id) {
-      const agentId = agent && agent.id != null ? agent.id : id;
-      const seenKey = agentId == null ? null : String(agentId);
-      if (seenKey == null || seen.has(seenKey)) return;
-      seen.add(seenKey);
-      agents.push(agent || { id: agentId });
-    }
-
-    if (Array.isArray(state.agents)) {
-      state.agents.forEach(function (agent) {
-        add(agent, agent && agent.id);
-      });
-    }
-
-    if (lookup instanceof Map) {
-      lookup.forEach(function (agent, id) {
-        add(agent, id);
-      });
-    }
-
-    [currentMap, nextMap].forEach(function (map) {
-      if (!(map instanceof Map)) return;
-      map.forEach(function (agentFrame, id) {
-        add(getAgentFromLookup(lookup, id), id);
-      });
-    });
-
-    return agents;
+  function loadedFrames() {
+    return model ? model.pack.loadedFrames : 0;
   }
 
-  function framePosition(agent, agentFrame) {
-    const homeLon = finiteNumber(agent && agent.home_lon, SEOUL_CENTER[0]);
-    const homeLat = finiteNumber(agent && agent.home_lat, SEOUL_CENTER[1]);
-    return [
-      finiteNumber(agentFrame && agentFrame.lon, homeLon),
-      finiteNumber(agentFrame && agentFrame.lat, homeLat)
-    ];
+  function isPresent(column, slot) {
+    const value = column[slot];
+    return value === value; // NaN 이면 그 시각에 기록이 없다
   }
 
   Sim3D.initDataModel = function initDataModel() {
     const state = getState();
-    state.frameMaps = timelineFrames(state).map(frameMap);
+    const pack = state.pack;
+    if (!pack) throw new Error("data pack is not loaded");
+    const N = pack.N;
+    const homeX = new Float64Array(N);
+    const homeY = new Float64Array(N);
+    const distKey = new Array(N);
+    const appt = new Uint8Array(N);
+    const indexById = new Map();
+    pack.agents.forEach(function (agent, index) {
+      homeX[index] = finiteNumber(agent && agent.home_lon, SEOUL_CENTER[0]);
+      homeY[index] = finiteNumber(agent && agent.home_lat, SEOUL_CENTER[1]);
+      distKey[index] = agent && agent.dist_code != null ? String(agent.dist_code) : "";
+      indexById.set(String(agent.id), index);
+    });
+    pack.appointmentAgents.forEach(function (index) {
+      if (index >= 0 && index < N) appt[index] = 1;
+    });
+    const anchors = (pack.dicts && pack.dicts.anchor) || [];
+
+    model = {
+      pack: pack,
+      N: N,
+      F: pack.F,
+      columns: pack.columns,
+      homeX: homeX,
+      homeY: homeY,
+      distKey: distKey,
+      appt: appt,
+      indexById: indexById,
+      l1Palette: paletteForDict((pack.dicts && pack.dicts.l1) || []),
+      catPalette: paletteForDict((pack.dicts && pack.dicts.cat) || []),
+      residenceCode: anchors.indexOf("residence") + 1,
+      visible: new Uint32Array(N),
+      visibleCount: 0,
+      visibleKey: null,
+      sx: new Float64Array(N),
+      sy: new Float64Array(N),
+      ex: new Float64Array(N),
+      ey: new Float64Array(N),
+      ref: new Int32Array(N),
+      colors: new Uint8Array(N * 4),
+      radii: new Float32Array(N),
+      heatPos: new Float64Array(N * 3),
+      heatW: new Float32Array(N),
+      pos: new Float64Array(N * 3),
+      geomKey: null,
+      colorKey: null,
+      heatKey: null,
+      colorVersion: 0,
+      heatVersion: 0,
+      colorAttr: null,
+      radiusAttr: null,
+      attrVersion: -1,
+      heatData: null,
+      heatDataVersion: -1,
+      trailKey: null,
+      trails: null,
+      routeKey: null,
+      route: null
+    };
+    state.agentIndexById = indexById;
+  };
+
+  function updateVisible(state) {
+    const filter = state.distFilter || "all";
+    if (model.visibleKey === filter) return;
+    let count = 0;
+    for (let a = 0; a < model.N; a++) {
+      if (filter === "all" || model.distKey[a] === filter) model.visible[count++] = a;
+    }
+    model.visibleCount = count;
+    model.visibleKey = filter;
+  }
+
+  function writeGeometry(index, hasNext) {
+    const N = model.N;
+    const x = model.columns.x;
+    const y = model.columns.y;
+    const spent = model.columns.spent;
+    const base = index * N;
+    const nextBase = (index + 1) * N;
+    for (let k = 0; k < model.visibleCount; k++) {
+      const a = model.visible[k];
+      const ci = base + a;
+      const present = isPresent(x, ci);
+      const cx = present ? x[ci] : model.homeX[a];
+      const cy = present ? y[ci] : model.homeY[a];
+      let nx = cx;
+      let ny = cy;
+      let ref = present ? ci : NO_FRAME;
+      if (hasNext) {
+        const ni = nextBase + a;
+        if (isPresent(x, ni)) {
+          nx = x[ni];
+          ny = y[ni];
+          if (!present) ref = ni; // 예전 규칙: 현재 기록이 없으면 다음 시각 기록으로 색을 정한다
+        }
+      }
+      model.sx[k] = cx;
+      model.sy[k] = cy;
+      model.ex[k] = nx;
+      model.ey[k] = ny;
+      model.ref[k] = ref;
+      model.radii[k] = ref >= 0 && spent[ref] > 0 ? 26 : 15;
+      const o = k * 3;
+      model.heatPos[o] = cx;
+      model.heatPos[o + 1] = cy;
+      model.heatPos[o + 2] = 10;
+    }
+  }
+
+  function writeColors(colorMode) {
+    const colors = model.colors;
+    const spent = model.columns.spent;
+    const l1 = model.columns.l1;
+    const cat = model.columns.cat;
+    for (let k = 0; k < model.visibleCount; k++) {
+      const a = model.visible[k];
+      const ref = model.ref[k];
+      const o = k * 4;
+      let rgb;
+      let alpha;
+      if (colorMode === "appointment") {
+        rgb = model.appt[a] ? COLOR_APPT_ON : COLOR_APPT_OFF;
+        alpha = rgb[3];
+      } else if (ref < 0) {
+        rgb = colorMode === "dist" ? DIST_COLORS[model.distKey[a]] || COLOR_GREY : COLOR_ABSENT;
+        alpha = 120;
+      } else {
+        alpha = spent[ref] > 0 ? 255 : 215;
+        if (colorMode === "dist") {
+          rgb = DIST_COLORS[model.distKey[a]] || CAT_COLORS["기타"];
+        } else {
+          // 예전 규칙: category = l1 || cat, 색은 CAT → 자치구 → 기타 순
+          const l1Code = l1 ? l1[ref] : 0;
+          const catCode = cat ? cat[ref] : 0;
+          const named = l1Code ? model.l1Palette[l1Code] : catCode ? model.catPalette[catCode] : null;
+          rgb = named || DIST_COLORS[model.distKey[a]] || CAT_COLORS["기타"];
+        }
+      }
+      colors[o] = rgb[0];
+      colors[o + 1] = rgb[1];
+      colors[o + 2] = rgb[2];
+      colors[o + 3] = alpha;
+    }
+  }
+
+  function writeHeatWeights(heatMode) {
+    const spent = model.columns.spent;
+    for (let k = 0; k < model.visibleCount; k++) {
+      const ref = model.ref[k];
+      const amount = ref >= 0 ? spent[ref] : 0;
+      model.heatW[k] = heatMode === "spending" ? Math.max(0.22, amount / 9000) : 1;
+    }
+  }
+
+  // 프레임 번호·필터·색상 모드가 바뀔 때만 다시 계산한다. 같은 키면 바로 끝난다.
+  Sim3D.prepareFrame = function prepareFrame() {
+    if (!model) return;
+    const state = getState();
+    updateVisible(state);
+    const index = clampFrame(state.frameIndex);
+    const hasNext = index + 1 < Math.min(model.F, loadedFrames());
+    const geomKey = index + "|" + model.visibleKey + "|" + (hasNext ? 1 : 0);
+    const colorKey = geomKey + "|" + (state.colorMode || "cat");
+    const heatKey = geomKey + "|" + (state.heatMode || "spending");
+    if (geomKey !== model.geomKey) {
+      writeGeometry(index, hasNext);
+      model.geomKey = geomKey;
+    }
+    if (colorKey !== model.colorKey) {
+      writeColors(state.colorMode || "cat");
+      model.colorKey = colorKey;
+      model.colorVersion++;
+    }
+    if (heatKey !== model.heatKey) {
+      writeHeatWeights(state.heatMode || "spending");
+      model.heatKey = heatKey;
+      model.heatVersion++;
+    }
+  };
+
+  Sim3D.interpolate = function interpolate(t) {
+    if (!model) return;
+    const tt = t > 0 ? (t < 1 ? t : 1) : 0;
+    const pos = model.pos;
+    for (let k = 0; k < model.visibleCount; k++) {
+      const o = k * 3;
+      pos[o] = model.sx[k] + (model.ex[k] - model.sx[k]) * tt;
+      pos[o + 1] = model.sy[k] + (model.ey[k] - model.sy[k]) * tt;
+      pos[o + 2] = 10;
+    }
+  };
+
+  // deck.gl 은 binary 속성 객체의 참조가 같으면 다시 올리지 않는다. 그래서 위치는 매번 새
+  // 래퍼로, 색·반지름은 내용이 바뀐 때만 새 래퍼로 넘긴다.
+  Sim3D.dotsData = function dotsData() {
+    if (!model) return { length: 0 };
+    const n = model.visibleCount;
+    if (model.attrVersion !== model.colorVersion) {
+      model.colorAttr = { value: model.colors.subarray(0, n * 4), size: 4 };
+      model.radiusAttr = { value: model.radii.subarray(0, n), size: 1 };
+      model.attrVersion = model.colorVersion;
+    }
+    return {
+      length: n,
+      attributes: {
+        getPosition: { value: model.pos.subarray(0, n * 3), size: 3 },
+        getFillColor: model.colorAttr,
+        getRadius: model.radiusAttr
+      }
+    };
+  };
+
+  Sim3D.heatData = function heatData() {
+    if (!model) return { length: 0 };
+    if (model.heatDataVersion !== model.heatVersion) {
+      const n = model.visibleCount;
+      // 히트맵은 데이터가 바뀌면 가중치 변환을 새로 만들고 텍스처 전체를 다시 그린다.
+      // 시(hour) 단위로만 갱신해 그 비용을 프레임마다 치르지 않는다.
+      model.heatData = {
+        length: n,
+        attributes: {
+          getPosition: { value: model.heatPos.slice(0, n * 3), size: 3 },
+          getWeight: { value: model.heatW.slice(0, n), size: 1 }
+        }
+      };
+      model.heatDataVersion = model.heatVersion;
+    }
+    return model.heatData;
+  };
+
+  // 지난 windowSize 시간의 이동 궤적. 다음 시각 위치까지 넣어 두면 TripsLayer 의
+  // currentTime 만 움직여도 꼬리 끝이 보간 중인 점을 따라간다.
+  Sim3D.trailsData = function trailsData(windowSize) {
+    if (!model) return { data: { length: 0 }, baseTime: 0 };
+    const state = getState();
+    updateVisible(state);
+    const N = model.N;
+    const size = Math.max(2, Math.trunc(finiteNumber(windowSize, 6)) || 6);
+    const index = clampFrame(state.frameIndex);
+    const hasNext = index + 1 < Math.min(model.F, loadedFrames());
+    const key = index + "|" + size + "|" + model.visibleKey + "|" + (hasNext ? 1 : 0);
+    if (key === model.trailKey && model.trails) return model.trails;
+
+    const x = model.columns.x;
+    const y = model.columns.y;
+    const start = Math.max(0, index - size + 1);
+    const span = index - start + 1 + (hasNext ? 1 : 0);
+    const path = new Float64Array(model.visibleCount * span * 3);
+    const times = new Float32Array(model.visibleCount * span);
+    const starts = new Uint32Array(model.visibleCount);
+    let vertex = 0;
+    let paths = 0;
+    for (let k = 0; k < model.visibleCount; k++) {
+      const a = model.visible[k];
+      const first = vertex;
+      for (let f = start; f <= index; f++) {
+        const slot = f * N + a;
+        if (!isPresent(x, slot)) continue;
+        path[vertex * 3] = x[slot];
+        path[vertex * 3 + 1] = y[slot];
+        path[vertex * 3 + 2] = 8;
+        times[vertex] = f - start;
+        vertex++;
+      }
+      if (hasNext && isPresent(x, index * N + a) && isPresent(x, (index + 1) * N + a)) {
+        const slot = (index + 1) * N + a;
+        path[vertex * 3] = x[slot];
+        path[vertex * 3 + 1] = y[slot];
+        path[vertex * 3 + 2] = 8;
+        times[vertex] = index + 1 - start;
+        vertex++;
+      }
+      if (vertex - first >= 2) {
+        starts[paths++] = first;
+      } else {
+        vertex = first;
+      }
+    }
+    model.trails = {
+      data: {
+        length: paths,
+        startIndices: starts.slice(0, paths),
+        attributes: {
+          getPath: { value: path.slice(0, vertex * 3), size: 3 },
+          getTimestamps: { value: times.slice(0, vertex), size: 1 }
+        }
+      },
+      baseTime: index - start
+    };
+    model.trailKey = key;
+    return model.trails;
+  };
+
+  function positionAt(agentIndex, index, t) {
+    const N = model.N;
+    const x = model.columns.x;
+    const y = model.columns.y;
+    const ci = index * N + agentIndex;
+    const present = isPresent(x, ci);
+    let cx = present ? x[ci] : model.homeX[agentIndex];
+    let cy = present ? y[ci] : model.homeY[agentIndex];
+    if (index + 1 < Math.min(model.F, loadedFrames())) {
+      const ni = (index + 1) * N + agentIndex;
+      if (isPresent(x, ni)) {
+        cx += (x[ni] - cx) * t;
+        cy += (y[ni] - cy) * t;
+      }
+    }
+    return [cx, cy];
+  }
+
+  // 고른 대상자의 오늘 하루 경로(전체는 옅게, 지금까지 온 길은 진하게)와 현재 위치.
+  Sim3D.selectionData = function selectionData() {
+    const state = getState();
+    if (!model || !state.selectedAgentId) return null;
+    const agentIndex = model.indexById.get(String(state.selectedAgentId));
+    if (agentIndex == null) return null;
+    const index = clampFrame(state.frameIndex);
+    const t = Math.max(0, Math.min(1, finiteNumber(state.frameT, 0)));
+    const frames = model.pack.frames;
+    const day = frames[index] ? frames[index].day : null;
+    const routeKey = agentIndex + "|" + day + "|" + loadedFrames();
+    if (routeKey !== model.routeKey) {
+      const N = model.N;
+      const x = model.columns.x;
+      const y = model.columns.y;
+      const points = [];
+      const frameOfPoint = [];
+      const limit = loadedFrames();
+      for (let f = 0; f < limit; f++) {
+        if (!frames[f] || frames[f].day !== day) continue;
+        const slot = f * N + agentIndex;
+        if (!isPresent(x, slot)) continue;
+        points.push([x[slot], y[slot], 12]);
+        frameOfPoint.push(f);
+      }
+      model.route = { points: points, frames: frameOfPoint, full: points.length > 1 ? [{ path: points }] : [] };
+      model.routeKey = routeKey;
+    }
+    const head = positionAt(agentIndex, index, t);
+    const travelled = [];
+    for (let i = 0; i < model.route.points.length; i++) {
+      if (model.route.frames[i] > index) break;
+      travelled.push(model.route.points[i]);
+    }
+    travelled.push([head[0], head[1], 12]);
+    return {
+      agentIndex: agentIndex,
+      route: model.route.full,
+      stops: model.route.points,
+      progress: travelled.length > 1 ? [{ path: travelled }] : [],
+      head: head
+    };
+  };
+
+  Sim3D.agentIndexOf = function agentIndexOf(agentId) {
+    if (!model || agentId == null) return undefined;
+    return model.indexById.get(String(agentId));
+  };
+
+  Sim3D.agentIdAtVisible = function agentIdAtVisible(visibleIndex) {
+    if (!model || visibleIndex < 0 || visibleIndex >= model.visibleCount) return null;
+    const agent = model.pack.agents[model.visible[visibleIndex]];
+    return agent ? agent.id : null;
+  };
+
+  Sim3D.agentIndexAtVisible = function agentIndexAtVisible(visibleIndex) {
+    if (!model || visibleIndex < 0 || visibleIndex >= model.visibleCount) return -1;
+    return model.visible[visibleIndex];
+  };
+
+  Sim3D.agentPosition = function agentPosition(agentId) {
+    const state = getState();
+    const index = Sim3D.agentIndexOf(agentId);
+    if (index == null) return null;
+    return positionAt(index, clampFrame(state.frameIndex), Math.max(0, Math.min(1, finiteNumber(state.frameT, 0))));
+  };
+
+  // 한 대상자의 한 시각 기록을 원래 JSON 모양으로 되살린다 (툴팁·상세 카드용).
+  Sim3D.agentFrame = function agentFrame(agentIndex, frameIndex) {
+    if (!model || agentIndex == null || agentIndex < 0 || agentIndex >= model.N) return null;
+    const f = frameIndex == null ? clampFrame(getState().frameIndex) : clampFrame(frameIndex);
+    const slot = f * model.N + agentIndex;
+    const cols = model.columns;
+    if (!isPresent(cols.x, slot)) return null;
+    function word(name) {
+      const column = cols[name];
+      const code = column ? column[slot] : 0;
+      return code ? model.pack.dicts[name][code - 1] : null;
+    }
+    const sat = cols.sat ? cols.sat[slot] : NaN;
+    return {
+      lon: cols.x[slot],
+      lat: cols.y[slot],
+      cat: word("cat"),
+      l1: word("l1"),
+      dong: word("dong"),
+      intent: word("intent"),
+      anchor: word("anchor"),
+      sat: sat === sat ? sat : null,
+      spent: cols.spent ? cols.spent[slot] : 0
+    };
+  };
+
+  Sim3D.frameInfo = function frameInfo(index) {
+    if (!model) return null;
+    return model.pack.frames[clampFrame(index)] || null;
+  };
+
+  Sim3D.frameCount = function frameCount() {
+    return model ? model.F : 0;
+  };
+
+  Sim3D.loadedFrameCount = function loadedFrameCount() {
+    return loadedFrames();
+  };
+
+  Sim3D.loadAgentDetail = function loadAgentDetail(agentId) {
+    const index = Sim3D.agentIndexOf(agentId);
+    if (!model || index == null) return Promise.resolve({});
+    return model.pack.loadDetail(index);
   };
 
   Sim3D.hasAppointment = function hasAppointment(agentId) {
-    const state = getState();
-    const mem = state.memories && state.memories[agentId];
-    return !!(mem && Array.isArray(mem.appointments) && mem.appointments.length > 0);
+    const index = Sim3D.agentIndexOf(agentId);
+    return index != null && model.appt[index] === 1;
   };
 
   Sim3D.computeMemoryTotals = function computeMemoryTotals() {
-    const state = getState();
-    const memories = state.memories || {};
-    let totMem = 0;
-    let totAppt = 0;
-    let totRumor = 0;
-    Object.keys(memories).forEach(function (agentId) {
-      const mem = memories[agentId] || {};
-      totMem += (mem.visited || []).length;
-      totAppt += (mem.appointments || []).length;
-      totRumor += (mem.memories || []).filter(function (item) {
-        return item.type === "rumor";
-      }).length;
-    });
-    return { totMem: totMem, totAppt: totAppt, totRumor: totRumor };
-  };
-
-  Sim3D.getColorForAgentFrame = function getColorForAgentFrame(agent, agentFrame) {
-    const state = getState();
-    const mode = state.colorMode || "cat";
-    const distCode = agent && agent.dist_code != null ? String(agent.dist_code) : "";
-
-    if (mode === "appointment") {
-      const hasAppt = Sim3D.hasAppointment(agent && agent.id);
-      return hasAppt ? [157, 78, 221, 220] : [136, 136, 136, 150];
-    }
-
-    if (!agentFrame) {
-      if (mode === "dist") {
-        const base = DIST_COLORS[distCode] || [136, 136, 136];
-        return [base[0], base[1], base[2], 120];
-      }
-      return [98, 115, 134, 120];
-    }
-
-    const alpha = finiteNumber(agentFrame.spent, 0) > 0 ? 255 : 215;
-    if (mode === "dist") {
-      const base = DIST_COLORS[distCode] || CAT_COLORS["기타"];
-      return [base[0], base[1], base[2], alpha];
-    }
-
-    const category = agentFrame.l1 || agentFrame.cat;
-    const baseColor = CAT_COLORS[category] || DIST_COLORS[distCode] || CAT_COLORS["기타"];
-    return [baseColor[0], baseColor[1], baseColor[2], alpha];
-  };
-
-  Sim3D.getInterpolatedAgents = function getInterpolatedAgents() {
-    const state = getState();
-    const timeline = timelineFrames(state);
-    if (!timeline.length) return [];
-
-    const frameMaps = ensureFrameMaps(state);
-    const index = safeFrameIndex(state);
-    const nextIndex = Math.min(index + 1, timeline.length - 1);
-    const currentMap = frameMaps[index] instanceof Map ? frameMaps[index] : frameMap(timeline[index]);
-    const nextMap = frameMaps[nextIndex] instanceof Map ? frameMaps[nextIndex] : frameMap(timeline[nextIndex]);
-    const t = clamp01(state.frameT);
-
-    const interpolated = collectAgents(state, currentMap, nextMap).map(function (agent) {
-      const id = agent.id;
-      const currentFrame = getFrameFromMap(currentMap, id);
-      const nextFrame = getFrameFromMap(nextMap, id);
-      const currentPosition = framePosition(agent, currentFrame);
-      const nextPosition = framePosition(agent, nextFrame || currentFrame);
-      const frame = currentFrame || nextFrame || null;
-
-      return {
-        id: id,
-        agent: agent,
-        frame: frame,
-        position: [
-          lerp(currentPosition[0], nextPosition[0], t),
-          lerp(currentPosition[1], nextPosition[1], t),
-          10
-        ],
-        color: Sim3D.getColorForAgentFrame(agent, frame)
-      };
-    });
-
-    const distFilter = state.distFilter || "all";
-    if (distFilter === "all") return interpolated;
-    return interpolated.filter(function (item) {
-      return item.agent && String(item.agent.dist_code) === distFilter;
-    });
-  };
-
-  let lastTrailFrameIndex = -1;
-  let lastTrailWindowSize = -1;
-  let cachedTrails = [];
-
-  Sim3D.getAgentTrails = function getAgentTrails(windowSize) {
-    const state = getState();
-    const timeline = timelineFrames(state);
-    if (!timeline.length) return [];
-
-    const size = Math.max(2, intOrZero(windowSize) || 6);
-    const index = safeFrameIndex(state);
-    if (index === lastTrailFrameIndex && size === lastTrailWindowSize) {
-      return cachedTrails;
-    }
-
-    const frameMaps = ensureFrameMaps(state);
-    const start = Math.max(0, index - size + 1);
-    const byAgent = new Map();
-
-    for (let frameIndex = start; frameIndex <= index; frameIndex++) {
-      const map = frameMaps[frameIndex];
-      if (!(map instanceof Map)) continue;
-      map.forEach(function (agentFrame, id) {
-        if (agentFrame.lon == null || agentFrame.lat == null) return;
-        const key = String(id);
-        if (!byAgent.has(key)) byAgent.set(key, { id: id, path: [], timestamps: [] });
-        const entry = byAgent.get(key);
-        entry.path.push([Number(agentFrame.lon), Number(agentFrame.lat), 8]);
-        entry.timestamps.push(frameIndex - start);
-      });
-    }
-
-    cachedTrails = Array.from(byAgent.values()).filter(function (entry) {
-      return entry.path.length > 1;
-    });
-    lastTrailFrameIndex = index;
-    lastTrailWindowSize = size;
-    return cachedTrails;
+    const totals = (model && model.pack.totals) || {};
+    return {
+      totMem: finiteNumber(totals.visited, 0),
+      totAppt: finiteNumber(totals.appointments, 0),
+      totRumor: finiteNumber(totals.rumors, 0)
+    };
   };
 
   // Aggregate the agents currently within `radiusMeters` of a clicked map point
@@ -431,35 +637,39 @@
   // home, and the category breakdown covers only active agents -- letting the
   // panel say whether the heat is "사람들이 모여 소비 중" or just "주거 밀집".
   Sim3D.computeLocalStats = function computeLocalStats(lon, lat, radiusMeters) {
-    const agents = typeof Sim3D.getInterpolatedAgents === "function" ? Sim3D.getInterpolatedAgents() : [];
     const radius = finiteNumber(radiusMeters, 250);
+    const empty = { totalPresent: 0, activeCount: 0, totalSpent: 0, categories: [], radiusMeters: radius };
+    if (!model) return empty;
+    Sim3D.prepareFrame();
+    Sim3D.interpolate(getState().frameT);
     const cosLat = Math.cos((finiteNumber(lat, 37.55) * Math.PI) / 180);
+    const cols = model.columns;
     const byCat = new Map();
     let totalPresent = 0;
     let activeCount = 0;
     let totalSpent = 0;
 
-    agents.forEach(function (item) {
-      const pos = item && item.position;
-      if (!pos) return;
-      const dx = (finiteNumber(pos[0], lon) - lon) * 111320 * cosLat;
-      const dy = (finiteNumber(pos[1], lat) - lat) * 110540;
-      if (Math.hypot(dx, dy) > radius) return;
+    for (let k = 0; k < model.visibleCount; k++) {
+      const dx = (model.pos[k * 3] - lon) * 111320 * cosLat;
+      const dy = (model.pos[k * 3 + 1] - lat) * 110540;
+      if (Math.hypot(dx, dy) > radius) continue;
 
       totalPresent += 1;
-      const frame = item.frame;
-      const atHome = !frame || frame.anchor === "residence";
-      if (atHome) return;
+      const ref = model.ref[k];
+      const atHome = ref < 0 || (model.residenceCode > 0 && cols.anchor[ref] === model.residenceCode);
+      if (atHome) continue;
 
       activeCount += 1;
-      const spent = finiteNumber(frame.spent, 0);
+      const spent = cols.spent[ref];
       totalSpent += spent;
-      const category = frame.l1 || frame.cat || "기타";
+      const l1Code = cols.l1 ? cols.l1[ref] : 0;
+      const catCode = cols.cat ? cols.cat[ref] : 0;
+      const category = l1Code ? model.pack.dicts.l1[l1Code - 1] : catCode ? model.pack.dicts.cat[catCode - 1] : "기타";
       const entry = byCat.get(category) || { cat: category, count: 0, spent: 0 };
       entry.count += 1;
       entry.spent += spent;
       byCat.set(category, entry);
-    });
+    }
 
     const categories = Array.from(byCat.values()).sort(function (a, b) {
       return b.spent - a.spent || b.count - a.count;

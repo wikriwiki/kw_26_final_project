@@ -17,6 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from scripts.report import llm as report_llm
 
 from . import interview
+from . import viz
 from .runner import RunLock, Runner
 from .report_jobs import ReportJobManager
 from .store import ArtifactStore, StoreError
@@ -448,6 +449,9 @@ def create_app(
             media_type="text/html",
             headers={"Cache-Control": "private, max-age=3600" if private else "public, max-age=86400"},
         )
+
+    # 데이터 팩 기반 지도(껍데기 + 팩). 위의 단일 HTML 경로는 예전 산출물용으로 남겨 둔다.
+    viz.register(app)
 
     @app.get("/api/interview/status")
     async def interview_status() -> dict:

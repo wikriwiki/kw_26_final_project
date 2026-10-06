@@ -174,6 +174,12 @@ export default defineConfig({
         target: API_ORIGIN,
         changeOrigin: true,
       },
+      // 데이터 팩 지도 — 껍데기·정적 JS·팩·테마는 API 가 내보낸다 (web/api/viz.py).
+      // 예전 단일 HTML(/viz/standalone.html)은 위 플러그인이 계속 맡는다.
+      '^/viz/(shell\\.html|static/|packs/|theme\\.css)': {
+        target: API_ORIGIN,
+        changeOrigin: true,
+      },
     },
   },
   build: {

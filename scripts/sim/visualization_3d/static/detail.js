@@ -24,18 +24,45 @@
 
   function currentFrame() {
     const state = Sim3D.state || {};
-    return state.timeline && state.timeline[state.frameIndex] ? state.timeline[state.frameIndex] : null;
+    return typeof Sim3D.frameInfo === "function" ? Sim3D.frameInfo(state.frameIndex) : null;
+  }
+
+  // 기억·일정은 지도를 열 때 받지 않는다. 사람을 고르면 그 사람이 든 묶음만 받아 둔다.
+  const detail = { agentId: null, status: "idle", data: null, token: 0 };
+
+  // 같은 사람에 대해서는 한 번만 요청한다. 실패해도 여기서 다시 부르지 않는다 —
+  // 실패 → 다시 그리기 → 다시 요청이 끝없이 돌기 때문이다. 다시 고르면(selectAgent) 재시도한다.
+  function ensureDetail(agentId) {
+    if (detail.agentId === agentId) return;
+    const token = ++detail.token;
+    detail.agentId = agentId;
+    detail.status = "loading";
+    detail.data = null;
+    Sim3D.loadAgentDetail(agentId).then(
+      function (data) {
+        if (token !== detail.token) return;
+        detail.status = "ready";
+        detail.data = data || {};
+        if (Sim3D.state.selectedAgentId === agentId) Sim3D.renderSelectedAgent();
+      },
+      function (error) {
+        if (token !== detail.token) return;
+        console.warn("agent detail load failed", error);
+        detail.status = "error";
+        detail.error = error && error.message ? error.message : String(error);
+        if (Sim3D.state.selectedAgentId === agentId) Sim3D.renderSelectedAgent();
+      }
+    );
   }
 
   function eventsFor(agentId) {
-    const state = Sim3D.state || {};
-    const events = state.events && state.events[agentId];
+    const events = detail.agentId === agentId && detail.data ? detail.data.events : null;
     return Array.isArray(events) ? events : [];
   }
 
   function memoryBundle(agentId) {
-    const state = Sim3D.state || {};
-    return state.memories && state.memories[agentId] ? state.memories[agentId] : {};
+    const memories = detail.agentId === agentId && detail.data ? detail.data.memories : null;
+    return memories || {};
   }
 
   function agentById(agentId) {
@@ -46,24 +73,9 @@
     return null;
   }
 
-  function currentFrameMap() {
-    const state = Sim3D.state || {};
-    if (Array.isArray(state.frameMaps) && state.frameMaps[state.frameIndex] instanceof Map) {
-      return state.frameMaps[state.frameIndex];
-    }
-    return new Map();
-  }
-
-  function currentAgentFrame(agentId) {
-    const map = currentFrameMap();
-    return map.get(agentId) || map.get(String(agentId)) || null;
-  }
-
   function positionForFollow(agentId, agent) {
-    const frame = currentAgentFrame(agentId);
-    if (frame && frame.lon != null && frame.lat != null) {
-      return [Number(frame.lon), Number(frame.lat)];
-    }
+    const position = typeof Sim3D.agentPosition === "function" ? Sim3D.agentPosition(agentId) : null;
+    if (position) return position;
     if (agent && agent.home_lon != null && agent.home_lat != null) {
       return [Number(agent.home_lon), Number(agent.home_lat)];
     }
@@ -306,10 +318,23 @@
     const card = byId("detail-card");
     if (!content || !card) return;
 
-    const mem = memoryBundle(agentId);
-    const events = eventsFor(agentId);
     const frame = currentFrame();
     if (!frame) return;
+    ensureDetail(agentId);
+    if (detail.status !== "ready") {
+      const message = detail.status === "error"
+        ? "기억·일정을 불러오지 못했습니다 — " + (detail.error || "알 수 없는 오류") + " (다시 고르면 한 번 더 시도합니다)"
+        : "기억·일정을 불러오는 중…";
+      content.innerHTML =
+        '<h3 id="d-id">' + esc(agentId) + "</h3>" +
+        renderPersona(agent) +
+        '<div style="font-size:11px; color:#888; margin-top:8px;">' + esc(message) + "</div>";
+      card.hidden = false;
+      return;
+    }
+
+    const mem = memoryBundle(agentId);
+    const events = eventsFor(agentId);
     const currentDay = String(frame.day || "");
     const currentHour = Number(frame.hour || 0);
 
@@ -374,7 +399,10 @@
     // Mutually exclusive with the per-agent detail card.
     const detailCard = byId("detail-card");
     if (detailCard) detailCard.hidden = true;
-    Sim3D.state.selectedAgentId = null;
+    if (Sim3D.state.selectedAgentId) {
+      Sim3D.state.selectedAgentId = null;
+      if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
+    }
 
     const radius = Math.round(Number(radiusMeters) || stats.radiusMeters || 0);
     const present = Number(stats.totalPresent) || 0;
@@ -427,9 +455,11 @@
     // Mutually exclusive with the hotspot panel.
     const hotspotCard = byId("hotspot-card");
     if (hotspotCard) hotspotCard.hidden = true;
-    Sim3D.state.selectedAgentId = agentId;
+    if (detail.status === "error") detail.agentId = null;
+    Sim3D.state.selectedAgentId = agent.id;
     Sim3D.renderSelectedAgent();
-    Sim3D.followAgent(agentId);
+    Sim3D.followAgent(agent.id);
+    if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
   };
 
   Sim3D.followAgent = function followAgent(agentId) {
@@ -457,6 +487,7 @@
         Sim3D.state.selectedAgentId = null;
         const card = byId("detail-card");
         if (card) card.hidden = true;
+        if (typeof Sim3D.refreshLayers === "function") Sim3D.refreshLayers();
       });
     }
 

@@ -36,7 +36,9 @@ python scripts/sim/aggregate_fallback_stats.py --start 2026-05-01 --days 3 \
 
 # 7. 시각화 HTML (단일 파일로 팀원 공유)
 python scripts/sim/export_visualization.py --start 2026-05-01 --days 3
-python scripts/sim/build_standalone_html.py
+python scripts/sim/build_standalone_html.py            # 단일 HTML (데이터 팩 내장, --no-detail 이면 더 작게)
+# 콘솔(/viz/shell.html)이 그릴 데이터 팩 — 같은 JSON 4종에서 만든다
+python -m scripts.sim.visualization_3d.pack --src output/sim/visualization --out web/viz_store/packs/<팩 이름> --label "설명"
 ```
 
 ---

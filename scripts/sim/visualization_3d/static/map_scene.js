@@ -360,7 +360,10 @@
 
     // Tiles/glyphs come from OpenFreeMap over the network. Treat per-resource
     // errors as non-fatal so a slow/blocked tile never blocks the agent overlay;
-    // a safety timeout resolves even if "load" is delayed.
+    // a safety timeout resolves even if the style is delayed.
+    // 스타일(JSON)만 오면 바로 대상자를 그린다. 예전에는 "load"(첫 화면의 타일을 전부
+    // 받고 한 번 그린 뒤)를 기다려 데이터가 준비된 뒤에도 4~5초를 빈 지도로 보냈다.
+    // 건물·라벨 덧칠은 스타일 레이어만 있으면 되고, 타일은 그 뒤로 계속 채워진다.
     await new Promise(function (resolve) {
       let settled = false;
       function done() {
@@ -368,6 +371,8 @@
         settled = true;
         resolve();
       }
+      if (typeof state.map.isStyleLoaded === "function" && state.map.isStyleLoaded()) done();
+      state.map.once("style.load", done);
       state.map.once("load", done);
       state.map.on("error", function (event) {
         const error = event && event.error ? event.error : new Error("map resource failed");
@@ -386,24 +391,26 @@
 
     state.overlay = new deck.MapboxOverlay({
       interleaved: true,
-      layers: []
+      layers: [],
+      getTooltip: function (info) {
+        return typeof Sim3D.tooltipFor === "function" ? Sim3D.tooltipFor(info) : null;
+      }
     });
     state.map.addControl(state.overlay);
 
-    // radiusPixels and colorDomain depend on the live zoom, so the heatmap must
-    // be rebuilt as the camera moves. Bind it to "move" (fires through the whole
-    // zoom/pan gesture) but coalesce to one rebuild per animation frame so a
-    // burst of move events can't queue dozens of makeLayers() calls -- this is
-    // what keeps zoom feeling in sync instead of lagging a beat behind.
-    let moveRefreshScheduled = false;
-    state.map.on("move", function () {
-      if (moveRefreshScheduled) return;
-      moveRefreshScheduled = true;
-      window.requestAnimationFrame(function () {
-        moveRefreshScheduled = false;
-        Sim3D.refreshLayers();
-      });
-    });
+    // 줌에 따라 달라지는 값(히트맵 반경·색 상한, 궤적 길이)은 카메라가 멈췄을 때만 바꾼다.
+    // 예전에는 move 이벤트마다 레이어를 다시 만들어 히트맵 텍스처를 매 프레임 새로 그렸다 —
+    // deck.gl 9 의 HeatmapLayer 는 반경이 바뀌면 가중치 변환까지 새로 만든다. 움직이는 동안은
+    // deck.gl 이 같은 레이어를 새 시점으로 다시 그리기만 하면 된다.
+    state.settledZoom = Math.round(state.map.getZoom() * 4) / 4;
+    function settleCamera() {
+      const zoom = Math.round(state.map.getZoom() * 4) / 4;
+      if (zoom === state.settledZoom) return;
+      state.settledZoom = zoom;
+      Sim3D.refreshLayers();
+    }
+    state.map.on("zoomend", settleCamera);
+    state.map.on("moveend", settleCamera);
 
     // "Why is this spot red?" — clicking empty map (not an agent dot / policy
     // marker) aggregates the live agents within the heatmap kernel's real-world
@@ -415,7 +422,8 @@
       // (small radius) so that clicking the gaps between dots inside a dense red
       // cluster still opens the area panel instead of grabbing a stray agent.
       const picked = state.overlay.pickObject({ x: event.point.x, y: event.point.y, radius: 2 });
-      if (picked && picked.object) return;
+      // 점 레이어는 binary data 라 object 가 없고 index 만 있다.
+      if (picked && (picked.object || (picked.layer && picked.index >= 0))) return;
       if (!(state.layerToggles && state.layerToggles.heatmap)) return;
       if (typeof Sim3D.computeLocalStats !== "function" || typeof Sim3D.showLocalStats !== "function") return;
 
@@ -465,7 +473,17 @@
     const state = Sim3D.state || {};
     if (!state.overlay || typeof state.overlay.setProps !== "function") return;
     if (typeof Sim3D.makeLayers !== "function") return;
+    const started = window.performance ? window.performance.now() : 0;
+    if (typeof Sim3D.prepareFrame === "function") Sim3D.prepareFrame();
+    if (typeof Sim3D.interpolate === "function") Sim3D.interpolate(state.frameT);
     state.overlay.setProps({ layers: Sim3D.makeLayers() });
+    if (window.performance) {
+      const stats = (Sim3D.stats = Sim3D.stats || { refreshes: 0, refreshMs: 0, maxRefreshMs: 0 });
+      const spent = window.performance.now() - started;
+      stats.refreshes += 1;
+      stats.refreshMs += spent;
+      if (spent > stats.maxRefreshMs) stats.maxRefreshMs = spent;
+    }
   };
 
   Sim3D.add3dBuildings = add3dBuildings;

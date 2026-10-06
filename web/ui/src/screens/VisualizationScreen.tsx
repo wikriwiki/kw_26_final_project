@@ -21,24 +21,76 @@ import { Button } from '../components/Button';
 import { SelectField } from '../components/Field';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, LayersIcon, XIcon } from '../components/Icon';
 import { useDayParam } from '../app/useViewState';
+import { api } from '../lib/api';
 import { int } from '../lib/format';
 
 /**
- * 실제 3D 뷰를 붙일 자리.
+ * 지도는 데이터 팩(`scripts/sim/visualization_3d/pack.py`)을 껍데기(`/viz/shell.html`)에
+ * 물려 그린다. 껍데기는 수 KB 이고, 지도를 처음 그리는 데 받는 데이터는 시연 표본 기준
+ * 약 1.2MB 다(예전 단일 HTML 은 133MB). 사람을 고를 때만 그 사람의 기억·일정을 받는다.
  *
- * 자산은 이미 있다 — `scripts/sim/visualization_3d/` 가 만들어 낸
- * `output/sim/visualization/index.html`. 서버가 그 경로를 `/artifacts` 로 열어 주면
- * 아래 값만 채우면 되고, 이 화면의 나머지는 그대로다.
- * 지금은 값을 지어내지 않고 비워 둔다 — 없는 지도를 그린 척하지 않는다.
+ * 팩이 하나도 없거나 API 가 없으면 예전 단일 HTML 산출물로 돌아간다.
  */
-const EMBED_SRC: string | null = '/viz/standalone.html';
+const LEGACY_EMBED_SRC = '/viz/standalone.html';
+const LEGACY_EMBED_CASE = { runId: 'SEOUL7500', label: '이 실행의 활동 기록' } as const;
+
+interface VizEmbed {
+  src: string;
+  /** 지도가 실제로 담고 있는 실행(또는 팩) 이름 */
+  caseId: string;
+  label: string;
+  /** 지금 고른 실행의 지도인가 */
+  exact: boolean;
+}
+
+function legacyEmbed(runId: string): VizEmbed {
+  return {
+    src: LEGACY_EMBED_SRC,
+    caseId: LEGACY_EMBED_CASE.runId,
+    label: LEGACY_EMBED_CASE.label,
+    exact: runId === LEGACY_EMBED_CASE.runId,
+  };
+}
 
 /**
- * 시연용으로 붙여 둔 산출물이 담고 있는 실제 run·기간.
- * 이 조합이 아닌 run 을 고르면 화면의 라벨과 지도 내용이 어긋나므로,
- * 그 사실을 숨기지 않고 화면에 적는다.
+ * 고른 실행에 맞는 팩을 찾는다. 같은 실행의 팩이 없으면 첫 팩(표본)을 띄우되,
+ * 그 사실을 화면에 적는다 — 다른 실행의 지도를 이 실행의 것처럼 보이지 않게 한다.
  */
-const EMBED_CASE = { runId: 'SEOUL7500', label: '이 실행의 활동 기록' } as const;
+function useVizEmbed(runId: string): { embed: VizEmbed | null; loading: boolean } {
+  const [state, setState] = useState<{ embed: VizEmbed | null; loading: boolean }>({ embed: null, loading: true });
+  useEffect(() => {
+    let alive = true;
+    api.listVizPacks().then(
+      (packs) => {
+        if (!alive) return;
+        const usable = packs.items.filter((item) => !item.error);
+        const exact = usable.find((item) => item.run_id === runId || item.pack_id === runId);
+        const chosen = exact ?? usable[0];
+        if (!chosen) {
+          setState({ embed: legacyEmbed(runId), loading: false });
+          return;
+        }
+        const packPath = `/viz/packs/${encodeURIComponent(chosen.pack_id)}/`;
+        setState({
+          embed: {
+            src: `/viz/shell.html?theme=console&pack=${encodeURIComponent(packPath)}`,
+            caseId: chosen.run_id ?? chosen.pack_id,
+            label: chosen.label ?? LEGACY_EMBED_CASE.label,
+            exact: Boolean(exact),
+          },
+          loading: false,
+        });
+      },
+      () => {
+        if (alive) setState({ embed: legacyEmbed(runId), loading: false });
+      },
+    );
+    return () => {
+      alive = false;
+    };
+  }, [runId]);
+  return state;
+}
 
 /** `scripts/sim/visualization_3d/template.html` 의 범례·필터와 같은 항목을 쓴다 */
 const COLOR_MODES = [
@@ -109,12 +161,15 @@ function VisualizationView({ run }: { run: RunContextValue }) {
   }
 
   /**
-   * src 에 run·day 를 붙이지 않는다. 붙이면 일자를 옮길 때마다 URL 이 바뀌어
-   * iframe 이 51MB 산출물을 통째로 다시 받는다. 시연용 산출물은 자체 타임라인을
-   * 들고 있으므로 콘솔이 일자를 지시할 필요도 없다.
+   * src 에 day 를 붙이지 않는다. 붙이면 일자를 옮길 때마다 URL 이 바뀌어
+   * iframe 이 지도를 처음부터 다시 연다. 팩은 자체 타임라인을 들고 있으므로
+   * 콘솔이 일자를 지시할 필요도 없다.
    */
-  const embedSrc = EMBED_SRC;
-  const caseMismatch = embedSrc !== null && (runId as string) !== EMBED_CASE.runId;
+  const { embed, loading: embedLoading } = useVizEmbed(runId);
+  const embedSrc = embed?.src ?? null;
+  // 팩 목록을 받는 동안에도 지도 자리를 지킨다 — 빈 자리 안내가 잠깐 비쳤다 사라지지 않게
+  const embedMode = embedLoading || embedSrc !== null;
+  const caseMismatch = embed !== null && !embed.exact;
 
   return (
     <div className="viz">
@@ -133,11 +188,13 @@ function VisualizationView({ run }: { run: RunContextValue }) {
         <div className="viz__id">
           <h1 className="viz__title">3D 지도</h1>
           <p className="viz__meta">
-            {embedSrc ? (
+            {embedMode ? (
               /* 지도가 자체 타임라인을 들고 있다. 콘솔이 날짜를 따로 적으면
                  지도 HUD 의 날짜와 어긋나 어느 쪽이 맞는지 알 수 없게 된다.
-                 기간은 지도가 말하게 두고, 여기서는 표본이라는 사실만 밝힌다. */
-              <span className="viz__meta-extra">{EMBED_CASE.label} · 기간은 지도 안에 표시됩니다</span>
+                 기간은 지도가 말하게 두고, 여기서는 무엇을 담은 지도인지만 밝힌다. */
+              <span className="viz__meta-extra">
+                {embed ? `${embed.label} · 기간은 지도 안에 표시됩니다` : '지도 데이터를 찾는 중'}
+              </span>
             ) : (
               <>
                 <span className="num">{day}</span>
@@ -154,7 +211,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
           자치구 필터를 자기 범례 패널에 이미 갖고 있어서, 같은 항목을 조작하는
           패널이 둘이 되면 서로 반영되지 않는 설정이 두 벌 생긴다.
         */}
-        {!embedSrc && (
+        {!embedMode && (
           <Button
             ref={panelBtnRef}
             variant="secondary"
@@ -171,19 +228,19 @@ function VisualizationView({ run }: { run: RunContextValue }) {
       <div className="viz__stage">
         {/* 지도 자리 — 실제 뷰어가 들어올 컨테이너 */}
         <div className="mapstage">
-          {embedSrc ? (
+          {embedLoading ? (
+            <p className="mapstage__notice" role="status">
+              지도 데이터를 찾는 중입니다…
+            </p>
+          ) : embed && embedSrc ? (
             <>
               {caseMismatch && (
                 <p className="mapstage__notice" role="status">
-                  아래 지도는 {EMBED_CASE.label}({EMBED_CASE.runId})입니다. 지금 고른 실행({runId})의
+                  아래 지도는 {embed.label}({embed.caseId})입니다. 지금 고른 실행({runId})의
                   지도는 아직 준비되지 않아, 화면 구성을 보여드리기 위해 표본을 띄웁니다.
                 </p>
               )}
-              <iframe
-                className="mapstage__frame"
-                src={embedSrc}
-                title={`${EMBED_CASE.runId} 3D 지도`}
-              />
+              <iframe className="mapstage__frame" src={embedSrc} title={`${embed.caseId} 3D 지도`} />
             </>
           ) : (
             <div className="mapstage__placeholder">
@@ -204,7 +261,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
           둘 중 어느 것이 진짜인지 알 수 없고 서로 동기화되지도 않는다.
           조작 주체는 하나여야 한다.
         */}
-        {!embedSrc && (
+        {!embedMode && (
         <div className="viztransport">
           <span className="viztransport__label" id="viz-day-label">
             일자

@@ -1,4 +1,7 @@
+import base64
+import hashlib
 import json
+import re
 
 import pytest
 
@@ -220,3 +223,36 @@ def test_render_template_rejects_missing_required_marker():
                 "scripts": "<script></script>",
             },
         )
+
+
+def test_build_3d_standalone_embeds_pack_blobs_that_decode(tmp_path, monkeypatch):
+    _write_fixture(tmp_path)
+    monkeypatch.setattr(build_standalone_html, "fetch_url", lambda url: f"/* asset: {url} */")
+
+    out_path = build_standalone_html.build_3d_standalone(tmp_path, pack_dir=tmp_path / "pack")
+
+    html = out_path.read_text(encoding="utf-8")
+    manifest = json.loads((tmp_path / "pack" / "manifest.json").read_text(encoding="utf-8"))
+    blobs = dict(
+        re.findall(r'<script type="application/octet-stream" data-pack-file="([^"]+)">([^<]*)</script>', html)
+    )
+    expected = [chunk["file"] for chunk in manifest["chunks"]]
+    expected += [shard["file"] for shard in manifest["detail"]["shards"]]
+    assert sorted(blobs) == sorted(expected)
+    for entry in [*manifest["chunks"], *manifest["detail"]["shards"]]:
+        data = base64.b64decode(blobs[entry["file"]])
+        assert hashlib.sha256(data).hexdigest() == entry["sha256"]
+    assert "window.__SIM_PACK__" in html
+    # 팩 로더가 데이터 모델보다 먼저 실려야 부팅이 팩을 연다
+    assert html.index("Sim3D.openPack = ") < html.index("Sim3D.initDataModel = ")
+
+
+def test_build_3d_standalone_can_leave_out_agent_detail(tmp_path, monkeypatch):
+    _write_fixture(tmp_path)
+    monkeypatch.setattr(build_standalone_html, "fetch_url", lambda url: f"/* asset: {url} */")
+
+    html = build_standalone_html.build_3d_standalone(tmp_path, include_detail=False).read_text(encoding="utf-8")
+
+    assert 'data-pack-file="timeline/000.bin.gz"' in html
+    assert 'data-pack-file="detail/' not in html
+    assert '"omitted":true' in html
