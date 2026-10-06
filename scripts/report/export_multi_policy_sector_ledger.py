@@ -217,8 +217,9 @@ def export(*, roster: list[str], days: list[str], arm: str, policy_id: str | Non
     rows: list[dict] = []
     metrics_hashes = {}
     cohort = verify_cohorts(metrics_dir, days, roster)
-    if cohort["prompt_variant"] != "v53":
-        raise ValueError("sector export requires the frozen v53 prompt")
+    # [2026-10-06] v53n = v53 에서 외출 구절 하나만 뺀 공통 프롬프트(본런 전 프롬프트 점검). v53 과 같은 엄격한 검사를 받는다.
+    if cohort["prompt_variant"] not in ("v53", "v53n"):
+        raise ValueError("sector export requires the frozen v53 or v53n prompt")
     served_path = metrics_dir.parent / "served_model_evidence.json"
     served_evidence = json.loads(served_path.read_text(encoding="utf-8"))
     served_model = "LGAI-EXAONE/EXAONE-4.5-33B-AWQ"

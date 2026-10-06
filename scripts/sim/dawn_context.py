@@ -560,11 +560,19 @@ def _format_cashback_status(
     # 남은 날짜 맥락 — 실제 정책 참여자는 "이번 달이 며칠 남았는지"를 알고 판단한다.
     # 이게 없으면 큰 잔액만 보고 도달 불가로 읽어, 실제와 반대 방향으로 움직인다.
     days_left = 0
+    # [2026-10-06] 실적 기간이 그 달 말일보다 먼저 끝나는 정책(7일 압축월 사본)은 '이번 달'이 아니라
+    # '이번 실적 기간'으로 적고, 남은 일수도 그 끝날까지 센다. 예전에는 정책 기간이 10/1~10/7 인데
+    # "이번 달 31일 남음"·"-76.7% 문턱"·"월 최대"로 적어 같은 화면의 사실끼리 어긋났다.
+    period_end = _cashback_period_end(r)
+    compressed = period_end is not None
+    period = "이번 실적 기간" if compressed else "이번 달"
     if today is not None:
         if today.month == 12:
             month_end = date(today.year, 12, 31)
         else:
             month_end = date(today.year, today.month + 1, 1) - timedelta(days=1)
+        if compressed and period_end.year == today.year and period_end.month == today.month:
+            month_end = min(month_end, period_end)
         days_left = (month_end - today).days + 1
     # 한도를 채우려면 문턱 위로 얼마가 더 필요한지. rate=0.1·cap=10만이면 100만원이다.
     # 이 규모를 모르면 "문턱만 겨우 넘기면 된다"로 읽혀 잔돈을 긁어모으는 쪽으로 간다.
@@ -574,7 +582,7 @@ def _format_cashback_status(
         status = f"문턱까지 {remaining:,}원 남음 — 적립업종에서 이만큼 더 쓰면 캐시백 자격 시작"
         if days_left > 0:
             pace = int(round(remaining / days_left))
-            status += f" (이번 달 {days_left}일 남음 · 하루 평균 {pace:,}원 페이스)"
+            status += f" ({period} {days_left}일 남음 · 하루 평균 {pace:,}원 페이스)"
         # [3차 실측] 한도 환산("문턱 위로 100만원 더")을 넣었더니 C2 가 +1,825 → +847원
         # (t 4.14 → 1.32)으로 후퇴하고 건당 금액도 6,641 → 5,978원으로 줄었다.
         # 큰 숫자가 "불가능하네"로 읽혀 포기를 유도한 것으로 보인다. 문턱까지 남은
@@ -601,11 +609,43 @@ def _format_cashback_status(
     if os.environ.get("EXP_SCOPE_FACT", "0") == "1":
         scope = (" | 문턱은 적립업종 지출만 센다 — 제외업종(대형마트·백화점·온라인 등)에서 "
                  "줄여도 문턱은 가까워지지 않고, 거기서 쓴 돈이 환급을 깎지도 않는다")
+    if not compressed:
+        return (
+            f"- {pid}: 적립업종 이번달 누적 {spent_elig:,}원 / 2분기 월평균 약 {anchor:,}원 / "
+            f"{(ratio-1)*100:.3g}% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
+            f"{status}{scope} | 못 넘기면 이번 달 혜택은 사라짐"
+        )
+    # 압축월 문턱 = 2분기 월평균 x (기간 일수 / 그 달 일수) x 1.03. 실제 제도의 '평소보다 3% 넘게 더'가 그대로 보이게
+    # 기간 환산액과 그 위 퍼센트로 적는다(같은 화면의 설명과 같은 사실).
+    period_days, month_days = _cashback_period_days(r, period_end)
+    base = int(round(anchor * period_days / month_days)) if period_days and month_days else 0
+    over_pct = (ratio * month_days / period_days - 1) * 100 if period_days else 0.0
     return (
-        f"- {pid}: 적립업종 이번달 누적 {spent_elig:,}원 / 2분기 월평균 약 {anchor:,}원 / "
-        f"{(ratio-1)*100:.3g}% 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 월 최대 {cap:,}원 | "
-        f"{status}{scope} | 못 넘기면 이번 달 혜택은 사라짐"
+        f"- {pid}: 적립업종 이번 실적 기간 누적 {spent_elig:,}원 / 2분기 카드 사용액의 이 기간({period_days}일) 환산 약 {base:,}원 / "
+        f"그보다 {over_pct:.3g}% 많은 이번 실적 기간 문턱 {threshold:,}원 | 초과분의 {rate*100:.0f}% 다음 달 환급, 이번 실적 기간 최대 {cap:,}원 | "
+        f"{status}{scope} | 못 넘기면 이번 실적 기간 혜택은 사라짐"
     )
+
+
+def _cashback_period_days(r: dict, period_end):
+    """(실적 기간 일수, 그 달 일수). 시작일을 모르면 (0, 0)."""
+    try:
+        start = date.fromisoformat(str(r.get("effective_from") or "")[:10])
+    except ValueError:
+        return 0, 0
+    nxt = date(period_end.year + (period_end.month == 12), period_end.month % 12 + 1, 1)
+    return (period_end - start).days + 1, (nxt - timedelta(days=1)).day
+
+
+def _cashback_period_end(r: dict):
+    """실적 기간이 그 달 말일보다 먼저 끝나면 그 끝날, 아니면 None."""
+    raw = str(r.get("effective_until") or "")[:10]
+    try:
+        until = date.fromisoformat(raw)
+    except ValueError:
+        return None
+    nxt = date(until.year + (until.month == 12), until.month % 12 + 1, 1)
+    return until if until < nxt - timedelta(days=1) else None
 
 
 def _grant_amount_for(income: str, pol: dict, spend_decile=None) -> int:
@@ -826,7 +866,9 @@ def _format_policy_status(
             # 프롬프트는 세 곳에서 "소득분위로 고정하지 말라"고 하는데, 정작 컨텍스트가
             # "대상(소비 1분위) | 지급액 400,000원"으로 본인의 분위 순위를 찍어 주고 있었다.
             # 지급 근거가 무엇인지만 남기고 순위 숫자는 노출하지 않는다.
-            basis = "소비 규모 기준" if uses_decile and decile is not None else f"소득 {income or '미상'}"
+            # [2026-10-06] 배분 기준(소비 규모)도 적지 않는다 — 전 국민 동일 지급(P013)에도 붙어 사실과 달랐고,
+            # 모델 안의 배분 방식이 드러난다. 받는 금액은 바로 뒤 '지급액'에 있다.
+            basis = "" if uses_decile and decile is not None else f"소득 {income or '미상'}"
             rec = int(grant_received.get(pid, 0) or 0)
             rem = int(grant_remaining.get(pid, 0) or 0)
             d_since = days_since.get(pid)
@@ -864,7 +906,7 @@ def _format_policy_status(
                     relative = ""
             eligibility = "대상" if my_amt > 0 else "비대상"
             lines.append(
-                f"- {pid}: {eligibility}({basis}) | 지급액 {my_amt:,}원 | "
+                f"- {pid}: {eligibility}{f'({basis})' if basis else ''} | 지급액 {my_amt:,}원 | "
                 f"누적수령 {rec:,}원 | 정책지갑 잔액 {rem:,}원 | {age}{relative}"
             )
         elif ptype == "cashback":
