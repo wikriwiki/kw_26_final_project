@@ -35,6 +35,11 @@ AB_NEO_ON=${AB_NEO_ON:-/data/neo4j-community-5.26.0};   AB_BOLT_ON=${AB_BOLT_ON:
 AB_NEO_OFF=${AB_NEO_OFF:-/data/neo4j2-community-5.26.0}; AB_BOLT_OFF=${AB_BOLT_OFF:-7688}; AB_HTTP_OFF=${AB_HTTP_OFF:-7475}
 AB_CRED=${AB_CRED:-$AB_ROOT/neo4j_credentials.sh}  # NEO4J_PASSWORD_ON / NEO4J_PASSWORD_OFF 를 export 하는 파일
 AB_MAX_ATTEMPTS=${AB_MAX_ATTEMPTS:-12}             # 사람-날 하나의 시도 예산. 실행 지문에 들어가므로 런 도중 바꾸지 않는다
+# [2026-10-06] 모델 호출 하나를 기다리는 시간(초). 기본 180 이면 중계가 멈춘 Colab 을 A100 으로 넘기기(300초) 전에 시뮬이 먼저 포기해
+# 시도 예산만 닳는다. 중계의 remote_timeout(300)보다 길어야 한다. 결정에 닿지 않는 운영 값이라 실행 지문에는 없다.
+AB_LLM_TIMEOUT=${AB_LLM_TIMEOUT:-600}
+# [2026-10-06] 공통 소비 프롬프트 판. v53n = v53 에서 '외출을 너무 보수적으로 줄이면 부자연스럽다' 한 구절만 뺀 판(본런 전 프롬프트 점검).
+AB_PROMPT_VARIANT=${AB_PROMPT_VARIANT:-v53n}
 
 source "$AB_REPO/tools/ab3w_cases.sh"
 BASE=$AB_ROOT/${AB_CASE}_${AB_TAG}
@@ -65,7 +70,7 @@ exec 9>"$AB_ROOT/locks/neo4j_${AB_BOLT_OFF}.lock"; flock -n 9 || { log "Neo4j $A
 # ---------------------------------------------------------------- 공통 실행 설정
 # 두 갈래와 정책 전 주가 모두 같은 값으로 돈다(실행 지문이 같아야 짝이다). 정책은 그래프에만 있다.
 common_env() {
-  export LLM_BASE_URL=$AB_LLM_BASE_URL LLM_MODE=exaone_4_5 SIM_PROMPT_VARIANT=v53
+  export LLM_BASE_URL=$AB_LLM_BASE_URL LLM_MODE=exaone_4_5 SIM_PROMPT_VARIANT=$AB_PROMPT_VARIANT
   export EXP_SANGSAENG_BASE_RATIO=0.268 EXP_SEED_SANGSAENG=1 EXP_BALANCE_DAYS=39
   export EXP_DURABLES=1 EXP_CATLINE=fold EXP_POLICY_ANONYMOUS=1 POLICY_POI_SORT_BOOST=0
   # 하루 소득: 평소 소비 수준(앵커)만큼 매일 채운다(사용자 선택 '1번', 잔액 유지). 계수 1/2.40 은 적립 채널의 눈금과 같다.
@@ -73,7 +78,7 @@ common_env() {
   export EXP_ELIGIBLE_CHANNEL=1
   # 계획 통로: 정책 전 주에는 기준선 파일이 없어 배수 1, 정책 시작일부터 같은 경로에 기준선이 놓인다.
   export EXP_PLAN_DRIVES_TOTAL=1 EXP_PLAN_BASELINE_FILE=$BASE/plan_baseline_live.json
-  export EXP_NO_SKIP=1 EXP_AGENT_DAY_MAX_ATTEMPTS=$AB_MAX_ATTEMPTS
+  export EXP_NO_SKIP=1 EXP_AGENT_DAY_MAX_ATTEMPTS=$AB_MAX_ATTEMPTS SIM_LLM_TIMEOUT_SECONDS=$AB_LLM_TIMEOUT
   unset SIM_ALLOW_STAGE2_FALLBACK EXP_PAYMENT_CHOICE EXP_GRANT_USE EXP_SPREAD_DAYS
   # 운영자 셸에 남은 값이 런에 새지 않게 한다(사회 배경은 --environment 로만, 백업 경로는 갈래끼리 겹치면 덮어쓴다).
   unset SIM_ENVIRONMENT BACKUP_DIR SIM_POST_DAY_BACKUP_HOOK
@@ -199,9 +204,13 @@ if [[ ! -s $BASE/prepared.marker ]]; then
   python tools/capture_served_model_evidence_20260928.py --out "$BASE/served_model_evidence.json" \
     || { log '모델 증거 수집 실패 — 멈춘다'; exit 1; }
   for sub in pre on off; do mkdir -p "$BASE/$sub"; cp "$BASE/served_model_evidence.json" "$BASE/$sub/"; done
-  printf '{"case":"%s","tag":"%s","design":"pre_week_common_then_paired_on_off","pre_start":"%s","start":"%s","post_end":"%s","pre_days":%s,"post_days":%s,"day0":"%s","policy_file":"%s","policy_id":"%s","env_pre":"%s","env_on":"%s","env_off":"%s","served_model":"%s","llm_base_url":"%s","workers_per_arm":%s,"max_attempts":%s,"pre_graph":"%s","prepared_at":"%s"}\n' \
+  # GPU 풀 중계를 쓰면 그 기준 설정(A100 의 /get_server_info 요약)과 일꾼 상태를 남긴다 — 일꾼은 이 기준과 같을 때만 일을 받는다.
+  if curl -fsS -m 5 "${AB_LLM_BASE_URL%/v1}/pool/status" -o "$BASE/gpu_pool_status_at_prepare.json" 2>/dev/null; then
+    log "GPU 풀 중계 사용: $(python -c 'import json,sys; d=json.load(open(sys.argv[1])); print("기준", d["reference_identity_sha256"][:12], "| 받아들인 일꾼", [b["name"] for b in d["backends"] if b["healthy"] and not b["local"]])' "$BASE/gpu_pool_status_at_prepare.json")"
+  else rm -f "$BASE/gpu_pool_status_at_prepare.json"; fi
+  printf '{"case":"%s","tag":"%s","design":"pre_week_common_then_paired_on_off","pre_start":"%s","start":"%s","post_end":"%s","pre_days":%s,"post_days":%s,"day0":"%s","policy_file":"%s","policy_id":"%s","env_pre":"%s","env_on":"%s","env_off":"%s","served_model":"%s","llm_base_url":"%s","workers_per_arm":%s,"max_attempts":%s,"llm_timeout_seconds":%s,"prompt_variant":"%s","pre_graph":"%s","prepared_at":"%s"}\n' \
     "$AB_CASE" "$AB_TAG" "$PRE_START" "$START" "$POST_END" "$AB_PRE_DAYS" "$AB_POST_DAYS" "$DAY0" "$POLICY" "$PID" \
-    "$ENV_PRE" "$ENV_ON" "$ENV_OFF" "$AB_MODEL_ID" "$AB_LLM_BASE_URL" "$AB_WORKERS" "$AB_MAX_ATTEMPTS" "$AB_PRE_GRAPH" "$(date -Is)" \
+    "$ENV_PRE" "$ENV_ON" "$ENV_OFF" "$AB_MODEL_ID" "$AB_LLM_BASE_URL" "$AB_WORKERS" "$AB_MAX_ATTEMPTS" "$AB_LLM_TIMEOUT" "$AB_PROMPT_VARIANT" "$AB_PRE_GRAPH" "$(date -Is)" \
     > "$BASE/run_manifest.json"
   (cd "$BASE" && sha256sum roster.json roster.manifest.json run_manifest.json engine.json > frozen_inputs.sha256)
   if [[ -n $POLICY ]]; then sha256sum "$POLICY" > "$BASE/frozen_policy.sha256"; fi

@@ -199,7 +199,8 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
         prompt_variants.add(prompt_variant)
         system_prompt_hashes.add(system_prompt_sha)
         stage2_sha = cohort.get("stage2_system_prompt_sha256")
-        if prompt_variant == "v53" and (
+        # [2026-10-06] v53n = v53 에서 외출 구절 하나만 뺀 공통 프롬프트(본런 전 프롬프트 점검). v53 과 같은 엄격한 검사를 받는다.
+        if prompt_variant in ("v53", "v53n") and (
             not isinstance(stage2_sha, str) or len(stage2_sha) != 64
             or any(char not in "0123456789abcdef" for char in stage2_sha)
         ):
