@@ -34,8 +34,10 @@ npm run dev
 | `WEB_CORS_ORIGINS` | 프런트 개발 서버 주소 |
 | `SIM_VIZ_FILE` | 운영자가 직접 걸어 둔 3D 지도 파일. `SIM_VIZ_STANDALONE` → `SIM_DATA_ROOT/viz/sim_demo.html` 순으로 물러난다 |
 | `SIM_VIZ_PACKS_DIR` | 3D 지도 데이터 팩 폴더들의 부모(`<팩>/manifest.json`). 없으면 `SIM_DATA_ROOT/viz/packs` → `web/viz_store/packs` 순으로 찾는다. 팩은 `python -m scripts.sim.visualization_3d.pack --src <JSON 4종 폴더> --out <부모>/<팩 이름>` 으로 만든다 |
+| `SIM_EXPERIMENTS_ROOT` | 실험 미러 폴더(기본 `~/sim_data/experiments`). 실험 정의는 `web/experiments/*.json`, 받아 온 실행 기록은 `<폴더>/<실험>/arms/<팔>/` |
+| `SIM_REMOTE_<PROFILE>` | 실험 정의의 `remote.profile` 이 가리키는 **읽기 전용** 접속 명령 (예: `SIM_REMOTE_NO_SMOKING_VAST="ssh -i ~/.ssh/no_smoking_vast -p 45025 root@<서버>"`). `python -m web.api.experiment_sync --experiment <id>` 또는 콘솔의 "지금 받기"가 쓴다. 서버에서는 `find`·`cat`·`tail -c`·`head -c|sha256sum`·`tar -c` 만 실행한다 |
 | `GEMINI_API_KEY` | 보고서 해설 LLM. 없으면 해설만 규칙 기반으로 대체된다. **인터뷰 화면도 같은 키를 쓴다** |
-| `INTERVIEW_BASE_URL` / `_MODEL` / `_API_KEY` | 인터뷰 전용 엔드포인트(K-EXAONE). 셋이 다 있으면 이쪽을 먼저 쓴다 |
+| `INTERVIEW_BASE_URL` / `_MODEL` / `_API_KEY` | 인터뷰 전용 엔드포인트(OpenAI 호환). 셋이 다 있으면 이쪽을 먼저 쓴다. 주소가 이 PC(`127.0.0.1`·`localhost`, 예: SSH 터널)면 키 없이 쓴다. 화면에 보일 이름은 `INTERVIEW_MODEL_LABEL` |
 
 산출물이 없다고 해서 fixture 로 자동 fallback 하지 않는다. 없으면 없다고 답한다.
 

@@ -16,6 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from scripts.report import llm as report_llm
 
+from . import experiment_routes
 from . import interview
 from . import viz
 from .runner import RunLock, Runner
@@ -452,6 +453,8 @@ def create_app(
 
     # 데이터 팩 기반 지도(껍데기 + 팩). 위의 단일 HTML 경로는 예전 산출물용으로 남겨 둔다.
     viz.register(app)
+    # 실험 레지스트리 — 여러 실험(분기 팔 포함)을 실제 실행 데이터 미러로 본다.
+    experiment_routes.register(app)
 
     @app.get("/api/interview/status")
     async def interview_status() -> dict:

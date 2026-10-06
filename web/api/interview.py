@@ -26,14 +26,35 @@ import os
 import urllib.error
 import urllib.request
 from typing import Any
+from urllib.parse import urlparse
 
 from scripts.report import llm as report_llm
 from scripts.report.llm import load_dotenv
 
 #: 추론(thinking)은 끈다. 인터뷰는 한 문단 대화라 지연이 곧 체감 품질이다.
 THINKING = False
-TIMEOUT = float(os.environ.get("INTERVIEW_TIMEOUT", "60"))
-MAX_TOKENS = int(os.environ.get("INTERVIEW_MAX_TOKENS", "700"))
+LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
+
+
+def _timeout() -> float:
+    # `.env` 는 이 모듈을 불러온 뒤에 읽힌다. 값은 쓸 때마다 읽어야 `.env` 설정이 먹는다.
+    return float(os.environ.get("INTERVIEW_TIMEOUT", "60"))
+
+
+def _max_tokens() -> int:
+    return int(os.environ.get("INTERVIEW_MAX_TOKENS", "700"))
+
+
+def _dedicated() -> dict[str, str] | None:
+    """전용(OpenAI 호환) 엔드포인트 설정. 이 PC 안(터널 등)이면 키 없이도 쓴다."""
+    base = os.environ.get("INTERVIEW_BASE_URL", "").strip()
+    model = os.environ.get("INTERVIEW_MODEL", "").strip()
+    key = os.environ.get("INTERVIEW_API_KEY", "").strip()
+    local = (urlparse(base).hostname or "") in LOCAL_HOSTS
+    if not (base and model and (key or local)):
+        return None
+    label = os.environ.get("INTERVIEW_MODEL_LABEL", "").strip() or ("K-EXAONE" if key else model)
+    return {"base": base.rstrip("/"), "model": model, "key": key, "label": label}
 
 SYSTEM = """당신은 서울시 상권 정책 시뮬레이션에 참여한 시민 한 명입니다.
 아래 '내 기록'에 적힌 사실만 근거로, 그 사람 본인의 말투로 답하세요.
@@ -62,11 +83,9 @@ def settings() -> dict[str, Any]:
     함께 켜진다. 어느 쪽으로 답했는지는 응답의 `model_label` 에 그대로 남는다.
     """
     load_dotenv()
-    base = os.environ.get("INTERVIEW_BASE_URL", "").strip()
-    model = os.environ.get("INTERVIEW_MODEL", "").strip()
-    key = os.environ.get("INTERVIEW_API_KEY", "").strip()
-    if base and model and key:
-        return {"ready": True, "backend": "dedicated", "model_label": "K-EXAONE", "reason": None}
+    dedicated = _dedicated()
+    if dedicated:
+        return {"ready": True, "backend": "dedicated", "model_label": dedicated["label"], "reason": None}
     shared = report_llm.provider_status(load_env=False)
     if shared.get("configured"):
         return {
@@ -137,13 +156,14 @@ def _transcript(question: str, history: list[dict[str, str]] | None) -> str:
     return "\n".join(lines)
 
 
-def _ask_shared(system: str, question: str, history: list[dict[str, str]] | None, label: str) -> dict[str, Any]:
+def _ask_shared(system: str, question: str, history: list[dict[str, str]] | None, label: str,
+                max_tokens: int | None = None, temperature: float = 0.7) -> dict[str, Any]:
     """보고서 해설과 같은 클라이언트로 묻는다 (Gemini 또는 OpenAI 호환)."""
     result = report_llm.complete(
         system,
         _transcript(question, history),
-        max_tokens=MAX_TOKENS,
-        temperature=0.7,
+        max_tokens=max_tokens or _max_tokens(),
+        temperature=temperature,
         load_env=False,
     )
     if not result.ok:
@@ -156,21 +176,16 @@ def _ask_shared(system: str, question: str, history: list[dict[str, str]] | None
     }
 
 
-def ask(agent: dict[str, Any], question: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
+def chat(system: str, question: str, history: list[dict[str, str]] | None = None, *,
+         max_tokens: int | None = None, temperature: float = 0.7) -> dict[str, Any]:
+    """설정된 대화 모델에 한 번 묻는다. 1대1 인터뷰·실험 인터뷰·집단 질의가 함께 쓴다."""
     conf = settings()
     if not conf["ready"]:
         raise InterviewError(503, conf["reason"] or "대화 모델이 연결되지 않았습니다.")
-    question = (question or "").strip()
-    if not question:
-        raise InterviewError(400, "질문을 입력해 주세요.")
-    if len(question) > 500:
-        raise InterviewError(400, "질문이 너무 깁니다. 500자 안으로 줄여 주세요.")
-
-    system = SYSTEM + "\n\n[내 기록]\n" + _profile_block(agent)
     if conf["backend"] == "shared":
-        return _ask_shared(system, question, history, conf["model_label"])
+        return _ask_shared(system, question, history, conf["model_label"], max_tokens, temperature)
 
-    base = os.environ["INTERVIEW_BASE_URL"].rstrip("/")
+    dedicated = _dedicated() or {}
     messages = [{"role": "system", "content": system}]
     # 직전 대화만 넘긴다. 길어질수록 모델이 기록보다 제 말을 근거로 삼는다
     for turn in (history or [])[-6:]:
@@ -180,22 +195,22 @@ def ask(agent: dict[str, Any], question: str, history: list[dict[str, str]] | No
     messages.append({"role": "user", "content": question})
 
     payload = {
-        "model": os.environ["INTERVIEW_MODEL"],
+        "model": dedicated["model"],
         "messages": messages,
-        "max_tokens": MAX_TOKENS,
-        "temperature": 0.7,
+        "max_tokens": max_tokens or _max_tokens(),
+        "temperature": temperature,
         "chat_template_kwargs": {"enable_thinking": THINKING},
     }
+    headers = {"Content-Type": "application/json"}
+    if dedicated.get("key"):
+        headers["Authorization"] = f"Bearer {dedicated['key']}"
     request = urllib.request.Request(
-        f"{base}/chat/completions",
+        f"{dedicated['base']}/chat/completions",
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {os.environ['INTERVIEW_API_KEY']}",
-            "Content-Type": "application/json",
-        },
+        headers=headers,
     )
     try:
-        with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+        with urllib.request.urlopen(request, timeout=_timeout()) as response:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         # 원문 오류를 그대로 올리지 않는다 — 키가 섞여 나올 수 있고 사용자도 못 고친다
@@ -214,6 +229,18 @@ def ask(agent: dict[str, Any], question: str, history: list[dict[str, str]] | No
     usage = body.get("usage") or {}
     return {
         "answer": text,
-        "model_label": "K-EXAONE",
+        "model_label": dedicated["label"],
         "tokens": {"in": usage.get("prompt_tokens"), "out": usage.get("completion_tokens")},
     }
+
+
+def ask(agent: dict[str, Any], question: str, history: list[dict[str, str]] | None = None) -> dict[str, Any]:
+    question = (question or "").strip()
+    if not question:
+        raise InterviewError(400, "질문을 입력해 주세요.")
+    if len(question) > 500:
+        raise InterviewError(400, "질문이 너무 깁니다. 500자 안으로 줄여 주세요.")
+    conf = settings()
+    if not conf["ready"]:
+        raise InterviewError(503, conf["reason"] or "대화 모델이 연결되지 않았습니다.")
+    return chat(SYSTEM + "\n\n[내 기록]\n" + _profile_block(agent), question, history)
