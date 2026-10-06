@@ -32,8 +32,7 @@ INTRO = """
 | 4 | 작은 모델로 SGLang 실행(안 되면 가짜 서버) — **일부러 A100 과 설정이 다르다** | 다름 |
 | 5 | Secrets 키 복원 → 우리 서버 역방향 터널 → 20분 상태 출력 후 끝 | 같음(끝나는 것만 다름) |
 
-**런타임: T4 GPU.**  Secrets: `KW26_POOL_ACCOUNT` = **6**, `KW26_POOL_KEY` = `kw26_colab_pool_6` 파일 내용 전체 (노트북 액세스 켜기).
-키는 메신저·GitHub·채팅에 붙여 넣지 않는다.
+**런타임: T4 GPU.**  계정 6(무료 시험용)이 박혀 있다. Secrets 는 쓰지 않는다 — 키는 런타임 안에서 만들고 공개 쪽만 서버에 등록한다.
 
 **못 보는 것:** EXAONE-33B 가 G4 에서 뜨는지, A100 과 설정 일치 통과, 처리 속도. T4(15GB)에는 33B 가 올라가지 않는다.
 """
@@ -137,7 +136,7 @@ def build():
     freeze_sha = hashlib.sha256(freeze.encode()).hexdigest()
     install = (prod.CELL_INSTALL.replace('__MODEL__', prod.MODEL).replace('__REVISION__', prod.REVISION)
                .replace('__SEED__', str(prod.SEED)))
-    tunnel = (prod.CELL_TUNNEL.replace('__HOST_KEY__', prod.SERVER_HOST_KEY).replace('__SERVER_PORT__', str(prod.SERVER_PORT))
+    tunnel = (prod.CELL_TUNNEL.replace('__ACCOUNT__', '6').replace('__HOST_KEY__', prod.SERVER_HOST_KEY).replace('__SERVER_PORT__', str(prod.SERVER_PORT))
               .replace('__SERVER_USER__', prod.SERVER_USER).replace('__SERVER_HOST__', prod.SERVER_HOST))
     head, sep, _loop = tunnel.partition('\ndef last_rate(port):')
     assert sep, '실제 노트북 터널 칸의 모양이 바뀌었다 — 시험 노트북을 다시 맞출 것'
