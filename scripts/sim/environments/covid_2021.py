@@ -289,6 +289,11 @@ def build(day: date, rule_day: date | None = None) -> dict:
     if closed:
         facts.append("집합금지: " + "·".join(str(c) for c in closed))
 
+    # 권고(2020-04-20~05-05 처럼 단계 번호 이전의 "운영 자제 권고"). 그 구간의 발표 내용이라
+    # 다음 구간으로 이어받지 않는다 — _effective 를 쓰지 않는다. (2026-10-06 추가)
+    for adv in (reg.get("advisories") or []):
+        facts.append(str(adv))
+
     level = reg.get("level")
     # 단계 숫자가 이름이 아닌 구간이 있다. 5단계 체계는 2020-11-07 부터다 —
     # 그 전을 "1단계" 로 적으면 당시 없던 이름을 보여 주는 셋이 된다.

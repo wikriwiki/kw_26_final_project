@@ -26,7 +26,8 @@ AGENT_QUERY = """
 MATCH (a:Agent) WHERE a.id IN $aids
 RETURN a.id AS aid, a.s_daily_wd AS daily_wd,
        a.s_daily_we AS daily_we,
-       a.sangsaeng_base_daily AS sangsaeng_base_daily
+       a.sangsaeng_base_daily AS sangsaeng_base_daily,
+       a.policy_enrolled AS policy_enrolled
 """
 STATE_QUERY = """
 MATCH (a:Agent)-[:HAS_STATE {day: date($day)}]->(st:State)
@@ -200,7 +201,7 @@ def verify_cohorts(metrics_dir: Path, days: list[str], roster: list[str]) -> dic
         system_prompt_hashes.add(system_prompt_sha)
         stage2_sha = cohort.get("stage2_system_prompt_sha256")
         # [2026-10-06] v53n = v53 에서 외출 구절 하나만 뺀 공통 프롬프트(본런 전 프롬프트 점검). v53 과 같은 엄격한 검사를 받는다.
-        if prompt_variant in ("v53", "v53n") and (
+        if prompt_variant in ("v53", "v53n", "v53p", "v53q") and (
             not isinstance(stage2_sha, str) or len(stage2_sha) != 64
             or any(char not in "0123456789abcdef" for char in stage2_sha)
         ):
@@ -281,6 +282,9 @@ def export(*, partial_month_ok: bool = False,
             if set(agents) != set(roster):
                 raise ValueError("Agent graph roster differs from frozen roster")
             anchors = {aid: monthly_anchor(agents[aid], base_ratio) for aid in roster}
+            # [2026-10-08] 신청 판단(tools/enroll_by_persona.py)을 거친 그래프면 신청한 사람만 캐시백을 받는다.
+            # 판단을 거치면 모든 사람에게 policy_enrolled(빈 목록 포함)가 있다.
+            enroll_mode = any(v.get("policy_enrolled") is not None for v in agents.values())
             previous: dict[str, tuple[int, int]] = {}
             for day in days:
                 states = [dict(row) for row in session.run(STATE_QUERY, aids=roster, day=day)]
@@ -298,10 +302,13 @@ def export(*, partial_month_ok: bool = False,
                         threshold, payout = None, 0.0
                     else:
                         threshold = round(anchor * float(policy["threshold_ratio"]))
-                        payout = (min(int(policy["cap_per_agent"]),
+                        _not_enrolled = enroll_mode and policy_id not in (agents[row["aid"]].get("policy_enrolled") or [])
+                        payout = 0.0 if _not_enrolled else (min(int(policy["cap_per_agent"]),
                                       max(0.0, (row["eligible_cumulative"] - threshold)
                                           * float(policy["benefit_rate"])))
                                   if arm == "on" and day == days[-1] else 0.0)
+                    row.update({"enrolled": (policy_id in (agents[row["aid"]].get("policy_enrolled") or []))
+                                if enroll_mode else None})
                     row.update({"arm": arm, "policy_id": policy_id, "month": month,
                                 "anchor_won": anchor, "anchor_source": source_name,
                                 "threshold_won": threshold,
