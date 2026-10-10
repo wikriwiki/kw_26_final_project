@@ -1,0 +1,61 @@
+에이전트 2000명 · 요구 일수 14
+  기억 57,636건 · 계획 항목 255,906건 · 상태 28,000건 · 실지출 685,611,229원
+  기억이 0 건인 사람 0명 (외출이 없던 사람은 정상)
+→ /data/ab3w/p012_main/on/dossier.jsonl
+→ /data/ab3w/p012_main/on/dossier.jsonl.manifest.json
+  기억 모음 2000명 · 상태 28000 · 기억 57636 · 계획항목 255906
+2026-10-10 09:38:32.498+0000 INFO  [o.n.c.d.DumpCommand] Starting dump of database 'neo4j'
+
+Done: 67 files, 4.438GiB processed in 7.306 seconds.
+2026-10-10 09:38:40.440+0000 INFO  [o.n.c.d.DumpCommand] Dump completed successfully
+neo4j.dump: OK
+neo4j_version.txt: OK
+[2026-10-10T18:38:49+09:00] 손 보존 on: 기억 모음·그래프 덤프 끝
+에이전트 2000명 · 요구 일수 14
+  기억 52,353건 · 계획 항목 256,224건 · 상태 28,000건 · 실지출 657,572,211원
+  기억이 0 건인 사람 0명 (외출이 없던 사람은 정상)
+→ /data/ab3w/p012_main/off/dossier.jsonl
+→ /data/ab3w/p012_main/off/dossier.jsonl.manifest.json
+  기억 모음 2000명 · 상태 28000 · 기억 52353 · 계획항목 256224
+2026-10-10 09:39:37.929+0000 INFO  [o.n.c.d.DumpCommand] Starting dump of database 'neo4j'
+
+Done: 66 files, 4.188GiB processed in 6.440 seconds.
+2026-10-10 09:39:45.066+0000 INFO  [o.n.c.d.DumpCommand] Dump completed successfully
+neo4j.dump: OK
+neo4j_version.txt: OK
+[2026-10-10T18:39:57+09:00] 손 보존 off: 기억 모음·그래프 덤프 끝
+/data/ab3w/p012_main/on/sector.ledger.jsonl: 14000 verified citizen-days
+Traceback (most recent call last):
+  File "/data/repo_ab3w_20261008/scripts/report/export_cashback_month.py", line 377, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/data/repo_ab3w_20261008/scripts/report/export_cashback_month.py", line 367, in main
+    count = export(partial_month_ok=args.allow_partial_month,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/repo_ab3w_20261008/scripts/report/export_cashback_month.py", line 292, in export
+    records = aggregate_day(states, spends, roster, day, previous)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/data/repo_ab3w_20261008/scripts/report/export_cashback_month.py", line 137, in aggregate_day
+    raise ValueError(f"positive transaction missing eligibility: {aid} {day}")
+ValueError: positive transaction missing eligibility: AGT_11200560_M_20대_001 2021-10-02
+/data/ab3w/p012_main/on/cashback.ledger.jsonl: 14000 complete citizen-days
+[2026-10-10T18:42:41+09:00] === 8 보존 on 완료(손)
+/data/ab3w/p012_main/off/sector.ledger.jsonl: 14000 verified citizen-days
+/data/ab3w/p012_main/off/cashback.ledger.jsonl: 14000 complete citizen-days
+[2026-10-10T18:43:02+09:00] === 8 보존 off 완료(손)
+총지출 +2002.8원/인·일 (4.56%, 95% [1327.4, 2690.4]) 사람 +1097 / -898 / 동점 5 -> +
+== p012 main: 2000명, 정책 전 7일(2021-09-24~), 두 갈래 7일(2021-10-01~2021-10-07), 정책 P012
+== p012: 모두 통과
+check_outputs.txt
+off.cashback.ledger.jsonl
+off.cashback.ledger.jsonl.manifest.json
+off.sector.ledger.jsonl
+off.sector.ledger.jsonl.manifest.json
+on.cashback.ledger.jsonl
+on.cashback.ledger.jsonl.manifest.json
+on.sector.ledger.jsonl
+on.sector.ledger.jsonl.manifest.json
+p012_score.json
+p012_score.txt
+score_ab3w.json
+채점 통과
