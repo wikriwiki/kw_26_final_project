@@ -21,6 +21,10 @@ import statistics as st
 from collections import defaultdict
 from datetime import date
 from pathlib import Path
+import sys as _sys
+from pathlib import Path as _P
+_sys.path.insert(0, str(_P(__file__).resolve().parents[1] / "scripts" / "sim"))
+from kr_holidays import is_day_off  # noqa: E402  공휴일 판정(엔진과 같은 표)
 
 
 def main() -> int:
@@ -36,7 +40,7 @@ def main() -> int:
         p = Path(a.metrics) / f"day_{d}.jsonl"
         if not p.is_file():
             raise SystemExit(f"없는 날: {p}")
-        wk = "we" if date.fromisoformat(d).weekday() >= 5 else "wd"
+        wk = "we" if is_day_off(date.fromisoformat(d)) else "wd"   # 공휴일은 주말 칸(엔진과 같은 판정)
         for line in io.open(p, encoding="utf-8"):
             r = json.loads(line)
             if r.get("status") != "ok":
