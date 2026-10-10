@@ -132,6 +132,11 @@ def prompt_block(state, today):
     if not observations:
         return ''
     relevant = {pid for row in observations for pid in row['policy_facts']}
+    import os as _os
+    if not relevant and _os.environ.get("EXP_CLEAN_PROMPT", "0") == "1":
+        # [2026-10-07b] 정책이 닿은 거래가 없으면 정책 입장을 물을 것이 없다. 이 블록(영수증 JSON 8건, sha·ID 포함)이
+        # 입력의 절반을 차지해 사흘 만에 토큰이 7.5k->10.8k 로 늘었다.
+        return ''
     prior = {}
     for pid, value in decode((state or {}).get('policy_appraisals_json'), {}).items():
         verify(value)

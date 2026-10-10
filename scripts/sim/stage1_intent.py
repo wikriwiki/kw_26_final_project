@@ -351,11 +351,15 @@ _DOW_KR = ["월", "화", "수", "목", "금", "토", "일"]
 
 
 def _dow_kr(d: date) -> str:
-    return _DOW_KR[d.weekday()]
+    # 평일에 낀 공휴일이면 요일 옆에 이름을 붙인다(그 외 날은 렌더가 그대로). kr_holidays 참조.
+    from kr_holidays import holiday_name
+    name = holiday_name(d)
+    return _DOW_KR[d.weekday()] + (f", {name} 공휴일" if name else "")
 
 
 def _day_type(d: date) -> Literal["weekday", "weekend"]:
-    return "weekend" if d.weekday() >= 5 else "weekday"
+    from kr_holidays import day_type_of   # 공휴일은 주말과 같이 쉬는 날
+    return day_type_of(d)
 
 
 # =========================================================
@@ -468,7 +472,8 @@ def call_stage1(
     total_tokens_out = 0
     for attempt in range(retry_limit + 1):
         previous_raw = last_raw
-        temp = (0.2 if attempt == 0 else (0.1 if attempt < 3 else 0.3)) if grounded_experiment else 0.7 + 0.2 * attempt
+        # [2026-10-09 엔진] 다시 묻기 온도 상한 0.9 — P013 5/11 에서 JSON 깨짐이 0.7:17 · 0.9:47 · 1.1:99 건으로 온도와 함께 늘었다.
+        temp = (0.2 if attempt == 0 else (0.1 if attempt < 3 else 0.3)) if grounded_experiment else min(0.9, 0.7 + 0.1 * attempt)
         effective_temp = 0.0 if os.environ.get('POLICY_BACKTEST_DETERMINISTIC') == '1' else temp
         attempt_timing: dict[str, float | int | str] = {
             "attempt": attempt, "temp_requested": temp, "temp": effective_temp,
@@ -623,8 +628,10 @@ def call_stage1(
             n_zone = sum(1 for e in parsed.events if e.anchor.startswith("zone:"))
             # The regulation experiment must permit staying home. A minimum
             # number of outings would impose behavior before measuring policy.
-            min_events = 1 if grounded_experiment else (6 if day_type == "weekday" else 4)
-            min_zone = 0 if grounded_experiment else (1 if (day_type == "weekday" or has_work) else 0)
+            # [2026-10-07 EXP_NO_MIN_OUTING] 정책 본런도 집에 머무는 하루를 허용한다(사용자 결정 — 이후 정책 전체).
+            _free = grounded_experiment or os.environ.get("EXP_NO_MIN_OUTING", "0") == "1"
+            min_events = 1 if _free else (6 if day_type == "weekday" else 4)
+            min_zone = 0 if _free else (1 if (day_type == "weekday" or has_work) else 0)
             problems = []
             if n_events < min_events:
                 problems.append(f"events={n_events} < min {min_events}")
@@ -632,6 +639,95 @@ def call_stage1(
                 problems.append(f"zone_anchor_events={n_zone} < min {min_zone}")
             if problems:
                 raise ValueError(f"plan too conservative — {', '.join(problems)}")
+            if os.environ.get("EXP_CLEAN_PROMPT", "0") == "1":
+                # [2026-10-07b 상황 시험] 입력에 없는 계기를 지어내지 않는다: 들은 이야기(rumor 기억)가 없는데 trigger=rumor,
+                # 오늘 약속이 없는데 trigger=appointment 면 다시 묻는다(첫날 '이웃에게 들었다'를 지어낸 사례).
+                _shown_types = {str((m or {}).get("type") or "") for m in (ctx.memory or [])}
+                _ungrounded = 0
+                for _i, _e in enumerate(parsed.events):
+                    _t = (getattr(_e, "trigger", None) or "")
+                    _bad_t = ((_t == "rumor" and "rumor" not in _shown_types)
+                              or (_t == "appointment" and not (ctx.appointment or [])))
+                    if not _bad_t:
+                        continue
+                    # [2026-10-09 엔진] 한 번만 다시 묻고 두 번째 시도부터 계기 표시만 바로잡는다. 예전(두 번 다시 묻기)은
+                    # 하루 1인당 1.2~1.5건 다시 묻기의 대부분이었고, 온도를 올리며 JSON 이 깨지는 꼬리를 만들었다.
+                    if attempt < 1:
+                        raise ValueError(f"events[{_i}]: trigger={_t} 인데 입력에 그 근거(들은 이야기 기억 / 오늘 약속)가 없다. "
+                                         "입력에 없는 이야기·대화·약속을 만들지 말고 실제 계기로 고친다")
+                    # 세 번째 시도부터는 그 사람의 하루를 실패시키지 않고 계기 표시만 바로잡고 센다(이유 문장은 남는다).
+                    _e.trigger = "lifestyle"
+                    _ungrounded += 1
+                timing["trigger_ungrounded_fixed"] = _ungrounded
+                # 같은 끼니를 두 번 먹지 않는다: 가게 식사 둘이 90분 안에 붙으면 다시 묻는다(약속 전에 따로 점심을 먹은 사례).
+                # 세 번째 시도부터는 약속이 아닌 쪽을 뺀다.
+                _meals = [e for e in parsed.events if e.category == "식사"]
+                _mins = lambda e: int(e.time[:2]) * 60 + int(e.time[3:])
+                _dup = [(a, b) for a, b in zip(_meals, _meals[1:]) if _mins(b) - _mins(a) < 90]
+                if _dup:
+                    if attempt < 2:
+                        a, b = _dup[0]
+                        raise ValueError(f"식사 {a.time}·{b.time} 이 90분 안에 두 번이다 — 같은 끼니를 두 번 먹지 않는다"
+                                         "(약속이 끼니 때면 그 자리에서 먹는다)")
+                    _drop = {id(a if (getattr(b, "trigger", None) == "appointment") else b) for a, b in _dup}
+                    parsed.events = [e for e in parsed.events if id(e) not in _drop]
+                    timing["double_meal_dropped"] = len(_drop)
+                # 약속 장소가 정해진 약속은 그 가게로 고정한다(합의된 사실 — 한쪽만 다른 가게로 가던 사례).
+                _pinned = 0
+                for _ap in (ctx.appointment or []):
+                    _pid = _ap.get("meeting_poi_id")
+                    if not _pid:
+                        continue
+                    _tt = str(_ap.get("target_time") or "")[:5]
+                    _cands = [e for e in parsed.events
+                              if (getattr(e, "trigger", None) or "") == "appointment" and str(e.anchor).startswith("zone:")]
+                    if _cands and _tt[:2].isdigit():
+                        _tm = int(_tt[:2]) * 60 + int(_tt[3:5] or 0)
+                        _cands.sort(key=lambda e: abs(int(e.time[:2]) * 60 + int(e.time[3:]) - _tm))
+                    if _cands and not _cands[0].pinned_poi:
+                        _cands[0].pinned_poi = _pid
+                        _pinned += 1
+                timing["appointment_pinned"] = _pinned
+                # 이유·의도가 '집에서' 하는 일이라고 적었는데 가게 업종으로 분류된 일정은 집으로 바로잡는다
+                # ('집에서 책 읽기'가 여가로 분류돼 여행사에 붙은 사례). 집 근처·집에서 나와 같은 말은 제외한다.
+                _home_fix = 0
+                for _e in parsed.events:
+                    if _e.category in ("집", "직장"):
+                        continue
+                    _home = r"집에서|집 안에서|자택에서|집안에서"
+                    _near = r"집에서 (가까|나와|나가|출발|멀|걸어|가는)|집 근처|집 앞"
+                    _out = r"방문|식당|외식|가게|들러|들름|들렀|가서|사러|매장|구매|주문해 받|포장"
+                    _in_intent = re.search(_home, _e.intent or "") and not re.search(_near, _e.intent or "")
+                    _in_reason = (re.search(_home, _e.reasoning or "") and not re.search(_near, _e.reasoning or "")
+                                  and not re.search(_out, _e.reasoning or ""))
+                    if _in_intent or _in_reason:
+                        _e.category, _e.anchor, _e.sub_category = "집", "residence", None
+                        _home_fix += 1
+                for _e in parsed.events:
+                    # 재택근무를 직장으로 적은 일정은 집으로(재택근무는 집이라고 규칙에 적었는데도 직장으로 둔 사례).
+                    if _e.category == "직장" and re.search(r"재택", _e.intent or "") and not re.search(r"출근", _e.intent or ""):
+                        _e.category, _e.anchor, _e.sub_category = "집", "residence", None
+                        _home_fix += 1
+                timing["home_activity_recategorized"] = _home_fix
+                # 이번 달 이미 낸 학원비·회비를 '내러 가는' 일정은 외출이 아니다(사용자 지적 2026-10-07: '학원비 0원 ·
+                # 어제 학원비 냈음' 같은 일정). 수업·운동처럼 이용하러 가는 일정은 남긴다.
+                _mp = set((ctx.persona or {}).get("monthly_paid") or [])
+                _pay_re = r"학원비|수강료|교습비|회비|등록비|납부|결제하러|이용료 결제|레슨비|원비"
+                _use_re = r"수업|강의|레슨|운동|이용|픽업|데려|등원|하원"
+                _before = len(parsed.events)
+                parsed.events = [e for e in parsed.events if not (
+                    (e.sub_category or "") in _mp
+                    and re.search(_pay_re, e.intent or "")
+                    and not re.search(_use_re, e.intent or ""))]
+                timing["paid_monthly_dropped"] = _before - len(parsed.events)
+            # [EXP_CLINIC_COOLDOWN] 최근 3일 안에 진료받은 사람의 새 진료 일정은 뺀다(다시 묻지 않는다 — 고집하면
+            # 그 사람의 하루가 실패하므로). 뺀 수는 기록한다.
+            _recent_clinic = (ctx.persona or {}).get("recent_clinic_days") or []
+            if _recent_clinic:
+                _before = len(parsed.events)
+                parsed.events = [e for e in parsed.events
+                                 if (getattr(e, "sub_category", None) or "") not in ("의원", "치과", "한의원")]
+                timing["clinic_cooldown_dropped"] = _before - len(parsed.events)
             elapsed = time.perf_counter() - started
             timing["t_rule_validate"] += elapsed
             attempt_timing["t_rule_validate"] = elapsed
