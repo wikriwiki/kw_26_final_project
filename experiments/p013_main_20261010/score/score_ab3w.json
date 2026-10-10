@@ -1,0 +1,410 @@
+{
+ "people": 2000,
+ "days": [
+  "2020-05-11",
+  "2020-05-12",
+  "2020-05-13",
+  "2020-05-14",
+  "2020-05-15",
+  "2020-05-16",
+  "2020-05-17"
+ ],
+ "definition": "1인 1일 평균, 정책 있음 - 없음(같은 사람·같은 날)",
+ "measures": {
+  "total_spent": {
+   "on_per_person_day": 45749.0,
+   "off_per_person_day": 44338.9,
+   "diff": 1410.1,
+   "diff_pct": 3.18,
+   "ci95": [
+    754.9,
+    2058.0
+   ],
+   "ci95_pct": [
+    1.7,
+    4.64
+   ],
+   "people_up": 1106,
+   "people_down": 890,
+   "people_tied": 4,
+   "direction": "+"
+  },
+  "offline_spent": {
+   "on_per_person_day": 26484.8,
+   "off_per_person_day": 25074.7,
+   "diff": 1410.1,
+   "diff_pct": 5.62,
+   "ci95": [
+    754.9,
+    2058.0
+   ],
+   "ci95_pct": [
+    3.01,
+    8.21
+   ],
+   "people_up": 1106,
+   "people_down": 890,
+   "people_tied": 4,
+   "direction": "+"
+  },
+  "online_spent": {
+   "on_per_person_day": 19264.2,
+   "off_per_person_day": 19264.2,
+   "diff": 0.0,
+   "diff_pct": 0.0,
+   "ci95": [
+    0.0,
+    0.0
+   ],
+   "ci95_pct": [
+    0.0,
+    0.0
+   ],
+   "people_up": 0,
+   "people_down": 0,
+   "people_tied": 2000,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "policy_funded_won": {
+   "on_per_person_day": 4802.8,
+   "off_per_person_day": 0.0,
+   "diff": 4802.8,
+   "diff_pct": null,
+   "ci95": [
+    4512.6,
+    5112.8
+   ],
+   "ci95_pct": null,
+   "people_up": 983,
+   "people_down": 0,
+   "people_tied": 1017,
+   "direction": "+"
+  },
+  "instant_discount_won": {
+   "on_per_person_day": 0.0,
+   "off_per_person_day": 0.0,
+   "diff": 0.0,
+   "diff_pct": null,
+   "ci95": [
+    0.0,
+    0.0
+   ],
+   "ci95_pct": null,
+   "people_up": 0,
+   "people_down": 0,
+   "people_tied": 2000,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "policy_rebate_won": {
+   "on_per_person_day": 0.0,
+   "off_per_person_day": 0.0,
+   "diff": 0.0,
+   "diff_pct": null,
+   "ci95": [
+    0.0,
+    0.0
+   ],
+   "ci95_pct": null,
+   "people_up": 0,
+   "people_down": 0,
+   "people_tied": 2000,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "policy_eligible_offline_spent": {
+   "on_per_person_day": 26381.7,
+   "off_per_person_day": 24969.2,
+   "diff": 1412.6,
+   "diff_pct": 5.66,
+   "ci95": [
+    756.9,
+    2066.5
+   ],
+   "ci95_pct": [
+    3.03,
+    8.28
+   ],
+   "people_up": 1101,
+   "people_down": 895,
+   "people_tied": 4,
+   "direction": "+"
+  }
+ },
+ "by_sub": {
+  "준내구재": {
+   "on_per_person_day": 349.9,
+   "off_per_person_day": 254.8,
+   "diff": 95.1,
+   "diff_pct": 37.31,
+   "ci95": [
+    -1.2,
+    194.1
+   ],
+   "ci95_pct": [
+    -0.46,
+    76.2
+   ],
+   "people_up": 89,
+   "people_down": 66,
+   "people_tied": 1845,
+   "direction": "0(구간이 0을 포함)",
+   "members": [
+    "가구",
+    "문구",
+    "안경",
+    "의류"
+   ]
+  },
+  "대면서비스": {
+   "on_per_person_day": 390.6,
+   "off_per_person_day": 298.2,
+   "diff": 92.4,
+   "diff_pct": 30.98,
+   "ci95": [
+    -11.8,
+    196.0
+   ],
+   "ci95_pct": [
+    -3.96,
+    65.74
+   ],
+   "people_up": 99,
+   "people_down": 79,
+   "people_tied": 1822,
+   "direction": "0(구간이 0을 포함)",
+   "members": [
+    "미용실",
+    "네일",
+    "피부관리",
+    "욕탕·신체관리",
+    "스포츠",
+    "헬스장"
+   ]
+  }
+ },
+ "by_l1": {
+  "건강": {
+   "on_per_person_day": 492.7,
+   "off_per_person_day": 395.9,
+   "diff": 96.8,
+   "diff_pct": 24.45,
+   "ci95": [
+    26.9,
+    167.5
+   ],
+   "ci95_pct": [
+    6.79,
+    42.32
+   ],
+   "people_up": 262,
+   "people_down": 215,
+   "people_tied": 1523,
+   "direction": "+"
+  },
+  "교육": {
+   "on_per_person_day": 88.6,
+   "off_per_person_day": 108.4,
+   "diff": -19.8,
+   "diff_pct": -18.25,
+   "ci95": [
+    -105.3,
+    61.1
+   ],
+   "ci95_pct": [
+    -97.1,
+    56.39
+   ],
+   "people_up": 27,
+   "people_down": 22,
+   "people_tied": 1951,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "기타": {
+   "on_per_person_day": 80.4,
+   "off_per_person_day": 74.8,
+   "diff": 5.6,
+   "diff_pct": 7.54,
+   "ci95": [
+    -39.9,
+    50.7
+   ],
+   "ci95_pct": [
+    -53.39,
+    67.77
+   ],
+   "people_up": 36,
+   "people_down": 41,
+   "people_tied": 1923,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "디저트": {
+   "on_per_person_day": 74.8,
+   "off_per_person_day": 59.4,
+   "diff": 15.3,
+   "diff_pct": 25.82,
+   "ci95": [
+    -1.8,
+    31.3
+   ],
+   "ci95_pct": [
+    -2.95,
+    52.67
+   ],
+   "people_up": 50,
+   "people_down": 35,
+   "people_tied": 1915,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "마트": {
+   "on_per_person_day": 4455.5,
+   "off_per_person_day": 3960.1,
+   "diff": 495.4,
+   "diff_pct": 12.51,
+   "ci95": [
+    224.8,
+    780.2
+   ],
+   "ci95_pct": [
+    5.68,
+    19.7
+   ],
+   "people_up": 823,
+   "people_down": 697,
+   "people_tied": 480,
+   "direction": "+"
+  },
+  "미용": {
+   "on_per_person_day": 181.7,
+   "off_per_person_day": 106.9,
+   "diff": 74.9,
+   "diff_pct": 70.05,
+   "ci95": [
+    -5.7,
+    158.1
+   ],
+   "ci95_pct": [
+    -5.35,
+    147.99
+   ],
+   "people_up": 34,
+   "people_down": 24,
+   "people_tied": 1942,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "쇼핑": {
+   "on_per_person_day": 516.1,
+   "off_per_person_day": 402.1,
+   "diff": 114.0,
+   "diff_pct": 28.36,
+   "ci95": [
+    -2.1,
+    233.2
+   ],
+   "ci95_pct": [
+    -0.52,
+    57.99
+   ],
+   "people_up": 155,
+   "people_down": 134,
+   "people_tied": 1711,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "식사": {
+   "on_per_person_day": 17862.1,
+   "off_per_person_day": 17452.6,
+   "diff": 409.5,
+   "diff_pct": 2.35,
+   "ci95": [
+    -121.4,
+    933.6
+   ],
+   "ci95_pct": [
+    -0.7,
+    5.35
+   ],
+   "people_up": 1044,
+   "people_down": 949,
+   "people_tied": 7,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "여가": {
+   "on_per_person_day": 560.3,
+   "off_per_person_day": 514.8,
+   "diff": 45.5,
+   "diff_pct": 8.85,
+   "ci95": [
+    -53.2,
+    140.5
+   ],
+   "ci95_pct": [
+    -10.33,
+    27.3
+   ],
+   "people_up": 211,
+   "people_down": 195,
+   "people_tied": 1594,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "주점": {
+   "on_per_person_day": 25.0,
+   "off_per_person_day": 23.9,
+   "diff": 1.0,
+   "diff_pct": 4.33,
+   "ci95": [
+    -18.7,
+    26.1
+   ],
+   "ci95_pct": [
+    -78.21,
+    108.96
+   ],
+   "people_up": 9,
+   "people_down": 13,
+   "people_tied": 1978,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "카페": {
+   "on_per_person_day": 1100.2,
+   "off_per_person_day": 1032.0,
+   "diff": 68.2,
+   "diff_pct": 6.61,
+   "ci95": [
+    -6.4,
+    142.3
+   ],
+   "ci95_pct": [
+    -0.62,
+    13.79
+   ],
+   "people_up": 507,
+   "people_down": 432,
+   "people_tied": 1061,
+   "direction": "0(구간이 0을 포함)"
+  },
+  "편의점": {
+   "on_per_person_day": 1004.5,
+   "off_per_person_day": 909.7,
+   "diff": 94.9,
+   "diff_pct": 10.43,
+   "ci95": [
+    30.7,
+    152.4
+   ],
+   "ci95_pct": [
+    3.38,
+    16.76
+   ],
+   "people_up": 713,
+   "people_down": 596,
+   "people_tied": 691,
+   "direction": "+"
+  }
+ },
+ "grant": {
+  "received_won": 279720000,
+  "spent_won": 67239256,
+  "spent_share_of_received": 0.2404,
+  "extra_total_over_spent": 0.2936,
+  "extra_total_over_received": 0.0706,
+  "note": "늘어난 총지출(정책 있음-없음, 창 전체) / 정책으로 낸 돈, / 받은 돈"
+ }
+}

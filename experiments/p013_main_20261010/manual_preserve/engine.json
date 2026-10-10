@@ -1,0 +1,33 @@
+{
+ "source_fingerprint": "2c3b218771f5454cf23a5ba97f013c037abc7e15ba55376d1bb3d084f3f58626",
+ "execution_fingerprint": "1499452ba02444d8fb387b364b4a7c4ac2e676190456696e1e58b942625354cb",
+ "git_head": null,
+ "settings": {
+  "EXP_AGENT_DAY_MAX_ATTEMPTS": "12",
+  "EXP_BALANCE_DAYS": "39",
+  "EXP_CATLINE": "fold",
+  "EXP_CLEAN_PROMPT": "1",
+  "EXP_CLINIC_COOLDOWN": "1",
+  "EXP_DAILY_INCOME": "anchor:0.41667",
+  "EXP_DURABLES": "0",
+  "EXP_ELIGIBLE_CHANNEL": "1",
+  "EXP_FATIGUE_OUTINGS": "1",
+  "EXP_GRANT_USE": "0.5617",
+  "EXP_NO_MIN_OUTING": "1",
+  "EXP_NO_SKIP": "1",
+  "EXP_PAYMENT_CHOICE": "0",
+  "EXP_PLAN_BASELINE_FILE": "/data/ab3w/p013_main/plan_baseline_live.json",
+  "EXP_PLAN_DRIVES_TOTAL": "1",
+  "EXP_POLICY_ANONYMOUS": "1",
+  "EXP_PRICE_FIRST": "1",
+  "EXP_PRICE_MODE": "knowledge",
+  "EXP_SANGSAENG_BASE_RATIO": "0.268",
+  "EXP_SEED_SANGSAENG": "1",
+  "EXP_SPREAD_DAYS": "1",
+  "LLM_BASE_URL": "http://127.0.0.1:30100/v1",
+  "LLM_MODE": "exaone_4_5",
+  "POLICY_POI_SORT_BOOST": "0",
+  "SIM_LLM_TIMEOUT_SECONDS": "600",
+  "SIM_PROMPT_VARIANT": "v53q"
+ }
+}
