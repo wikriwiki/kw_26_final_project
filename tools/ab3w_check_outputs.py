@@ -77,6 +77,20 @@ if pid == "P012":
     cb = rows(f"{B}/on/cashback.ledger.jsonl")
     ok(len(cb) > 0, f"캐시백 원장 {len(cb)}행")
     ok(sum(r.get("sangsaeng_eligible_offline_spent", 0) for r in sec_on) > 0, "적립 대상 가게 지출이 기록됐다")
+if pid == "P016":
+    # [2026-10-11] P016 정답 지표는 dossier(가게 업종·농축산물·할인)로 잰다 — 업종 원장에는 농축산물·체인이 없다.
+    sc = json.load(open(f"{B}/score/p016_score.json", encoding="utf-8")) if os.path.exists(f"{B}/score/p016_score.json") else None
+    ok(sc is not None, "P016 채점 파일(score/p016_score.json)")
+    if sc:
+        ok(not sc["hard_failures"], f"P016 회계 무결성(비참여 할인·한도 초과·20% 초과·정책 없는 쪽 할인) {sc['hard_failures'] or '0건'}")
+        ok(not sc["problems"], f"P016 사람·날 빠짐 없음 {sc['problems'][:3] or ''}")
+        rate = sc["integrity"].get("농축산물_답_비율")
+        ok(rate is not None and rate >= 0.9, f"장보기 결제의 농축산물 금액 답 비율 {rate} (0.9 이상)")
+        ok(sc["integrity"].get("on_가게업종_없음", 0) + sc["integrity"].get("off_가게업종_없음", 0) == 0,
+           "기억 모음 결제마다 가게 업종(poi_sub)이 있다")
+        print(f"  [참고] C1 {sc['metrics']['C1']['pct']}% {sc['metrics']['C1']['ci95']} · 판정 {sc['judgement']}")
+    gate = f"{B}/power_gate.json"
+    ok(os.path.exists(gate) or "검출력 관문 건너뜀(사람 결정)" in log, "검출력 관문 결과(power_gate.json) 또는 사람 결정 기록")
 if case == "distancing":
     d_on, d_off = rows(f"{B}/on/distancing.ledger.jsonl"), rows(f"{B}/off/distancing.ledger.jsonl")
     ok(len(d_on) == len(d_off) == N * post_days, f"거리두기 원장 행 수 {len(d_on)}/{len(d_off)}")

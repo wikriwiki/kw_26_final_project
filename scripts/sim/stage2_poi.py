@@ -55,14 +55,19 @@ _MART_REACH_N = int(os.environ.get("EXP_MART_REACH_N", "2"))
 _MART_REACH_FORMATS = [f.strip() for f in os.environ.get("EXP_MART_REACH_FORMATS", "hypermarket").split(",") if f.strip()]
 _GROCERY_SUBS = frozenset({"슈퍼마켓", "식료품", "청과", "정육", "수산", "장보기"})
 _MART_REACH_CYPHER = """
-MATCH (a:Agent {id: $aid})-[:LIVES_AT|WORKS_AT]->(anchor:POI)
-WHERE anchor.lon IS NOT NULL AND anchor.lat IS NOT NULL
+// [2026-10-11] 거리는 '그 장보기가 일어나는 동'에서 잰다: 그 동에 집·직장이 있으면 그 자리, 아니면 동 중심.
+// 처음에는 집·직장 중 가까운 쪽으로 쟀다 — 집(길동) 장보기 후보에 직장(역삼) 앞 매장이 '0.19km' 로 붙었다(프롬프트 탐침).
+MATCH (dg:Dong {code: $dong_code})
+OPTIONAL MATCH (a:Agent {id: $aid})-[:LIVES_AT|WORKS_AT]->(anc:POI)
+  WHERE anc.dong_code = $dong_code AND anc.lon IS NOT NULL AND anc.lat IS NOT NULL
+WITH dg, head(collect(anc)) AS anc
+WITH coalesce(anc.lon, dg.lon) AS olon, coalesce(anc.lat, dg.lat) AS olat
 MATCH (p:POI) WHERE p.mart_format IN $formats
   AND p.type = 'commerce' AND p.lon IS NOT NULL AND p.lat IS NOT NULL
-WITH a, p, min(point.distance(point({longitude: p.lon, latitude: p.lat}),
-                              point({longitude: anchor.lon, latitude: anchor.lat})) / 1000.0) AS km
+WITH p, point.distance(point({longitude: p.lon, latitude: p.lat}),
+                       point({longitude: olon, latitude: olat})) / 1000.0 AS km
 WHERE km <= $radius_km
-OPTIONAL MATCH (a)-[kp:KNOWS_POI]->(p)
+OPTIONAL MATCH (:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
 RETURN p.id AS poi_id, p.name AS name,
        (kp IS NOT NULL) AS known,
        coalesce(kp.visit_count, 0) AS visit_count,
@@ -81,7 +86,9 @@ ORDER BY km ASC, poi_id ASC LIMIT $n
 _PRODUCE_FIELD = os.environ.get("EXP_PRODUCE_FIELD", "0") == "1"
 _PRODUCE_NOTE = (
     "- `produce_spent`: 마트·슈퍼·식료품·청과·정육에서 장을 본 결제라면, 그 결제 중 국산 신선 농축산물"
-    "(과일·채소·고기·쌀·잡곡·계란)에 쓴 금액(원)입니다. 장보기가 아니면 null 입니다. `actual_spent`보다 클 수 없습니다.\n")
+    "(과일·채소·고기·쌀·잡곡·계란)에 쓴 금액(원)입니다. 장보기가 아니면 null 입니다. `actual_spent`보다 클 수 없습니다.\n"
+    # [2026-10-11] 결제할 때 깎이는 할인(P016)을 모델이 미리 빼고 적으면 엔진이 한 번 더 깎는다(이중 할인). 회계 규칙만 적는다 — 두 갈래 같은 문장.
+    "- `unit_price`·`actual_spent`·`produce_spent`는 할인 전 가격표 금액으로 적습니다. 결제할 때 깎이는 할인은 따로 계산됩니다.\n")
 FREE_OUTDOOR_SUBS = frozenset({"산책", "공원", "공원 산책", "산책로", "등산", "걷기", "둘레길", "한강공원"})
 _FREE_OUTDOOR_RE = re.compile(r"산책|등산|공원|둘레길|휴양림|걷기|숲길|하이킹|한강")
 _PINNED_CYPHER = """
@@ -402,7 +409,7 @@ def fetch_candidates_for_events(
             if (_MART_REACH and cands is not None and not sub_cat.startswith("__PIN__")
                     and (l1 == "마트" or sub_cat in _GROCERY_SUBS)):
                 _have = {c.get("poi_id") for c in cands}
-                _extra = [dict(r) for r in sess.run(_MART_REACH_CYPHER, aid=aid, radius_km=_MART_REACH_KM, formats=_MART_REACH_FORMATS,
+                _extra = [dict(r) for r in sess.run(_MART_REACH_CYPHER, aid=aid, dong_code=dong_code, radius_km=_MART_REACH_KM, formats=_MART_REACH_FORMATS,
                                                      n=_MART_REACH_N + len(_have))]
                 _extra = [c for c in _extra if c.get("poi_id") not in _have][:_MART_REACH_N]
                 if _extra:

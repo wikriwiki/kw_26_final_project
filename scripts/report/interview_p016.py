@@ -35,7 +35,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from interview_agents import load, nums_in, unverified  # noqa: E402
 
 GROCERY = {"슈퍼마켓", "식료품", "청과", "정육", "수산", "장보기", "마트"}
-CHAIN_RE = re.compile(r"^(이마트(?!24| ?에브리데이)|롯데마트|롯데쇼핑롯데마트|.*하나로(마트|클럽)|GS ?더 ?프레시|지에스더프레시|GS ?수퍼)")
+# 참여 매장·체인 판정은 정책 파일의 규칙 그대로 쓴다(엔진과 같은 판정, 하드코딩하면 정책 규칙을 고칠 때 어긋난다).
+POLICY_PATH = ROOT / "data" / "experiments" / "P016_ab3w_policy_20261011.json"
+_POL = json.loads(POLICY_PATH.read_text(encoding="utf-8"))
+CHAIN_RE = re.compile(_POL["eligibility"]["include"]["name_regex"])
+_CHAINS = [(c, re.compile(p)) for c, p in _POL["sectors"]["농축산물"]["chains"].items()]
+
+
+def chain_of(name: str | None) -> str | None:
+    n = name or ""
+    if not CHAIN_RE.match(n):
+        return None
+    return next((c for c, pat in _CHAINS if pat.search(n)), None)
 
 QUESTIONS = [
     ("awareness", "7월 말부터 8월 초 사이에 장을 볼 때 알게 된 할인 행사나 소식이 있었나요? 있었다면 무엇이었고 "
@@ -67,6 +78,9 @@ def _money(v) -> int:
 
 
 def _is_grocery(item: dict) -> bool:
+    # [2026-10-11] 가게 자신의 업종(poi_sub)이 있으면 그것으로 — 엔진 할인·채점(score_p016)과 같은 판정. 옛 기억 모음만 계획 업종으로.
+    if item.get("poi_sub") is not None:
+        return item["poi_sub"] in set(_POL["eligibility"]["include"]["subs"])
     return (item.get("sub_category") in GROCERY or item.get("category") == "마트"
             or (item.get("produce_spent") is not None))
 
@@ -96,7 +110,10 @@ def day_lines(rec: dict, start: str, limit_items: int = 5) -> list[str]:
             if i.get("produce_spent") is not None and _money(i.get("produce_spent")) > 0:
                 extra.append(f"그중 농축산물 {_money(i['produce_spent']):,}원")
             if _money(i.get("discount_total")):
-                extra.append(f"결제 할인 {_money(i['discount_total']):,}원")
+                # [2026-10-11] 영수증처럼 낸 돈까지 적는다 — 150명 인터뷰에서 낸 돈을 스스로 셈하다 틀렸다(58,500 대 49,500).
+                extra.append(f"결제 할인 {_money(i['discount_total']):,}원, 낸 돈 {_money(i.get('actual_spent')) - _money(i['discount_total']):,}원")
+            elif _is_grocery(i):
+                extra.append("결제 할인 없음")
             out.append("      - %s %s원%s · %s · %s" % (
                 i.get("poi") or i.get("category") or "?", f"{_money(i.get('actual_spent')):,}",
                 f" ({', '.join(extra)})" if extra else "", (i.get("menu") or "")[:40],
@@ -164,8 +181,7 @@ def off_behavior(on: dict, off: dict, day: str) -> str | None:
     if not off_items:
         return "C"
     same = [i for i in off_items if (i.get("poi_id") and i.get("poi_id") == ref.get("poi_id"))
-            or (CHAIN_RE.search(i.get("poi") or "") and CHAIN_RE.search(ref.get("poi") or "")
-                and (i.get("poi") or "")[:3] == (ref.get("poi") or "")[:3])]
+            or (chain_of(i.get("poi")) is not None and chain_of(i.get("poi")) == chain_of(ref.get("poi")))]
     on_amt = _money(ref.get("actual_spent"))
     off_amt = sum(_money(i.get("actual_spent")) for i in off_items)
     if same and off_amt >= 0.7 * on_amt:
@@ -183,12 +199,12 @@ def off_behavior_window(on: dict, off: dict, start: str) -> str | None:
         return None
     on_amt = sum(_money(i.get("actual_spent")) for i in on_items)
     ids = {i.get("poi_id") for i in on_items if i.get("poi_id")}
-    heads = {(i.get("poi") or "")[:3] for i in on_items if CHAIN_RE.search(i.get("poi") or "")}
+    heads = {chain_of(i.get("poi")) for i in on_items} - {None}
     off_gro = [i for p in window_days(off, start) for i in (p.get("items") or [])
                if _money(i.get("actual_spent")) > 0 and _is_grocery(i)]
     off_amt = sum(_money(i.get("actual_spent")) for i in off_gro)
     same_amt = sum(_money(i.get("actual_spent")) for i in off_gro
-                   if i.get("poi_id") in ids or (CHAIN_RE.search(i.get("poi") or "") and (i.get("poi") or "")[:3] in heads))
+                   if i.get("poi_id") in ids or chain_of(i.get("poi")) in heads)
     if same_amt >= 0.7 * on_amt:
         return "A"
     if off_amt < 0.7 * on_amt:

@@ -43,6 +43,10 @@ case $c in
     python scripts/report/score_p013_two_arm.py --dir "$S" --policy-file "$POLICY" --anchor-map "$S/anchor_map.json" \
       --dossier-on "$B/on/dossier.jsonl" --dossier-off "$B/off/dossier.jsonl" \
       --json-out "$S/p013_score.json" > "$S/p013_score.txt" 2>&1 || rc=1;;
+  p016)
+    # [2026-10-11] 정답 지표(참여 매장 농축산물 C1·C2·C3·E1)는 기억 모음으로 잰다. 종료 2 = 엔진 회계 무결성 실패.
+    python scripts/report/score_p016.py --on-dossier "$B/on/dossier.jsonl" --off-dossier "$B/off/dossier.jsonl" \
+      --policy "$POLICY" --start "$START" --end "$POST_END" --json-out "$S/p016_score.json" > "$S/p016_score.txt" 2>&1 || rc=1;;
   distancing)
     python scripts/report/paired_distancing_effect.py --restricted "$S/on.distancing.ledger.jsonl" \
       --control "$S/off.distancing.ledger.jsonl" --control-arm control_hold --roster "$B/roster.json" \

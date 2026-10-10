@@ -83,7 +83,11 @@ RETURN p.day AS day, p.day_type AS day_type, p.generated_at AS generated_at,
          actual_satisfaction: i.actual_satisfaction,
          menu: i.menu, unit_price: i.unit_price, pay_count: i.pay_count,
          produce_spent: i.produce_spent, discount_total: i.discount_total,
-         policy_rebate: i.policy_rebate
+         policy_rebate: i.policy_rebate,
+         // [2026-10-11] 가게 자신의 업종·체인·형태 — 할인·채점 판정은 계획 업종(sub_category)이 아니라 이것을 쓴다(P016).
+         poi_sub: head([(poi)-[:IN_CATEGORY]->(oc:Category) | oc.name]),
+         poi_chain: poi.chain, poi_mart_format: poi.mart_format,
+         produce_share: i.produce_share, extra_spent: i.extra_spent
        }) AS items
 ORDER BY p.day
 """

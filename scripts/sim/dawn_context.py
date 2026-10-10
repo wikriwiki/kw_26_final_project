@@ -812,6 +812,12 @@ def _format_policy_facts(rows: list[dict]) -> str:
         try:
             from mechanisms import label as _mech_label
             _head = _mech_label(ptype, r.get("name"))
+            # [2026-10-11] 정책 파일이 기전 표시를 정하면 그것을 쓴다(정책 이름은 여전히 빼고). P016 은 계산할 때 저절로
+            # 깎이는 할인인데 '[업종 한정 할인권] … 표시 POI에서만 사용' 이 쓰는 권리(지갑)처럼 읽혀, 시험에서 모델이
+            # '정책 지갑에서 10,000원 사용' 이라고 썼다(P016_DESIGN_20261011.md 9절).
+            _ml = (_with_params(r).get("mechanism_label") or "").strip()
+            if _ml:
+                _head = f"[{_ml}]"
         except ImportError:
             _head = None
         targets = [str(x) for x in (r.get("target_l1s") or []) if x]
@@ -828,7 +834,8 @@ def _format_policy_facts(rows: list[dict]) -> str:
             scope = "세부 업종 조건은 정책 본문 참조"
         # 표시 문자열은 정책이 정한다 — 하드코딩하면 새 정책이 남의 마커를 쓴다.
         _mk = (r.get("eligible_marker") or "[쿠폰]").strip()
-        restrictions = f" · {_mk} 표시 POI에서만 사용" if r.get("poi_restricted") else ""
+        _mc = (_with_params(r).get("marker_clause") or "").strip()
+        restrictions = (f" · {_mc}" if _mc else f" · {_mk} 표시 POI에서만 사용") if r.get("poi_restricted") else ""
         # Do not remove eligibility, timing or exceptions by truncating mid-sentence.
         desc = " ".join(str(r.get("description") or "").split())
         _h2 = _head if _head is not None else f"[{label}] {r.get('name')}"
