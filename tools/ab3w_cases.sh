@@ -14,6 +14,8 @@ case "$AB_CASE" in
     # 압축월 파일과 짝이다(창과 파일은 함께 움직인다 — 섞으면 문턱이 창에 비해 너무 높아 정책이 사라진다).
     # [2026-10-06] 사본 P012_ab3w_policy_20261006 = compressed7_main 과 규칙이 같고, 설명만 압축월 숫자로 맞춘 판(본런 전 프롬프트 점검).
     START=2021-10-01; PID=P012
+    # [2026-10-08] 신청제: 신청한 사람에게만 적용된 제도다. 사람마다 모델이 신청 여부를 정한다(실행기 6b).
+    ENROLL_PIDS=P012
     POLICY=data/experiments/P012_ab3w_policy_20261006.json
     # 시험(AB_TEST_SHORT=1)은 짧은 창을 허용한다 — 문턱에 못 닿아 캐시백이 0 이어도 배관 확인은 된다.
     [[ $AB_POST_DAYS == 7 || ${AB_TEST_SHORT:-0} == 1 ]] || { echo "P012 압축월 파일은 7일 창 전용이다 (AB_POST_DAYS=$AB_POST_DAYS)" >&2; exit 2; }

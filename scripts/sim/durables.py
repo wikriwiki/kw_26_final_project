@@ -174,8 +174,12 @@ def format_block(agent_id: str, life_stage: str | None = None,
     parts = []
     for d in items:
         tail = d["cond"] or "아직 쓸 만하다"
-        parts.append("{} {}년째({}, 보통 {}년쯤 바꾼다, 요즘 {}~{}만원)".format(
-            d["name"], int(d["years"]), tail, d["cycle"], d["lo_man"], d["hi_man"]))
+        if os.environ.get("EXP_PRICE_MODE", "").strip().lower() in ("ticket", "knowledge"):
+            # 시세·교체주기는 경험 상수라 보이지 않는다(2026-10-07). 쓴 햇수와 상태만.
+            parts.append("{} {}년째({})".format(d["name"], int(d["years"]), tail))
+        else:
+            parts.append("{} {}년째({}, 보통 {}년쯤 바꾼다, 요즘 {}~{}만원)".format(
+                d["name"], int(d["years"]), tail, d["cycle"], d["lo_man"], d["hi_man"]))
     return "집안 물건: " + ", ".join(parts)
 
 
