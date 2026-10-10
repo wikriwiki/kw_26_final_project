@@ -87,7 +87,9 @@ RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        s.experience_run_id AS experience_run_id,
        s.policy_appraisals_json AS policy_appraisals_json,
        // 상생 캐시백 실적 문턱 계산용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 NULL.
-       s.sangsaeng_month_spent AS sangsaeng_month_spent
+       s.sangsaeng_month_spent AS sangsaeng_month_spent,
+       // [EXP_PRICE_FIRST] 일상 예산 이월(어제까지 남거나 넘친 몫). 옛 런은 NULL.
+       s.budget_carry AS budget_carry
 """
 
 
@@ -366,6 +368,16 @@ def _strip_lifestyle_first_line(lifestyle: str) -> str:
     return "\n".join(lines[1:]).strip()
 
 
+# [2026-10-06] 원자료 생애주기에 '자녀 학대(중/기/기간)' 오기가 있다(14,881명 중 10명, P013 명부 3명).
+# 원래 뜻을 짐작해 바꾸지 않고 프롬프트에는 '미상'으로만 보인다. 내구재·집계용 값은 그대로 둔다.
+_LIFE_STAGE_TYPOS = frozenset({'자녀 학대', '자녀 학대 중', '자녀 학대기', '자녀학대', '자녀 학대 기간'})
+
+
+def _life_stage_shown(v):
+    v = (v or '').strip()
+    return '미상' if v in _LIFE_STAGE_TYPOS else v
+
+
 def _format_persona(p: dict) -> str:
     if not p:
         return "(페르소나 없음)"
@@ -376,7 +388,7 @@ def _format_persona(p: dict) -> str:
     lifestyle = _strip_lifestyle_first_line(p.get("lifestyle") or "")[:280]
     lines = [
         f"ID: {p['id']}",
-        f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {p.get('life_stage','')} / 소득: {p.get('income','')}",
+        f"인구학: {p.get('age_group','')} {p.get('gender','')} / 직업: {job or '미상'} / 생애주기: {_life_stage_shown(p.get('life_stage'))} / 소득: {p.get('income','')}",
         f"소비: 평일 {(p.get('daily_wd') or 0):,}원, 주말 {(p.get('daily_we') or 0):,}원 (주말/평일 {(p.get('we_wd_ratio') or 1):.2f}배) / 성향: {p.get('tendency','')}",
         _cat_line(p),
         f"행태: 배달 {(p.get('delivery_days') or 0)}일/월, 평일 재택 {(p.get('home_h_wd') or 0):.1f}h, 주말 재택 {(p.get('home_h_we') or 0):.1f}h, 이동성 분위 {(p.get('mobility') or 0)}",
@@ -428,9 +440,15 @@ def _format_state(s: dict | None, *, grounded=False) -> str:
             bal_line += f" · 정책지갑 잔액 {rem_all:,}원 ({d_min}일 전 지급, 정책 블록 참조)"
     return (
         f"{bal_line} / 이번달 누적지출: {s.get('month_spent',0):,}원\n"
-        f"에너지: {s.get('energy',0):.2f}, mood: {s.get('mood',0):.2f}, fatigue: {s.get('fatigue',0):.2f}\n"
-        f"어제 평균 만족도: {s.get('yest_sat',0):.2f}\n"
-        f"정책 라이프사이클: {lc}"
+        + (
+            # [2026-10-07b] 에너지는 매일 0.8 고정값이라, 어제 평균 만족도는 Day0·외출 없는 날 0.50 시드라 뺀다.
+            # 영어 변수명(mood·fatigue)이 이유 문장에 그대로 옮겨져 한국어로 보인다.
+            f"기분: {s.get('mood',0):.2f}, 피로: {s.get('fatigue',0):.2f}\n"
+            if _CLEAN else
+            f"에너지: {s.get('energy',0):.2f}, mood: {s.get('mood',0):.2f}, fatigue: {s.get('fatigue',0):.2f}\n"
+            f"어제 평균 만족도: {s.get('yest_sat',0):.2f}\n"
+        )
+        + f"정책 라이프사이클: {lc}"
     )
 
 
@@ -509,6 +527,7 @@ _POLICY_TYPE_LABEL = {
 #   총지출로 잡으면 문턱이 4배 높아져 도달이 원천 불가능해진다(28일 돌려도 19.3%).
 # 기본값은 무정책 구간 실측치(적립 일평균 29,841 / 앵커 111,155 = 0.268).
 SANGSAENG_BASE_RATIO = float(os.environ.get("EXP_SANGSAENG_BASE_RATIO", "0.268"))
+_CLEAN = os.environ.get("EXP_CLEAN_PROMPT", "0") == "1"   # [2026-10-07b] 규범·고정값 표시 정리
 
 
 def _sangsaeng_monthly_anchor(persona: dict) -> int:
@@ -1015,9 +1034,10 @@ def _format_zones(zones: list[dict]) -> str:
             tag = f"{tag}·{sig}"
         dist = z.get("distance_km")
         dist_s = f", {dist:.1f}km" if isinstance(dist, (int, float)) else ""
-        extra = " ← 주말 나들이·여가 등에 적합" if z.get("type") == "hub" else ""
+        extra = "" if _CLEAN else (" ← 주말 나들이·여가 등에 적합" if z.get("type") == "hub" else "")
         lines.append(f"- [{tag}] {z['code']} {z.get('name','')}{dist_s}{extra}")
-    lines.append("평일엔 주로 생활권, 주말·여가/쇼핑이면 광역상권도 자연스럽게 선택(거리·기분 고려).")
+    if not _CLEAN:   # [2026-10-07b] 주말에 광역상권으로 가라는 규범 문장은 빼고 목록만 보인다
+        lines.append("평일엔 주로 생활권, 주말·여가/쇼핑이면 광역상권도 자연스럽게 선택(거리·기분 고려).")
     return "\n".join(lines)
 
 
@@ -1060,7 +1080,8 @@ def _build_zone_candidates(persona: dict, today: date, stats_dir: Path | None = 
     try:
         import mobility
         exclude = {c for c in (home_code, work_code) if c}
-        day_type = "weekend" if today.weekday() >= 5 else "weekday"
+        from kr_holidays import day_type_of   # 공휴일은 주말 이동 패턴
+        day_type = day_type_of(today)
         from no_smoking_context import configured_context
         smoking_runtime = configured_context()
         mobility_seed = (smoking_runtime.stable_seed(persona.get("id"), today, "mobility")

@@ -10,6 +10,14 @@
 from __future__ import annotations
 
 from datetime import date
+import os as _os
+
+
+def _day_kind(day_type: str) -> str:
+    """[2026-10-07b] 'weekend' 영어 표기 대신 쉬는 날인지를 한국어 사실로 적는다(어린이날 직장인 57% 출근 사례)."""
+    if _os.environ.get("EXP_CLEAN_PROMPT", "0") != "1":
+        return day_type
+    return "쉬는 날(주말·공휴일)" if day_type == "weekend" else "평일(일하는 날)"
 
 
 SYSTEM_PROMPT = """당신은 서울 시민 에이전트의 하루 동선을 설계하는 Daily Planner입니다.
@@ -245,7 +253,7 @@ def format_dawn_blocks(
 
 ## 오늘
 - 날짜: {today.isoformat()} ({dow_kr})
-- 요일유형: {day_type}
+- 요일유형: {_day_kind(day_type)}
 
 ## 최근 30일 기억 (Memory Top-N)
 {blocks['memory']}

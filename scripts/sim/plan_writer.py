@@ -10,6 +10,7 @@ Conversation 적재(Night Phase 2)는 별도 night_phase.py로 (LLM 의도 분�
 """
 from __future__ import annotations
 
+import os
 import sys
 from contextlib import nullcontext
 import uuid
@@ -88,7 +89,11 @@ CREATE (p)-[:INCLUDES {
   seen_rating_count: ev.seen_rating_count,
   review_snippet: ev.review_snippet,     // 본 리뷰 한 줄
   pre_review_poi: ev.pre_review_poi,     // 리뷰 전(1차) 선택 — 바뀐 경우만
-  review_changed: ev.review_changed      // 리뷰가 최종 선택을 바꿨나
+  review_changed: ev.review_changed,     // 리뷰가 최종 선택을 바꿨나
+  menu: ev.menu,                         // [EXP_PRICE_MODE] 먹거나 산 것
+  unit_price: ev.unit_price,             // 1인분·1개 가격
+  pay_count: ev.pay_count,               // 내가 계산한 인분·개수
+  budget_skipped: ev.budget_skipped      // 하루 예산을 넘어 하지 않은 결제
 }]->(poi)
 RETURN count(*) AS written
 """
@@ -508,7 +513,9 @@ WITH a, p, i, poi,
      // summary = "왜 그랬는지". 새벽 컨텍스트는 장소·업종·만족도를 별도로 이미 찍으므로
      // 예전처럼 그것을 반복하면 120자가 통째로 낭비된다. 같은 자리에 계기와 이유를 넣는다.
      // 인터뷰(1:1 회상)용 원문은 아래 why/pick_why에 잘리지 않은 채로 따로 보관한다.
-     toString(coalesce(i.actual_spent, 0)) + '원 · [' + coalesce(i.trigger, '-') + '] ' +
+     toString(coalesce(i.actual_spent, 0)) + '원 · ' +
+       CASE WHEN i.menu IS NOT NULL AND i.menu <> '' THEN i.menu + ' · ' ELSE '' END +
+       '[' + coalesce(i.trigger, '-') + '] ' +
        left(coalesce(i.reasoning, ''), 90) AS summary,
      // 결정적 id (agent + poi + day + order) — resume 재실행 시 중복 방지
      'mem_vis_' + a.id + '_' + poi.id + '_' + $yesterday + '_' + toString(i.order) AS mem_id
@@ -525,6 +532,7 @@ MERGE (m:Memory {id: mem_id})
     m.pick_why = i.pick_reason,       // 왜 후보 중 이 가게였나 (Stage 2)
     m.trigger = i.trigger,            // 계기: policy/lifestyle/mood/rumor/appointment
     m.spent = coalesce(i.actual_spent, 0),
+    m.menu = i.menu,
     m.paid_policy = (i.spent_from_policy IS NOT NULL
                      AND i.spent_from_policy <> '{}' AND i.spent_from_policy <> 'null'),
     m.extra_spent = i.extra_spent,    // 이 결제 중 지원금 없었으면 안 썼을 금액
@@ -590,6 +598,9 @@ OPTIONAL MATCH (a)-[:HAS_PLAN {day: date($today)}]->(today_plan:Plan)-[i:INCLUDE
 WITH a, prev_balance, prev_energy, prev_mood, prev_fatigue, prev_month_spent,
      prev_sangsaeng_month_spent,
      count(i) AS n_events,
+     // [2026-10-07 EXP_FATIGUE_OUTINGS] 피로는 외출만 센다(기상·식사·취침 같은 집·직장 일정 제외).
+     // 일정 전부(하루 약 10개)를 세면 0.5×어제+0.05×10 이 1.0 에 수렴해 사흘 만에 모두 0.9 를 넘었다.
+     sum(CASE WHEN coalesce(i.category, '') IN ['집', '직장'] THEN 0 ELSE 1 END) AS n_out,
      avg(i.actual_satisfaction) AS avg_sat,
      sum(coalesce(i.actual_spent, 0)) AS today_spent,
      sum(CASE WHEN ip.sangsaeng_eligible = true THEN coalesce(i.actual_spent, 0) ELSE 0 END)
@@ -604,8 +615,8 @@ WITH a, prev_balance, prev_energy, prev_month_spent, prev_sangsaeng_month_spent,
      n_events,
      0.7 * prev_mood + 0.3 * coalesce(avg_sat, prev_mood) AS new_mood,
      CASE
-       WHEN coalesce(avg_sat, 0.5) < 0.3 THEN 0.5 * prev_fatigue + 0.05 * n_events + 0.2
-       ELSE 0.5 * prev_fatigue + 0.05 * n_events
+       WHEN coalesce(avg_sat, 0.5) < 0.3 THEN 0.5 * prev_fatigue + 0.05 * (CASE WHEN $fatigue_outings THEN n_out ELSE n_events END) + 0.2
+       ELSE 0.5 * prev_fatigue + 0.05 * (CASE WHEN $fatigue_outings THEN n_out ELSE n_events END)
      END AS new_fatigue_raw
 
 WITH a, prev_balance, prev_energy, prev_month_spent, prev_sangsaeng_month_spent,
@@ -637,6 +648,7 @@ SET s.agent_id = $aid,
     s.yesterday_satisfaction = today_avg_sat,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
+    s.budget_carry = $budget_carry,
     s.month_spent = prev_month_spent + (today_spent - $today_policy_spent - $today_instant_discount) + $today_online_spent,
     // 적립업종 누적은 실적(gross) 기준 — 캐시백은 지갑이 없어 policy_spent 차감 불필요.
     s.sangsaeng_month_spent = prev_sangsaeng_month_spent + today_sangsaeng_spent,
@@ -671,6 +683,7 @@ def night_create_state(
     grant_plan_days: int = 0,
     today_online_spent: int = 0,
     today_income: int = 0,
+    budget_carry: int | None = None,
     execution_receipts: list | None = None,
     observations: list | None = None,
     policy_appraisals: dict | None = None,
@@ -705,6 +718,7 @@ def night_create_state(
     with (nullcontext(transaction) if transaction is not None else driver_session()) as s:
         r = s.run(NIGHT_STATE_CYPHER,
                   aid=aid, today=today.isoformat(), yesterday=yesterday.isoformat(),
+                  fatigue_outings=os.environ.get("EXP_FATIGUE_OUTINGS", "0") == "1",
                   policy_used_json=used_json,
                   policy_lifecycle_json=lifecycle_json,
                   grant_received_json=grant_json,
@@ -715,6 +729,7 @@ def night_create_state(
                   grant_plan_days=int(grant_plan_days or 0),
                   today_online_spent=int(today_online_spent or 0),
                   today_income=int(today_income or 0),
+                  budget_carry=(int(budget_carry) if budget_carry is not None else None),
                   execution_receipts_json=_json.dumps(execution_receipts or [], ensure_ascii=False),
                   observations_json=_json.dumps(observations or [], ensure_ascii=False),
                   policy_appraisals_json=_json.dumps(policy_appraisals or {}, ensure_ascii=False),
@@ -739,7 +754,8 @@ if __name__ == "__main__":
     args = ap.parse_args()
 
     today = date.fromisoformat(args.day)
-    day_type = "weekend" if today.weekday() >= 5 else "weekday"
+    from kr_holidays import day_type_of
+    day_type = day_type_of(today)
 
     print(f"[1/5] Dawn 컨텍스트 빌드 ({args.aid}, {today})")
     ctx = build_dawn_context(args.aid, today)

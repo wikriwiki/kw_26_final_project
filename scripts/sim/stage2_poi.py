@@ -43,6 +43,22 @@ from llm_client import call_chat as _llm_call  # noqa: E402
 from prompt_grounding import validate_stated_reason
 from no_smoking_prompts import SYSTEM_STAGE2
 from poi_price import poi_price, price_icon, unit_price_anchor, band_factor  # noqa: E402
+import price_ticket as _pt  # noqa: E402  [2026-10-07] 실측 결제 1건당·메뉴×인분 금액
+FREE_OUTDOOR_SUBS = frozenset({"산책", "공원", "공원 산책", "산책로", "등산", "걷기", "둘레길", "한강공원"})
+_FREE_OUTDOOR_RE = re.compile(r"산책|등산|공원|둘레길|휴양림|걷기|숲길|하이킹|한강")
+_PINNED_CYPHER = """
+MATCH (p:POI {id: $pid})
+OPTIONAL MATCH (p)-[:IN_DONG]->(dg:Dong)
+OPTIONAL MATCH (a:Agent {id: $aid})-[kp:KNOWS_POI]->(p)
+RETURN p.id AS poi_id, p.name AS name, (kp IS NOT NULL) AS known,
+       coalesce(kp.visit_count, 0) AS visit_count, kp.avg_satisfaction AS avg_satisfaction,
+       kp.last_visit AS last_visit, p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible, p.upjong_l3 AS upjong_l3,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.name]) AS poi_sub_category,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.parent]) AS poi_l1,
+       NULL AS km, dg.code AS dong_code
+LIMIT 1
+"""
 from coupon_eligibility import is_coupon_eligible  # noqa: E402
 from sangsaeng_eligibility import is_sangsaeng_eligible  # noqa: E402
 from poi_review_lookup import lookup_reviews_batch, format_review_block  # noqa: E402
@@ -58,6 +74,10 @@ class Stage2Pick(BaseModel):
     order: int
     poi_id: str
     actual_spent: float | None = None        # LLM이 설정 (원, 양수, 총 소비액)
+    # [EXP_PRICE_MODE] 무엇을 얼마에: 메뉴·물건, 1인분·1개 가격, 내가 계산하는 인분·개수. 금액 = unit_price × pay_count
+    menu: str | None = None
+    unit_price: float | None = None
+    pay_count: int | None = None
     actual_satisfaction: float | None = None # LLM이 설정 (0~1)
     # actual_spent 중 정책 지원금에서 사용한 금액 — {"P009": 5000} 형태.
     # 평소 잔액으로 쓴 부분 = actual_spent - sum(policy_spend.values())
@@ -78,6 +98,9 @@ class Stage2Pick(BaseModel):
             value.pop('evidence_ref', None)
         if self.evidence_quote is None:
             value.pop('evidence_quote', None)
+        for _k in ('menu', 'unit_price', 'pay_count'):
+            if getattr(self, _k) is None:
+                value.pop(_k, None)
         return value
 
 
@@ -230,8 +253,14 @@ def fetch_candidates_for_events(
     group_key_for: dict[int, tuple[str, str]] = {}
     l1_for: dict[int, str] = {}
     for i, ev in enumerate(events):
-        if ev.category in INTERNAL_CATS or ev.pinned_poi:
+        if ev.category in INTERNAL_CATS or (ev.pinned_poi and not _pt.ON):
             out[i] = []
+            continue
+        if ev.pinned_poi:
+            # [2026-10-07b] 약속 장소가 정해진 일정: 후보를 그 한 곳으로 두고 2단계가 메뉴·금액·만족도를 정한다.
+            # 예전엔 pinned 일정이 2단계를 건너뛰어 금액·만족도가 비었다(가격 판에서 0원·기억 없음).
+            group_key_for[i] = ("", "__PIN__" + str(ev.pinned_poi))
+            l1_for[i] = ev.category
             continue
         sub_cat = ev.sub_category or _guess_sub_from_l1(ev.category)
         if sub_cat is None:
@@ -263,9 +292,45 @@ def fetch_candidates_for_events(
             l1 = l1_for[event_idxs[0]]   # 같은 sub_cat ⇒ 같은 L1
 
             started = time.perf_counter()
-            cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size, session=sess)
+            # [2026-10-07b] 무료 야외 활동(산책·공원 등)은 세부 업종을 무엇으로 적었든(스포츠·유원지·오락 등) 돈 내는 가게로
+            # 보내지 않는다 — 10명 시험에서 '동네 공원에서 가벼운 산책'(sub 스포츠)이 골프존에 붙었다.
+            _free_grp = (_pt.ON and not sub_cat.startswith("__PIN__") and (
+                sub_cat in FREE_OUTDOOR_SUBS or _FREE_OUTDOOR_RE.search(sub_cat or "")
+                or all(_FREE_OUTDOOR_RE.search(str(getattr(events[_ix], "intent", "") or "")) for _ix in event_idxs)))
+            if _free_grp:
+                cands = []
+                for _alt in ("공원", "산책"):
+                    cands = build_stage2_candidates(aid, dong_code, _alt, limit=pool_size, session=sess)
+                    if cands:
+                        break
+                if not cands:
+                    s["cand_free_outdoor_none"] = s.get("cand_free_outdoor_none", 0) + n
+                    for idx in event_idxs:
+                        out[idx] = []
+                    continue
+            elif sub_cat.startswith("__PIN__"):
+                cands = [dict(r) for r in sess.run(_PINNED_CYPHER, aid=aid, pid=sub_cat[len("__PIN__"):])]
+                dong_code = (cands[0].get("dong_code") if cands else "") or ""
+                sub_cat = (cands[0].get("poi_sub_category") if cands else None) or (l1 or "")
+            else:
+                cands = build_stage2_candidates(aid, dong_code, sub_cat, limit=pool_size, session=sess)
             tm["t_query_exact"] += time.perf_counter() - started
             tm["n_query_exact"] += 1
+            if not cands and _pt.ON and (sub_cat in FREE_OUTDOOR_SUBS or _FREE_OUTDOOR_RE.search(sub_cat or "")
+                                          or any(_FREE_OUTDOOR_RE.search(str(getattr(events[_ix], "intent", "") or ""))
+                                                 for _ix in event_idxs)):
+                # [2026-10-07b] 산책·공원은 돈 내는 업종이 아니다. 대분류(여가) 가게로 넘기면 골프연습장·탁구클럽·여행사가
+                # 붙었다(산책 의도의 40~45%). 공원 POI 만 찾고, 없으면 가게 없이 둔다.
+                for _alt in ("공원", "산책"):
+                    if _alt != sub_cat:
+                        cands = build_stage2_candidates(aid, dong_code, _alt, limit=pool_size, session=sess)
+                        if cands:
+                            break
+                if not cands:
+                    s["cand_free_outdoor_none"] = s.get("cand_free_outdoor_none", 0) + n
+                    for idx in event_idxs:
+                        out[idx] = []
+                    continue
             if cands:
                 s["cand_sub_match"] = s.get("cand_sub_match", 0) + n
             else:
@@ -351,6 +416,12 @@ def fetch_candidates_for_events(
                 c["price_band"], c["price_factor"] = poi_price(c["poi_id"], dong_code, l1)
                 c["unit_anchor"] = anchor_won
                 c["durable_anchor"] = bool(_dur_anchor)
+                if _pt.ON:
+                    # 경험 상수(내구재 시세·가격대 배율)를 쓰지 않는다. 금액 근거는 실측 결제 1건당뿐.
+                    c["price_ticket"] = _pt.info(dong_code, _own_sub)
+                    c["durable_anchor"] = False
+                    c["price_factor"] = 1.0
+                    c["unit_anchor"] = unit_price_anchor(dong_code, l1)
                 # 쿠폰 사용처 판정 — DB 백필값(p.coupon_eligible) 우선, 없으면 룰 fallback
                 if _rules is not None:
                     el = _rules.eligible(c.get("name"), _own_sub, _own_l1,
@@ -609,6 +680,45 @@ _AUTO_PAY_NEW = (
     "빠져나가고 모자란 만큼만 본인 돈으로 냅니다. 이 경우 `policy_spend`는 null 로 두어도 됩니다.\n")
 
 
+_PRICE_SECTION_NEW = """**무엇을 얼마에 (핵심)**
+- 결제마다 오늘 실제로 사거나 먹을 것을 `menu`에 짧게 적습니다(메뉴 이름이나 물건 이름).
+- `unit_price`는 **한 사람 몫의 결제 금액(원)**입니다. 식당이면 1인분, 가게에서 여러 물건을 사면 그 물건 값의 합입니다.
+  고른 가게와 이 사람이 아는 물가로 정합니다.
+- `pay_count`는 **이 사람이 몇 명 몫을 계산하는지**입니다. 혼자면 1, 가족·일행 몫까지 내면 그 사람 수, 각자 내면 1.
+  물건 개수가 아닙니다.
+- `actual_spent`는 `unit_price × pay_count`입니다(엔진이 같은 식으로 다시 계산합니다).
+- 돈을 내지 않는 방문(둘러보기·상담만 하고 나옴, 이번 달 이미 낸 곳을 이용만 함 등)은 `unit_price` 0 입니다.
+"""
+_TICKET_NOTE = """- 이벤트 제목의 '카드 결제 1건당'은 그 업종에서 실제 카드 결제 한 건의 평균(2025 서울 실측)과 서울 동별 하위 10%~상위 10% 범위입니다.
+  여럿이 함께 낸 결제가 섞여 있어 1인분 가격이 아닙니다.
+"""
+
+
+def _price_mode_system(text: str) -> str:
+    start, end = "**가격대와 예산 (핵심)**", "**단순 반복 억제**"
+    assert text.count(start) == text.count(end) == 1
+    before, rest = text.split(start, 1)
+    _, after = rest.split(end, 1)
+    sec = _PRICE_SECTION_NEW + (_TICKET_NOTE if _pt.MODE == "ticket" else "")
+    text = before + sec + "\n" + end + after
+    # [2026-10-07b] 0원 방문을 금지하던 문장·만족도 예시 숫자·반복 금지 지시를 뺀다(본런 검수: 0원이 지어낸 금액으로,
+    # 만족도가 0.71 근처 계단값으로, 어제 간 가게 재방문이 5~6% 로 눌렸다).
+    text = text.replace("- `actual_spent`는 거래 총액(원)입니다. 모든 commerce 이벤트에 양수를 적습니다.\n",
+                        "- `actual_spent`는 거래 총액(원)입니다.\n")
+    text = text.replace('"actual_satisfaction": 0.71,', '"actual_satisfaction": <0~1, 이 방문이 실제로 어땠을지>,')
+    text = text.replace('"pick_reason": "오늘 필요한 방문에 맞고 가깝고 평소 예산에도 맞음.",', '"pick_reason": "<이 가게를 고른 이유>",')
+    text = text.replace("- 최근 3일 이내 방문한 POI(⚠️ 표시)는 특별한 사유 없이 재선택하지 마세요.\n",
+                        "- ⚠️ 는 최근 3일 안에 간 곳이라는 표시입니다.\n")
+    text = text.replace("- residence/workplace/집/직장 이벤트, pinned_poi 이벤트는 picks에 포함하지 않습니다.\n",
+                        "- residence/workplace/집/직장 이벤트는 picks에 포함하지 않습니다. 약속 장소가 정해진 이벤트는 후보가 그 한 곳뿐입니다.\n")
+    # 출력 예시의 금액 숫자(12000·25000)는 모델이 따라 쓰는 기준값이 된다 — 자리표시로 바꾼다.
+    text = text.replace('"actual_spent": 12000,', '"menu": "<먹거나 살 것>", "unit_price": <한 사람 몫 결제 금액>, "pay_count": <몇 명 몫을 내는지>, "actual_spent": <unit_price×pay_count>,')
+    text = text.replace('"actual_spent": 25000,', '"menu": "<먹거나 살 것>", "unit_price": <한 사람 몫 결제 금액>, "pay_count": <몇 명 몫을 내는지>, "actual_spent": <unit_price×pay_count>,')
+    text = text.replace('"policy_spend": {"P009": 12000},', '"policy_spend": {"P009": <지원금으로 낸 금액>},')
+    text = text.replace('"extra_spent": 2000,', '"extra_spent": <이 돈 때문에 더 쓴 금액>,')
+    return text
+
+
 def active_stage2_system() -> str:
     """Historical variants keep their original Stage2 prompt byte for byte.
 
@@ -616,6 +726,8 @@ def active_stage2_system() -> str:
     결제 문장만 그 규칙으로 바꾼다. 기본값에서는 아무것도 바뀌지 않는다.
     """
     text = SYSTEM_S2_NEUTRAL if active_stage2_is_neutral() else SYSTEM_S2
+    if _pt.ON:
+        text = _price_mode_system(text)
     from mechanisms import payment_choice_mode
     if not payment_choice_mode() and text is SYSTEM_S2_NEUTRAL:
         assert text.count(_AUTO_PAY_OLD) == 1
@@ -651,6 +763,8 @@ def _format_event_with_candidates(
         _t = str(getattr(ev, "trigger", "") or "")
         if _t and _t != "none":
             trig_s = f" | 계기:{_t}"
+    if _pt.ON:
+        anchor_s = _pt.label(cands[0].get("price_ticket")) if _pt.MODE == "ticket" else ""
     if modeled_prices:
         anchor_s = anchor_s.replace('동네 평균단가', '모형 참고단가').replace('바꾸려는 물건 시세', '모형 물품 참고단가')
     lines = [
@@ -668,7 +782,7 @@ def _format_event_with_candidates(
         sat_s = f"avg_sat={sat:.2f}" if sat is not None else "신규"
         km_s = f"{km:.2f}km" if km is not None else ""
         visit_s = f"({visit_count}회)" if visit_count > 0 else ""
-        price_s = price_icon(c.get("price_band"))
+        price_s = "" if _pt.ON else price_icon(c.get("price_band"))   # 가격 판: 가격대는 POI id 해시라 보이지 않는다
         coupon_s = c.get("coupon_tag") or ""
         sangsaeng_s = c.get("sangsaeng_tag") or ""
 
@@ -703,6 +817,9 @@ def build_stage2_prompt(
         lifestyle = (persona.get("lifestyle") or "").strip()
         income = persona.get("income") or ""
         budget_info = f"평소 1일 소비규모(스케일 참고, 총액 아님): 평일 {daily_wd:,}원 / 주말 {daily_we:,}원"
+        if _pt.ON and today is not None:
+            from kr_holidays import is_day_off as _off
+            budget_info = f"평소 {'쉬는 날' if _off(today) else '평일'} 하루 소비규모(실측, 참고): {(daily_we if _off(today) else daily_wd):,}원"
         # [적립 문턱을 금액 판단 자리로 보낸다] experiments/plan_channel/s2_threshold.md
         # 금액(actual_spent)은 **여기서** 정해지는데 문턱 정보는 Stage1 에만 있었다.
         # 새 사실이 아니라 Stage1 이 이미 받은 그 줄을 그대로 옮긴다 — 방향도
@@ -745,7 +862,28 @@ def build_stage2_prompt(
                 _dur = "\n" + _dur
         except Exception:
             _dur = ""
-        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}{_dur}")
+        # [2026-10-06] 오늘이 어떤 날인지 — 2단계는 날짜를 몰라 평일에도 '주말 예산'으로 금액을 잡는 일이
+        # 약 1% 있었다(가게 이유에 '예산(주말 58,388원)'). 1단계와 같은 판정(kr_holidays)으로 사실만 적는다.
+        _today_line = ""
+        if today is not None:
+            from kr_holidays import holiday_name as _hn
+            _h = _hn(today)
+            _kind = f"공휴일({_h})" if _h else ("주말" if today.weekday() >= 5 else "평일")
+            _today_line = f"오늘: {today.isoformat()} ({'월화수목금토일'[today.weekday()]}요일, {_kind})\n"
+        _monthly = ""
+        if persona.get("monthly_paid") is not None:
+            # 학원비·헬스장 회원권은 달마다 한 번 낸다. 이번 달 이미 냈으면 오늘은 이용만(0원).
+            _mp = set(persona.get("monthly_paid") or ())
+            _subs = sorted({str(getattr(e, "sub_category", "") or "") for e in (events or [])} & {"학원", "기타교육", "헬스장"})
+            if _subs:
+                def _due(x):
+                    _i = _pt.info(persona.get("home_dong_code") or None, x) if _pt.ON else None
+                    _r = (f" (서울 {x} 카드 결제 1건, 2025 실측 하위 10%~상위 10%: {int(_i['p10']):,}~{int(_i['p90']):,}원)"
+                          if _i and _i.get('p10') else "")
+                    return '오늘 이번 달 치를 낼 차례' + _r
+                _monthly = "\n월 납부: " + " / ".join(
+                    f"{x} — {'이번 달 이미 냄(오늘은 이용만, 0원)' if x in _mp else _due(x)}" for x in _subs)
+        header_parts.append(f"## 에이전트 정보\n{lifestyle}\n{_today_line}{budget_info} / 소비성향: {tendency} / 소득분위: {income}{_cat}{_dur}{_monthly}")
     if persona:
         if neutral:
             policies = active_policies or []
@@ -781,7 +919,7 @@ def build_stage2_prompt(
         recent_ordered = sorted(recent_poi_ids) if configured_context() else list(recent_poi_ids)
         header_parts.append(
             ("## 최근 3일 방문 POI (반복 방문 여부는 입력 상황으로 판단)\n" if grounded_experiment
-             else "## 최근 3일 방문 POI (⚠️ 표시 — 단순 반복 자제)\n")
+             else ("## 최근 3일 방문 POI (⚠️ 표시)\n" if _pt.ON else "## 최근 3일 방문 POI (⚠️ 표시 — 단순 반복 자제)\n"))
             + ", ".join(recent_ordered[:20])
         )
 
@@ -801,7 +939,8 @@ def build_stage2_prompt(
         f"{header}"
         f"다음 이벤트별 candidates 중에서 POI를 선택하고 소비액·만족도를 설정하세요.\n\n"
         f"{body}\n\n"
-        f"각 이벤트의 order·poi_id·actual_spent·actual_satisfaction·pick_reason·pick_factor를 JSON으로 출력하세요."
+        + ("각 이벤트의 order·poi_id·menu·unit_price·pay_count·actual_spent·actual_satisfaction·pick_reason·pick_factor를 JSON으로 출력하세요."
+           if _pt.ON else "각 이벤트의 order·poi_id·actual_spent·actual_satisfaction·pick_reason·pick_factor를 JSON으로 출력하세요.")
         + (" 각 pick의 evidence_ref에는 입력의 [E0001] 형태로 표시된 사실 줄 번호를 넣으세요."
            " 프로그램이 해당 원문을 evidence_quote로 기록하므로 evidence_quote는 출력하지 마세요."
            if grounded_experiment else " /no_think")
@@ -972,7 +1111,7 @@ def call_stage2(
     all_pids = sorted({c["poi_id"] for cs in cands_by_order.values() for c in cs})
     expected_orders = [
         i for i, ev in enumerate(stage1.events)
-        if ev.category not in INTERNAL_CATS and not ev.pinned_poi and cands_by_order.get(i)
+        if ev.category not in INTERNAL_CATS and (not ev.pinned_poi or _pt.ON) and cands_by_order.get(i)
     ]
     s2_schema = None
     if all_pids and expected_orders:
@@ -999,6 +1138,10 @@ def call_stage2(
                                     "extra_spent": {"type": ["integer", "null"], "minimum": 0},
                                     "pick_reason": {"type": ["string", "null"]},
                                     "pick_factor": {"type": ["string", "null"]},
+                                    **({"menu": {"type": "string"},
+                                        "unit_price": {"type": "number", "minimum": 0},
+                                        "pay_count": {"type": "integer", "minimum": 1, "maximum": 8}}
+                                       if _pt.ON else {}),
                                 },
                                 # policy_spend·would_buy_anyway를 필수로 둔다. 선택 필드였을 때 모델이 대부분 생략했고
                                 # (측정: 40만 tier가 5일 중 4일 쿠폰 0건), 생략은 곧 "미사용"으로 처리돼
@@ -1007,7 +1150,8 @@ def call_stage2(
                                 # [되돌림] policy_spend를 필수로 두니 모델이 건별로 판단은 하되
                                 # 사용 수준이 0.42로 뛰어 전체 소진이 7.3%/일(목표 2.73)로 과속했고
                                 # MPC도 0.174→0.085로 무너졌다. 선택 필드로 되돌린다.
-                                "required": ["order", "poi_id", "actual_satisfaction", "actual_spent"],
+                                "required": (["order", "poi_id", "actual_satisfaction", "actual_spent", "menu", "unit_price", "pay_count"]
+                                             if _pt.ON else ["order", "poi_id", "actual_satisfaction", "actual_spent"]),
                                 "additionalProperties": False,
                             },
                         }
@@ -1137,6 +1281,14 @@ def call_stage2(
                     + '이미 검증된 order는 다시 출력하지 말고, 각 order를 한 번씩만 쓰세요. '
                     + '해당 order의 후보 poi_id와 입력의 E0001 형식 evidence_ref 하나만 사용하세요.',
                 )
+        if _pt.ON and not grounded_experiment and attempt > 0 and last_err and previous_raw:
+            _corr = f'재시도 {attempt}/{retry_limit}입니다. '
+            _bo = re.search(r'order (\d+): poi_id must be from that order candidates', str(last_err))
+            if _bo:
+                _o = int(_bo.group(1))
+                _corr += f"order {_o}에 허용된 poi_id는 다음뿐입니다: {', '.join(c['poi_id'] for c in cands_by_order.get(_o, []))}. "
+            _corr += '외출 order 마다 pick 을 하나씩 빠짐없이 쓰고, poi_id 는 그 order 의 후보에서만, unit_price·pay_count 는 정수로 쓰세요.'
+            prompt_now += rejected_response_feedback(previous_raw, last_err, _corr)
         elapsed = time.perf_counter() - started
         timing["t_retry_prompt"] += elapsed
         attempt_timing["t_retry_prompt"] = elapsed
@@ -1292,6 +1444,22 @@ def call_stage2(
                     attempt_timing['partial_picks_saved'] = len(collected_picks)
                     raise ValueError('missing required orders: ' + ', '.join(map(str, missing_orders)))
                 parsed = Stage2Output(picks=[collected_picks[order] for order in expected_orders])
+            if _pt.ON and not grounded_experiment:
+                # [2026-10-07b] 가격 판에서는 엔진이 가게·금액을 대신 정하지 않는다. 예전에는 후보 밖 가게를 상위 5개 중
+                # 무작위 가게(만족도 0.5)로, 빠진 외출을 무작위 가게로 채우고 금액은 실측 하위 10%로 채웠다(결제의 약 7%).
+                # 이제는 모델에게 다시 묻는다. 끝까지 못 하면 그 사람의 하루는 실패로 남는다(지어낸 하루보다 낫다).
+                _bad = [p.order for p in parsed.picks
+                        if p.poi_id not in {c['poi_id'] for c in cands_by_order.get(p.order, [])}]
+                if _bad:
+                    raise ValueError(f'order {_bad[0]}: poi_id must be from that order candidates')
+                _have = {p.order for p in parsed.picks}
+                _miss = [i for i, ev in enumerate(stage1.events)
+                         if ev.category not in INTERNAL_CATS and cands_by_order.get(i) and i not in _have]
+                if _miss:
+                    raise ValueError('missing required orders: ' + ', '.join(map(str, _miss)))
+                _noprice = [p.order for p in parsed.picks if p.unit_price is None or p.pay_count is None]
+                if _noprice:
+                    raise ValueError(f'order {_noprice[0]}: unit_price and pay_count are required')
             import random as _random
             corrected_picks = []
             hallucinations = 0          # 보정 (해당 order의 cands에 없지만 cands는 존재)
@@ -1354,8 +1522,23 @@ def call_stage2(
             for pick in parsed.picks:
                 cat = cat_by_order.get(pick.order)
                 if cat and cat not in INTERNAL_CATS:
+                    if _pt.ON:
+                        # [2026-10-07b] 금액 = 모델이 답한 한 사람 몫 × 인원. 0원(산책·상담·이번 달 이미 낸 학원 등)은 0원.
+                        # 예전엔 0원을 '누락'으로 보고 같은 업종 값·실측 하위 10%·업종 상수로 채웠다(산책 → 133,716원).
+                        pick.actual_spent = float(max(0, int(round(pick.unit_price or 0))) * max(1, int(pick.pay_count or 1)))
+                        continue
                     if pick.actual_spent is None or pick.actual_spent <= 0:
                         spend_amount_fallbacks += 1
+                        if _pt.ON:
+                            # 빠진 금액은 같은 응답에서 같은 업종의 다른 결제(1인 몫)를 먼저 쓰고, 없으면 실측 결제 1건당의
+                            # 하위 10%를 쓴다(결제 1건당 중앙·평균은 여럿이 함께 낸 결제가 섞여 혼자 몫으로는 크다).
+                            _same = [float(x.unit_price) for x in parsed.picks
+                                     if x is not pick and (x.unit_price or 0) > 0 and cat_by_order.get(x.order) == cat]
+                            _cs = cands_by_order.get(pick.order) or []
+                            _ti = _cs[0].get("price_ticket") if _cs else None
+                            _fb = (sorted(_same)[len(_same) // 2] if _same else (_ti["p10"] if _ti else None))
+                            if _fb:
+                                pick.actual_spent = float(int(round(_fb)))
                     pb, pf = price_by_poi.get(pick.poi_id) or (None, 1.0)
                     previous_spend = pick.actual_spent
                     _ensure_positive_spend(
@@ -1557,6 +1740,10 @@ def merge_to_final_events(
             "with_agents": ev.with_agents or [],
             "actual_satisfaction": pick_obj.actual_satisfaction if pick_obj else None,
             "actual_spent": pick_obj.actual_spent if pick_obj else 0,
+            # [EXP_PRICE_MODE] 무엇을 얼마에 — 인터뷰·기억에 남긴다(옛 모드에서는 None)
+            "menu": (pick_obj.menu if pick_obj else None),
+            "unit_price": (pick_obj.unit_price if pick_obj else None),
+            "pay_count": (pick_obj.pay_count if pick_obj else None),
             "price_band": _pb[0] if _pb else None,
             "price_factor": float(_pb[1]) if _pb else 1.0,
             # 쿠폰 사용처 여부 (후보풀 밖 POI(anchor 등)는 None = 판정 불가)

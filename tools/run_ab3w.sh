@@ -39,14 +39,17 @@ AB_MAX_ATTEMPTS=${AB_MAX_ATTEMPTS:-12}             # 사람-날 하나의 시도
 # 시도 예산만 닳는다. 중계의 remote_timeout(300)보다 길어야 한다. 결정에 닿지 않는 운영 값이라 실행 지문에는 없다.
 AB_LLM_TIMEOUT=${AB_LLM_TIMEOUT:-600}
 # [2026-10-06] 공통 소비 프롬프트 판. v53n = v53 에서 '외출을 너무 보수적으로 줄이면 부자연스럽다' 한 구절만 뺀 판(본런 전 프롬프트 점검).
-AB_PROMPT_VARIANT=${AB_PROMPT_VARIANT:-v53n}
+AB_PROMPT_VARIANT=${AB_PROMPT_VARIANT:-v53q}   # [2026-10-07b] v53q = 예시 값·지어낸 규범·정책 구매 예시를 뺀 판
 
 source "$AB_REPO/tools/ab3w_cases.sh"
 BASE=$AB_ROOT/${AB_CASE}_${AB_TAG}
 PRE_START=$(date -d "$START - $AB_PRE_DAYS days" +%F)
 DAY0=$(date -d "$PRE_START - 1 day" +%F)
 POST_END=$(date -d "$START + $((AB_POST_DAYS-1)) days" +%F)
+# [2026-10-06] 공휴일 표(scripts/sim/kr_holidays.py)가 시뮬 날짜의 해를 모두 덮어야 한다 — 아니면 평일 공휴일이 출근일이 된다.
+python3 -c "import sys; sys.path.insert(0, sys.argv[1]); from datetime import date; from kr_holidays import require_covered; require_covered(date.fromisoformat(sys.argv[2]), date.fromisoformat(sys.argv[3]))" "$AB_REPO/scripts/sim" "$PRE_START" "$POST_END" || { echo "[$(date -Is)] 공휴일 표가 $PRE_START~$POST_END 를 덮지 않는다 — 멈춘다" >&2; exit 1; }
 mkdir -p "$BASE" "$AB_ROOT/locks"
+test -s "$AB_REPO/output/stats/ticket_price.json" || { echo "실측 결제 1건당 표가 없다 — scripts/prep/build_ticket_price.py" >&2; exit 1; }
 LOG=$BASE/orchestrate.log
 log() { printf '[%s] %s\n' "$(date -Is)" "$*" | tee -a "$LOG"; }
 trap 'log "FAILED at line $LINENO — 그래프·출력은 그대로 둔다"' ERR
@@ -72,10 +75,15 @@ exec 9>"$AB_ROOT/locks/neo4j_${AB_BOLT_OFF}.lock"; flock -n 9 || { log "Neo4j $A
 common_env() {
   export LLM_BASE_URL=$AB_LLM_BASE_URL LLM_MODE=exaone_4_5 SIM_PROMPT_VARIANT=$AB_PROMPT_VARIANT
   export EXP_SANGSAENG_BASE_RATIO=0.268 EXP_SEED_SANGSAENG=1 EXP_BALANCE_DAYS=39
-  export EXP_DURABLES=1 EXP_CATLINE=fold EXP_POLICY_ANONYMOUS=1 POLICY_POI_SORT_BOOST=0
+  # [2026-10-07b] 집안 물건 연한은 id 해시 + 경험 상수(실측 아님)라 끈다. 규범·고정값 표시 정리(EXP_CLEAN_PROMPT).
+  export EXP_DURABLES=0 EXP_CATLINE=fold EXP_POLICY_ANONYMOUS=1 POLICY_POI_SORT_BOOST=0 EXP_CLEAN_PROMPT=1
   # 하루 소득: 평소 소비 수준(앵커)만큼 매일 채운다(사용자 선택 '1번', 잔액 유지). 계수 1/2.40 은 적립 채널의 눈금과 같다.
   export EXP_DAILY_INCOME=anchor:0.41667; unset EXP_DAILY_INCOME_MAP
   export EXP_ELIGIBLE_CHANNEL=1
+  # [2026-10-07] 가격 그대로(사후 비례 축소 없음, 예산 넘으면 뒤쪽 결제부터 거름, 병원·내구재는 예산 위),
+  # 2단계는 메뉴×1인분 가격×인분으로 금액을 정한다. ticket=고른 세부 업종의 실측 결제 1건당을 보여 줌, knowledge=숫자 없음.
+  # 피로는 외출만 세고, 최소 외출 의무는 없다(집에 머무는 하루 허용).
+  export EXP_PRICE_FIRST=1 EXP_PRICE_MODE=${AB_PRICE_MODE:-knowledge} EXP_FATIGUE_OUTINGS=1 EXP_NO_MIN_OUTING=1 EXP_CLINIC_COOLDOWN=1
   # 계획 통로: 정책 전 주에는 기준선 파일이 없어 배수 1, 정책 시작일부터 같은 경로에 기준선이 놓인다.
   export EXP_PLAN_DRIVES_TOTAL=1 EXP_PLAN_BASELINE_FILE=$BASE/plan_baseline_live.json
   export EXP_NO_SKIP=1 EXP_AGENT_DAY_MAX_ATTEMPTS=$AB_MAX_ATTEMPTS SIM_LLM_TIMEOUT_SECONDS=$AB_LLM_TIMEOUT
@@ -258,6 +266,15 @@ if [[ ! -s $BASE/plan_baseline_frozen.sha256 ]]; then
   (cd "$BASE" && sha256sum plan_baseline_frozen.json > plan_baseline_frozen.sha256)
 fi
 (cd "$BASE" && sha256sum -c plan_baseline_frozen.sha256 >/dev/null)
+
+# ---------------------------------------------------------------- 4b 캐시백 문턱 기준(P012)
+# [2026-10-07b] 문턱 기준 = 그 사람의 정책 전 주 실제 적립업종 결제(평일×5+쉬는 날×2)/7. 복제 전에 넣어 두 갈래가 같다.
+if [[ $AB_CASE == p012 && ! -s $BASE/sangsaeng_base.json ]]; then
+  ( common_env; on_env; query_ready
+    pre_days=$(python -c 'import sys; from datetime import date, timedelta as t; s=date.fromisoformat(sys.argv[1]); print(",".join(str(s+t(i)) for i in range(int(sys.argv[2]))))' "$PRE_START" "$AB_PRE_DAYS")
+    python tools/set_sangsaeng_base_from_pre.py --roster "$BASE/roster.json" --days "$pre_days" --out "$BASE/sangsaeng_base.json" ) | tee -a "$LOG"
+  [[ -s $BASE/sangsaeng_base.json ]] || { log '캐시백 문턱 기준을 만들지 못했다 — 멈춘다'; exit 1; }
+fi
 
 # ---------------------------------------------------------------- 5 복제
 if [[ ! -s $BASE/fork.marker ]]; then

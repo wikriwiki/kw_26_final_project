@@ -51,6 +51,36 @@ except Exception:
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from neo4j_load._common import driver_session  # noqa: E402
+
+
+def _monthly_due_day(aid: str, sub: str) -> int:
+    """월 납부일(1~28) — 사람·업종 해시로 고정(정책 있음·없음 같음). 실제 납부일 분포 자료가 없어 고르게 둔다."""
+    return 1 + int(hashlib.sha256(("%s|%s|monthly" % (aid, sub)).encode("utf-8")).hexdigest()[:8], 16) % 28
+
+
+def _recent_clinic_days(aid: str, today) -> list:
+    """[EXP_CLINIC_COOLDOWN] 최근 3일 안에 진료(의원·치과·한의원)에 돈을 낸 날. 며칠 안에 다시 진료받는 일은
+    현실에서 드물다(사용자 결정 2026-10-07). 약국은 세지 않는다."""
+    with driver_session() as s:
+        r = s.run("MATCH (a:Agent {id:$aid})-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->() "
+                  "WHERE p.day >= date($start) AND p.day < date($today) AND i.sub_category IN ['의원', '치과', '한의원'] "
+                  "AND coalesce(i.actual_spent, 0) > 0 RETURN collect(DISTINCT toString(p.day)) AS days",
+                  aid=aid, start=(today - timedelta(days=3)).isoformat(), today=today.isoformat()).single()
+    return sorted((r or {}).get("days") or [])
+
+
+def _monthly_paid(aid: str, today) -> set:
+    """[EXP_PRICE_FIRST] 이번 달 이미 낸 월 납부 세부 업종(학원·헬스장). 납부일 전이면 지난 회차로 이미 낸 것으로 본다."""
+    from consumption import MONTHLY_SUBS
+    start = today.replace(day=1)
+    with driver_session() as s:
+        r = s.run("MATCH (a:Agent {id:$aid})-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->() "
+                  "WHERE p.day >= date($start) AND p.day < date($today) AND i.sub_category IN $subs "
+                  "AND coalesce(i.actual_spent, 0) > 0 RETURN collect(DISTINCT i.sub_category) AS subs",
+                  aid=aid, start=start.isoformat(), today=today.isoformat(), subs=sorted(MONTHLY_SUBS)).single()
+    paid = set((r or {}).get("subs") or [])
+    paid |= {sub for sub in MONTHLY_SUBS if today.day < _monthly_due_day(aid, sub)}
+    return paid
 from dawn_context import build_dawn_context  # noqa: E402
 from experience import receipts, observation_window, update_appraisals
 import agent_day_store
@@ -58,6 +88,7 @@ from evidence_integrity import money, digest, seal, verify
 from experience_provenance import (source_fingerprint, execution_fingerprint,
                                    paired_environment_fingerprint, atomic_json)
 from environments import build_environment  # noqa: E402
+from kr_holidays import is_day_off as _kr_day_off  # noqa: E402  공휴일은 주말과 같이 쉬는 날
 from mechanisms import poi_restriction  # noqa: E402
 from no_smoking_context import configured_context, begin_llm_scope, clear_llm_scope  # noqa: E402
 
@@ -360,6 +391,10 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             raise ValueError("previous State belongs to a different experience run")
         ctx.state["_experience_agent_id"] = aid
         ctx.environment = build_environment(_SIM_ENV, today)
+        if os.environ.get("EXP_PRICE_FIRST", "0") == "1":
+            ctx.persona["monthly_paid"] = sorted(_monthly_paid(aid, today))
+        if os.environ.get("EXP_CLINIC_COOLDOWN", "0") == "1":
+            ctx.persona["recent_clinic_days"] = _recent_clinic_days(aid, today)
         timing["t_dawn"] = round(time.time() - _t, 3)
         if not ctx.persona:
             return {"aid": aid, "status": "no_persona", "elapsed": time.time() - t0}
@@ -429,7 +464,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             # 지원금은 그 자리에서만 쓸 수 있으므로, 그 금액으로 며칠이 버티는지가 실제 감각이다.
             # 동네 가게 지출 = 평소 지출 × (1 − BDC 실측 대형·제외업종 비중).
             daily_spend=_local_daily_spend(
-                ctx.persona.get("daily_we") if today.weekday() >= 5
+                ctx.persona.get("daily_we") if _kr_day_off(today)
                 else ctx.persona.get("daily_wd"),
                 ctx.persona.get("spend_decile"),
             ),
@@ -576,7 +611,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             raise ValueError("즉시 할인 정책에는 할인 후 잔액을 검증하는 propensity 소비모델이 필요하다")
 
         if os.environ.get("CONSUMPTION_MODEL", "propensity") != "legacy":
-            _is_weekend = today.weekday() >= 5
+            _is_weekend = _kr_day_off(today)   # 공휴일 포함(kr_holidays)
             # 제한 grant의 봉투는 사용처·업종 제약 메타데이터다.
             # 잔액을 p와 곱해 소비액으로 만들지 않으며, 소비 총액 확정 후 사용 가능한
             # 거래에서 결제수단만 정책지갑 우선으로 정산한다.
@@ -614,6 +649,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 # 개인 계획 기준선을 찾으려면 누구인지 알아야 한다(EXP_PLAN_DRIVES_TOTAL).
                 aid=aid,
                 is_weekend=_is_weekend,
+                **({"monthly_paid": set(ctx.persona.get("monthly_paid") or ()),
+                    "budget_carry_in": (ctx.state or {}).get("budget_carry")}
+                   if os.environ.get("EXP_PRICE_FIRST", "0") == "1" else {}),
             )
         else:
             # legacy는 총소비액을 건드리지 않되 결제수단은 동일한 우선 정산을 적용한다.
@@ -710,7 +748,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         observations = observation_window(
             (ctx.state or {}).get("observations_json"), execution_receipts,
         )
-        day_type = "weekend" if today.weekday() >= 5 else "weekday"
+        day_type = "weekend" if _kr_day_off(today) else "weekday"
         tokens_in = m1.get('tokens_in_total', m1['tokens_in']) + (m2.get('tokens_in_total', m2.get('tokens_in')) or 0)
         tokens_out = m1.get('tokens_out_total', m1['tokens_out']) + (m2.get('tokens_out_total', m2.get('tokens_out')) or 0)
         with agent_day_store.transaction(aid, today, run_identity) as tx:
@@ -750,6 +788,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 # 배송 주문은 INCLUDES 엣지가 없어 today_spent 합계에 잡히지 않는다. 별도로 차감한다.
                 today_online_spent=int((cm_meta or {}).get("online_total") or 0),
                 today_income=_today_income,
+                budget_carry=(((cm_meta or {}).get("price_first") or {}).get("carry_out")),
                 execution_receipts=execution_receipts,
                 observations=observations,
                 policy_appraisals=policy_appraisals,
