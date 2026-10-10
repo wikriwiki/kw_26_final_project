@@ -93,6 +93,10 @@ CREATE (p)-[:INCLUDES {
   menu: ev.menu,                         // [EXP_PRICE_MODE] 먹거나 산 것
   unit_price: ev.unit_price,             // 1인분·1개 가격
   pay_count: ev.pay_count,               // 내가 계산한 인분·개수
+  // [2026-10-11] 장보기 중 국산 농축산물 금액(모델 답)과 오늘 받은 결제 할인 합 — 기억·인터뷰가 숫자로 근거를 댈 수 있게
+  produce_spent: ev.produce_spent,
+  produce_share: ev.produce_share,
+  discount_total: coalesce(ev.discount_total, 0),
   budget_skipped: ev.budget_skipped      // 하루 예산을 넘어 하지 않은 결제
 }]->(poi)
 RETURN count(*) AS written
@@ -116,6 +120,7 @@ def write_plan(
         discount = ev.get("instant_discount") or {}
         ev["instant_discount_json"] = (_json.dumps(discount, ensure_ascii=False)
                                         if discount else "{}")
+        ev["discount_total"] = int(sum(int(v or 0) for v in discount.values())) if isinstance(discount, dict) else 0
         rebate = ev.get("policy_rebate") or {}
         ev["policy_rebate_json"] = _json.dumps(rebate, ensure_ascii=False) if rebate else "{}"
     # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
@@ -513,7 +518,13 @@ WITH a, p, i, poi,
      // summary = "왜 그랬는지". 새벽 컨텍스트는 장소·업종·만족도를 별도로 이미 찍으므로
      // 예전처럼 그것을 반복하면 120자가 통째로 낭비된다. 같은 자리에 계기와 이유를 넣는다.
      // 인터뷰(1:1 회상)용 원문은 아래 why/pick_why에 잘리지 않은 채로 따로 보관한다.
-     toString(coalesce(i.actual_spent, 0)) + '원 · ' +
+     toString(coalesce(i.actual_spent, 0)) + '원' +
+       // [2026-10-11] 결제할 때 깎인 금액·실제로 낸 돈, 장보기 중 농축산물 금액 — 사람이 기억할 법한 사실만 숫자로
+       CASE WHEN coalesce(i.discount_total, 0) > 0
+            THEN '(결제 할인 ' + toString(i.discount_total) + '원, 낸 돈 '
+                 + toString(coalesce(i.actual_spent, 0) - i.discount_total) + '원)' ELSE '' END +
+       CASE WHEN i.produce_spent IS NOT NULL AND i.produce_spent > 0
+            THEN ' · 그중 농축산물 ' + toString(i.produce_spent) + '원' ELSE '' END + ' · ' +
        CASE WHEN i.menu IS NOT NULL AND i.menu <> '' THEN i.menu + ' · ' ELSE '' END +
        '[' + coalesce(i.trigger, '-') + '] ' +
        left(coalesce(i.reasoning, ''), 90) AS summary,
@@ -536,6 +547,9 @@ MERGE (m:Memory {id: mem_id})
     m.paid_policy = (i.spent_from_policy IS NOT NULL
                      AND i.spent_from_policy <> '{}' AND i.spent_from_policy <> 'null'),
     m.extra_spent = i.extra_spent,    // 이 결제 중 지원금 없었으면 안 썼을 금액
+    m.discount_total = coalesce(i.discount_total, 0),   // [2026-10-11] 결제 할인 받은 금액
+    m.produce_spent = i.produce_spent,                 // 장보기 중 농축산물 금액(모델 답)
+    m.store = poi.name,                                // 가게 이름(인터뷰에서 '어디서'를 바로 댈 수 있게)
     m.category = coalesce(i.sub_category, i.category)
 MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 MERGE (m)-[:ABOUT_POI]->(poi)

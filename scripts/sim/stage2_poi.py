@@ -44,6 +44,44 @@ from prompt_grounding import validate_stated_reason
 from no_smoking_prompts import SYSTEM_STAGE2
 from poi_price import poi_price, price_icon, unit_price_anchor, band_factor  # noqa: E402
 import price_ticket as _pt  # noqa: E402  [2026-10-07] 실측 결제 1건당·메뉴×인분 금액
+
+# [2026-10-11] 장보기 후보에 가까운 대형 형태 매장(대형마트·기업형 슈퍼)을 브랜드와 상관없이 더한다(P016).
+# 반경·개수·형태는 실행 설정으로 고정한다. 참여 체인 중 GS더프레시·농협하나로마트는 대부분 기업형 슈퍼 형태라
+# 대형마트만 넣으면 이들이 빠진다. 형태 둘·가까운 3곳이면 명부 2,000명 중 85.4%, 2곳이면 73.3% 의 장보기 후보에
+# 참여 매장이 하나 이상 들어간다(/data/ab3w/audit_tools/p016_reach2.py, 2026-10-11, 마트 적재 고친 뒤).
+_MART_REACH = os.environ.get("EXP_MART_REACH", "0") == "1"
+_MART_REACH_KM = float(os.environ.get("EXP_MART_REACH_KM", "3"))
+_MART_REACH_N = int(os.environ.get("EXP_MART_REACH_N", "2"))
+_MART_REACH_FORMATS = [f.strip() for f in os.environ.get("EXP_MART_REACH_FORMATS", "hypermarket").split(",") if f.strip()]
+_GROCERY_SUBS = frozenset({"슈퍼마켓", "식료품", "청과", "정육", "수산", "장보기"})
+_MART_REACH_CYPHER = """
+MATCH (a:Agent {id: $aid})-[:LIVES_AT|WORKS_AT]->(anchor:POI)
+WHERE anchor.lon IS NOT NULL AND anchor.lat IS NOT NULL
+MATCH (p:POI) WHERE p.mart_format IN $formats
+  AND p.type = 'commerce' AND p.lon IS NOT NULL AND p.lat IS NOT NULL
+WITH a, p, min(point.distance(point({longitude: p.lon, latitude: p.lat}),
+                              point({longitude: anchor.lon, latitude: anchor.lat})) / 1000.0) AS km
+WHERE km <= $radius_km
+OPTIONAL MATCH (a)-[kp:KNOWS_POI]->(p)
+RETURN p.id AS poi_id, p.name AS name,
+       (kp IS NOT NULL) AS known,
+       coalesce(kp.visit_count, 0) AS visit_count,
+       kp.avg_satisfaction AS avg_satisfaction,
+       kp.last_visit AS last_visit,
+       p.coupon_eligible AS coupon_eligible,
+       p.sangsaeng_eligible AS sangsaeng_eligible,
+       p.upjong_l3 AS upjong_l3,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.name]) AS poi_sub_category,
+       head([(p)-[:IN_CATEGORY]->(oc:Category) | oc.parent]) AS poi_l1,
+       km
+ORDER BY km ASC, poi_id ASC LIMIT $n
+"""
+
+# [2026-10-11] 장보기 결제의 농축산물 금액을 모델에게 묻는다(P016 품목 할인·인터뷰용). 켜면 두 갈래가 같은 질문을 받는다.
+_PRODUCE_FIELD = os.environ.get("EXP_PRODUCE_FIELD", "0") == "1"
+_PRODUCE_NOTE = (
+    "- `produce_spent`: 마트·슈퍼·식료품·청과·정육에서 장을 본 결제라면, 그 결제 중 국산 신선 농축산물"
+    "(과일·채소·고기·쌀·잡곡·계란)에 쓴 금액(원)입니다. 장보기가 아니면 null 입니다. `actual_spent`보다 클 수 없습니다.\n")
 FREE_OUTDOOR_SUBS = frozenset({"산책", "공원", "공원 산책", "산책로", "등산", "걷기", "둘레길", "한강공원"})
 _FREE_OUTDOOR_RE = re.compile(r"산책|등산|공원|둘레길|휴양림|걷기|숲길|하이킹|한강")
 _PINNED_CYPHER = """
@@ -78,6 +116,9 @@ class Stage2Pick(BaseModel):
     menu: str | None = None
     unit_price: float | None = None
     pay_count: int | None = None
+    # [2026-10-11 EXP_PRODUCE_FIELD] 장보기 결제 중 국산 신선 농축산물에 쓴 금액(원). 장보기가 아니면 None.
+    # 품목 할인(P016)의 기준액과 인터뷰 근거로만 쓴다 — 두 갈래 모두 같은 질문을 받는다.
+    produce_spent: int | None = None
     actual_satisfaction: float | None = None # LLM이 설정 (0~1)
     # actual_spent 중 정책 지원금에서 사용한 금액 — {"P009": 5000} 형태.
     # 평소 잔액으로 쓴 부분 = actual_spent - sum(policy_spend.values())
@@ -98,7 +139,7 @@ class Stage2Pick(BaseModel):
             value.pop('evidence_ref', None)
         if self.evidence_quote is None:
             value.pop('evidence_quote', None)
-        for _k in ('menu', 'unit_price', 'pay_count'):
+        for _k in ('menu', 'unit_price', 'pay_count', 'produce_spent'):
             if getattr(self, _k) is None:
                 value.pop(_k, None)
         return value
@@ -354,6 +395,19 @@ def fetch_candidates_for_events(
                             s["cand_fallback_l1_district"] = s.get("cand_fallback_l1_district", 0) + n
                 if not cands:
                     s["cand_all_empty"] = s.get("cand_all_empty", 0) + n
+
+            # [2026-10-11 EXP_MART_REACH] 장보기라면 집·직장에서 가까운 대형마트(동 밖이라도)를 후보에 더한다.
+            # 후보를 사건 동 하나에서만 찾으면 대형마트가 없는 동(대부분)의 시민에게 대형마트가 보이지 않는다.
+            # 두 갈래 모두 같은 규칙이고, 정책 여부와 상관없이 실제 거리로만 고른다.
+            if (_MART_REACH and cands is not None and not sub_cat.startswith("__PIN__")
+                    and (l1 == "마트" or sub_cat in _GROCERY_SUBS)):
+                _have = {c.get("poi_id") for c in cands}
+                _extra = [dict(r) for r in sess.run(_MART_REACH_CYPHER, aid=aid, radius_km=_MART_REACH_KM, formats=_MART_REACH_FORMATS,
+                                                     n=_MART_REACH_N + len(_have))]
+                _extra = [c for c in _extra if c.get("poi_id") not in _have][:_MART_REACH_N]
+                if _extra:
+                    cands = list(cands) + _extra
+                    s["cand_mart_reach_added"] = s.get("cand_mart_reach_added", 0) + len(_extra)
 
             # POI 가격대 부착 (결정론, O(1)) — Stage2 프롬프트 표기·소비 반영용.
             # district fallback 후보는 자기 동 미상 → anchor 동 prior로 근사.
@@ -699,7 +753,7 @@ def _price_mode_system(text: str) -> str:
     assert text.count(start) == text.count(end) == 1
     before, rest = text.split(start, 1)
     _, after = rest.split(end, 1)
-    sec = _PRICE_SECTION_NEW + (_TICKET_NOTE if _pt.MODE == "ticket" else "")
+    sec = _PRICE_SECTION_NEW + (_PRODUCE_NOTE if _PRODUCE_FIELD else "") + (_TICKET_NOTE if _pt.MODE == "ticket" else "")
     text = before + sec + "\n" + end + after
     # [2026-10-07b] 0원 방문을 금지하던 문장·만족도 예시 숫자·반복 금지 지시를 뺀다(본런 검수: 0원이 지어낸 금액으로,
     # 만족도가 0.71 근처 계단값으로, 어제 간 가게 재방문이 5~6% 로 눌렸다).
@@ -714,6 +768,9 @@ def _price_mode_system(text: str) -> str:
     # 출력 예시의 금액 숫자(12000·25000)는 모델이 따라 쓰는 기준값이 된다 — 자리표시로 바꾼다.
     text = text.replace('"actual_spent": 12000,', '"menu": "<먹거나 살 것>", "unit_price": <한 사람 몫 결제 금액>, "pay_count": <몇 명 몫을 내는지>, "actual_spent": <unit_price×pay_count>,')
     text = text.replace('"actual_spent": 25000,', '"menu": "<먹거나 살 것>", "unit_price": <한 사람 몫 결제 금액>, "pay_count": <몇 명 몫을 내는지>, "actual_spent": <unit_price×pay_count>,')
+    if _PRODUCE_FIELD:
+        text = text.replace('"actual_spent": <unit_price×pay_count>,',
+                            '"actual_spent": <unit_price×pay_count>, "produce_spent": <장보기면 그중 농축산물 금액, 아니면 null>,')
     text = text.replace('"policy_spend": {"P009": 12000},', '"policy_spend": {"P009": <지원금으로 낸 금액>},')
     text = text.replace('"extra_spent": 2000,', '"extra_spent": <이 돈 때문에 더 쓴 금액>,')
     return text
@@ -1142,6 +1199,8 @@ def call_stage2(
                                         "unit_price": {"type": "number", "minimum": 0},
                                         "pay_count": {"type": "integer", "minimum": 1, "maximum": 8}}
                                        if _pt.ON else {}),
+                                    **({"produce_spent": {"type": ["integer", "null"], "minimum": 0}}
+                                       if _PRODUCE_FIELD else {}),
                                 },
                                 # policy_spend·would_buy_anyway를 필수로 둔다. 선택 필드였을 때 모델이 대부분 생략했고
                                 # (측정: 40만 tier가 5일 중 4일 쿠폰 0건), 생략은 곧 "미사용"으로 처리돼
@@ -1150,8 +1209,10 @@ def call_stage2(
                                 # [되돌림] policy_spend를 필수로 두니 모델이 건별로 판단은 하되
                                 # 사용 수준이 0.42로 뛰어 전체 소진이 7.3%/일(목표 2.73)로 과속했고
                                 # MPC도 0.174→0.085로 무너졌다. 선택 필드로 되돌린다.
-                                "required": (["order", "poi_id", "actual_satisfaction", "actual_spent", "menu", "unit_price", "pay_count"]
-                                             if _pt.ON else ["order", "poi_id", "actual_satisfaction", "actual_spent"]),
+                                # [2026-10-11] produce_spent 는 null 을 허용하되 필수로 둔다 — 선택 필드는 모델이 생략한다(위 주석).
+                                "required": ((["order", "poi_id", "actual_satisfaction", "actual_spent", "menu", "unit_price", "pay_count"]
+                                              if _pt.ON else ["order", "poi_id", "actual_satisfaction", "actual_spent"])
+                                             + (["produce_spent"] if _PRODUCE_FIELD else [])),
                                 "additionalProperties": False,
                             },
                         }
@@ -1526,6 +1587,9 @@ def call_stage2(
                         # [2026-10-07b] 금액 = 모델이 답한 한 사람 몫 × 인원. 0원(산책·상담·이번 달 이미 낸 학원 등)은 0원.
                         # 예전엔 0원을 '누락'으로 보고 같은 업종 값·실측 하위 10%·업종 상수로 채웠다(산책 → 133,716원).
                         pick.actual_spent = float(max(0, int(round(pick.unit_price or 0))) * max(1, int(pick.pay_count or 1)))
+                        if pick.produce_spent is not None:
+                            # 모델 답을 결제액 안으로만 자른다(값을 채우거나 바꾸지 않는다).
+                            pick.produce_spent = max(0, min(int(pick.produce_spent), int(pick.actual_spent)))
                         continue
                     if pick.actual_spent is None or pick.actual_spent <= 0:
                         spend_amount_fallbacks += 1
@@ -1744,6 +1808,11 @@ def merge_to_final_events(
             "menu": (pick_obj.menu if pick_obj else None),
             "unit_price": (pick_obj.unit_price if pick_obj else None),
             "pay_count": (pick_obj.pay_count if pick_obj else None),
+            # [2026-10-11] 장보기 중 농축산물 금액과 그 비율 — 금액 조정(감당 범위로 줄이기) 뒤에도 비율로 할인 기준액을 다시 낸다.
+            "produce_spent": (pick_obj.produce_spent if pick_obj else None),
+            "produce_share": ((pick_obj.produce_spent / pick_obj.actual_spent)
+                              if pick_obj and pick_obj.produce_spent is not None and (pick_obj.actual_spent or 0) > 0
+                              else None),
             "price_band": _pb[0] if _pb else None,
             "price_factor": float(_pb[1]) if _pb else 1.0,
             # 쿠폰 사용처 여부 (후보풀 밖 POI(anchor 등)는 None = 판정 불가)

@@ -314,5 +314,10 @@ def build(day: date, rule_day: date | None = None) -> dict:
     note = None
     if CHUSEOK[0] <= day <= CHUSEOK[1]:
         note = "추석 연휴. 가정 내 가족모임 예외가 적용되며 일반 식당 모임에는 확대되지 않는다"
+    # [2026-10-11 EXP_SEASON_NOTE] 2020년 여름 장마철 — 기상청 발표 중부지방 장마 시작 2020-06-24(종료 8/16, 54일).
+    # 그날 사람이 알 수 있는 것은 '장마철이 이어지고 있다'까지다(언제 끝날지는 모른다). 두 갈래 모두 같다.
+    if os.environ.get("EXP_SEASON_NOTE", "0") == "1" and date(2020, 6, 24) <= day <= date(2020, 8, 16):
+        _monsoon = "여름 장마철이다(중부지방 장마가 6월 24일 시작되어 이어지고 있다)"
+        note = f"{note}. {_monsoon}" if note else _monsoon
 
     return {"headline": headline, "facts": facts, "note": note}

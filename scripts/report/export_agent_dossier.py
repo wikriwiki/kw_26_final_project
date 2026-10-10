@@ -59,7 +59,9 @@ WHERE m.day >= date($start) AND m.day <= date($end)
 RETURN m.day AS day, m.type AS type, m.summary AS summary, m.why AS why,
        m.pick_why AS pick_why, m.category AS category, m.spent AS spent,
        m.paid_policy AS paid_policy, m.satisfaction AS satisfaction,
-       m.importance AS importance, m.trigger AS trigger, m.id AS id
+       m.importance AS importance, m.trigger AS trigger, m.id AS id,
+       m.menu AS menu, m.store AS store, m.discount_total AS discount_total,
+       m.produce_spent AS produce_spent, m.extra_spent AS extra_spent
 ORDER BY m.day, m.id
 """
 
@@ -78,7 +80,10 @@ RETURN p.day AS day, p.day_type AS day_type, p.generated_at AS generated_at,
          instant_discount: i.instant_discount, price_band: i.price_band,
          pick_reason: i.pick_reason, reasoning: i.reasoning,
          trigger: i.trigger, with_agents: i.with_agents,
-         actual_satisfaction: i.actual_satisfaction
+         actual_satisfaction: i.actual_satisfaction,
+         menu: i.menu, unit_price: i.unit_price, pay_count: i.pay_count,
+         produce_spent: i.produce_spent, discount_total: i.discount_total,
+         policy_rebate: i.policy_rebate
        }) AS items
 ORDER BY p.day
 """
@@ -90,7 +95,9 @@ RETURN st.day AS day, st.balance AS balance, st.month_spent AS month_spent,
        st.sangsaeng_month_spent AS sangsaeng_month_spent, st.mood AS mood,
        st.fatigue AS fatigue, st.energy AS energy,
        st.policy_lifecycle AS policy_lifecycle,
-       st.yesterday_satisfaction AS yesterday_satisfaction
+       st.yesterday_satisfaction AS yesterday_satisfaction,
+       st.instant_discount_today AS instant_discount_today,
+       st.policy_used AS policy_used
 ORDER BY st.day
 """
 

@@ -722,7 +722,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
         # 할인·환급 사용량은 규칙별 열쇠(정책·업종·기간, 결제 횟수)로 남긴다.
         for key, value in discount_settlement["used_after"].items():
-            if any(key == s["key"] or key.startswith(s["key"] + "#") for s in discount_specs):
+            # [2026-10-11] 체인별 한도 열쇠("P016:이마트")도 다음 날로 넘긴다.
+            if any(key == s["key"] or key.startswith(s["key"] + "#") or key.startswith(s["key"] + ":")
+                   for s in discount_specs):
                 updated_policy_used[key] = value
 
         # grant_remaining = 어제 잔여 + 오늘 받음 − 오늘 사용 (음수 방지)

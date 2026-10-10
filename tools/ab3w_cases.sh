@@ -46,14 +46,18 @@ case "$AB_CASE" in
     LEDGERS="sector policy"
     CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_SPREAD_DAYS=1);;
   p016)
-    # 농축산물 할인쿠폰 1차(2020-07-30 시작, 결제 즉시 20%, 1인 누적 1만원). 정답지 C1(대형 유통 5사 신선식품
-    # 매출)의 대리 지표만 잴 수 있다 — 그래프에 대형마트·온라인몰이 없고(실제 쿠폰 사용의 80%), 시뮬의 할인은
-    # 동네 청과·정육·슈퍼·식료품 가게에서만 일어난다. C2·C3 는 정의대로 셀 수 없다(검수 2026-10-05).
+    # [2026-10-11] 농축산물 할인 1차(대한민국 농할갑시다 2020-07-30~08-09). 참여 유통업체(이마트·롯데마트·농협하나로마트·
+    # GS더프레시) 매장에서 국산 신선 농축산물 값의 20%를 결제할 때 깎는다(유통업체마다 1인 최대 1만원).
+    # 품목 금액은 모델이 장보기 결제마다 답한다(EXP_PRODUCE_FIELD, 두 갈래 같은 질문). 대형마트 POI 를 더하고
+    # (tools/load_p016_marts.py, 카카오맵 2026-10-10) 장보기 후보에 집·직장 3km 안 가까운 대형 형태 매장(대형마트·기업형 슈퍼, 브랜드 무관) 3곳을 넣는다(EXP_MART_REACH).
+    # 배경에 2020 장마철(기상청, 중부 6/24 시작)을 둔다(EXP_SEASON_NOTE). 설계 data/experiments/P016_DESIGN_20261011.md.
     START=2020-07-30; PID=P016
-    POLICY=data/neo4j_load/policies/P016.json
+    POLICY=data/experiments/P016_ab3w_policy_20261011.json
     ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
     LEDGERS="sector"
-    CASE_EXPORTS=();;
+    CASE_GRAPH_PREP=tools/load_p016_marts.py
+    CASE_POWER_GATE=tools/p016_power_gate.py   # 정책 전 주 뒤 C1 검출 최소 차이 관문(설계 문서 3절)
+    CASE_EXPORTS=(EXP_PRODUCE_FIELD=1 EXP_MART_REACH=1 EXP_MART_REACH_KM=3 EXP_MART_REACH_N=3 EXP_MART_REACH_FORMATS=hypermarket,ssm EXP_SEASON_NOTE=1);;
   distancing)
     # 서울 사회적 거리두기 2단계 격상(2020-11-24). 정책 있음 = 실제 일정(covid_2021, 11-24 부터 2단계),
     # 정책 없음 = 11-23 의 1.5단계를 이어 간다(covid_2020_hold_1123, 확진 소식은 그날 것). 정답지(서울연구원)는
