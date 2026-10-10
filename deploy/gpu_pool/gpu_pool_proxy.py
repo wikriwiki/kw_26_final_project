@@ -103,8 +103,13 @@ class Backend:
 class Pool:
     def __init__(self, local_url, remotes, log_path, *, health_interval=5.0,
                  health_timeout=4.0, unhealthy_after=3, remote_timeout=420.0,
-                 local_timeout=900.0, connect_timeout=5.0):
+                 local_timeout=900.0, connect_timeout=5.0, local_routing=True,
+                 local_max_inflight=None):
         self.lock = threading.Lock()
+        self.local_free = threading.Condition(self.lock)
+        # 우리 서버 추가(2026-10-05): A100 을 다른 실행이 쓰는 동안 이 풀은 원격에만 일을 준다.
+        self.local_routing = bool(local_routing)
+        self.local_max_inflight = None if local_max_inflight in (None, 0, '') else int(local_max_inflight)
         self.local = Backend('local', local_url, local=True)
         self.remotes = [Backend(r['name'], r['url'], r.get('capacity', 1.0)) for r in remotes]
         names = [b.name for b in self.all()]
@@ -236,22 +241,41 @@ class Pool:
             self.stop.wait(self.health_interval)
 
     # ---------- routing ----------
+    def _wait_local_slot(self):
+        # self.lock 을 쥔 채로 부른다. 상한이 있으면 자리가 날 때까지 기다린다.
+        if self.local_max_inflight is not None:
+            while self.local.inflight >= self.local_max_inflight:
+                self.local_free.wait(1.0)
+                # 기다리는 동안 원격이 돌아오면 원격으로 보낼 수 있게 호출자가 다시 고른다
+                if not self.local_routing and any(b.eligible() for b in self.remotes):
+                    return False
+        self.local.inflight += 1
+        return True
+
     def choose(self):
         with self.lock:
-            candidates = [b for b in self.all() if b.eligible()] or [self.local]
-            # Least load relative to capacity; local wins ties.
-            best = min(candidates, key=lambda b: (b.inflight / b.capacity, not b.local))
-            best.inflight += 1
-            return best, best.identity_sha256
+            while True:
+                pool = self.all() if self.local_routing else self.remotes
+                candidates = [b for b in pool if b.eligible()]
+                if candidates:
+                    # Least load relative to capacity; local wins ties.
+                    best = min(candidates, key=lambda b: (b.inflight / b.capacity, not b.local))
+                    best.inflight += 1
+                    return best, best.identity_sha256
+                if self._wait_local_slot():
+                    return self.local, self.local.identity_sha256
 
     def take_local(self):
         with self.lock:
-            self.local.inflight += 1
+            while not self._wait_local_slot():
+                pass
             return self.local, self.local.identity_sha256
 
     def release(self, backend):
         with self.lock:
             backend.inflight -= 1
+            if backend.local:
+                self.local_free.notify_all()
 
     def _send_raw(self, backend, method, path, headers, body):
         timeout = self.local_timeout if backend.local else self.remote_timeout
@@ -302,7 +326,12 @@ class Pool:
     def forward(self, method, path, headers, body):
         request_id = sha256(os.urandom(16))[:16]
         routed = method == 'POST' and path.split('?')[0] in ROUTED_PATHS
-        backend, identity = self.choose() if routed else self.take_local()
+        if not routed:
+            # [2026-10-06] 생성이 아닌 요청(모델 목록·상태 확인)은 A100 생성 자리를 차지하지 않는다(doinggyu 검토 5.5).
+            # 예전에는 local_max_inflight 자리를 기다려, 실행기의 모델 서버 확인이 생성 요청 뒤에 줄을 섰다.
+            status, rheaders, data = self._send_raw(self.local, method, path, headers, body)
+            return status, rheaders, data, self.local.name
+        backend, identity = self.choose()
         started = time.monotonic()
         fallback_from = error = None
         try:
@@ -346,6 +375,7 @@ class Pool:
     def status(self):
         with self.lock:
             return {'at_utc': utc(), 'reference_identity_sha256': self.local.identity_sha256,
+                    'local_routing': self.local_routing, 'local_max_inflight': self.local_max_inflight,
                     'backends': [b.snapshot() for b in self.all()]}
 
     def set_drain(self, name, draining):
@@ -411,10 +441,17 @@ def make_handler(pool):
     return Handler
 
 
+class PoolHTTPServer(ThreadingHTTPServer):
+    # [2026-10-06] 본런은 시뮬 여러 개가 수백 개 요청을 동시에 연다. 기본 대기열 5 칸이면 접속이 밀린다.
+    request_queue_size = 1024
+    daemon_threads = True
+
+
 def serve(config):
     pool = Pool(config['local_url'], config.get('remotes', []), config['log_path'],
                 **{k: config[k] for k in ('health_interval', 'health_timeout', 'unhealthy_after',
-                                          'remote_timeout', 'local_timeout', 'connect_timeout')
+                                          'remote_timeout', 'local_timeout', 'connect_timeout',
+                                          'local_routing', 'local_max_inflight')
                    if k in config})
     # Refuse to start unless the local reference server answers.
     deadline = time.monotonic() + float(config.get('startup_wait_seconds', 60))
@@ -427,8 +464,7 @@ def serve(config):
                 raise
             time.sleep(2)
     host = config.get('listen_host', '127.0.0.1')
-    server = ThreadingHTTPServer((host, int(config['listen_port'])), make_handler(pool))
-    server.daemon_threads = True
+    server = PoolHTTPServer((host, int(config['listen_port'])), make_handler(pool))
     threading.Thread(target=pool.health_loop, daemon=True).start()
     pool.log(event='proxy_started', pid=os.getpid(), listen=f"{host}:{config['listen_port']}",
              remotes=[r['name'] for r in config.get('remotes', [])])
