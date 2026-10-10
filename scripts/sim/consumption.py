@@ -749,6 +749,78 @@ def settled_mpc_measure(events: list[dict], stage2_amounts: list[float]) -> dict
             "coverage": round(known_paid / total_paid, 6)}
 
 
+# [2026-10-07 가격 그대로] 하루 예산에 맞춰 모든 결제를 비례로 깎던 방식(주말 식사 1,600원)을 끈다.
+# 결제 금액은 2단계가 정한 금액(가게 가격 배율 포함) 그대로 둔다. 하루 방문 예산을 넘으면
+# 그날 일정의 **뒤쪽 결제부터 하지 않는다**(돈이 떨어지면 남은 일정을 거른다 — 업종 순위를
+# 우리가 정하지 않는다). 예산을 넘기는 그 한 건은 남은 예산/금액 비율의 확률로 한다
+# (사람·날·가게 해시 — 정책 있음·없음 양쪽 같음). 그래서 기댓값으로 하루 합계 = 예산이다.
+# 병원·치과·한의원·약국과 내구재(가전·가구)는 예상 밖 지출이라 예산 밖에서 그 금액 그대로 낸다.
+EXP_PRICE_FIRST = os.environ.get("EXP_PRICE_FIRST", "0") == "1"
+IRREGULAR_SUBS = frozenset({"의원", "치과", "한의원", "약국", "기타보건", "가전·통신", "가구"})
+# 끼니·장보기 같은 고정 생활비는 예산 때문에 거르지 않는다(사용자 결정 2026-10-07: 예상 밖 지출 때문에
+# 삼시세끼를 한 끼로 줄이는 일은 없어야 한다). 예산을 넘으면 재량 지출만 시간 순으로 거른다.
+ESSENTIAL_L1 = frozenset({"식사", "마트", "편의점"})
+# 달마다 한 번 내는 지출(학원비·헬스장 회원권). 이번 달 이미 냈으면 출석만 하고 0원이다.
+MONTHLY_SUBS = frozenset({"학원", "기타교육", "헬스장"})
+
+
+def _is_irregular(e: dict) -> bool:
+    return (e.get("sub_category") or e.get("sub") or "") in IRREGULAR_SUBS
+
+
+def _price_first_spends(commerce: list[dict], planned: list[float], budget: int, aid: str | None,
+                        monthly_paid: set | None = None) -> tuple[list[int], dict]:
+    import hashlib as _hl
+    amounts = [max(0, int(round(w))) for w in planned]
+    out = [0] * len(commerce)
+    irregular = 0
+    left = max(0, int(budget))
+    skipped = 0
+    paid = set(monthly_paid or ())
+    monthly = 0
+    # 고정 생활비 먼저 — 예산을 깎아 먹지만 거르지 않는다.
+    for i, e in enumerate(commerce):
+        if (e.get("sub_category") or e.get("sub") or "") in MONTHLY_SUBS:
+            k = e.get("sub_category") or e.get("sub")
+            if k in paid:
+                out[i] = 0
+                e["monthly_already_paid"] = True
+            else:
+                out[i] = amounts[i]
+                monthly += amounts[i]
+                paid.add(k)
+        elif _is_irregular(e):
+            out[i] = amounts[i]
+            irregular += amounts[i]
+        elif e.get("category") in ESSENTIAL_L1:
+            out[i] = amounts[i]
+            left -= amounts[i]
+    left = max(0, left)
+    for i, e in enumerate(commerce):
+        if ((e.get("sub_category") or e.get("sub") or "") in MONTHLY_SUBS or _is_irregular(e)
+                or e.get("category") in ESSENTIAL_L1):
+            continue
+        a = amounts[i]
+        if a <= left:
+            out[i] = a
+            left -= a
+            continue
+        if left > 0 and a > 0:
+            u = int(_hl.sha256(("%s|%s|%s|%s" % (aid or "", e.get("time") or "", e.get("poi_id") or "", i)).encode("utf-8")).hexdigest()[:13], 16) / float(16 ** 13)
+            if u < left / a:
+                out[i] = a
+                left = 0
+                continue
+        out[i] = 0
+        if a > 0:
+            skipped += 1
+            e["budget_skipped"] = True
+            e["actual_spent_planned"] = a
+    return out, {"irregular_total": irregular, "monthly_total": monthly, "routine_budget": int(budget), "budget_skipped": skipped,
+                 "routine_total": sum(o for o, e in zip(out, commerce)
+                                      if not _is_irregular(e) and (e.get("sub_category") or e.get("sub") or "") not in MONTHLY_SUBS)}
+
+
 def apply_consumption_model(
     events: list[dict],
     *,
@@ -783,6 +855,10 @@ def apply_consumption_model(
     # 계획 기준선을 평일·주말로 갈라 찾으려면 오늘이 주말인지 알아야 한다.
     # 계획/앵커 비가 요일종류에 따라 반대로 움직인다(금 0.500 · 토 1.568).
     is_weekend: bool | None = None,
+    # [EXP_PRICE_FIRST] 이번 달 이미 낸 월 납부 세부 업종(학원·헬스장)
+    monthly_paid: set | None = None,
+    # [EXP_PRICE_FIRST] 어제까지 남거나 넘친 일상 예산(이월). 큰 장보기를 한 날의 초과는 며칠의 재량 지출에서 줄인다.
+    budget_carry_in: int | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
@@ -906,10 +982,22 @@ def apply_consumption_model(
     if not commerce:
         # 오늘 거래가 아예 없으면 계획한 인출을 통째로 못 쓴 것이다. 그 몫이 여기서 사라지면
         # 이월의 정의('그날 쓸 거래가 없어 못 쓴 몫')와 코드가 어긋난다 — 다음 날로 넘긴다.
+        _nc_anchor = _nc_online = 0
+        if EXP_PRICE_FIRST and EXP_ELIGIBLE_CHANNEL:
+            # [2026-10-07b] 외출이 없는 날도 방문 외 지출(동별 몫)과 소득(앵커 기반)은 있다. 예전엔 둘 다 0 이라
+            # 정책이 외출 일수를 바꾸면 방문 외 지출이 기계적으로 따라 움직였다(집에 있을수록 온라인 지출이 사라짐).
+            _nc_anchor = int(round(spend_today(ANCHOR_PROPENSITY, daily)["total"]))
+            _nc_s, _ = eligible_share_for_dong(dong_code or _dong_of(aid))
+            _nc_online = int(round(_nc_anchor / max(1e-6, ANCHOR_OVERSTATE) * (1.0 - _nc_s)))
+            try:
+                _nc_online = min(_nc_online, max(0, int(balance)))
+            except (TypeError, ValueError):
+                pass
         return {
             "applied": False, "reason": "no_commerce",
             # Explicit observed zeros, not absent/missing ledger fields.
-            "today_total": 0, "online_total": 0, "today_total_incl_online": 0,
+            "today_total": 0, "online_total": _nc_online, "today_total_incl_online": _nc_online,
+            "anchor_total": _nc_anchor,
             "personal_total": 0,
             "grant_carry_in": _carry,
             "grant_carry_out": 0 if (_choice_mode or _intensity_mode) else min(int(wallet_total), int(intended_grant_today)),
@@ -923,6 +1011,8 @@ def apply_consumption_model(
     weights = [max(0.0, float(e.get("actual_spent") or 0)) for e in commerce]
     # 선택 POI 가격배율 (merge_to_final_events가 부착, 없으면 1.0 — 하위호환)
     factors = [max(0.5, min(2.0, float(e.get("price_factor") or 1.0))) for e in commerce]
+    if os.environ.get("EXP_PRICE_MODE", "").strip().lower() in ("ticket", "knowledge"):
+        factors = [1.0] * len(commerce)   # 금액은 메뉴×인분으로 이미 정해졌다 — 가격대 배율(경험 상수) 이중 적용 금지
     basket_idx = basket_price_index(weights, factors)
     planned_weights = [w * f for w, f in zip(weights, factors)]
     # Stage2가 건별로 고른 결제수단을 '그 거래의 몇 %를 지원금으로 냈는가'로 환산해 둔다.
@@ -971,6 +1061,12 @@ def apply_consumption_model(
                 _choice_shares = [min(1.0, s * _k) for s in _choice_shares]
     # Stage2 절대 계획금액을 보존하되, POI 가격대 효과는 기존 BASKET_CLAMP 범위에서 반영한다.
     planned_total = int(round(sum(weights) * basket_idx))
+    if EXP_PRICE_FIRST:
+        # [2026-10-07b] 계획 배수(_pr)와 그 기준선은 일상 계획액으로만 잰다. 병원·가전·월 납부 같은 예산 밖 덩어리가
+        # 들어가면 기준선이 부풀어 그 사람의 예산이 한 주 내내 반으로 묶였다. 예산 밖 지출은 어차피 전액 결제된다.
+        planned_total = int(round(sum(
+            w for w, e in zip(weights, commerce)
+            if not _is_irregular(e) and (e.get("sub_category") or e.get("sub") or "") not in MONTHLY_SUBS)))
 
     center = ANCHOR_PROPENSITY if _propensity_mode == "llm_budget_only" else propensity_center(
         income_tier,
@@ -997,6 +1093,11 @@ def apply_consumption_model(
         band=_band,
         mode=_propensity_mode,
     )
+    if EXP_PRICE_FIRST:
+        # [2026-10-07b] 가격 그대로 판: 하루 수준은 실측(BDC daily)만으로 정한다. 소비성향 p 는 소득별 손 상수
+        # (INCOME_PRIOR ±BAND)에 묶여 사람-날의 55% 가 끝에 걸렸고, 캐시백 활성일(정책 있음 쪽)에만 폭이 넓어져
+        # 행동과 무관하게 정책 있음 쪽 수준이 평균 −6.6% 움직였다. 정책 반응은 계획 배수(_pr)와 실제 결제가 맡는다.
+        p = ANCHOR_PROPENSITY
     day_multiplier = p / center if center > 0 else 1.0
 
     # Stage2가 제안한 결제액은 원인 분석용 요청액으로 먼저 집계한다.
@@ -1151,7 +1252,14 @@ def apply_consumption_model(
     # 그 대체 가능액을 넘어서면, 넘는 만큼은 여력이 없어 미뤄왔던 소비가 오늘 실행되는 것이다.
     # 평소 소비가 큰 사람은 대체로 끝나 총소비가 그대로고, 평소 소비가 빠듯했던 사람일수록
     # 미뤄둔 필요가 풀려 총소비가 늘어난다 — 유동성 제약의 차이가 결과로 나타난다.
-    _base_spends = distribute_budget(personal_total, planned_weights)
+    _carry_in = int(budget_carry_in or 0) if EXP_PRICE_FIRST else 0
+    # 일상 예산은 그 사람의 하루 전체 기준(앵커÷2.40 × 계획 배수)이다. 가게 방문 몫(×동별 사용처 비중)만 주면
+    # 실제 가격의 끼니·장보기만으로 다 차서 카페·여가가 거의 모두 거르게 됐다(10명 시험: 카페 결제 40 사람-날에 6건).
+    # [2026-10-07b] 가게 예산 = 가게 몫(앵커÷2.40 × 동별 사용처 비중 × 계획 배수). 예전엔 하루 전체(방문 외 몫 포함)를
+    # 가게 예산으로 줘서 방문 외 몫이 두 번 계산됐다(P012 하루 총액 = 앵커÷2.40 의 1.25배).
+    _pf_budget = int(personal_total)
+    _base_spends = (_price_first_spends(commerce, planned_weights, max(0, _pf_budget + _carry_in), aid, monthly_paid)[0]
+                    if EXP_PRICE_FIRST else distribute_budget(personal_total, planned_weights))
     _base_capacity = _allocate_policy_capacity(commerce, _base_spends, wallet_specs)
     eligible_base = int(_base_capacity["total"])
     # 오늘 실제로 쿠폰이 결제할 수 있는 금액(= 계획 소비 중 사용처 조건을 만족하는 부분,
@@ -1189,7 +1297,16 @@ def apply_consumption_model(
     _extra_rate = 0.0
     additional_from_grant = 0
     desired_total = personal_total
-    desired_spends = distribute_budget(desired_total, planned_weights)
+    _price_first_meta = None
+    if EXP_PRICE_FIRST:
+        desired_spends, _price_first_meta = _price_first_spends(
+            commerce, planned_weights, max(0, _pf_budget + _carry_in), aid, monthly_paid)
+        desired_total = sum(desired_spends)
+        _cap = 3 * max(0, int(_pf_budget))
+        _price_first_meta["carry_in"] = _carry_in
+        _price_first_meta["carry_out"] = max(-_cap, min(_cap, int(_pf_budget) + _carry_in - int(_price_first_meta["routine_total"])))
+    else:
+        desired_spends = distribute_budget(desired_total, planned_weights)
     # 지원금 전액이 아니라 오늘의 계획된 사용 가능 거래액까지만 유동성으로 인정한다.
     capacity = _allocate_policy_capacity(commerce, desired_spends, wallet_specs)
     eligible_policy_liquidity = int(capacity["total"])
@@ -1296,6 +1413,13 @@ def apply_consumption_model(
         if event["actual_spent"] < desired:
             event["expected_satisfaction"] = event.get("actual_satisfaction")
             event["actual_satisfaction"] = None
+        if event.get("budget_skipped"):
+            # 하루 예산을 넘어 하지 않은 결제 — 계획 금액을 남기고, 경험하지 않았으니 만족도는 비운다(기억에 안 남음).
+            event["desired_spent"] = int(round(float(event.get("actual_spent_planned") or 0)))
+            event["purchase_status"] = "not_purchased"   # 검증기 허용 값. 이유는 budget_skipped 로 따로 남는다
+            if event.get("actual_satisfaction") is not None:
+                event["expected_satisfaction"] = event.get("actual_satisfaction")
+            event["actual_satisfaction"] = None
     mpc_measure = settled_mpc_measure(commerce, weights)
     normal_budget = spend_today(p, daily)
     allocated_total = int(allocation["total"])
@@ -1383,6 +1507,7 @@ def apply_consumption_model(
         "envelope_requested": envelope_requested,
         "envelope_eligible_events": envelope_eligible_events,
         "n_commerce": len(commerce),
+        "price_first": _price_first_meta,
     }
 
 

@@ -189,10 +189,9 @@ intent별 필드 매핑 규칙:
 
 [reasoning — 인터뷰 가능성을 위한 핵심]
 reasoning 필드에 **두 agent의 어떤 페르소나·일정·정책 요소가** 이 의도로 이끌었는지 1~2문장 명시.
-- 약속 → 누가 누구에게, 왜 (예: "AGT_A는 동료 친밀도 0.6 + 같은 동 점심 자주 겹쳐서 토요일 외식 제안.")
-- 이슈 → 어떤 정책·뉴스가 화제 (예: "정책 P001이 두 사람의 강남역 일대 동선과 맞닿아 보행환경 개선 이야기가 화제로 이어짐.")
-- 추천 → 누가 어디를 권유 (예: "AGT_A가 오늘 sat 0.70으로 만족한 두부마을찬을 AGT_B에게 추천.")
-- 기타 → 일상 잡담 사유 (예: "라이프스타일·일정 모두 무관한 동선 겹침. 간단한 인사 수준.")
+- 약속 → 누가 누구에게, 왜 / 이슈 → 어떤 정책·뉴스가 화제 / 추천 → 누가 어디를 권유 / 기타 → 일상 잡담 사유.
+- 이 문장은 받은 사람의 기억으로 그대로 남는다. 사람이 기억하는 말로 쓴다: 상대는 agent_id 가 아니라 관계(직장 동료·이웃 등)로,
+  만족도는 숫자(sat 0.70) 대신 겪은 그대로의 말로, 장소는 입력에 나온 실제 이름으로 적는다.
 
 출력 JSON 스키마:
 {
@@ -638,8 +637,11 @@ MATCH (m:Memory {id:r.mem_id})
 WITH r, c, b, m
 OPTIONAL MATCH (poi:POI) WHERE r.topic_type = 'poi'
   AND (poi.id = r.topic_value OR poi.name = r.topic_value)
-WITH r, c, b, m, poi
-ORDER BY poi.id LIMIT 1
+// [2026-10-07] 줄마다 하나를 고른다. 예전 ORDER BY ... LIMIT 1 은 UNWIND 전체에 걸려 하루 1건만 연결됐다.
+// 같은 이름 가게가 여럿이면 추천한 사람이 아는 가게를 먼저 고른다.
+OPTIONAL MATCH (ca:Agent {id: c.initiator_id})-[kk:KNOWS_POI]->(poi)
+WITH r, c, b, m, poi, kk ORDER BY (kk IS NOT NULL) DESC, poi.id
+WITH r, c, b, m, head(collect(poi)) AS poi
 FOREACH (_ IN CASE WHEN poi IS NOT NULL THEN [1] ELSE [] END |
   MERGE (c)-[:MENTIONS_POI]->(poi)
   MERGE (b)-[kp:KNOWS_POI]->(poi)
@@ -667,7 +669,11 @@ UNWIND $rows AS r
 MATCH (c:Conversation {id:r.cid})
 OPTIONAL MATCH (poi:POI) WHERE r.meeting_hint IS NOT NULL
   AND (poi.name = r.meeting_hint OR poi.id = r.meeting_hint)
-WITH c, poi ORDER BY poi.id LIMIT 1
+// [2026-10-07b] 약속마다 하나를 고른다(예전 LIMIT 1 은 UNWIND 전체에 걸려 하루 1건만 연결). 2단계가 pinned 일정도
+// 그 한 곳을 후보로 금액을 정하도록 고쳤다. 같은 이름 가게가 여럿이면 약속을 건 사람이 아는 가게를 먼저 고른다.
+OPTIONAL MATCH (ca:Agent {id: c.initiator_id})-[kk:KNOWS_POI]->(poi)
+WITH c, poi, kk ORDER BY (kk IS NOT NULL) DESC, poi.id
+WITH c, head(collect(poi)) AS poi
 FOREACH (_ IN CASE WHEN poi IS NOT NULL THEN [1] ELSE [] END |
   MERGE (c)-[:MENTIONS_POI]->(poi)
 )

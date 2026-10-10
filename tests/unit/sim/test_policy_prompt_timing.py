@@ -83,8 +83,7 @@ def test_policy_prompt_keeps_consumption_and_payment_autonomous():
     )
     text = facts + "\n" + status
 
-    # [2026-10-06] 배분 기준(소비 규모)은 적지 않는다
-    assert "대상 | 지급액" in text and "소비 규모" not in text
+    assert "대상(소비 규모 기준)" in text
     assert "지급액 150,000원" in text
     assert "정책지갑 잔액 120,000원" in text
     assert "소비 필요·시점·총액·POI" in text
@@ -127,8 +126,8 @@ def test_policy_prompt_shows_differential_amount_for_low_spending_decile():
         state={},
     )
 
-    assert "대상 | " in first and "지급액 400,000원" in first
-    assert "대상 | " in second and "지급액 300,000원" in second
+    assert "대상(소비 규모 기준)" in first and "지급액 400,000원" in first
+    assert "대상(소비 규모 기준)" in second and "지급액 300,000원" in second
 
 
 def test_timing_report_separates_llm_review_and_cache_metrics():

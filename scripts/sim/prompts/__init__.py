@@ -50,6 +50,8 @@ from . import v5when  # noqa: E402  (후보 4 — 적립형은 때가 달라지�
 from . import v52  # noqa: E402  (v45 with the reasoning requirement widened to evening events)
 from . import v53  # noqa: E402  (v51 with policy-specific defaults removed)
 from . import v53n  # noqa: E402  (v53 minus the 'cutting outings is unnatural' clause; 2026-10-06)
+from . import v53p  # noqa: E402  (v53n with the do-everything example day replaced by a format-only day; 2026-10-07)
+from . import v53q  # noqa: E402  (v53p without copied example values, invented norms and the policy-purchase example; 2026-10-07 evening)
 
 # p010 은 동결된 역사 기록, p012 는 캐시백 전용 과도기판.
 # v1~v6 이 1차 기전 중립 후보, v5 가 그 중 홀드아웃까지 마친 확정판이다.
@@ -79,7 +81,7 @@ _VARIANTS: dict[str, ModuleType] = {
     "v49": v49,
     "v51": v51,
     "v52": v52,
-    "v53": v53, "v53n": v53n,
+    "v53": v53, "v53n": v53n, "v53p": v53p, "v53q": v53q,
     "v5online": v5online,
     "v5offsite": v5offsite,
     "v5own": v5own,
