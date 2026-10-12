@@ -245,6 +245,8 @@ if [[ ! -s $BASE/pre/graph_restored.marker ]]; then
     # reset 은 정책 노드도 지운다 — 정책은 복제 뒤 정책 있음 쪽에만 넣으므로 여기서 지워져도 된다.
     python scripts/neo4j_load/97_reset_run_artifacts.py
     DAY_ZERO="$DAY0" python scripts/neo4j_load/08_initial_state.py
+    # [2026-10-11] 정책별 그래프 준비(예: P016 대형마트 POI). 복제 전에 넣으므로 두 갈래가 같은 가게를 본다.
+    if [[ -n ${CASE_GRAPH_PREP:-} ]]; then python "$CASE_GRAPH_PREP"; fi
     SIM_OUTPUT_DIR="$BASE/pre/preflight" python scripts/sim/policy_preflight.py --expect-no-policy
   )
   printf 'restored_from=%s\nrestored_at=%s\n' "$AB_PRE_GRAPH" "$(date -Is)" > "$BASE/pre/graph_restored.marker"
@@ -276,6 +278,27 @@ if [[ $AB_CASE == p012 && ! -s $BASE/sangsaeng_base.json ]]; then
     pre_days=$(python -c 'import sys; from datetime import date, timedelta as t; s=date.fromisoformat(sys.argv[1]); print(",".join(str(s+t(i)) for i in range(int(sys.argv[2]))))' "$PRE_START" "$AB_PRE_DAYS")
     python tools/set_sangsaeng_base_from_pre.py --roster "$BASE/roster.json" --days "$pre_days" --out "$BASE/sangsaeng_base.json" ) | tee -a "$LOG"
   [[ -s $BASE/sangsaeng_base.json ]] || { log '캐시백 문턱 기준을 만들지 못했다 — 멈춘다'; exit 1; }
+fi
+
+# ---------------------------------------------------------------- 4c 검출력 관문(사례가 정하면)
+# [2026-10-11] 정책 전 주로 정답 지표의 80% 검출 최소 차이를 재고, 상한을 넘으면 두 갈래(GPU 대부분)를 돌리지 않고 멈춘다.
+# 결과는 power_gate.json. 통과했으면 다시 재지 않는다. 사람이 보고 그래도 돌리기로 하면
+# AB_POWER_GATE_OVERRIDE='<이유>' 로 다시 띄운다 — 이유가 로그에 남는다.
+if [[ -n ${CASE_POWER_GATE:-} ]] && ! python -c 'import json,sys; sys.exit(0 if json.load(open(sys.argv[1])).get("pass") else 1)' "$BASE/power_gate.json" 2>/dev/null; then
+  if [[ -n ${AB_POWER_GATE_OVERRIDE:-} ]]; then
+    log "=== 4c 검출력 관문 건너뜀(사람 결정): ${AB_POWER_GATE_OVERRIDE}"
+  else
+    log "=== 4c 검출력 관문 ($CASE_POWER_GATE)"
+    neo_up "$AB_NEO_ON" "$AB_HTTP_ON"
+    gate_rc=0
+    ( common_env; on_env; query_ready
+      python "$CASE_POWER_GATE" --roster "$BASE/roster.json" --policy "$POLICY" --start "$PRE_START" \
+        --days "$AB_PRE_DAYS" --arm-days "$AB_POST_DAYS" --out "$BASE/power_gate.json" ) | tee -a "$LOG" || gate_rc=$?
+    if [[ $gate_rc -ne 0 ]]; then
+      log "검출력 관문을 통과 못 했다(rc=$gate_rc, $BASE/power_gate.json) — 두 갈래를 돌리지 않고 멈춘다"
+      exit 1
+    fi
+  fi
 fi
 
 # ---------------------------------------------------------------- 5 복제

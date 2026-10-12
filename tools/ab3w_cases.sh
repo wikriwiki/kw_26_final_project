@@ -40,20 +40,38 @@ case "$AB_CASE" in
     # 건별 선택(엔진 기본값)은 P013 에서 사용 0.1% 로 정책의 결제 규칙과 달랐다 — 자동 차감으로 둔다.
     # 쿠폰은 개인 단위라 P013 의 가구 단위 보정(0.5617)은 쓰지 않는다(엔진 기본 1.0). 하루 인출 상한 없음.
     # [2026-10-06] 사본 P010_ab3w_policy_20261006 = v53 사본과 규칙이 같고, 설명에서 '서울 시뮬레이션 … 소비 10분위' 문장만 뺀 판.
+    # [2026-10-12] 사본 P010_ab3w_policy_20261012 — 금액 = 수급 자격(기본 15만, aid_grants 표의 사람만 40만·30만,
+    # data/experiments/p010_eligibility_20261012), 받는 날 = 요일제 신청 다음 날 7/22~26(receipt_schedule), 받는 날부터 보인다.
+    # 밤 대화 짝은 정책과 무관한 같은 기준(EXP_SYMMETRIC_NIGHT, 서울시 t150c 에서 받기 전 차이를 없앤 고침).
     START=2025-07-21; PID=P010
-    POLICY=data/experiments/P010_ab3w_policy_20261006.json
+    POLICY=data/experiments/P010_ab3w_policy_20261012.json
     ENV_PRE=''; ENV_ON=''; ENV_OFF=''
     LEDGERS="sector policy"
-    CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_SPREAD_DAYS=1);;
+    CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_SPREAD_DAYS=1 EXP_SYMMETRIC_NIGHT=1);;
   p016)
-    # 농축산물 할인쿠폰 1차(2020-07-30 시작, 결제 즉시 20%, 1인 누적 1만원). 정답지 C1(대형 유통 5사 신선식품
-    # 매출)의 대리 지표만 잴 수 있다 — 그래프에 대형마트·온라인몰이 없고(실제 쿠폰 사용의 80%), 시뮬의 할인은
-    # 동네 청과·정육·슈퍼·식료품 가게에서만 일어난다. C2·C3 는 정의대로 셀 수 없다(검수 2026-10-05).
+    # [2026-10-11] 농축산물 할인 1차(대한민국 농할갑시다 2020-07-30~08-09). 참여 유통업체(이마트·롯데마트·농협하나로마트·
+    # GS더프레시) 매장에서 국산 신선 농축산물 값의 20%를 결제할 때 깎는다(유통업체마다 1인 최대 1만원).
+    # 품목 금액은 모델이 장보기 결제마다 답한다(EXP_PRODUCE_FIELD, 두 갈래 같은 질문). 대형마트 POI 를 더하고
+    # (tools/load_p016_marts.py, 카카오맵 2026-10-10) 장보기 후보에 집·직장 3km 안 가까운 대형 형태 매장(대형마트·기업형 슈퍼, 브랜드 무관) 3곳을 넣는다(EXP_MART_REACH).
+    # 배경에 2020 장마철(기상청, 중부 6/24 시작)을 둔다(EXP_SEASON_NOTE). 설계 data/experiments/P016_DESIGN_20261011.md.
     START=2020-07-30; PID=P016
-    POLICY=data/neo4j_load/policies/P016.json
+    POLICY=data/experiments/P016_ab3w_policy_20261011.json
     ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
     LEDGERS="sector"
-    CASE_EXPORTS=();;
+    CASE_GRAPH_PREP=tools/load_p016_marts.py
+    CASE_POWER_GATE=tools/p016_power_gate.py   # 정책 전 주 뒤 C1 검출 최소 차이 관문(설계 문서 3절)
+    CASE_EXPORTS=(EXP_PRODUCE_FIELD=1 EXP_MART_REACH=1 EXP_MART_REACH_KM=3 EXP_MART_REACH_N=3 EXP_MART_REACH_FORMATS=hypermarket,ssm EXP_SEASON_NOTE=1);;
+  seoul)
+    # [2026-10-11] P017 서울시 재난긴급생활비(2020). 명부 = 소득 하·중하 후보에서 실제 신청자 성·연령(4/13)에 맞춰 뽑은
+    # 그 주(4/20~26)의 수급자. 받는 날은 그 주 안에서 사람마다 고르게(receipt_schedule), 받은 날부터 정책이 보인다.
+    # 선불카드 → 사용처에서 지원금 먼저 차감(EXP_PAYMENT_CHOICE=0), 하루 인출 상한 없음. 가구 단위 보정(EXP_GRANT_USE)은
+    # 쓰지 않는다 — 지원금을 쓰는 사람(신청자)에게 가구 평균 지급액 356,500원 전부를 준다. 설계 data/experiments/SEOUL_ECL_DESIGN_20261011.md.
+    START=2020-04-20; PID=P017
+    POLICY=data/experiments/P017_seoul_ecl_ab3w_policy_20261011.json
+    ENV_PRE=covid_2021; ENV_ON=covid_2021; ENV_OFF=covid_2021
+    LEDGERS="sector policy"
+    # [2026-10-11] 밤 대화 짝을 정책과 무관한 같은 기준으로(EXP_SYMMETRIC_NIGHT) — 받기 전 위약 대조에서 대화 비대칭이 보였다.
+    CASE_EXPORTS=(EXP_PAYMENT_CHOICE=0 EXP_SPREAD_DAYS=1 EXP_SYMMETRIC_NIGHT=1);;
   distancing)
     # 서울 사회적 거리두기 2단계 격상(2020-11-24). 정책 있음 = 실제 일정(covid_2021, 11-24 부터 2단계),
     # 정책 없음 = 11-23 의 1.5단계를 이어 간다(covid_2020_hold_1123, 확진 소식은 그날 것). 정답지(서울연구원)는

@@ -76,9 +76,16 @@ RETURN a.id AS aid, s.mood AS mood, s.fatigue AS fatigue,
 
 FETCH_INFO_MEMORY_CYPHER = """
 MATCH (a:Agent)-[:REMEMBERS]->(m:Memory)
-WHERE m.type IN ['policy','sns'] AND m.day >= date($d) - duration({days:7})
+WHERE m.type IN $types AND m.day >= date($d) - duration({days:7})
 RETURN a.id AS aid, count(m) AS info_count
 """
+
+# [2026-10-11 EXP_SYMMETRIC_NIGHT] 두 갈래가 정책과 무관한 같은 기준으로 대화 짝을 고른다(NIGHT_CONVERSATION_ASYMMETRY_20261009 의
+# '다음 엔진에서 고친다'). 정책을 아는 사람 가점(+0.5)과 policy 기억 수 가점은 정책 있음 쪽에만 생겨, P017 150명 시험에서
+# 아직 지원금을 받지 않은 날에도 정책 있음 쪽 결제 외출이 +17%(569 대 487), 들은 이야기 계기 외출이 29 대 11 이었다.
+# 켜면 둘 다 뺀다(sns 기억만 센다). 끄면(기본) 예전과 같은 값이 들어간다.
+_SYMMETRIC_NIGHT = __import__("os").environ.get("EXP_SYMMETRIC_NIGHT", "0") == "1"
+_INFO_TYPES = ["sns"] if _SYMMETRIC_NIGHT else ["policy", "sns"]
 
 
 def fetch_all(day: date) -> dict:
@@ -141,7 +148,7 @@ def fetch_all(day: date) -> dict:
 
     print(f"  [fetch] info Memory ...")
     with driver_session() as s:
-        for r in s.run(FETCH_INFO_MEMORY_CYPHER, d=day.isoformat()):
+        for r in s.run(FETCH_INFO_MEMORY_CYPHER, d=day.isoformat(), types=_INFO_TYPES):
             data["info_count"][r["aid"]] = r["info_count"]
     print(f"    info_count: {len(data['info_count']):,}")
 
@@ -253,10 +260,10 @@ def calc_urgency(a: str, b: str, data: dict) -> float:
     urgency_a = 0.0
     urgency_b = 0.0
 
-    # 정보 희소성 (정책 인지 비대칭)
-    if sa["knows_policy"] and not sb["knows_policy"]:
+    # 정보 희소성 (정책 인지 비대칭) — EXP_SYMMETRIC_NIGHT 이면 쓰지 않는다(위 FETCH_INFO_MEMORY_CYPHER 아래 주석)
+    if not _SYMMETRIC_NIGHT and sa["knows_policy"] and not sb["knows_policy"]:
         urgency_a += 0.5
-    if sb["knows_policy"] and not sa["knows_policy"]:
+    if not _SYMMETRIC_NIGHT and sb["knows_policy"] and not sa["knows_policy"]:
         urgency_b += 0.5
 
     # 정책/SNS Memory 누적 비대칭

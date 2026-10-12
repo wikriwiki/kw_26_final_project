@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 
 from eligibility import Rules
@@ -125,6 +126,13 @@ def active_rate_discounts(policies: list[dict] | None, today: date | None = None
                 raise ValueError("업종 할인권의 지역 제한은 정의되지 않았다")
             spec = {"id": pid, "sector": name, "mode": mode, "rules": Rules(eligibility),
                     "require_same_district": False, "window": sector.get("window")}
+            # [2026-10-11] 할인 기준액: 기본은 결제 전체, "produce_share" 면 모델이 답한 농축산물 몫(event.produce_share)만.
+            spec["base"] = sector.get("base")
+            if spec["base"] not in (None, "produce_share"):
+                raise ValueError(f"{name}: 알 수 없는 할인 기준액 {spec['base']}")
+            # [2026-10-11] 한도를 체인(유통업체)마다 따로 센다 — {"이마트": "정규식", ...}. 맞는 체인이 없으면 할인하지 않는다.
+            _chains = sector.get("chains") or {}
+            spec["chains"] = [(str(k), re.compile(str(v))) for k, v in _chains.items()]
             if mode in ("rate", "rate_rebate"):
                 spec["rate"] = float(sector.get("rate") or 0)
                 spec["cap"] = int(sector.get("cap") or (merged.get("cap_per_agent") if single else 0)
@@ -228,13 +236,27 @@ def settle_instant_discounts(events: list[dict], amounts: list[int],
                 event.get("poi_category") or event.get("category"), event.get("upjong_l3"), same)
             if not eligible or not _in_window(spec.get("window"), event, weekday):
                 continue
-            if not counted:
-                eligible_gross += amount
-                counted = True
             pid, key, mode = spec["id"], spec["key"], spec["mode"]
+            chain = None
+            if spec.get("chains"):
+                chain = next((c for c, pat in spec["chains"] if pat.search(event.get("poi_name") or "")), None)
+                if chain is None:
+                    continue      # 참여 체인으로 확인되지 않는 가게는 할인하지 않는다
+                key = f"{key}:{chain}"
+            # 할인 기준액: 결제 전체, 또는 모델이 답한 농축산물 몫(답이 없으면 0 — 지어내지 않는다).
+            if spec.get("base") == "produce_share":
+                share = event.get("produce_share")
+                base_amount = int(round(amount * float(share))) if share is not None else 0
+            else:
+                base_amount = amount
+            if base_amount <= 0:
+                continue
+            if not counted:
+                eligible_gross += base_amount
+                counted = True
             if mode in ("rate", "rate_rebate"):
                 remaining = max(0, spec["cap"] - used.get(key, 0))
-                value = min(remaining, int(round(amount * spec["rate"])))
+                value = min(remaining, int(round(base_amount * spec["rate"])))
                 if mode == "rate":   # 한 거래의 결제 할인 합이 거래액을 넘지 않게
                     value = min(value, amount - sum(by_event[i].values()))
                 if value > 0:
@@ -290,5 +312,7 @@ def settle_instant_discounts(events: list[dict], amounts: list[int],
             "rebate_by_event": rebate_by_event, "rebate_by_pid": rebate_by_pid,
             "rebate_total": sum(rebate_by_pid.values()),
             "eligible_gross": eligible_gross,
-            "eligible_gross_basis": ("whole_poi_transaction_proxy" if specs else None),
-            "product_lines_observed": False}
+            "eligible_gross_basis": (None if not specs else
+                                     "model_reported_produce" if any(s.get("base") == "produce_share" for s in specs)
+                                     else "whole_poi_transaction_proxy"),
+            "product_lines_observed": any(s.get("base") == "produce_share" for s in specs)}

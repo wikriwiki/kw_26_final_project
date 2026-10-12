@@ -514,15 +514,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         # 지원금 수령 경과일 — windfall 감쇠 렌더용 (지급 당일만이 아니라
         # 이후에도 '며칠 전 받은 여윳돈'으로 계속, 그러나 점점 희미하게 인지)
         if ctx.state is not None:
-            _gdays: dict[str, int] = {}
-            for _p in (ctx.policy or []):
-                if _p.get("type") == "grant" and _p.get("from_"):
-                    try:
-                        _d = (today - date.fromisoformat(str(_p["from_"])[:10])).days
-                        if _d >= 0:
-                            _gdays[_p["id"]] = _d
-                    except (ValueError, TypeError):
-                        pass
+            # [2026-10-12] 시행일이 아니라 사람마다 받는 날부터 센다(plan_writer.grant_days_since 주석).
+            from plan_writer import grant_days_since as _gds
+            _gdays: dict[str, int] = _gds(ctx.policy, today, aid)
             if _gdays:
                 ctx.state["grant_days_since"] = _gdays
 
@@ -722,7 +716,9 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
         )
         # 할인·환급 사용량은 규칙별 열쇠(정책·업종·기간, 결제 횟수)로 남긴다.
         for key, value in discount_settlement["used_after"].items():
-            if any(key == s["key"] or key.startswith(s["key"] + "#") for s in discount_specs):
+            # [2026-10-11] 체인별 한도 열쇠("P016:이마트")도 다음 날로 넘긴다.
+            if any(key == s["key"] or key.startswith(s["key"] + "#") or key.startswith(s["key"] + ":")
+                   for s in discount_specs):
                 updated_policy_used[key] = value
 
         # grant_remaining = 어제 잔여 + 오늘 받음 − 오늘 사용 (음수 방지)
