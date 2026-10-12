@@ -77,6 +77,12 @@ def _one_body(name: str, spec: dict) -> str:
         # 정책 설명과 기전 줄의 표현이 어긋나면 에이전트가 다른 사실을 본다.
         verb = "환급" if mode == "rate_rebate" else "할인"
         s = f"{name} {r:.0f}% {verb}"
+        # [2026-10-11] 농축산물 몫만 깎이고 한도가 유통업체마다 따로인 경우(P016 농할) — 사실 그대로 적는다.
+        if spec.get("base") == "produce_share":
+            s = f"{name}(국산 신선 농축산물) 값의 {r:.0f}%를 결제할 때 {verb}(그 밖의 물건은 할인 없음)"
+        chains = list((spec.get("chains") or {}).keys())
+        if chains and cap:
+            return s + f" — 참여 유통업체({'·'.join(chains)})마다 1인 최대 {cap:,}원"
         return s + (f" (최대 {cap:,}원)" if cap else "")
     if mode == "flat":
         tiers = spec.get("tiers") or []
@@ -142,6 +148,19 @@ def status(pid: str, row: dict, persona: dict, state: dict,
             parts.append(f"{name}(지금까지 인정된 결제 {n_now}회)")
             continue
         cap = int((spec or {}).get("cap") or 0)
+        _chains = list(((spec or {}).get("chains") or {}).keys())
+        if cap > 0 and (spec or {}).get("mode") == "rate" and _chains:
+            # [2026-10-11] 체인마다 따로 센 한도(사용량 열쇠 <정책>:<체인>). **받은 할인만** 적는다.
+            # 처음에는 '유통업체별 남은 할인 — 이마트 10,000원, 롯데마트 10,000원, …' 을 적었는데, 결제할 때 저절로 깎이는
+            # 할인을 쓰지 않으면 사라지는 잔액(4곳 합 4만원)처럼 보이게 한다(10명 시험 t10b: 정책 있는 쪽 장보기 12건, 없는 쪽 0건,
+            # 계기 대부분 '[policy]'). 사람은 영수증으로 받은 할인을 알 뿐 남은 잔액을 들고 다니지 않는다. 한도 규칙은 그대로 적는다.
+            try:
+                used_all = json.loads(raw_used) if isinstance(raw_used, str) else dict(raw_used)
+            except (ValueError, TypeError):
+                used_all = {}
+            got = [f"{c} {int(used_all.get(f'{pid}:{c}', 0) or 0):,}원" for c in _chains if int(used_all.get(f'{pid}:{c}', 0) or 0) > 0]
+            parts.append(f"{name}(지금까지 받은 할인 — {', '.join(got) if got else '없음'} · 유통업체마다 1인 최대 {cap:,}원)")
+            continue
         if cap > 0 and (spec or {}).get("mode") == "rate" and len(sectors) == 1:
             parts.append(f"{name}(1인 할인 한도 {cap:,}원, 남은 할인 "
                          f"{max(0, cap - used_amount):,}원)")

@@ -65,7 +65,7 @@ if pid in ("P014", "P016"):
     ok(disc > 0, f"정책 있음 쪽 결제 할인 합 {disc:,}원 (0 이면 할인이 결제에 안 닿았다)")
 if pid == "P015":
     print(f"  [참고] 정책 있음 쪽 할인 {disc:,}원 · 환급 {reb:,}원 (하루 시험은 외식 환급 조건(4번째)에 못 닿을 수 있다)")
-if pid in ("P010", "P013"):
+if pid in ("P010", "P013", "P017"):
     pol_on, pol_off = rows(f"{B}/on/policy.ledger.jsonl"), rows(f"{B}/off/policy.ledger.jsonl")
     ok(len(pol_on) == len(pol_off) == N * post_days, f"정책 원장 행 수 on {len(pol_on)} / off {len(pol_off)}")
     rec = sum(r["grant_received_cumulative"] for r in pol_on if r["day"] == man["post_end"])
@@ -77,6 +77,41 @@ if pid == "P012":
     cb = rows(f"{B}/on/cashback.ledger.jsonl")
     ok(len(cb) > 0, f"캐시백 원장 {len(cb)}행")
     ok(sum(r.get("sangsaeng_eligible_offline_spent", 0) for r in sec_on) > 0, "적립 대상 가게 지출이 기록됐다")
+if pid == "P016":
+    # [2026-10-11] P016 정답 지표는 dossier(가게 업종·농축산물·할인)로 잰다 — 업종 원장에는 농축산물·체인이 없다.
+    sc = json.load(open(f"{B}/score/p016_score.json", encoding="utf-8")) if os.path.exists(f"{B}/score/p016_score.json") else None
+    ok(sc is not None, "P016 채점 파일(score/p016_score.json)")
+    if sc:
+        ok(not sc["hard_failures"], f"P016 회계 무결성(비참여 할인·한도 초과·20% 초과·정책 없는 쪽 할인) {sc['hard_failures'] or '0건'}")
+        ok(not sc["problems"], f"P016 사람·날 빠짐 없음 {sc['problems'][:3] or ''}")
+        rate = sc["integrity"].get("농축산물_답_비율")
+        ok(rate is not None and rate >= 0.9, f"장보기 결제의 농축산물 금액 답 비율 {rate} (0.9 이상)")
+        ok(sc["integrity"].get("on_가게업종_없음", 0) + sc["integrity"].get("off_가게업종_없음", 0) == 0,
+           "기억 모음 결제마다 가게 업종(poi_sub)이 있다")
+        print(f"  [참고] C1 {sc['metrics']['C1']['pct']}% {sc['metrics']['C1']['ci95']} · 판정 {sc['judgement']}")
+    gate = f"{B}/power_gate.json"
+    ok(os.path.exists(gate) or "검출력 관문 건너뜀(사람 결정)" in log, "검출력 관문 결과(power_gate.json) 또는 사람 결정 기록")
+if pid == "P010":
+    # [2026-10-12] P010 1차 — 7/22~26 에 모두 받아야 하고(요일제 다음 날), 받은 금액 = 계층 표. 계획일수 배급 경로가 꺼져 있어야 한다
+    # (자동 차감: 지갑÷계획일수 로 나눠 내면 소진율이 계획일수의 역수가 된다 — 대조표 G 절).
+    sc = json.load(open(f"{B}/score/p010_score.json", encoding="utf-8")) if os.path.exists(f"{B}/score/p010_score.json") else None
+    ok(sc is not None, "P010 채점 파일(score/p010_score.json)")
+    if sc:
+        ok(sc["not_received"] == 0, f"창 안에 쿠폰을 받은 사람 {sc['received_in_window']}/{sc['people']} (모두 받아야 한다)")
+        ok(not sc["hard_failures"], f"P010 무결성 {sc['hard_failures'] or '이상 없음'} · 계층 {sc['tiers']}")
+        ok(not sc["problems"], f"P010 문제 {sc['problems'] or '없음'}")
+        print(f"  [참고] M1 {sc['metrics']['M1_mpc']} · 판정 {sc['judgement']}")
+    on_rows = [r for f in sorted(glob.glob(f"{B}/on/metrics/day_*.jsonl")) for r in rows(f)]
+    plan = [r.get("cm_grant_plan_days") for r in on_rows if r.get("cm_grant_plan_days") not in (None, 0)]
+    ok(not plan, f"on: 쿠폰 계획일수 배급 꺼짐(0/없음이어야 한다, 값 있는 사람-날 {len(plan)})")
+if pid == "P017":
+    # [2026-10-11] 서울시 재난긴급생활비 — 창 안에 모두 받아야 한다(받는 날 일정이 그 주 안). 채점 파일·무결성.
+    sc = json.load(open(f"{B}/score/p017_score.json", encoding="utf-8")) if os.path.exists(f"{B}/score/p017_score.json") else None
+    ok(sc is not None, "P017 채점 파일(score/p017_score.json)")
+    if sc:
+        ok(sc["not_received"] == 0, f"창 안에 지원금을 받은 사람 {sc['received_in_window']}/{sc['people']} (모두 받아야 한다)")
+        ok(not sc["hard_failures"] and not sc["problems"], f"P017 문제 {sc['problems'] or '없음'}")
+        print(f"  [참고] 총지출 로그 차(받은 날부터) {sc['metrics']['total']['log_diff_from_receipt']} · 판정 {sc['judgement']}")
 if case == "distancing":
     d_on, d_off = rows(f"{B}/on/distancing.ledger.jsonl"), rows(f"{B}/off/distancing.ledger.jsonl")
     ok(len(d_on) == len(d_off) == N * post_days, f"거리두기 원장 행 수 {len(d_on)}/{len(d_off)}")

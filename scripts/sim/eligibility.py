@@ -65,7 +65,7 @@ class Rules:
     """규칙 명세를 판정 가능한 형태로 굳혀 둔다. 정책당 한 번만 만든다."""
 
     __slots__ = ("mode", "ex_codes", "ex_subs", "ex_subs_always", "name_re",
-                 "in_codes", "in_subs", "in_l1s", "same_district")
+                 "in_codes", "in_subs", "in_l1s", "in_name_re", "same_district")
 
     def __init__(self, spec: dict[str, Any] | None):
         s = spec or {}
@@ -96,6 +96,9 @@ class Rules:
         self.in_codes = {str(c).strip().upper() for c in (inc.get("codes") or ())}
         self.in_subs = {str(x).strip() for x in (inc.get("subs") or ())}
         self.in_l1s = {str(x).strip() for x in (inc.get("l1s") or ())}
+        # [2026-10-11] 참여 유통업체 한정(P016 농할: 이마트·롯데마트·하나로마트·GS더프레시) — 업종이 맞고 **이름도** 맞아야 적격.
+        _inp = inc.get("name_regex")
+        self.in_name_re = re.compile(_inp) if _inp else None
         # 장소 조건 — 업종만 보는 규칙으로는 표현할 수 없는 축이다.
         # 지역화폐는 "사는 곳 자치구 안에서만"이 기전의 핵심인데, 이것이 판정에
         # 들어가지 않아 구 밖 가게에도 사용 표시가 붙었다(2026-09-18 지역화폐 0/3).
@@ -115,6 +118,8 @@ class Rules:
         p = (l1 or "").strip()
 
         if self.mode == "include":
+            if self.in_name_re is not None and not self.in_name_re.search(n):
+                return ARM_EXCLUDED_SECTOR, "name_not_included"
             # 대상 업종에 들어야만 적격. 코드 > 세분류 > L1 순으로 본다.
             if c and c in self.in_codes:
                 return ARM_ELIGIBLE, "code_included"

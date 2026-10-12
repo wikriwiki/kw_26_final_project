@@ -46,6 +46,14 @@ def _cases() -> dict[date, int]:
             continue
         y, m, dd = (int(x) for x in str(sd).split("-"))
         out[date(y, m, dd) + timedelta(days=1)] = int(n)
+    # [2026-10-11] 2020년 3~4월은 자치구 소급 집계가 4/15 까지 비고 4/16~20 이 0 이었다(서울시 일자별 공식 자료는 하루 1~24명).
+    # 같은 폴더의 서울시 일자별 확진(sources/seoul_city_cases.csv, '서울시 기준일' = 여기의 관측일)을 그 두 달에만 쓴다.
+    # 4/22 이후는 두 자료가 같은 값이라 겹치는 날도 바뀌지 않는다. 다른 정책의 창(2020-05 이후)은 그대로다.
+    ov = DATA / "seoul_cases_city_2020_03_04.json"
+    if ov.exists():
+        for k, n in (json.loads(ov.read_text(encoding="utf-8")).get("by_city_reference_date") or {}).items():
+            y, m, dd = (int(x) for x in str(k).split("-"))
+            out[date(y, m, dd)] = int(n)
     return out
 
 
@@ -314,5 +322,10 @@ def build(day: date, rule_day: date | None = None) -> dict:
     note = None
     if CHUSEOK[0] <= day <= CHUSEOK[1]:
         note = "추석 연휴. 가정 내 가족모임 예외가 적용되며 일반 식당 모임에는 확대되지 않는다"
+    # [2026-10-11 EXP_SEASON_NOTE] 2020년 여름 장마철 — 기상청 발표 중부지방 장마 시작 2020-06-24(종료 8/16, 54일).
+    # 그날 사람이 알 수 있는 것은 '장마철이 이어지고 있다'까지다(언제 끝날지는 모른다). 두 갈래 모두 같다.
+    if os.environ.get("EXP_SEASON_NOTE", "0") == "1" and date(2020, 6, 24) <= day <= date(2020, 8, 16):
+        _monsoon = "여름 장마철이다(중부지방 장마가 6월 24일 시작되어 이어지고 있다)"
+        note = f"{note}. {_monsoon}" if note else _monsoon
 
     return {"headline": headline, "facts": facts, "note": note}

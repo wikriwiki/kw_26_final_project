@@ -93,6 +93,10 @@ CREATE (p)-[:INCLUDES {
   menu: ev.menu,                         // [EXP_PRICE_MODE] 먹거나 산 것
   unit_price: ev.unit_price,             // 1인분·1개 가격
   pay_count: ev.pay_count,               // 내가 계산한 인분·개수
+  // [2026-10-11] 장보기 중 국산 농축산물 금액(모델 답)과 오늘 받은 결제 할인 합 — 기억·인터뷰가 숫자로 근거를 댈 수 있게
+  produce_spent: ev.produce_spent,
+  produce_share: ev.produce_share,
+  discount_total: coalesce(ev.discount_total, 0),
   budget_skipped: ev.budget_skipped      // 하루 예산을 넘어 하지 않은 결제
 }]->(poi)
 RETURN count(*) AS written
@@ -116,6 +120,7 @@ def write_plan(
         discount = ev.get("instant_discount") or {}
         ev["instant_discount_json"] = (_json.dumps(discount, ensure_ascii=False)
                                         if discount else "{}")
+        ev["discount_total"] = int(sum(int(v or 0) for v in discount.values())) if isinstance(discount, dict) else 0
         rebate = ev.get("policy_rebate") or {}
         ev["policy_rebate_json"] = _json.dumps(rebate, ensure_ascii=False) if rebate else "{}"
     # 리뷰 노출 기록(어떤 리뷰를 봤나) + 사고변화 건수 — O(events), 추가 호출 없음
@@ -292,6 +297,48 @@ def grant_receipt_date(pol: dict, aid: str | None):
     return None
 
 
+def _aid_grants(pol: dict) -> dict:
+    """사람별 지급액(aid_grants: {aid: 원}). 그래프에서는 mech_params JSON 안에 들어 있다.
+
+    [2026-10-12] P010 1차는 수급 자격(일반 15만·차상위·한부모 30만·기초생활수급자 40만)으로 금액이 정해진다.
+    페르소나에 자격이 없어 공개 통계로 사람마다 배정한 표를 정책 사본에 싣는다
+    (data/experiments/p010_eligibility_20261012). 표에 없는 사람은 기존 규칙(decile_grants 등)을 따른다.
+    """
+    import json as _json
+    m = pol.get("aid_grants")
+    if m is None and pol.get("mech_params"):
+        try:
+            raw = pol["mech_params"]
+            m = (_json.loads(raw) if isinstance(raw, str) else dict(raw)).get("aid_grants")
+        except Exception:
+            m = None
+    if isinstance(m, str):
+        m = _json.loads(m)
+    return m or {}
+
+
+def grant_days_since(policies, today, aid=None) -> dict:
+    """{정책ID: 받은 날부터 지난 날수} — 프롬프트의 '지급일/지급 후 N일'·'N일 전 지급' 표시용.
+
+    [2026-10-12] 예전 계산은 시행일(effective_from)부터 셌다. 지급 일정(receipt_schedule)이 있는 정책에서는
+    받는 날 당일에 '지급 후 N일'(N = 받는 날 − 시행일)로 보였다(P010 받아 적기 시험: 7/22 에 받은 사람이
+    '지급 후 1일', 7/26 에 받는 사람은 '지급 후 5일'). 사람마다 받는 날(grant_receipt_date)부터 센다.
+    일정이 없는 정책은 받는 날 = 시행일이라 예전과 같다. 아직 받지 않았으면 넣지 않는다.
+    """
+    out = {}
+    today_d = as_date(today)
+    for pol in (policies or []):
+        if pol.get("type") != "grant":
+            continue
+        due = grant_receipt_date({**pol, "effective_from": pol.get("effective_from") or pol.get("from_")}, aid)
+        if due is None or today_d is None:
+            continue
+        d = (today_d - due).days
+        if d >= 0:
+            out[pol.get("id")] = d
+    return out
+
+
 def grants_to_apply(policies, today, prev_received=None, income="",
                     spend_decile=None, aid=None) -> dict:
     """오늘 **새로 지급될** {정책ID: 금액}. 런타임과 예비점검이 같이 쓴다.
@@ -317,13 +364,13 @@ def grants_to_apply(policies, today, prev_received=None, income="",
             continue
         if grant_receipt_date(pol, aid) != today_d:
             continue
-        amt = _grant_for_single_policy(income, pol, spend_decile=spend_decile)
+        amt = _grant_for_single_policy(income, pol, spend_decile=spend_decile, aid=aid)
         if amt > 0:
             out[pid] = amt
     return out
 
 
-def _grant_for_single_policy(income: str, pol: dict, spend_decile=None) -> int:
+def _grant_for_single_policy(income: str, pol: dict, spend_decile=None, aid=None) -> int:
     """단일 grant 정책 지급액.
 
     신규 decile_grants가 있으면 소비 10분위를 사용하고, 없으면 레거시
@@ -331,6 +378,10 @@ def _grant_for_single_policy(income: str, pol: dict, spend_decile=None) -> int:
     """
     if pol.get("type") != "grant":
         return 0
+    if aid:
+        _ag = _aid_grants(pol)
+        if aid in _ag:
+            return int(_ag[aid])
     decile_grants = _parse_income_grants(pol.get("decile_grants"))
     if decile_grants:
         try:
@@ -513,7 +564,13 @@ WITH a, p, i, poi,
      // summary = "왜 그랬는지". 새벽 컨텍스트는 장소·업종·만족도를 별도로 이미 찍으므로
      // 예전처럼 그것을 반복하면 120자가 통째로 낭비된다. 같은 자리에 계기와 이유를 넣는다.
      // 인터뷰(1:1 회상)용 원문은 아래 why/pick_why에 잘리지 않은 채로 따로 보관한다.
-     toString(coalesce(i.actual_spent, 0)) + '원 · ' +
+     toString(coalesce(i.actual_spent, 0)) + '원' +
+       // [2026-10-11] 결제할 때 깎인 금액·실제로 낸 돈, 장보기 중 농축산물 금액 — 사람이 기억할 법한 사실만 숫자로
+       CASE WHEN coalesce(i.discount_total, 0) > 0
+            THEN '(결제 할인 ' + toString(i.discount_total) + '원, 낸 돈 '
+                 + toString(coalesce(i.actual_spent, 0) - i.discount_total) + '원)' ELSE '' END +
+       CASE WHEN i.produce_spent IS NOT NULL AND i.produce_spent > 0
+            THEN ' · 그중 농축산물 ' + toString(i.produce_spent) + '원' ELSE '' END + ' · ' +
        CASE WHEN i.menu IS NOT NULL AND i.menu <> '' THEN i.menu + ' · ' ELSE '' END +
        '[' + coalesce(i.trigger, '-') + '] ' +
        left(coalesce(i.reasoning, ''), 90) AS summary,
@@ -536,6 +593,9 @@ MERGE (m:Memory {id: mem_id})
     m.paid_policy = (i.spent_from_policy IS NOT NULL
                      AND i.spent_from_policy <> '{}' AND i.spent_from_policy <> 'null'),
     m.extra_spent = i.extra_spent,    // 이 결제 중 지원금 없었으면 안 썼을 금액
+    m.discount_total = coalesce(i.discount_total, 0),   // [2026-10-11] 결제 할인 받은 금액
+    m.produce_spent = i.produce_spent,                 // 장보기 중 농축산물 금액(모델 답)
+    m.store = poi.name,                                // 가게 이름(인터뷰에서 '어디서'를 바로 댈 수 있게)
     m.category = coalesce(i.sub_category, i.category)
 MERGE (a)-[:REMEMBERS {day: date($yesterday)}]->(m)
 MERGE (m)-[:ABOUT_POI]->(poi)
