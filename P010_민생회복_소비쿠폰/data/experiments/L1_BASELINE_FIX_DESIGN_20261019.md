@@ -78,3 +78,77 @@
 - 1회 구매액·시간 창은 가정이다. 결과를 보고 고치지 않는다(바꾸면 새 판으로 기록).
 - 공간(상가 수 비례를 못 이김, 도심 낮 인구 없음)은 이번 변경 범위 밖 — 직장 재배정·가게 후보 범위는 다음 단계.
 - 넣은 일정은 집 기준(anchor=residence)이라 공간 판정은 나빠질 수 있다. 지키는 지표로 본다.
+
+## 7. 구현 기록 (2026-10-19, 클라우드 세션 — 1~6절은 그대로 두었다)
+
+브랜치: 예전 `fix/l1-baseline-fidelity`(85798a3) 를 지우고, `final_backup_20261019` 를 main 에 병합한 뒤
+(wikriwiki/kw_26_final_project#3, main 트리 = final_backup 트리) main 에서 다시 만들었다. 엔진은 정책별 폴더 중
+`P010_민생회복_소비쿠폰/`(= `P010_simulation` a99e561 트리, 바이트 단위로 같음)이고, 85798a3 의 파일(이 문서·
+`scripts/sim/category_budget.py`·`tools/l1_eval/`)을 이 폴더 아래로 옮겼다. 이 문서의 경로는 모두 이 폴더 기준이다.
+
+### 4절 남은 일 — 한 것
+
+| 항목 | 상태 |
+|---|---|
+| 4-1 `consumption.base_store_budget` · `apply_consumption_model(category_shares, budget_carry_cat)` · 반환 `category_budget` | 했다 |
+| 4-2 `run_simulation.process_one` — 1단계 직후 `plan_day`, 소비 모형에 몫·이월 전달, 밤 상태 저장, 지표 `cm_category_budget`·`cm_category_plan` | 했다 |
+| 4-3 `plan_writer` — `s.budget_carry_cat`(JSON 문자열, 꺼져 있으면 null) · `night_create_state(budget_carry_cat=)` | 했다 |
+| 4-4 `dawn_context` — 상태 조회에 `budget_carry_cat` | 했다 |
+| 4-5 단위 시험 `tests/unit/sim/test_category_budget_20261019.py` (15개) | 했다, 모두 통과 |
+
+### 구현하면서 정한 것 · 고친 것
+
+1. **최소 몫(고침)**: `shares_for` 가 바닥(0.02)을 깐 뒤 전체를 다시 나눠, 입력 밖 업종 몫이 0.018 안팎으로 MIN_SHARE 아래로
+   내려갔다(4-5 시험 "입력 밖 업종 ≥ MIN_SHARE" 에 걸림). 바닥에 걸린 업종을 MIN_SHARE 로 고정하고 나머지를 남은 몫 안에서 비례로 나눈다.
+2. **거래 없는 날의 게이지(고침)**: 가게 결제가 하나도 없는 날은 소비 모형이 일찍 돌아와 업종 이월이 저장되지 않았고(null),
+   다음 날 게이지가 해시 위상으로 다시 시작했다 — 집에 머문 날 쌓여야 할 필요가 지워진다. 그런 날도 `allocate([], [])` 로
+   그날 봉투를 업종마다 그대로 이월한다(예산은 `base_store_budget`, 계획 배수 1).
+3. **이월은 업종별로만**: 켜져 있으면 `allocate` 의 예산은 `_pf_budget`(합계 이월 `budget_carry_in` 을 더하지 않음) — 상태의
+   `budget_carry` 가 업종 이월의 합이므로 더하면 같은 돈을 두 번 센다. `price_first.carry_in/out` 은 업종 합이다.
+4. **이미 낸 월 납부는 넣지 않는다(사용자 결정 2026-10-19)**: 교육·건강 게이지가 차서 학원·기타교육·헬스장을 넣었는데 이번 달 이미
+   냈으면 0원이라 게이지가 줄지 않고 다음 날 또 들어갔다(오프라인 14일 점검: 150명 중 9명이 7일 이상). `plan_day` 가
+   `monthly_subs`·`monthly_paid` 를 받아 그 업종은 그날 넣지 않는다(다음으로 밀린 업종이 그 자리에 들어간다).
+5. `base_store_budget` 에 `is_weekend` 인자를 더했다 — 적립 채널이 꺼진 경로에서 계획 기준선을 평일/주말로 찾는 식을 따르기 위해서다.
+   본 실험(적립 채널 켜짐)에서는 쓰이지 않는다.
+6. 4-5 의 "업종 합이 봉투+이월을 넘지 않음" 은 3절의 "넘치면 기존과 같은 해시 확률 규칙" 과 함께 읽어, **넘는 결제는 업종마다
+   마지막 한 건뿐이고 그 앞까지의 합은 봉투+이월(필수 지출을 뺀 것) 이하**로 시험한다(무작위 300판).
+
+### 실제로 돌린 검사 (모델·Neo4j 없이)
+
+- 꺼져 있을 때: 고정 입력(평일 섞인 하루·외출 없는 하루)에서 `apply_consumption_model` 결과와 바뀐 일정이 출발점 엔진(a99e561)과
+  **바이트 단위로 같다**. 고정값 `tests/fixtures/category_budget_20261019/off_snapshot_a99e561.json`. 업종 인자를 넘겨도 꺼져 있으면 같다.
+- `tests/unit/sim` 전체: 실패 5개 — 출발점과 같은 목록(test_full_experiment_recovery 2, test_policy_prompt_timing 2,
+  test_price_first_20261007::test_ticket_label_and_unmapped). 이 환경 기준이며 엔진 기록의 "기존 실패 19개" 와 수가 다른 것은 환경 차이다.
+  `tests/unit`(sim 제외)도 출발점과 실패·수집 오류 목록이 같다(fastapi 미설치 등).
+- 고친 1·2 는 고치기 전 코드로 되돌리면 각각 해당 시험이 실패하는 것을 확인했다.
+- 오프라인 14일 점검(150명 명부, `agents_final.json.bak_orig` 의 업종 비율, 하루 점심 한 끼 일정만 둔 가상 일정): 넣은 일정
+  사람-날당 1.02건, 0원 결제로 넣은 일정 0건. **LLM 일정이 아니므로 결과 예측이 아니다** — 배관 점검일 뿐이다.
+- 하지 않은 것: 실제 모델 실행, Neo4j 상태 저장·조회 왕복, 실측 대비 판정.
+
+## 8. 실행 순서 (5절 — 기존 실행기 그대로, 사용자 결정 2026-10-19)
+
+`tools/run_ab3w.sh` 를 고치지 않고 `AB_CASE=p010` 으로 두 번 돌린다. 실행기는 정책 있음 갈래도 함께 돌린다(사람-날 3,150, 정책 없음만이면
+2,100). **판정은 정책 없음 갈래(`off`)와 정책 전 주(`pre`)만 쓴다.** 정책 있음 갈래는 5절 "다음 단계"(받기 전 위약·정책 계기 일정 수)에 쓴다.
+
+0. **입력 확인** — 출발 그래프(`AB_PRE_GRAPH`, 기본 `/data/backup_20260927_pre_pilot`)를 복원한 Neo4j 에서 명부 150명 모두
+   `cat_ratio_wd`·`cat_ratio_we` 가 있어야 한다(없는 사람은 이 수정이 적용되지 않는다 — `shares_for` 가 None).
+   `MATCH (a:Agent) WHERE a.id IN $ids RETURN count(a), count(a.cat_ratio_wd), count(a.cat_ratio_we)` — 비어 있으면
+   `scripts/neo4j_load/09_backfill_catratio.py` 로 채운 그래프를 출발 그래프로 쓴다(두 런이 같은 그래프여야 한다).
+1. **옛 엔진(플래그 꺼짐)** — 이 브랜치 그대로, `EXP_CATEGORY_*` 를 모두 지운 셸에서:
+   ```
+   cd <저장소>/P010_민생회복_소비쿠폰
+   unset EXP_CATEGORY_BUDGET EXP_CATEGORY_TICKETS EXP_CATEGORY_MIN_SHARE EXP_CATEGORY_MAX_INJECT
+   AB_CASE=p010 AB_TAG=l1old AB_ROSTER=$PWD/data/experiments/p010_eligibility_20261012/p010_ab3w_small_150.json \
+   AB_PRE_DAYS=7 AB_POST_DAYS=7 AB_NEO_ON=… AB_BOLT_ON=… AB_HTTP_ON=… AB_NEO_OFF=… AB_BOLT_OFF=… AB_HTTP_OFF=… \
+   bash tools/run_ab3w.sh
+   ```
+2. **새 엔진** — 같은 셸 설정에 `export EXP_CATEGORY_BUDGET=1` 만 더하고 `AB_TAG=l1new`. 동시에 돌리면 Neo4j 쌍을 다르게 준다.
+   - `EXP_CATEGORY_BUDGET` 은 `common_env` 가 지우지 않으므로 그대로 모든 단계에 닿고, `engine.json` 의 설정과 실행 지문에 들어간다
+     (`EXP_*` 전부가 지문). 이어 돌릴 때 플래그가 다르면 실행기가 멈춘다.
+   - 같은 LLM(`AB_LLM_BASE_URL`·`AB_MODEL_ID`)·같은 `AB_PRE_GRAPH`·같은 명부. 그 밖의 플래그는 실행기가 P010 본런과 같게 넣는다
+     (`EXP_PRICE_FIRST=1`·`EXP_PLAN_DRIVES_TOTAL=1`·`EXP_ELIGIBLE_CHANNEL=1`·`EXP_CLEAN_PROMPT=1`·`EXP_NO_MIN_OUTING=1`·p010 `CASE_EXPORTS`).
+3. **새 엔진 첫날 확인** — `$BASE/pre/metrics/day_2025-07-14.jsonl` 의 행에 `cm_category_budget`·`cm_category_plan` 이 있어야 한다
+   (없으면 플래그가 닿지 않은 것이다). 옛 엔진 행에는 이 열이 없다.
+4. **판정(5절, 결과 보기 전 고정)** — 두 런의 `$BASE` 를 zip 으로 묶어 `tools/l1_eval/extract_run_v2.py <zip> <pickle>` →
+   `tools/l1_eval/l1_multiscale.py` 의 `RUNS`·실측 경로를 두 pickle 로 바꿔 같은 사람·같은 날(정책 전 7일 + `off` 7일)로 사다리를 다시 그린다.
+   150명이라 굵은 단위만 본다.
