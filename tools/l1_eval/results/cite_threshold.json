@@ -1,0 +1,181 @@
+{
+ "n_responses": 3462,
+ "n_parsed": 2368,
+ "n_citations": 17156,
+ "n_citations_parsed": 13975,
+ "unknown_id_share": 0.0,
+ "cite_pass_parsed": {
+  "R0": 0.4835778175313059,
+  "R1": 0.5016815742397138,
+  "≥0.95": 0.6266905187835421,
+  "≥0.90": 0.6540250447227192,
+  "≥0.80": 0.6978175313059034
+ },
+ "cite_pass_unparsed": {
+  "R0": 0.16472807293303993,
+  "R1": 0.5532851304621188,
+  "≥0.95": 0.6862621817038667,
+  "≥0.90": 0.7063816409933983,
+  "≥0.80": 0.7538509902546369
+ },
+ "resp_pass_parsed": {
+  "R0": 0.2668918918918919,
+  "R1": 0.296875,
+  "≥0.95": 0.40878378378378377,
+  "≥0.90": 0.4438344594594595,
+  "≥0.80": 0.49028716216216217
+ },
+ "resp_pass_all": {
+  "R0": 0.18370883882149047,
+  "R1": 0.3833044482957828,
+  "≥0.95": 0.4896013864818024,
+  "≥0.90": 0.5190641247833622,
+  "≥0.80": 0.5571923743500866
+ },
+ "mutations": {
+  "digit": {
+   "n": 1500,
+   "accept": {
+    "R0": 0.0,
+    "R1": 0.0,
+    "≥0.95": 0.9433333333333334,
+    "≥0.90": 0.998,
+    "≥0.80": 0.9993333333333333
+   },
+   "examples": [
+    {
+     "orig": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "mut": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "score": 0.997
+    },
+    {
+     "orig": "{\"group\":\"resources_and_routine\",\"known_fields\":[\"income\",\"spend_decile\",\"daily_",
+     "mut": "{\"group\":\"resources_and_routine\",\"known_fields\":[\"income\",\"spend_decile\",\"daily_",
+     "score": 0.998
+    },
+    {
+     "orig": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "mut": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "score": 0.997
+    }
+   ]
+  },
+  "syllable": {
+   "n": 1500,
+   "accept": {
+    "R0": 0.0,
+    "R1": 0.0,
+    "≥0.95": 0.9506666666666667,
+    "≥0.90": 0.9953333333333333,
+    "≥0.80": 1.0
+   },
+   "examples": [
+    {
+     "orig": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "mut": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "score": 0.997
+    },
+    {
+     "orig": "{\"group\":\"resources_and_routine\",\"known_fields\":[\"income\",\"spend_decile\",\"daily_",
+     "mut": "{\"group\":\"resources_and_routine\",\"known_fields\":[\"income\",\"spend_decile\",\"daily_",
+     "score": 0.998
+    },
+    {
+     "orig": "오광단 씨는 고등학교 졸업이라는 지적 자부심과 탁월한 친화력을 바탕으로 노원구 공릉동에서 존경받는 시니어 리더로 살아가는 여사님입니다.",
+     "mut": "오광단 씨는 고등학교 졸업이라는 지적 자부심과 탁월한 친화력을 바탕으로 노원구 공릉동에서 존경받는 시니어 리더로 살아가묬 여사님입니다.",
+     "score": 0.987
+    }
+   ]
+  },
+  "flip": {
+   "n": 972,
+   "accept": {
+    "R0": 0.0,
+    "R1": 0.0,
+    "≥0.95": 0.5133744855967078,
+    "≥0.90": 0.5154320987654321,
+    "≥0.80": 1.0
+   },
+   "examples": [
+    {
+     "orig": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "mut": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "score": 0.987
+    },
+    {
+     "orig": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "mut": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "score": 0.988
+    },
+    {
+     "orig": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "mut": "{\"group\":\"identity_and_smoking\",\"known_fields\":[\"id\",\"age_group\",\"gender\",\"life_",
+     "score": 0.988
+    }
+   ]
+  }
+ },
+ "examples_r1_only": [
+  {
+   "q": "smoking_status\\\":\\\"smoker\\"
+  },
+  {
+   "q": "{\\\"actual_satisfaction\\\":0.0,\\\"actual_spent\\\":4539,\\\"category\\\":\\\"건강\\\",\\\"execution_event_id\\\":\\\"EX_a8ed13a792f198b413e01"
+  },
+  {
+   "q": "nv_hobbies\\\":\\\"[\\\\\\\"전국 역사 유적지 답사 여행\\\\\\\", \\\\\\\"퍼스널 컬러 진단 및 메이크업 수정\\\\\\\", \\\\\\\"유튜브 숏폼 콘텐츠 시청\\\\\\\", \\\\\\\"석촌호수 주변 야간 산책\\\\\\\", \\\\\\\""
+  },
+  {
+   "q": "smoking_status\\\":\\\"smoker\\"
+  },
+  {
+   "q": "actual_satisfaction\\\":0.62,\\\"actual_spent\\\":5677,\\\"category\\\":\\\"식사\\\",\\\"execution_event_id\\\":\\\"EX_dec5e52dedd2b1874ae8171"
+  }
+ ],
+ "examples_fuzzy_only": [
+  {
+   "q": "{\"group\":\"resources_and_routine\",\"known_fields\":[\"income\",\"spend_decile\",\"daily_wr\",\"daily_we\",\"we_wd_ratio\",\"cat_ratio_",
+   "score": 0.992
+  },
+  {
+   "q": "\"lifestyle\":\"꼼꼼하고 가족 중심의 삶을 살아가는 70대 농업 종사자  \\n하루 평균 2만7천원대를 주로 집밥과 배달 식사에 쓰며, 가족과 함께하는 식사에 신경 쓰는 편\"",
+   "score": 0.979
+  },
+  {
+   "q": "{\"group\":\"work_and_location\",\"known_fields\":[\"job\",\"home_dong\",\"home_dong_code\",\"home_poi\",\"home_gu\"],\"source_kind\":\"ass",
+   "score": 0.995
+  },
+  {
+   "q": "nv_cultural\":\"노원구의 다세대주택 밀집 지역에서 자녀를 키우며, 대학 시절 전공한 사회과학적 관점으로 주변의 변화를 관찰하는 습관이 있습니다. 매일 아침 정해진 루틴에 따라 집안일을 갈무리하고 출근하는 규",
+   "score": 0.971
+  },
+  {
+   "q": "성실하고 책임감이 강하지만, 일상의 여유를 조금씩 찾아가는 사람입니다. 하루 평균 11만 원대를 주로 써서, 평일엔 집밥과 편의점 음식을 즐기고 주말엔 가족이나 친구들과 함께 중식당에서 탕수육과 소주를 즐깁니다. 평",
+   "score": 0.995
+  },
+  {
+   "q": "home_h_we:6.2",
+   "score": 0.923
+  },
+  {
+   "q": "smoking_status\":\"non smoker\"",
+   "score": 0.964
+  },
+  {
+   "q": "{\"group\":\"recorded_career_and_skills\",\"known_fields\":[\"nv_career\",\"nv_skills\"],\"source_kind\":\"assigned_simulated_profile",
+   "score": 0.988
+  }
+ ],
+ "score_hist_failed": {
+  "0.0-0.1": 628,
+  "0.1-0.2": 435,
+  "0.2-0.3": 1001,
+  "0.3-0.4": 790,
+  "0.4-0.5": 361,
+  "0.5-0.6": 205,
+  "0.6-0.7": 486,
+  "0.7-0.8": 1126,
+  "0.8-0.9": 763,
+  "0.9-1.0": 2615
+ }
+}
