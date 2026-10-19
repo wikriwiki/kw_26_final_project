@@ -119,10 +119,18 @@ def shares_for(persona: dict, is_weekend: bool) -> tuple[dict[str, float], dict[
         shares[key] += float(share)
         if hs:
             hints.setdefault(key, []).extend(hs)
-    for k in shares:
-        shares[k] = max(shares[k], MIN_SHARE)
-    tot = sum(shares.values())
-    return {k: v / tot for k, v in shares.items()}, hints
+    # 최소 몫은 재정규화 뒤에도 MIN_SHARE 여야 한다 — 바닥에 걸린 업종을 MIN_SHARE 로 고정하고
+    # 나머지를 남은 몫 안에서 비례로 나눈다(바닥을 깐 뒤 전체를 나누면 바닥이 MIN_SHARE 아래로 내려간다).
+    floored: set[str] = set()
+    while True:
+        free = 1.0 - MIN_SHARE * len(floored)
+        tot = sum(v for k, v in shares.items() if k not in floored)
+        scaled = {k: free * v / tot for k, v in shares.items() if k not in floored}
+        low = {k for k, v in scaled.items() if v < MIN_SHARE}
+        if not low:
+            break
+        floored |= low
+    return {k: (MIN_SHARE if k in floored else scaled[k]) for k in BUDGET_L1}, hints
 
 
 def envelopes(budget: float, shares: dict[str, float]) -> dict[str, int]:

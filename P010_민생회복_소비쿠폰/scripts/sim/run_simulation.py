@@ -95,7 +95,8 @@ from no_smoking_context import configured_context, begin_llm_scope, clear_llm_sc
 # 사회 배경 id. 예: covid_2021. 비우면 환경 블록 없음(P010 등 평시).
 _SIM_ENV = os.environ.get("SIM_ENVIRONMENT", "").strip() or None
 from stage1_intent import (call_stage1, grant_style_to_use, Stage1Exhausted,  # noqa: E402
-                           SYSTEM_PROMPT as DAWN_SYSTEM_PROMPT)
+                           Stage1Event, SYSTEM_PROMPT as DAWN_SYSTEM_PROMPT)
+import category_budget  # noqa: E402  [EXP_CATEGORY_BUDGET] 업종 예산 봉투·필요 게이지
 from prompts import active_name as active_prompt_name  # noqa: E402
 _ACTIVE_PROMPT_VARIANT = active_prompt_name()
 from stage2_poi import (call_stage2, merge_to_final_events, active_stage2_system,
@@ -115,6 +116,7 @@ from timing_metrics import (  # noqa: E402
 )
 from consumption import (  # noqa: E402
     apply_consumption_model,
+    base_store_budget,
     filter_active_grant_balances,
     settle_policy_spend_priority,
     settled_mpc_measure,
@@ -543,6 +545,24 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
             s1, m1 = call_stage1(aid, today, ctx=ctx)
         timing["t_s1"] = round(time.time() - _t, 3)
 
+        # [EXP_CATEGORY_BUDGET] 1단계 일정을 업종 봉투에 맞춘다(2단계 전) — 감당 못 하는 일상 외식은 집·직장으로,
+        # 게이지가 찬 업종은 일정에 넣는다. data/experiments/L1_BASELINE_FIX_DESIGN_20261019.md
+        _cat_shares = _cat_carry = _cat_plan = None
+        if category_budget.ENABLED:
+            _cat_we = _kr_day_off(today)
+            _cat_in = category_budget.shares_for(ctx.persona, _cat_we)
+            if _cat_in is not None:
+                _cat_shares, _cat_hints = _cat_in
+                _cat_carry = category_budget.carry_from_state((ctx.state or {}).get("budget_carry_cat"), aid)
+                s1.events, _cat_plan = category_budget.plan_day(
+                    s1.events, aid=aid, day=today.isoformat(), is_weekend=_cat_we,
+                    has_work=bool(ctx.persona.get("work_poi_id")),
+                    budget=base_store_budget(
+                        ctx.persona.get("daily_we") if _cat_we else ctx.persona.get("daily_wd"), aid,
+                        is_weekend=_cat_we),
+                    shares=_cat_shares, hints=_cat_hints, carry=_cat_carry,
+                    make_event=lambda **kw: Stage1Event(**kw))
+
         # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출.
         # 기존 프롬프트는 persona의 정책 요약, opt-in 기록은 원본 정책·잔액도 보존.
         _t = time.time()
@@ -646,6 +666,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 **({"monthly_paid": set(ctx.persona.get("monthly_paid") or ()),
                     "budget_carry_in": (ctx.state or {}).get("budget_carry")}
                    if os.environ.get("EXP_PRICE_FIRST", "0") == "1" else {}),
+                **({"category_shares": _cat_shares, "budget_carry_cat": _cat_carry}
+                   if _cat_shares is not None else {}),
             )
         else:
             # legacy는 총소비액을 건드리지 않되 결제수단은 동일한 우선 정산을 적용한다.
@@ -785,6 +807,7 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 today_online_spent=int((cm_meta or {}).get("online_total") or 0),
                 today_income=_today_income,
                 budget_carry=(((cm_meta or {}).get("price_first") or {}).get("carry_out")),
+                budget_carry_cat=(((cm_meta or {}).get("category_budget") or {}).get("carry_out")),
                 execution_receipts=execution_receipts,
                 observations=observations,
                 policy_appraisals=policy_appraisals,
@@ -906,6 +929,11 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                 "cm_policy_payment_coverage": cm_meta.get("policy_payment_coverage", 0),
                 "cm_policy_liquidity_relief": cm_meta.get("policy_liquidity_relief", 0),
                 "cm_mechanical_policy_uplift": cm_meta.get("mechanical_policy_uplift", 0),
+                # [EXP_CATEGORY_BUDGET] 업종 봉투·이월·업종별 결제, 1단계 조정(바꾼 끼니·넣은 일정). 꺼져 있으면 열이 없다.
+                **({"cm_category_budget": cm_meta.get("category_budget"),
+                    "cm_category_plan": ({"meals_converted": _cat_plan["meals_converted"],
+                                          "injected": _cat_plan["injected"]} if _cat_plan else None)}
+                   if category_budget.ENABLED else {}),
                 "s1_attempts": m1["attempt"] + 1,
                 "s1_timing": m1.get("s1_timing"),
                 "prompt_timing": m1.get("prompt_timing"),

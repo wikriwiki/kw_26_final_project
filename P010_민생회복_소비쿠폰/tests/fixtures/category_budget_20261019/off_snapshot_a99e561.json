@@ -1,0 +1,187 @@
+{
+ "no_commerce": {
+  "events": [
+   {
+    "category": "집",
+    "poi_id": "HOME",
+    "sub_category": "휴식",
+    "time": "08:00"
+   }
+  ],
+  "meta": {
+   "anchor_total": 120000,
+   "applied": false,
+   "grant_carry_in": 0,
+   "grant_carry_out": 0,
+   "online_total": 24932,
+   "personal_total": 0,
+   "reason": "no_commerce",
+   "today_total": 0,
+   "today_total_incl_online": 24932
+  }
+ },
+ "weekday_mixed": {
+  "events": [
+   {
+    "category": "집",
+    "poi_id": "HOME",
+    "sub_category": "기상",
+    "time": "07:30"
+   },
+   {
+    "actual_spent": 15000,
+    "category": "건강",
+    "desired_spent": 15000,
+    "poi_id": "H1",
+    "policy_spend": {},
+    "purchase_status": "purchased",
+    "sub_category": "의원",
+    "time": "09:00"
+   },
+   {
+    "actual_spent": 9000,
+    "category": "식사",
+    "desired_spent": 9000,
+    "poi_id": "R1",
+    "policy_spend": {},
+    "purchase_status": "purchased",
+    "sub_category": "한식",
+    "time": "12:00"
+   },
+   {
+    "actual_satisfaction": null,
+    "actual_spent": 0,
+    "actual_spent_planned": 5500,
+    "budget_skipped": true,
+    "category": "카페",
+    "desired_spent": 5500,
+    "poi_id": "C1",
+    "policy_spend": {},
+    "purchase_status": "not_purchased",
+    "sub_category": "카페",
+    "time": "15:00"
+   },
+   {
+    "actual_spent": 200000,
+    "category": "교육",
+    "desired_spent": 200000,
+    "poi_id": "E1",
+    "policy_spend": {},
+    "purchase_status": "purchased",
+    "sub_category": "학원",
+    "time": "16:00"
+   },
+   {
+    "actual_spent": 42000,
+    "category": "마트",
+    "desired_spent": 42000,
+    "poi_id": "M1",
+    "policy_spend": {},
+    "purchase_status": "purchased",
+    "sub_category": "슈퍼마켓",
+    "time": "18:30"
+   },
+   {
+    "actual_spent": 13000,
+    "category": "식사",
+    "desired_spent": 13000,
+    "poi_id": "R2",
+    "policy_spend": {},
+    "purchase_status": "purchased",
+    "sub_category": "한식",
+    "time": "19:30"
+   },
+   {
+    "actual_satisfaction": null,
+    "actual_spent": 0,
+    "actual_spent_planned": 30000,
+    "budget_skipped": true,
+    "category": "주점",
+    "desired_spent": 30000,
+    "poi_id": "B1",
+    "policy_spend": {},
+    "purchase_status": "not_purchased",
+    "sub_category": "일반주점",
+    "time": "21:00"
+   }
+  ],
+  "meta": {
+   "additional_from_grant": 0,
+   "affordability_cap": 1475068,
+   "affordability_corrected": false,
+   "anchor_total": 120000,
+   "applied": true,
+   "available": 171429,
+   "day_multiplier": 0.9459,
+   "eligible_base": 0,
+   "envelope_eligible_events": {},
+   "envelope_requested": {},
+   "grant_carry_in": 0,
+   "grant_carry_out": 0,
+   "grant_choice_mode": false,
+   "grant_choice_share_mean": 0.0,
+   "grant_extra_rate": 0.0,
+   "grant_intensity_mode": false,
+   "grant_part": 0,
+   "grant_plan_days_effective": 0,
+   "grant_posture": null,
+   "grant_spread_days": null,
+   "instant_discount_eligible_gross": 0,
+   "instant_discount_total": 0,
+   "intended_grant_today": 0,
+   "mechanical_policy_uplift": 0,
+   "mpc_coverage": null,
+   "mpc_lower": null,
+   "mpc_new_share": null,
+   "mpc_paid_won": 0,
+   "mpc_stage2_amounts": [
+    15000.0,
+    9000.0,
+    5500.0,
+    200000.0,
+    42000.0,
+    13000.0,
+    30000.0
+   ],
+   "mpc_unresolved_won": 0,
+   "mpc_upper": null,
+   "n_commerce": 7,
+   "normal_budget": 120000,
+   "online_planned": 24932,
+   "online_share_effective": 0.4986,
+   "online_share_source": "eligible_channel:bdc_dong",
+   "online_total": 24932,
+   "personal_total": 25068,
+   "plan_baseline": null,
+   "plan_channel_on": true,
+   "plan_over_anchor": 0,
+   "plan_ratio": null,
+   "planned_total": 99500,
+   "policy_eligible_event_count": 0,
+   "policy_eligible_spend_total": 0,
+   "policy_liquidity_relief": 0,
+   "policy_payment_coverage": 0.0,
+   "policy_spend_allocated": {},
+   "policy_spend_allocated_total": 0,
+   "policy_spend_requested": {},
+   "policy_wallet_available": 0,
+   "price_basket_idx": 1.0,
+   "price_first": {
+    "budget_skipped": 2,
+    "carry_in": -5000,
+    "carry_out": -43932,
+    "irregular_total": 15000,
+    "monthly_total": 200000,
+    "routine_budget": 20068,
+    "routine_total": 64000
+   },
+   "propensity": 0.7,
+   "propensity_center": 0.74,
+   "selected_policy_liquidity": 0,
+   "selected_policy_liquidity_by_pid": {},
+   "substituted": 0,
+   "today_total": 279000,
+   "today_total_incl_online": 303932
+  }
+ }
+}

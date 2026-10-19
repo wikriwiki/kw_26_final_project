@@ -90,7 +90,9 @@ RETURN s.balance AS balance, s.energy AS energy, s.mood AS mood,
        // 상생 캐시백 실적 문턱 계산용: 적립업종 한정 이번달 누적 (G2b). 미적재 시 NULL.
        s.sangsaeng_month_spent AS sangsaeng_month_spent,
        // [EXP_PRICE_FIRST] 일상 예산 이월(어제까지 남거나 넘친 몫). 옛 런은 NULL.
-       s.budget_carry AS budget_carry
+       s.budget_carry AS budget_carry,
+       // [EXP_CATEGORY_BUDGET] 업종별 이월(필요 게이지) JSON. 꺼진 런은 NULL.
+       s.budget_carry_cat AS budget_carry_cat
 """
 
 

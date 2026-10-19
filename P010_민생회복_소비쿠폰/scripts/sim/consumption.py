@@ -26,6 +26,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from instant_discount import settle_instant_discounts
+import category_budget
 
 ANCHOR_PROPENSITY = 0.70   # p0: 지원금 無·평상일에 이 값이면 지출 = daily_wd (BDC 앵커)
 INTERNAL_CATS = {"집", "직장"}   # 머무름 — 소비 대상 아님
@@ -821,6 +822,34 @@ def _price_first_spends(commerce: list[dict], planned: list[float], budget: int,
                                       if not _is_irregular(e) and (e.get("sub_category") or e.get("sub") or "") not in MONTHLY_SUBS)}
 
 
+def base_store_budget(daily: float | int | None, aid: str | None = None, dong_code: str | None = None,
+                      is_weekend: bool | None = None) -> int:
+    """[EXP_CATEGORY_BUDGET] 1단계 직후(2단계 전) 하루 가게 예산 — 계획 배수 1 일 때의 _pf_budget.
+
+    2단계 전이라 가격지수(basket)는 1, 계획액은 아직 없다. 적립 채널(EXP_ELIGIBLE_CHANNEL)이 꺼져 있으면
+    apply_consumption_model 의 그 경로 식을 그대로 따른다(계획액이 없으니 max(앵커, 계획) 은 앵커, 온라인 몫 판단은 기준값).
+    """
+    anchor = int(round(spend_today(ANCHOR_PROPENSITY, daily)["total"]))
+    if EXP_ELIGIBLE_CHANNEL:
+        s, _ = eligible_share_for_dong(dong_code or _dong_of(aid))
+        return max(0, int(round(anchor / max(1e-6, ANCHOR_OVERSTATE) * s)))
+    pb = _plan_baseline() if EXP_PLAN_DRIVES_TOTAL else {}
+    pbase = None
+    if pb:
+        if is_weekend is not None:
+            pbase = pb.get("%s|%s" % (aid, "we" if is_weekend else "wd"))
+        if pbase is None:
+            pbase = pb.get(str(aid or ""))
+    total = int(round(anchor * PLAN_SCALE)) if (pbase and anchor > 0) else anchor
+    if EXP_SPLIT_ANCHOR:
+        total = int(round((anchor if EXP_ANCHOR_BEFORE_MAX else total) / max(1e-6, ANCHOR_OVERSTATE)))
+        off = 1.0 - max(SHARE_FLOOR, min(1.0, SHARE_BASE))
+    else:
+        off = 1.0 - ELIGIBLE_SHARE_SEOUL
+    rate = max(0.0, min(ONLINE_SHARE_CAP, off))
+    return max(0, total - int(round(total * rate)))
+
+
 def apply_consumption_model(
     events: list[dict],
     *,
@@ -859,6 +888,10 @@ def apply_consumption_model(
     monthly_paid: set | None = None,
     # [EXP_PRICE_FIRST] 어제까지 남거나 넘친 일상 예산(이월). 큰 장보기를 한 날의 초과는 며칠의 재량 지출에서 줄인다.
     budget_carry_in: int | None = None,
+    # [EXP_CATEGORY_BUDGET] 오늘의 업종 몫(category_budget.shares_for)과 어제까지의 업종별 이월(필요 게이지).
+    # 둘 다 있으면 가격 우선 결제를 업종 봉투 안에서 한다. data/experiments/L1_BASELINE_FIX_DESIGN_20261019.md
+    category_shares: dict | None = None,
+    budget_carry_cat: dict | None = None,
 ) -> dict:
     """Stage2 결과(events)에 소비성향 모델을 적용 — 선택 보존 + 안전 검증.
 
@@ -977,6 +1010,7 @@ def apply_consumption_model(
         for e in envelopes
     ] if _draw < 1.0 else envelopes
     envelopes_alloc = [e for e in envelopes_alloc if int(e.get("amount") or 0) > 0]
+    _cat_on = EXP_PRICE_FIRST and category_budget.ENABLED and bool(category_shares)
 
     commerce = [e for e in events if (e.get("category") not in INTERNAL_CATS) and e.get("poi_id")]
     if not commerce:
@@ -1005,6 +1039,13 @@ def apply_consumption_model(
                 "propensity_input_value": float(llm_propensity),
                 "propensity": _budget_propensity}
                if _propensity_mode == "llm_budget_only" else {}),
+            # [EXP_CATEGORY_BUDGET] 거래가 없는 날도 게이지는 이어진다 — 그날 봉투가 업종마다 그대로 남는다.
+            # 비워 두면 다음 날 이월이 해시 위상으로 다시 시작해, 집에 머문 날 쌓여야 할 필요가 지워진다.
+            **({"category_budget": category_budget.allocate(
+                    [], [], budget=base_store_budget(daily, aid, dong_code, is_weekend), shares=category_shares,
+                    carry=budget_carry_cat or {}, aid=aid, monthly_subs=MONTHLY_SUBS,
+                    irregular_subs=IRREGULAR_SUBS, monthly_paid=monthly_paid)[1]["category"]}
+               if _cat_on else {}),
         }
 
     # Stage2가 정한 절대 계획금액.
@@ -1258,7 +1299,18 @@ def apply_consumption_model(
     # [2026-10-07b] 가게 예산 = 가게 몫(앵커÷2.40 × 동별 사용처 비중 × 계획 배수). 예전엔 하루 전체(방문 외 몫 포함)를
     # 가게 예산으로 줘서 방문 외 몫이 두 번 계산됐다(P012 하루 총액 = 앵커÷2.40 의 1.25배).
     _pf_budget = int(personal_total)
-    _base_spends = (_price_first_spends(commerce, planned_weights, max(0, _pf_budget + _carry_in), aid, monthly_paid)[0]
+
+    def _pf_spends():
+        # [EXP_CATEGORY_BUDGET] 업종 봉투 안에서 결제한다. 이월은 업종별(budget_carry_cat)로만 받는다 —
+        # 합계 이월(budget_carry_in)까지 더하면 같은 돈을 두 번 센다.
+        if _cat_on:
+            return category_budget.allocate(
+                commerce, planned_weights, budget=max(0, _pf_budget), shares=category_shares,
+                carry=budget_carry_cat or {}, aid=aid, monthly_subs=MONTHLY_SUBS,
+                irregular_subs=IRREGULAR_SUBS, monthly_paid=monthly_paid)
+        return _price_first_spends(commerce, planned_weights, max(0, _pf_budget + _carry_in), aid, monthly_paid)
+
+    _base_spends = (_pf_spends()[0]
                     if EXP_PRICE_FIRST else distribute_budget(personal_total, planned_weights))
     _base_capacity = _allocate_policy_capacity(commerce, _base_spends, wallet_specs)
     eligible_base = int(_base_capacity["total"])
@@ -1299,12 +1351,12 @@ def apply_consumption_model(
     desired_total = personal_total
     _price_first_meta = None
     if EXP_PRICE_FIRST:
-        desired_spends, _price_first_meta = _price_first_spends(
-            commerce, planned_weights, max(0, _pf_budget + _carry_in), aid, monthly_paid)
+        desired_spends, _price_first_meta = _pf_spends()
         desired_total = sum(desired_spends)
-        _cap = 3 * max(0, int(_pf_budget))
-        _price_first_meta["carry_in"] = _carry_in
-        _price_first_meta["carry_out"] = max(-_cap, min(_cap, int(_pf_budget) + _carry_in - int(_price_first_meta["routine_total"])))
+        if not _cat_on:   # 업종 봉투 경로는 allocate 가 이월(업종 합)을 이미 냈다
+            _cap = 3 * max(0, int(_pf_budget))
+            _price_first_meta["carry_in"] = _carry_in
+            _price_first_meta["carry_out"] = max(-_cap, min(_cap, int(_pf_budget) + _carry_in - int(_price_first_meta["routine_total"])))
     else:
         desired_spends = distribute_budget(desired_total, planned_weights)
     # 지원금 전액이 아니라 오늘의 계획된 사용 가능 거래액까지만 유동성으로 인정한다.
@@ -1508,6 +1560,7 @@ def apply_consumption_model(
         "envelope_eligible_events": envelope_eligible_events,
         "n_commerce": len(commerce),
         "price_first": _price_first_meta,
+        **({"category_budget": _price_first_meta["category"]} if _cat_on else {}),
     }
 
 

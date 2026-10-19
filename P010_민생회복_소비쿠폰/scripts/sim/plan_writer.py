@@ -709,6 +709,7 @@ SET s.agent_id = $aid,
     s.mood = new_mood,
     s.fatigue = new_fatigue,
     s.budget_carry = $budget_carry,
+    s.budget_carry_cat = $budget_carry_cat,   // [EXP_CATEGORY_BUDGET] 업종별 이월(필요 게이지) JSON. 꺼져 있으면 null
     s.month_spent = prev_month_spent + (today_spent - $today_policy_spent - $today_instant_discount) + $today_online_spent,
     // 적립업종 누적은 실적(gross) 기준 — 캐시백은 지갑이 없어 policy_spent 차감 불필요.
     s.sangsaeng_month_spent = prev_sangsaeng_month_spent + today_sangsaeng_spent,
@@ -744,6 +745,7 @@ def night_create_state(
     today_online_spent: int = 0,
     today_income: int = 0,
     budget_carry: int | None = None,
+    budget_carry_cat: dict | None = None,
     execution_receipts: list | None = None,
     observations: list | None = None,
     policy_appraisals: dict | None = None,
@@ -790,6 +792,8 @@ def night_create_state(
                   today_online_spent=int(today_online_spent or 0),
                   today_income=int(today_income or 0),
                   budget_carry=(int(budget_carry) if budget_carry is not None else None),
+                  budget_carry_cat=(_json.dumps(budget_carry_cat, ensure_ascii=False)
+                                    if budget_carry_cat is not None else None),
                   execution_receipts_json=_json.dumps(execution_receipts or [], ensure_ascii=False),
                   observations_json=_json.dumps(observations or [], ensure_ascii=False),
                   policy_appraisals_json=_json.dumps(policy_appraisals or {}, ensure_ascii=False),
