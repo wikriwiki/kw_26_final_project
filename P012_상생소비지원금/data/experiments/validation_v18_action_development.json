@@ -1,0 +1,36 @@
+{
+  "id": "validation_v18_action_development",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "b365d3c254b0ef1bb8b1e3d9588b12bd773e897c89d9a2aeff3604b2e28afbc7",
+  "candidates": [
+    {
+      "id": "v23_bounded2048",
+      "thinking_tokens": 2048
+    }
+  ],
+  "seeds": [
+    29001
+  ],
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "answer_tokens": 2048,
+  "max_shift_minutes": 10,
+  "workers": 16,
+  "timeout_seconds": 900,
+  "order_seed": 20260930,
+  "phase": "12 original development citizens x four known mechanisms x same-calendar on/off = 96. Frozen v23 typed decision protocol; code-keyed geography. No unseen confirmation calls yet.",
+  "primary": "Complete matrix; at least 95% temporal/representation validity and no request failures; all explicit restrictions pass among completed schedules. Manually review action sequences, endpoint timing, work/remote conflicts, and travel. Report every raw failure and early-ending day; a temporal/choice pass alone does not validate full-day consumption.",
+  "selection": "Frozen v23 protocol. Larger development qualification only; no selection by policy effect direction or size. No statement of global optimality.",
+  "limitations": [
+    "Finite activity vocabulary with explicit provider extensions; does not model all possible human activities.",
+    "Meals at home do not certify inventory availability. Paid service prices and purchases are checked in a separate contract.",
+    "Adjacent commute timing is not full routing.",
+    "No full-day consumption completeness or causal external validation from a schedule pass."
+  ],
+  "confirmation": "Unused 24-person set remains uncalled. Freeze after larger development qualification, with corrected code-keyed geographic source.",
+  "prompt_module": "v23",
+  "preflight": "V17 all 32 given-fact/schedule checks passed after disclosed time shifts in three outputs (29 raw valid). All 32 action sequences reviewed. One early-afternoon home_sleep choice remains a plausibility/coverage warning, not a proven contradiction to an explicit sleep constraint. Do not claim a full-day consumption or macro pass."
+}

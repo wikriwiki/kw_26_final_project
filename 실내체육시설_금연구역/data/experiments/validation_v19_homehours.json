@@ -1,0 +1,39 @@
+{
+ "id": "validation_v19_homehours",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "105a0e0320c463f86eb7dc9b155ac2c6a65ebc7a40afb39731dfcdf56586f9c6",
+ "prompt_module": "v35",
+ "candidates": [
+  {
+   "id": "homehours",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  70001
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "The assigned at-home hours turned from a denial into a fact to weigh. Each citizen is told their own weekday figure - 12.1 hours on average across the sixty - and the plans keep them home 17.7. This is the first candidate aimed at the home bias with a target taken from the citizen own input.",
+ "primary": "Absolute gap between planned hours at home and the hours that citizen own profile assigns. Measured at +5.6 hours on average with 427 of 480 cells more than two hours over. Two-sided: a citizen assigned 18.3 hours should stay home more.",
+ "limitations": [
+  "Closing the gap is internal consistency, not evidence that any published effect was reproduced.",
+  "The control is the v18 v25 arm - same cohort, same seed, same source - so only the treatment arm is run.",
+  "Sixty citizens, one seed.",
+  "If the gap closes by padding the day with outings that buy nothing, that is not progress; purchases and event counts are reported alongside."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Single arm against the v18 v25 arm (experiments/v19/prompt_v19.md). v35 differs from v25 by one sentence; enforced by test_home_hours_candidate.py.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

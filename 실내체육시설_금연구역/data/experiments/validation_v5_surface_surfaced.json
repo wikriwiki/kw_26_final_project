@@ -1,0 +1,42 @@
+{
+ "id": "validation_v5_surface_surfaced",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "78961fc28d0f27915a58b2db58c22d3fdc888f3e4be4bbfc6d56dbf054e29000",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "surfaced_surface_axis",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  61001,
+  61002,
+  61003,
+  61004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "Input-placement test. The PROMPT is identical in both arms; only where the wallet rule is written differs. v3/v4 showed three prompt-sentence changes in a row doing nothing, so this asks whether placement is what binds.",
+ "primary": "Same pre-registered outcome as v4: on-arm reachability against the candidate's own seed spread, with an off-arm rise counted as a failure. Only grant and local_voucher cells can move - cashback has no wallet and its terms are already in the conditions block.",
+ "limitations": [
+  "Twelve people, four seeds. Precision for these twelve, not generalisation.",
+  "Cashback and distancing cells carry no wallet_acceptance, so they are unchanged by construction and act as a within-run placebo.",
+  "Reaching is necessary, not sufficient: it means the policy can be measured, not that the day moved correctly.",
+  "Same prompt (v25). The wallet rule is stated in the conditions block instead."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair fixed before the run (experiments/v5/prompt_v5.md). The two arms differ only by surface_wallet_acceptance; enforced by test_surface_acceptance.py.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": true
+}

@@ -1,0 +1,17 @@
+{
+  "baseURL": "http://127.0.0.1:8000",
+  "layout": {
+    "clientWidth": 1280,
+    "scrollWidth": 1280,
+    "horizontalOverflow": false
+  },
+  "themeStates": [
+    "light",
+    "light-after-reload",
+    "dark"
+  ],
+  "consoleErrors": [],
+  "pageErrors": [],
+  "requestFailures": [],
+  "badResponses": []
+}

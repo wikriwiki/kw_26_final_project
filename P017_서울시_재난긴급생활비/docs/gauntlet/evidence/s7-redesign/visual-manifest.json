@@ -1,0 +1,277 @@
+{
+  "generatedAt": "2026-08-03T10:28:17.361Z",
+  "observations": [
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "library",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "setup-about",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "setup-environment",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "setup-policy",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "run-overview",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "run-timeline",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "run-agents",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "run-visualization",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "wide",
+        "width": 1440,
+        "height": 900
+      },
+      "view": "run-reports",
+      "layout": {
+        "clientWidth": 1440,
+        "scrollWidth": 1440,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "library",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "setup-about",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "setup-environment",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "setup-policy",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "run-overview",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "run-timeline",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "run-agents",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "run-visualization",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    },
+    {
+      "viewport": {
+        "name": "desktop",
+        "width": 1280,
+        "height": 800
+      },
+      "view": "run-reports",
+      "layout": {
+        "clientWidth": 1280,
+        "scrollWidth": 1280,
+        "horizontalOverflow": false,
+        "nestedVerticalScrollers": [],
+        "theme": "light"
+      }
+    }
+  ],
+  "consoleErrors": [],
+  "pageErrors": []
+}

@@ -1,0 +1,23 @@
+{
+  "id": "validation_temporal_v6_variation_analysis",
+  "status": "Secondary descriptive analysis added during execution, before aggregate/raw sequence inspection; not a preregistered primary confirmation gate",
+  "run": "/data/validation_temporal_v6/confirmation",
+  "candidate": "v24_finite_clock",
+  "groups": [
+    "Same person, same condition, different seeds",
+    "Same person, same seed, on versus off",
+    "Different people, same condition and seed"
+  ],
+  "representation": [
+    "Activity ID + anchor role, with zone IDs collapsed",
+    "Same representation plus exact activity start time"
+  ],
+  "statistic": "Normalized Levenshtein distance and exact-match fraction. Separate pair denominators. No significance test or acceptance cutoff.",
+  "requirements": [
+    "Complete registered matrix",
+    "One candidate and common calendar per mechanism",
+    "Independent raw plan and factual validation",
+    "No missing/failed path omission or zero-fill"
+  ],
+  "interpretation": "Generation variability is relevant to usefulness but these distances are not directional policy effects, consumption magnitude, realism, independence tests or causal significance. Common grammar constrains variation by construction. Do not tune toward greater or smaller on/off distance."
+}

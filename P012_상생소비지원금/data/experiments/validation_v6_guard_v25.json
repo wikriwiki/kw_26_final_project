@@ -1,0 +1,42 @@
+{
+ "id": "validation_v6_guard_v25",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "78961fc28d0f27915a58b2db58c22d3fdc888f3e4be4bbfc6d56dbf054e29000",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "v25_guard_axis",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  62001,
+  62002,
+  62003,
+  62004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "Ablation. v29 is v25 minus the sentence telling the model not to add outings. The primary outcome is the event-level zone share, which has a standard error near 0.015 - the cell-level binary used in v4/v5 had a placebo swing of 0.094 and could not resolve anything.",
+ "primary": "Share of planned events anchored at a neighbourhood zone. It sat at 0.105 in every arm of v3, v4 and v5, and 37 of 96 plans never left home. Plans are not short of slots - they average 9 of a possible 10 - so this asks whether the guard is what pins the behaviour or the model is.",
+ "limitations": [
+  "This is an ablation to locate the constraint, not a proposed final prompt.",
+  "Removing a guard can inflate spending. That cost is measured here, not assumed away.",
+  "Twelve people, four seeds. Precision for these twelve, not generalisation.",
+  "A higher zone share is not by itself an improvement: it must not come with padded activity counts."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair fixed before the run (experiments/v6/prompt_v6.md). v29 is v25 with exactly one sentence deleted and nothing added; enforced by test_outing_guard_ablation.py.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

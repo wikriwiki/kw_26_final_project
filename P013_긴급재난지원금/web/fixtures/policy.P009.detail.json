@@ -1,0 +1,32 @@
+{
+  "file": "P009.json",
+  "source_dir": "data/neo4j_load/policies",
+  "policy": {
+    "id": "P009",
+    "name": "서민층 경제 지원 현금 지급 정책",
+    "type": "grant",
+    "description": "소득 수준 '상'을 제외한 시민에게 소득 수준별 현금을 일시 지급하여 서민층의 경제적 부담을 완화합니다. 지급액은 소득 중상 10만원, 중 25만원, 중하 45만원, 하 60만원입니다. 지원금은 잔액에 즉시 반영되며 자유롭게 소비할 수 있습니다.",
+    "announce_date": "2026-05-25",
+    "effective_from": "2026-05-27",
+    "effective_until": "2026-05-28",
+    "target_districts": [
+      "서울특별시"
+    ],
+    "benefit_rate": null,
+    "cap_per_agent": null,
+    "benefit_categories": [],
+    "income_grants": {
+      "중상": 100000,
+      "중": 250000,
+      "중하": 450000,
+      "하": 600000
+    },
+    "excluded_income": [
+      "상"
+    ],
+    "notes": "소득별 차등 현금 지급. 지급 시점: effective_from 당일 새벽 State 업데이트. 상 소득 제외."
+  },
+  "grant_key_effective": "income",
+  "grant_key_source": "default",
+  "unknown": []
+}

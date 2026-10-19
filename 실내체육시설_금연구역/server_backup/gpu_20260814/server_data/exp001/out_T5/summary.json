@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 567.9852805137634,
+      "night2_elapsed_sec": 34.32025718688965,
+      "elapsed_sec": 602.4556422233582,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 11903.159,
+          "avg_sec": 59.515795,
+          "p95_sec": 148.5502
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 11548.708345,
+          "avg_sec": 57.743542,
+          "p95_sec": 148.40819
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 11531.367,
+          "avg_sec": 57.656835,
+          "p95_sec": 76.45785
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 11531.161498,
+          "avg_sec": 57.655807,
+          "p95_sec": 76.456514
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 8799.165185,
+          "avg_sec": 43.995826,
+          "p95_sec": 69.694849
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 2749.543159,
+          "avg_sec": 13.747716,
+          "p95_sec": 95.468576
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 507.677,
+          "avg_sec": 2.538385,
+          "p95_sec": 9.2115
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 351.453965,
+          "avg_sec": 1.75727,
+          "p95_sec": 9.725397
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 345.546033,
+          "avg_sec": 1.72773,
+          "p95_sec": 9.724373
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 170.738853,
+          "avg_sec": 0.853694,
+          "p95_sec": 3.209536
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 3,
+    "limit": 200,
+    "gu": null,
+    "workers": 48
+  },
+  "updated_at": "2026-08-01T20:10:56.054866"
+}

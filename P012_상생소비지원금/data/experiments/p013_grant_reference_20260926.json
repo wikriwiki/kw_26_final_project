@@ -1,0 +1,15 @@
+{
+  "policy_id": "P013",
+  "simulation_start": "2020-05-11",
+  "simulation_end": "2020-06-21",
+  "source": "KDI, 긴급재난지원금 지급효과 분석 보도자료 (2020-12-22) 및 1차 긴급재난지원금 정책의 효과와 시사점 (2020-12-23)",
+  "source_url": "https://m.kdi.re.kr/share/pressView?bd_no=4018&pg=1&pp=10",
+  "source_for_eligible_sector_scope": "https://kdi.re.kr/research/forumView?pub_no=16851",
+  "source_file": "data/policy_raw_data/긴급재난지원금_P013/정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf",
+  "population": "전국 신용·체크카드 가맹점 매출; 서울 합성 시민의 기록된 오프라인 지출과 다름",
+  "external_estimand": "코로나 확산 둔화 등 다른 요인을 배제한 지원금 사용가능업종의 추가 신용·체크카드 매출 / 투입재원",
+  "external_window_note": "보도자료의 2020-05-11~06-21은 전체 카드매출 전년비 +7.3%의 명시적 창이다. 약 4조원/26.2~36.1% 추정의 정확한 종료일은 요약문만으로 확정하지 않는다.",
+  "external_ratio_interval": [0.262, 0.361],
+  "simulation_proxy": "eligible_offline_effect_per_grant_won",
+  "comparison_use": "부호와 대략적 규모 참고. 결제수단·모집단·대조 설계가 달라 직접 정확도 오차 또는 적중 점수로 사용하지 않음."
+}

@@ -1,0 +1,117 @@
+{
+  "partial_month_accepted": true,
+  "days_covered": [
+    "2021-10-01",
+    "2021-10-02",
+    "2021-10-03",
+    "2021-10-04",
+    "2021-10-05",
+    "2021-10-06",
+    "2021-10-07"
+  ],
+  "month": "2021-10",
+  "arm": "on",
+  "policy_id": "P012",
+  "policy_file": "data/experiments/P012_ab3w_policy_20261006.json",
+  "policy_file_sha256": "47b53b5c56d353d919edf4d73549cf9b1508316c9f49cc911af702c692bf262a",
+  "base_ratio": 0.268,
+  "roster_sha256": "ae94d86e0f8cd1a8fce59b7e0f8001dfc5e232b869d0158f57f57191dd8b4ff4",
+  "quality_gate_pass": true,
+  "unrepaired_choice_trace_pass": true,
+  "generation_totals": {
+    "metrics_rows": 14000,
+    "agents_ok": 14000,
+    "agents_error": 0,
+    "duplicate_aids": 0,
+    "stage2_llm_calls": 12781,
+    "stage2_extra_calls": 390,
+    "stage2_review_lookup_errors": 0,
+    "stage2_json_parse_errors": 0,
+    "stage2_output_limited_attempts": 184,
+    "stage2_fallback_only_agents": 0,
+    "stage2_partial_repair_agents": 0,
+    "stage2_choice_repair_agents": 0,
+    "stage2_fallback_with_output_limit_agents": 0,
+    "stage2_fallback_with_review_error_agents": 0,
+    "stage2_missing_decision_evidence_agents": 0,
+    "stage2_missing_picks_filled": 0,
+    "stage2_hallucinations_corrected": 0,
+    "stage2_spend_amount_fallbacks": 0,
+    "stage2_spend_amount_observed_agents": 14000,
+    "stage2_generated_tokens_all_attempts": 5803935
+  },
+  "execution_fingerprint": "68ec55f88604d051eb008c068706605c99da373e41feebf665ade08a86d174e9",
+  "baseline_income_map_sha256": null,
+  "income_mode": "no map — income setting recorded in the execution fingerprint",
+  "run_id": "ab3w-p012-main",
+  "prompt_variant": "v53q",
+  "system_prompt_sha256": "ee90dbe639c1a596a26e1d7dd1d08e00974a827a438ae847053de6f0d623134f",
+  "stage2_system_prompt_sha256": "611ead44ebe0ec1f054b111725539e5356b22e3cf7c79eaf93262edd74afab31",
+  "citizens": 2000,
+  "days": 7,
+  "rows": 14000,
+  "no_anchor_citizens": [],
+  "output_sha256": "3c13ac3f58300b39a3c7f51ac170de9b313d9c7834029eed10873a834d8b1e4e",
+  "null_eligibility_as_ineligible": {
+    "count": 11,
+    "amount": 275000,
+    "rows": [
+      {
+        "aid": "AGT_11200560_M_20대_001",
+        "day": "2021-10-02",
+        "amount": 13000
+      },
+      {
+        "aid": "AGT_11380580_M_30대_004",
+        "day": "2021-10-02",
+        "amount": 45000
+      },
+      {
+        "aid": "AGT_11440700_M_30대_001",
+        "day": "2021-10-03",
+        "amount": 24000
+      },
+      {
+        "aid": "AGT_11560550_M_50대_002",
+        "day": "2021-10-03",
+        "amount": 25000
+      },
+      {
+        "aid": "AGT_11110700_F_50대_001",
+        "day": "2021-10-04",
+        "amount": 35000
+      },
+      {
+        "aid": "AGT_11260590_F_40대_001",
+        "day": "2021-10-04",
+        "amount": 12000
+      },
+      {
+        "aid": "AGT_11530510_F_50대_002",
+        "day": "2021-10-05",
+        "amount": 27000
+      },
+      {
+        "aid": "AGT_11260655_M_20대_003",
+        "day": "2021-10-06",
+        "amount": 27000
+      },
+      {
+        "aid": "AGT_11440660_M_40대_003",
+        "day": "2021-10-06",
+        "amount": 18000
+      },
+      {
+        "aid": "AGT_11440700_M_30대_001",
+        "day": "2021-10-06",
+        "amount": 24000
+      },
+      {
+        "aid": "AGT_11110680_F_40대_001",
+        "day": "2021-10-07",
+        "amount": 25000
+      }
+    ]
+  },
+  "exporter_copy": "/data/ab3w/audit_tools/export_cashback_month_null_ineligible.py"
+}

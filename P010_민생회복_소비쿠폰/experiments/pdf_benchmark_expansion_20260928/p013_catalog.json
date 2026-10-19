@@ -1,0 +1,1005 @@
+{
+  "schema": "pdf_benchmark_catalog_v1",
+  "policy": "P013",
+  "source": {
+    "path": "data/policy_raw_data/긴급재난지원금_P013/정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf",
+    "sha256": "e40157a5167bbcd658c9bbed90c7898538a0f087e9e322b78e6a174d55d95399",
+    "pages": 8
+  },
+  "timing": "post-result exploratory",
+  "definition_frozen_before_cpu_scoring": true,
+  "sampling_caveat": "기존 동결 v53의 비가중 소규모 시민 표본, 같은 달력 날짜의 정책 ON/OFF 비교이다. 성별·연령·행정동·소득의 실측 인구분포를 맞춘 대표 표본이 아니다. 2019년 기준 원장과 장기 관찰이 없으므로 원문의 전년동기 증감률/회귀효과와 직접 오차를 계산하지 않는다.",
+  "counting_rule": "각 업종/집단의 독립 결과를 구분하되 같은 통계의 단위변환·증감액/증감률·시계열 점들은 별도 독립지표 수로 부풀리지 않는다.",
+  "entries": [
+    {
+      "id": "P013-PDF-SEMI",
+      "benchmark_kind": "policy_effect",
+      "label": "(준)내구재 카드매출 추가 증가",
+      "empirical": {
+        "value": 10.8,
+        "unit": "%p",
+        "denominator": "사용가능 업종의 카드매출 증감률; 현금소비·전체 GDP가 아님",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": "2020년 지원금 지급 후 19~33주, 지급 전 추세로 합성대조군 설정",
+        "method": "합성대조군 구성 후 이중차분(DID), 매출 증감률의 추가 증가분",
+        "pdf_page": 4,
+        "printed_page": 4,
+        "locator": "그림 3 및 본문; 업종 정의 각주",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-4.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "가구",
+            "문구",
+            "안경",
+            "의류"
+          ],
+          "missing": [
+            "서점",
+            "잡화 세부분류"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 DID %p를 같은 기간 ON/OFF %와 동일시하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": false,
+      "independent_outcome_family": "P013-PDF-SEMI",
+      "existing_indicator_id": "EM-4"
+    },
+    {
+      "id": "P013-PDF-ESSENTIALS",
+      "benchmark_kind": "policy_effect",
+      "label": "필수재 카드매출 추가 증가",
+      "empirical": {
+        "value": 8.0,
+        "unit": "%p",
+        "denominator": "사용가능 업종의 카드매출 증감률; 현금소비·전체 GDP가 아님",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": "2020년 지원금 지급 후 19~33주, 지급 전 추세로 합성대조군 설정",
+        "method": "합성대조군 구성 후 이중차분(DID), 매출 증감률의 추가 증가분",
+        "pdf_page": 4,
+        "printed_page": 4,
+        "locator": "그림 3 및 본문; 업종 정의 각주",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-4.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "슈퍼마켓",
+            "식료품",
+            "청과",
+            "정육",
+            "수산",
+            "편의점"
+          ],
+          "mapping_kind": "식품 소매 POI 대리; 생협/마트 상세 분류 미완비"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 DID %p를 같은 기간 ON/OFF %와 동일시하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-ESSENTIALS"
+    },
+    {
+      "id": "P013-PDF-FACE",
+      "benchmark_kind": "policy_effect",
+      "label": "대면서비스 카드매출 추가 증가",
+      "empirical": {
+        "value": 3.6,
+        "unit": "%p",
+        "denominator": "사용가능 업종의 카드매출 증감률; 현금소비·전체 GDP가 아님",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": "2020년 지원금 지급 후 19~33주, 지급 전 추세로 합성대조군 설정",
+        "method": "합성대조군 구성 후 이중차분(DID), 매출 증감률의 추가 증가분",
+        "pdf_page": 4,
+        "printed_page": 4,
+        "locator": "그림 3 및 본문; 업종 정의 각주",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-4.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_l1": [
+            "여가",
+            "미용"
+          ],
+          "by_sub": [
+            "욕탕·신체관리"
+          ],
+          "mapping_kind": "기존 EM-4의 넓은 장소 대리"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 DID %p를 같은 기간 ON/OFF %와 동일시하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": false,
+      "independent_outcome_family": "P013-PDF-FACE",
+      "existing_indicator_id": "EM-4"
+    },
+    {
+      "id": "P013-PDF-FOODSERVICE",
+      "benchmark_kind": "policy_effect",
+      "label": "음식업 카드매출 추가 증가",
+      "empirical": {
+        "value": 3.0,
+        "unit": "%p",
+        "denominator": "사용가능 업종의 카드매출 증감률; 현금소비·전체 GDP가 아님",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": "2020년 지원금 지급 후 19~33주, 지급 전 추세로 합성대조군 설정",
+        "method": "합성대조군 구성 후 이중차분(DID), 매출 증감률의 추가 증가분",
+        "pdf_page": 4,
+        "printed_page": 4,
+        "locator": "그림 3 및 본문; 업종 정의 각주",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-4.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_l1": [
+            "식사",
+            "카페",
+            "디저트"
+          ],
+          "mapping_kind": "음식점·커피·제과·간이음식의 장소 대리"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 DID %p를 같은 기간 ON/OFF %와 동일시하지 않는다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-FOODSERVICE"
+    },
+    {
+      "id": "P013-PDF-YOY-CLOTHING",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "의류/잡화 카드매출 전후 전년동기 증감률",
+      "empirical": {
+        "value": {
+          "pre": -17.8,
+          "post": 11.2
+        },
+        "unit": "% (전년동기)",
+        "denominator": "각 업종의 2019년 같은 주 카드매출",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": {
+          "pre": "2020년 16~18주",
+          "post": "2020년 20~25주"
+        },
+        "method": "각 기간의 평균 전년동기 카드매출 증감률, 정책 순효과 아님",
+        "pdf_page": 3,
+        "printed_page": 3,
+        "locator": "본문의 16~18주 대 20~25주 비교",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-3.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "의류"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "잡화 포함 범위가 현 POI 의류보다 넓다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-YOY-CLOTHING"
+    },
+    {
+      "id": "P013-PDF-YOY-FURNITURE",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "가구 카드매출 전후 전년동기 증감률",
+      "empirical": {
+        "value": {
+          "pre": -3.5,
+          "post": 19.9
+        },
+        "unit": "% (전년동기)",
+        "denominator": "각 업종의 2019년 같은 주 카드매출",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": {
+          "pre": "2020년 16~18주",
+          "post": "2020년 20~25주"
+        },
+        "method": "각 기간의 평균 전년동기 카드매출 증감률, 정책 순효과 아님",
+        "pdf_page": 3,
+        "printed_page": 3,
+        "locator": "본문의 16~18주 대 20~25주 비교",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-3.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "가구"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "가구 POI 장소 매핑"
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-YOY-FURNITURE"
+    },
+    {
+      "id": "P013-PDF-YOY-TRAVEL",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "여행 카드매출 전후 전년동기 증감률",
+      "empirical": {
+        "value": {
+          "pre": -61.1,
+          "post": -55.6
+        },
+        "unit": "% (전년동기)",
+        "denominator": "각 업종의 2019년 같은 주 카드매출",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": {
+          "pre": "2020년 16~18주",
+          "post": "2020년 20~25주"
+        },
+        "method": "각 기간의 평균 전년동기 카드매출 증감률, 정책 순효과 아님",
+        "pdf_page": 3,
+        "printed_page": 3,
+        "locator": "본문의 16~18주 대 20~25주 비교",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-3.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "여행사"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "여행 상품 카드매출 전체가 아닌 여행사 POI 구매 대리"
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-YOY-TRAVEL"
+    },
+    {
+      "id": "P013-PDF-YOY-BATH",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "사우나/찜질방/목욕탕 카드매출 전후 전년동기 증감률",
+      "empirical": {
+        "value": {
+          "pre": -26.3,
+          "post": -20.9
+        },
+        "unit": "% (전년동기)",
+        "denominator": "각 업종의 2019년 같은 주 카드매출",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": {
+          "pre": "2020년 16~18주",
+          "post": "2020년 20~25주"
+        },
+        "method": "각 기간의 평균 전년동기 카드매출 증감률, 정책 순효과 아님",
+        "pdf_page": 3,
+        "printed_page": 3,
+        "locator": "본문의 16~18주 대 20~25주 비교",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-3.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "욕탕·신체관리"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "마사지 등이 섞일 수 있어 정확한 업종 crosswalk가 필요하다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-YOY-BATH"
+    },
+    {
+      "id": "P013-PDF-YOY-GROCERY",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "식료품 카드매출 전후 전년동기 증감률",
+      "empirical": {
+        "value": {
+          "pre": 2.5,
+          "post": 12.3
+        },
+        "unit": "% (전년동기)",
+        "denominator": "각 업종의 2019년 같은 주 카드매출",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": {
+          "pre": "2020년 16~18주",
+          "post": "2020년 20~25주"
+        },
+        "method": "각 기간의 평균 전년동기 카드매출 증감률, 정책 순효과 아님",
+        "pdf_page": 3,
+        "printed_page": 3,
+        "locator": "본문의 16~18주 대 20~25주 비교",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-3.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "식료품"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "원문 카드업종 식료품과 POI 식료품 소매 분류의 일치 확인 필요"
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-YOY-GROCERY"
+    },
+    {
+      "id": "P013-PDF-YOY-CONVENIENCE",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "편의점 카드매출 전후 전년동기 증감률",
+      "empirical": {
+        "value": {
+          "pre": 0.8,
+          "post": 5.6
+        },
+        "unit": "% (전년동기)",
+        "denominator": "각 업종의 2019년 같은 주 카드매출",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": {
+          "pre": "2020년 16~18주",
+          "post": "2020년 20~25주"
+        },
+        "method": "각 기간의 평균 전년동기 카드매출 증감률, 정책 순효과 아님",
+        "pdf_page": 3,
+        "printed_page": 3,
+        "locator": "본문의 16~18주 대 20~25주 비교",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-3.png"
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * (ON sector purchases - OFF sector purchases) / OFF sector purchases",
+        "poi_mapping": {
+          "by_sub": [
+            "편의점"
+          ]
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "편의점 POI 장소 매핑"
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-YOY-CONVENIENCE"
+    },
+    {
+      "id": "P013-PDF-SALES-RATIO",
+      "benchmark_kind": "policy_effect",
+      "label": "사용가능 업종 증분 카드매출 / 영향 가능 지원액",
+      "empirical": {
+        "value": [
+          26.2,
+          36.1
+        ],
+        "unit": "%",
+        "denominator": "중앙·지방 지원 중 카드매출에 영향을 줄 것으로 추정한 예산 11.1~15.3조원",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": "2020년 지급 후 19~33주",
+        "method": "추정 증분 카드매출 4.0조원을 지원액 분모 11.1~15.3조원으로 나눈 범위",
+        "pdf_page": 4,
+        "printed_page": 4,
+        "locator": "본문 첫 번째 강조 문단",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-4.png",
+        "raw_components": {
+          "incremental_sales_trillion_won": 4.0,
+          "eligible_budget_trillion_won": [
+            11.1,
+            15.3
+          ]
+        }
+      },
+      "simulation": {
+        "feasibility": "supported_existing_ledger",
+        "proposed_formula": "100 * sum(ON eligible purchases - OFF eligible purchases) / sum(ON grants received)",
+        "poi_mapping": {
+          "ledger": "eligible_offline_spent / grant_received_cumulative"
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [],
+        "scope_note": "분모는 실험 시민에게 지급한 모델 지원금이며 전국 카드매출 영향 가능 예산과 다르다."
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-SALES-RATIO"
+    },
+    {
+      "id": "P013-PDF-WEEKLY-EFFECT",
+      "benchmark_kind": "policy_effect_time_series",
+      "label": "지원금 지급 후 주별 증분 카드매출 시계열",
+      "empirical": {
+        "value": {
+          "5월1주": -0.6,
+          "5월2주": 6.4,
+          "5월3주": 16.8,
+          "5월4주": 15.3,
+          "6월1주": 6.4,
+          "6월2주": -0.4,
+          "6월3주": 0.3,
+          "6월4주": 0.7,
+          "7월1주": 1.2,
+          "7월2주": 0.6,
+          "7월3주": 1.1,
+          "7월4주": 3.0,
+          "7월5주": -1.4,
+          "8월1주": -2.0,
+          "8월2주": -6.9
+        },
+        "unit": "천억원",
+        "denominator": "전국 사용가능 업종 총 카드매출, 표본 시민당 금액이 아님",
+        "population": "전국 8개 카드사(BC·신한·국민·NH·롯데·삼성·현대·하나) 합산 카드매출; 현금소비 제외",
+        "period": "2020년 5월1주~8월2주",
+        "method": "시기별 증분 매출 효과 추정",
+        "pdf_page": 5,
+        "printed_page": 5,
+        "locator": "그림 4의 인쇄된 막대 수치",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-5.png"
+      },
+      "simulation": {
+        "feasibility": "needs_more_days_and_population_scaling",
+        "proposed_formula": "주별 sum(ON cardlike purchases - OFF cardlike purchases), 같은 결과의 시계열로 보고",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "각 주 전체 7일",
+          "5~8월의 지연·소진·재유행 경로",
+          "전국 인구·카드결제 확장 가중치",
+          "합성대조군/2019 카드매출"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-WEEKLY-EFFECT"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q1-JUNE",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 1분위 6월 전년동기 소비 증가액",
+      "empirical": {
+        "value": 30.3,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 6월 대 2019년 6월",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "6월 소득분위별 소비 증가액 본문; 표본/소득경계 그림 5 각주(p7)",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "해당 1인가구 소득분위의 2020년6월 카드소비 - 2019년6월 카드소비 평균",
+        "poi_mapping": {
+          "income_quintile": 1,
+          "annual_income_upper_won": 27000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q1-JUNE"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q1-MAYAPR",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 1분위 지급 전후 전년동기 소비 변화",
+      "empirical": {
+        "value": 35.9,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 5월 YoY 증가액 - 2020년 4월 YoY 증가액",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "마지막 본문: 5월 전년동월 증가액 - 4월 전년동월 증가액",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "mean[(2020May-2019May)-(2020Apr-2019Apr)] by original household income quintile",
+        "poi_mapping": {
+          "income_quintile": 1,
+          "annual_income_upper_won": 27000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q1-MAYAPR"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q2-JUNE",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 2분위 6월 전년동기 소비 증가액",
+      "empirical": {
+        "value": 18.8,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 6월 대 2019년 6월",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "6월 소득분위별 소비 증가액 본문; 표본/소득경계 그림 5 각주(p7)",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "해당 1인가구 소득분위의 2020년6월 카드소비 - 2019년6월 카드소비 평균",
+        "poi_mapping": {
+          "income_quintile": 2,
+          "annual_income_upper_won": 34000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q2-JUNE"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q2-MAYAPR",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 2분위 지급 전후 전년동기 소비 변화",
+      "empirical": {
+        "value": 20.9,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 5월 YoY 증가액 - 2020년 4월 YoY 증가액",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "마지막 본문: 5월 전년동월 증가액 - 4월 전년동월 증가액",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "mean[(2020May-2019May)-(2020Apr-2019Apr)] by original household income quintile",
+        "poi_mapping": {
+          "income_quintile": 2,
+          "annual_income_upper_won": 34000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q2-MAYAPR"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q3-JUNE",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 3분위 6월 전년동기 소비 증가액",
+      "empirical": {
+        "value": 16.9,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 6월 대 2019년 6월",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "6월 소득분위별 소비 증가액 본문; 표본/소득경계 그림 5 각주(p7)",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "해당 1인가구 소득분위의 2020년6월 카드소비 - 2019년6월 카드소비 평균",
+        "poi_mapping": {
+          "income_quintile": 3,
+          "annual_income_upper_won": 45000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q3-JUNE"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q3-MAYAPR",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 3분위 지급 전후 전년동기 소비 변화",
+      "empirical": {
+        "value": 22.9,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 5월 YoY 증가액 - 2020년 4월 YoY 증가액",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "마지막 본문: 5월 전년동월 증가액 - 4월 전년동월 증가액",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "mean[(2020May-2019May)-(2020Apr-2019Apr)] by original household income quintile",
+        "poi_mapping": {
+          "income_quintile": 3,
+          "annual_income_upper_won": 45000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q3-MAYAPR"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q4-JUNE",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 4분위 6월 전년동기 소비 증가액",
+      "empirical": {
+        "value": 11.2,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 6월 대 2019년 6월",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "6월 소득분위별 소비 증가액 본문; 표본/소득경계 그림 5 각주(p7)",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "해당 1인가구 소득분위의 2020년6월 카드소비 - 2019년6월 카드소비 평균",
+        "poi_mapping": {
+          "income_quintile": 4,
+          "annual_income_upper_won": 66000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q4-JUNE"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q4-MAYAPR",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 4분위 지급 전후 전년동기 소비 변화",
+      "empirical": {
+        "value": 26.9,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 5월 YoY 증가액 - 2020년 4월 YoY 증가액",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "마지막 본문: 5월 전년동월 증가액 - 4월 전년동월 증가액",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "mean[(2020May-2019May)-(2020Apr-2019Apr)] by original household income quintile",
+        "poi_mapping": {
+          "income_quintile": 4,
+          "annual_income_upper_won": 66000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q4-MAYAPR"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q5-JUNE",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 5분위 6월 전년동기 소비 증가액",
+      "empirical": {
+        "value": 22.2,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 6월 대 2019년 6월",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "6월 소득분위별 소비 증가액 본문; 표본/소득경계 그림 5 각주(p7)",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "해당 1인가구 소득분위의 2020년6월 카드소비 - 2019년6월 카드소비 평균",
+        "poi_mapping": {
+          "income_quintile": 5,
+          "annual_income_upper_won": 150000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q5-JUNE"
+    },
+    {
+      "id": "P013-PDF-INCOME-Q5-MAYAPR",
+      "benchmark_kind": "descriptive_sales_change",
+      "label": "전국 1인가구 소득 5분위 지급 전후 전년동기 소비 변화",
+      "empirical": {
+        "value": 21.6,
+        "unit": "만원/1인가구",
+        "denominator": "1인가구당 전 카드소비 금액; 시민 개인·지원금 MPC 아님",
+        "population": "지원금 신한카드 수령 가구 중 전국 1인가구 6.85만 표본; 취약계층 현금 수령 가구 제외",
+        "period": "2020년 5월 YoY 증가액 - 2020년 4월 YoY 증가액",
+        "method": "KCB 전 카드소비와 신한 수령 가구 자료 결합, 연소득 추정치 5분위",
+        "pdf_page": 6,
+        "printed_page": 6,
+        "locator": "마지막 본문: 5월 전년동월 증가액 - 4월 전년동월 증가액",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-6.png"
+      },
+      "simulation": {
+        "feasibility": "needs_household_income_and_yoy_baseline",
+        "proposed_formula": "mean[(2020May-2019May)-(2020Apr-2019Apr)] by original household income quintile",
+        "poi_mapping": {
+          "income_quintile": 5,
+          "annual_income_upper_won": 150000000,
+          "household_size": 1
+        },
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "1인가구 식별·가구단위 집계",
+          "KCB 추정 연소득 기준 5분위 crosswalk",
+          "2019년 같은 월 카드소비",
+          "2020년 4~6월 완주",
+          "현금 수령 취약계층 제외 기준"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-INCOME-Q5-MAYAPR"
+    },
+    {
+      "id": "P013-PDF-DELINQUENT",
+      "benchmark_kind": "heterogeneous_descriptive_outcome",
+      "label": "지급 전 2~4월 연체 경험 가구의 전후 평균 전년동기 소비 증가액",
+      "empirical": {
+        "value": {
+          "pre": -92.9,
+          "post": -49.3,
+          "difference_as_printed": 44.6
+        },
+        "unit": "만원/가구",
+        "denominator": "가구당 전 카드소비",
+        "population": "신한 지원금 수령 총203.8만 가구; 연체 경험26.3만. 2019.1~2020.1 연체 없는 가구로 한정",
+        "period": {
+          "pre": "2020년3~4월 평균 YoY",
+          "post": "2020년5~8월 평균 YoY"
+        },
+        "method": "가구원의 카드/대출 1일 이상 연체 경험에 따른 기술적 소비 비교",
+        "pdf_page": 7,
+        "printed_page": 7,
+        "locator": "표 1",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-7.png",
+        "source_consistency_notes": [
+          "원문 표1과 본문은 차이44.6을 인쇄하지만 (-49.3)-(-92.9)=43.6이다. 원문 내부 산술 불일치; 임의 수정하지 않으며 차이44.6을 정답으로 채점하지 않는다."
+        ]
+      },
+      "simulation": {
+        "feasibility": "needs_new_measurement_and_household_panel",
+        "proposed_formula": "원문 연체 정의별 pre/post YoY 소비 평균",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드/대출 연체 상태",
+          "가구원 결합",
+          "2019·2020 월별 카드소비",
+          "원문 표1과 본문은 차이44.6을 인쇄하지만 (-49.3)-(-92.9)=43.6이다. 원문 내부 산술 불일치; 임의 수정하지 않으며 차이44.6을 정답으로 채점하지 않는다."
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-DELINQUENT"
+    },
+    {
+      "id": "P013-PDF-NOTDELINQUENT",
+      "benchmark_kind": "heterogeneous_descriptive_outcome",
+      "label": "지급 전 2~4월 연체 무경험 가구의 전후 평균 전년동기 소비 증가액",
+      "empirical": {
+        "value": {
+          "pre": -20.4,
+          "post": 13.7,
+          "difference_as_printed": 34.1
+        },
+        "unit": "만원/가구",
+        "denominator": "가구당 전 카드소비",
+        "population": "신한 지원금 수령 총203.8만 가구; 연체 경험26.3만. 2019.1~2020.1 연체 없는 가구로 한정",
+        "period": {
+          "pre": "2020년3~4월 평균 YoY",
+          "post": "2020년5~8월 평균 YoY"
+        },
+        "method": "가구원의 카드/대출 1일 이상 연체 경험에 따른 기술적 소비 비교",
+        "pdf_page": 7,
+        "printed_page": 7,
+        "locator": "표 1",
+        "approximate": false,
+        "verified_visually": true,
+        "visual_evidence": "tmp/pdfs/pdf_benchmark_expansion_20260928/P013/page-7.png",
+        "source_consistency_notes": []
+      },
+      "simulation": {
+        "feasibility": "needs_new_measurement_and_household_panel",
+        "proposed_formula": "원문 연체 정의별 pre/post YoY 소비 평균",
+        "poi_mapping": {},
+        "existing_data": "completed frozen v53 canonical metrics / receipts or sector ledger",
+        "missing_requirements": [
+          "카드/대출 연체 상태",
+          "가구원 결합",
+          "2019·2020 월별 카드소비"
+        ],
+        "scope_note": ""
+      },
+      "direct_gap_allowed": false,
+      "count_as_new_indicator": true,
+      "independent_outcome_family": "P013-PDF-NOTDELINQUENT"
+    }
+  ],
+  "source_limitations": [
+    "기존 EM-2의11.1%p·EM-3의7.3%는 별도KDI보도자료 수치이고 이PDF에 없는 숫자이다.",
+    "본 원문은 소득 변화 자료가 없어서 소득분위별 MPC 비교 불가라고 명시(p6). 소득별 소비 증가액을 MPC로 바꾸지 않는다.",
+    "성별·연령별 정책 결과 수치 없음. 대표성 개선용 실측 분포와 결과 검증지표를 구분한다."
+  ],
+  "catalog_amendments": [
+    {
+      "previous_sha256": "4a7a2a546a389ea5e2b61c8dda70fe9deef78a30cd5e70766c229bf0b5eb3bab",
+      "reason": "Removed incorrect EM-2 alias:26.2~36.1% budget ratio is distinct from EM-2 eligible sales growth11.1%p; no empirical value or mapping changed."
+    }
+  ]
+}

@@ -1,0 +1,67 @@
+{
+  "schema": "multi_policy_sector_ledger_v1",
+  "arm": "off",
+  "policy_id": null,
+  "start": "2021-10-01",
+  "end": "2021-10-07",
+  "effective_from": null,
+  "effective_until": null,
+  "policy_input": null,
+  "citizens": 2000,
+  "days": 7,
+  "rows": 14000,
+  "roster_sha256": "ae94d86e0f8cd1a8fce59b7e0f8001dfc5e232b869d0158f57f57191dd8b4ff4",
+  "metrics_sha256": {
+    "2021-10-01": "94cfea136a020efb161f317595d2a5578e8ed20f08e719ee0f373513f44c7685",
+    "2021-10-02": "9a07505f081f2a460c2834c1fef425b6775e720211b0cf9817468772b3d0d1b1",
+    "2021-10-03": "ccf7b6913b4b2631ce73f7148f9f4ba272f6606d4f3797d9e19538904d4df844",
+    "2021-10-04": "b3e629c847ced92f73b658342b77430da6ec9729e1e1fc30efa00d54ad4f198f",
+    "2021-10-05": "3fd90a979b69adcde27f0df3ccb3885335c0873b58b602a38914f067a2f6d3b6",
+    "2021-10-06": "00c6c94d7e138902bded6cda8a95faf6a0d664b77a45e26d22e2ed76d9732e28",
+    "2021-10-07": "e09df968d307ccd5af9f02578accd377ac45f01ef48767bfca2e9fba45cbea4a"
+  },
+  "cohort_sha256": {
+    "2021-10-01": "160ac0f23b1f4501f9c98332cc78c65f62929c621c266d5a667dcf8571f903e7",
+    "2021-10-02": "412c53e41a307750cece3309d432153656bdd0f6136d30120e8597a0845dc79f",
+    "2021-10-03": "bc9e29243b04ae6ef9c01d40e01b1c63ed62769a073a3cff5675da176828b21c",
+    "2021-10-04": "abb0ee2bd70dacc946db4198ebe558b5765420794036cfb607debf0577accd3e",
+    "2021-10-05": "5fcd93abcd12e6ad92b6a7b5a721a74e985d036f2951cc7719f4432c6ee6a96a",
+    "2021-10-06": "e40dd98879342576d05e3efd88852211069e7f3c30df481fc33cc5b1bafa6b04",
+    "2021-10-07": "d76c14710971cc504be1e913e6b8695b79045879d1f47c9184cb72f979ccd561"
+  },
+  "served_model_provenance": {
+    "model_id": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "evidence_sha256": "db8883b7bf481441c09b755b06c029335f17f1604a0ed9c4fd95a8a17ad96194"
+  },
+  "prompt_provenance": {
+    "execution_fingerprint": "68ec55f88604d051eb008c068706605c99da373e41feebf665ade08a86d174e9",
+    "baseline_income_map_sha256": null,
+    "income_mode": "no map — income setting recorded in the execution fingerprint",
+    "run_id": "ab3w-p012-main",
+    "prompt_variant": "v53q",
+    "system_prompt_sha256": "ee90dbe639c1a596a26e1d7dd1d08e00974a827a438ae847053de6f0d623134f",
+    "stage2_system_prompt_sha256": "611ead44ebe0ec1f054b111725539e5356b22e3cf7c79eaf93262edd74afab31",
+    "requested_model_id": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ"
+  },
+  "provenance": {
+    "execution_fingerprint": [
+      "68ec55f88604d051eb008c068706605c99da373e41feebf665ade08a86d174e9"
+    ],
+    "paired_environment_fingerprint": [
+      "94da7d566363edf01e8a1ccec0923a1e360aaa6e5662a5f8fb1deb47c3ac0d6c"
+    ],
+    "source_fingerprint": [
+      "7ae473f865b3c6652055492bac81210fa616db28378dddeeb4f14ae8401084ff"
+    ],
+    "experience_environment_id": [
+      "covid_2021"
+    ],
+    "experience_run_id": [
+      "ab3w-p012-main"
+    ]
+  },
+  "output_sha256": "95dac42bfb0e401a4a452d671856b6a8d9d08312011d809a4cb5964021c19173",
+  "enroll_mode": false,
+  "enrolled_count": 0,
+  "exporter_copy": "/data/ab3w/audit_tools/export_multi_policy_sector_ledger_enrolled.py"
+}

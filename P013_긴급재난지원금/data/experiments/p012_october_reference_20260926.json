@@ -1,0 +1,11 @@
+{
+  "policy_id": "P012",
+  "month": "2021-10",
+  "source": "KDI, 상생소비지원금 효과분석 (2022), 표 3-1 (PDF 2022 report)",
+  "source_file": "data/policy_raw_data/상생소비지원금_P012/정답지_KDI_상생소비지원금_효과분석_2022.pdf",
+  "population": "전국 상생소비지원금 2021년 10월 수령자; 서울 합성 시민 표본과 모집단이 다름",
+  "recipient_count": 8102000,
+  "cashback_total_won": 387500000000,
+  "capped_recipient_count": 1691000,
+  "comparison_use": "월별 수령자 평균 지급액과 수령자 중 월 한도 도달 비율의 규모 참고. 정책 효과의 인과 오차 점수 아님."
+}

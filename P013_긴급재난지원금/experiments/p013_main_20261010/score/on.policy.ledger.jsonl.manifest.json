@@ -1,0 +1,54 @@
+{
+  "arm": "on",
+  "policy_id": "P013",
+  "start": "2020-05-11",
+  "end": "2020-05-17",
+  "policy_file_sha256": "47019bcc3c1c9bdab214cce3ec7c98353616eb810dea91795b3c24d446cfc71c",
+  "roster_sha256": "eccaf1e2e4296b53e85d3f98781050a7717f632adf09416e88e1fa2f5a6fe63d",
+  "quality_gate_pass": true,
+  "unrepaired_choice_trace_pass": true,
+  "generation_totals": {
+    "metrics_rows": 14000,
+    "agents_ok": 14000,
+    "agents_error": 0,
+    "duplicate_aids": 0,
+    "stage2_llm_calls": 12706,
+    "stage2_extra_calls": 364,
+    "stage2_review_lookup_errors": 0,
+    "stage2_json_parse_errors": 0,
+    "stage2_output_limited_attempts": 179,
+    "stage2_fallback_only_agents": 0,
+    "stage2_partial_repair_agents": 0,
+    "stage2_choice_repair_agents": 0,
+    "stage2_fallback_with_output_limit_agents": 0,
+    "stage2_fallback_with_review_error_agents": 0,
+    "stage2_missing_decision_evidence_agents": 0,
+    "stage2_missing_picks_filled": 0,
+    "stage2_hallucinations_corrected": 0,
+    "stage2_spend_amount_fallbacks": 0,
+    "stage2_spend_amount_observed_agents": 14000,
+    "stage2_generated_tokens_all_attempts": 5517998
+  },
+  "execution_fingerprint": "98521cdde8aec557c783f2755295e458f31483e8ad0b8ab9458f9e2794e762fa",
+  "baseline_income_map_sha256": null,
+  "income_mode": "no map — income setting recorded in the execution fingerprint",
+  "run_id": "ab3w-p013-main",
+  "prompt_variant": "v53q",
+  "system_prompt_sha256": "ee90dbe639c1a596a26e1d7dd1d08e00974a827a438ae847053de6f0d623134f",
+  "stage2_system_prompt_sha256": "611ead44ebe0ec1f054b111725539e5356b22e3cf7c79eaf93262edd74afab31",
+  "opening_state_day": "2020-05-10",
+  "citizens": 2000,
+  "days": 7,
+  "rows": 14000,
+  "output_sha256": "de358cfb71b007fc81be1c3a1053dfb4b487ec9097dd3c76e58c8b9fab8916a7",
+  "known_undelivered": [
+    {
+      "metrics": "/data/ab3w/p013_main/on/metrics/day_2020-05-16.jsonl",
+      "aid": "AGT_11530530_F_50대_004",
+      "policies": [
+        "P013"
+      ]
+    }
+  ],
+  "exporter_copy": "/data/ab3w/audit_tools/export_policy_daily_ledger_known_exception.py"
+}

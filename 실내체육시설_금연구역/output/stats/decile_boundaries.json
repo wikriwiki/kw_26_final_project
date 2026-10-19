@@ -1,0 +1,52 @@
+{
+  "_meta": {
+    "source": "BDC console output (not included in global_distributions.json)",
+    "note": "decile_distribution의 실제 분위 경계값. 에이전트 페르소나 생성 시 소비/이동 수준 → 실제 수치로 매핑하는 데 사용.",
+    "captured_at": "2026-04-23"
+  },
+  "mobility_level": {
+    "unit": "주중+주말 12개월 누적 유동인구",
+    "boundaries": [
+      {"decile": 1,  "min": 3980.75,   "max": 30147.15},
+      {"decile": 2,  "min": 30147.15,  "max": 49486.09},
+      {"decile": 3,  "min": 49486.09,  "max": 67885.76},
+      {"decile": 4,  "min": 67885.76,  "max": 84984.25},
+      {"decile": 5,  "min": 84984.25,  "max": 104218.67},
+      {"decile": 6,  "min": 104218.67, "max": 131652.03},
+      {"decile": 7,  "min": 131652.03, "max": 165755.41},
+      {"decile": 8,  "min": 165755.41, "max": 219189.54},
+      {"decile": 9,  "min": 219189.54, "max": 334150.28},
+      {"decile": 10, "min": 334150.28, "max": 3236133.69}
+    ]
+  },
+  "weekday_spending_level": {
+    "unit": "1인·일당 평균 소비(원)",
+    "boundaries": [
+      {"decile": 1,  "min": 682,     "max": 42502},
+      {"decile": 2,  "min": 42502,   "max": 56746},
+      {"decile": 3,  "min": 56746,   "max": 69902},
+      {"decile": 4,  "min": 69902,   "max": 81591},
+      {"decile": 5,  "min": 81591,   "max": 94774},
+      {"decile": 6,  "min": 94774,   "max": 109078},
+      {"decile": 7,  "min": 109078,  "max": 125633},
+      {"decile": 8,  "min": 125633,  "max": 148609},
+      {"decile": 9,  "min": 148609,  "max": 188330},
+      {"decile": 10, "min": 188330,  "max": 798508}
+    ]
+  },
+  "weekend_spending_level": {
+    "unit": "1인·일당 평균 소비(원)",
+    "boundaries": [
+      {"decile": 1,  "min": 268,     "max": 23665},
+      {"decile": 2,  "min": 23665,   "max": 31978},
+      {"decile": 3,  "min": 31978,   "max": 38871},
+      {"decile": 4,  "min": 38871,   "max": 46442},
+      {"decile": 5,  "min": 46442,   "max": 54163},
+      {"decile": 6,  "min": 54163,   "max": 62115},
+      {"decile": 7,  "min": 62115,   "max": 72504},
+      {"decile": 8,  "min": 72504,   "max": 87029},
+      {"decile": 9,  "min": 87029,   "max": 113801},
+      {"decile": 10, "min": 113801,  "max": 512398}
+    ]
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "id": "P011",
+  "name": "민생회복 소비쿠폰 2차 (백테스트)",
+  "type": "grant",
+  "description": "소득 상위 계층을 제외한 시민에게 1인 10만원의 소비쿠폰을 추가 지급합니다. 사용처 제한은 1차와 동일합니다 ([쿠폰] 표시 매장 전용).",
+  "announce_date": "2026-06-20",
+  "effective_from": "2026-06-22",
+  "effective_until": "2026-06-23",
+  "target_districts": ["서울특별시"],
+  "benefit_rate": null,
+  "cap_per_agent": null,
+  "benefit_categories": [],
+  "income_grants": {
+    "중상": 100000,
+    "중": 100000,
+    "중하": 100000,
+    "하": 100000
+  },
+  "excluded_income": ["상"],
+  "poi_restricted": true,
+  "notes": "실제 정책 대응: 2025-09-22 2차 (소득 상위 10% 제외 90%에 10만원). '상위 10%'는 시뮬 소득 tier '상'으로 근사 — 소득 기준 정밀화(INCOME_ASSIGNMENT_PLAN)가 완료되면 상위 10% 컷으로 교체. T4(분위 이질성) 검증의 컷오프 설계."
+}

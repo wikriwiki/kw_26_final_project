@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 6,
+      "err": 0,
+      "agent_elapsed_sec": 171.9453682899475,
+      "night2_elapsed_sec": 23.201946258544922,
+      "elapsed_sec": 195.19829940795898,
+      "timing_top": [
+        {
+          "path": "phase.t_s1",
+          "total_sec": 628.881,
+          "avg_sec": 104.8135,
+          "p95_sec": 107.18275
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 628.875605,
+          "avg_sec": 104.812601,
+          "p95_sec": 107.181815
+        },
+        {
+          "path": "phase.t_s2",
+          "total_sec": 183.239,
+          "avg_sec": 30.539833,
+          "p95_sec": 53.02325
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 108.886869,
+          "avg_sec": 18.147811,
+          "p95_sec": 42.456167
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 76.714455,
+          "avg_sec": 12.785742,
+          "p95_sec": 18.326857
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 74.189366,
+          "avg_sec": 12.364894,
+          "p95_sec": 14.316616
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 74.181447,
+          "avg_sec": 12.363574,
+          "p95_sec": 14.315406
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 32.172414,
+          "avg_sec": 5.362069,
+          "p95_sec": 24.129311
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 22.716,
+          "avg_sec": 3.786,
+          "p95_sec": 4.0785
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 8.895623,
+          "avg_sec": 1.482604,
+          "p95_sec": 1.776671
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 1,
+    "limit": 6,
+    "gu": null,
+    "workers": 48
+  },
+  "completed_at": "2026-07-30T18:44:51.165250"
+}

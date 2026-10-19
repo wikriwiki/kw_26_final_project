@@ -1,0 +1,86 @@
+{
+  "긴급재난지원금_P013": {
+    "정답지_KDI_FOCUS_1차긴급재난지원금_효과와시사점_2020.pdf": {
+      "desc": "KDI FOCUS 제281호(2020-06), 김미루·오윤해 — 우리가 맞히려는 정답지",
+      "sha256": "e40157a5167bbcd658c9bbed90c7898538a0f087e9e322b78e6a174d55d95399",
+      "size": 614682,
+      "url": "https://www.kdi.re.kr/research/focusView?pub_no=16851"
+    },
+    "정책원문_긴급재난지원금_신청및지급방안_행안부_20200429.hwp": {
+      "desc": "행정안전부 2020-04-29 「긴급재난지원금」 신청 및 지급 방안 — 규칙 원문",
+      "sha256": "2aeb7326c32a010f7acb6469ce8541526447285b9ba04af17508e90ec4d61967",
+      "size": 101376,
+      "url": "https://www.mois.go.kr/frt/bbs/type010/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000008&nttId=76947"
+    }
+  },
+  "민생회복소비쿠폰_P010": {
+    "정책원문_민생회복소비쿠폰_지급시작_행안부_20250705.pdf": {
+      "desc": "행정안전부 2025-07-05 보도자료 — 지급 대상·금액·사용처의 규칙 원문",
+      "sha256": "b44ee23767390c87f9ea25463f637869f0374667fa53a7e2ef11728d19cc061f",
+      "size": 2668609,
+      "url": "https://www.mois.go.kr/frt/bbs/type010/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000008&nttId=118705"
+    },
+    "집행결과_민생회복소비쿠폰_최종집계_20251205.pdf": {
+      "desc": "정책브리핑 2025-12-05 — 실제로 얼마가 누구에게 갔는지의 집행 결과",
+      "sha256": "02004aaca1dd57c278af6a38d4c7db091cf0bf34042505b192b9098acb85f1a2",
+      "size": 333509,
+      "url": "https://www.korea.kr/briefing/pressReleaseView.do?newsId=156733265"
+    }
+  },
+  "사적모임제한_GATHERING2020": {
+    "정책원문_중대본회의_보도자료_20201127.hwp": {
+      "desc": "중앙재난안전대책본부 2020-11-27 — 모임·행사 인원 제한이 들어 있는 문서",
+      "sha256": "86d71b936c4e22b84790fb900c1352de8030958d36f9e75795340d5770bfb698",
+      "size": 364544,
+      "url": "https://www.korea.kr/briefing/pressReleaseView.do?newsId=156423736"
+    }
+  },
+  "사회적거리두기_DISTANCING2020": {
+    "정답지_서울연구원_요약_발행처웹.txt": {
+      "desc": "발행처가 웹에 실은 요약 본문 — PDF 가 스캔본이라 대조가 안 되므로 같이 둔다. 대조지표 수치 넷이 여기서 확인된다",
+      "sha256": "51ceb859eed15b1f044fb870d0482e32ef0404e0b4e1a6a3de03e20f9da2eeb2",
+      "size": 7005,
+      "url": "https://www.si.re.kr/bbs/view.do?key=2024100154&pstSn=2104190001"
+    },
+    "정답지_서울연구원_코로나19_서울_경제적손실_2021.pdf": {
+      "desc": "서울연구원 정책리포트 322호(2021.4), 신한카드 서울 패널 — 한식 -14.1% 등 우리가 맞히려는 정답지",
+      "sha256": "fd186587f51aab93531272f38d52cc5c7a77991d24997a862553a24eaf702d09",
+      "size": 10146646,
+      "url": "https://www.si.re.kr/node/64651"
+    },
+    "정책원문_중대본회의_보도자료_20201127.hwp": {
+      "desc": "중앙재난안전대책본부 2020-11-27 — 채점 구간(11/24~25)에 시행 중이던 수도권 2단계 조치를 담은 공식 문서",
+      "sha256": "86d71b936c4e22b84790fb900c1352de8030958d36f9e75795340d5770bfb698",
+      "size": 364544,
+      "url": "https://www.korea.kr/briefing/pressReleaseView.do?newsId=156423736"
+    }
+  },
+  "업종형소비쿠폰_P015": {
+    "정책원문_2020년_하반기_경제정책방향.pdf": {
+      "desc": "8대 소비쿠폰이 실린 본문(2020-06-01). 업종별 할인율·한도의 규칙 원문",
+      "sha256": "1129fb80665394584ba39a4cc31e1f5796d05a5b6950630e2a559367dcae5ad0",
+      "size": 4014597,
+      "url": "https://www.korea.kr/briefing/pressReleaseView.do?newsId=156393266"
+    },
+    "정책원문_하반기경제정책방향_보도자료_20200601.hwp": {
+      "desc": "위 대책의 보도자료 — 요약본",
+      "sha256": "768b8cc5ddf5d78600ff60b27f010298fe6dfabbc91842b9d91d4789279ee101",
+      "size": 157184,
+      "url": "https://www.korea.kr/briefing/pressReleaseView.do?newsId=156393266"
+    }
+  },
+  "지역사랑상품권_P014": {
+    "정답지_조세재정연구원_지역화폐가_지역경제에_미친_영향_2020.pdf": {
+      "desc": "송경호·이환웅(2020) 한국조세재정연구원 — 우리가 맞히려는 정답지",
+      "sha256": "6e3a744a33d7bf635b218b9da9430f9a8359e017da60b1e2aaab5758facf0950",
+      "size": 1293628,
+      "url": "https://www.kipf.re.kr/uloads/kiPublish/202012/FILE_202102020125031083.pdf"
+    },
+    "정책원문_지역사랑상품권_발행지원사업_종합지침_20210122.pdf": {
+      "desc": "행정안전부 발행지원 사업 종합지침 — 할인율·가맹점 범위의 규칙 원문",
+      "sha256": "0c92f803d80208e75f45bd946721ff5b039c702828ea94142d6a860c4cb79ccd",
+      "size": 1122481,
+      "url": "https://www.mois.go.kr/frt/sub/a06/b07/localVoucher/screen.do"
+    }
+  }
+}

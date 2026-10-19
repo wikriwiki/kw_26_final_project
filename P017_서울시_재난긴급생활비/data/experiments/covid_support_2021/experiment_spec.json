@@ -1,0 +1,28 @@
+{
+  "status": "design_only_not_executable",
+  "interpretation": "현재 서울 페르소나에 2021년 정책과 코로나 환경을 적용한 가상실험",
+  "persona_attributes": "keep current structural attributes; do not re-age to 2021",
+  "suggested_context_warmup": {"from": "2021-08-23", "until": "2021-08-29"},
+  "suggested_comparison_window": {"from": "2021-08-30", "until": "2021-12-31"},
+  "announcement_handling": "Fork the same warmed state before the 8/30 detailed announcement; awareness and receipt are separate events. This does not reconstruct all earlier 2021 policy news.",
+  "primary_arms": [
+    {"id": "covid_no_grant", "covid_background": true, "grant": false},
+    {"id": "covid_with_grant", "covid_background": true, "grant": true}
+  ],
+  "primary_contrast": "covid_with_grant minus covid_no_grant, paired by agent and simulation day; repeat across seeds",
+  "optional_arms": [
+    {"id": "ordinary_no_grant", "covid_background": false, "grant": false},
+    {"id": "ordinary_with_grant", "covid_background": false, "grant": true}
+  ],
+  "eligibility": {
+    "preferred": "household insurance and asset rules when supported by input data",
+    "fallback": "explicitly synthetic household/entitlement manifest calibrated to public Seoul aggregates; never relabel spending rank as observed insurance premium",
+    "seoul_aggregate_benchmark": {"source_id": "seoul_eligibility_coverage", "eligible_people_approx": 7100000, "population_approx": 9570000, "reported_share_approx": 0.75, "use": "aggregate approximation and sensitivity only; published after treatment begins, never an agent prompt fact"},
+    "sensitivity": "vary allocation mechanism and coverage around the approximate Seoul benchmark; report rather than optimize against consumption outcomes",
+    "manifest_created": false
+  },
+  "measurements": ["total expenditure difference", "eligible merchant expenditure difference", "grant redemption distinct from incremental consumption", "private cash substitution", "category and district changes", "unspent balance at expiry", "receipt and eligibility counts", "prohibited-event count", "missing-field and fallback counts"],
+  "freeze_before_run": ["agent ID set and population weights", "code paths and hashes including deployed files", "graph snapshot and POI dataset", "source hashes and availability lag", "eligibility/vaccination synthetic assumptions", "model version and sampling settings", "random seeds", "payment and online/offline share settings", "policy IDs active in each arm"],
+  "readiness_requirements": ["individual entitlement and payer/beneficiary handling", "policy-scoped merchant eligibility", "dated environment reaches Stage1/Stage2/Night for both arms", "facility/time/party/vaccine validation enforced", "receipt/restart/expiry ledger checks", "DB readback of actual exposed agents", "isolated graph state per arm", "small end-to-end smoke run with nonzero eligible receipts and audited transactions"],
+  "runtime_ready": false
+}

@@ -1,0 +1,85 @@
+{
+  "schema_version": 2,
+  "created_at": "2026-09-22T14:39:38.248284+00:00",
+  "status": "offline_reasoning_contract_checks_complete_with_three_preexisting_main_test_failures",
+  "branch": "No_SmokingZone_EXP",
+  "base_main_commit": "77ec86cf49397ac118fc63501f39abbb3244cab2",
+  "measurement_contract": {
+    "record_schema_version": 2,
+    "argument_contract_version": 2,
+    "question_id": "indoor_sports_smoking_ban_attitude_v2",
+    "reserved_interview_output_tokens": 1600
+  },
+  "prompt_audit": {
+    "path": "output/no_smoking_zone/prompt_audit_v3_reasoning/",
+    "manifest_sha256": "e5c102cc492d937d61ecf907d8767059906bcab54f33fb389a8240b9b397c668",
+    "counts": {
+      "python_sources": 248,
+      "prompt_modules": 52,
+      "registered_variants": 23,
+      "generation_callsites": 15,
+      "stage1_rendered_cases": 26,
+      "stage2_rendered_cases": 6,
+      "night_rendered_cases": 4,
+      "interview_rendered_cases": 10,
+      "personal_decision_comparison_cases": 4,
+      "stance_reasoning_probe_cases": 4
+    },
+    "rendered_cases": 46,
+    "all_static_checks_passed": true,
+    "exact_tokenizer_verified": true,
+    "all_representative_budgets_fit": true
+  },
+  "test_runs": [
+    {
+      "command": "python -m pytest tests/unit/sim -q",
+      "passed": 934,
+      "failed": 3,
+      "skipped": 7,
+      "log": "output/no_smoking_zone/reasoning_v2_sim_regression.log",
+      "log_sha256": "ada1cda0806be6df76b7a81afa2a389acf74e3258ec6c248ff33ed5867dd480c"
+    },
+    {
+      "command": "python -m pytest tests/unit/persona/test_summary_model_selection.py tests/unit/deploy -q",
+      "passed": 36,
+      "failed": 0,
+      "subtests_passed": 7,
+      "log": "output/no_smoking_zone/reasoning_v2_deploy_regression.log",
+      "log_sha256": "a6266899ef17cfa966b18d6f948700ca3312399555f4eb93e6bb25909ea26914"
+    }
+  ],
+  "preexisting_failure_reproduction": {
+    "path": "output/no_smoking_zone/baseline_outside_need_main_77ec86cf_20260922T140345Z/baseline_reproduction.json",
+    "sha256": "903a610a247b72da7ddfbb347b84a3e9e87d53af471a4e07123088107de2f304",
+    "reproduced_on_unchanged_main": true,
+    "tests_failed": 3
+  },
+  "closed_findings": [
+    "Preserve explicit lifestyle, hobbies, resource, work and location facts in active Stage1/Stage2 prompts; unknown is not zero or no workplace.",
+    "Select source-linked personal circumstances and temporally diverse experiences; diagnostic call metadata cannot displace substantive evidence.",
+    "Separate facts, inferences, current values, publicly stated priorities, conditional positions and important unknowns.",
+    "Preserve original answers and stances when public links are missing; never regenerate silently or remove them from denominators.",
+    "Bind archived facility classification to frozen POI registry hash without changing executed events or receipts.",
+    "Generic golf range and district alone cannot prove indoor-policy target status.",
+    "Return the same sealed stance record written to disk; all four execute-probe records retain correct review references.",
+    "Keep v1/v2 measurement contracts separate, including downstream fitted text clusters."
+  ],
+  "synthetic_probes": {
+    "case_count": 4,
+    "prescribed_stance_labels": false,
+    "actual_model_responses_collected": 0,
+    "four_case_execute_path_test": "mocked transport and tokenizer only; exact LG tokenizer checked separately in audit"
+  },
+  "configured_lg_endpoint_health_available": false,
+  "real_gpu_inference_executed": false,
+  "actual_semantic_reasoning_quality_verified": false,
+  "real_cohort_evidence_census_executed": false,
+  "limitations": [
+    "Exact quotes and structural richness do not prove semantic support, consistency, causal truth or realistic human opinion.",
+    "Public-quality flags require review; no minimum word count, forced opposing position or invented biography is used.",
+    "The input is a bounded source-linked selection with explicit omitted items, periods and work limits.",
+    "Stage2 still uses the existing paid-visit and positive proposed spend model; proposal versus actual receipt remains separate.",
+    "Actual model adherence, truncation rate, full-cohort context lengths, review scores, cost and throughput require an LG SGLang pilot.",
+    "The report economics are not individual policy stance truth; compatible independent truth remains necessary for empirical attitude evaluation."
+  ]
+}

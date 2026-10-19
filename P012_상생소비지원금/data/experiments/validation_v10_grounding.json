@@ -1,0 +1,21 @@
+{
+  "id": "validation_v10_grounding",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "69dbf50ba55a976058556c6666dea0982192cd2e3b7b9ce97ef6cb249b0ba7c1",
+  "candidates": [
+    {"id": "v11_grounding_control", "prompt": "v11", "structured": true, "thinking_tokens": 2048},
+    {"id": "v16_grounding", "prompt": "v16", "structured": true, "thinking_tokens": 2048},
+    {"id": "v17_grounding", "prompt": "v17", "structured": true, "thinking_tokens": 2048}
+  ],
+  "seeds": [11001, 12001],
+  "sampling": {"temperature": 1.0, "top_p": 0.95, "presence_penalty": 0.0},
+  "answer_tokens": 2400,
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20260921,
+  "phase": "Eight development fact-following cases x three prompts x two seeds = 48 calls. Four prior stress cases and four newly constructed development cases. Not an unseen confirmation.",
+  "primary": "Every case must satisfy schedule and explicit fact constraints; all final responses are manually reviewed for unsupported factual claims. New choices are allowed. No desired consumption direction, medical-visit ban, spending target, or external policy result is imposed.",
+  "sampling_rationale": "Presence penalty zero is a new shared development setting to permit faithful repeated terminology. This run compares prompts at the same setting; changes from v8/v9 cannot be attributed to prompt alone.",
+  "selection": "Require all constraints and factual grounding across both seeds before a larger development screen. Then compare total generated tokens. Preserve all raw attempts; no hidden repair or retry.",
+  "prohibitions": "No P010 modification; no P015 rerun; no promotion from format success alone. Unused 24-person confirmation remains sealed."
+}

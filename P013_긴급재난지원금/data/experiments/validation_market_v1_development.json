@@ -1,0 +1,41 @@
+{
+  "id": "validation_market_v1_development",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "0f70cc6c33a89888918ec95b0c4ac47864713a8ddb58130aa8e7f4f89bb016ef",
+  "prompt_module": "v24",
+  "candidates": [
+    {
+      "id": "v24_finite_clock",
+      "thinking_tokens": 512
+    }
+  ],
+  "seeds": [
+    44001
+  ],
+  "answer_tokens": 2048,
+  "max_shift_minutes": 0,
+  "temporal_clock_step": 30,
+  "sampling": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20261011,
+  "phase": "Input visibility ablation on the original12 known citizens: expose unchanged downstream item, quantity, price, spendable balances, offer units and hypothetical wallet acceptance before planning. Same v24 prompt/clock/seed/temperature as temporal_v5.",
+  "primary": "Complete96 matrix; zero request errors; all supplied factual and execution checks; no time shifts; mean generated tokens<=1300. Audit unchanged source facts and exact preplanning versus settlement menu. No acceptance threshold for offline visits, amount, benefit use or effect direction.",
+  "limitations": [
+    "Finite activity vocabulary and supplied home/work commute, not complete route or duration model.",
+    "Work schedules, school attendance and inventory often unobserved; no full human behavior proof.",
+    "Late activity is a declared representation constraint, not evidence of observed bedtime.",
+    "Personal policy eligibility and initial financial histories explicitly synthetic in provider v2.",
+    "No external policy effect or magnitude claim.",
+    "Same narrow hypothetical item catalog. No demand or historical magnitude validity claim.",
+    "New preview is a bundle of downstream information, not an isolated price-only intervention.",
+    "Control is prior frozen temporal_v5; same seed does not certify bitwise sampling determinism under changed context or scheduling."
+  ],
+  "preflight": "Source changes are strictly additive market preview plus context hash/has_work metadata. Old96 transaction cases exactly reproduced by shared quote function. Existing narrow catalog remains a known limitation; this does not fix total-demand coverage.",
+  "selection": "Qualify input and execution consistency only; report all behavior changes and failures. No external target or preferred spending sign.",
+  "last_start_not_before": "18:00"
+}

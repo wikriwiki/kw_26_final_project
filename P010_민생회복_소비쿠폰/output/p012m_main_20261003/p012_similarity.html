@@ -1,0 +1,179 @@
+<title>상생소비지원금 실측 대조</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hahmlet:wght@500;600&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#F2F5F4; --surface:#FFFFFF; --ink:#15202A; --muted:#55616B; --faint:#8A949C;
+  --rule:#D6DDE0; --grid:#E6EBED;
+  --sim:#1F67A8; --sim-band:rgba(31,103,168,.28); --truth:#C4561C;
+  --good:#2B7A4B; --good-bg:#E3F1E8; --bad:#B42318; --bad-bg:#FBE6E4;
+  --unsure:#5F6B75; --unsure-bg:#ECEFF1; --bar:#1F67A8; --bar-track:#E4E9EC;
+  --display:"Hahmlet", "Noto Serif KR", "Batang", serif;
+  --text:"IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --bg:#0E1317; --surface:#151C22; --ink:#E3E8EC; --muted:#9AA6B0; --faint:#6E7A84;
+    --rule:#2A343C; --grid:#212A31;
+    --sim:#62A6E6; --sim-band:rgba(98,166,230,.30); --truth:#F08B4D;
+    --good:#5CBF86; --good-bg:#16301F; --bad:#F26B5F; --bad-bg:#3A1A17;
+    --unsure:#A3AEB7; --unsure-bg:#232C33; --bar:#62A6E6; --bar-track:#26313A;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --bg:#0E1317; --surface:#151C22; --ink:#E3E8EC; --muted:#9AA6B0; --faint:#6E7A84;
+  --rule:#2A343C; --grid:#212A31;
+  --sim:#62A6E6; --sim-band:rgba(98,166,230,.30); --truth:#F08B4D;
+  --good:#5CBF86; --good-bg:#16301F; --bad:#F26B5F; --bad-bg:#3A1A17;
+  --unsure:#A3AEB7; --unsure-bg:#232C33; --bar:#62A6E6; --bar-track:#26313A;
+}
+*{box-sizing:border-box}
+body{background:var(--bg); color:var(--ink); font-family:var(--text); font-size:15px; line-height:1.6;
+  margin:0; padding-inline:20px; padding-block:28px 56px}
+.wrap{max-width:1040px; margin:0 auto; display:flex; flex-direction:column; gap:40px}
+h1,h2,h3{text-wrap:balance; margin:0}
+h1{font-family:var(--display); font-weight:600; font-size:clamp(26px,4.2vw,38px); line-height:1.25; letter-spacing:-.01em}
+h2{font-size:20px; font-weight:600; letter-spacing:-.005em}
+h3{font-size:16px; font-weight:600}
+p{margin:0; max-width:68ch}
+.eyebrow{font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:500}
+header{display:flex; flex-direction:column; gap:12px}
+.meta{color:var(--muted); font-size:14px}
+section{display:flex; flex-direction:column; gap:16px}
+.lede{color:var(--muted)}
+.tiles{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px}
+@media (max-width:860px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:440px){.tiles{grid-template-columns:1fr}}
+.tile{background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:16px 18px;
+  display:flex; flex-direction:column; gap:6px}
+.tile.lead{border-color:var(--sim)}
+.tile .k{font-size:13px; color:var(--muted); font-weight:500}
+.tile .v{font-family:var(--display); font-size:34px; font-weight:600; line-height:1.1; font-variant-numeric:tabular-nums}
+.tile .ci{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+.tile .x{font-size:13px; color:var(--muted); line-height:1.5}
+.note{background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:14px 18px; color:var(--ink)}
+.note b{font-weight:600}
+.legend{display:flex; flex-wrap:wrap; gap:18px; font-size:13px; color:var(--muted); align-items:center}
+.legend span{display:inline-flex; gap:6px; align-items:center}
+.scroll{overflow-x:auto; -webkit-overflow-scrolling:touch}
+.panel{background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:12px 8px}
+svg text{font-family:var(--text)}
+svg .lab{fill:var(--ink); font-size:13px}
+svg .sub{fill:var(--muted); font-size:11.5px}
+svg .tick{fill:var(--muted); font-size:11px; font-variant-numeric:tabular-nums}
+svg .val{fill:var(--ink); font-size:12px; font-variant-numeric:tabular-nums}
+svg .grid{stroke:var(--grid); stroke-width:1}
+svg .zero{stroke:var(--faint); stroke-width:1.2}
+svg .ci{stroke:var(--sim); stroke-width:2; stroke-linecap:round}
+svg .simdot{fill:var(--sim); stroke:var(--surface); stroke-width:2}
+svg .truth{fill:var(--truth); stroke:var(--surface); stroke-width:2}
+svg .slope{stroke:var(--faint); stroke-width:1.5; fill:none}
+svg .slope.far{stroke:var(--truth)}
+svg .rowhit{fill:transparent}
+svg .rowhit:hover{fill:var(--grid)}
+table{border-collapse:collapse; width:100%; font-size:14px; font-variant-numeric:tabular-nums}
+th,td{text-align:left; padding:9px 10px; border-bottom:1px solid var(--rule); vertical-align:top}
+th{font-size:12.5px; color:var(--muted); font-weight:500; white-space:nowrap}
+td.n{text-align:right; white-space:nowrap}
+td .s{display:block; font-size:12.5px; color:var(--muted)}
+.bar{display:flex; align-items:center; gap:8px; min-width:120px}
+.bar i{display:block; height:8px; border-radius:4px; background:var(--bar-track); flex:1; position:relative; overflow:hidden}
+.bar i b{position:absolute; inset:0 auto 0 0; background:var(--bar); border-radius:4px}
+.chip{display:inline-flex; align-items:center; gap:5px; padding:2px 9px; border-radius:999px; font-size:12.5px; font-weight:500; white-space:nowrap}
+.chip.good{background:var(--good-bg); color:var(--good)}
+.chip.bad{background:var(--bad-bg); color:var(--bad)}
+.chip.unsure{background:var(--unsure-bg); color:var(--unsure)}
+.chip::before{font-size:11px}
+.chip.good::before{content:"●"}
+.chip.bad::before{content:"✕"}
+.chip.unsure::before{content:"○"}
+.grid2{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px}
+.grid2 > .card:last-child:nth-child(odd){grid-column:1 / -1}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--surface); border:1px solid var(--rule); border-radius:10px; padding:16px 18px; display:flex; flex-direction:column; gap:10px}
+.card .big{font-family:var(--display); font-size:26px; font-weight:600; font-variant-numeric:tabular-nums}
+ul.plain{margin:0; padding-left:1.1em; display:flex; flex-direction:column; gap:6px; max-width:72ch}
+dl.method{display:grid; grid-template-columns:minmax(120px,180px) 1fr; gap:10px 18px; margin:0}
+dl.method dt{font-weight:600}
+dl.method dd{margin:0; color:var(--ink); max-width:68ch}
+@media (max-width:560px){dl.method{grid-template-columns:1fr} dl.method dd{margin-bottom:6px}}
+code{font-size:13px; background:var(--grid); padding:1px 5px; border-radius:4px}
+footer{color:var(--muted); font-size:13px}
+a{color:var(--sim)}
+:focus-visible{outline:2px solid var(--sim); outline-offset:2px}
+</style>
+<div class="wrap">
+<header>
+<div class="eyebrow">P012 상생소비지원금 · KDI 정책연구(2022.9) 실측과 대조</div>
+<h1>시뮬레이션은 실제 정책 효과와 얼마나 닮았나</h1>
+<p class="meta">서울 시민 에이전트 <b>3,000명</b> · 시뮬레이션 날짜 2021-10-01 ~ 2021-10-07 (7일) · 같은 사람을 지원금이 있을 때와 없을 때 두 번 돌려 차이를 쟀다. 실측은 KDI 가 2021년 10월 한 달 카드 결제로 잰 값이다.</p>
+</header>
+<section aria-labelledby="h-sum"><h2 id="h-sum">요약</h2>
+<div class="tiles">
+<div class="tile lead"><div class="k">크기 유사도</div><div class="v">39%</div><div class="ci">95% 구간 30% ~ 47%</div><div class="x">효과 지표 9개에서 시뮬레이션 값이 실측 값에 얼마나 가까운지. 100%면 같고, 부호가 반대면 0%.</div></div>
+<div class="tile"><div class="k">방향 일치</div><div class="v">9 / 11</div><div class="ci">그중 확실한 일치 6 · 확실한 반대 2</div><div class="x">지원금이 소비를 늘렸는지 줄였는지, 어느 업종이 더 늘었는지의 방향이 실측과 같은 지표 수.</div></div>
+<div class="tile"><div class="k">순위 상관</div><div class="v">-0.02</div><div class="ci">95% 구간 -0.07 ~ 0.22 · 우연일 확률 52.6%</div><div class="x">어느 업종이 더 크게 반응했는지의 순서가 실측과 닮은 정도. 1이면 순서가 같고 0이면 무관.</div></div>
+<div class="tile"><div class="k">평균 절대 오차</div><div class="v">15.1<span style="font-size:18px">%p</span></div><div class="ci">95% 구간 12.2 ~ 19.1%p</div><div class="x">효과 지표에서 시뮬레이션과 실측의 차이를 평균낸 값. 작을수록 가깝다.</div></div>
+</div>
+<div class="note"><b>읽는 법.</b> 구간은 같은 시민들을 다시 뽑아 2,000번 다시 계산했을 때 값이 움직인 범위다. 구간이 넓으면 그 숫자는 표본 크기에 따라 크게 달라질 수 있다는 뜻이다. 실측이 시뮬레이션의 95% 구간 안에 든 지표는 9개 중 <b>2개</b>다.</div>
+<div class="note"><b>시뮬레이션 기간의 한계.</b> 실측은 10월 한 달 누적이고 시뮬레이션은 7일이다. 이것은 시뮬레이션 시간의 물리적 한계다. 앞선 시뮬레이션에서는 같은 정책의 총소비 증가율이 7일 +18.9%, 14일 +15.5%, 31일 +11.3%로 기간에 따라 달랐다. 그래서 7일 값의 크기를 한 달 실측과 그대로 맞대면 기간 차이가 섞인다. 방향은 기간의 영향을 덜 받는다. 값을 기간에 맞춰 고치지 않았다.</div>
+</section>
+<section aria-labelledby="h-forest"><h2 id="h-forest">지표별 비교 — 지원금이 없을 때보다 몇 % 더 썼나</h2>
+<div class="legend"><span><svg width="14" height="14" aria-hidden="true"><path d="M7 1 l6 6 l-6 6 l-6 -6 z" fill="var(--truth)"/></svg>실측 (KDI)</span><span><svg width="30" height="14" aria-hidden="true"><line x1="2" y1="7" x2="28" y2="7" stroke="var(--sim)" stroke-width="2"/><circle cx="15" cy="7" r="5" fill="var(--sim)"/></svg>시뮬레이션과 95% 구간</span><span>오른쪽 막대: 지표별 크기 유사도 (0~1)</span></div>
+<div class="panel scroll"><svg viewBox="0 0 780 370" width="100%" style="min-width:640px;max-width:780px" role="img" aria-labelledby="h-forest"><line class="grid" x1="210.0" y1="22" x2="210.0" y2="340"/><text class="tick" x="210.0" y="358" text-anchor="middle">-40%</text><line class="grid" x1="285.0" y1="22" x2="285.0" y2="340"/><text class="tick" x="285.0" y="358" text-anchor="middle">-20%</text><line class="zero" x1="360.0" y1="22" x2="360.0" y2="340"/><text class="tick" x="360.0" y="358" text-anchor="middle">0%</text><line class="grid" x1="435.0" y1="22" x2="435.0" y2="340"/><text class="tick" x="435.0" y="358" text-anchor="middle">+20%</text><line class="grid" x1="510.0" y1="22" x2="510.0" y2="340"/><text class="tick" x="510.0" y="358" text-anchor="middle">+40%</text><line class="grid" x1="585.0" y1="22" x2="585.0" y2="340"/><text class="tick" x="585.0" y="358" text-anchor="middle">+60%</text><line class="grid" x1="660.0" y1="22" x2="660.0" y2="340"/><text class="tick" x="660.0" y="358" text-anchor="middle">+80%</text><text class="sub" x="4" y="16">지표</text><text class="sub" x="678" y="16">유사도</text><g><title>K1 총소비 진작 (삼중차분, 10월) — 실측 +11.25% · 시뮬 +1.38% (95% +1.1% ~ +1.6%) · 유사도 0.22</title><rect class="rowhit" x="0" y="30.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="48.0">K1</text><text class="lab" x="40" y="48.0">총소비 진작</text><line class="ci" x1="364.2" y1="51.0" x2="366.1" y2="51.0"/><path class="truth" d="M402.2 37.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="365.2" cy="51.0" r="5.5"/><rect x="678" y="44.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="44.0" width="15.3" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="51.0">0.22</text></g><g><title>K3 가전·가구 (10월) — 실측 +36.23% · 시뮬 +70.09% (95% +43.5% ~ +101.9%) · 유사도 0.68</title><rect class="rowhit" x="0" y="64.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="82.0">K3</text><text class="lab" x="40" y="82.0">가전·가구</text><line class="ci" x1="523.2" y1="85.0" x2="660.0" y2="85.0"/><path d="M666.0 85.0 l-6 -4 l0 8 z" fill="var(--sim)"/><path class="truth" d="M495.9 71.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="622.8" cy="85.0" r="5.5"/><rect x="678" y="78.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="78.0" width="47.7" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="85.0">0.68</text></g><g><title>K4 여행·레저 (10월) — 실측 +14.27% · 시뮬 -33.64% (95% -36.7% ~ -30.5%) · 유사도 0.00</title><rect class="rowhit" x="0" y="98.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="116.0">K4</text><text class="lab" x="40" y="116.0">여행·레저</text><line class="ci" x1="222.6" y1="119.0" x2="245.5" y2="119.0"/><path class="truth" d="M413.5 105.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="233.9" cy="119.0" r="5.5"/><rect x="678" y="112.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="112.0" width="0.0" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="119.0">0.00</text></g><g><title>K5 유통 (10월, 적립) — 실측 +13.82% · 시뮬 +8.05% (95% +5.7% ~ +10.4%) · 유사도 0.74</title><rect class="rowhit" x="0" y="132.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="150.0">K5</text><text class="lab" x="40" y="150.0">유통</text><line class="ci" x1="381.3" y1="153.0" x2="399.1" y2="153.0"/><path class="truth" d="M411.8 139.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="390.2" cy="153.0" r="5.5"/><rect x="678" y="146.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="146.0" width="51.5" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="153.0">0.74</text></g><g><title>K6 요식 (10월) — 실측 +13.33% · 시뮬 -8.25% (95% -9.7% ~ -6.8%) · 유사도 0.00</title><rect class="rowhit" x="0" y="166.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="184.0">K6</text><text class="lab" x="40" y="184.0">요식</text><line class="ci" x1="323.8" y1="187.0" x2="334.6" y2="187.0"/><path class="truth" d="M410.0 173.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="329.1" cy="187.0" r="5.5"/><rect x="678" y="180.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="180.0" width="0.0" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="187.0">0.00</text></g><g><title>K7 학원 (10월) — 실측 +6.30% · 시뮬 +11.22% (95% -0.5% ~ +24.1%) · 유사도 0.72</title><rect class="rowhit" x="0" y="200.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="218.0">K7</text><text class="lab" x="40" y="218.0">학원</text><line class="ci" x1="358.2" y1="221.0" x2="450.2" y2="221.0"/><path class="truth" d="M383.6 207.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="402.1" cy="221.0" r="5.5"/><rect x="678" y="214.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="214.0" width="50.4" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="221.0">0.72</text></g><g><title>K8 이·미용 (10월) — 실측 +2.80% · 시뮬 +8.91% (95% -2.8% ~ +21.9%) · 유사도 0.48</title><rect class="rowhit" x="0" y="234.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="252.0">K8</text><text class="lab" x="40" y="252.0">이·미용</text><line class="ci" x1="349.3" y1="255.0" x2="442.0" y2="255.0"/><path class="truth" d="M370.5 241.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="393.4" cy="255.0" r="5.5"/><rect x="678" y="248.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="248.0" width="33.5" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="255.0">0.48</text></g><g><title>K9 제외업종 총 결제금액 (10월) — 실측 +2.85% · 시뮬 +1.04% (95% +0.7% ~ +1.4%) · 유사도 0.53</title><rect class="rowhit" x="0" y="268.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="286.0">K9</text><text class="lab" x="40" y="286.0">제외업종 총 결제금액</text><line class="ci" x1="362.7" y1="289.0" x2="365.1" y2="289.0"/><path class="truth" d="M370.7 275.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="363.9" cy="289.0" r="5.5"/><rect x="678" y="282.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="282.0" width="37.4" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="289.0">0.53</text></g><g><title>K10 제외업종 중 유통 (10월) — 실측 +4.62% · 시뮬 +0.47% (95% -0.4% ~ +1.3%) · 유사도 0.18</title><rect class="rowhit" x="0" y="302.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="320.0">K10</text><text class="lab" x="40" y="320.0">제외업종 중 유통</text><line class="ci" x1="358.6" y1="323.0" x2="364.9" y2="323.0"/><path class="truth" d="M377.3 309.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="361.8" cy="323.0" r="5.5"/><rect x="678" y="316.0" width="70" height="7" rx="3.5" fill="var(--bar-track)"/><rect x="678" y="316.0" width="12.9" height="7" rx="3.5" fill="var(--bar)"/><text class="val" x="754" y="323.0">0.18</text></g></svg></div>
+<h3>어느 쪽이 더 늘었나 — 두 증가율의 차이 (%p)</h3>
+<div class="panel scroll"><svg viewBox="0 0 780 132" width="100%" style="min-width:640px;max-width:780px" role="img" aria-labelledby="h-forest"><line class="grid" x1="210.0" y1="22" x2="210.0" y2="102"/><text class="tick" x="210.0" y="120" text-anchor="middle">-20%p</text><line class="zero" x1="300.0" y1="22" x2="300.0" y2="102"/><text class="tick" x="300.0" y="120" text-anchor="middle">0%p</text><line class="grid" x1="390.0" y1="22" x2="390.0" y2="102"/><text class="tick" x="390.0" y="120" text-anchor="middle">+20%p</text><line class="grid" x1="480.0" y1="22" x2="480.0" y2="102"/><text class="tick" x="480.0" y="120" text-anchor="middle">+40%p</text><line class="grid" x1="570.0" y1="22" x2="570.0" y2="102"/><text class="tick" x="570.0" y="120" text-anchor="middle">+60%p</text><line class="grid" x1="660.0" y1="22" x2="660.0" y2="102"/><text class="tick" x="660.0" y="120" text-anchor="middle">+80%p</text><text class="sub" x="4" y="16">지표</text><text class="sub" x="678" y="16">유사도</text><g><title>K11 적립업종 &gt; 제외업종 — 실측 +8.40% · 시뮬 +0.59% (95% +0.3% ~ +0.9%) · 유사도 –</title><rect class="rowhit" x="0" y="30.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="48.0">K11</text><text class="lab" x="40" y="48.0">적립업종 &gt; 제외업종</text><line class="ci" x1="301.3" y1="51.0" x2="304.0" y2="51.0"/><path class="truth" d="M337.8 37.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="302.7" cy="51.0" r="5.5"/></g><g><title>K12 가전·가구 &gt; 이·미용 — 실측 +33.43% · 시뮬 +61.17% (95% +31.2% ~ +95.6%) · 유사도 –</title><rect class="rowhit" x="0" y="64.0" width="780" height="34" rx="4"/><text class="lab" x="4" y="82.0">K12</text><text class="lab" x="40" y="82.0">가전·가구 &gt; 이·미용</text><line class="ci" x1="440.5" y1="85.0" x2="660.0" y2="85.0"/><path d="M666.0 85.0 l-6 -4 l0 8 z" fill="var(--sim)"/><path class="truth" d="M450.4 71.0 l6 6 l-6 6 l-6 -6 z"/><circle class="simdot" cx="575.3" cy="85.0" r="5.5"/></g></svg></div>
+</section>
+<section aria-labelledby="h-rank"><h2 id="h-rank">어느 업종이 더 크게 반응했나 — 순서 비교</h2>
+<p class="lede">왼쪽은 실측에서 증가율이 큰 순서, 오른쪽은 시뮬레이션에서 큰 순서다. 선이 평행에 가까울수록 순서가 닮았다. 세 칸 이상 자리를 옮긴 지표는 주황 선이다. 순위 상관 -0.02 (우연히 이만큼 닮을 확률 52.6%).</p>
+<div class="panel scroll"><svg viewBox="0 0 640 316" width="100%" style="min-width:560px;max-width:640px" role="img" aria-label="실측과 시뮬레이션의 지표 크기 순위 비교"><text class="sub" x="236" y="18" text-anchor="end">실측 순위</text><text class="sub" x="404" y="18">시뮬레이션 순위</text><g><title>총소비 진작 (삼중차분, 10월) — 실측 5위 (+11.25%) · 시뮬 5위 (+1.38%)</title><path class="slope" d="M250 156.0 L390 156.0"/><circle cx="250" cy="156.0" r="4" fill="var(--truth)"/><circle cx="390" cy="156.0" r="4" fill="var(--sim)"/></g><g><title>가전·가구 (10월) — 실측 1위 (+36.23%) · 시뮬 1위 (+70.09%)</title><path class="slope" d="M250 36.0 L390 36.0"/><circle cx="250" cy="36.0" r="4" fill="var(--truth)"/><circle cx="390" cy="36.0" r="4" fill="var(--sim)"/></g><g><title>여행·레저 (10월) — 실측 2위 (+14.27%) · 시뮬 9위 (-33.64%)</title><path class="slope far" d="M250 66.0 L390 276.0"/><circle cx="250" cy="66.0" r="4" fill="var(--truth)"/><circle cx="390" cy="276.0" r="4" fill="var(--sim)"/></g><g><title>유통 (10월, 적립) — 실측 3위 (+13.82%) · 시뮬 4위 (+8.05%)</title><path class="slope" d="M250 96.0 L390 126.0"/><circle cx="250" cy="96.0" r="4" fill="var(--truth)"/><circle cx="390" cy="126.0" r="4" fill="var(--sim)"/></g><g><title>요식 (10월) — 실측 4위 (+13.33%) · 시뮬 8위 (-8.25%)</title><path class="slope far" d="M250 126.0 L390 246.0"/><circle cx="250" cy="126.0" r="4" fill="var(--truth)"/><circle cx="390" cy="246.0" r="4" fill="var(--sim)"/></g><g><title>학원 (10월) — 실측 6위 (+6.30%) · 시뮬 2위 (+11.22%)</title><path class="slope far" d="M250 186.0 L390 66.0"/><circle cx="250" cy="186.0" r="4" fill="var(--truth)"/><circle cx="390" cy="66.0" r="4" fill="var(--sim)"/></g><g><title>이·미용 (10월) — 실측 9위 (+2.80%) · 시뮬 3위 (+8.91%)</title><path class="slope far" d="M250 276.0 L390 96.0"/><circle cx="250" cy="276.0" r="4" fill="var(--truth)"/><circle cx="390" cy="96.0" r="4" fill="var(--sim)"/></g><g><title>제외업종 총 결제금액 (10월) — 실측 8위 (+2.85%) · 시뮬 6위 (+1.04%)</title><path class="slope" d="M250 246.0 L390 186.0"/><circle cx="250" cy="246.0" r="4" fill="var(--truth)"/><circle cx="390" cy="186.0" r="4" fill="var(--sim)"/></g><g><title>제외업종 중 유통 (10월) — 실측 7위 (+4.62%) · 시뮬 7위 (+0.47%)</title><path class="slope" d="M250 216.0 L390 216.0"/><circle cx="250" cy="216.0" r="4" fill="var(--truth)"/><circle cx="390" cy="216.0" r="4" fill="var(--sim)"/></g><text class="lab" x="236" y="40.0" text-anchor="end">가전·가구 <tspan class="sub">+36.2%</tspan></text><text class="lab" x="236" y="70.0" text-anchor="end">여행·레저 <tspan class="sub">+14.3%</tspan></text><text class="lab" x="236" y="100.0" text-anchor="end">유통 <tspan class="sub">+13.8%</tspan></text><text class="lab" x="236" y="130.0" text-anchor="end">요식 <tspan class="sub">+13.3%</tspan></text><text class="lab" x="236" y="160.0" text-anchor="end">총소비 진작 <tspan class="sub">+11.2%</tspan></text><text class="lab" x="236" y="190.0" text-anchor="end">학원 <tspan class="sub">+6.3%</tspan></text><text class="lab" x="236" y="220.0" text-anchor="end">제외업종 중 유통 <tspan class="sub">+4.6%</tspan></text><text class="lab" x="236" y="250.0" text-anchor="end">제외업종 총 결제금액 <tspan class="sub">+2.9%</tspan></text><text class="lab" x="236" y="280.0" text-anchor="end">이·미용 <tspan class="sub">+2.8%</tspan></text><text class="lab" x="404" y="40.0">가전·가구 <tspan class="sub">+70.1%</tspan></text><text class="lab" x="404" y="70.0">학원 <tspan class="sub">+11.2%</tspan></text><text class="lab" x="404" y="100.0">이·미용 <tspan class="sub">+8.9%</tspan></text><text class="lab" x="404" y="130.0">유통 <tspan class="sub">+8.1%</tspan></text><text class="lab" x="404" y="160.0">총소비 진작 <tspan class="sub">+1.4%</tspan></text><text class="lab" x="404" y="190.0">제외업종 총 결제금액 <tspan class="sub">+1.0%</tspan></text><text class="lab" x="404" y="220.0">제외업종 중 유통 <tspan class="sub">+0.5%</tspan></text><text class="lab" x="404" y="250.0">요식 <tspan class="sub">-8.3%</tspan></text><text class="lab" x="404" y="280.0">여행·레저 <tspan class="sub">-33.6%</tspan></text></svg></div>
+</section>
+<section aria-labelledby="h-table"><h2 id="h-table">지표별 수치</h2>
+<div class="scroll"><table><thead><tr><th>지표</th><th class="n">실측</th><th class="n">시뮬레이션</th><th class="n">95% 구간</th><th>크기 유사도</th><th class="n">부호 확실성</th><th>판정</th></tr></thead><tbody>
+<tr><td><b>K1</b> 총소비 진작<span class="s">실측이 통계적으로 유의</span></td><td class="n">+11.25%</td><td class="n">+1.38%</td><td class="n">+1.1% ~ +1.6%</td><td><div class="bar"><i><b style="width:22%"></b></i>0.22</div><span class="s">구간 0.18 ~ 0.26</span></td><td class="n">100.0%</td><td><span class="chip good">방향 일치 · 확실</span></td></tr>
+<tr><td><b>K3</b> 가전·가구<span class="s">실측이 통계적으로 유의</span></td><td class="n">+36.23%</td><td class="n">+70.09%</td><td class="n">+43.5% ~ +101.9%</td><td><div class="bar"><i><b style="width:68%"></b></i>0.68</div><span class="s">구간 0.53 ~ 0.91</span></td><td class="n">100.0%</td><td><span class="chip good">방향 일치 · 확실</span></td></tr>
+<tr><td><b>K4</b> 여행·레저<span class="s">실측이 통계적으로 유의</span></td><td class="n">+14.27%</td><td class="n">-33.64%</td><td class="n">-36.7% ~ -30.5%</td><td><div class="bar"><i><b style="width:0%"></b></i>0.00</div><span class="s">구간 0.00 ~ 0.00</span></td><td class="n">100.0%</td><td><span class="chip bad">방향 반대 · 확실</span></td></tr>
+<tr><td><b>K5</b> 유통<span class="s">실측이 통계적으로 유의</span></td><td class="n">+13.82%</td><td class="n">+8.05%</td><td class="n">+5.7% ~ +10.4%</td><td><div class="bar"><i><b style="width:74%"></b></i>0.74</div><span class="s">구간 0.59 ~ 0.85</span></td><td class="n">100.0%</td><td><span class="chip good">방향 일치 · 확실</span></td></tr>
+<tr><td><b>K6</b> 요식<span class="s">실측이 통계적으로 유의</span></td><td class="n">+13.33%</td><td class="n">-8.25%</td><td class="n">-9.7% ~ -6.8%</td><td><div class="bar"><i><b style="width:0%"></b></i>0.00</div><span class="s">구간 0.00 ~ 0.00</span></td><td class="n">100.0%</td><td><span class="chip bad">방향 반대 · 확실</span></td></tr>
+<tr><td><b>K7</b> 학원<span class="s">실측도 유의하지 않음</span></td><td class="n">+6.30%</td><td class="n">+11.22%</td><td class="n">-0.5% ~ +24.1%</td><td><div class="bar"><i><b style="width:72%"></b></i>0.72</div><span class="s">구간 0.01 ~ 0.98</span></td><td class="n">96.8%</td><td><span class="chip unsure">방향 같음 · 불확실</span></td></tr>
+<tr><td><b>K8</b> 이·미용<span class="s">실측도 유의하지 않음</span></td><td class="n">+2.80%</td><td class="n">+8.91%</td><td class="n">-2.8% ~ +21.9%</td><td><div class="bar"><i><b style="width:48%"></b></i>0.48</div><span class="s">구간 0.00 ~ 0.95</span></td><td class="n">93.2%</td><td><span class="chip unsure">방향 같음 · 불확실</span></td></tr>
+<tr><td><b>K9</b> 제외업종 총 결제금액<span class="s">실측도 유의하지 않음</span></td><td class="n">+2.85%</td><td class="n">+1.04%</td><td class="n">+0.7% ~ +1.4%</td><td><div class="bar"><i><b style="width:53%"></b></i>0.53</div><span class="s">구간 0.40 ~ 0.65</span></td><td class="n">100.0%</td><td><span class="chip good">방향 일치 · 확실</span></td></tr>
+<tr><td><b>K10</b> 제외업종 중 유통<span class="s">실측도 유의하지 않음</span></td><td class="n">+4.62%</td><td class="n">+0.47%</td><td class="n">-0.4% ~ +1.3%</td><td><div class="bar"><i><b style="width:18%"></b></i>0.18</div><span class="s">구간 0.00 ~ 0.44</span></td><td class="n">86.3%</td><td><span class="chip unsure">방향 같음 · 불확실</span></td></tr>
+<tr><td><b>K11</b> 적립업종 &gt; 제외업종<span class="s">두 증가율의 차이</span></td><td class="n">+8.40%p</td><td class="n">+0.59%p</td><td class="n">+0.3%p ~ +0.9%p</td><td><span class="s">방향만 본다</span></td><td class="n">100.0%</td><td><span class="chip good">방향 일치 · 확실</span></td></tr>
+<tr><td><b>K12</b> 가전·가구 &gt; 이·미용<span class="s">두 증가율의 차이</span></td><td class="n">+33.43%p</td><td class="n">+61.17%p</td><td class="n">+31.2%p ~ +95.6%p</td><td><span class="s">방향만 본다</span></td><td class="n">100.0%</td><td><span class="chip good">방향 일치 · 확실</span></td></tr>
+</tbody></table></div>
+<p class="lede">부호 확실성은 시민을 다시 뽑아 계산했을 때 부호가 그대로인 비율이다. 97.5% 이상이면 “확실”로 표시한다. 그 미만이면 방향이 맞아도 우연일 수 있다.</p>
+</section>
+<section aria-labelledby="h-level"><h2 id="h-level">금액과 집단별 반응</h2><div class="grid2">
+<div class="card"><h3>K13 1인당 캐시백</h3><div class="big">398원</div><p>실측 47,880원은 10·11월 두 달 합이다. 한 달 평균 23,940원을 시뮬레이션 7일로 나눈 <b>5,406원</b>과 비교한다. 시뮬레이션은 그 <b>0.07배</b>다 (유사도 0.07). 캐시백을 조금이라도 받은 사람은 시민의 32.6%, 한도(기간에 맞춰 줄인 값)에 닿은 사람은 0.0%다.</p></div>
+<div class="card"><h3>K15 투입 재원 대비 소비 증가</h3><div class="big">1150%</div><p>캐시백 1원이 소비를 얼마나 늘렸는지. 실측 165%. 시뮬레이션은 실측의 <b>6.97배</b>다. 구간 928 ~ 1368%  → 방향만 일치 · 실측 165% 가 구간 밖 — 시뮬이 7.0배 과대</p></div>
+<div class="card"><h3>K17 소득 수준별 업종 반응</h3><p>소비 기준액 중위값으로 나눈 상위·하위 집단의 증가율. 실측은 고소득은 가전·가구·학원, 저소득은 요식·유통에서 컸다. <b>방향 0/4칸 일치.</b></p><div class="scroll"><table><thead><tr><th>업종</th><th class="n">상위</th><th class="n">하위</th><th>실측</th></tr></thead><tbody><tr><td>가전·가구</td><td class='n'>+62.2%</td><td class='n'>+100.6%</td><td>소비 기준액 상위 쪽이 커야</td></tr><tr><td>학원</td><td class='n'>+6.7%</td><td class='n'>+27.1%</td><td>소비 기준액 상위 쪽이 커야</td></tr><tr><td>요식</td><td class='n'>-6.7%</td><td class='n'>-12.1%</td><td>하위 쪽이 커야</td></tr><tr><td>유통</td><td class='n'>+8.9%</td><td class='n'>+6.1%</td><td>하위 쪽이 커야</td></tr></tbody></table></div></div>
+<div class="card"><h3>K18 가구 규모별 반응</h3><div class="big">-0.7%p</div><div><span class="chip unsure">방향 다름 · 불확실</span></div><p>가구 구성으로 인원이 분명한 사람만 썼다: 3인 이상 766명 +1.3%, 1~2인 706명 +2.0% (제외 1528명). 실측은 4인 이상이 1~3인보다 컸다. 부호 확실성 97.0%.</p></div>
+<div class="card"><h3>K19 지역별 고른 정도</h3><div class="big"><span class="chip bad">고르지 않다</span></div><p>자치구 25개의 증가율 퍼짐 1.3%p. 시민을 무작위로 나눠도 95%가 1.1%p 안에 들어간다(p=0.01). 실측은 “지역별로 고르게” 나타났다.</p></div>
+</div></section>
+<section aria-labelledby="h-miss"><h2 id="h-miss">비교하지 못한 지표</h2><ul class="plain">
+<li><b>K14</b> 월 한도 10만원 — 원문에 도달률 수치가 없다(한도값 10만원만). 장치 확인용.</li>
+<li><b>K20</b> 지급 인원·총액 — 전국 인원(16,800,000명)과 직접 비교 못 한다. 분모를 우리가 붙인 참고값.</li>
+<li><b>K2</b> 총소비 진작 (삼중차분, 11월) — 미측정 — 11월을 돌리지 않았다(10월만)</li>
+<li><b>K16</b> 정책 직전(9월) 수급-미수급 소비 격차 — 해당없음 — 같은 사람을 두 팔로 돌려 정책 전 격차가 0 이다(설계의 장점)</li>
+</ul></section>
+<section aria-labelledby="h-keep"><h2 id="h-keep">시뮬레이션 결과 보존</h2>
+<p class="lede">그래프, 에이전트별 기억·계획·지출, 결제 원장을 시뮬레이션마다 따로 저장하고 검사로 확인했다.</p>
+<div class="scroll"><table><thead><tr><th>시뮬레이션</th><th>그래프 덤프</th><th>에이전트 기억·계획·상태</th><th>업종 결제 원장</th><th>캐시백 원장</th><th>복원 대조</th></tr></thead><tbody>
+<tr><td><b>지원금 있음</b></td><td><span class="chip good">통과</span><span class="s">neo4j.dump 1007MB 해시 일치</span></td><td><span class="chip good">통과</span><span class="s">명부 3000명 전원 · 상태 21000 · 기억 125005 · 계획항목 216762</span><span class="s">기억 125,005 · 계획 항목 216,762 · 상태 21,000</span></td><td><span class="chip good">통과</span><span class="s">업종 원장 21000행</span></td><td><span class="chip good">통과</span><span class="s">캐시백 원장 21000행</span><span class="s">소비 기준액 없는 2명은 캐시백 0으로 포함</span></td><td><span class="chip good">일치</span><span class="s">60명 표본 · 불일치 0명</span></td></tr>
+<tr><td><b>지원금 없음</b></td><td><span class="chip good">통과</span><span class="s">neo4j.dump 999MB 해시 일치</span></td><td><span class="chip good">통과</span><span class="s">명부 3000명 전원 · 상태 21000 · 기억 117329 · 계획항목 213090</span><span class="s">기억 117,329 · 계획 항목 213,090 · 상태 21,000</span></td><td><span class="chip good">통과</span><span class="s">업종 원장 21000행</span></td><td><span class="chip good">통과</span><span class="s">캐시백 원장 21000행</span><span class="s">소비 기준액 없는 2명은 캐시백 0으로 포함</span></td><td><span class="chip good">일치</span><span class="s">60명 표본 · 불일치 0명</span></td></tr>
+</tbody></table></div>
+<div class="note"><b>서버 밖 사본.</b> E:\p012m_preserved_20261002 에 31개 파일 3.3GB 를 복사했고, 모든 파일의 SHA-256 이 서버 값과 일치한다. 확인 시각 2026-10-03 04:04.</div>
+</section>
+<section aria-labelledby="h-how"><h2 id="h-how">계산 방법</h2><dl class="method">
+<dt>비교 설계</dt><dd>같은 3,000명을 같은 날짜(2021년 10월 1일~7일)로 두 번 시뮬레이션했다. 한 번은 상생소비지원금이 있고 한 번은 없다. 두 결과의 차이가 지원금의 효과다. 같은 사람·같은 날짜라 날씨·요일·명절 같은 차이가 섞이지 않는다.</dd>
+<dt>크기 유사도</dt><dd>지표마다 <code>1 − |시뮬 − 실측| ÷ (|시뮬| + |실측|)</code>를 구해 평균했다. 같으면 1, 한쪽이 다른 쪽의 절반이면 0.67, 부호가 반대면 0이다. 단위가 없어 업종끼리 평균낼 수 있다. 대칭 평균 백분율 오차(sMAPE)를 0~1 유사도로 바꾼 값이다(1 − sMAPE/2).</dd>
+<dt>방향 일치</dt><dd>증가율 지표 9개와, 어느 쪽이 더 늘었는지를 보는 순위 지표 2개에서 부호가 실측과 같은 지표 수.</dd>
+<dt>순위 상관</dt><dd>증가율 지표 9개를 실측 크기 순과 시뮬레이션 크기 순으로 줄 세운 뒤 스피어만 상관을 구했다. ‘우연일 확률’은 가능한 모든 줄 세우기(9!가지) 중 이만큼 이상 닮은 비율이다.</dd>
+<dt>구간</dt><dd>시민을 복원 추출로 다시 뽑되 한 사람의 ‘지원금 있음·없음’ 결과는 함께 뽑아 2,000번 다시 계산했다. 채점과 같은 방식이다.</dd>
+<dt>실측 값</dt><dd>KDI 「상생소비지원금의 소비 진작 효과」(2022.9)의 수치를 지표 계약서에 원문 인용과 함께 고정해 두고 그 파일에서만 읽었다. 시뮬레이션 프롬프트에는 실측 수치나 방향을 넣지 않았다.</dd>
+<dt>원 자료</dt><dd>모든 수치는 두 시뮬레이션의 결제 원장(시민 × 날짜 행)에서 계산했다. 원장과 그래프 덤프, 에이전트별 기억은 보존돼 있어 같은 계산을 다시 할 수 있다.</dd>
+</dl></section>
+<footer>생성: scripts/report/similarity_p012.py → build_p012_similarity_html.py · 시민 3,000명 · 재표집 2,000번</footer>
+</div>

@@ -1,0 +1,51 @@
+{
+  "scope": "Typed action protocol: representational hallucinations impossible by construction, independent factual/choice checks still required. Not prompt-only or macro validation.",
+  "macro_claim": false,
+  "variants": {
+    "v23_bounded2048": {
+      "responses": 32,
+      "complete": true,
+      "raw_valid": 29,
+      "valid": 32,
+      "eligible": 32,
+      "all_pass": true,
+      "adjusted_responses": 3,
+      "mean_generated_tokens": 2295.46875
+    }
+  },
+  "raw_archive_sha256": "5a7b4289ae7cbd5cedc0db7a162d56ccc463b039ec1d7a37437b4cd8befcf6c6",
+  "manual_review": "All action sequences read; finite vocabulary, schedule start semantics, no independent full routing or actual purchases.",
+  "early_endpoints": [
+    {
+      "aid": "SYNTH_GROUND_work_conflict",
+      "case": "work_conflict",
+      "arm": "off",
+      "replicate": 28001,
+      "attempt_key": "8ac46c89add61ceccfc8145c499460861203d98587df04e4c9ad413f60f9c020",
+      "last_event": {
+        "time": "17:40",
+        "activity_id": "home_leisure",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "집에서 휴식·취미 활동",
+        "purchase_channel": null
+      }
+    },
+    {
+      "aid": "SYNTH_GROUND_working_appliance",
+      "case": "working_appliance",
+      "arm": "off",
+      "replicate": 27001,
+      "attempt_key": "38a4b4ea6ed550fb720339e98caba718351bd326f1437cd144238d4c3255d351",
+      "last_event": {
+        "time": "13:40",
+        "activity_id": "home_sleep",
+        "anchor": "residence",
+        "category": "집",
+        "intent": "취침 준비",
+        "purchase_channel": null
+      }
+    }
+  ],
+  "decision": "Qualifies for supplied-scenario execution confirmation only. Not a complete day-demand model or validated macro effect."
+}

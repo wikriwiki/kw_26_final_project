@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "scope": "Read-only synthetic fixture; no Neo4j mutation and no model call",
+  "date": "2026-09-28",
+  "policy_id": "P012",
+  "policy_sha256": "55aa65418e181cf8f94d122e73301262964b566f527eeaa359f1d184db58e54a",
+  "source_sha256": {
+    "scripts/sim/dawn_context.py": "160e6cb14e3b22b53974e6c898a13186bb9a85f96a7e563f0997269786874eca",
+    "scripts/sim/prompts/p012.py": "b60bd4abf9e59975b0f842fcbb6c482ef447ce9544b7de04b1e530c1627a2f43",
+    "scripts/sim/prompts/v53.py": "46fdaa923796bf8683972d272e8d895b502c85b28ddd61e521c4108454f6e4f9",
+    "scripts/sim/stage2_poi.py": "aaf16627670e6c8fd57684cb1f29e07ce11ff50d216a58e2551d016a481a98e7"
+  },
+  "facts_sha256": "20af3d1a3b5caf069b710780a504ee03b6fb1f6baa0845869e057a5f7f2d7e2a",
+  "stage1_fixture_sha256": "f0382629fd0ea40155ec115d9f02c3111bba9f98bc8e1b1da852732090c35179",
+  "stage2_fixture_sha256": "8e5fb382b4ce3f3cf4b1f28f691d8b74a66939fd3ca5c50420abb6dc6f27b3b9",
+  "stage1_chars": 1258,
+  "stage2_chars": 1111,
+  "all_checks_pass": true,
+  "required_facts_seen_in_both_stages": [
+    "3% threshold",
+    "10% cashback rate",
+    "100000 KRW monthly cap",
+    "excluded large marts, department stores, and major online malls",
+    "payment on day 15 of the next month",
+    "2021-10-01 effective date"
+  ],
+  "method": "The frozen JSON was mapped to the same row fields returned by POLICY_CYPHER, formatted through dawn_context._format_policy_facts, then inserted into v53.format_dawn_blocks and build_stage2_prompt(neutral=True) with one synthetic candidate. This tests rendering, not live policy exposure or behavioral effects."
+}

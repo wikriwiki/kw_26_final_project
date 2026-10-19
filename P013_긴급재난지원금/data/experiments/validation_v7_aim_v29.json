@@ -1,0 +1,42 @@
+{
+ "id": "validation_v7_aim_v29",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "78961fc28d0f27915a58b2db58c22d3fdc888f3e4be4bbfc6d56dbf054e29000",
+ "prompt_module": "v29",
+ "candidates": [
+  {
+   "id": "v29_aim_axis",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  63001,
+  63002,
+  63003,
+  63004
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "Where the padding guard should aim. v6 showed that deleting it left the day at home (zone share below the 0.03 line) but raised purchases by 2.1 SE with the activity count unchanged. v30 keeps the guard and takes the word \"purchase\" out of it.",
+ "primary": "Event-level purchase share, both arms, per candidate. ~1,750 events per condition gives a standard error near 0.008. Secondary: zone share, which v6 bounded below 0.03 and should stay there. Padding check: events per plan.",
+ "limitations": [
+  "A purchase rate is not an answer key. Nothing here says which rate is correct - only that naming purchases in a padding guard is an arbitrary suppression.",
+  "The policy-selective measure (eligible purchases, wallet mechanisms only) will have counts in the low tens and will most likely only bound, not decide.",
+  "Twelve people, four seeds. Precision for these twelve.",
+  "Money is recorded, not claimed: the paired person SD is 7,779 KRW and twelve people give a standard error of 2,246 KRW."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed set fixed before the run (experiments/v7/prompt_v7.md). v30 differs from v25 by one noun; enforced by test_reaimed_guard.py.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}
