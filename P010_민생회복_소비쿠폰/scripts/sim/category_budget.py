@@ -183,8 +183,11 @@ def _pick_time(l1: str, aid: str, day: str, is_weekend: bool, has_work: bool, ta
 
 def plan_day(events: list, *, aid: str, day: str, is_weekend: bool, has_work: bool, budget: float,
              shares: dict[str, float], hints: dict[str, list[str]], carry: dict[str, int],
-             make_event) -> tuple[list, dict]:
+             make_event, monthly_subs: frozenset = frozenset(), monthly_paid: set | None = None) -> tuple[list, dict]:
     """1단계 일정을 업종 봉투에 맞춘다(2단계 전에). make_event(**fields) 는 1단계 일정 객체를 만든다.
+
+    monthly_subs·monthly_paid: 월 납부 세부 업종과 이번 달 이미 낸 것. 넣을 세부 업종이 이미 낸 월 납부면
+    그 업종은 오늘 넣지 않는다 — 0원 결제라 게이지가 줄지 않아 다음 날 또 들어가게 된다(2026-10-19 사용자 결정).
 
     반환: (일정 목록, 메타). 바뀐 일정에는 reasoning 끝에 표시를 붙인다.
     """
@@ -214,9 +217,14 @@ def plan_day(events: list, *, aid: str, day: str, is_weekend: bool, has_work: bo
     due = [k for k in BUDGET_L1 if k not in NO_INJECT and k not in planned and room[k] >= TICKETS[k]]
     due.sort(key=lambda k: -room[k] / TICKETS[k])
     taken = [_minutes(e.time) for e in events]
-    for k in due[:MAX_INJECT]:
+    paid = set(monthly_paid or ())
+    for k in due:
+        if len(meta["injected"]) >= MAX_INJECT:
+            break
         hint_subs = [HINT_SUB[h] for h in hints.get(k, []) if h in HINT_SUB]
         sub = hint_subs[0] if hint_subs else DEFAULT_SUB[k]
+        if sub in monthly_subs and sub in paid:
+            continue
         t = _pick_time(k, aid, day, is_weekend, has_work, taken)
         taken.append(_minutes(t))
         ev = make_event(time=t, anchor="residence", category=k, sub_category=sub,

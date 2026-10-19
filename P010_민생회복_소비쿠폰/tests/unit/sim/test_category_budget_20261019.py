@@ -235,6 +235,29 @@ def test_injected_times_avoid_collisions_and_work_hours(mods):
                 assert all(abs(t - u) >= 30 for u in times[:i])                # 넣은 일정끼리도
 
 
+def test_monthly_fee_not_injected_once_paid_this_month(mods):
+    cb, c = mods(True)
+    carry = {k: 0 for k in cb.BUDGET_L1}
+    carry["교육"] = 10 * cb.TICKETS["교육"]                               # 교육 게이지만 찼다
+    kw = dict(aid=AID, day="2025-07-19", is_weekend=True, has_work=False, budget=0, shares=_shares(cb),
+              carry=carry, make_event=_mk, monthly_subs=c.MONTHLY_SUBS)
+    _, unpaid = cb.plan_day(_busy_day(), hints={}, monthly_paid=set(), **kw)
+    assert [x["sub"] for x in unpaid["injected"]] == ["학원"]
+    _, paid = cb.plan_day(_busy_day(), hints={}, monthly_paid={"학원"}, **kw)
+    assert paid["injected"] == []                                         # 이미 낸 달에는 넣지 않는다
+    # 건너뛴 업종은 넣는 건수에 세지 않는다 — 다음으로 밀린 업종이 들어간다
+    carry["미용"] = 10 * cb.TICKETS["미용"]
+    _, nxt = cb.plan_day(_busy_day(), hints={}, monthly_paid={"학원"}, **kw)
+    assert [x["category"] for x in nxt["injected"]] == ["미용"]
+    # 같은 업종이라도 월 납부가 아닌 세부 업종(입력 힌트)은 그대로 넣는다
+    carry["미용"] = 0
+    carry["건강"] = 10 * cb.TICKETS["건강"]
+    carry["교육"] = 0
+    _, gym = cb.plan_day(_busy_day(), hints={"건강": ["헬스장"]}, monthly_paid={"헬스장"}, **kw)
+    _, clinic = cb.plan_day(_busy_day(), hints={"건강": ["의원"]}, monthly_paid={"헬스장"}, **kw)
+    assert gym["injected"] == [] and [x["sub"] for x in clinic["injected"]] == ["의원"]
+
+
 # ---------------------------------------------------------------- allocate
 
 def _alloc(cb, commerce, amounts, *, budget, shares, carry=None, monthly_paid=None, aid=AID):

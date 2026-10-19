@@ -115,6 +115,7 @@ from timing_metrics import (  # noqa: E402
     write_json_atomic,
 )
 from consumption import (  # noqa: E402
+    MONTHLY_SUBS,
     apply_consumption_model,
     base_store_budget,
     filter_active_grant_balances,
@@ -561,7 +562,8 @@ def process_one(aid: str, today: date, day_idx: int) -> dict:
                         ctx.persona.get("daily_we") if _cat_we else ctx.persona.get("daily_wd"), aid,
                         is_weekend=_cat_we),
                     shares=_cat_shares, hints=_cat_hints, carry=_cat_carry,
-                    make_event=lambda **kw: Stage1Event(**kw))
+                    make_event=lambda **kw: Stage1Event(**kw),
+                    monthly_subs=MONTHLY_SUBS, monthly_paid=set(ctx.persona.get("monthly_paid") or ()))
 
         # state 전달 — 잔액(가용 자산)이 가격대(₩~₩₩₩) 선택의 예산 근거로 프롬프트에 노출.
         # 기존 프롬프트는 persona의 정책 요약, opt-in 기록은 원본 정책·잔액도 보존.
