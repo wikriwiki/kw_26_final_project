@@ -43,6 +43,12 @@ answer는 보통 3~6문장, 정보가 적으면 짧게 쓴다. 숨겨진 사고�
 "would_change_visits":"more|less|same|not_a_user|unknown","confidence":0.0}"""
 
 FACILITY_RE = re.compile(r"당구|골프")
+# 그래프 Agent 속성 중 시민 본인 정보만(내부 플래그 · 원본 중복 · 해시 제외)
+PROFILE_FIELDS = [("personal_age", "나이"), ("personal_gender", "성별"), ("personal_job_raw", "직업"),
+                  ("personal_income_level", "소득 수준"), ("p_life_stage", "생애 단계"), ("residence_gu", "거주 구"),
+                  ("residence_dong_name", "거주 동"), ("workplace_dong_name", "직장 동"), ("workplace_commute_min", "통근 시간(분)"),
+                  ("personality_lifestyle_raw", "생활 방식"), ("personality_spending_tendency", "소비 성향"),
+                  ("nvidia_hobbies", "취미")]
 
 
 def q(session, cypher, **kw):
@@ -54,10 +60,9 @@ def fetch(session, aid):
                    "RETURN a{.*} AS a, d.name AS dong", aid=aid)
     if not a:
         return None
-    persona = {k: v for k, v in a[0]["a"].items()
-               if isinstance(v, (str, int, float, bool)) and len(str(v)) <= 300
-               and not re.search(r"sha|hash|embedding|_id$|fingerprint", k)}
-    persona["거주 동"] = a[0]["dong"]
+    raw = a[0]["a"]
+    persona = {label: raw.get(key) for key, label in PROFILE_FIELDS if raw.get(key) not in (None, "")}
+    persona.setdefault("거주 동", a[0]["dong"])
     ev = q(session, """
         MATCH (a:Agent {id:$aid})-[:HAS_PLAN]->(p:Plan)-[i:INCLUDES]->(poi:POI)
         WHERE toString(p.day) >= $d0 AND toString(p.day) <= $d1
@@ -68,8 +73,14 @@ def fetch(session, aid):
     mem = q(session, """
         MATCH (a:Agent {id:$aid})-[:REMEMBERS]->(m:Memory)
         WHERE m.day IS NOT NULL AND toString(m.day) <= $d1
-        RETURN toString(m.day) AS day, m.type AS type, m.summary AS summary, m.satisfaction AS sat, m.importance AS imp
-        ORDER BY m.importance DESC, day DESC LIMIT 12""", aid=aid, d1=AS_OF)
+        OPTIONAL MATCH (m)-[:ABOUT_POI]->(poi:POI)
+        RETURN toString(m.day) AS day, m.type AS type, m.summary AS summary, m.satisfaction AS sat, m.importance AS imp,
+               poi.name AS poi
+        ORDER BY m.importance DESC, day DESC LIMIT 60""", aid=aid, d1=AS_OF)
+    # 질문과 관련된 기억(당구장·골프 시설)을 먼저, 나머지는 중요도 순. 내부 근거 번호 [E0001] 는 지운다.
+    for m in mem:
+        m["summary"] = re.sub(r"\s*\(?\[E\d+\](?:,\s*\[E\d+\])*\)?", "", str(m.get("summary") or "")).strip()
+    mem.sort(key=lambda m: (0 if FACILITY_RE.search(f"{m['summary']}{m.get('poi') or ''}") else 1))
     conv = q(session, """
         MATCH (a:Agent {id:$aid})-[:PARTICIPATES_IN]->(c:Conversation)
         WHERE c.day IS NOT NULL AND toString(c.day) <= $d1
@@ -156,8 +167,8 @@ def main():
             resp = None
         return dict(aid=aid, smoking_status=smoking, facility_visits_14d=len(facility_visits(data)),
                     paid_outings_14d=sum(1 for e in data["events"] if (e.get("spent") or 0) > 0),
-                    persona_age=data["persona"].get("p_age_group") or data["persona"].get("age_group"),
-                    persona_gender=data["persona"].get("p_gender") or data["persona"].get("gender"),
+                    persona_age=data["persona"].get("나이"),
+                    persona_gender=data["persona"].get("성별"),
                     response=resp, raw=None if resp else text, usage=usage, user_block=ub,
                     question_sha256=QUESTION_SHA256, as_of=AS_OF, model=model)
 
