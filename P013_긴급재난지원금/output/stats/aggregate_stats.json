@@ -1,0 +1,2462 @@
+{
+  "F_20대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 128.7968,
+      "mean": 88.5215,
+      "min": 57.226,
+      "std": 7.2421
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 9.8128,
+      "mean": 6.5559,
+      "min": 5.0823,
+      "std": 0.6511
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 114.0541,
+      "mean": 59.3641,
+      "min": 43.7753,
+      "std": 7.1159
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 19.9706,
+      "mean": 15.8548,
+      "min": 9.657,
+      "std": 1.3465
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 9.7925,
+      "mean": 8.6378,
+      "min": 6.3681,
+      "std": 0.588
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 4.3153,
+      "mean": 2.8807,
+      "min": 1.8985,
+      "std": 0.2199
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 19.3707,
+      "mean": 15.5081,
+      "min": 9.0262,
+      "std": 1.2975
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.5515,
+      "min": 0.0,
+      "std": 0.2937
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 235.433,
+      "mean": 204.7869,
+      "min": 139.0414,
+      "std": 12.9139
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 94.1217,
+      "mean": 76.7086,
+      "min": 50.5127,
+      "std": 3.9698
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1012634.453,
+      "mean": 850623.1723,
+      "min": 611080.5816,
+      "std": 62832.7475
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 250202.9092,
+      "mean": 183709.5946,
+      "min": 126233.5126,
+      "std": 18763.2467
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 6413.2352,
+      "mean": 4829.429,
+      "min": 1923.763,
+      "std": 566.4305
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.5703,
+      "min": 0.0,
+      "std": 0.3674
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.1025,
+      "mean": 0.0002,
+      "min": 0.0,
+      "std": 0.005
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.7442,
+      "mean": 11.4677,
+      "min": 10.5842,
+      "std": 0.1392
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 18.7361,
+      "mean": 8.0882,
+      "min": 2.4847,
+      "std": 2.6778
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 329.0979,
+      "mean": 295.8293,
+      "min": 202.4262,
+      "std": 15.0018
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.1793,
+      "mean": 0.0801,
+      "min": 0.0,
+      "std": 0.0255
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 21.4131,
+      "mean": 17.1676,
+      "min": 11.3412,
+      "std": 1.8777
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 21.4822,
+      "mean": 13.6613,
+      "min": 9.4024,
+      "std": 1.7772
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 5.2718,
+      "mean": 3.968,
+      "min": 3.283,
+      "std": 0.2615
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 132.9076,
+      "mean": 118.7405,
+      "min": 91.6103,
+      "std": 4.8673
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 41.6554,
+      "mean": 34.4039,
+      "min": 24.5418,
+      "std": 2.3553
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 1864.245,
+      "mean": 1255.4699,
+      "min": 977.4987,
+      "std": 160.0789
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 19.5422,
+      "mean": 15.6682,
+      "min": 13.4152,
+      "std": 0.8431
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 1208.3622,
+      "mean": 835.1854,
+      "min": 555.2949,
+      "std": 94.4139
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 620.616,
+      "mean": 538.3723,
+      "min": 483.3846,
+      "std": 19.6434
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.1966,
+      "mean": 0.1214,
+      "min": 0.0,
+      "std": 0.02
+    }
+  },
+  "F_30대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 127.9088,
+      "mean": 79.0025,
+      "min": 54.9082,
+      "std": 6.7327
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 16.8038,
+      "mean": 9.5308,
+      "min": 7.195,
+      "std": 1.0443
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 96.2254,
+      "mean": 56.4082,
+      "min": 44.8813,
+      "std": 5.6985
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 19.136,
+      "mean": 13.4868,
+      "min": 6.7831,
+      "std": 1.4709
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 10.5225,
+      "mean": 9.3035,
+      "min": 7.2991,
+      "std": 0.4917
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 4.1094,
+      "mean": 3.4255,
+      "min": 1.831,
+      "std": 0.2575
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 20.0183,
+      "mean": 16.6001,
+      "min": 11.921,
+      "std": 1.2717
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.6449,
+      "min": 0.0,
+      "std": 0.163
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 270.1682,
+      "mean": 237.0442,
+      "min": 165.996,
+      "std": 15.3751
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 92.8683,
+      "mean": 76.9321,
+      "min": 46.1186,
+      "std": 6.3151
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 997979.2595,
+      "mean": 875414.9859,
+      "min": 620869.1856,
+      "std": 63960.893
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 261508.3435,
+      "mean": 192427.6191,
+      "min": 140432.4549,
+      "std": 20070.1695
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 5738.4042,
+      "mean": 4599.5439,
+      "min": 2227.4247,
+      "std": 420.7016
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.5615,
+      "min": 0.0,
+      "std": 0.2631
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.6723,
+      "mean": 11.3959,
+      "min": 10.195,
+      "std": 0.1334
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 21.0126,
+      "mean": 8.1963,
+      "min": 0.0,
+      "std": 2.8111
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 391.8911,
+      "mean": 348.1494,
+      "min": 250.2927,
+      "std": 19.0761
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.1635,
+      "mean": 0.0928,
+      "min": 0.0,
+      "std": 0.0244
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 21.1622,
+      "mean": 16.3945,
+      "min": 11.1284,
+      "std": 1.8666
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 19.5548,
+      "mean": 12.6102,
+      "min": 8.2259,
+      "std": 1.6031
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 7.7382,
+      "mean": 5.1889,
+      "min": 4.2797,
+      "std": 0.3734
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 136.3304,
+      "mean": 123.787,
+      "min": 84.6642,
+      "std": 5.3945
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 42.0998,
+      "mean": 33.2702,
+      "min": 22.9863,
+      "std": 1.8638
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 1584.6596,
+      "mean": 1120.5078,
+      "min": 749.2374,
+      "std": 139.0577
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 22.2347,
+      "mean": 15.1729,
+      "min": 12.5498,
+      "std": 0.9962
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 1046.7886,
+      "mean": 813.893,
+      "min": 626.8208,
+      "std": 62.6811
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 630.981,
+      "mean": 542.5132,
+      "min": 500.2613,
+      "std": 13.4933
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.1004,
+      "mean": 0.0338,
+      "min": 0.0,
+      "std": 0.0202
+    }
+  },
+  "F_40대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 124.647,
+      "mean": 95.8273,
+      "min": 77.5483,
+      "std": 6.9991
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 16.8247,
+      "mean": 11.8055,
+      "min": 9.08,
+      "std": 1.179
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 88.4682,
+      "mean": 56.3071,
+      "min": 45.2173,
+      "std": 5.2356
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 13.2966,
+      "mean": 9.1183,
+      "min": 4.0772,
+      "std": 1.0258
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 10.2581,
+      "mean": 9.0047,
+      "min": 7.0828,
+      "std": 0.4927
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 4.267,
+      "mean": 3.6542,
+      "min": 2.8388,
+      "std": 0.2591
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 18.9049,
+      "mean": 15.5979,
+      "min": 11.7833,
+      "std": 1.087
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.6528,
+      "min": 0.0,
+      "std": 0.1301
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 265.3129,
+      "mean": 232.9158,
+      "min": 128.3406,
+      "std": 15.0724
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 94.6449,
+      "mean": 73.1616,
+      "min": 45.7835,
+      "std": 6.6502
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1064813.2505,
+      "mean": 940331.9691,
+      "min": 642747.246,
+      "std": 64730.2231
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 284843.4247,
+      "mean": 209401.9505,
+      "min": 154000.6598,
+      "std": 22162.8016
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 5969.8921,
+      "mean": 4511.6511,
+      "min": 3350.2643,
+      "std": 403.627
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.5668,
+      "min": 1.2881,
+      "std": 0.2034
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.7342,
+      "mean": 11.4695,
+      "min": 9.8723,
+      "std": 0.1343
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 20.4587,
+      "mean": 7.8897,
+      "min": 0.0,
+      "std": 2.8031
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 400.2811,
+      "mean": 352.5317,
+      "min": 201.6643,
+      "std": 22.0648
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.06,
+      "mean": 0.0117,
+      "min": 0.0,
+      "std": 0.0128
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 20.6865,
+      "mean": 14.5011,
+      "min": 9.1112,
+      "std": 1.9732
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 24.6612,
+      "mean": 16.707,
+      "min": 11.2508,
+      "std": 2.0309
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 8.2894,
+      "mean": 5.8155,
+      "min": 4.4239,
+      "std": 0.557
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 131.8494,
+      "mean": 116.8593,
+      "min": 68.2931,
+      "std": 5.8824
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 41.4749,
+      "mean": 31.1366,
+      "min": 22.4012,
+      "std": 1.931
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 1311.0656,
+      "mean": 967.222,
+      "min": 731.5824,
+      "std": 96.4028
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 18.4722,
+      "mean": 13.7162,
+      "min": 11.0181,
+      "std": 1.0994
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 933.5333,
+      "mean": 694.8819,
+      "min": 538.7974,
+      "std": 56.6445
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 636.7892,
+      "mean": 526.7782,
+      "min": 490.2,
+      "std": 15.4548
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.0085,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0005
+    }
+  },
+  "F_50대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 130.6608,
+      "mean": 101.7127,
+      "min": 83.1531,
+      "std": 5.4616
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 16.9051,
+      "mean": 12.7872,
+      "min": 10.6755,
+      "std": 0.7974
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 84.2219,
+      "mean": 55.2752,
+      "min": 44.098,
+      "std": 4.6361
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 7.4641,
+      "mean": 4.9428,
+      "min": 3.6006,
+      "std": 0.5002
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 10.1389,
+      "mean": 8.8398,
+      "min": 6.8567,
+      "std": 0.5648
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 3.7214,
+      "mean": 3.1289,
+      "min": 2.5092,
+      "std": 0.1833
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 12.6836,
+      "mean": 11.1521,
+      "min": 8.7855,
+      "std": 0.6255
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.5818,
+      "min": 0.0,
+      "std": 0.3027
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 221.6194,
+      "mean": 188.084,
+      "min": 128.3691,
+      "std": 11.928
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 66.5556,
+      "mean": 55.3713,
+      "min": 41.1976,
+      "std": 5.0724
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1106978.4613,
+      "mean": 959908.0946,
+      "min": 659530.2915,
+      "std": 65025.2423
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 286063.3455,
+      "mean": 213194.6401,
+      "min": 146742.105,
+      "std": 23017.6032
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 5825.4506,
+      "mean": 4300.1391,
+      "min": 3219.852,
+      "std": 408.9716
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.1956,
+      "mean": 2.4862,
+      "min": 0.835,
+      "std": 0.2675
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.8103,
+      "mean": 11.5134,
+      "min": 10.7803,
+      "std": 0.1217
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 14.9656,
+      "mean": 6.7601,
+      "min": 1.2443,
+      "std": 2.4049
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 325.6525,
+      "mean": 287.6023,
+      "min": 191.064,
+      "std": 16.0878
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 19.765,
+      "mean": 13.8152,
+      "min": 8.8226,
+      "std": 2.0203
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 25.6705,
+      "mean": 18.0412,
+      "min": 9.85,
+      "std": 1.875
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 6.6575,
+      "mean": 5.2906,
+      "min": 4.1617,
+      "std": 0.4447
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 102.4596,
+      "mean": 92.379,
+      "min": 67.178,
+      "std": 4.2832
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 41.0192,
+      "mean": 30.8375,
+      "min": 22.6177,
+      "std": 2.2977
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 1295.0058,
+      "mean": 942.865,
+      "min": 627.705,
+      "std": 110.6891
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 19.945,
+      "mean": 13.5174,
+      "min": 10.6554,
+      "std": 1.0122
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 850.2997,
+      "mean": 676.9875,
+      "min": 510.7118,
+      "std": 47.1813
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 645.645,
+      "mean": 520.4209,
+      "min": 477.244,
+      "std": 17.7274
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    }
+  },
+  "F_60대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 117.4575,
+      "mean": 101.9806,
+      "min": 83.4426,
+      "std": 5.2611
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 17.8774,
+      "mean": 12.4566,
+      "min": 10.296,
+      "std": 0.9165
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 93.9926,
+      "mean": 55.8821,
+      "min": 44.3702,
+      "std": 5.1472
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 4.9826,
+      "mean": 3.0061,
+      "min": 2.0417,
+      "std": 0.3933
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 10.0137,
+      "mean": 7.8706,
+      "min": 5.3409,
+      "std": 0.6262
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 3.3001,
+      "mean": 2.5803,
+      "min": 2.1644,
+      "std": 0.1405
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 9.4155,
+      "mean": 7.0683,
+      "min": 4.8837,
+      "std": 0.4745
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.3841,
+      "min": 0.0,
+      "std": 0.481
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 142.9275,
+      "mean": 116.0343,
+      "min": 80.1836,
+      "std": 7.9495
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 52.2014,
+      "mean": 42.2042,
+      "min": 23.9035,
+      "std": 4.2369
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1171464.6208,
+      "mean": 1041883.5235,
+      "min": 736594.6037,
+      "std": 68489.7698
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 297435.3568,
+      "mean": 228405.0811,
+      "min": 166295.4026,
+      "std": 23220.8412
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 6586.6633,
+      "mean": 3735.3374,
+      "min": 1111.11,
+      "std": 593.429
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.3609,
+      "min": 0.0,
+      "std": 0.5765
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.7285,
+      "mean": 11.4334,
+      "min": 10.574,
+      "std": 0.1363
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 15.2794,
+      "mean": 5.3504,
+      "min": 0.0,
+      "std": 1.898
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 237.2627,
+      "mean": 204.2074,
+      "min": 163.3739,
+      "std": 10.2396
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.0274,
+      "mean": 0.0001,
+      "min": 0.0,
+      "std": 0.0013
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 17.8567,
+      "mean": 12.1446,
+      "min": 8.3118,
+      "std": 1.7796
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 23.4936,
+      "mean": 14.9433,
+      "min": 8.7407,
+      "std": 2.2018
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 6.6005,
+      "mean": 4.2958,
+      "min": 3.368,
+      "std": 0.4242
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 76.6121,
+      "mean": 67.7914,
+      "min": 52.2813,
+      "std": 3.4713
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 41.9702,
+      "mean": 26.9058,
+      "min": 19.6718,
+      "std": 2.2939
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 1148.1369,
+      "mean": 789.9082,
+      "min": 517.1334,
+      "std": 109.8965
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 19.1369,
+      "mean": 12.5117,
+      "min": 10.2056,
+      "std": 0.9533
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 737.781,
+      "mean": 589.4109,
+      "min": 480.4916,
+      "std": 39.7831
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 617.9923,
+      "mean": 504.5799,
+      "min": 442.7172,
+      "std": 21.7568
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    }
+  },
+  "F_70대이상": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 103.72,
+      "mean": 82.0138,
+      "min": 68.2014,
+      "std": 6.2461
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 12.7234,
+      "mean": 8.8549,
+      "min": 7.3385,
+      "std": 0.8195
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 4.001,
+      "mean": 1.4466,
+      "min": 0.8089,
+      "std": 0.3036
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 8.685,
+      "mean": 2.6741,
+      "min": 0.6328,
+      "std": 1.8302
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 2.6694,
+      "mean": 2.2891,
+      "min": 1.815,
+      "std": 0.1251
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 7.9775,
+      "mean": 5.0159,
+      "min": 4.1834,
+      "std": 0.3872
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 0.745,
+      "min": 0.0,
+      "std": 0.6038
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 79.2237,
+      "mean": 49.8372,
+      "min": 36.154,
+      "std": 4.5194
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 34.4665,
+      "mean": 24.243,
+      "min": 17.7409,
+      "std": 2.3163
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1370006.1682,
+      "mean": 1214191.4647,
+      "min": 845844.3175,
+      "std": 83333.0822
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 360422.1505,
+      "mean": 277358.2217,
+      "min": 171606.67,
+      "std": 29773.2467
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 7163.0704,
+      "mean": 4002.5603,
+      "min": 0.0,
+      "std": 1122.1556
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 1.7447,
+      "min": 0.0,
+      "std": 1.0107
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.6768,
+      "mean": 11.2588,
+      "min": 10.3244,
+      "std": 0.2042
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 15.2178,
+      "mean": 4.1224,
+      "min": 1.482,
+      "std": 1.4001
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 142.4202,
+      "mean": 102.1409,
+      "min": 82.3016,
+      "std": 8.2551
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 14.868,
+      "mean": 8.5085,
+      "min": 6.1233,
+      "std": 1.1324
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 27.389,
+      "mean": 11.97,
+      "min": 4.1747,
+      "std": 3.0038
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 4.138,
+      "mean": 2.9163,
+      "min": 2.4306,
+      "std": 0.3302
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 45.4903,
+      "mean": 35.464,
+      "min": 24.3779,
+      "std": 2.7956
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 31.742,
+      "mean": 17.5662,
+      "min": 13.4221,
+      "std": 2.2299
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 752.416,
+      "mean": 456.0638,
+      "min": 316.1684,
+      "std": 73.751
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 14.704,
+      "mean": 8.4672,
+      "min": 6.7376,
+      "std": 0.9651
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 442.8446,
+      "mean": 324.2546,
+      "min": 252.9047,
+      "std": 31.8423
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    }
+  },
+  "M_20대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 115.0193,
+      "mean": 91.4257,
+      "min": 71.541,
+      "std": 7.1744
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 13.0366,
+      "mean": 8.2759,
+      "min": 5.8905,
+      "std": 1.0266
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 135.3388,
+      "mean": 62.481,
+      "min": 40.2941,
+      "std": 7.5215
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 30.7305,
+      "mean": 24.2193,
+      "min": 15.5602,
+      "std": 2.0972
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 9.7385,
+      "mean": 8.383,
+      "min": 6.1695,
+      "std": 0.4971
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 4.9307,
+      "mean": 3.7143,
+      "min": 2.7575,
+      "std": 0.2652
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 20.8083,
+      "mean": 16.2887,
+      "min": 12.3571,
+      "std": 1.3958
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.1203,
+      "min": 0.0,
+      "std": 0.5409
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 276.2755,
+      "mean": 230.8447,
+      "min": 184.315,
+      "std": 13.3006
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 139.1363,
+      "mean": 112.1295,
+      "min": 83.5742,
+      "std": 5.3962
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1095268.7646,
+      "mean": 881033.3719,
+      "min": 624975.4489,
+      "std": 69108.3153
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 267867.6447,
+      "mean": 192712.4587,
+      "min": 142800.9768,
+      "std": 20526.7818
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 6992.3092,
+      "mean": 4984.7741,
+      "min": 1755.7604,
+      "std": 580.2463
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.4392,
+      "min": 0.0,
+      "std": 0.4191
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.6859,
+      "mean": 11.3425,
+      "min": 10.6076,
+      "std": 0.1536
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 25.1907,
+      "mean": 9.2931,
+      "min": 1.5875,
+      "std": 3.0077
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 303.4759,
+      "mean": 270.9683,
+      "min": 214.3642,
+      "std": 14.2244
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.2589,
+      "mean": 0.1249,
+      "min": 0.003,
+      "std": 0.0338
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 20.2094,
+      "mean": 16.0178,
+      "min": 5.6954,
+      "std": 1.8707
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 21.641,
+      "mean": 12.6566,
+      "min": 7.9124,
+      "std": 2.043
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 5.1463,
+      "mean": 3.5464,
+      "min": 2.4998,
+      "std": 0.3191
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 138.0094,
+      "mean": 122.6039,
+      "min": 93.3596,
+      "std": 5.2036
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 44.1267,
+      "mean": 32.2017,
+      "min": 14.4979,
+      "std": 2.8299
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 1694.8585,
+      "mean": 1248.9818,
+      "min": 907.5302,
+      "std": 146.5296
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 19.3735,
+      "mean": 14.9408,
+      "min": 8.2404,
+      "std": 1.038
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 1026.0667,
+      "mean": 762.9834,
+      "min": 515.3001,
+      "std": 83.6855
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 630.1517,
+      "mean": 537.4185,
+      "min": 470.1366,
+      "std": 23.7269
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.3182,
+      "mean": 0.2286,
+      "min": 0.0,
+      "std": 0.0286
+    }
+  },
+  "M_30대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 116.7251,
+      "mean": 93.2939,
+      "min": 71.1409,
+      "std": 6.3711
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 17.6896,
+      "mean": 13.8127,
+      "min": 9.1059,
+      "std": 1.1636
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 107.9176,
+      "mean": 61.9763,
+      "min": 49.455,
+      "std": 6.348
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 29.7713,
+      "mean": 20.8257,
+      "min": 11.1686,
+      "std": 2.2165
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 10.2747,
+      "mean": 9.413,
+      "min": 6.8227,
+      "std": 0.391
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 5.0153,
+      "mean": 4.0361,
+      "min": 3.335,
+      "std": 0.2222
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 21.3039,
+      "mean": 18.2516,
+      "min": 12.0238,
+      "std": 1.1749
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.5769,
+      "min": 0.0,
+      "std": 0.2819
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 308.1754,
+      "mean": 266.8705,
+      "min": 163.8918,
+      "std": 16.2571
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 118.7256,
+      "mean": 102.5495,
+      "min": 63.0669,
+      "std": 7.1742
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 967794.1577,
+      "mean": 808381.2718,
+      "min": 572008.3386,
+      "std": 62193.0497
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 268890.2349,
+      "mean": 181830.2289,
+      "min": 133991.3981,
+      "std": 22043.0848
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 5781.1261,
+      "mean": 4648.5749,
+      "min": 3420.0008,
+      "std": 356.707
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.1627,
+      "mean": 2.5274,
+      "min": 0.857,
+      "std": 0.2081
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.6121,
+      "mean": 11.1977,
+      "min": 9.758,
+      "std": 0.166
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 22.3785,
+      "mean": 9.1681,
+      "min": 2.5554,
+      "std": 2.9217
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 361.3304,
+      "mean": 321.7671,
+      "min": 198.7897,
+      "std": 18.5026
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.2466,
+      "mean": 0.1703,
+      "min": 0.0,
+      "std": 0.031
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 22.0982,
+      "mean": 18.1457,
+      "min": 12.0544,
+      "std": 1.7876
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 26.2802,
+      "mean": 13.8862,
+      "min": 5.5876,
+      "std": 2.0473
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 6.3086,
+      "mean": 5.1226,
+      "min": 4.1839,
+      "std": 0.334
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 145.0565,
+      "mean": 130.5615,
+      "min": 83.4672,
+      "std": 6.4323
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 44.4414,
+      "mean": 36.7056,
+      "min": 22.7794,
+      "std": 2.6141
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 2144.9719,
+      "mean": 1490.2949,
+      "min": 940.8126,
+      "std": 187.6717
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 20.4942,
+      "mean": 15.8332,
+      "min": 13.0345,
+      "std": 1.0936
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 1089.7034,
+      "mean": 858.7537,
+      "min": 547.6075,
+      "std": 65.7428
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 648.8385,
+      "mean": 558.2248,
+      "min": 521.4903,
+      "std": 12.6848
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.1854,
+      "mean": 0.1208,
+      "min": 0.0,
+      "std": 0.0326
+    }
+  },
+  "M_40대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 123.9862,
+      "mean": 99.1118,
+      "min": 78.8395,
+      "std": 6.6664
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 20.1008,
+      "mean": 16.5864,
+      "min": 11.6277,
+      "std": 1.2222
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 98.1034,
+      "mean": 67.0297,
+      "min": 51.1388,
+      "std": 5.8052
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 20.403,
+      "mean": 14.6853,
+      "min": 5.9563,
+      "std": 1.6242
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 10.3081,
+      "mean": 9.1599,
+      "min": 7.4389,
+      "std": 0.4302
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 4.5842,
+      "mean": 4.0249,
+      "min": 3.2369,
+      "std": 0.2065
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 19.2713,
+      "mean": 15.9298,
+      "min": 11.0357,
+      "std": 1.0168
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.5785,
+      "min": 0.0,
+      "std": 0.2948
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 303.8046,
+      "mean": 257.76,
+      "min": 123.0409,
+      "std": 19.1671
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 106.3841,
+      "mean": 92.4544,
+      "min": 50.6863,
+      "std": 7.1416
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1009346.28,
+      "mean": 810955.7142,
+      "min": 558344.7841,
+      "std": 66250.8575
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 284577.365,
+      "mean": 183694.7491,
+      "min": 119726.7026,
+      "std": 24205.0274
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 5920.3999,
+      "mean": 4221.35,
+      "min": 2929.6062,
+      "std": 412.2415
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.4494,
+      "min": 1.3143,
+      "std": 0.2144
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.5306,
+      "mean": 11.1687,
+      "min": 9.6174,
+      "std": 0.1752
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 20.3936,
+      "mean": 7.7586,
+      "min": 0.0,
+      "std": 2.9714
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 379.2525,
+      "mean": 331.4773,
+      "min": 169.6674,
+      "std": 23.0726
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.1619,
+      "mean": 0.0839,
+      "min": 0.0,
+      "std": 0.0292
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 21.8264,
+      "mean": 17.7328,
+      "min": 11.4005,
+      "std": 1.8014
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 38.5304,
+      "mean": 15.7365,
+      "min": 10.0961,
+      "std": 2.3631
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 7.5,
+      "mean": 5.6289,
+      "min": 4.0051,
+      "std": 0.4618
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 141.2933,
+      "mean": 125.1482,
+      "min": 68.1423,
+      "std": 7.58
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 47.215,
+      "mean": 37.0291,
+      "min": 19.1897,
+      "std": 3.3197
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 2193.0339,
+      "mean": 1642.962,
+      "min": 852.1703,
+      "std": 201.6821
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 21.0983,
+      "mean": 15.2816,
+      "min": 11.0914,
+      "std": 1.2768
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 1163.8267,
+      "mean": 843.159,
+      "min": 632.625,
+      "std": 75.8139
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 630.0522,
+      "mean": 557.6685,
+      "min": 517.3815,
+      "std": 12.199
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.1,
+      "mean": 0.0245,
+      "min": 0.0,
+      "std": 0.0218
+    }
+  },
+  "M_50대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 109.4535,
+      "mean": 89.7978,
+      "min": 61.8992,
+      "std": 6.6848
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 21.6048,
+      "mean": 17.2032,
+      "min": 12.5219,
+      "std": 1.1524
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 109.7298,
+      "mean": 67.8354,
+      "min": 56.2651,
+      "std": 5.259
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 11.2412,
+      "mean": 8.9508,
+      "min": 5.3899,
+      "std": 0.7707
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 10.44,
+      "mean": 8.9402,
+      "min": 7.097,
+      "std": 0.4522
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 4.1825,
+      "mean": 3.4113,
+      "min": 2.8537,
+      "std": 0.1792
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 13.7446,
+      "mean": 11.5505,
+      "min": 9.1001,
+      "std": 0.6088
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 1.4757,
+      "min": 0.0,
+      "std": 0.3952
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 256.546,
+      "mean": 211.4174,
+      "min": 134.1993,
+      "std": 20.4813
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 81.6659,
+      "mean": 69.0226,
+      "min": 47.357,
+      "std": 4.5716
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1044627.3913,
+      "mean": 823208.9929,
+      "min": 605557.586,
+      "std": 68011.8952
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 271678.8417,
+      "mean": 186288.3771,
+      "min": 115149.7332,
+      "std": 23707.4251
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 5299.7545,
+      "mean": 3885.4373,
+      "min": 2785.2905,
+      "std": 396.5917
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.3533,
+      "min": 0.0,
+      "std": 0.3121
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.6873,
+      "mean": 11.3366,
+      "min": 9.8449,
+      "std": 0.1607
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 19.0811,
+      "mean": 8.1142,
+      "min": 1.2531,
+      "std": 3.1454
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 337.951,
+      "mean": 280.8347,
+      "min": 190.6874,
+      "std": 18.5504
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.0964,
+      "mean": 0.0288,
+      "min": 0.0,
+      "std": 0.0213
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 21.6075,
+      "mean": 17.3756,
+      "min": 11.2667,
+      "std": 1.887
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 28.7013,
+      "mean": 16.3541,
+      "min": 10.3565,
+      "std": 2.3115
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 6.751,
+      "mean": 5.4771,
+      "min": 4.1089,
+      "std": 0.4812
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 125.799,
+      "mean": 106.4277,
+      "min": 73.9341,
+      "std": 6.5993
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 47.1832,
+      "mean": 37.245,
+      "min": 24.0152,
+      "std": 3.8682
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 2244.7272,
+      "mean": 1693.3916,
+      "min": 908.8617,
+      "std": 213.9584
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 20.2012,
+      "mean": 15.3272,
+      "min": 12.0298,
+      "std": 1.2902
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 1095.0647,
+      "mean": 882.4021,
+      "min": 627.8317,
+      "std": 82.0772
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 611.57,
+      "mean": 548.1793,
+      "min": 501.805,
+      "std": 13.6979
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.0464,
+      "mean": 0.0016,
+      "min": 0.0,
+      "std": 0.0057
+    }
+  },
+  "M_60대": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 105.2912,
+      "mean": 73.9163,
+      "min": 52.5937,
+      "std": 6.4555
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 19.4644,
+      "mean": 15.7966,
+      "min": 11.1909,
+      "std": 1.0641
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 87.2944,
+      "mean": 64.8787,
+      "min": 51.8532,
+      "std": 4.4429
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 10.718,
+      "mean": 4.9156,
+      "min": 3.5498,
+      "std": 0.5228
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 9.5111,
+      "mean": 8.069,
+      "min": 7.0303,
+      "std": 0.3346
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 3.105,
+      "mean": 2.7167,
+      "min": 2.302,
+      "std": 0.133
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 9.0305,
+      "mean": 7.3453,
+      "min": 4.7728,
+      "std": 0.4322
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 0.9101,
+      "min": 0.0,
+      "std": 0.5856
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 178.6812,
+      "mean": 132.6282,
+      "min": 92.6154,
+      "std": 15.0137
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 51.2355,
+      "mean": 44.5449,
+      "min": 34.7861,
+      "std": 2.3934
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1133579.5044,
+      "mean": 913050.4758,
+      "min": 652168.871,
+      "std": 65924.196
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 276777.9327,
+      "mean": 201436.3595,
+      "min": 142206.9462,
+      "std": 23259.7819
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 5142.2485,
+      "mean": 3403.1923,
+      "min": 2208.4767,
+      "std": 469.6044
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 2.1851,
+      "min": 0.0,
+      "std": 0.5698
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.6883,
+      "mean": 11.3662,
+      "min": 10.5134,
+      "std": 0.1402
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 21.4937,
+      "mean": 7.4724,
+      "min": 1.2326,
+      "std": 2.6666
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 234.0079,
+      "mean": 203.0541,
+      "min": 162.5058,
+      "std": 11.3481
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.0122,
+      "mean": 0.0002,
+      "min": 0.0,
+      "std": 0.0011
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 20.9162,
+      "mean": 15.5548,
+      "min": 9.323,
+      "std": 1.7647
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 23.9525,
+      "mean": 15.2078,
+      "min": 7.0551,
+      "std": 2.2946
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 7.0934,
+      "mean": 4.7211,
+      "min": 3.6625,
+      "std": 0.4955
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 91.1406,
+      "mean": 80.0443,
+      "min": 65.6413,
+      "std": 4.7385
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 46.9582,
+      "mean": 32.8894,
+      "min": 21.6115,
+      "std": 3.5611
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 2230.8441,
+      "mean": 1428.3901,
+      "min": 689.088,
+      "std": 204.0882
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 22.1314,
+      "mean": 14.8218,
+      "min": 11.211,
+      "std": 1.2627
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 1091.8511,
+      "mean": 816.2646,
+      "min": 570.588,
+      "std": 71.4446
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 606.8158,
+      "mean": 525.2638,
+      "min": 465.956,
+      "std": 18.3994
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    }
+  },
+  "M_70대이상": {
+    "tel_call_amt": {
+      "count": 421,
+      "max": 66.4483,
+      "mean": 47.3074,
+      "min": 34.8763,
+      "std": 5.3075
+    },
+    "tel_call_users": {
+      "count": 421,
+      "max": 13.0235,
+      "mean": 10.1805,
+      "min": 8.0631,
+      "std": 0.9572
+    },
+    "tel_commute_time": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_data_usage": {
+      "count": 421,
+      "max": 3.7525,
+      "mean": 2.35,
+      "min": 1.405,
+      "std": 0.318
+    },
+    "tel_day_move": {
+      "count": 421,
+      "max": 8.2548,
+      "mean": 1.7985,
+      "min": 0.6206,
+      "std": 1.5465
+    },
+    "tel_delivery_brand_days": {
+      "count": 421,
+      "max": 2.8762,
+      "mean": 2.3486,
+      "min": 1.9745,
+      "std": 0.1252
+    },
+    "tel_delivery_days": {
+      "count": 421,
+      "max": 6.5023,
+      "mean": 5.2009,
+      "min": 3.9841,
+      "std": 0.3107
+    },
+    "tel_delivery_grocery_days": {
+      "count": 421,
+      "max": 1.67,
+      "mean": 0.3588,
+      "min": 0.0,
+      "std": 0.5143
+    },
+    "tel_finance_days": {
+      "count": 421,
+      "max": 82.4071,
+      "mean": 62.965,
+      "min": 44.2894,
+      "std": 7.2498
+    },
+    "tel_game_days": {
+      "count": 421,
+      "max": 33.4368,
+      "mean": 27.4584,
+      "min": 20.976,
+      "std": 1.9105
+    },
+    "tel_home_wd_time": {
+      "count": 421,
+      "max": 1283119.4169,
+      "mean": 1114260.7502,
+      "min": 776326.415,
+      "std": 83888.6985
+    },
+    "tel_home_we_time": {
+      "count": 421,
+      "max": 337882.9783,
+      "mean": 252494.3713,
+      "min": 166901.145,
+      "std": 29697.6988
+    },
+    "tel_micropay_amt": {
+      "count": 421,
+      "max": 6222.99,
+      "mean": 3090.7967,
+      "min": 0.0,
+      "std": 894.6467
+    },
+    "tel_micropay_cnt": {
+      "count": 421,
+      "max": 3.33,
+      "mean": 1.4468,
+      "min": 0.0,
+      "std": 0.9355
+    },
+    "tel_netflix_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_night_move": {
+      "count": 421,
+      "max": 11.7461,
+      "mean": 11.2572,
+      "min": 10.4674,
+      "std": 0.1923
+    },
+    "tel_overdue_ratio": {
+      "count": 421,
+      "max": 12.7881,
+      "mean": 4.2745,
+      "min": 0.0,
+      "std": 1.5016
+    },
+    "tel_shopping_days": {
+      "count": 421,
+      "max": 152.9838,
+      "mean": 119.6609,
+      "min": 96.8057,
+      "std": 9.5141
+    },
+    "tel_sns_cnt": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_subway_days": {
+      "count": 421,
+      "max": 16.96,
+      "mean": 11.4413,
+      "min": 8.1847,
+      "std": 1.5513
+    },
+    "tel_text_amt": {
+      "count": 421,
+      "max": 30.8943,
+      "mean": 13.5151,
+      "min": 4.4497,
+      "std": 3.3827
+    },
+    "tel_text_users": {
+      "count": 421,
+      "max": 4.6271,
+      "mean": 3.3637,
+      "min": 2.6948,
+      "std": 0.3742
+    },
+    "tel_video_days": {
+      "count": 421,
+      "max": 59.3161,
+      "mean": 47.5362,
+      "min": 37.9407,
+      "std": 3.9059
+    },
+    "tel_wd_move_cnt": {
+      "count": 421,
+      "max": 38.59,
+      "mean": 22.4745,
+      "min": 16.3571,
+      "std": 3.2763
+    },
+    "tel_wd_move_dist": {
+      "count": 421,
+      "max": 1219.6188,
+      "mean": 790.7175,
+      "min": 490.7556,
+      "std": 137.9981
+    },
+    "tel_we_move_cnt": {
+      "count": 421,
+      "max": 17.16,
+      "mean": 10.7418,
+      "min": 8.4216,
+      "std": 1.2119
+    },
+    "tel_we_move_dist": {
+      "count": 421,
+      "max": 639.2403,
+      "mean": 466.7778,
+      "min": 347.0089,
+      "std": 48.0651
+    },
+    "tel_work_time": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    },
+    "tel_youtube_days": {
+      "count": 421,
+      "max": 0.0,
+      "mean": 0.0,
+      "min": 0.0,
+      "std": 0.0
+    }
+  }
+}

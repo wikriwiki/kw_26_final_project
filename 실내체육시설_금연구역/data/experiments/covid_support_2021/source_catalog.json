@@ -1,0 +1,161 @@
+{
+  "collected_for": "현재 서울 페르소나에 2021년 국민지원금과 코로나 환경을 적용하는 가상실험",
+  "runtime_integration": "not_implemented",
+  "sources": [
+    {
+      "id": "seoul_grant_rules",
+      "title": "2021년 코로나 상생 국민지원금(종료)",
+      "publisher": "서울특별시",
+      "url": "https://news.seoul.go.kr/welfare/archives/534906",
+      "filename": "seoul_grant_rules.html",
+      "purpose": "최종 건강보험료 선정표, 지급 및 사용 규칙"
+    },
+    {
+      "id": "grant_announcement",
+      "title": "코로나 상생 국민지원금, 9월 6일부터 지급 시작",
+      "publisher": "행정안전부",
+      "published_on": "2021-08-30",
+      "url": "https://www.mois.go.kr/frt/bbs/type010/commonSelectBoardArticle.do?bbsId=BBSMSTR_000000000008&nttId=86706",
+      "filename": "grant_announcement.html",
+      "purpose": "세부시행계획 발표 근거"
+    },
+    {
+      "id": "distancing_0823",
+      "title": "현행 거리두기 재연장 속 달라지는 세부 방역수칙은?",
+      "publisher": "대한민국 정책브리핑",
+      "url": "https://www.korea.kr/briefing/policyBriefingView.do?newsId=148891876",
+      "filename": "distancing_0823.html",
+      "purpose": "지급 이전 코로나 배경"
+    },
+    {
+      "id": "distancing_0906",
+      "title": "사회적 거리두기 4주 연장(수도권 4단계, 비수도권 3단계)",
+      "publisher": "보건복지부",
+      "published_on": "2021-09-03",
+      "url": "https://www.mohw.go.kr/gallery.es?act=view&bid=0003&list_no=367787&mid=a10605040000",
+      "filename": "distancing_0906.html",
+      "purpose": "9월 6일~10월 3일 방역 규칙과 발표시점 역학 지표"
+    },
+    {
+      "id": "distancing_1004",
+      "title": "10월 4일~17일 사회적 거리두기 연장",
+      "publisher": "경기도",
+      "url": "https://www.gg.go.kr/bbs/boardView.do?bIdx=31063461&bcIdx=&bsIdx=838&menuId=1534&page=1",
+      "filename": "distancing_1004.html",
+      "purpose": "10월 초 방역 변화",
+      "unavailable_original_url": "https://www.opm.go.kr/doc/_attach/file/2021/10/lzKTkNZUBHCTxJOPfGCT.hwp.files/Sections1.html"
+    },
+    {
+      "id": "distancing_1018",
+      "title": "31일까지 현 거리두기 유지…사적모임·영업시간·경기관람 등 완화·허용",
+      "publisher": "대한민국 정책브리핑",
+      "published_on": "2021-10-15",
+      "url": "https://www.korea.kr/news/policyFocusView.do?newsId=148894354&pkgId=49500742",
+      "filename": "distancing_1018.html",
+      "purpose": "10월 후반 방역 변화"
+    },
+    {
+      "id": "reopening_1101",
+      "title": "11월 1일부터 단계적 일상회복 1단계",
+      "publisher": "대한민국 정책브리핑·중앙재난안전대책본부",
+      "published_on": "2021-10-29",
+      "url": "https://www.korea.kr/news/policyNewsView.do?newsId=148894947",
+      "filename": "reopening_1101.html",
+      "purpose": "11월 운영시간 완화와 방역패스"
+    },
+    {
+      "id": "restrictions_1206",
+      "title": "특별방역대책 국민 궁금증 5문 5답",
+      "publisher": "대한민국 정책브리핑",
+      "url": "https://www.korea.kr/multi/visualNewsView.do?newsId=148896526",
+      "filename": "restrictions_1206.html",
+      "purpose": "12월 6일 사적모임 축소와 방역패스 확대"
+    },
+    {
+      "id": "restrictions_1218",
+      "title": "코로나19 사회적 거리두기 강화 국민 궁금증 5문 5답",
+      "publisher": "대한민국 정책브리핑",
+      "url": "https://www.korea.kr/briefing/policyBriefingView.do?newsId=148896967",
+      "filename": "restrictions_1218.html",
+      "purpose": "12월 18일 이후 강화 조치"
+    },
+    {
+      "id": "seoul_district_cases",
+      "title": "서울시 코로나19 자치구별 확진자, 사망자 현황",
+      "publisher": "서울특별시",
+      "landing_url": "https://data.seoul.go.kr/dataList/OA-20470/F/1/datasetView.do",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false",
+      "form": {
+        "infId": "OA-20470",
+        "seqNo": "",
+        "seq": "1",
+        "infSeq": "3"
+      },
+      "filename": "seoul_district_cases.xlsx",
+      "purpose": "확진 위험의 날짜별·자치구별 공개 집계. 실제 수록 기간은 다운로드 후 검증"
+    },
+    {
+      "id": "seoul_city_cases_catalog",
+      "title": "서울시 코로나19 확진자(전수감시) 발생동향",
+      "publisher": "서울특별시",
+      "url": "https://data.seoul.go.kr/dataList/OA-20461/S/1/datasetView.do",
+      "filename": "seoul_city_cases_catalog.html",
+      "purpose": "서울 전체 역학 시계열 접근 경로"
+    },
+    {
+      "id": "seoul_vaccination_catalog",
+      "title": "서울시 코로나19 백신 예방접종 현황",
+      "publisher": "서울특별시",
+      "url": "https://data.seoul.go.kr/dataList/OA-20914/S/1/datasetView.do",
+      "filename": "seoul_vaccination_catalog.html",
+      "purpose": "접종 시계열 접근 경로. 개인별 접종 이력과 구별"
+    },
+    {
+      "id": "grant_outcomes",
+      "title": "코로나 상생 국민지원금 어디에, 얼마나 쓰였나",
+      "publisher": "대한민국 정책브리핑·행정안전부",
+      "url": "https://www.korea.kr/multi/visualNewsView.do?newsId=148896557",
+      "filename": "grant_outcomes.html",
+      "purpose": "평가 전용. 지급·결제수단 실적. 정책 효과 정답을 에이전트 프롬프트에 넣지 않음"
+    },
+    {
+      "id": "seoul_vaccination_data",
+      "title": "서울시 코로나19 백신 예방접종 공개 Sheet 데이터",
+      "publisher": "서울특별시",
+      "url": "https://data.seoul.go.kr/dataList/dataView.do?onepagerow=1000&srvType=S&infId=OA-20914&serviceKind=0&pageNo=1&ssUserId=SAMPLE_VIEW&strWhere=&strOrderby=&filterCol=&txtFilter=",
+      "filename": "seoul_vaccination_data.txt",
+      "purpose": "공개 화면과 동일한 집계 데이터. 비표준 JSON 표기 정규화 후 분석"
+    },
+    {
+      "id": "seoul_city_cases_data",
+      "title": "서울시 코로나19 확진자 발생 현황 CSV",
+      "publisher": "서울특별시",
+      "url": "https://datafile.seoul.go.kr/bigfile/iot/inf/nio_download.do?&useCache=false",
+      "form": {
+        "infId": "OA-20461",
+        "seqNo": "",
+        "seq": "1",
+        "infSeq": "4"
+      },
+      "filename": "seoul_city_cases.csv",
+      "purpose": "자치구 파일 날짜 의미 및 전체 추세 교차확인"
+    },
+    {
+      "id": "seoul_eligibility_coverage",
+      "title": "서울 국민지원금 대상 74%뿐 관련 서울시 설명",
+      "publisher": "서울특별시 언론담당관",
+      "published_on": "2021-10-19",
+      "url": "https://mediahub.seoul.go.kr/archives/2002971",
+      "filename": "seoul_eligibility_coverage.html",
+      "purpose": "서울 지급대상 약 710만/957만명, 약 75% 수준. 전국 88%를 서울에 적용하지 않기 위한 집계 보정 근거"
+    },
+    {
+      "id": "grant_outcome_detail",
+      "title": "코로나 상생 국민지원금, 영세·중소 가맹점서 80.5% 사용",
+      "publisher": "대한민국 정책브리핑·행정안전부",
+      "url": "https://www.korea.kr/briefing/policyBriefingView.do?newsId=148896494",
+      "filename": "grant_outcome_detail.html",
+      "purpose": "평가 전용. 30억 이하 결제가 80.5%였으므로 2025년 30억 기준 사용처와 동일시하면 안 됨"
+    }
+  ]
+}

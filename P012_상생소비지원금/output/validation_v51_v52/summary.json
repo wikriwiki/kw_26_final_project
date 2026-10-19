@@ -1,0 +1,322 @@
+{
+  "scope": "The greedy diagnostic left v45 with twenty-three failing cells and named them zone 9, explanation 7, time 7 and json_schema 1. Reading the raw output of those cells corrected an earlier claim: not one zone violation is an out-of-list code. All twenty-six offending events carry an in-list dong code with category '직장', and the same agent's meal, cafe and convenience events pass with the very same code. The model picks the district correctly and writes work as if it were a shop. The seven explanation cells are one shape too: the reasoning key is absent entirely, and it goes missing on evening events at home. Both defects concentrate on a few personas rather than scattering, so they are context-triggered, not noise. v51 draws the boundary at the line that binds work to a zone code; v52 widens a requirement that was written too narrowly. They are registered separately because bundling four fixes once gave +95 cells for two of them and -17 for the other two. The time cells are left alone: v49 already touched the time rule and did not replicate.",
+  "causal_spending_claim": false,
+  "variants": {
+    "v45": {
+      "responses": 384,
+      "expected": 384,
+      "strict_valid": 360,
+      "strict_valid_rate": 0.9375,
+      "failed": 0,
+      "false_policy_off_responses": 0,
+      "off_responses": 144,
+      "errors": {
+        "explanation": 5,
+        "time": 17,
+        "zone": 3
+      },
+      "diagnostics": {
+        "cashback": [
+          {
+            "replicate": 1701,
+            "paired_n": 11,
+            "propensity_delta": 0.023636363636363657
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 11,
+            "propensity_delta": 0.0472727272727273
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 10,
+            "propensity_delta": 0.019000000000000017
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 9,
+            "propensity_delta": 0.03222222222222225
+          }
+        ],
+        "grant": [
+          {
+            "replicate": 1701,
+            "paired_n": 10,
+            "propensity_delta": 0.047
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 12,
+            "propensity_delta": 0.0050000000000000044
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 11,
+            "propensity_delta": 0.026363636363636377
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 12,
+            "propensity_delta": 0.045833333333333344
+          }
+        ],
+        "local_voucher": [
+          {
+            "replicate": 1701,
+            "paired_n": 11,
+            "propensity_delta": -0.00454545454545455
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 9,
+            "propensity_delta": 0.014444444444444426
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 11,
+            "propensity_delta": -0.0018181818181818197
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 12,
+            "propensity_delta": 0.010833333333333342
+          }
+        ],
+        "distancing": [
+          {
+            "replicate": 1701,
+            "paired_n": 10,
+            "propensity_delta": -0.020000000000000018
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 9,
+            "propensity_delta": -0.027777777777777804
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 11,
+            "propensity_delta": -0.028181818181818207
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 10,
+            "propensity_delta": 0.0
+          }
+        ]
+      },
+      "rollout_gate_pass": false
+    },
+    "v51": {
+      "responses": 384,
+      "expected": 384,
+      "strict_valid": 375,
+      "strict_valid_rate": 0.9765625,
+      "failed": 0,
+      "false_policy_off_responses": 0,
+      "off_responses": 144,
+      "errors": {
+        "json_schema": 2,
+        "explanation": 4,
+        "time": 3
+      },
+      "diagnostics": {
+        "cashback": [
+          {
+            "replicate": 1701,
+            "paired_n": 11,
+            "propensity_delta": 0.04090909090909094
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 12,
+            "propensity_delta": 0.03750000000000001
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 12,
+            "propensity_delta": 0.021666666666666685
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 12,
+            "propensity_delta": 0.06000000000000002
+          }
+        ],
+        "grant": [
+          {
+            "replicate": 1701,
+            "paired_n": 12,
+            "propensity_delta": 0.029166666666666678
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 11,
+            "propensity_delta": 0.032727272727272744
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 12,
+            "propensity_delta": 0.014166666666666675
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 11,
+            "propensity_delta": 0.0027272727272727396
+          }
+        ],
+        "local_voucher": [
+          {
+            "replicate": 1701,
+            "paired_n": 11,
+            "propensity_delta": 0.0027272727272727297
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 12,
+            "propensity_delta": 0.030833333333333348
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 12,
+            "propensity_delta": -0.003333333333333332
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 12,
+            "propensity_delta": 0.015
+          }
+        ],
+        "distancing": [
+          {
+            "replicate": 1701,
+            "paired_n": 10,
+            "propensity_delta": 0.0040000000000000036
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 11,
+            "propensity_delta": -0.00454545454545455
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 12,
+            "propensity_delta": -0.010833333333333342
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 11,
+            "propensity_delta": 0.008181818181818174
+          }
+        ]
+      },
+      "rollout_gate_pass": true
+    },
+    "v52": {
+      "responses": 384,
+      "expected": 384,
+      "strict_valid": 370,
+      "strict_valid_rate": 0.9635416666666666,
+      "failed": 0,
+      "false_policy_off_responses": 0,
+      "off_responses": 144,
+      "errors": {
+        "explanation": 3,
+        "time": 9,
+        "zone": 1,
+        "json_schema": 1
+      },
+      "diagnostics": {
+        "cashback": [
+          {
+            "replicate": 1701,
+            "paired_n": 11,
+            "propensity_delta": 0.03818181818181818
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 11,
+            "propensity_delta": 0.019090909090909106
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 12,
+            "propensity_delta": 0.03500000000000002
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 12,
+            "propensity_delta": 0.012500000000000011
+          }
+        ],
+        "grant": [
+          {
+            "replicate": 1701,
+            "paired_n": 12,
+            "propensity_delta": 0.010833333333333328
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 11,
+            "propensity_delta": 0.04181818181818184
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 11,
+            "propensity_delta": 0.04545454545454546
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 12,
+            "propensity_delta": 0.019166666666666676
+          }
+        ],
+        "local_voucher": [
+          {
+            "replicate": 1701,
+            "paired_n": 10,
+            "propensity_delta": 0.0030000000000000027
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 11,
+            "propensity_delta": -0.0036363636363636394
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 10,
+            "propensity_delta": 0.026000000000000006
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 12,
+            "propensity_delta": 0.0050000000000000044
+          }
+        ],
+        "distancing": [
+          {
+            "replicate": 1701,
+            "paired_n": 10,
+            "propensity_delta": -0.012999999999999994
+          },
+          {
+            "replicate": 2903,
+            "paired_n": 12,
+            "propensity_delta": 0.01333333333333333
+          },
+          {
+            "replicate": 4801,
+            "paired_n": 11,
+            "propensity_delta": -0.0081818181818182
+          },
+          {
+            "replicate": 6007,
+            "paired_n": 11,
+            "propensity_delta": -0.011818181818181813
+          }
+        ]
+      },
+      "rollout_gate_pass": true
+    }
+  }
+}

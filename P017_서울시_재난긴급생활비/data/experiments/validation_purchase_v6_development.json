@@ -1,0 +1,33 @@
+{
+  "id": "validation_purchase_v6_development",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "bced18d3be17b85768951dbd5878d957b435d30fc0aa96c38514712b3f64477f",
+  "seeds": [
+    45001
+  ],
+  "thinking_tokens": 1024,
+  "answer_tokens": 4096,
+  "sampling": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20261013,
+  "phase": "Unchanged citizen-facing balance view, v6 instructions, low temperature and v4 financial grammar after18/18 known scarcity/fact stress. Same96 fixed quotes and seed as purchase_v5, but input view/prompt/temperature changed.",
+  "primary": "All96 financial checks without repair, deterministic31 unique zeros separate from65 model calls. Audit absence of ledger-only cost basis/evaluation fields from model requests. No policy contrast used for prompt selection.",
+  "selection": "Financial qualification only, no implicit claim of correct asset demand or whole-day consumption.",
+  "conditions": [
+    "No policy identities or empirical effect target in common prompt.",
+    "Explicit fixed purchase decisions are synthetic factual compliance tests, not evidence of realistic endogenous demand.",
+    "Expected ledger outputs only in source cell evaluation_ledger, not transaction_case used in model request.",
+    "No P015; immutable P010; same EXAONE model."
+  ],
+  "interpretation": "Conditional synthetic scenarios, fixed old upstream plans. No population or historical effect claim.",
+  "transaction_protocol": "v4",
+  "skip_forced_no_purchase": true,
+  "scope": "Expanded financial development on96 fixed v18 plans/hypothetical quotes. Not external policy validation.",
+  "purchase_prompt_module": "asset_transaction_v6",
+  "decision_view": "balances_v1"
+}

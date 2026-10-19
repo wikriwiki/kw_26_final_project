@@ -1,0 +1,22 @@
+{
+  "id": "validation_v13_projection",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "8a1ce99d00f33122293d4ff3a35c281321e6abbffee918e733dc4168e13d7469",
+  "candidates": [{"id": "v19_guarded_projection", "prompt": "v19", "structured": true, "thinking_tokens": 4096}],
+  "seeds": [17001, 18001],
+  "sampling": {"temperature": 1.0, "top_p": 0.95, "presence_penalty": 0.0},
+  "answer_tokens": 4096,
+  "schema_mode": "endpoint_guard",
+  "reasoning_evidence": true,
+  "whitespace_limit": 2,
+  "input_trigger_guard": true,
+  "temporal_projection": {"max_shift_minutes": 10, "minimum_gap_minutes": 20, "tie_break": "minimum total absolute change then earliest lexicographic schedule"},
+  "workers": 8,
+  "timeout_seconds": 900,
+  "order_seed": 20260924,
+  "phase": "Eight known development cases x two new seeds. User text unchanged; typed context availability and explicit clock projection are new protocol components.",
+  "primary": "Every execution plan must satisfy the unchanged schedule and fact requirements. Report raw validity separately, every shifted time, and maximum 10-minute displacement. Non-time errors are not projected. Explicit matched obligation and commute times remain fixed. Never invent or remove activities, alter anchors, prices, or evidence.",
+  "review": "A verbatim span must be related to the chosen action, with material unsupported causal claims rejected. The projection only handles 20-minute spacing, not factual truth, opening hours, travel feasibility or policy effects.",
+  "selection": "No empirical policy direction/magnitude targets. This is a deterministic repair protocol, openly reported, not an unaided first-response success or prompt-only ablation. Keep all raw attempts and failed paths.",
+  "prohibitions": "P010 immutable; P015 not run; no hidden retry, no criteria relaxation, no policy-specific output target. Unused 24-person confirmation remains untouched."
+}

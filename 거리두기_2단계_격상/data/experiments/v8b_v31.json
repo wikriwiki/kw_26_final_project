@@ -1,0 +1,108 @@
+{
+ "method": "Sum every run, then take the ratio once. Interval resamples seed blocks first, then cells inside them, because blocks vary more than cells.",
+ "blocks": 4,
+ "runs": 4,
+ "cells_per_case_arm": {
+  "distancing|on": 48,
+  "grant|on": 48,
+  "cashback|on": 48,
+  "distancing|off": 48,
+  "cashback|off": 48,
+  "grant|off": 48,
+  "local_voucher|off": 48,
+  "local_voucher|on": 48
+ },
+ "draws": 2000,
+ "pooled": {
+  "P012-1": {
+   "mean": 35.18518518518518,
+   "lo": -100.0,
+   "hi": 650.0,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -100.0,
+   "max": 650.0,
+   "sd": null
+  },
+  "P012-2": {
+   "mean": 14.054054054054054,
+   "lo": -41.23222748815166,
+   "hi": 137.37373737373738,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -41.23222748815166,
+   "max": 137.37373737373738,
+   "sd": null
+  },
+  "EM-3": {
+   "mean": 32.291666666666664,
+   "lo": -40.31413612565445,
+   "hi": 162.0253164556962,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -40.31413612565445,
+   "max": 162.0253164556962,
+   "sd": null
+  },
+  "LV-1": {
+   "mean": -4.528301886792453,
+   "lo": -45.3125,
+   "hi": 59.35828877005348,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -45.3125,
+   "max": 59.35828877005348,
+   "sd": null
+  },
+  "LV-2": {
+   "mean": -0.23566261466179406,
+   "lo": -19.5230410615026,
+   "hi": 16.033998595928196,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -19.5230410615026,
+   "max": 16.033998595928196,
+   "sd": null
+  },
+  "LV-3": {
+   "mean": 0.0,
+   "lo": 0.0,
+   "hi": 0.0,
+   "sign_stable": true,
+   "n_runs": 4,
+   "min": 0.0,
+   "max": 0.0,
+   "sd": null
+  },
+  "DS-1": {
+   "mean": 120.0,
+   "lo": -25.609756097560975,
+   "hi": 1003.8461538461538,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -25.609756097560975,
+   "max": 1003.8461538461538,
+   "sd": null
+  },
+  "DS-2": {
+   "mean": -8.947368421052632,
+   "lo": -59.25925925925926,
+   "hi": 93.93939393939394,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -59.25925925925926,
+   "max": 93.93939393939394,
+   "sd": null
+  },
+  "DS-3": {
+   "mean": -128.94736842105263,
+   "lo": -1065.518725785622,
+   "hi": 76.3014763014763,
+   "sign_stable": false,
+   "n_runs": 4,
+   "min": -1065.518725785622,
+   "max": 76.3014763014763,
+   "sd": null
+  }
+ }
+}

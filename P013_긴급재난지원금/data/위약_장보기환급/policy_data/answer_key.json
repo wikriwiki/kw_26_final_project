@@ -1,0 +1,30 @@
+{
+  "scoring_table_key": "PLACEBO_FAKE",
+  "mechanism": "sector_voucher",
+  "answer_key": "없음 — 위약. 기전 처리 여부를 보는 검정이다.",
+  "indicators": [
+    {
+      "id": "PL-1",
+      "expect": "+",
+      "scale": "short",
+      "metric": "sector_spend:마트",
+      "desc": "마트 지출 증가 — 가짜 정책의 대상 업종. 기전을 처리하면 오른다"
+    },
+    {
+      "id": "PL-2",
+      "expect": "0",
+      "scale": "short",
+      "metric": "sector_spend:식사",
+      "desc": "대상 아닌 업종은 무반응 — 위약이 아무 데나 효과를 만들지 않는지"
+    }
+  ],
+  "window": {
+    "start": "2021-10-18",
+    "days": 9,
+    "day0": "2021-10-17",
+    "policy": "P090",
+    "off": "2021-10-21:2021-10-22",
+    "on": "2021-10-25:2021-10-26",
+    "n": 200
+  }
+}

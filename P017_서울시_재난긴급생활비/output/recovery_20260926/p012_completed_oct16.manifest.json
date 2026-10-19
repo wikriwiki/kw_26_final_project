@@ -1,0 +1,12 @@
+{
+  "captured_at": "2026-09-25T17:37:17.157612+00:00",
+  "scope": "completed 2021-10-16 metrics and read-only graph extraction; not restorable Neo4j dump",
+  "counts": {
+    "metrics": 500,
+    "state": 500,
+    "spend": 5592,
+    "policy": 1
+  },
+  "archive_sha256": "6597ed918be9dd3cf8dcebdeb31e95b431aed765db063cf5671897c532fb59c4",
+  "bytes": 1081467
+}

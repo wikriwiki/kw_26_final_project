@@ -1,0 +1,282 @@
+{
+  "scope": "Retrospective deterministic replay only; zero new LLM calls. Original V13 rows unchanged. Not an independent trial or proof of complete routes.",
+  "source_responses_sha256": "4ca626c697bdbf666635b469d35352882f2c31ba5f610b8c0ae615bddf8fc4dd",
+  "rules": "Known 40-minute home/work direct transitions in controlled work case; original 20-minute gaps; maximum 10-minute changes; fixed obligation times held.",
+  "responses": 16,
+  "corrected_responses": 1,
+  "results": [
+    {
+      "variant": "v19_guarded_projection",
+      "case": "empty_memory",
+      "replicate": 17001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "health_history",
+      "replicate": 17001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "empty_memory",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "closed_cafes",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "working_appliance",
+      "replicate": 17001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "work_conflict",
+      "replicate": 17001,
+      "raw_transition_violations": [
+        {
+          "event_index": 7,
+          "elapsed_minutes": 30,
+          "minimum_minutes": 40
+        }
+      ],
+      "projection": {
+        "total_absolute_shift_minutes": 10,
+        "shifts": [
+          {
+            "event_index": 7,
+            "before": "17:30",
+            "after": "17:40",
+            "minutes": 10
+          }
+        ],
+        "fixed_times": [
+          "08:20",
+          "09:00",
+          "17:00",
+          "17:40"
+        ],
+        "maximum_shift_per_event": 10,
+        "transitions": [
+          {
+            "from_anchor": "residence",
+            "to_anchor": "workplace",
+            "minimum_minutes": 40
+          },
+          {
+            "from_anchor": "workplace",
+            "to_anchor": "residence",
+            "minimum_minutes": 40
+          }
+        ],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "closed_cafes",
+      "replicate": 17001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "household",
+      "replicate": 17001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "stay_home",
+      "replicate": 17001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "working_appliance",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "health_history",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "fixed_appointment",
+      "replicate": 17001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [
+          "14:00"
+        ],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "household",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "work_conflict",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [
+          "08:20",
+          "09:00",
+          "17:00",
+          "17:40"
+        ],
+        "maximum_shift_per_event": 10,
+        "transitions": [
+          {
+            "from_anchor": "residence",
+            "to_anchor": "workplace",
+            "minimum_minutes": 40
+          },
+          {
+            "from_anchor": "workplace",
+            "to_anchor": "residence",
+            "minimum_minutes": 40
+          }
+        ],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "fixed_appointment",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [
+          "14:00"
+        ],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    },
+    {
+      "variant": "v19_guarded_projection",
+      "case": "stay_home",
+      "replicate": 18001,
+      "raw_transition_violations": [],
+      "projection": {
+        "total_absolute_shift_minutes": 0,
+        "shifts": [],
+        "fixed_times": [],
+        "maximum_shift_per_event": 10,
+        "transitions": [],
+        "scope": "Clock spacing and supplied adjacent anchor transitions only; not a complete route or factual/policy validator."
+      }
+    }
+  ]
+}

@@ -1,0 +1,3765 @@
+{
+  "11110515": {
+    "b042_seoul_inflow_ratio": 0.7491,
+    "b069_finance": 43.34,
+    "b069_infra": 11.35,
+    "b069_pop": 9.74,
+    "b069_sales": 13.21,
+    "b069_store": 8.55,
+    "b079_seoul_inflow_ratio": 0.4766
+  },
+  "11110530": {
+    "b042_seoul_inflow_ratio": 0.6956,
+    "b069_finance": 55.22,
+    "b069_infra": 51.86,
+    "b069_pop": 30.52,
+    "b069_sales": 30.03,
+    "b069_store": 24.86,
+    "b079_seoul_inflow_ratio": 0.2557
+  },
+  "11110540": {
+    "b042_seoul_inflow_ratio": 0.6342,
+    "b069_finance": 34.67,
+    "b069_infra": 17.69,
+    "b069_pop": 11.74,
+    "b069_sales": 16.7,
+    "b069_store": 15.96,
+    "b079_seoul_inflow_ratio": 0.409
+  },
+  "11110550": {
+    "b042_seoul_inflow_ratio": 0.7445,
+    "b069_finance": 40.01,
+    "b069_infra": 8.16,
+    "b069_pop": 4.17,
+    "b069_sales": 10.17,
+    "b069_store": 6.35,
+    "b079_seoul_inflow_ratio": 0.383
+  },
+  "11110560": {
+    "b042_seoul_inflow_ratio": 0.8461,
+    "b069_finance": 47.7,
+    "b069_infra": 5.17,
+    "b069_pop": 3.43,
+    "b069_sales": 12.81,
+    "b069_store": 6.18,
+    "b079_seoul_inflow_ratio": 0.5069
+  },
+  "11110570": {
+    "b042_seoul_inflow_ratio": 0.8156,
+    "b069_finance": 58.57,
+    "b069_infra": 10.98,
+    "b069_pop": 16.03,
+    "b069_sales": 19.52,
+    "b069_store": 19.41,
+    "b079_seoul_inflow_ratio": 0.5608
+  },
+  "11110580": {
+    "b042_seoul_inflow_ratio": 0.7347,
+    "b069_finance": 45.99,
+    "b069_infra": 25.98,
+    "b069_pop": 20.84,
+    "b069_sales": 15.81,
+    "b069_store": 17.72,
+    "b079_seoul_inflow_ratio": 0.6545
+  },
+  "11110600": {
+    "b042_seoul_inflow_ratio": 0.703,
+    "b069_finance": 42.38,
+    "b069_infra": 26.71,
+    "b069_pop": 14.9,
+    "b069_sales": 16.21,
+    "b069_store": 15.86,
+    "b079_seoul_inflow_ratio": 0.4128
+  },
+  "11110615": {
+    "b042_seoul_inflow_ratio": 0.594,
+    "b069_finance": 52.3,
+    "b069_infra": 62.7,
+    "b069_pop": 44.5,
+    "b069_sales": 34.46,
+    "b069_store": 39.5,
+    "b079_seoul_inflow_ratio": 0.3418
+  },
+  "11110630": {
+    "b042_seoul_inflow_ratio": 0.6686,
+    "b069_finance": 36.02,
+    "b069_infra": 41.12,
+    "b069_pop": 30.89,
+    "b069_sales": 21.03,
+    "b069_store": 29.87,
+    "b079_seoul_inflow_ratio": 0.4819
+  },
+  "11110640": {
+    "b042_seoul_inflow_ratio": 0.5946,
+    "b069_finance": 45.05,
+    "b069_infra": 27.94,
+    "b069_pop": 21.88,
+    "b069_sales": 28.56,
+    "b069_store": 20.85,
+    "b079_seoul_inflow_ratio": 0.5321
+  },
+  "11110650": {
+    "b042_seoul_inflow_ratio": 0.6947,
+    "b069_finance": 47.93,
+    "b069_infra": 20.05,
+    "b069_pop": 16.3,
+    "b069_sales": 23.45,
+    "b069_store": 23.42,
+    "b079_seoul_inflow_ratio": 0.7687
+  },
+  "11110670": {
+    "b042_seoul_inflow_ratio": 0.7526,
+    "b069_finance": 42.12,
+    "b069_infra": 33.04,
+    "b069_pop": 26.14,
+    "b069_sales": 13.95,
+    "b069_store": 32.37,
+    "b079_seoul_inflow_ratio": 0.5122
+  },
+  "11110680": {
+    "b042_seoul_inflow_ratio": 0.8119,
+    "b069_finance": 34.13,
+    "b069_infra": 12.0,
+    "b069_pop": 18.18,
+    "b069_sales": 10.71,
+    "b069_store": 18.83,
+    "b079_seoul_inflow_ratio": 0.5452
+  },
+  "11110690": {
+    "b042_seoul_inflow_ratio": 0.9007,
+    "b069_finance": 45.84,
+    "b069_infra": 9.81,
+    "b069_pop": 17.08,
+    "b069_sales": 11.01,
+    "b069_store": 16.55,
+    "b079_seoul_inflow_ratio": 0.6002
+  },
+  "11110700": {
+    "b042_seoul_inflow_ratio": 0.8677,
+    "b069_finance": 41.67,
+    "b069_infra": 16.78,
+    "b069_pop": 15.35,
+    "b069_sales": 8.88,
+    "b069_store": 12.79,
+    "b079_seoul_inflow_ratio": 0.5979
+  },
+  "11110710": {
+    "b042_seoul_inflow_ratio": 0.7331,
+    "b069_finance": 39.05,
+    "b069_infra": 27.15,
+    "b069_pop": 26.81,
+    "b069_sales": 12.44,
+    "b069_store": 27.85,
+    "b079_seoul_inflow_ratio": 0.4801
+  },
+  "11140520": {
+    "b042_seoul_inflow_ratio": 0.6366,
+    "b069_finance": 54.59,
+    "b069_infra": 82.05,
+    "b069_pop": 49.42,
+    "b069_sales": 45.08,
+    "b069_store": 30.4,
+    "b079_seoul_inflow_ratio": 0.2629
+  },
+  "11140540": {
+    "b042_seoul_inflow_ratio": 0.6438,
+    "b069_finance": 55.61,
+    "b069_infra": 72.25,
+    "b069_pop": 39.39,
+    "b069_sales": 33.9,
+    "b069_store": 39.32,
+    "b079_seoul_inflow_ratio": 0.4064
+  },
+  "11140550": {
+    "b042_seoul_inflow_ratio": 0.6304,
+    "b069_finance": 57.8,
+    "b069_infra": 86.1,
+    "b069_pop": 52.38,
+    "b069_sales": 42.36,
+    "b069_store": 46.72,
+    "b079_seoul_inflow_ratio": 0.3602
+  },
+  "11140570": {
+    "b042_seoul_inflow_ratio": 0.632,
+    "b069_finance": 39.75,
+    "b069_infra": 31.93,
+    "b069_pop": 32.6,
+    "b069_sales": 23.66,
+    "b069_store": 19.38,
+    "b079_seoul_inflow_ratio": 0.4713
+  },
+  "11140580": {
+    "b042_seoul_inflow_ratio": 0.6575,
+    "b069_finance": 36.93,
+    "b069_infra": 24.34,
+    "b069_pop": 19.18,
+    "b069_sales": 24.24,
+    "b069_store": 11.54,
+    "b079_seoul_inflow_ratio": 0.5473
+  },
+  "11140590": {
+    "b042_seoul_inflow_ratio": 0.6822,
+    "b069_finance": 43.62,
+    "b069_infra": 48.36,
+    "b069_pop": 40.11,
+    "b069_sales": 19.23,
+    "b069_store": 35.0,
+    "b079_seoul_inflow_ratio": 0.5207
+  },
+  "11140605": {
+    "b042_seoul_inflow_ratio": 0.6361,
+    "b069_finance": 38.86,
+    "b069_infra": 42.96,
+    "b069_pop": 41.09,
+    "b069_sales": 17.1,
+    "b069_store": 27.29,
+    "b079_seoul_inflow_ratio": 0.2399
+  },
+  "11140615": {
+    "b042_seoul_inflow_ratio": 0.7207,
+    "b069_finance": 38.01,
+    "b069_infra": 24.66,
+    "b069_pop": 32.42,
+    "b069_sales": 13.84,
+    "b069_store": 35.81,
+    "b079_seoul_inflow_ratio": 0.5423
+  },
+  "11140625": {
+    "b042_seoul_inflow_ratio": 0.8011,
+    "b069_finance": 41.29,
+    "b069_infra": 16.92,
+    "b069_pop": 19.75,
+    "b069_sales": 14.78,
+    "b069_store": 21.26,
+    "b079_seoul_inflow_ratio": 0.5601
+  },
+  "11140635": {
+    "b042_seoul_inflow_ratio": 0.8008,
+    "b069_finance": 60.1,
+    "b069_infra": 15.18,
+    "b069_pop": 20.63,
+    "b069_sales": 26.93,
+    "b069_store": 24.19,
+    "b079_seoul_inflow_ratio": 0.5899
+  },
+  "11140645": {
+    "b042_seoul_inflow_ratio": 0.8206,
+    "b069_finance": 51.34,
+    "b069_infra": 12.96,
+    "b069_pop": 24.75,
+    "b069_sales": 13.0,
+    "b069_store": 25.94,
+    "b079_seoul_inflow_ratio": 0.5212
+  },
+  "11140650": {
+    "b042_seoul_inflow_ratio": 0.8536,
+    "b069_finance": 42.86,
+    "b069_infra": 18.24,
+    "b069_pop": 23.72,
+    "b069_sales": 16.11,
+    "b069_store": 25.88,
+    "b079_seoul_inflow_ratio": 0.6279
+  },
+  "11140665": {
+    "b042_seoul_inflow_ratio": 0.876,
+    "b069_finance": 57.37,
+    "b069_infra": 12.58,
+    "b069_pop": 20.38,
+    "b069_sales": 17.6,
+    "b069_store": 21.98,
+    "b079_seoul_inflow_ratio": 0.5468
+  },
+  "11140670": {
+    "b042_seoul_inflow_ratio": 0.8328,
+    "b069_finance": 45.87,
+    "b069_infra": 15.22,
+    "b069_pop": 24.01,
+    "b069_sales": 11.33,
+    "b069_store": 27.82,
+    "b079_seoul_inflow_ratio": 0.6695
+  },
+  "11140680": {
+    "b042_seoul_inflow_ratio": 0.7428,
+    "b069_finance": 46.94,
+    "b069_infra": 28.89,
+    "b069_pop": 24.54,
+    "b069_sales": 19.43,
+    "b069_store": 25.99,
+    "b079_seoul_inflow_ratio": 0.4015
+  },
+  "11170510": {
+    "b042_seoul_inflow_ratio": 0.7795,
+    "b069_finance": 40.94,
+    "b069_infra": 14.22,
+    "b069_pop": 15.37,
+    "b069_sales": 10.77,
+    "b069_store": 16.24,
+    "b079_seoul_inflow_ratio": 0.5619
+  },
+  "11170520": {
+    "b042_seoul_inflow_ratio": 0.5421,
+    "b069_finance": 37.91,
+    "b069_infra": 10.83,
+    "b069_pop": 12.71,
+    "b069_sales": 10.98,
+    "b069_store": 6.62,
+    "b079_seoul_inflow_ratio": 0.1585
+  },
+  "11170530": {
+    "b042_seoul_inflow_ratio": 0.6211,
+    "b069_finance": 43.37,
+    "b069_infra": 40.18,
+    "b069_pop": 29.52,
+    "b069_sales": 24.17,
+    "b069_store": 26.34,
+    "b079_seoul_inflow_ratio": 0.2592
+  },
+  "11170555": {
+    "b042_seoul_inflow_ratio": 0.71,
+    "b069_finance": 40.62,
+    "b069_infra": 17.24,
+    "b069_pop": 21.45,
+    "b069_sales": 17.52,
+    "b069_store": 21.23,
+    "b079_seoul_inflow_ratio": 0.4856
+  },
+  "11170560": {
+    "b042_seoul_inflow_ratio": 0.716,
+    "b069_finance": 48.59,
+    "b069_infra": 20.64,
+    "b069_pop": 23.09,
+    "b069_sales": 14.12,
+    "b069_store": 22.93,
+    "b079_seoul_inflow_ratio": 0.4768
+  },
+  "11170570": {
+    "b042_seoul_inflow_ratio": 0.7851,
+    "b069_finance": 53.12,
+    "b069_infra": 20.0,
+    "b069_pop": 23.52,
+    "b069_sales": 16.4,
+    "b069_store": 16.56,
+    "b079_seoul_inflow_ratio": 0.5164
+  },
+  "11170580": {
+    "b042_seoul_inflow_ratio": 0.8515,
+    "b069_finance": 43.95,
+    "b069_infra": 10.73,
+    "b069_pop": 16.0,
+    "b069_sales": 9.29,
+    "b069_store": 12.46,
+    "b079_seoul_inflow_ratio": 0.6241
+  },
+  "11170590": {
+    "b042_seoul_inflow_ratio": 0.8885,
+    "b069_finance": 51.37,
+    "b069_infra": 14.65,
+    "b069_pop": 20.44,
+    "b069_sales": 13.38,
+    "b069_store": 27.61,
+    "b079_seoul_inflow_ratio": 0.6773
+  },
+  "11170625": {
+    "b042_seoul_inflow_ratio": 0.6941,
+    "b069_finance": 55.27,
+    "b069_infra": 24.56,
+    "b069_pop": 22.48,
+    "b069_sales": 21.58,
+    "b069_store": 17.16,
+    "b079_seoul_inflow_ratio": 0.3868
+  },
+  "11170630": {
+    "b042_seoul_inflow_ratio": 0.8846,
+    "b069_finance": 76.79,
+    "b069_infra": 15.22,
+    "b069_pop": 22.13,
+    "b069_sales": 37.89,
+    "b069_store": 17.04,
+    "b079_seoul_inflow_ratio": 0.6955
+  },
+  "11170640": {
+    "b042_seoul_inflow_ratio": 0.797,
+    "b069_finance": 52.56,
+    "b069_infra": 4.11,
+    "b069_pop": 17.5,
+    "b069_sales": 10.21,
+    "b069_store": 12.6,
+    "b079_seoul_inflow_ratio": 0.5006
+  },
+  "11170650": {
+    "b042_seoul_inflow_ratio": 0.6229,
+    "b069_finance": 42.84,
+    "b069_infra": 17.07,
+    "b069_pop": 16.95,
+    "b069_sales": 33.54,
+    "b069_store": 34.57,
+    "b079_seoul_inflow_ratio": 0.529
+  },
+  "11170660": {
+    "b042_seoul_inflow_ratio": 0.6941,
+    "b069_finance": 43.16,
+    "b069_infra": 7.6,
+    "b069_pop": 10.29,
+    "b069_sales": 18.92,
+    "b069_store": 20.37,
+    "b079_seoul_inflow_ratio": 0.4335
+  },
+  "11170685": {
+    "b042_seoul_inflow_ratio": 0.7067,
+    "b069_finance": 47.08,
+    "b069_infra": 17.72,
+    "b069_pop": 13.02,
+    "b069_sales": 25.47,
+    "b069_store": 15.6,
+    "b079_seoul_inflow_ratio": 0.5285
+  },
+  "11170690": {
+    "b042_seoul_inflow_ratio": 0.7427,
+    "b069_finance": 49.73,
+    "b069_infra": 7.57,
+    "b069_pop": 12.36,
+    "b069_sales": 14.81,
+    "b069_store": 5.14,
+    "b079_seoul_inflow_ratio": 0.3757
+  },
+  "11170700": {
+    "b042_seoul_inflow_ratio": 0.8567,
+    "b069_finance": 39.74,
+    "b069_infra": 9.52,
+    "b069_pop": 12.82,
+    "b069_sales": 10.43,
+    "b069_store": 17.45,
+    "b079_seoul_inflow_ratio": 0.5444
+  },
+  "11200520": {
+    "b042_seoul_inflow_ratio": 0.8847,
+    "b069_finance": 49.17,
+    "b069_infra": 13.83,
+    "b069_pop": 22.17,
+    "b069_sales": 14.09,
+    "b069_store": 21.14,
+    "b079_seoul_inflow_ratio": 0.5983
+  },
+  "11200535": {
+    "b042_seoul_inflow_ratio": 0.824,
+    "b069_finance": 52.14,
+    "b069_infra": 18.03,
+    "b069_pop": 24.96,
+    "b069_sales": 18.76,
+    "b069_store": 22.12,
+    "b079_seoul_inflow_ratio": 0.6677
+  },
+  "11200540": {
+    "b042_seoul_inflow_ratio": 0.7593,
+    "b069_finance": 42.27,
+    "b069_infra": 14.67,
+    "b069_pop": 18.78,
+    "b069_sales": 13.57,
+    "b069_store": 12.59,
+    "b079_seoul_inflow_ratio": 0.5378
+  },
+  "11200550": {
+    "b042_seoul_inflow_ratio": 0.6386,
+    "b069_finance": 45.84,
+    "b069_infra": 9.33,
+    "b069_pop": 16.44,
+    "b069_sales": 35.29,
+    "b069_store": 24.26,
+    "b079_seoul_inflow_ratio": 0.5758
+  },
+  "11200560": {
+    "b042_seoul_inflow_ratio": 0.8233,
+    "b069_finance": 47.78,
+    "b069_infra": 25.61,
+    "b069_pop": 25.49,
+    "b069_sales": 20.66,
+    "b069_store": 30.11,
+    "b079_seoul_inflow_ratio": 0.7612
+  },
+  "11200570": {
+    "b042_seoul_inflow_ratio": 0.9261,
+    "b069_finance": 56.51,
+    "b069_infra": 15.31,
+    "b069_pop": 24.13,
+    "b069_sales": 29.05,
+    "b069_store": 21.6,
+    "b079_seoul_inflow_ratio": 0.7806
+  },
+  "11200580": {
+    "b042_seoul_inflow_ratio": 0.9036,
+    "b069_finance": 56.92,
+    "b069_infra": 9.19,
+    "b069_pop": 17.91,
+    "b069_sales": 10.4,
+    "b069_store": 13.41,
+    "b079_seoul_inflow_ratio": 0.6283
+  },
+  "11200590": {
+    "b042_seoul_inflow_ratio": 0.9126,
+    "b069_finance": 53.01,
+    "b069_infra": 10.28,
+    "b069_pop": 17.57,
+    "b069_sales": 15.24,
+    "b069_store": 18.75,
+    "b079_seoul_inflow_ratio": 0.7094
+  },
+  "11200615": {
+    "b042_seoul_inflow_ratio": 0.9044,
+    "b069_finance": 47.7,
+    "b069_infra": 12.37,
+    "b069_pop": 15.41,
+    "b069_sales": 13.79,
+    "b069_store": 21.72,
+    "b079_seoul_inflow_ratio": 0.7412
+  },
+  "11200620": {
+    "b042_seoul_inflow_ratio": 0.9102,
+    "b069_finance": 57.65,
+    "b069_pop": 17.56,
+    "b069_sales": 14.47,
+    "b069_store": 21.59,
+    "b079_seoul_inflow_ratio": 0.7075
+  },
+  "11200645": {
+    "b042_seoul_inflow_ratio": 0.868,
+    "b069_finance": 66.52,
+    "b069_infra": 11.82,
+    "b069_pop": 18.61,
+    "b069_sales": 15.72,
+    "b069_store": 15.18,
+    "b079_seoul_inflow_ratio": 0.6679
+  },
+  "11200650": {
+    "b042_seoul_inflow_ratio": 0.7508,
+    "b069_finance": 48.2,
+    "b069_infra": 17.84,
+    "b069_pop": 17.2,
+    "b069_sales": 10.5,
+    "b069_store": 15.57,
+    "b079_seoul_inflow_ratio": 0.4165
+  },
+  "11200660": {
+    "b042_seoul_inflow_ratio": 0.7713,
+    "b069_finance": 46.09,
+    "b069_infra": 19.16,
+    "b069_pop": 23.66,
+    "b069_sales": 17.52,
+    "b069_store": 29.08,
+    "b079_seoul_inflow_ratio": 0.4199
+  },
+  "11200670": {
+    "b042_seoul_inflow_ratio": 0.5462,
+    "b069_finance": 42.51,
+    "b069_infra": 20.7,
+    "b069_pop": 19.14,
+    "b069_sales": 11.95,
+    "b069_store": 21.36,
+    "b079_seoul_inflow_ratio": 0.3955
+  },
+  "11200690": {
+    "b042_seoul_inflow_ratio": 0.7096,
+    "b069_finance": 50.25,
+    "b069_infra": 43.54,
+    "b069_pop": 31.01,
+    "b069_sales": 17.31,
+    "b069_store": 22.06,
+    "b079_seoul_inflow_ratio": 0.5593
+  },
+  "11200720": {
+    "b042_seoul_inflow_ratio": 0.7468,
+    "b069_finance": 37.94,
+    "b069_infra": 13.71,
+    "b069_pop": 13.54,
+    "b069_sales": 10.66,
+    "b069_store": 12.18,
+    "b079_seoul_inflow_ratio": 0.4121
+  },
+  "11200790": {
+    "b042_seoul_inflow_ratio": 0.6759,
+    "b069_finance": 34.61,
+    "b069_infra": 22.67,
+    "b069_pop": 24.16,
+    "b069_sales": 14.7,
+    "b069_store": 14.25,
+    "b079_seoul_inflow_ratio": 0.6376
+  },
+  "11215710": {
+    "b042_seoul_inflow_ratio": 0.6628,
+    "b069_finance": 40.39,
+    "b069_infra": 16.82,
+    "b069_pop": 25.82,
+    "b069_sales": 34.64,
+    "b069_store": 37.53,
+    "b079_seoul_inflow_ratio": 0.6335
+  },
+  "11215730": {
+    "b042_seoul_inflow_ratio": 0.7665,
+    "b069_finance": 38.17,
+    "b069_infra": 15.17,
+    "b069_pop": 17.85,
+    "b069_sales": 16.68,
+    "b069_store": 24.26,
+    "b079_seoul_inflow_ratio": 0.5608
+  },
+  "11215740": {
+    "b042_seoul_inflow_ratio": 0.7974,
+    "b069_finance": 38.9,
+    "b069_infra": 12.46,
+    "b069_pop": 18.61,
+    "b069_sales": 14.4,
+    "b069_store": 22.12,
+    "b079_seoul_inflow_ratio": 0.6586
+  },
+  "11215750": {
+    "b042_seoul_inflow_ratio": 0.8294,
+    "b069_finance": 40.55,
+    "b069_infra": 11.42,
+    "b069_pop": 19.94,
+    "b069_sales": 12.0,
+    "b069_store": 25.49,
+    "b079_seoul_inflow_ratio": 0.6001
+  },
+  "11215760": {
+    "b042_seoul_inflow_ratio": 0.8242,
+    "b069_finance": 35.83,
+    "b069_infra": 10.12,
+    "b069_pop": 17.3,
+    "b069_sales": 10.56,
+    "b069_store": 19.7,
+    "b079_seoul_inflow_ratio": 0.617
+  },
+  "11215770": {
+    "b042_seoul_inflow_ratio": 0.8769,
+    "b069_finance": 37.71,
+    "b069_infra": 7.87,
+    "b069_pop": 14.9,
+    "b069_sales": 10.62,
+    "b069_store": 17.18,
+    "b079_seoul_inflow_ratio": 0.7118
+  },
+  "11215780": {
+    "b042_seoul_inflow_ratio": 0.7888,
+    "b069_finance": 44.89,
+    "b069_infra": 14.98,
+    "b069_pop": 16.1,
+    "b069_sales": 21.02,
+    "b069_store": 17.08,
+    "b079_seoul_inflow_ratio": 0.6097
+  },
+  "11215810": {
+    "b042_seoul_inflow_ratio": 0.7954,
+    "b069_finance": 63.09,
+    "b069_infra": 10.04,
+    "b069_pop": 19.81,
+    "b069_sales": 21.45,
+    "b069_store": 15.46,
+    "b079_seoul_inflow_ratio": 0.6655
+  },
+  "11215820": {
+    "b042_seoul_inflow_ratio": 0.8211,
+    "b069_finance": 40.88,
+    "b069_infra": 18.84,
+    "b069_pop": 23.08,
+    "b069_sales": 15.53,
+    "b069_store": 25.4,
+    "b079_seoul_inflow_ratio": 0.686
+  },
+  "11215830": {
+    "b042_seoul_inflow_ratio": 0.8243,
+    "b069_finance": 44.45,
+    "b069_infra": 16.62,
+    "b069_pop": 21.89,
+    "b069_sales": 11.54,
+    "b069_store": 17.72,
+    "b079_seoul_inflow_ratio": 0.6511
+  },
+  "11215840": {
+    "b042_seoul_inflow_ratio": 0.7986,
+    "b069_finance": 50.77,
+    "b069_infra": 14.98,
+    "b069_pop": 23.87,
+    "b069_sales": 17.27,
+    "b069_store": 25.06,
+    "b079_seoul_inflow_ratio": 0.7368
+  },
+  "11215847": {
+    "b042_seoul_inflow_ratio": 0.7244,
+    "b069_finance": 41.93,
+    "b069_infra": 17.11,
+    "b069_pop": 19.15,
+    "b069_sales": 18.82,
+    "b069_store": 30.0,
+    "b079_seoul_inflow_ratio": 0.6107
+  },
+  "11215850": {
+    "b042_seoul_inflow_ratio": 0.801,
+    "b069_finance": 42.1,
+    "b069_infra": 19.71,
+    "b069_pop": 21.72,
+    "b069_sales": 16.54,
+    "b069_store": 30.72,
+    "b079_seoul_inflow_ratio": 0.6522
+  },
+  "11215860": {
+    "b042_seoul_inflow_ratio": 0.8441,
+    "b069_finance": 39.01,
+    "b069_infra": 11.14,
+    "b069_pop": 16.9,
+    "b069_sales": 14.01,
+    "b069_store": 17.91,
+    "b079_seoul_inflow_ratio": 0.6592
+  },
+  "11215870": {
+    "b042_seoul_inflow_ratio": 0.7504,
+    "b069_finance": 55.89,
+    "b069_infra": 21.39,
+    "b069_pop": 30.24,
+    "b069_sales": 24.03,
+    "b069_store": 33.16,
+    "b079_seoul_inflow_ratio": 0.6007
+  },
+  "11230536": {
+    "b042_seoul_inflow_ratio": 0.7824,
+    "b069_finance": 38.52,
+    "b069_infra": 23.54,
+    "b069_pop": 22.18,
+    "b069_sales": 13.79,
+    "b069_store": 19.68,
+    "b079_seoul_inflow_ratio": 0.4555
+  },
+  "11230545": {
+    "b042_seoul_inflow_ratio": 0.7581,
+    "b069_finance": 39.63,
+    "b069_infra": 16.27,
+    "b069_pop": 16.08,
+    "b069_sales": 9.79,
+    "b069_store": 19.69,
+    "b079_seoul_inflow_ratio": 0.6716
+  },
+  "11230560": {
+    "b042_seoul_inflow_ratio": 0.7905,
+    "b069_finance": 40.83,
+    "b069_infra": 15.15,
+    "b069_pop": 15.59,
+    "b069_sales": 12.98,
+    "b069_store": 20.21,
+    "b079_seoul_inflow_ratio": 0.6836
+  },
+  "11230570": {
+    "b042_seoul_inflow_ratio": 0.8532,
+    "b069_finance": 51.43,
+    "b069_infra": 15.64,
+    "b069_pop": 17.75,
+    "b069_sales": 12.12,
+    "b069_store": 21.88,
+    "b079_seoul_inflow_ratio": 0.5022
+  },
+  "11230610": {
+    "b042_seoul_inflow_ratio": 0.8426,
+    "b069_finance": 47.52,
+    "b069_infra": 15.87,
+    "b069_pop": 22.81,
+    "b069_sales": 12.55,
+    "b069_store": 18.85,
+    "b079_seoul_inflow_ratio": 0.5975
+  },
+  "11230650": {
+    "b042_seoul_inflow_ratio": 0.7998,
+    "b069_finance": 41.53,
+    "b069_infra": 21.35,
+    "b069_pop": 27.19,
+    "b069_sales": 15.25,
+    "b069_store": 27.07,
+    "b079_seoul_inflow_ratio": 0.4176
+  },
+  "11230660": {
+    "b042_seoul_inflow_ratio": 0.8779,
+    "b069_finance": 43.14,
+    "b069_infra": 15.83,
+    "b069_pop": 22.41,
+    "b069_sales": 20.61,
+    "b069_store": 30.17,
+    "b079_seoul_inflow_ratio": 0.6181
+  },
+  "11230705": {
+    "b042_seoul_inflow_ratio": 0.8078,
+    "b069_finance": 43.29,
+    "b069_infra": 11.0,
+    "b069_pop": 16.5,
+    "b069_sales": 10.81,
+    "b069_store": 15.2,
+    "b079_seoul_inflow_ratio": 0.5575
+  },
+  "11230710": {
+    "b042_seoul_inflow_ratio": 0.6507,
+    "b069_finance": 43.02,
+    "b069_infra": 13.3,
+    "b069_pop": 16.26,
+    "b069_sales": 19.87,
+    "b069_store": 35.33,
+    "b079_seoul_inflow_ratio": 0.5777
+  },
+  "11230720": {
+    "b042_seoul_inflow_ratio": 0.7524,
+    "b069_finance": 38.91,
+    "b069_infra": 18.73,
+    "b069_pop": 19.45,
+    "b069_sales": 14.57,
+    "b069_store": 21.86,
+    "b079_seoul_inflow_ratio": 0.5763
+  },
+  "11230730": {
+    "b042_seoul_inflow_ratio": 0.7059,
+    "b069_finance": 45.8,
+    "b069_infra": 13.2,
+    "b069_pop": 14.57,
+    "b069_sales": 13.34,
+    "b069_store": 12.7,
+    "b079_seoul_inflow_ratio": 0.5848
+  },
+  "11230740": {
+    "b042_seoul_inflow_ratio": 0.7142,
+    "b069_finance": 41.12,
+    "b069_pop": 12.85,
+    "b069_sales": 10.93,
+    "b069_store": 20.05,
+    "b079_seoul_inflow_ratio": 0.5805
+  },
+  "11230750": {
+    "b042_seoul_inflow_ratio": 0.8819,
+    "b069_finance": 43.59,
+    "b069_infra": 8.09,
+    "b069_pop": 16.09,
+    "b069_sales": 9.23,
+    "b069_store": 17.22,
+    "b079_seoul_inflow_ratio": 0.6634
+  },
+  "11260520": {
+    "b042_seoul_inflow_ratio": 0.8286,
+    "b069_finance": 37.78,
+    "b069_infra": 13.4,
+    "b069_pop": 19.69,
+    "b069_sales": 8.6,
+    "b069_store": 18.46,
+    "b079_seoul_inflow_ratio": 0.6044
+  },
+  "11260540": {
+    "b042_seoul_inflow_ratio": 0.8845,
+    "b069_finance": 37.66,
+    "b069_infra": 11.11,
+    "b069_pop": 20.25,
+    "b069_sales": 6.91,
+    "b069_store": 18.51,
+    "b079_seoul_inflow_ratio": 0.5888
+  },
+  "11260550": {
+    "b042_seoul_inflow_ratio": 0.9019,
+    "b069_finance": 29.22,
+    "b069_pop": 17.37,
+    "b069_sales": 7.31,
+    "b069_store": 11.66,
+    "b079_seoul_inflow_ratio": 0.836
+  },
+  "11260565": {
+    "b042_seoul_inflow_ratio": 0.8872,
+    "b069_finance": 36.33,
+    "b069_infra": 15.8,
+    "b069_pop": 24.24,
+    "b069_sales": 11.06,
+    "b069_store": 24.56,
+    "b079_seoul_inflow_ratio": 0.7726
+  },
+  "11260570": {
+    "b042_seoul_inflow_ratio": 0.8711,
+    "b069_finance": 40.88,
+    "b069_pop": 20.71,
+    "b069_sales": 12.78,
+    "b069_store": 22.55,
+    "b079_seoul_inflow_ratio": 0.6078
+  },
+  "11260575": {
+    "b042_seoul_inflow_ratio": 0.8748,
+    "b069_finance": 37.43,
+    "b069_infra": 12.56,
+    "b069_pop": 20.42,
+    "b069_sales": 14.43,
+    "b069_store": 25.29,
+    "b079_seoul_inflow_ratio": 0.7496
+  },
+  "11260580": {
+    "b042_seoul_inflow_ratio": 0.8222,
+    "b069_finance": 41.7,
+    "b069_infra": 15.57,
+    "b069_pop": 24.04,
+    "b069_sales": 14.26,
+    "b069_store": 20.7,
+    "b079_seoul_inflow_ratio": 0.7242
+  },
+  "11260590": {
+    "b042_seoul_inflow_ratio": 0.809,
+    "b069_finance": 38.62,
+    "b069_infra": 21.18,
+    "b069_pop": 28.58,
+    "b069_sales": 19.94,
+    "b069_store": 28.66,
+    "b079_seoul_inflow_ratio": 0.7094
+  },
+  "11260600": {
+    "b042_seoul_inflow_ratio": 0.8486,
+    "b069_finance": 37.89,
+    "b069_infra": 16.97,
+    "b069_pop": 19.04,
+    "b069_sales": 9.54,
+    "b069_store": 19.42,
+    "b079_seoul_inflow_ratio": 0.6782
+  },
+  "11260610": {
+    "b042_seoul_inflow_ratio": 0.8613,
+    "b069_finance": 35.19,
+    "b069_infra": 13.27,
+    "b069_pop": 19.69,
+    "b069_sales": 13.88,
+    "b069_store": 22.15,
+    "b079_seoul_inflow_ratio": 0.6665
+  },
+  "11260620": {
+    "b042_seoul_inflow_ratio": 0.8452,
+    "b069_finance": 42.5,
+    "b069_infra": 10.7,
+    "b069_pop": 20.91,
+    "b069_sales": 14.96,
+    "b069_store": 19.48,
+    "b079_seoul_inflow_ratio": 0.6711
+  },
+  "11260630": {
+    "b042_seoul_inflow_ratio": 0.8577,
+    "b069_finance": 37.79,
+    "b069_infra": 10.03,
+    "b069_pop": 21.47,
+    "b069_sales": 12.36,
+    "b069_store": 24.63,
+    "b079_seoul_inflow_ratio": 0.6542
+  },
+  "11260655": {
+    "b042_seoul_inflow_ratio": 0.8161,
+    "b069_finance": 36.72,
+    "b069_infra": 13.57,
+    "b069_pop": 17.68,
+    "b069_sales": 13.7,
+    "b069_store": 17.43,
+    "b079_seoul_inflow_ratio": 0.7013
+  },
+  "11260660": {
+    "b042_seoul_inflow_ratio": 0.8573,
+    "b069_finance": 33.69,
+    "b069_infra": 9.93,
+    "b069_pop": 18.72,
+    "b069_sales": 7.68,
+    "b069_store": 16.57,
+    "b079_seoul_inflow_ratio": 0.6586
+  },
+  "11260680": {
+    "b042_seoul_inflow_ratio": 0.85,
+    "b069_finance": 47.16,
+    "b069_infra": 10.55,
+    "b069_pop": 17.88,
+    "b069_sales": 16.98,
+    "b069_store": 14.27,
+    "b079_seoul_inflow_ratio": 0.6692
+  },
+  "11260690": {
+    "b042_seoul_inflow_ratio": 0.8802,
+    "b069_finance": 52.22,
+    "b069_infra": 16.86,
+    "b069_pop": 26.1,
+    "b069_sales": 22.6,
+    "b069_store": 29.96,
+    "b079_seoul_inflow_ratio": 0.7646
+  },
+  "11290525": {
+    "b042_seoul_inflow_ratio": 0.8256,
+    "b069_finance": 40.76,
+    "b069_infra": 8.15,
+    "b069_pop": 3.8,
+    "b069_sales": 14.54,
+    "b069_store": 8.4,
+    "b079_seoul_inflow_ratio": 0.6617
+  },
+  "11290555": {
+    "b042_seoul_inflow_ratio": 0.8685,
+    "b069_finance": 44.58,
+    "b069_infra": 20.37,
+    "b069_pop": 18.49,
+    "b069_sales": 17.98,
+    "b069_store": 27.13,
+    "b079_seoul_inflow_ratio": 0.7453
+  },
+  "11290575": {
+    "b042_seoul_inflow_ratio": 0.817,
+    "b069_finance": 40.25,
+    "b069_infra": 21.65,
+    "b069_pop": 23.0,
+    "b069_sales": 23.75,
+    "b069_store": 35.58,
+    "b079_seoul_inflow_ratio": 0.7389
+  },
+  "11290580": {
+    "b042_seoul_inflow_ratio": 0.928,
+    "b069_finance": 55.85,
+    "b069_infra": 17.73,
+    "b069_pop": 17.01,
+    "b069_sales": 26.63,
+    "b069_store": 14.64,
+    "b079_seoul_inflow_ratio": 0.7033
+  },
+  "11290590": {
+    "b042_seoul_inflow_ratio": 0.9455,
+    "b069_finance": 65.53,
+    "b069_infra": 13.77,
+    "b069_pop": 16.92,
+    "b069_sales": 23.57,
+    "b069_store": 13.05,
+    "b079_seoul_inflow_ratio": 0.7839
+  },
+  "11290600": {
+    "b042_seoul_inflow_ratio": 0.7113,
+    "b069_finance": 36.09,
+    "b069_infra": 12.04,
+    "b069_pop": 14.68,
+    "b069_sales": 20.21,
+    "b069_store": 21.64,
+    "b079_seoul_inflow_ratio": 0.632
+  },
+  "11290610": {
+    "b042_seoul_inflow_ratio": 0.8659,
+    "b069_finance": 38.34,
+    "b069_infra": 18.05,
+    "b069_pop": 17.89,
+    "b069_sales": 14.19,
+    "b069_store": 20.94,
+    "b079_seoul_inflow_ratio": 0.7128
+  },
+  "11290620": {
+    "b042_seoul_inflow_ratio": 0.8875,
+    "b069_finance": 52.2,
+    "b069_pop": 19.77,
+    "b069_sales": 14.26,
+    "b069_store": 19.31,
+    "b079_seoul_inflow_ratio": 0.7054
+  },
+  "11290630": {
+    "b042_seoul_inflow_ratio": 0.8899,
+    "b069_finance": 38.92,
+    "b069_infra": 11.18,
+    "b069_pop": 13.18,
+    "b069_sales": 15.0,
+    "b069_store": 15.5,
+    "b079_seoul_inflow_ratio": 0.7248
+  },
+  "11290640": {
+    "b042_seoul_inflow_ratio": 0.7068,
+    "b069_finance": 30.05,
+    "b069_infra": 6.92,
+    "b069_pop": 6.22,
+    "b069_sales": 12.66,
+    "b069_store": 9.11,
+    "b079_seoul_inflow_ratio": 0.6117
+  },
+  "11290650": {
+    "b042_seoul_inflow_ratio": 0.8694,
+    "b069_finance": 45.06,
+    "b069_infra": 10.23,
+    "b069_pop": 11.95,
+    "b069_sales": 13.6,
+    "b069_store": 14.92,
+    "b079_seoul_inflow_ratio": 0.7783
+  },
+  "11290660": {
+    "b042_seoul_inflow_ratio": 0.9306,
+    "b069_finance": 58.88,
+    "b069_infra": 15.51,
+    "b069_pop": 19.29,
+    "b069_sales": 23.86,
+    "b069_store": 22.88,
+    "b079_seoul_inflow_ratio": 0.8353
+  },
+  "11290685": {
+    "b042_seoul_inflow_ratio": 0.8939,
+    "b069_finance": 40.85,
+    "b069_infra": 17.54,
+    "b069_pop": 15.77,
+    "b069_sales": 16.78,
+    "b069_store": 22.13,
+    "b079_seoul_inflow_ratio": 0.7955
+  },
+  "11290705": {
+    "b042_seoul_inflow_ratio": 0.8693,
+    "b069_finance": 46.32,
+    "b069_infra": 13.8,
+    "b069_pop": 17.31,
+    "b069_sales": 12.8,
+    "b069_store": 19.28,
+    "b079_seoul_inflow_ratio": 0.6461
+  },
+  "11290715": {
+    "b042_seoul_inflow_ratio": 0.9063,
+    "b069_finance": 47.81,
+    "b069_infra": 17.53,
+    "b069_pop": 19.73,
+    "b069_sales": 11.95,
+    "b069_store": 17.29,
+    "b079_seoul_inflow_ratio": 0.6873
+  },
+  "11290725": {
+    "b042_seoul_inflow_ratio": 0.8738,
+    "b069_finance": 39.0,
+    "b069_infra": 8.49,
+    "b069_pop": 16.26,
+    "b069_sales": 15.63,
+    "b069_store": 16.63,
+    "b079_seoul_inflow_ratio": 0.7707
+  },
+  "11290760": {
+    "b042_seoul_inflow_ratio": 0.9003,
+    "b069_finance": 30.96,
+    "b069_pop": 13.22,
+    "b069_sales": 5.56,
+    "b069_store": 12.17,
+    "b079_seoul_inflow_ratio": 0.7312
+  },
+  "11290770": {
+    "b042_seoul_inflow_ratio": 0.9085,
+    "b069_finance": 32.75,
+    "b069_infra": 9.24,
+    "b069_pop": 13.42,
+    "b069_sales": 9.75,
+    "b069_store": 14.79,
+    "b079_seoul_inflow_ratio": 0.6812
+  },
+  "11290780": {
+    "b042_seoul_inflow_ratio": 0.8646,
+    "b069_finance": 36.86,
+    "b069_infra": 7.67,
+    "b069_pop": 14.01,
+    "b069_sales": 6.5,
+    "b069_store": 8.73,
+    "b079_seoul_inflow_ratio": 0.7252
+  },
+  "11290810": {
+    "b042_seoul_inflow_ratio": 0.8582,
+    "b069_finance": 39.46,
+    "b069_infra": 10.01,
+    "b069_pop": 14.55,
+    "b069_sales": 11.15,
+    "b069_store": 17.51,
+    "b079_seoul_inflow_ratio": 0.6759
+  },
+  "11305534": {
+    "b042_seoul_inflow_ratio": 0.9365,
+    "b069_finance": 36.26,
+    "b069_infra": 12.78,
+    "b069_pop": 14.73,
+    "b069_sales": 9.55,
+    "b069_store": 16.91,
+    "b079_seoul_inflow_ratio": 0.793
+  },
+  "11305535": {
+    "b042_seoul_inflow_ratio": 0.8687,
+    "b069_finance": 35.22,
+    "b069_infra": 18.42,
+    "b069_pop": 18.66,
+    "b069_sales": 14.05,
+    "b069_store": 26.9,
+    "b079_seoul_inflow_ratio": 0.6788
+  },
+  "11305545": {
+    "b042_seoul_inflow_ratio": 0.8789,
+    "b069_finance": 36.35,
+    "b069_infra": 20.38,
+    "b069_pop": 18.04,
+    "b069_sales": 15.3,
+    "b069_store": 25.69,
+    "b079_seoul_inflow_ratio": 0.725
+  },
+  "11305555": {
+    "b042_seoul_inflow_ratio": 0.8919,
+    "b069_finance": 35.54,
+    "b069_infra": 17.02,
+    "b069_pop": 18.3,
+    "b069_sales": 11.46,
+    "b069_store": 22.29,
+    "b079_seoul_inflow_ratio": 0.7079
+  },
+  "11305575": {
+    "b042_seoul_inflow_ratio": 0.9403,
+    "b069_finance": 54.83,
+    "b069_infra": 11.35,
+    "b069_pop": 24.58,
+    "b069_sales": 22.71,
+    "b069_store": 21.12,
+    "b079_seoul_inflow_ratio": 0.8088
+  },
+  "11305590": {
+    "b042_seoul_inflow_ratio": 0.8667,
+    "b069_finance": 36.95,
+    "b069_infra": 19.32,
+    "b069_pop": 22.07,
+    "b069_sales": 18.14,
+    "b069_store": 27.14
+  },
+  "11305600": {
+    "b042_seoul_inflow_ratio": 0.8855,
+    "b069_finance": 36.59,
+    "b069_infra": 11.78,
+    "b069_pop": 15.62,
+    "b069_sales": 6.4,
+    "b069_store": 10.16
+  },
+  "11305606": {
+    "b042_seoul_inflow_ratio": 0.9239,
+    "b069_finance": 39.76,
+    "b069_infra": 11.86,
+    "b069_pop": 19.8,
+    "b069_sales": 13.09,
+    "b069_store": 17.76
+  },
+  "11305610": {
+    "b042_seoul_inflow_ratio": 0.9029,
+    "b069_finance": 32.87,
+    "b069_infra": 12.1,
+    "b069_pop": 13.95,
+    "b069_sales": 10.76,
+    "b069_store": 19.99
+  },
+  "11305620": {
+    "b042_seoul_inflow_ratio": 0.9147,
+    "b069_finance": 39.74,
+    "b069_infra": 12.57,
+    "b069_pop": 19.95,
+    "b069_sales": 11.53,
+    "b069_store": 24.33
+  },
+  "11305630": {
+    "b042_seoul_inflow_ratio": 0.8534,
+    "b069_finance": 35.98,
+    "b069_infra": 19.86,
+    "b069_pop": 24.85,
+    "b069_sales": 18.15,
+    "b069_store": 34.66
+  },
+  "11305645": {
+    "b042_seoul_inflow_ratio": 0.8471,
+    "b069_finance": 33.51,
+    "b069_infra": 6.31,
+    "b069_pop": 7.43,
+    "b069_sales": 10.14,
+    "b069_store": 10.17,
+    "b079_seoul_inflow_ratio": 0.6615
+  },
+  "11305660": {
+    "b042_seoul_inflow_ratio": 0.8708,
+    "b069_finance": 32.16,
+    "b069_infra": 9.28,
+    "b069_pop": 11.54,
+    "b069_sales": 8.74,
+    "b069_store": 12.63,
+    "b079_seoul_inflow_ratio": 0.6849
+  },
+  "11320511": {
+    "b042_seoul_inflow_ratio": 0.8866,
+    "b069_finance": 45.93,
+    "b069_infra": 11.37,
+    "b069_pop": 19.32,
+    "b069_sales": 16.21,
+    "b069_store": 19.64,
+    "b079_seoul_inflow_ratio": 0.7413
+  },
+  "11320512": {
+    "b042_seoul_inflow_ratio": 0.8976,
+    "b069_finance": 41.37,
+    "b069_infra": 13.13,
+    "b069_pop": 16.33,
+    "b069_sales": 11.32,
+    "b069_store": 19.49,
+    "b079_seoul_inflow_ratio": 0.7973
+  },
+  "11320513": {
+    "b042_seoul_inflow_ratio": 0.8786,
+    "b069_finance": 35.07,
+    "b069_infra": 11.49,
+    "b069_pop": 11.48,
+    "b069_sales": 6.71,
+    "b069_store": 18.54,
+    "b079_seoul_inflow_ratio": 0.7101
+  },
+  "11320514": {
+    "b042_seoul_inflow_ratio": 0.8786,
+    "b069_finance": 57.11,
+    "b069_infra": 14.18,
+    "b069_pop": 26.04,
+    "b069_sales": 26.82,
+    "b069_store": 18.4,
+    "b079_seoul_inflow_ratio": 0.7842
+  },
+  "11320515": {
+    "b042_seoul_inflow_ratio": 0.8689,
+    "b069_finance": 53.45,
+    "b069_infra": 14.92,
+    "b069_pop": 19.06,
+    "b069_sales": 24.77,
+    "b069_store": 27.33,
+    "b079_seoul_inflow_ratio": 0.7429
+  },
+  "11320521": {
+    "b042_seoul_inflow_ratio": 0.784,
+    "b069_finance": 35.96,
+    "b069_infra": 7.43,
+    "b069_pop": 11.13,
+    "b069_sales": 12.64,
+    "b069_store": 13.62,
+    "b079_seoul_inflow_ratio": 0.6554
+  },
+  "11320522": {
+    "b042_seoul_inflow_ratio": 0.7968,
+    "b069_finance": 54.28,
+    "b069_infra": 10.02,
+    "b069_pop": 19.86,
+    "b069_sales": 10.71,
+    "b069_store": 16.5,
+    "b079_seoul_inflow_ratio": 0.6373
+  },
+  "11320660": {
+    "b042_seoul_inflow_ratio": 0.8552,
+    "b069_finance": 36.79,
+    "b069_infra": 7.22,
+    "b069_pop": 11.04,
+    "b069_sales": 11.98,
+    "b069_store": 12.09,
+    "b079_seoul_inflow_ratio": 0.7029
+  },
+  "11320670": {
+    "b042_seoul_inflow_ratio": 0.915,
+    "b069_finance": 38.03,
+    "b069_infra": 17.74,
+    "b069_pop": 18.41,
+    "b069_sales": 17.63,
+    "b069_store": 26.03,
+    "b079_seoul_inflow_ratio": 0.7882
+  },
+  "11320680": {
+    "b042_seoul_inflow_ratio": 0.8824,
+    "b069_finance": 37.05,
+    "b069_infra": 16.78,
+    "b069_pop": 20.71,
+    "b069_sales": 16.14,
+    "b069_store": 20.96,
+    "b079_seoul_inflow_ratio": 0.736
+  },
+  "11320681": {
+    "b042_seoul_inflow_ratio": 0.9559,
+    "b069_finance": 54.14,
+    "b069_pop": 19.24,
+    "b069_sales": 14.15,
+    "b069_store": 21.18,
+    "b079_seoul_inflow_ratio": 0.8033
+  },
+  "11320690": {
+    "b042_seoul_inflow_ratio": 0.8704,
+    "b069_finance": 42.18,
+    "b069_infra": 14.91,
+    "b069_pop": 19.42,
+    "b069_sales": 16.72,
+    "b069_store": 28.01,
+    "b079_seoul_inflow_ratio": 0.7934
+  },
+  "11320700": {
+    "b042_seoul_inflow_ratio": 0.9099,
+    "b069_finance": 33.35,
+    "b069_infra": 6.35,
+    "b069_pop": 16.62,
+    "b069_sales": 8.17,
+    "b069_store": 16.64,
+    "b079_seoul_inflow_ratio": 0.7642
+  },
+  "11320710": {
+    "b042_seoul_inflow_ratio": 0.9149,
+    "b069_finance": 52.0,
+    "b069_pop": 16.38,
+    "b069_sales": 18.35,
+    "b069_store": 12.84,
+    "b079_seoul_inflow_ratio": 0.733
+  },
+  "11350560": {
+    "b042_seoul_inflow_ratio": 0.8253,
+    "b069_finance": 43.08,
+    "b069_infra": 13.28,
+    "b069_pop": 15.81,
+    "b069_sales": 16.56,
+    "b069_store": 20.91,
+    "b079_seoul_inflow_ratio": 0.6549
+  },
+  "11350570": {
+    "b042_seoul_inflow_ratio": 0.8885,
+    "b069_finance": 46.68,
+    "b069_infra": 11.73,
+    "b069_pop": 19.7,
+    "b069_sales": 10.95,
+    "b069_store": 12.51,
+    "b079_seoul_inflow_ratio": 0.6538
+  },
+  "11350580": {
+    "b042_seoul_inflow_ratio": 0.9223,
+    "b069_finance": 58.38,
+    "b069_pop": 24.74,
+    "b069_sales": 29.72,
+    "b069_store": 20.11,
+    "b079_seoul_inflow_ratio": 0.8351
+  },
+  "11350595": {
+    "b042_seoul_inflow_ratio": 0.8156,
+    "b069_finance": 42.9,
+    "b069_infra": 17.07,
+    "b069_pop": 22.34,
+    "b069_sales": 19.36,
+    "b069_store": 27.75,
+    "b079_seoul_inflow_ratio": 0.7141
+  },
+  "11350600": {
+    "b042_seoul_inflow_ratio": 0.7287,
+    "b069_finance": 46.39,
+    "b069_infra": 7.72,
+    "b069_pop": 16.44,
+    "b069_sales": 16.56,
+    "b069_store": 14.32,
+    "b079_seoul_inflow_ratio": 0.6328
+  },
+  "11350611": {
+    "b042_seoul_inflow_ratio": 0.848,
+    "b069_finance": 47.1,
+    "b069_infra": 15.34,
+    "b069_pop": 23.11,
+    "b069_sales": 25.96,
+    "b069_store": 17.94,
+    "b079_seoul_inflow_ratio": 0.7151
+  },
+  "11350612": {
+    "b042_seoul_inflow_ratio": 0.9331,
+    "b069_finance": 58.96,
+    "b069_infra": 16.61,
+    "b069_pop": 28.17,
+    "b069_sales": 30.4,
+    "b069_store": 20.8,
+    "b079_seoul_inflow_ratio": 0.7479
+  },
+  "11350619": {
+    "b042_seoul_inflow_ratio": 0.9227,
+    "b069_finance": 52.02,
+    "b069_infra": 11.41,
+    "b069_pop": 17.75,
+    "b069_sales": 17.94,
+    "b069_store": 19.62,
+    "b079_seoul_inflow_ratio": 0.6962
+  },
+  "11350621": {
+    "b042_seoul_inflow_ratio": 0.9233,
+    "b069_finance": 60.57,
+    "b069_infra": 15.19,
+    "b069_pop": 30.15,
+    "b069_sales": 34.93,
+    "b069_store": 32.02,
+    "b079_seoul_inflow_ratio": 0.839
+  },
+  "11350624": {
+    "b042_seoul_inflow_ratio": 0.8816,
+    "b069_finance": 55.69,
+    "b069_infra": 13.8,
+    "b069_pop": 24.09,
+    "b069_sales": 23.93,
+    "b069_store": 26.64,
+    "b079_seoul_inflow_ratio": 0.7777
+  },
+  "11350625": {
+    "b042_seoul_inflow_ratio": 0.8688,
+    "b069_finance": 51.06,
+    "b069_infra": 15.85,
+    "b069_pop": 28.06,
+    "b069_sales": 23.37,
+    "b069_store": 26.03,
+    "b079_seoul_inflow_ratio": 0.7896
+  },
+  "11350630": {
+    "b042_seoul_inflow_ratio": 0.8313,
+    "b069_finance": 48.09,
+    "b069_infra": 9.53,
+    "b069_pop": 18.75,
+    "b069_sales": 22.4,
+    "b069_store": 22.67,
+    "b079_seoul_inflow_ratio": 0.7447
+  },
+  "11350640": {
+    "b042_seoul_inflow_ratio": 0.8166,
+    "b069_finance": 41.84,
+    "b069_infra": 14.84,
+    "b069_pop": 25.77,
+    "b069_sales": 27.37,
+    "b069_store": 36.97,
+    "b079_seoul_inflow_ratio": 0.6977
+  },
+  "11350665": {
+    "b042_seoul_inflow_ratio": 0.823,
+    "b069_finance": 39.84,
+    "b069_infra": 8.42,
+    "b069_pop": 11.42,
+    "b069_sales": 8.1,
+    "b069_store": 14.17,
+    "b079_seoul_inflow_ratio": 0.6449
+  },
+  "11350670": {
+    "b042_seoul_inflow_ratio": 0.8793,
+    "b069_finance": 41.87,
+    "b069_pop": 21.54,
+    "b069_sales": 10.12,
+    "b069_store": 26.02,
+    "b079_seoul_inflow_ratio": 0.6473
+  },
+  "11350695": {
+    "b042_seoul_inflow_ratio": 0.7912,
+    "b069_finance": 50.24,
+    "b069_infra": 18.48,
+    "b069_pop": 27.31,
+    "b069_sales": 44.75,
+    "b069_store": 27.0,
+    "b079_seoul_inflow_ratio": 0.6489
+  },
+  "11350700": {
+    "b042_seoul_inflow_ratio": 0.9007,
+    "b069_finance": 58.88,
+    "b069_infra": 13.89,
+    "b069_pop": 26.98,
+    "b069_sales": 30.04,
+    "b069_store": 35.03,
+    "b079_seoul_inflow_ratio": 0.7782
+  },
+  "11350710": {
+    "b042_seoul_inflow_ratio": 0.9287,
+    "b069_finance": 50.76,
+    "b069_infra": 13.38,
+    "b069_pop": 24.27,
+    "b069_sales": 28.32,
+    "b069_store": 30.06,
+    "b079_seoul_inflow_ratio": 0.8334
+  },
+  "11350720": {
+    "b042_seoul_inflow_ratio": 0.8512,
+    "b069_finance": 56.12,
+    "b069_infra": 15.22,
+    "b069_pop": 20.56,
+    "b069_sales": 24.19,
+    "b069_store": 15.13,
+    "b079_seoul_inflow_ratio": 0.641
+  },
+  "11380510": {
+    "b042_seoul_inflow_ratio": 0.8434,
+    "b069_finance": 40.35,
+    "b069_infra": 14.39,
+    "b069_pop": 16.84,
+    "b069_sales": 14.16,
+    "b069_store": 14.05,
+    "b079_seoul_inflow_ratio": 0.7149
+  },
+  "11380520": {
+    "b042_seoul_inflow_ratio": 0.8548,
+    "b069_finance": 46.58,
+    "b069_infra": 12.57,
+    "b069_pop": 14.6,
+    "b069_sales": 17.3,
+    "b069_store": 19.8,
+    "b079_seoul_inflow_ratio": 0.7581
+  },
+  "11380530": {
+    "b042_seoul_inflow_ratio": 0.8527,
+    "b069_finance": 38.38,
+    "b069_infra": 12.34,
+    "b069_pop": 14.53,
+    "b069_sales": 13.03,
+    "b069_store": 16.58,
+    "b079_seoul_inflow_ratio": 0.7194
+  },
+  "11380551": {
+    "b042_seoul_inflow_ratio": 0.8317,
+    "b069_finance": 37.27,
+    "b069_infra": 10.79,
+    "b069_pop": 15.51,
+    "b069_sales": 18.93,
+    "b069_store": 24.43,
+    "b079_seoul_inflow_ratio": 0.7217
+  },
+  "11380552": {
+    "b042_seoul_inflow_ratio": 0.8646,
+    "b069_finance": 39.35,
+    "b069_infra": 14.46,
+    "b069_pop": 17.66,
+    "b069_sales": 18.24,
+    "b069_store": 25.9,
+    "b079_seoul_inflow_ratio": 0.7782
+  },
+  "11380560": {
+    "b042_seoul_inflow_ratio": 0.8776,
+    "b069_finance": 39.76,
+    "b069_infra": 11.6,
+    "b069_pop": 17.14,
+    "b069_sales": 11.41,
+    "b069_store": 15.07,
+    "b079_seoul_inflow_ratio": 0.7517
+  },
+  "11380570": {
+    "b042_seoul_inflow_ratio": 0.8569,
+    "b069_finance": 38.87,
+    "b069_infra": 16.41,
+    "b069_pop": 19.87,
+    "b069_sales": 16.06,
+    "b069_store": 29.31,
+    "b079_seoul_inflow_ratio": 0.7768
+  },
+  "11380580": {
+    "b042_seoul_inflow_ratio": 0.8986,
+    "b069_finance": 42.31,
+    "b069_infra": 16.06,
+    "b069_pop": 17.33,
+    "b069_sales": 18.18,
+    "b069_store": 21.93,
+    "b079_seoul_inflow_ratio": 0.8115
+  },
+  "11380590": {
+    "b042_seoul_inflow_ratio": 0.8879,
+    "b069_finance": 45.83,
+    "b069_infra": 6.83,
+    "b069_pop": 14.27,
+    "b069_sales": 8.62,
+    "b069_store": 13.27,
+    "b079_seoul_inflow_ratio": 0.7355
+  },
+  "11380600": {
+    "b042_seoul_inflow_ratio": 0.8888,
+    "b069_finance": 35.43,
+    "b069_infra": 14.91,
+    "b069_pop": 13.84,
+    "b069_sales": 12.44,
+    "b069_store": 23.37,
+    "b079_seoul_inflow_ratio": 0.7282
+  },
+  "11380625": {
+    "b042_seoul_inflow_ratio": 0.8799,
+    "b069_finance": 38.56,
+    "b069_infra": 11.62,
+    "b069_pop": 16.91,
+    "b069_sales": 12.96,
+    "b069_store": 24.36,
+    "b079_seoul_inflow_ratio": 0.7832
+  },
+  "11380631": {
+    "b042_seoul_inflow_ratio": 0.8869,
+    "b069_finance": 40.14,
+    "b069_infra": 14.22,
+    "b069_pop": 17.39,
+    "b069_sales": 14.87,
+    "b069_store": 19.4,
+    "b079_seoul_inflow_ratio": 0.6919
+  },
+  "11380632": {
+    "b042_seoul_inflow_ratio": 0.8921,
+    "b069_finance": 39.13,
+    "b069_infra": 8.86,
+    "b069_pop": 14.8,
+    "b069_sales": 9.12,
+    "b069_store": 13.55,
+    "b079_seoul_inflow_ratio": 0.6809
+  },
+  "11380640": {
+    "b042_seoul_inflow_ratio": 0.8829,
+    "b069_finance": 41.29,
+    "b069_infra": 12.22,
+    "b069_pop": 15.27,
+    "b069_sales": 12.1,
+    "b069_store": 14.35,
+    "b079_seoul_inflow_ratio": 0.666
+  },
+  "11380650": {
+    "b042_seoul_inflow_ratio": 0.8208,
+    "b069_finance": 38.2,
+    "b069_infra": 8.77,
+    "b069_pop": 10.54,
+    "b069_sales": 6.95,
+    "b069_store": 9.28,
+    "b079_seoul_inflow_ratio": 0.6581
+  },
+  "11380690": {
+    "b042_seoul_inflow_ratio": 0.7751,
+    "b069_finance": 53.35,
+    "b069_infra": 5.34,
+    "b069_pop": 10.3,
+    "b069_sales": 18.59,
+    "b069_store": 9.71,
+    "b079_seoul_inflow_ratio": 0.6546
+  },
+  "11410520": {
+    "b042_seoul_inflow_ratio": 0.8475,
+    "b069_finance": 50.54,
+    "b069_infra": 13.37,
+    "b069_pop": 16.53,
+    "b069_sales": 15.67,
+    "b069_store": 18.45,
+    "b079_seoul_inflow_ratio": 0.6365
+  },
+  "11410555": {
+    "b042_seoul_inflow_ratio": 0.8658,
+    "b069_finance": 44.74,
+    "b069_infra": 20.52,
+    "b069_pop": 20.53,
+    "b069_sales": 11.69,
+    "b069_store": 17.12,
+    "b079_seoul_inflow_ratio": 0.6294
+  },
+  "11410565": {
+    "b042_seoul_inflow_ratio": 0.6792,
+    "b069_finance": 43.7,
+    "b069_infra": 39.07,
+    "b069_pop": 17.44,
+    "b069_sales": 16.49,
+    "b069_store": 18.8,
+    "b079_seoul_inflow_ratio": 0.3958
+  },
+  "11410585": {
+    "b042_seoul_inflow_ratio": 0.6255,
+    "b069_finance": 43.61,
+    "b069_infra": 25.76,
+    "b069_pop": 24.78,
+    "b069_sales": 39.96,
+    "b069_store": 33.14,
+    "b079_seoul_inflow_ratio": 0.5388
+  },
+  "11410615": {
+    "b042_seoul_inflow_ratio": 0.7875,
+    "b069_finance": 42.36,
+    "b069_infra": 13.35,
+    "b069_pop": 10.34,
+    "b069_sales": 13.79,
+    "b069_store": 14.18,
+    "b079_seoul_inflow_ratio": 0.5075
+  },
+  "11410620": {
+    "b042_seoul_inflow_ratio": 0.8689,
+    "b069_finance": 42.84,
+    "b069_infra": 13.71,
+    "b069_pop": 15.82,
+    "b069_sales": 12.77,
+    "b069_store": 16.79,
+    "b079_seoul_inflow_ratio": 0.7632
+  },
+  "11410640": {
+    "b042_seoul_inflow_ratio": 0.8851,
+    "b069_finance": 40.86,
+    "b069_infra": 17.72,
+    "b069_pop": 17.15,
+    "b069_sales": 13.64,
+    "b069_store": 24.88,
+    "b079_seoul_inflow_ratio": 0.7585
+  },
+  "11410655": {
+    "b042_seoul_inflow_ratio": 0.8854,
+    "b069_finance": 51.56,
+    "b069_infra": 11.6,
+    "b069_pop": 17.7,
+    "b069_sales": 17.43,
+    "b069_store": 20.85,
+    "b079_seoul_inflow_ratio": 0.3592
+  },
+  "11410660": {
+    "b042_seoul_inflow_ratio": 0.8921,
+    "b069_finance": 42.36,
+    "b069_infra": 8.58,
+    "b069_pop": 10.7,
+    "b069_sales": 8.61,
+    "b069_store": 13.69,
+    "b079_seoul_inflow_ratio": 0.7044
+  },
+  "11410685": {
+    "b042_seoul_inflow_ratio": 0.8534,
+    "b069_finance": 40.97,
+    "b069_infra": 10.33,
+    "b069_pop": 13.4,
+    "b069_sales": 13.31,
+    "b069_store": 11.61,
+    "b079_seoul_inflow_ratio": 0.7038
+  },
+  "11410690": {
+    "b042_seoul_inflow_ratio": 0.879,
+    "b069_finance": 53.29,
+    "b069_infra": 12.91,
+    "b069_pop": 14.82,
+    "b069_sales": 12.71,
+    "b069_store": 19.26,
+    "b079_seoul_inflow_ratio": 0.7602
+  },
+  "11410700": {
+    "b042_seoul_inflow_ratio": 0.8218,
+    "b069_finance": 41.49,
+    "b069_infra": 12.68,
+    "b069_pop": 18.24,
+    "b069_sales": 12.0,
+    "b069_store": 19.43,
+    "b079_seoul_inflow_ratio": 0.7553
+  },
+  "11410710": {
+    "b042_seoul_inflow_ratio": 0.8777,
+    "b069_finance": 50.95,
+    "b069_infra": 9.36,
+    "b069_pop": 16.07,
+    "b069_sales": 10.48,
+    "b069_store": 12.0,
+    "b079_seoul_inflow_ratio": 0.6849
+  },
+  "11410720": {
+    "b042_seoul_inflow_ratio": 0.8911,
+    "b069_finance": 37.54,
+    "b069_infra": 11.47,
+    "b069_pop": 15.88,
+    "b069_sales": 9.43,
+    "b069_store": 21.3,
+    "b079_seoul_inflow_ratio": 0.6665
+  },
+  "11440555": {
+    "b042_seoul_inflow_ratio": 0.7956,
+    "b069_finance": 58.52,
+    "b069_infra": 40.03,
+    "b069_pop": 27.54,
+    "b069_sales": 22.33,
+    "b069_store": 24.9,
+    "b079_seoul_inflow_ratio": 0.3444
+  },
+  "11440565": {
+    "b042_seoul_inflow_ratio": 0.8336,
+    "b069_finance": 50.26,
+    "b069_infra": 20.41,
+    "b069_pop": 25.06,
+    "b069_sales": 15.57,
+    "b069_store": 20.62,
+    "b079_seoul_inflow_ratio": 0.6947
+  },
+  "11440585": {
+    "b042_seoul_inflow_ratio": 0.7789,
+    "b069_finance": 58.41,
+    "b069_infra": 41.33,
+    "b069_pop": 27.56,
+    "b069_sales": 27.34,
+    "b069_store": 35.94,
+    "b079_seoul_inflow_ratio": 0.5838
+  },
+  "11440590": {
+    "b042_seoul_inflow_ratio": 0.7689,
+    "b069_finance": 55.99,
+    "b069_infra": 36.35,
+    "b069_pop": 31.82,
+    "b069_sales": 32.13,
+    "b069_store": 31.84,
+    "b079_seoul_inflow_ratio": 0.6516
+  },
+  "11440600": {
+    "b042_seoul_inflow_ratio": 0.7141,
+    "b069_finance": 41.79,
+    "b069_infra": 25.63,
+    "b069_pop": 20.49,
+    "b069_sales": 18.65,
+    "b069_store": 22.34,
+    "b079_seoul_inflow_ratio": 0.633
+  },
+  "11440610": {
+    "b042_seoul_inflow_ratio": 0.7291,
+    "b069_finance": 47.74,
+    "b069_infra": 31.26,
+    "b069_pop": 18.98,
+    "b069_sales": 15.6,
+    "b069_store": 18.04,
+    "b079_seoul_inflow_ratio": 0.2857
+  },
+  "11440630": {
+    "b042_seoul_inflow_ratio": 0.818,
+    "b069_finance": 49.87,
+    "b069_infra": 15.37,
+    "b069_pop": 21.82,
+    "b069_sales": 11.95,
+    "b069_store": 17.67,
+    "b079_seoul_inflow_ratio": 0.652
+  },
+  "11440655": {
+    "b042_seoul_inflow_ratio": 0.6647,
+    "b069_finance": 52.4,
+    "b069_infra": 12.51,
+    "b069_pop": 21.01,
+    "b069_sales": 20.1,
+    "b069_store": 27.62,
+    "b079_seoul_inflow_ratio": 0.5141
+  },
+  "11440660": {
+    "b042_seoul_inflow_ratio": 0.612,
+    "b069_finance": 43.16,
+    "b069_infra": 38.2,
+    "b069_pop": 35.74,
+    "b069_sales": 33.31,
+    "b069_store": 48.55,
+    "b079_seoul_inflow_ratio": 0.5508
+  },
+  "11440680": {
+    "b042_seoul_inflow_ratio": 0.682,
+    "b069_finance": 43.43,
+    "b069_infra": 17.75,
+    "b069_pop": 20.04,
+    "b069_sales": 17.73,
+    "b069_store": 25.71,
+    "b079_seoul_inflow_ratio": 0.4666
+  },
+  "11440690": {
+    "b042_seoul_inflow_ratio": 0.773,
+    "b069_finance": 40.56,
+    "b069_infra": 11.6,
+    "b069_pop": 20.62,
+    "b069_sales": 14.57,
+    "b069_store": 29.83,
+    "b079_seoul_inflow_ratio": 0.6427
+  },
+  "11440700": {
+    "b042_seoul_inflow_ratio": 0.8323,
+    "b069_finance": 41.71,
+    "b069_infra": 11.06,
+    "b069_pop": 18.76,
+    "b069_sales": 11.69,
+    "b069_store": 25.96,
+    "b079_seoul_inflow_ratio": 0.6326
+  },
+  "11440710": {
+    "b042_seoul_inflow_ratio": 0.6498,
+    "b069_finance": 42.26,
+    "b069_infra": 16.42,
+    "b069_pop": 14.27,
+    "b069_sales": 14.77,
+    "b069_store": 27.04,
+    "b079_seoul_inflow_ratio": 0.5119
+  },
+  "11440720": {
+    "b042_seoul_inflow_ratio": 0.8032,
+    "b069_finance": 42.19,
+    "b069_infra": 16.95,
+    "b069_pop": 19.04,
+    "b069_sales": 11.07,
+    "b069_store": 18.56,
+    "b079_seoul_inflow_ratio": 0.3946
+  },
+  "11440730": {
+    "b042_seoul_inflow_ratio": 0.8597,
+    "b069_finance": 46.5,
+    "b069_infra": 12.12,
+    "b069_pop": 18.11,
+    "b069_sales": 16.13,
+    "b069_store": 16.94,
+    "b079_seoul_inflow_ratio": 0.719
+  },
+  "11440740": {
+    "b042_seoul_inflow_ratio": 0.7054,
+    "b069_finance": 53.29,
+    "b069_infra": 34.0,
+    "b069_pop": 21.08,
+    "b069_sales": 31.47,
+    "b069_store": 27.93,
+    "b079_seoul_inflow_ratio": 0.4126
+  },
+  "11470510": {
+    "b042_seoul_inflow_ratio": 0.8452,
+    "b069_finance": 67.26,
+    "b069_infra": 32.22,
+    "b069_pop": 33.92,
+    "b069_sales": 43.52,
+    "b069_store": 40.19,
+    "b079_seoul_inflow_ratio": 0.7901
+  },
+  "11470520": {
+    "b042_seoul_inflow_ratio": 0.8284,
+    "b069_finance": 42.8,
+    "b069_infra": 14.49,
+    "b069_pop": 17.72,
+    "b069_sales": 14.27,
+    "b069_store": 17.25,
+    "b079_seoul_inflow_ratio": 0.6618
+  },
+  "11470530": {
+    "b042_seoul_inflow_ratio": 0.8778,
+    "b069_finance": 42.37,
+    "b069_infra": 18.45,
+    "b069_pop": 22.0,
+    "b069_sales": 15.54,
+    "b069_store": 30.01,
+    "b079_seoul_inflow_ratio": 0.7683
+  },
+  "11470540": {
+    "b042_seoul_inflow_ratio": 0.8858,
+    "b069_finance": 42.37,
+    "b069_infra": 13.15,
+    "b069_pop": 21.55,
+    "b069_sales": 14.15,
+    "b069_store": 26.59,
+    "b079_seoul_inflow_ratio": 0.7195
+  },
+  "11470550": {
+    "b042_seoul_inflow_ratio": 0.8756,
+    "b069_finance": 70.94,
+    "b069_infra": 12.38,
+    "b069_pop": 23.81,
+    "b069_sales": 51.79,
+    "b069_store": 25.65,
+    "b079_seoul_inflow_ratio": 0.7887
+  },
+  "11470560": {
+    "b042_seoul_inflow_ratio": 0.8246,
+    "b069_finance": 34.99,
+    "b069_infra": 9.66,
+    "b069_pop": 23.07,
+    "b069_sales": 10.2,
+    "b069_store": 21.0,
+    "b079_seoul_inflow_ratio": 0.6853
+  },
+  "11470570": {
+    "b042_seoul_inflow_ratio": 0.8666,
+    "b069_finance": 38.44,
+    "b069_infra": 12.7,
+    "b069_pop": 20.8,
+    "b069_sales": 10.96,
+    "b069_store": 14.84,
+    "b079_seoul_inflow_ratio": 0.697
+  },
+  "11470580": {
+    "b042_seoul_inflow_ratio": 0.7589,
+    "b069_finance": 34.6,
+    "b069_infra": 11.3,
+    "b069_pop": 19.14,
+    "b069_sales": 10.21,
+    "b069_store": 16.06,
+    "b079_seoul_inflow_ratio": 0.5798
+  },
+  "11470590": {
+    "b042_seoul_inflow_ratio": 0.8383,
+    "b069_finance": 40.46,
+    "b069_infra": 12.89,
+    "b069_pop": 27.91,
+    "b069_sales": 12.76,
+    "b069_store": 22.34,
+    "b079_seoul_inflow_ratio": 0.707
+  },
+  "11470600": {
+    "b042_seoul_inflow_ratio": 0.8136,
+    "b069_finance": 38.87,
+    "b069_infra": 12.53,
+    "b069_pop": 22.0,
+    "b069_sales": 16.68,
+    "b069_store": 19.81,
+    "b079_seoul_inflow_ratio": 0.6645
+  },
+  "11470610": {
+    "b042_seoul_inflow_ratio": 0.8855,
+    "b069_finance": 38.84,
+    "b069_pop": 18.57,
+    "b069_sales": 10.08,
+    "b069_store": 13.78,
+    "b079_seoul_inflow_ratio": 0.772
+  },
+  "11470611": {
+    "b042_seoul_inflow_ratio": 0.8238,
+    "b069_finance": 37.99,
+    "b069_infra": 8.97,
+    "b069_pop": 19.28,
+    "b069_sales": 10.41,
+    "b069_store": 17.06,
+    "b079_seoul_inflow_ratio": 0.6472
+  },
+  "11470620": {
+    "b042_seoul_inflow_ratio": 0.896,
+    "b069_finance": 58.88,
+    "b069_infra": 11.52,
+    "b069_pop": 28.02,
+    "b069_sales": 22.62,
+    "b069_store": 27.64,
+    "b079_seoul_inflow_ratio": 0.7448
+  },
+  "11470630": {
+    "b042_seoul_inflow_ratio": 0.9156,
+    "b069_finance": 57.04,
+    "b069_infra": 8.1,
+    "b069_pop": 28.05,
+    "b069_sales": 22.7,
+    "b069_store": 32.01,
+    "b079_seoul_inflow_ratio": 0.7989
+  },
+  "11470640": {
+    "b042_seoul_inflow_ratio": 0.8821,
+    "b069_finance": 44.92,
+    "b069_infra": 10.21,
+    "b069_pop": 19.5,
+    "b069_sales": 17.69,
+    "b069_store": 15.44,
+    "b079_seoul_inflow_ratio": 0.6713
+  },
+  "11470650": {
+    "b042_seoul_inflow_ratio": 0.8298,
+    "b069_finance": 40.45,
+    "b069_infra": 16.33,
+    "b069_pop": 26.92,
+    "b069_sales": 17.16,
+    "b069_store": 27.49,
+    "b079_seoul_inflow_ratio": 0.6808
+  },
+  "11470670": {
+    "b042_seoul_inflow_ratio": 0.8547,
+    "b069_finance": 70.97,
+    "b069_infra": 11.41,
+    "b069_pop": 27.63,
+    "b069_sales": 26.95,
+    "b069_store": 25.29,
+    "b079_seoul_inflow_ratio": 0.7727
+  },
+  "11470680": {
+    "b042_seoul_inflow_ratio": 0.86,
+    "b069_finance": 60.9,
+    "b069_infra": 7.19,
+    "b069_pop": 19.03,
+    "b069_sales": 29.2,
+    "b069_store": 23.26,
+    "b079_seoul_inflow_ratio": 0.7422
+  },
+  "11500510": {
+    "b042_seoul_inflow_ratio": 0.8301,
+    "b069_finance": 56.55,
+    "b069_infra": 21.04,
+    "b069_pop": 26.72,
+    "b069_sales": 21.46,
+    "b069_store": 24.34,
+    "b079_seoul_inflow_ratio": 0.7142
+  },
+  "11500520": {
+    "b042_seoul_inflow_ratio": 0.8305,
+    "b069_finance": 47.66,
+    "b069_infra": 26.67,
+    "b069_pop": 27.13,
+    "b069_sales": 23.22,
+    "b069_store": 28.09,
+    "b079_seoul_inflow_ratio": 0.7357
+  },
+  "11500530": {
+    "b042_seoul_inflow_ratio": 0.6856,
+    "b069_finance": 44.89,
+    "b069_infra": 16.67,
+    "b069_pop": 15.26,
+    "b069_sales": 14.46,
+    "b069_store": 18.53,
+    "b079_seoul_inflow_ratio": 0.5459
+  },
+  "11500535": {
+    "b042_seoul_inflow_ratio": 0.8059,
+    "b069_finance": 47.96,
+    "b069_infra": 23.98,
+    "b069_pop": 31.18,
+    "b069_sales": 35.94,
+    "b069_store": 31.58,
+    "b079_seoul_inflow_ratio": 0.532
+  },
+  "11500540": {
+    "b042_seoul_inflow_ratio": 0.81,
+    "b069_finance": 39.22,
+    "b069_infra": 17.16,
+    "b069_pop": 24.87,
+    "b069_sales": 15.09,
+    "b069_store": 26.5,
+    "b079_seoul_inflow_ratio": 0.7119
+  },
+  "11500550": {
+    "b042_seoul_inflow_ratio": 0.827,
+    "b069_finance": 37.34,
+    "b069_infra": 8.5,
+    "b069_pop": 18.11,
+    "b069_sales": 9.34,
+    "b069_store": 16.18,
+    "b079_seoul_inflow_ratio": 0.5015
+  },
+  "11500560": {
+    "b042_seoul_inflow_ratio": 0.8326,
+    "b069_finance": 47.76,
+    "b069_infra": 13.46,
+    "b069_pop": 24.97,
+    "b069_sales": 21.12,
+    "b069_store": 32.3,
+    "b079_seoul_inflow_ratio": 0.6725
+  },
+  "11500570": {
+    "b042_seoul_inflow_ratio": 0.8418,
+    "b069_finance": 37.65,
+    "b069_infra": 12.44,
+    "b069_pop": 21.59,
+    "b069_sales": 12.95,
+    "b069_store": 24.86,
+    "b079_seoul_inflow_ratio": 0.695
+  },
+  "11500590": {
+    "b042_seoul_inflow_ratio": 0.8428,
+    "b069_finance": 39.18,
+    "b069_infra": 14.13,
+    "b069_pop": 21.68,
+    "b069_sales": 14.4,
+    "b069_store": 21.92,
+    "b079_seoul_inflow_ratio": 0.7428
+  },
+  "11500591": {
+    "b042_seoul_inflow_ratio": 0.7913,
+    "b069_finance": 43.34,
+    "b069_infra": 20.53,
+    "b069_pop": 28.07,
+    "b069_sales": 22.33,
+    "b069_store": 24.76,
+    "b079_seoul_inflow_ratio": 0.6013
+  },
+  "11500593": {
+    "b042_seoul_inflow_ratio": 0.8608,
+    "b069_finance": 39.48,
+    "b069_infra": 13.07,
+    "b069_pop": 18.68,
+    "b069_sales": 11.85,
+    "b069_store": 23.54,
+    "b079_seoul_inflow_ratio": 0.6995
+  },
+  "11500603": {
+    "b042_seoul_inflow_ratio": 0.7108,
+    "b069_finance": 55.62,
+    "b069_infra": 15.62,
+    "b069_pop": 15.8,
+    "b069_sales": 21.82,
+    "b069_store": 21.98,
+    "b079_seoul_inflow_ratio": 0.2517
+  },
+  "11500604": {
+    "b042_seoul_inflow_ratio": 0.854,
+    "b069_finance": 47.61,
+    "b069_infra": 14.46,
+    "b069_pop": 26.3,
+    "b069_sales": 29.43,
+    "b069_store": 28.25,
+    "b079_seoul_inflow_ratio": 0.7203
+  },
+  "11500605": {
+    "b042_seoul_inflow_ratio": 0.8863,
+    "b069_finance": 48.36,
+    "b069_infra": 18.63,
+    "b069_pop": 29.41,
+    "b069_sales": 28.28,
+    "b069_store": 21.93,
+    "b079_seoul_inflow_ratio": 0.6518
+  },
+  "11500611": {
+    "b042_seoul_inflow_ratio": 0.793,
+    "b069_finance": 41.63,
+    "b069_infra": 10.19,
+    "b069_pop": 21.68,
+    "b069_sales": 23.78,
+    "b069_store": 16.49,
+    "b079_seoul_inflow_ratio": 0.5676
+  },
+  "11500615": {
+    "b042_seoul_inflow_ratio": 0.8571,
+    "b069_finance": 50.81,
+    "b069_infra": 13.56,
+    "b069_pop": 24.45,
+    "b069_sales": 19.46,
+    "b069_store": 25.29,
+    "b079_seoul_inflow_ratio": 0.7328
+  },
+  "11500620": {
+    "b042_seoul_inflow_ratio": 0.5293,
+    "b069_finance": 41.35,
+    "b069_infra": 9.42,
+    "b069_pop": 14.81,
+    "b069_sales": 14.38,
+    "b069_store": 13.4,
+    "b079_seoul_inflow_ratio": 0.4218
+  },
+  "11500630": {
+    "b042_seoul_inflow_ratio": 0.837,
+    "b069_finance": 43.75,
+    "b069_infra": 9.19,
+    "b069_pop": 21.59,
+    "b069_sales": 18.18,
+    "b069_store": 24.97,
+    "b079_seoul_inflow_ratio": 0.7263
+  },
+  "11500640": {
+    "b042_seoul_inflow_ratio": 0.5782,
+    "b069_finance": 39.67,
+    "b069_infra": 7.56,
+    "b069_pop": 16.12,
+    "b069_sales": 12.03,
+    "b069_store": 15.15,
+    "b079_seoul_inflow_ratio": 0.4801
+  },
+  "11500641": {
+    "b042_seoul_inflow_ratio": 0.8587,
+    "b069_finance": 53.26,
+    "b069_infra": 11.35,
+    "b069_pop": 19.3,
+    "b069_sales": 22.08,
+    "b069_store": 17.47,
+    "b079_seoul_inflow_ratio": 0.6577
+  },
+  "11530510": {
+    "b042_seoul_inflow_ratio": 0.7598,
+    "b069_finance": 60.5,
+    "b069_infra": 17.08,
+    "b069_pop": 23.94,
+    "b069_sales": 16.8,
+    "b069_store": 20.91,
+    "b079_seoul_inflow_ratio": 0.6634
+  },
+  "11530520": {
+    "b042_seoul_inflow_ratio": 0.894,
+    "b069_finance": 65.51,
+    "b069_infra": 12.17,
+    "b069_pop": 24.46,
+    "b069_sales": 25.55,
+    "b069_store": 16.91,
+    "b079_seoul_inflow_ratio": 0.7417
+  },
+  "11530530": {
+    "b042_seoul_inflow_ratio": 0.6609,
+    "b069_finance": 39.17,
+    "b069_infra": 18.86,
+    "b069_pop": 22.06,
+    "b069_sales": 11.65,
+    "b069_store": 17.94,
+    "b079_seoul_inflow_ratio": 0.4944
+  },
+  "11530540": {
+    "b042_seoul_inflow_ratio": 0.6645,
+    "b069_finance": 47.7,
+    "b069_infra": 54.27,
+    "b069_pop": 32.79,
+    "b069_sales": 28.96,
+    "b069_store": 39.54,
+    "b079_seoul_inflow_ratio": 0.2751
+  },
+  "11530550": {
+    "b042_seoul_inflow_ratio": 0.8248,
+    "b069_finance": 40.98,
+    "b069_infra": 20.54,
+    "b069_pop": 23.78,
+    "b069_sales": 12.67,
+    "b069_store": 33.81,
+    "b079_seoul_inflow_ratio": 0.685
+  },
+  "11530560": {
+    "b042_seoul_inflow_ratio": 0.7555,
+    "b069_finance": 47.68,
+    "b069_infra": 20.44,
+    "b069_pop": 33.37,
+    "b069_sales": 21.16,
+    "b069_store": 30.69,
+    "b079_seoul_inflow_ratio": 0.5158
+  },
+  "11530595": {
+    "b042_seoul_inflow_ratio": 0.7114,
+    "b069_finance": 32.88,
+    "b069_infra": 27.59,
+    "b069_pop": 18.28,
+    "b069_sales": 6.16,
+    "b069_store": 23.12,
+    "b079_seoul_inflow_ratio": 0.4433
+  },
+  "11530720": {
+    "b042_seoul_inflow_ratio": 0.8116,
+    "b069_finance": 43.39,
+    "b069_infra": 12.34,
+    "b069_pop": 18.08,
+    "b069_sales": 19.33,
+    "b069_store": 19.89,
+    "b079_seoul_inflow_ratio": 0.7865
+  },
+  "11530730": {
+    "b042_seoul_inflow_ratio": 0.8806,
+    "b069_finance": 40.09,
+    "b069_infra": 8.93,
+    "b069_pop": 16.61,
+    "b069_sales": 12.0,
+    "b069_store": 21.11,
+    "b079_seoul_inflow_ratio": 0.7559
+  },
+  "11530740": {
+    "b042_seoul_inflow_ratio": 0.8208,
+    "b069_finance": 38.98,
+    "b069_infra": 13.29,
+    "b069_pop": 18.88,
+    "b069_sales": 14.46,
+    "b069_store": 18.39,
+    "b079_seoul_inflow_ratio": 0.7034
+  },
+  "11530750": {
+    "b042_seoul_inflow_ratio": 0.8137,
+    "b069_finance": 47.22,
+    "b069_infra": 13.72,
+    "b069_pop": 22.17,
+    "b069_sales": 13.42,
+    "b069_store": 24.1,
+    "b079_seoul_inflow_ratio": 0.7421
+  },
+  "11530760": {
+    "b042_seoul_inflow_ratio": 0.7054,
+    "b069_finance": 42.66,
+    "b069_infra": 8.85,
+    "b069_pop": 15.54,
+    "b069_sales": 10.53,
+    "b069_store": 19.43,
+    "b079_seoul_inflow_ratio": 0.5529
+  },
+  "11530770": {
+    "b042_seoul_inflow_ratio": 0.7893,
+    "b069_finance": 41.68,
+    "b069_infra": 14.75,
+    "b069_pop": 20.63,
+    "b069_sales": 16.17,
+    "b069_store": 21.05,
+    "b079_seoul_inflow_ratio": 0.6754
+  },
+  "11530780": {
+    "b042_seoul_inflow_ratio": 0.727,
+    "b069_finance": 39.82,
+    "b069_infra": 6.19,
+    "b069_pop": 13.35,
+    "b069_sales": 14.07,
+    "b069_store": 9.68,
+    "b079_seoul_inflow_ratio": 0.6366
+  },
+  "11530790": {
+    "b042_seoul_inflow_ratio": 0.6593,
+    "b069_finance": 38.87,
+    "b069_infra": 8.87,
+    "b069_pop": 12.02,
+    "b069_sales": 11.92,
+    "b069_store": 10.61,
+    "b079_seoul_inflow_ratio": 0.5356
+  },
+  "11545510": {
+    "b042_seoul_inflow_ratio": 0.5585,
+    "b069_finance": 40.38,
+    "b069_infra": 40.05,
+    "b069_pop": 21.6,
+    "b069_sales": 15.67,
+    "b069_store": 29.09,
+    "b079_seoul_inflow_ratio": 0.4019
+  },
+  "11545610": {
+    "b042_seoul_inflow_ratio": 0.7515,
+    "b069_finance": 42.11,
+    "b069_infra": 20.71,
+    "b069_pop": 22.2,
+    "b069_sales": 14.82,
+    "b069_store": 16.59,
+    "b079_seoul_inflow_ratio": 0.6633
+  },
+  "11545620": {
+    "b042_seoul_inflow_ratio": 0.8529,
+    "b069_finance": 36.47,
+    "b069_infra": 13.46,
+    "b069_pop": 16.78,
+    "b069_sales": 12.68,
+    "b069_store": 17.47,
+    "b079_seoul_inflow_ratio": 0.7526
+  },
+  "11545630": {
+    "b042_seoul_inflow_ratio": 0.8354,
+    "b069_finance": 36.12,
+    "b069_infra": 16.9,
+    "b069_pop": 16.68,
+    "b069_sales": 12.17,
+    "b069_store": 21.73,
+    "b079_seoul_inflow_ratio": 0.7132
+  },
+  "11545640": {
+    "b042_seoul_inflow_ratio": 0.8037,
+    "b069_finance": 35.55,
+    "b069_infra": 17.64,
+    "b069_pop": 17.66,
+    "b069_sales": 12.25,
+    "b069_store": 21.08,
+    "b079_seoul_inflow_ratio": 0.6225
+  },
+  "11545670": {
+    "b042_seoul_inflow_ratio": 0.7896,
+    "b069_finance": 41.32,
+    "b069_infra": 19.51,
+    "b069_pop": 22.36,
+    "b069_sales": 19.06,
+    "b069_store": 24.21,
+    "b079_seoul_inflow_ratio": 0.735
+  },
+  "11545680": {
+    "b042_seoul_inflow_ratio": 0.8922,
+    "b069_finance": 55.68,
+    "b069_infra": 9.85,
+    "b069_pop": 21.38,
+    "b069_sales": 21.16,
+    "b069_store": 16.12,
+    "b079_seoul_inflow_ratio": 0.746
+  },
+  "11545690": {
+    "b042_seoul_inflow_ratio": 0.5056,
+    "b069_finance": 41.89,
+    "b069_infra": 12.69,
+    "b069_pop": 16.71,
+    "b069_sales": 15.39,
+    "b069_store": 11.17,
+    "b079_seoul_inflow_ratio": 0.3632
+  },
+  "11545700": {
+    "b042_seoul_inflow_ratio": 0.8963,
+    "b069_finance": 38.54,
+    "b069_pop": 14.77,
+    "b069_sales": 7.39,
+    "b069_store": 17.29,
+    "b079_seoul_inflow_ratio": 0.797
+  },
+  "11545710": {
+    "b042_seoul_inflow_ratio": 0.8834,
+    "b069_finance": 35.15,
+    "b069_infra": 12.3,
+    "b069_pop": 16.65,
+    "b069_sales": 10.01,
+    "b069_store": 22.1,
+    "b079_seoul_inflow_ratio": 0.7693
+  },
+  "11560515": {
+    "b042_seoul_inflow_ratio": 0.6687,
+    "b069_finance": 41.07,
+    "b069_infra": 14.3,
+    "b069_pop": 23.4,
+    "b069_sales": 12.78,
+    "b069_store": 21.63,
+    "b079_seoul_inflow_ratio": 0.542
+  },
+  "11560535": {
+    "b042_seoul_inflow_ratio": 0.6585,
+    "b069_finance": 46.28,
+    "b069_infra": 29.17,
+    "b069_pop": 30.59,
+    "b069_sales": 21.77,
+    "b069_store": 33.15,
+    "b079_seoul_inflow_ratio": 0.4367
+  },
+  "11560540": {
+    "b042_seoul_inflow_ratio": 0.6677,
+    "b069_finance": 72.65,
+    "b069_infra": 58.43,
+    "b069_pop": 49.12,
+    "b069_sales": 54.34,
+    "b069_store": 24.69,
+    "b079_seoul_inflow_ratio": 0.2608
+  },
+  "11560550": {
+    "b042_seoul_inflow_ratio": 0.7258,
+    "b069_finance": 45.92,
+    "b069_infra": 25.88,
+    "b069_pop": 29.77,
+    "b069_sales": 17.91,
+    "b069_store": 29.92,
+    "b079_seoul_inflow_ratio": 0.4953
+  },
+  "11560560": {
+    "b042_seoul_inflow_ratio": 0.7474,
+    "b069_finance": 56.53,
+    "b069_infra": 29.28,
+    "b069_pop": 33.19,
+    "b069_sales": 23.98,
+    "b069_store": 30.61,
+    "b079_seoul_inflow_ratio": 0.6461
+  },
+  "11560585": {
+    "b042_seoul_inflow_ratio": 0.8309,
+    "b069_finance": 41.8,
+    "b069_infra": 9.71,
+    "b069_pop": 17.43,
+    "b069_sales": 11.84,
+    "b069_store": 19.23,
+    "b079_seoul_inflow_ratio": 0.6084
+  },
+  "11560605": {
+    "b042_seoul_inflow_ratio": 0.7201,
+    "b069_finance": 61.25,
+    "b069_infra": 27.19,
+    "b069_pop": 24.74,
+    "b069_sales": 16.21,
+    "b069_store": 20.66,
+    "b079_seoul_inflow_ratio": 0.3037
+  },
+  "11560610": {
+    "b042_seoul_inflow_ratio": 0.6071,
+    "b069_finance": 46.8,
+    "b069_infra": 26.13,
+    "b069_pop": 23.67,
+    "b069_sales": 13.9,
+    "b069_store": 23.58,
+    "b079_seoul_inflow_ratio": 0.5164
+  },
+  "11560620": {
+    "b042_seoul_inflow_ratio": 0.653,
+    "b069_finance": 48.78,
+    "b069_infra": 19.47,
+    "b069_pop": 23.61,
+    "b069_sales": 21.33,
+    "b069_store": 19.86,
+    "b079_seoul_inflow_ratio": 0.2555
+  },
+  "11560630": {
+    "b042_seoul_inflow_ratio": 0.797,
+    "b069_finance": 40.17,
+    "b069_infra": 13.9,
+    "b069_pop": 16.27,
+    "b069_sales": 12.99,
+    "b069_store": 19.06,
+    "b079_seoul_inflow_ratio": 0.6496
+  },
+  "11560650": {
+    "b042_seoul_inflow_ratio": 0.8578,
+    "b069_finance": 40.34,
+    "b069_infra": 11.98,
+    "b069_pop": 22.89,
+    "b069_sales": 10.97,
+    "b069_store": 18.68,
+    "b079_seoul_inflow_ratio": 0.6385
+  },
+  "11560660": {
+    "b042_seoul_inflow_ratio": 0.8446,
+    "b069_finance": 39.89,
+    "b069_infra": 11.9,
+    "b069_pop": 20.98,
+    "b069_sales": 7.5,
+    "b069_store": 17.4,
+    "b079_seoul_inflow_ratio": 0.6478
+  },
+  "11560670": {
+    "b042_seoul_inflow_ratio": 0.8151,
+    "b069_finance": 35.67,
+    "b069_infra": 11.59,
+    "b069_pop": 12.09,
+    "b069_sales": 9.46,
+    "b069_store": 13.3,
+    "b079_seoul_inflow_ratio": 0.628
+  },
+  "11560680": {
+    "b042_seoul_inflow_ratio": 0.8322,
+    "b069_finance": 40.03,
+    "b069_infra": 16.86,
+    "b069_pop": 18.82,
+    "b069_sales": 15.19,
+    "b069_store": 19.45,
+    "b079_seoul_inflow_ratio": 0.7242
+  },
+  "11560690": {
+    "b042_seoul_inflow_ratio": 0.7637,
+    "b069_finance": 44.39,
+    "b069_infra": 16.16,
+    "b069_pop": 22.47,
+    "b069_sales": 15.98,
+    "b069_store": 14.48,
+    "b079_seoul_inflow_ratio": 0.5071
+  },
+  "11560700": {
+    "b042_seoul_inflow_ratio": 0.7884,
+    "b069_finance": 39.08,
+    "b069_infra": 14.03,
+    "b069_pop": 19.03,
+    "b069_sales": 11.31,
+    "b069_store": 24.1,
+    "b079_seoul_inflow_ratio": 0.6865
+  },
+  "11560710": {
+    "b042_seoul_inflow_ratio": 0.7582,
+    "b069_finance": 43.08,
+    "b069_infra": 22.3,
+    "b069_pop": 22.02,
+    "b069_sales": 14.11,
+    "b069_store": 23.65,
+    "b079_seoul_inflow_ratio": 0.5452
+  },
+  "11560720": {
+    "b042_seoul_inflow_ratio": 0.791,
+    "b069_finance": 43.13,
+    "b069_infra": 18.95,
+    "b069_pop": 26.08,
+    "b069_sales": 10.93,
+    "b069_store": 20.9,
+    "b079_seoul_inflow_ratio": 0.4189
+  },
+  "11590510": {
+    "b042_seoul_inflow_ratio": 0.5759,
+    "b069_finance": 46.58,
+    "b069_infra": 21.52,
+    "b069_pop": 25.07,
+    "b069_sales": 20.95,
+    "b069_store": 23.94,
+    "b079_seoul_inflow_ratio": 0.547
+  },
+  "11590520": {
+    "b042_seoul_inflow_ratio": 0.7312,
+    "b069_finance": 38.63,
+    "b069_infra": 23.95,
+    "b069_pop": 21.8,
+    "b069_sales": 19.2,
+    "b069_store": 22.72,
+    "b079_seoul_inflow_ratio": 0.5889
+  },
+  "11590530": {
+    "b042_seoul_inflow_ratio": 0.7842,
+    "b069_finance": 49.5,
+    "b069_infra": 13.96,
+    "b069_pop": 19.6,
+    "b069_sales": 19.47,
+    "b069_store": 25.44,
+    "b079_seoul_inflow_ratio": 0.7194
+  },
+  "11590540": {
+    "b042_seoul_inflow_ratio": 0.873,
+    "b069_finance": 49.08,
+    "b069_infra": 18.91,
+    "b069_pop": 19.33,
+    "b069_sales": 18.78,
+    "b069_store": 24.88,
+    "b079_seoul_inflow_ratio": 0.7773
+  },
+  "11590550": {
+    "b042_seoul_inflow_ratio": 0.8908,
+    "b069_finance": 39.55,
+    "b069_infra": 13.85,
+    "b069_pop": 19.01,
+    "b069_sales": 14.84,
+    "b069_store": 20.16,
+    "b079_seoul_inflow_ratio": 0.7837
+  },
+  "11590560": {
+    "b042_seoul_inflow_ratio": 0.8783,
+    "b069_finance": 39.84,
+    "b069_infra": 9.95,
+    "b069_pop": 13.28,
+    "b069_sales": 11.62,
+    "b069_store": 14.49,
+    "b079_seoul_inflow_ratio": 0.7001
+  },
+  "11590605": {
+    "b042_seoul_inflow_ratio": 0.7406,
+    "b069_finance": 46.1,
+    "b069_infra": 11.12,
+    "b069_pop": 13.27,
+    "b069_sales": 15.6,
+    "b069_store": 15.67,
+    "b079_seoul_inflow_ratio": 0.7062
+  },
+  "11590620": {
+    "b042_seoul_inflow_ratio": 0.7399,
+    "b069_finance": 45.33,
+    "b069_infra": 22.45,
+    "b069_pop": 26.23,
+    "b069_sales": 18.97,
+    "b069_store": 27.95,
+    "b079_seoul_inflow_ratio": 0.5899
+  },
+  "11590630": {
+    "b042_seoul_inflow_ratio": 0.8269,
+    "b069_finance": 51.17,
+    "b069_infra": 15.21,
+    "b069_pop": 18.9,
+    "b069_sales": 27.66,
+    "b069_store": 26.13,
+    "b079_seoul_inflow_ratio": 0.6867
+  },
+  "11590640": {
+    "b042_seoul_inflow_ratio": 0.8796,
+    "b069_finance": 47.72,
+    "b069_infra": 13.04,
+    "b069_pop": 17.74,
+    "b069_sales": 8.96,
+    "b069_store": 18.9,
+    "b079_seoul_inflow_ratio": 0.7082
+  },
+  "11590650": {
+    "b042_seoul_inflow_ratio": 0.8837,
+    "b069_finance": 44.73,
+    "b069_infra": 11.15,
+    "b069_pop": 14.34,
+    "b069_sales": 14.69,
+    "b069_store": 19.92,
+    "b079_seoul_inflow_ratio": 0.6311
+  },
+  "11590651": {
+    "b042_seoul_inflow_ratio": 0.8637,
+    "b069_finance": 41.47,
+    "b069_pop": 12.08,
+    "b069_sales": 7.13,
+    "b069_store": 14.14,
+    "b079_seoul_inflow_ratio": 0.6849
+  },
+  "11590660": {
+    "b042_seoul_inflow_ratio": 0.8167,
+    "b069_finance": 46.21,
+    "b069_infra": 19.23,
+    "b069_pop": 21.5,
+    "b069_sales": 19.17,
+    "b069_store": 19.64,
+    "b079_seoul_inflow_ratio": 0.7128
+  },
+  "11590670": {
+    "b042_seoul_inflow_ratio": 0.8415,
+    "b069_finance": 50.14,
+    "b069_infra": 14.41,
+    "b069_pop": 23.43,
+    "b069_sales": 16.02,
+    "b069_store": 20.5,
+    "b079_seoul_inflow_ratio": 0.6134
+  },
+  "11590680": {
+    "b042_seoul_inflow_ratio": 0.778,
+    "b069_finance": 45.63,
+    "b069_infra": 27.97,
+    "b069_pop": 29.2,
+    "b069_sales": 22.01,
+    "b069_store": 19.35,
+    "b079_seoul_inflow_ratio": 0.6614
+  },
+  "11620525": {
+    "b042_seoul_inflow_ratio": 0.8431,
+    "b069_finance": 41.01,
+    "b069_infra": 21.05,
+    "b069_pop": 21.27,
+    "b069_sales": 15.1,
+    "b069_store": 23.71,
+    "b079_seoul_inflow_ratio": 0.3169
+  },
+  "11620545": {
+    "b042_seoul_inflow_ratio": 0.8992,
+    "b069_finance": 49.61,
+    "b069_pop": 18.3,
+    "b069_sales": 14.16,
+    "b069_store": 22.77,
+    "b079_seoul_inflow_ratio": 0.6865
+  },
+  "11620565": {
+    "b042_seoul_inflow_ratio": 0.912,
+    "b069_finance": 48.42,
+    "b069_pop": 21.06,
+    "b069_sales": 10.71,
+    "b069_store": 21.95,
+    "b079_seoul_inflow_ratio": 0.7244
+  },
+  "11620575": {
+    "b042_seoul_inflow_ratio": 0.8092,
+    "b069_finance": 44.35,
+    "b069_infra": 24.3,
+    "b069_pop": 26.97,
+    "b069_sales": 19.14,
+    "b069_store": 29.09,
+    "b079_seoul_inflow_ratio": 0.7017
+  },
+  "11620585": {
+    "b042_seoul_inflow_ratio": 0.7208,
+    "b069_finance": 48.03,
+    "b069_infra": 17.68,
+    "b069_pop": 27.83,
+    "b069_sales": 28.01,
+    "b069_store": 27.83,
+    "b079_seoul_inflow_ratio": 0.6773
+  },
+  "11620595": {
+    "b042_seoul_inflow_ratio": 0.7533,
+    "b069_finance": 42.47,
+    "b069_infra": 16.51,
+    "b069_pop": 26.16,
+    "b069_sales": 21.03,
+    "b069_store": 29.0,
+    "b079_seoul_inflow_ratio": 0.669
+  },
+  "11620605": {
+    "b042_seoul_inflow_ratio": 0.8623,
+    "b069_finance": 44.03,
+    "b069_infra": 19.37,
+    "b069_pop": 23.54,
+    "b069_sales": 17.21,
+    "b069_store": 26.43,
+    "b079_seoul_inflow_ratio": 0.7186
+  },
+  "11620615": {
+    "b042_seoul_inflow_ratio": 0.8288,
+    "b069_finance": 40.74,
+    "b069_infra": 21.3,
+    "b069_pop": 28.06,
+    "b069_sales": 19.38,
+    "b069_store": 29.63,
+    "b079_seoul_inflow_ratio": 0.707
+  },
+  "11620625": {
+    "b042_seoul_inflow_ratio": 0.8222,
+    "b069_finance": 45.41,
+    "b069_infra": 17.55,
+    "b069_pop": 20.58,
+    "b069_sales": 18.88,
+    "b069_store": 25.88,
+    "b079_seoul_inflow_ratio": 0.7516
+  },
+  "11620630": {
+    "b042_seoul_inflow_ratio": 0.71,
+    "b069_finance": 48.06,
+    "b069_infra": 17.0,
+    "b069_pop": 23.44,
+    "b069_sales": 23.19,
+    "b069_store": 19.8,
+    "b079_seoul_inflow_ratio": 0.5727
+  },
+  "11620645": {
+    "b042_seoul_inflow_ratio": 0.7609,
+    "b069_finance": 40.9,
+    "b069_infra": 19.37,
+    "b069_pop": 24.83,
+    "b069_sales": 28.67,
+    "b069_store": 27.88,
+    "b079_seoul_inflow_ratio": 0.7052
+  },
+  "11620655": {
+    "b042_seoul_inflow_ratio": 0.8591,
+    "b069_finance": 41.31,
+    "b069_infra": 13.93,
+    "b069_pop": 21.92,
+    "b069_sales": 13.45,
+    "b069_store": 19.13,
+    "b079_seoul_inflow_ratio": 0.7659
+  },
+  "11620665": {
+    "b042_seoul_inflow_ratio": 0.7609,
+    "b069_finance": 42.48,
+    "b069_infra": 16.42,
+    "b069_pop": 19.28,
+    "b069_sales": 14.08,
+    "b069_store": 17.05,
+    "b079_seoul_inflow_ratio": 0.6557
+  },
+  "11620685": {
+    "b042_seoul_inflow_ratio": 0.8317,
+    "b069_finance": 40.52,
+    "b069_infra": 12.86,
+    "b069_pop": 23.24,
+    "b069_sales": 10.89,
+    "b069_store": 22.89,
+    "b079_seoul_inflow_ratio": 0.6844
+  },
+  "11620695": {
+    "b042_seoul_inflow_ratio": 0.7439,
+    "b069_finance": 41.7,
+    "b069_infra": 24.86,
+    "b069_pop": 32.24,
+    "b069_sales": 29.0,
+    "b069_store": 37.83,
+    "b079_seoul_inflow_ratio": 0.6864
+  },
+  "11620715": {
+    "b042_seoul_inflow_ratio": 0.8981,
+    "b069_finance": 44.38,
+    "b069_pop": 16.83,
+    "b069_sales": 12.26,
+    "b069_store": 16.53,
+    "b079_seoul_inflow_ratio": 0.7608
+  },
+  "11620725": {
+    "b042_seoul_inflow_ratio": 0.7859,
+    "b069_finance": 38.24,
+    "b069_infra": 18.36,
+    "b069_pop": 23.69,
+    "b069_sales": 14.82,
+    "b069_store": 28.36,
+    "b079_seoul_inflow_ratio": 0.6092
+  },
+  "11620735": {
+    "b042_seoul_inflow_ratio": 0.6278,
+    "b069_finance": 42.58,
+    "b069_infra": 14.48,
+    "b069_pop": 18.2,
+    "b069_sales": 19.58,
+    "b069_store": 26.1,
+    "b079_seoul_inflow_ratio": 0.5642
+  },
+  "11620745": {
+    "b042_seoul_inflow_ratio": 0.8697,
+    "b069_finance": 41.86,
+    "b069_pop": 12.72,
+    "b069_sales": 8.67,
+    "b069_store": 13.35,
+    "b079_seoul_inflow_ratio": 0.7159
+  },
+  "11620765": {
+    "b042_seoul_inflow_ratio": 0.8933,
+    "b069_finance": 39.43,
+    "b069_infra": 18.35,
+    "b069_pop": 20.41,
+    "b069_sales": 13.49,
+    "b069_store": 21.34,
+    "b079_seoul_inflow_ratio": 0.7779
+  },
+  "11620775": {
+    "b042_seoul_inflow_ratio": 0.9197,
+    "b069_finance": 36.5,
+    "b069_infra": 10.84,
+    "b069_pop": 16.46,
+    "b069_sales": 10.21,
+    "b069_store": 15.94,
+    "b079_seoul_inflow_ratio": 0.8451
+  },
+  "11650510": {
+    "b042_seoul_inflow_ratio": 0.639,
+    "b069_finance": 58.82,
+    "b069_infra": 38.3,
+    "b069_pop": 27.79,
+    "b069_sales": 26.48,
+    "b069_store": 20.91,
+    "b079_seoul_inflow_ratio": 0.4761
+  },
+  "11650520": {
+    "b042_seoul_inflow_ratio": 0.5879,
+    "b069_finance": 68.94,
+    "b069_infra": 58.94,
+    "b069_pop": 41.92,
+    "b069_sales": 33.48,
+    "b069_store": 29.34,
+    "b079_seoul_inflow_ratio": 0.1968
+  },
+  "11650530": {
+    "b042_seoul_inflow_ratio": 0.6393,
+    "b069_finance": 57.08,
+    "b069_infra": 42.98,
+    "b069_pop": 35.09,
+    "b069_sales": 29.75,
+    "b069_store": 23.77,
+    "b079_seoul_inflow_ratio": 0.2784
+  },
+  "11650531": {
+    "b042_seoul_inflow_ratio": 0.541,
+    "b069_finance": 79.16,
+    "b069_infra": 44.0,
+    "b069_pop": 38.23,
+    "b069_sales": 55.38,
+    "b069_store": 46.7,
+    "b079_seoul_inflow_ratio": 0.4501
+  },
+  "11650540": {
+    "b042_seoul_inflow_ratio": 0.7092,
+    "b069_finance": 67.52,
+    "b069_infra": 28.79,
+    "b069_pop": 28.16,
+    "b069_sales": 26.98,
+    "b069_store": 27.37,
+    "b079_seoul_inflow_ratio": 0.4684
+  },
+  "11650550": {
+    "b042_seoul_inflow_ratio": 0.894,
+    "b069_finance": 70.89,
+    "b069_infra": 18.24,
+    "b069_pop": 20.73,
+    "b069_sales": 34.4,
+    "b069_store": 16.08,
+    "b079_seoul_inflow_ratio": 0.2018
+  },
+  "11650560": {
+    "b042_seoul_inflow_ratio": 0.6296,
+    "b069_finance": 62.91,
+    "b069_infra": 26.28,
+    "b069_pop": 26.67,
+    "b069_sales": 24.6,
+    "b069_store": 35.07,
+    "b079_seoul_inflow_ratio": 0.439
+  },
+  "11650570": {
+    "b042_seoul_inflow_ratio": 0.8496,
+    "b069_finance": 84.68,
+    "b069_infra": 15.06,
+    "b069_pop": 29.19,
+    "b069_sales": 22.7,
+    "b069_store": 18.75,
+    "b079_seoul_inflow_ratio": 0.6857
+  },
+  "11650580": {
+    "b042_seoul_inflow_ratio": 0.8356,
+    "b069_finance": 84.33,
+    "b069_infra": 18.02,
+    "b069_pop": 36.77,
+    "b069_sales": 39.01,
+    "b069_store": 27.87,
+    "b079_seoul_inflow_ratio": 0.7801
+  },
+  "11650581": {
+    "b042_seoul_inflow_ratio": 0.6896,
+    "b069_finance": 63.98,
+    "b069_infra": 22.47,
+    "b069_pop": 22.95,
+    "b069_sales": 39.03,
+    "b069_store": 27.1,
+    "b079_seoul_inflow_ratio": 0.6453
+  },
+  "11650590": {
+    "b042_seoul_inflow_ratio": 0.8014,
+    "b069_finance": 58.77,
+    "b069_infra": 17.51,
+    "b069_pop": 22.35,
+    "b069_sales": 21.14,
+    "b069_store": 25.14,
+    "b079_seoul_inflow_ratio": 0.6095
+  },
+  "11650600": {
+    "b042_seoul_inflow_ratio": 0.7672,
+    "b069_finance": 52.58,
+    "b069_infra": 28.36,
+    "b069_pop": 26.12,
+    "b069_sales": 20.28,
+    "b069_store": 27.57,
+    "b079_seoul_inflow_ratio": 0.5992
+  },
+  "11650610": {
+    "b042_seoul_inflow_ratio": 0.683,
+    "b069_finance": 48.42,
+    "b069_infra": 15.99,
+    "b069_pop": 22.81,
+    "b069_sales": 18.6,
+    "b069_store": 18.75,
+    "b079_seoul_inflow_ratio": 0.2369
+  },
+  "11650620": {
+    "b042_seoul_inflow_ratio": 0.6695,
+    "b069_finance": 58.83,
+    "b069_infra": 13.94,
+    "b069_pop": 19.41,
+    "b069_sales": 17.43,
+    "b069_store": 11.27,
+    "b079_seoul_inflow_ratio": 0.292
+  },
+  "11650621": {
+    "b042_seoul_inflow_ratio": 0.7999,
+    "b069_finance": 56.7,
+    "b069_infra": 23.87,
+    "b069_pop": 24.17,
+    "b069_sales": 17.61,
+    "b069_store": 25.17,
+    "b079_seoul_inflow_ratio": 0.6451
+  },
+  "11650651": {
+    "b042_seoul_inflow_ratio": 0.6483,
+    "b069_finance": 53.0,
+    "b069_infra": 26.0,
+    "b069_pop": 20.92,
+    "b069_sales": 22.44,
+    "b069_store": 15.32,
+    "b079_seoul_inflow_ratio": 0.4826
+  },
+  "11650652": {
+    "b042_seoul_inflow_ratio": 0.6607,
+    "b069_finance": 50.69,
+    "b069_infra": 22.17,
+    "b069_pop": 24.79,
+    "b069_sales": 17.58,
+    "b069_store": 16.65,
+    "b079_seoul_inflow_ratio": 0.127
+  },
+  "11650660": {
+    "b042_seoul_inflow_ratio": 0.6582,
+    "b069_finance": 44.65,
+    "b069_infra": 4.08,
+    "b069_pop": 5.64,
+    "b069_sales": 9.0,
+    "b069_store": 4.87,
+    "b079_seoul_inflow_ratio": 0.4844
+  },
+  "11680510": {
+    "b042_seoul_inflow_ratio": 0.6301,
+    "b069_finance": 59.46,
+    "b069_infra": 43.05,
+    "b069_pop": 35.81,
+    "b069_sales": 46.79,
+    "b069_store": 50.85,
+    "b079_seoul_inflow_ratio": 0.5401
+  },
+  "11680521": {
+    "b042_seoul_inflow_ratio": 0.602,
+    "b069_finance": 48.51,
+    "b069_infra": 58.35,
+    "b069_pop": 29.58,
+    "b069_sales": 31.08,
+    "b069_store": 35.93,
+    "b079_seoul_inflow_ratio": 0.4253
+  },
+  "11680531": {
+    "b042_seoul_inflow_ratio": 0.6031,
+    "b069_finance": 53.37,
+    "b069_infra": 70.28,
+    "b069_pop": 33.18,
+    "b069_sales": 32.52,
+    "b069_store": 28.99,
+    "b079_seoul_inflow_ratio": 0.4069
+  },
+  "11680545": {
+    "b042_seoul_inflow_ratio": 0.6425,
+    "b069_finance": 72.12,
+    "b069_infra": 45.64,
+    "b069_pop": 33.9,
+    "b069_sales": 50.57,
+    "b069_store": 34.48,
+    "b079_seoul_inflow_ratio": 0.5492
+  },
+  "11680565": {
+    "b042_seoul_inflow_ratio": 0.6645,
+    "b069_finance": 62.25,
+    "b069_infra": 48.58,
+    "b069_pop": 24.87,
+    "b069_sales": 41.47,
+    "b069_store": 27.77,
+    "b079_seoul_inflow_ratio": 0.4785
+  },
+  "11680580": {
+    "b042_seoul_inflow_ratio": 0.6181,
+    "b069_finance": 60.57,
+    "b069_infra": 62.37,
+    "b069_pop": 32.27,
+    "b069_sales": 37.87,
+    "b069_store": 27.59,
+    "b079_seoul_inflow_ratio": 0.2916
+  },
+  "11680590": {
+    "b042_seoul_inflow_ratio": 0.6651,
+    "b069_finance": 60.19,
+    "b069_infra": 51.07,
+    "b069_pop": 32.47,
+    "b069_sales": 27.16,
+    "b069_store": 34.16,
+    "b079_seoul_inflow_ratio": 0.5084
+  },
+  "11680600": {
+    "b042_seoul_inflow_ratio": 0.8543,
+    "b069_finance": 84.37,
+    "b069_infra": 19.96,
+    "b069_pop": 34.42,
+    "b069_sales": 54.98,
+    "b069_store": 41.58,
+    "b079_seoul_inflow_ratio": 0.788
+  },
+  "11680610": {
+    "b042_seoul_inflow_ratio": 0.7097,
+    "b069_finance": 68.51,
+    "b069_infra": 37.7,
+    "b069_pop": 34.73,
+    "b069_sales": 40.06,
+    "b069_store": 25.92,
+    "b079_seoul_inflow_ratio": 0.5233
+  },
+  "11680630": {
+    "b042_seoul_inflow_ratio": 0.7508,
+    "b069_finance": 54.77,
+    "b069_infra": 47.81,
+    "b069_pop": 38.3,
+    "b069_sales": 37.56,
+    "b069_store": 51.72,
+    "b079_seoul_inflow_ratio": 0.2306
+  },
+  "11680640": {
+    "b042_seoul_inflow_ratio": 0.5384,
+    "b069_finance": 49.87,
+    "b069_infra": 70.87,
+    "b069_pop": 38.11,
+    "b069_sales": 37.5,
+    "b069_store": 43.54,
+    "b079_seoul_inflow_ratio": 0.2587
+  },
+  "11680650": {
+    "b042_seoul_inflow_ratio": 0.6312,
+    "b069_finance": 63.43,
+    "b069_infra": 54.56,
+    "b069_pop": 34.81,
+    "b069_sales": 28.3,
+    "b069_store": 30.74,
+    "b079_seoul_inflow_ratio": 0.2697
+  },
+  "11680655": {
+    "b042_seoul_inflow_ratio": 0.5973,
+    "b069_finance": 64.58,
+    "b069_infra": 41.38,
+    "b069_pop": 27.32,
+    "b069_sales": 30.97,
+    "b069_store": 21.22,
+    "b079_seoul_inflow_ratio": 0.3172
+  },
+  "11680656": {
+    "b042_seoul_inflow_ratio": 0.7889,
+    "b069_finance": 79.16,
+    "b069_infra": 36.88,
+    "b069_pop": 38.4,
+    "b069_sales": 33.84,
+    "b069_store": 25.53,
+    "b079_seoul_inflow_ratio": 0.2883
+  },
+  "11680660": {
+    "b042_seoul_inflow_ratio": 0.8341,
+    "b069_finance": 50.76,
+    "b069_infra": 7.74,
+    "b069_pop": 14.66,
+    "b069_sales": 20.48,
+    "b069_store": 13.11,
+    "b079_seoul_inflow_ratio": 0.477
+  },
+  "11680670": {
+    "b042_seoul_inflow_ratio": 0.8663,
+    "b069_finance": 54.43,
+    "b069_infra": 8.47,
+    "b069_pop": 19.12,
+    "b069_sales": 20.7,
+    "b069_store": 19.01,
+    "b079_seoul_inflow_ratio": 0.7688
+  },
+  "11680690": {
+    "b042_seoul_inflow_ratio": 0.6699,
+    "b069_finance": 49.36,
+    "b069_infra": 23.58,
+    "b069_pop": 20.0,
+    "b069_sales": 12.79,
+    "b069_store": 23.48,
+    "b079_seoul_inflow_ratio": 0.502
+  },
+  "11680700": {
+    "b042_seoul_inflow_ratio": 0.7205,
+    "b069_finance": 47.62,
+    "b069_infra": 5.04,
+    "b069_pop": 8.75,
+    "b069_sales": 19.2,
+    "b069_store": 10.55,
+    "b079_seoul_inflow_ratio": 0.5979
+  },
+  "11680720": {
+    "b042_seoul_inflow_ratio": 0.4519,
+    "b069_finance": 70.68,
+    "b069_pop": 19.82,
+    "b069_sales": 37.56,
+    "b069_store": 9.49,
+    "b079_seoul_inflow_ratio": 0.4103
+  },
+  "11680730": {
+    "b042_seoul_inflow_ratio": 0.7775,
+    "b069_finance": 44.62,
+    "b069_infra": 10.75,
+    "b069_pop": 21.28,
+    "b069_sales": 16.2,
+    "b069_store": 26.21,
+    "b079_seoul_inflow_ratio": 0.5652
+  },
+  "11680740": {
+    "b042_seoul_inflow_ratio": 0.7703,
+    "b069_finance": 63.33,
+    "b069_infra": 17.46,
+    "b069_pop": 26.63,
+    "b069_sales": 28.12,
+    "b069_store": 22.06
+  },
+  "11680750": {
+    "b042_seoul_inflow_ratio": 0.6453,
+    "b069_finance": 55.01,
+    "b069_infra": 43.5,
+    "b069_pop": 27.02,
+    "b069_sales": 37.73,
+    "b069_store": 26.45,
+    "b079_seoul_inflow_ratio": 0.2255
+  },
+  "11710510": {
+    "b042_seoul_inflow_ratio": 0.8072,
+    "b069_finance": 42.27,
+    "b069_infra": 10.41,
+    "b069_pop": 20.73,
+    "b069_sales": 10.04,
+    "b069_store": 17.91,
+    "b079_seoul_inflow_ratio": 0.488
+  },
+  "11710520": {
+    "b042_seoul_inflow_ratio": 0.4783,
+    "b069_finance": 49.01,
+    "b069_infra": 10.44,
+    "b069_pop": 19.97,
+    "b069_sales": 22.55,
+    "b069_store": 12.85,
+    "b079_seoul_inflow_ratio": 0.4271
+  },
+  "11710531": {
+    "b042_seoul_inflow_ratio": 0.8679,
+    "b069_finance": 38.43,
+    "b069_infra": 10.76,
+    "b069_pop": 16.03,
+    "b069_sales": 14.25,
+    "b069_store": 20.86,
+    "b079_seoul_inflow_ratio": 0.6403
+  },
+  "11710532": {
+    "b042_seoul_inflow_ratio": 0.8731,
+    "b069_finance": 44.76,
+    "b069_infra": 6.94,
+    "b069_pop": 17.49,
+    "b069_sales": 12.03,
+    "b069_store": 20.57,
+    "b079_seoul_inflow_ratio": 0.7133
+  },
+  "11710540": {
+    "b042_seoul_inflow_ratio": 0.8726,
+    "b069_finance": 36.24,
+    "b069_infra": 5.54,
+    "b069_pop": 16.47,
+    "b069_sales": 8.47,
+    "b069_store": 17.34,
+    "b079_seoul_inflow_ratio": 0.577
+  },
+  "11710550": {
+    "b042_seoul_inflow_ratio": 0.8601,
+    "b069_finance": 36.95,
+    "b069_infra": 10.34,
+    "b069_pop": 14.82,
+    "b069_sales": 13.71,
+    "b069_store": 18.59,
+    "b079_seoul_inflow_ratio": 0.6016
+  },
+  "11710561": {
+    "b042_seoul_inflow_ratio": 0.8564,
+    "b069_finance": 48.27,
+    "b069_infra": 15.57,
+    "b069_pop": 23.14,
+    "b069_sales": 24.29,
+    "b069_store": 32.09,
+    "b079_seoul_inflow_ratio": 0.6919
+  },
+  "11710562": {
+    "b042_seoul_inflow_ratio": 0.7286,
+    "b069_finance": 47.93,
+    "b069_infra": 27.17,
+    "b069_pop": 26.8,
+    "b069_sales": 28.42,
+    "b069_store": 35.15,
+    "b079_seoul_inflow_ratio": 0.6222
+  },
+  "11710566": {
+    "b042_seoul_inflow_ratio": 0.8351,
+    "b069_finance": 79.43,
+    "b069_infra": 9.68,
+    "b069_pop": 18.59,
+    "b069_sales": 27.26,
+    "b069_store": 7.02,
+    "b079_seoul_inflow_ratio": 0.6416
+  },
+  "11710570": {
+    "b042_seoul_inflow_ratio": 0.8628,
+    "b069_finance": 47.4,
+    "b069_infra": 16.79,
+    "b069_pop": 21.86,
+    "b069_sales": 16.7,
+    "b069_store": 18.82,
+    "b079_seoul_inflow_ratio": 0.6514
+  },
+  "11710580": {
+    "b042_seoul_inflow_ratio": 0.7524,
+    "b069_finance": 47.69,
+    "b069_infra": 20.56,
+    "b069_pop": 25.98,
+    "b069_sales": 16.6,
+    "b069_store": 30.84,
+    "b079_seoul_inflow_ratio": 0.5767
+  },
+  "11710590": {
+    "b042_seoul_inflow_ratio": 0.8501,
+    "b069_finance": 56.27,
+    "b069_infra": 16.17,
+    "b069_pop": 20.86,
+    "b069_sales": 17.42,
+    "b069_store": 26.16,
+    "b079_seoul_inflow_ratio": 0.6085
+  },
+  "11710600": {
+    "b042_seoul_inflow_ratio": 0.7917,
+    "b069_finance": 46.8,
+    "b069_infra": 22.77,
+    "b069_pop": 22.84,
+    "b069_sales": 17.82,
+    "b069_store": 28.87,
+    "b079_seoul_inflow_ratio": 0.6461
+  },
+  "11710610": {
+    "b042_seoul_inflow_ratio": 0.8239,
+    "b069_finance": 45.63,
+    "b069_infra": 17.24,
+    "b069_pop": 22.04,
+    "b069_sales": 17.63,
+    "b069_store": 28.77,
+    "b079_seoul_inflow_ratio": 0.5964
+  },
+  "11710620": {
+    "b042_seoul_inflow_ratio": 0.7219,
+    "b069_finance": 49.98,
+    "b069_infra": 26.56,
+    "b069_pop": 30.61,
+    "b069_sales": 24.54,
+    "b069_store": 33.24,
+    "b079_seoul_inflow_ratio": 0.5662
+  },
+  "11710631": {
+    "b042_seoul_inflow_ratio": 0.6946,
+    "b069_finance": 46.98,
+    "b069_infra": 17.54,
+    "b069_pop": 19.19,
+    "b069_sales": 18.94,
+    "b069_store": 9.66,
+    "b079_seoul_inflow_ratio": 0.6166
+  },
+  "11710632": {
+    "b042_seoul_inflow_ratio": 0.86,
+    "b069_finance": 50.21,
+    "b069_infra": 14.2,
+    "b069_pop": 22.85,
+    "b069_sales": 18.94,
+    "b069_store": 26.24,
+    "b079_seoul_inflow_ratio": 0.7028
+  },
+  "11710641": {
+    "b042_seoul_inflow_ratio": 0.7772,
+    "b069_finance": 49.81,
+    "b069_infra": 19.26,
+    "b069_pop": 24.16,
+    "b069_sales": 18.65,
+    "b069_store": 28.54,
+    "b079_seoul_inflow_ratio": 0.5589
+  },
+  "11710642": {
+    "b042_seoul_inflow_ratio": 0.6803,
+    "b069_finance": 73.98,
+    "b069_infra": 24.03,
+    "b069_pop": 23.0,
+    "b069_sales": 49.44,
+    "b069_store": 38.13,
+    "b079_seoul_inflow_ratio": 0.5597
+  },
+  "11710650": {
+    "b042_seoul_inflow_ratio": 0.7323,
+    "b069_finance": 45.54,
+    "b069_infra": 23.27,
+    "b069_pop": 24.04,
+    "b069_sales": 28.29,
+    "b069_store": 38.58,
+    "b079_seoul_inflow_ratio": 0.6222
+  },
+  "11710670": {
+    "b042_seoul_inflow_ratio": 0.8434,
+    "b069_finance": 77.98,
+    "b069_infra": 23.65,
+    "b069_pop": 24.97,
+    "b069_sales": 52.45,
+    "b069_store": 37.14,
+    "b079_seoul_inflow_ratio": 0.6884
+  },
+  "11710680": {
+    "b042_seoul_inflow_ratio": 0.6541,
+    "b069_finance": 76.34,
+    "b069_infra": 19.82,
+    "b069_pop": 28.89,
+    "b069_sales": 35.88,
+    "b069_store": 37.3,
+    "b079_seoul_inflow_ratio": 0.5745
+  },
+  "11710690": {
+    "b042_seoul_inflow_ratio": 0.8908,
+    "b069_finance": 76.77,
+    "b069_infra": 20.13,
+    "b069_pop": 26.25,
+    "b069_sales": 27.56,
+    "b069_store": 38.67,
+    "b079_seoul_inflow_ratio": 0.7279
+  },
+  "11710710": {
+    "b042_seoul_inflow_ratio": 0.6581,
+    "b069_finance": 74.41,
+    "b069_infra": 46.62,
+    "b069_pop": 40.51,
+    "b069_sales": 54.88,
+    "b069_store": 34.23,
+    "b079_seoul_inflow_ratio": 0.2692
+  },
+  "11710720": {
+    "b042_seoul_inflow_ratio": 0.8771,
+    "b069_finance": 79.01,
+    "b069_infra": 16.64,
+    "b069_pop": 19.28,
+    "b069_sales": 26.83,
+    "b069_store": 13.76,
+    "b079_seoul_inflow_ratio": 0.5091
+  },
+  "11740515": {
+    "b042_seoul_inflow_ratio": 0.7408,
+    "b069_finance": 44.07,
+    "b069_infra": 8.96,
+    "b069_pop": 19.33,
+    "b069_sales": 17.46,
+    "b069_store": 11.23,
+    "b079_seoul_inflow_ratio": 0.6691
+  },
+  "11740520": {
+    "b042_seoul_inflow_ratio": 0.5966,
+    "b069_finance": 44.4,
+    "b069_infra": 8.82,
+    "b069_pop": 12.8,
+    "b069_sales": 8.47,
+    "b069_store": 12.72
+  },
+  "11740530": {
+    "b042_seoul_inflow_ratio": 0.8615,
+    "b069_finance": 51.03,
+    "b069_infra": 15.71,
+    "b069_pop": 24.34,
+    "b069_sales": 23.89,
+    "b069_store": 39.33,
+    "b079_seoul_inflow_ratio": 0.761
+  },
+  "11740540": {
+    "b042_seoul_inflow_ratio": 0.8495,
+    "b069_finance": 57.99,
+    "b069_infra": 12.34,
+    "b069_pop": 27.38,
+    "b069_sales": 29.14,
+    "b069_store": 31.95,
+    "b079_seoul_inflow_ratio": 0.7922
+  },
+  "11740550": {
+    "b042_seoul_inflow_ratio": 0.8719,
+    "b069_finance": 50.67,
+    "b069_infra": 7.95,
+    "b069_pop": 17.16,
+    "b069_sales": 9.53,
+    "b069_store": 18.4,
+    "b079_seoul_inflow_ratio": 0.7887
+  },
+  "11740560": {
+    "b042_seoul_inflow_ratio": 0.7562,
+    "b069_finance": 37.91,
+    "b069_infra": 7.08,
+    "b069_pop": 12.56,
+    "b069_sales": 7.93,
+    "b069_store": 14.53,
+    "b079_seoul_inflow_ratio": 0.5761
+  },
+  "11740570": {
+    "b042_seoul_inflow_ratio": 0.8921,
+    "b069_finance": 41.33,
+    "b069_infra": 9.66,
+    "b069_pop": 20.1,
+    "b069_sales": 13.33,
+    "b069_store": 25.44,
+    "b079_seoul_inflow_ratio": 0.7929
+  },
+  "11740580": {
+    "b042_seoul_inflow_ratio": 0.8597,
+    "b069_finance": 52.65,
+    "b069_infra": 12.8,
+    "b069_pop": 21.14,
+    "b069_sales": 19.69,
+    "b069_store": 21.38,
+    "b079_seoul_inflow_ratio": 0.6424
+  },
+  "11740590": {
+    "b042_seoul_inflow_ratio": 0.88,
+    "b069_finance": 56.57,
+    "b069_infra": 9.6,
+    "b069_pop": 14.88,
+    "b069_sales": 15.63,
+    "b069_store": 13.87,
+    "b079_seoul_inflow_ratio": 0.6772
+  },
+  "11740600": {
+    "b042_seoul_inflow_ratio": 0.8736,
+    "b069_finance": 38.34,
+    "b069_infra": 10.31,
+    "b069_pop": 20.47,
+    "b069_sales": 9.97,
+    "b069_store": 25.31,
+    "b079_seoul_inflow_ratio": 0.7665
+  },
+  "11740610": {
+    "b042_seoul_inflow_ratio": 0.7873,
+    "b069_finance": 39.04,
+    "b069_infra": 15.89,
+    "b069_pop": 23.13,
+    "b069_sales": 19.01,
+    "b069_store": 29.1,
+    "b079_seoul_inflow_ratio": 0.3665
+  },
+  "11740620": {
+    "b042_seoul_inflow_ratio": 0.7629,
+    "b069_finance": 42.75,
+    "b069_infra": 12.78,
+    "b069_pop": 23.25,
+    "b069_sales": 17.72,
+    "b069_store": 28.14,
+    "b079_seoul_inflow_ratio": 0.5814
+  },
+  "11740640": {
+    "b042_seoul_inflow_ratio": 0.7716,
+    "b069_finance": 45.68,
+    "b069_infra": 23.94,
+    "b069_pop": 28.25,
+    "b069_sales": 17.49,
+    "b069_store": 30.24,
+    "b079_seoul_inflow_ratio": 0.5108
+  },
+  "11740650": {
+    "b042_seoul_inflow_ratio": 0.7741,
+    "b069_finance": 38.74,
+    "b069_infra": 15.05,
+    "b069_pop": 22.69,
+    "b069_sales": 14.18,
+    "b069_store": 27.84,
+    "b079_seoul_inflow_ratio": 0.633
+  },
+  "11740660": {
+    "b042_seoul_inflow_ratio": 0.7831,
+    "b069_finance": 42.57,
+    "b069_infra": 17.4,
+    "b069_pop": 28.72,
+    "b069_sales": 21.48,
+    "b069_store": 34.53,
+    "b079_seoul_inflow_ratio": 0.6527
+  },
+  "11740685": {
+    "b042_seoul_inflow_ratio": 0.7546,
+    "b069_finance": 43.22,
+    "b069_infra": 19.06,
+    "b069_pop": 31.03,
+    "b069_sales": 19.48,
+    "b069_store": 31.76,
+    "b079_seoul_inflow_ratio": 0.6707
+  },
+  "11740690": {
+    "b042_seoul_inflow_ratio": 0.6483,
+    "b069_finance": 45.76,
+    "b069_infra": 9.88,
+    "b069_pop": 15.76,
+    "b069_sales": 18.82,
+    "b069_store": 7.34,
+    "b079_seoul_inflow_ratio": 0.7346
+  },
+  "11740700": {
+    "b042_seoul_inflow_ratio": 0.748,
+    "b069_finance": 45.12,
+    "b069_infra": 10.79,
+    "b069_pop": 22.21,
+    "b069_sales": 16.29,
+    "b069_store": 17.51,
+    "b079_seoul_inflow_ratio": 0.6209
+  }
+}

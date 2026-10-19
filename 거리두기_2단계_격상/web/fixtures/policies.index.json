@@ -1,0 +1,92 @@
+{
+  "total": 4,
+  "items": [
+    {
+      "id": "P008",
+      "file": "P008.json",
+      "name": "강남역-역삼역 보행친화거리 조성사업",
+      "type": "facility",
+      "announce_date": "2026-05-20",
+      "effective_from": "2026-05-20",
+      "effective_until": "2026-05-24",
+      "target_districts": [
+        "강남구"
+      ],
+      "benefit_categories": [
+        "식사",
+        "카페",
+        "디저트",
+        "여가"
+      ],
+      "grant_key": null,
+      "grant_key_effective": "income",
+      "grant_key_source": "default",
+      "poi_restricted": false,
+      "has_decile_grants": false,
+      "has_income_grants": false,
+      "unknown": []
+    },
+    {
+      "id": "P009",
+      "file": "P009.json",
+      "name": "서민층 경제 지원 현금 지급 정책",
+      "type": "grant",
+      "announce_date": "2026-05-25",
+      "effective_from": "2026-05-27",
+      "effective_until": "2026-05-28",
+      "target_districts": [
+        "서울특별시"
+      ],
+      "benefit_categories": [],
+      "grant_key": null,
+      "grant_key_effective": "income",
+      "grant_key_source": "default",
+      "poi_restricted": false,
+      "has_decile_grants": false,
+      "has_income_grants": true,
+      "unknown": []
+    },
+    {
+      "id": "P010",
+      "file": "P010.json",
+      "name": "민생회복 소비쿠폰 1차",
+      "type": "grant",
+      "announce_date": "2025-07-21",
+      "effective_from": "2025-07-21",
+      "effective_until": "2025-11-30",
+      "target_districts": [
+        "서울특별시"
+      ],
+      "benefit_categories": [],
+      "grant_key": "spend_decile",
+      "grant_key_effective": "spend_decile",
+      "grant_key_source": "file",
+      "poi_restricted": true,
+      "has_decile_grants": true,
+      "has_income_grants": false,
+      "unknown": []
+    },
+    {
+      "id": "P011",
+      "file": "P011.json",
+      "name": "민생회복 소비쿠폰 2차 (백테스트)",
+      "type": "grant",
+      "announce_date": "2026-06-20",
+      "effective_from": "2026-06-22",
+      "effective_until": "2026-06-23",
+      "target_districts": [
+        "서울특별시"
+      ],
+      "benefit_categories": [],
+      "grant_key": null,
+      "grant_key_effective": "income",
+      "grant_key_source": "default",
+      "poi_restricted": true,
+      "has_decile_grants": false,
+      "has_income_grants": true,
+      "unknown": []
+    }
+  ],
+  "source_dir": "data/neo4j_load/policies",
+  "unknown": []
+}

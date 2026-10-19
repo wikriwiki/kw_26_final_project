@@ -1,0 +1,60 @@
+{
+  "config": {
+    "id": "validation_v9_bounded_probe",
+    "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "source_inputs_sha256": "d8944c1467db387ebf118d3f396a09bf6f1b7bcbb108340a84321a543f4912e5",
+    "candidates": [
+      {
+        "id": "v11_budget1024",
+        "prompt": "v11",
+        "structured": true,
+        "thinking_tokens": 1024
+      },
+      {
+        "id": "v11_budget2048",
+        "prompt": "v11",
+        "structured": true,
+        "thinking_tokens": 2048
+      }
+    ],
+    "seeds": [
+      9101
+    ],
+    "sampling": {
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "presence_penalty": 1.5
+    },
+    "answer_tokens": 2200,
+    "workers": 4,
+    "timeout_seconds": 900,
+    "order_seed": 20260920,
+    "phase": "Four known synthetic development cases x two deliberation budgets. Explicit two-call protocol, not first-response-only and not automatic repair.",
+    "primary": "Every strict schedule and factual constraint passes. Preserve both native requests/responses. Deliberation stops at the registered budget or natural closing token; final JSON truncation remains failure.",
+    "selection": "Only passing protocols advance; cost uses total tokens across both calls. No selection by policy effects. New persona confirmation remains untouched.",
+    "infrastructure": "Uses native generate API and local tokenizer chat template. Does not restart server or enable arbitrary custom logit processor execution.",
+    "prohibitions": "No empirical effect targets or policy-specific desired direction. P010 immutable. P015 not run."
+  },
+  "config_sha256": "ce3ce8d453737876c5c324461a05286adf6e3b437639f407ed2d0b5e2a8e1f6a",
+  "inputs_sha256": "18345c3a95cb730220d132e3f95a623b0feaf82b8cda4c6def7478f3e8a6f0f1",
+  "code_sha256": {
+    "validate_bounded_planner.py": "1d55366a5996dfcba3d2aacbf2aaa04ff30ce29a2f2245a29704c7032f0b906a",
+    "bounded_reasoning.py": "47ec9bad512c4f023fe5636499421587720b8dd1b3a56165dfb7b82c2fed1bfc",
+    "planning_contract.py": "1d241c3c1addac5eb8224a16d4ae59dea5c5d44da8b1bbe16d4bfa03b6bab483",
+    "validate_prompt_v3.py": "3a4af4679c925c28115df10076804ea5d5ecacd0af75ec69fafa85fb8110871d",
+    "validate_prompt_v4.py": "ca765ac59652ceeecd578de109913266243a21671c8929b86e306d5f7a93624e"
+  },
+  "registered_at": "2026-09-19T16:26:23.336872+00:00",
+  "tokenizer_path": "/data/hf_cache/hub/models--LGAI-EXAONE--EXAONE-4.5-33B-AWQ/snapshots/31e6a965d0661bbe4a8b895e22a77f8271772ba0",
+  "template_sha256": "03966f66eb508c1ff0606e24e6e334c59917a6416c62e800c37f1a515aae4c14",
+  "prefix_hashes": {
+    "v11_budget1024|59dec0cbb91a4cfb612b52fb80bbf99b056f1a78d66e638e0c08b43a0cb8b80b": "46ed1c830e8110bb9679cc5ca5af76f7e3a24451d40f1cf75689a30ccd944132",
+    "v11_budget1024|ab936be465158ebe9769a736966cb69f0b2e233294e11ce914dc8b68aaa34670": "e399c022601ad99f2b329fabf1d9f19170b55c035617fd4367b745ed15fb8d21",
+    "v11_budget1024|942d2cb02fda754e4e0dc14d36be4d55b61150cf757e35d967706dc107699e7a": "c4411cd00d77116fbf315efb6c1421f2ad7b8656eab36edf493f850d3eb6f526",
+    "v11_budget1024|8370190a1e03842f2fa35d2a38170a286f9834bc18fe2c4c265cedea6a540b47": "338d73a2ae74f247ac05518a3906709d2f36978575aaefa6fa076a5adefe9e2c",
+    "v11_budget2048|59dec0cbb91a4cfb612b52fb80bbf99b056f1a78d66e638e0c08b43a0cb8b80b": "46ed1c830e8110bb9679cc5ca5af76f7e3a24451d40f1cf75689a30ccd944132",
+    "v11_budget2048|ab936be465158ebe9769a736966cb69f0b2e233294e11ce914dc8b68aaa34670": "e399c022601ad99f2b329fabf1d9f19170b55c035617fd4367b745ed15fb8d21",
+    "v11_budget2048|942d2cb02fda754e4e0dc14d36be4d55b61150cf757e35d967706dc107699e7a": "c4411cd00d77116fbf315efb6c1421f2ad7b8656eab36edf493f850d3eb6f526",
+    "v11_budget2048|8370190a1e03842f2fa35d2a38170a286f9834bc18fe2c4c265cedea6a540b47": "338d73a2ae74f247ac05518a3906709d2f36978575aaefa6fa076a5adefe9e2c"
+  }
+}

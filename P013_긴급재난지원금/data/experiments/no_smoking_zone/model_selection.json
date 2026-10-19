@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "verified_on": "2026-09-22",
+  "default_mode": "exaone_4_5",
+  "default_model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "model_revision": "31e6a965d0661bbe4a8b895e22a77f8271772ba0",
+  "serving_engine": "sglang",
+  "sglang_repository": "https://github.com/lkm2835/sglang",
+  "sglang_commit": "6757c9f904cdb8ae9028a394a2108d079b9e088c",
+  "transformers_version": "5.8.0",
+  "kernels_version": "0.10.0",
+  "quantization": {"method": "compressed-tensors", "format": "pack-quantized", "weight_bits": 4, "activation_bits": 16, "group_size": 128},
+  "enable_thinking": false,
+  "selection_reason": "Speed-oriented, memory-efficient candidate for short repeated text responses on a single rented GPU; preserves the existing SGLang EXAONE serving stack.",
+  "same_hardware_latency_or_throughput_benchmark": null,
+  "fastest_claim_verified": false,
+  "benchmark_status": "Pending actual GPU pilot; model formats alone do not establish the fastest model.",
+  "variants_considered": [
+    {"suffix": "33B", "format": "BF16", "assessment": "Full precision requires substantially more weight memory than the selected 4-bit model."},
+    {"suffix": "33B-FP8", "format": "W8A8", "assessment": "May provide higher throughput with appropriate hardware/batching; requires an actual comparison and more memory."},
+    {"suffix": "33B-AWQ", "format": "W4A16", "assessment": "Selected as the practical single-GPU default. This is a quantized 33B model, not an 8B model."},
+    {"suffix": "33B-GGUF", "format": "GGUF", "assessment": "Different runtime/quantization choices; no demonstrated speed advantage for this existing SGLang experiment."}
+  ],
+  "automatic_model_fallback": false,
+  "sources": [
+    "https://huggingface.co/LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "https://huggingface.co/LGAI-EXAONE/EXAONE-4.5-33B-AWQ/blob/31e6a965d0661bbe4a8b895e22a77f8271772ba0/config.json",
+    "https://github.com/lkm2835/sglang/blob/6757c9f904cdb8ae9028a394a2108d079b9e088c/python/sglang/srt/models/exaone4_5.py"
+  ]
+}

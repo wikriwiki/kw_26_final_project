@@ -1,0 +1,193 @@
+{
+  "scope": "Known synthetic financial stress, zero paired policy-effect analysis. Evaluation facts withheld from model payload; fixed needs/current funds only.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v4_bounded1024": {
+      "responses": 18,
+      "complete": true,
+      "valid": 16,
+      "all_pass": false,
+      "deterministic_no_purchase": 0
+    }
+  },
+  "raw_archive_sha256": "71f5b18cff5c2191e422152006a908b25822d9387be2fdd3acadc30443eaac35",
+  "decision": "Not promoted. Shared-wallet F06 failures; each failed raw choice and deliberation reviewed. Deliberation mistakes accounting own_basis for available face balance. Other raw choices not fully manually re-reviewed here. Next representation exposes only sum(face) as spendable balance, retaining lots in independent ledger.",
+  "failure_rows": [
+    {
+      "aid": "F06",
+      "case": "F06",
+      "arm": "off",
+      "date": "2026-09-21",
+      "replicate": 47001,
+      "attempt_key": "90a32e00b655abb316549d1100dc0a5c18e5880d0963bd11e8a26bde303f87a7",
+      "transaction_protocol": "v4",
+      "decision_source": "model",
+      "raw": "{\n\t\"acquisition_units\": {},\n\t\"purchases\": [\n\t{\"id\": \"a\", \"candidate_id\": \"quote:a\", \"wallet_spend\": {\"V\": 2000}},\n\t{\"id\": \"b\", \"candidate_id\": null, \"wallet_spend\": {}}\n\t]\n}",
+      "thinking_usage": {
+        "id": "00eeb20471c34e1db6870cde66c60fd2",
+        "finish_reason": {
+          "type": "length",
+          "length": 1024
+        },
+        "prompt_tokens": 849,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 1024,
+        "cached_tokens": 629,
+        "cached_tokens_details": {
+          "device": 629,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 50.64767367602326,
+        "response_sent_to_client_ts": 1789848361.546415
+      },
+      "answer_usage": {
+        "id": "11c0fca53ed34f02bcf625b874dba81d",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 1876,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 68,
+        "cached_tokens": 950,
+        "cached_tokens_details": {
+          "device": 950,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 5.63223031105008,
+        "response_sent_to_client_ts": 1789848367.1861744
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "fact:total_consumption",
+        "fact:own_funded_consumption",
+        "fact:concession_funded_consumption"
+      ],
+      "ledger": {
+        "complete": true,
+        "actions": [
+          {
+            "id": "a",
+            "candidate_id": "quote:a",
+            "wallet_spend": {
+              "V": 2000
+            },
+            "kind": "consume",
+            "cash_payment": 0,
+            "reason": "Citizen selected quote and wallet amount; cash is exact residual.",
+            "amount": 2000,
+            "channel": "offline",
+            "own_funded_amount": 1000,
+            "concession_funded_amount": 1000
+          },
+          {
+            "id": "b",
+            "candidate_id": null,
+            "wallet_spend": {},
+            "kind": "consume",
+            "cash_payment": 0,
+            "reason": "Citizen selected quote and wallet amount; cash is exact residual.",
+            "amount": 0,
+            "channel": "offline",
+            "own_funded_amount": 0,
+            "concession_funded_amount": 0
+          }
+        ],
+        "opening_cash": 0,
+        "closing_cash": 0,
+        "opening_wallet_lots": {
+          "V": [
+            {
+              "face": 4000,
+              "own_basis": 2000
+            }
+          ]
+        },
+        "closing_wallet_lots": {
+          "V": [
+            {
+              "face": 2000,
+              "own_basis": 1000
+            }
+          ]
+        },
+        "offline_consumption": 2000,
+        "online_consumption": 0,
+        "total_consumption": 2000,
+        "own_funded_consumption": 1000,
+        "concession_funded_consumption": 1000,
+        "new_concession_face_value": 0,
+        "asset_acquisition_cash_outflow": 0,
+        "cash_outflow_total": 0,
+        "scope": "Nominal goods/services purchases, cash flow and prepaid assets separately. Concession payer is not inferred. FIFO proportional own basis in integer won; full redemption releases all residual basis. Not a policy-effect or price model.",
+        "execution_protocol": "v3 static offers, chosen units just before first redemption; exact price residual cash; no generated factual reason."
+      },
+      "elapsed_seconds": 56.294
+    },
+    {
+      "aid": "F06",
+      "case": "F06",
+      "arm": "off",
+      "date": "2026-09-21",
+      "replicate": 46001,
+      "attempt_key": "edc566cc7f01b8d306cd6387beff88f6f6b88107f9c9797ec3ef503ffafec406",
+      "transaction_protocol": "v4",
+      "decision_source": "model",
+      "raw": "{\n\t\"acquisition_units\": {},\n\t\"purchases\": [\n\t{\"id\": \"a\", \"candidate_id\": \"quote:a\", \"wallet_spend\": {\"V\": 2000}},\n\t{\"id\": \"b\", \"candidate_id\": \"quote:b\", \"wallet_spend\": {}}\n\t]\n}",
+      "thinking_usage": {
+        "id": "08fb002a4d954a7aad18636e9da88f0d",
+        "finish_reason": {
+          "type": "length",
+          "length": 1024
+        },
+        "prompt_tokens": 849,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 1024,
+        "cached_tokens": 848,
+        "cached_tokens_details": {
+          "device": 848,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 45.93865598493721,
+        "response_sent_to_client_ts": 1789848444.5374558
+      },
+      "answer_usage": {
+        "id": "c8bbd9340ead4498b97e078f1ec882a6",
+        "finish_reason": {
+          "type": "stop",
+          "matched": 53
+        },
+        "prompt_tokens": 1876,
+        "weight_version": "default",
+        "total_retractions": 0,
+        "reasoning_tokens": 0,
+        "completion_tokens": 70,
+        "cached_tokens": 890,
+        "cached_tokens_details": {
+          "device": 890,
+          "host": 0
+        },
+        "dp_rank": null,
+        "e2e_latency": 5.685229727067053,
+        "response_sent_to_client_ts": 1789848450.2319844
+      },
+      "forced_reasoning_boundary": true,
+      "valid": false,
+      "errors": [
+        "Purchase exceeds current cash"
+      ],
+      "elapsed_seconds": 51.641
+    }
+  ],
+  "policy_contrasts_used_for_selection": false
+}

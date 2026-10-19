@@ -1,0 +1,56 @@
+{
+  "schema": "p014_ksic2026_posthoc_receipt_proxy_plan_v1",
+  "status": "frozen_before_recovered_catalog_outcome_join",
+  "posthoc_exploratory": true,
+  "reason": "The frozen by_sub food-store proxy is 0/0 and does not correspond to KIPF's size-specific neighborhood-supermarket groups. An intact archived 2026 source contains original KSIC codes that may recover descriptive receipt groups without changing the frozen score.",
+  "already_observed": ["Frozen P014 by_sub numeric result and overall receipt totals", "Local G source integrity failure", "Server source content gate reported by recovery agent"],
+  "source": {
+    "vintage": "Seoul commercial catalog 2026-03",
+    "sha256": "7374e0edda19beb6f89c64918c7eb3e7a89007121bddbf2fc0f78aca310d2506",
+    "bytes": 291391584,
+    "strict_utf8_rows": 534978,
+    "nul_bytes": 0,
+    "merchant_id_field": "상가업소번호",
+    "industry_code_field": "표준산업분류코드",
+    "industry_name_field": "표준산업분류명",
+    "poi_id_rule": "C_ + unmodified merchant ID",
+    "code_normalization": "Strip one leading G only from exact G + 5 decimal digits; accept exact 5 decimal digits unchanged. No name-based relabeling.",
+    "groups": {
+      "47121": "2026 catalog KSIC supermarket group",
+      "47129": "2026 catalog KSIC other food-oriented general-retail group"
+    }
+  },
+  "input_gate": {
+    "numeric_sha256": "9b6802ca15742aebfcd3dd9c9e8d0db48d8aba3c2c771e4d6b5a565d5ca672db",
+    "effect_days": ["2020-09-21", "2020-09-22", "2020-09-23"],
+    "citizens": 40,
+    "citizen_days_each_arm": 120,
+    "metric_sha_bound_to_frozen_numeric": true,
+    "receipt_identity_and_unique_event_ids_required": true,
+    "catalog_duplicate_merchant_ids_allowed": 0,
+    "join_ambiguous_receipt_ids_allowed": 0,
+    "minimum_join_count_fraction_each_arm": 0.99,
+    "minimum_join_won_fraction_each_arm": 0.99,
+    "source_rows_and_sha_must_match": true
+  },
+  "scoring": {
+    "new_ids": ["P014-KSIC2026-47121", "P014-KSIC2026-47129"],
+    "point_formula": "100 * (sum positive ON purchase-receipt amount in group - sum positive OFF amount in group) / OFF amount in group",
+    "off_denominator_zero": "simulation null; no pseudo-count or substitution",
+    "unit": "%",
+    "paired_citizen_bootstrap_draws": 1000,
+    "paired_citizen_bootstrap_seed": 20260928,
+    "ci_percentiles": [0.025, 0.975],
+    "minimum_valid_bootstrap_draws": 900,
+    "ci_if_insufficient_valid_draws": null,
+    "sparse_interpretation_gate": {"minimum_positive_receipts_each_arm_group": 20, "minimum_unique_citizens_each_arm_group": 10},
+    "sparse_failure_behavior": "Technical point may be shown if source/join/denominator gates pass, but direction and approximate-size interpretations remain blocked"
+  },
+  "interpretation": {
+    "replace_frozen_numeric": false,
+    "empirical_reference_in_model_input": false,
+    "direct_empirical_gap_allowed": false,
+    "external_effect_accuracy_claim_allowed": false,
+    "reasons": ["2026 merchant classification is not the original KIPF municipality-year merchant panel", "No matching issuance/2010-GRDP intensity", "Three-day synthetic-citizen ON/OFF is not the published log-sales estimator", "P014 voucher purchase/redemption accounting is unimplemented", "The source recovery and new proxy are post-result exploratory analyses"]
+  }
+}

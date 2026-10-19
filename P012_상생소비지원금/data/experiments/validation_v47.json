@@ -1,0 +1,82 @@
+{
+  "id": "validation_v47",
+  "registered_on": "2026-09-22",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "candidates": [
+    "v5",
+    "v45",
+    "v47"
+  ],
+  "phase": "The powered comparison. Two earlier rounds showed the pilot cannot resolve small steps: the same prompt measured 171 and 165 of 192 across two runs, with thirty-eight cells flipping verdict, and paired tests put every step under twenty cells inside that spread. So this round stops trying to attribute individual fixes and measures the thing that matters - the incumbent against the end of the ladder - with twice the replicates. v47 is v5 with four self-contradictions removed and five counted format defects fixed; v45 sits between them and is carried so the last two fixes can be looked at, though the design declares in advance that it cannot resolve them.",
+  "sample_n": 12,
+  "replicate_seeds": [
+    1701,
+    2903,
+    4801,
+    6007
+  ],
+  "temperature": 0.7,
+  "max_tokens": 2200,
+  "workers": 24,
+  "cases": [
+    {
+      "id": "cashback",
+      "policy": "P012",
+      "date": "2021-10-25"
+    },
+    {
+      "id": "grant",
+      "policy": "P013",
+      "date": "2020-05-14"
+    },
+    {
+      "id": "local_voucher",
+      "policy": "P014",
+      "date": "2020-09-23"
+    },
+    {
+      "id": "distancing",
+      "policy": null,
+      "date": "2020-11-24"
+    }
+  ],
+  "arms": [
+    "off",
+    "on"
+  ],
+  "design": "Identical frozen persona, synthetic Day0 state and date within each pair. Fiscal arms share environment. Distancing arms differ only in explicitly registered restrictions, not disease background. Read-only Neo4j; no rollout or database reset.",
+  "initial_state": "39 times daily_wd cash; mood=0.5, fatigue=0.3, energy=0.7, satisfaction=0.6; no prior memories or appointments. These are simulation initial conditions, not observed personal history.",
+  "cashback_seed": "Monthly eligible spend seeded as daily weighted anchor * 0.268 * (day_of_month - 1), identically in off/on arms. Policy facts use experiment date as counterfactual start.",
+  "primary_metrics": [
+    "strict_raw_contract_rate",
+    "missing_response_rate",
+    "fiscal_off_attribution_flag_rate"
+  ],
+  "attribution_rule": "In fiscal off arms flag trigger=policy AND reasoning mentioning P012/P013/P014/cashback/coupon/voucher/grant/local voucher. Environmental regulation attribution is allowed. This is a conservative screening flag, not a validated hallucination classifier; manually inspect flagged text before interpretation.",
+  "diagnostics": [
+    "daily_propensity_paired_difference",
+    "commerce_event_paired_difference",
+    "replicate_sign_agreement",
+    "policy_trigger_rate",
+    "tokens",
+    "latency"
+  ],
+  "contract_checks": [
+    "JSON schema without automatic repair",
+    "valid time and strictly increasing >=20 minute spacing",
+    "start/end at residence",
+    "allowed zone codes",
+    "anchor/category consistency",
+    "required reasoning and trigger",
+    "finite propensity in [0,1]",
+    "6+ weekday or 4+ weekend events"
+  ],
+  "decision": "The raw contract gate only, judged by paired McNemar on the cells, not by the difference in rates. Primary: v5 against v47 with an interval that excludes zero. Secondary and declared underpowered: v45 against v47. The registered 95 per cent gate is unchanged and is not expected to be met by any candidate; a rate above v5 is not written up as passing.",
+  "inference": "12-person repeated matched-context pilot measures instruction execution and within-person decisions only. No spending outcome, causal macro effect, empirical magnitude score, or fresh holdout generalization claim.",
+  "holdout": "P015 prohibited; already used. All four mechanisms are known development cases.",
+  "magnitude_future": "Use simultaneous independent on/off rollouts, same dates and initial snapshots, independent run replicates. Report effect and interval; 0.5-2.0 empirical magnitude only when population, outcome definition, denominator and horizon match. Otherwise mark not comparable.",
+  "stop_rule": "Run every preregistered cell once; preserve errors and raw outputs. No significance-based early stopping or silent retries. Failure of gate blocks automatic macro rollout.",
+  "power": "Observed discordance between candidates is about thirty per cent of cells. For an exact McNemar test that puts the minimum detectable difference near two times the square root of the discordant count: fifteen cells at 192, twenty-one at 384. v5 against v45 measured plus forty at 192, so v5 against v47 is expected to clear the bar comfortably. v45 against v47 is expected to be near plus ten, which is below the bar, and is registered as underpowered before it runs. Reading plus four, as the previous round produced, would need roughly 2,700 cells and is not attempted.",
+  "predicted": "v5 to v47 lands between plus thirty-five and plus fifty-five cells and is significant. v45 to v47 lands near plus ten and is not. If v5 to v47 comes out below plus twenty-one, the cumulative gain seen at 192 did not replicate, and that is the result.",
+  "not_changed": "Sample, dates, cases, arms, temperature, token budget and every contract check are copied from validation_v3. Only the candidate list and the number of replicate seeds differ, and the seed count is the change that buys the power."
+}

@@ -1,0 +1,37 @@
+{
+  "stage": "S1",
+  "contract_version": "s1.0.0",
+  "status": "passed",
+  "round": 1,
+  "lead_decision": "open-S2-S3-S4-S5",
+  "builder_report": "docs/gauntlet/builders/S1-round1.md",
+  "critic_report": "docs/gauntlet/critics/S1-1.md",
+  "reproduction": [
+    "python web/fixtures/_build_fixtures.py",
+    "python -m unittest discover -s tests -p \"test_*.py\" -v"
+  ],
+  "test_result": {
+    "tests": 8,
+    "passed": 8,
+    "failed": 0,
+    "exit_code": 0
+  },
+  "fixture_inventory": {
+    "json_files": 36,
+    "total_bytes": 405200,
+    "max_bytes": 68456
+  },
+  "changed_files": [
+    "web/fixtures/_build_fixtures.py",
+    "web/fixtures/*.json",
+    "tests/unit/test_s1_contract.py",
+    "docs/gauntlet/contracts/S1.md",
+    "docs/gauntlet/builders/S1-round1.md",
+    "docs/gauntlet/critics/S1-1.md",
+    "docs/gauntlet/gates/S1.json"
+  ],
+  "protected_paths": [
+    "scripts/sim",
+    "scripts/neo4j_load"
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "scope": "Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v4_bounded1024": {
+      "responses": 32,
+      "complete": true,
+      "valid": 32,
+      "all_pass": true,
+      "deterministic_no_purchase": 14
+    }
+  },
+  "raw_archive_sha256": "28b6fb32dbd7f58549f71afc57a250af17e53d852a823c7302cfe1dd58ef4772",
+  "decision": "32/32:14 deterministic unique zero outcomes,18/18 model calls. All18 raw model choice arrays read. Structural wallet availability fixes unowned-wallet failure; independent cumulative ledger checks remain. Same elderly case acquires1 vs10 units across seeds; no claim about correct demand or acquisition preference. Qualifies for96-case financial expansion only.",
+  "policy_contrasts_used_for_selection": false,
+  "failure_rows": []
+}

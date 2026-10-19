@@ -1,0 +1,120 @@
+{
+ "method": "Sum every run, then take the ratio once. The interval resamples citizens as bundles, because one replicate leaves the seed-block bootstrap nothing to resample and a cell-only interval is too narrow.",
+ "resample_unit": "citizen",
+ "clusters": 59,
+ "blocks": 1,
+ "runs": 1,
+ "cells_per_case_arm": {
+  "local_voucher|off": 39,
+  "distancing|off": 46,
+  "cashback|off": 39,
+  "distancing|on": 42,
+  "cashback|on": 41,
+  "grant|off": 45,
+  "grant|on": 42,
+  "local_voucher|on": 34
+ },
+ "draws": 4000,
+ "pooled": {
+  "P012-1": {
+   "mean": 66.66666666666667,
+   "lo": -25.0,
+   "hi": 375.0,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -25.0,
+   "max": 375.0,
+   "sd": null
+  },
+  "P012-2": {
+   "mean": -4.6875,
+   "lo": -44.44444444444444,
+   "hi": 65.80310880829016,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -44.44444444444444,
+   "max": 65.80310880829016,
+   "sd": null
+  },
+  "EM-3": {
+   "mean": 16.289592760180994,
+   "lo": -34.78260869565217,
+   "hi": 104.1958041958042,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -34.78260869565217,
+   "max": 104.1958041958042,
+   "sd": null
+  },
+  "LV-1": {
+   "mean": 22.80701754385965,
+   "lo": -48.1651376146789,
+   "hi": 193.39622641509433,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -48.1651376146789,
+   "max": 193.39622641509433,
+   "sd": null
+  },
+  "LV-2": {
+   "mean": -12.030075187969924,
+   "lo": -33.1858407079646,
+   "hi": 8.078231292517007,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -33.1858407079646,
+   "max": 8.078231292517007,
+   "sd": null
+  },
+  "LV-3": {
+   "mean": 0.0,
+   "lo": 0.0,
+   "hi": 0.0,
+   "sign_stable": true,
+   "n_runs": 1,
+   "min": 0.0,
+   "max": 0.0,
+   "sd": null
+  },
+  "DS-1": {
+   "mean": 41.28440366972477,
+   "lo": -24.31192660550459,
+   "hi": 172.0,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -24.31192660550459,
+   "max": 172.0,
+   "sd": null
+  },
+  "DS-2": {
+   "mean": -26.16822429906542,
+   "lo": -64.24242424242425,
+   "hi": 59.183673469387756,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -64.24242424242425,
+   "max": 59.183673469387756,
+   "sd": null
+  },
+  "DS-4": {
+   "mean": -100.0,
+   "lo": -100.0,
+   "hi": -100.0,
+   "sign_stable": true,
+   "n_runs": 1,
+   "min": -100.0,
+   "max": -100.0,
+   "sd": null
+  },
+  "DS-3": {
+   "mean": -67.45262796879018,
+   "lo": -202.8083028083028,
+   "hi": 43.85964912280702,
+   "sign_stable": false,
+   "n_runs": 1,
+   "min": -202.8083028083028,
+   "max": 43.85964912280702,
+   "sd": null
+  }
+ }
+}

@@ -1,0 +1,82 @@
+{
+  "summary": [
+    {
+      "day": "2025-07-21",
+      "ok": 200,
+      "err": 0,
+      "agent_elapsed_sec": 639.5878229141235,
+      "night2_elapsed_sec": 53.97921824455261,
+      "elapsed_sec": 693.8241622447968,
+      "timing_top": [
+        {
+          "path": "phase.t_s2",
+          "total_sec": 14373.863,
+          "avg_sec": 71.869315,
+          "p95_sec": 166.5006
+        },
+        {
+          "path": "stage2.t_llm",
+          "total_sec": 13666.118069,
+          "avg_sec": 68.33059,
+          "p95_sec": 164.179487
+        },
+        {
+          "path": "phase.t_s1",
+          "total_sec": 12905.97,
+          "avg_sec": 64.52985,
+          "p95_sec": 81.8816
+        },
+        {
+          "path": "stage1.t_llm",
+          "total_sec": 12905.755263,
+          "avg_sec": 64.528776,
+          "p95_sec": 81.880444
+        },
+        {
+          "path": "stage2.t_llm_initial",
+          "total_sec": 9931.293928,
+          "avg_sec": 49.65647,
+          "p95_sec": 75.084599
+        },
+        {
+          "path": "stage2.t_llm_retry",
+          "total_sec": 3734.824135,
+          "avg_sec": 18.674121,
+          "p95_sec": 100.241967
+        },
+        {
+          "path": "stage2.t_candidates",
+          "total_sec": 706.35303,
+          "avg_sec": 3.531765,
+          "p95_sec": 15.269908
+        },
+        {
+          "path": "stage2.candidate_detail.t_query_exact",
+          "total_sec": 705.495545,
+          "avg_sec": 3.527478,
+          "p95_sec": 15.268398
+        },
+        {
+          "path": "phase.t_dawn",
+          "total_sec": 641.572,
+          "avg_sec": 3.20786,
+          "p95_sec": 9.7614
+        },
+        {
+          "path": "dawn.t_knows_poi",
+          "total_sec": 262.407511,
+          "avg_sec": 1.312038,
+          "p95_sec": 4.272786
+        }
+      ]
+    }
+  ],
+  "args": {
+    "start": "2025-07-21",
+    "days": 3,
+    "limit": 200,
+    "gu": null,
+    "workers": 48
+  },
+  "updated_at": "2026-08-02T04:22:00.258990"
+}

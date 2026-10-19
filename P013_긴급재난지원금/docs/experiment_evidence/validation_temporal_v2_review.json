@@ -1,0 +1,54 @@
+{
+  "scope": "Typed action protocol: representational hallucinations impossible by construction, independent factual/choice checks still required. Not prompt-only or macro validation.",
+  "macro_claim": false,
+  "variants": {
+    "v24_finite_clock": {
+      "responses": 32,
+      "complete": true,
+      "raw_valid": 32,
+      "valid": 32,
+      "eligible": 32,
+      "all_pass": true,
+      "adjusted_responses": 0,
+      "mean_generated_tokens": 734.34375
+    }
+  },
+  "raw_archive_sha256": "3e3c71fccadc7e39bd34d51a37e1acc9b26a32671644412e1ab5ba1906d651e4",
+  "decision": "All32 action sequences read. Raw/final32/32, no time shifts; early endings3/32 vs matched v23 8/32, no sleep before18. Qualifies for unchanged96-case expansion. Unknown work-mode choices and activity duration still not resolved. No whole-day demand or external policy validity claim.",
+  "policy_contrasts_used_for_selection": false,
+  "early_end_rows": [
+    {
+      "aid": "AGT_11320670_F_60대_002",
+      "case": "distancing",
+      "arm": "on",
+      "replicate": 41001,
+      "last_event": {
+        "time": "15:00",
+        "activity_id": "home_chores",
+        "anchor": "residence"
+      }
+    },
+    {
+      "aid": "SYNTH_GROUND_household",
+      "case": "household",
+      "arm": "off",
+      "replicate": 41001,
+      "last_event": {
+        "time": "17:00",
+        "activity_id": "home_leisure",
+        "anchor": "residence"
+      }
+    },
+    {
+      "aid": "SYNTH_GROUND_fixed_appointment",
+      "case": "fixed_appointment",
+      "arm": "off",
+      "replicate": 40001,
+      "last_event": {
+        "time": "17:00",
+        "activity_id": "home_delivery",
+        "anchor": "residence"
+      }
+    }
+  ]
+}

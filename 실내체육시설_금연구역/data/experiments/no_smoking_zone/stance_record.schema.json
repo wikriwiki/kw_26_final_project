@@ -1,0 +1,596 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:no-smoking-zone:stance-record:v1-v2",
+  "title": "Simulated explicit policy feedback records v1/v2",
+  "description": "Legacy v1 reading and bounded public argument v2. Structural validation and exact quotation do not establish semantic truth or logical quality. analyze_policy_stance.validate_record additionally checks seals, identity, dates, frozen measurement contract, and recomputed quality flags.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "record_id",
+    "run_id",
+    "arm",
+    "agent_id",
+    "policy_id",
+    "as_of_day",
+    "period",
+    "question_id",
+    "question_sha256",
+    "measurement_context",
+    "response_status",
+    "response",
+    "evidence_packet",
+    "provenance"
+  ],
+  "properties": {
+    "schema_version": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "record_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "agent_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "arm": {
+      "enum": [
+        "off",
+        "on"
+      ]
+    },
+    "policy_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "as_of_day": {
+      "type": "string",
+      "format": "date"
+    },
+    "period": {
+      "enum": [
+        "pre",
+        "post"
+      ]
+    },
+    "question_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "question_text": {
+      "type": "string"
+    },
+    "question_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "integrity_sha256": {
+      "$ref": "#/$defs/sha256"
+    },
+    "measurement_context": {
+      "enum": [
+        "hypothetical",
+        "experienced"
+      ]
+    },
+    "response_status": {
+      "enum": [
+        "answered",
+        "no_response",
+        "error"
+      ]
+    },
+    "response": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "$ref": "#/$defs/response"
+        }
+      ]
+    },
+    "evidence_packet": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "kind",
+        "run_id",
+        "arm",
+        "agent_id",
+        "through_day",
+        "days",
+        "cohort_sha256",
+        "source_sha256",
+        "evidence_items",
+        "integrity_sha256"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "grounded_interview_packet"
+        },
+        "run_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "arm": {
+          "enum": [
+            "off",
+            "on"
+          ]
+        },
+        "agent_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "through_day": {
+          "type": "string",
+          "format": "date"
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "cohort_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "integrity_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "evidence_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "evidence_id",
+              "day",
+              "text"
+            ],
+            "properties": {
+              "evidence_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "day": {
+                "type": "string",
+                "format": "date"
+              },
+              "kind": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              },
+              "source_ref": {}
+            }
+          }
+        },
+        "missing_days": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "missing_night_days": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date"
+          }
+        },
+        "limitations": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selection": {
+          "type": "object",
+          "description": "Collector's bounded evidence-view selection and omitted-item counts, if used."
+        }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "model_id",
+        "call_id",
+        "prompt_sha256",
+        "request_sha256",
+        "response_sha256",
+        "source",
+        "synthetic_fixture"
+      ],
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "call_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "prompt_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "request_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "response_sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "source": {
+          "const": "structured_policy_feedback"
+        },
+        "synthetic_fixture": {
+          "type": "boolean"
+        },
+        "argument_contract_version": {
+          "type": "integer",
+          "enum": [
+            1,
+            2
+          ]
+        }
+      }
+    },
+    "argument_quality": {
+      "type": "object",
+      "description": "Optional deterministic validate_argument output, recomputed and checked by the analyzer; not a semantic review result."
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "response_status": {
+            "const": "answered"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "response": {
+            "$ref": "#/$defs/response"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "response": {
+            "type": "null"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": 2
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "required": [
+              "argument_contract_version"
+            ],
+            "properties": {
+              "argument_contract_version": {
+                "const": 2
+              }
+            }
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "response_status": {
+                  "const": "answered"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "response": {
+                  "$ref": "#/$defs/responseV2"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "else": {
+        "properties": {
+          "response": {
+            "not": {
+              "type": "object",
+              "required": [
+                "argument"
+              ]
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "response": {
+      "type": "object",
+      "required": [
+        "stance",
+        "answer",
+        "stance_quote",
+        "confidence",
+        "reasons"
+      ],
+      "properties": {
+        "stance": {
+          "enum": [
+            "support",
+            "oppose",
+            "mixed",
+            "neutral",
+            "uncertain",
+            "unknown"
+          ]
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stance_quote": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact nonempty substring of answer; independent semantic correctness is not established by substring matching."
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Uncalibrated self-reported confidence, not a probability of human attitude correctness."
+        },
+        "reasons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "evidence_id",
+              "quote"
+            ],
+            "properties": {
+              "evidence_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 1,
+                "description": "Exact nonempty substring of the cited evidence item's text."
+              }
+            }
+          }
+        }
+      }
+    },
+    "citationV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_id",
+        "quote"
+      ],
+      "properties": {
+        "evidence_id": {
+          "type": "string",
+          "maxLength": 256,
+          "minLength": 1
+        },
+        "quote": {
+          "type": "string",
+          "maxLength": 1000,
+          "minLength": 1
+        }
+      }
+    },
+    "argumentV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "personal_situation",
+        "considerations",
+        "weighing",
+        "conditions",
+        "uncertainties"
+      ],
+      "properties": {
+        "personal_situation": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim",
+              "evidence"
+            ],
+            "properties": {
+              "claim": {
+                "type": "string",
+                "maxLength": 800
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 3,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/citationV2"
+                }
+              }
+            }
+          }
+        },
+        "considerations": {
+          "type": "array",
+          "maxItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "claim",
+              "basis",
+              "direction",
+              "personal_relevance",
+              "evidence"
+            ],
+            "properties": {
+              "claim": {
+                "type": "string",
+                "maxLength": 800
+              },
+              "basis": {
+                "enum": [
+                  "recorded_fact",
+                  "inference",
+                  "value_judgment"
+                ]
+              },
+              "direction": {
+                "enum": [
+                  "for",
+                  "against",
+                  "uncertain"
+                ]
+              },
+              "personal_relevance": {
+                "type": "string",
+                "maxLength": 800
+              },
+              "evidence": {
+                "type": "array",
+                "maxItems": 3,
+                "uniqueItems": true,
+                "items": {
+                  "$ref": "#/$defs/citationV2"
+                }
+              }
+            }
+          }
+        },
+        "weighing": {
+          "type": "string",
+          "maxLength": 1600
+        },
+        "conditions": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "condition",
+              "possible_change"
+            ],
+            "properties": {
+              "condition": {
+                "type": "string",
+                "maxLength": 600
+              },
+              "possible_change": {
+                "type": "string",
+                "maxLength": 600
+              }
+            }
+          }
+        },
+        "uncertainties": {
+          "type": "array",
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "maxLength": 600
+          }
+        }
+      }
+    },
+    "responseV2": {
+      "type": "object",
+      "required": [
+        "stance",
+        "answer",
+        "stance_quote",
+        "confidence",
+        "reasons",
+        "argument"
+      ],
+      "properties": {
+        "stance": {
+          "enum": [
+            "support",
+            "oppose",
+            "mixed",
+            "neutral",
+            "uncertain",
+            "unknown"
+          ]
+        },
+        "answer": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "stance_quote": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Exact nonempty substring of answer; independent semantic correctness is not established by substring matching.",
+          "maxLength": 1000
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Uncalibrated self-reported confidence, not a probability of human attitude correctness."
+        },
+        "reasons": {
+          "type": "array",
+          "maxItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/citationV2"
+          }
+        },
+        "argument": {
+          "$ref": "#/$defs/argumentV2"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

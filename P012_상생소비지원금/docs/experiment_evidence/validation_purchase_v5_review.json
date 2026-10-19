@@ -1,0 +1,16 @@
+{
+  "scope": "Hypothetical item/eligibility development probe; fixed upstream plans. No empirical policy-effect claim.",
+  "macro_claim": false,
+  "variants": {
+    "asset_transaction_v4_bounded1024": {
+      "responses": 96,
+      "complete": true,
+      "valid": 96,
+      "all_pass": true,
+      "deterministic_no_purchase": 31
+    }
+  },
+  "raw_archive_sha256": "fd87c1ac7338936da2555ac6bff19ca0507773b99379e9e7615ee9ed80363f81",
+  "decision": "96/96 financial valid,31 deterministic unique zeros,65 model choices. All65 nontrivial selection arrays read; no new arithmetic failure. Mean1264.353846 tokens per actual call. Some unused prepaid acquisitions30/50 units; financial feasibility does not establish correct asset demand. Prompt/protocol qualifies financially for conditional development; not empirical effect validation.",
+  "policy_contrasts_used_for_selection": false
+}

@@ -1,174 +1,26 @@
-# 서울 상권정책 시뮬레이션
+# 서울 소비 정책 시뮬레이션 — 최종 코드 모음 (2026-10-19)
 
-소상공인 상권정책의 효과를 LLM 기반 에이전트 시뮬레이션으로 평가하는 프로젝트.
+정책마다 따로 있던 실행 브랜치를 **정책별 폴더 하나씩**으로 모았다. 각 폴더는 그 정책 본런을 실제로 돌린 엔진 코드 전체와 실행 기록이다. 해당 브랜치 끝 커밋의 트리를 그대로 옮겼고, 서버 엔진 사본과의 대조는 각 브랜치에서 이미 마쳤다. 이 커밋은 아래 브랜치들을 모두 부모로 가지는 병합 커밋이라 각 폴더의 이력을 그대로 따라갈 수 있다.
 
-서울 시민 약 14,881명의 페르소나를 빅데이터캠퍼스(BDC) 통계로 생성하고, Neo4j 그래프 위에서 일별 의도·POI 선택·상호작용·정책 수용을 LLM(LG EXAONE 4.5) 으로 시뮬레이션. 정책 시행 전/후의 강남 매출과 비강남 대조군 변화를 Difference-in-Differences (DID) 로 측정한다.
+| 폴더 | 정책 | 원래 브랜치 · 커밋 | 엔진 | 시뮬 기간 | 시민 | 본런 실행 |
+|---|---|---|---|---|---|---|
+| `P012_상생소비지원금/` | P012 상생소비지원금 (카드 캐시백) | `P012_simulation` 31faa61 | repo_ab3w_20261008 (신청 판단) | 2021-09-24 ~ 10-07 (정책 전 7일 + 7일) | 2,000 | 2026-10-08 ~ 10-10 |
+| `P013_긴급재난지원금/` | P013 긴급재난지원금 | `P013_simulation` db699e3 | repo_ab3w_20261007c | 2020-05-04 ~ 05-17 | 2,000 | 2026-10-07 ~ 10-10 |
+| `P017_서울시_재난긴급생활비/` | P017 서울시 재난긴급생활비 | `P017_simulation` a4f8bdf | repo_ab3w_20261012b | 2020-04-13 ~ 05-10 (정책 전 7일 + 3주) | 1,855 | 2026-10-12 ~ 10-18 |
+| `P010_민생회복_소비쿠폰/` | P010 민생회복 소비쿠폰 | `P010_simulation` a99e561 | repo_ab3w_20261012b | 2025-07-14 ~ 07-27 | 2,000 | 2026-10-12 ~ 10-15 |
+| `거리두기_2단계_격상/` | 거리두기 2단계 격상 (2020-11-24) | `DISTANCING_simulation` a24d1ac | repo_ab3w_20261009 | 2020-11-17 ~ 11-30 | 2,000 | 2026-10-08 ~ 10-10 |
+| `실내체육시설_금연구역/` | 실내체육시설 금연구역 (2017-12-03, 팀원 doinggyu) | `claude/no-smoking-ops-parity` 9b5a665 (= `No_SmokingZone_EXP` 17d21f6 + 실행 서버 고침) | v22 (실행 소스는 doinggyu 드라이브 `inputs/`) | 2017-11-19 ~ 12-16 (정책 전 14일 + 14일) | 1,154 | 2026-09-25 ~ 10-10 |
+| `평가_통합성능/` | 정책 6개 · 업종 27쌍 통합 성능 평가 | 이 커밋에서 새로 추가 | — | — | — | 2026-10-19 |
 
-자세한 셋업·실행 절차는 [SETUP.md](SETUP.md) 참고.
+## 공통
 
----
+- 모델: LGAI-EXAONE/EXAONE-4.5-33B-AWQ (SGLang). 소비행동 프롬프트 v53q는 2026-10-07에 동결했고, 이후 엔진 6세대(20261007c ~ 20261012b)에서 같은 파일이다(지문 058cd56d…).
+- 설계: 같은 시민 · 같은 날짜를 정책 있음 / 없음 두 세계로 돌리는 쌍체 반사실. 정책 전 기간은 한 번 돌려 두 세계가 공유한다.
+- 실측 수치는 모델 입력에 넣지 않았다(채점에만 사용).
+- 실행: 각 폴더의 `tools/run_ab3w.sh`(3주 A/B 실행기)와 `tools/ab3w_ops/`, 채점은 `scripts/report/score_*.py`.
 
-## 디렉토리 구조
+## 결과물 위치
 
-```
-final_project/
-├─ scripts/             # 모든 실행 가능한 코드
-│  ├─ bdc/              # 빅데이터캠퍼스 전처리·검증·페르소나 생성 파이프라인
-│  ├─ neo4j_load/       # Neo4j 그래프 초기 적재 (Day 0)
-│  ├─ sim/              # 일별 시뮬 (Dawn → Stage1/2 → Plan → Night)
-│  ├─ policy_pipeline/  # 정책 JSON 인제스션 + 스케줄링
-│  ├─ geocode/          # POI 좌표 보강 (VWorld API)
-│  └─ serve/            # vLLM / SGLang 서버 부팅 스크립트
-├─ data/                # 원본·중간 데이터 (대부분 .gitignore)
-│  ├─ raw/              # BDC 원본 7대 CSV/ZIP (외부 반입)
-│  ├─ mapping/          # 코드 매핑 (mopas_nso 등)
-│  ├─ policies/         # 정책 JSON (raw → processed → failed)
-│  └─ neo4j_load/       # 적재용 중간 파일 (POI, agent)
-├─ docs/                # 설계 문서·런북
-│  ├─ BDC/              # BDC 데이터 핸들링·전처리 결정
-│  └─ schedule_generation_plan/  # 스케줄 생성·온톨로지 설계 문서
-├─ output/              # 생성물 (대부분 .gitignore)
-│  ├─ stats/            # 페르소나 생성용 통계 JSON 10종 (트래킹)
-│  ├─ agents/           # agents_final.json
-│  ├─ sim/              # 시뮬 메트릭·시각화 dump
-│  │  └─ report/        # 최종 보고서 (FINAL_REPORT_*.{md,html} + 차트 PNG)
-│  └─ policy_pipeline/  # 정책 처리 결과
-├─ tests/               # pytest 단위 테스트
-├─ prototype/           # 옛 시뮬 잔재 (별도 브랜치, gitignore)
-├─ logs/                # 런타임 로그 (gitignore)
-├─ SETUP.md             # 셋업·실행 가이드
-├─ requirements.txt     # 파이썬 의존성
-├─ conftest.py          # pytest 루트 설정 (sys.path 보정)
-├─ .gitignore           # 추적 제외 패턴
-└─ agents.zip           # 트래킹된 에이전트 데이터 아티팩트
-```
-
----
-
-## scripts/ 세부
-
-### scripts/bdc/ — 빅데이터캠퍼스 전처리·페르소나 생성
-
-상세 파이프라인 문서: [scripts/bdc/README.md](scripts/bdc/README.md)
-
-| 파일 | 역할 |
-|---|---|
-| `file_discovery.py`         | data/raw/ 안의 압축·CSV 자동 탐지 (FileEntry 추상화) |
-| `preprocess_join.py`        | 원본 CSV → 조인된 중간 테이블 (output/original/, output/synthetic/) |
-| `analyze_stats.py`          | 조인 결과 → 페르소나 생성용 통계 JSON (output/stats/*.json, 7종) |
-| `generate_agents.py`        | 통계 JSON + LLM → 약 15,000명 페르소나 (output/agents/agents_final.json) |
-| `validate_vs_raw.py`        | 생성된 페르소나 분포 vs 원본 분포 검증 (트래킹된 4개 엔트리포인트 중 하나) |
-| `patch_failed_joins.py`     | preprocess_join에서 실패한 행 사후 보정 |
-| `synthetic_generator.py`    | data/synthetic/ 합성 데이터 생성 (BDC 미반입 시 fallback) |
-| `compare_stats.py`, `compare_to_json.py` | 통계 비교·검증 |
-| `validate_agents.py`, `validate_pandas_*.py` | 페르소나·전처리 결과 검증 |
-| 기타 보조: `assign_income_bucket.py`, `extract_ksco_codes.py`, `match_occupation_to_ksco.py`, `inspect_personas.py`, `count_seoul.py`, `quick_validate.py` |
-
-모든 파일 헤더에 `PROJECT_ROOT = Path(__file__).resolve().parents[2]` 로 프로젝트 루트 앵커. 어느 디렉토리에서 호출해도 `data/`, `output/` 경로가 정확히 해석된다.
-
-### scripts/sim/ — 일별 시뮬레이션
-
-**2-Stage LLM 파이프라인**
-| 파일 | 역할 |
-|---|---|
-| `dawn_context.py`        | Dawn — Neo4j에서 페르소나·State·Memory·Conversation·약속 fetch + 프롬프트 블록 |
-| `stage1_intent.py`       | Stage 1 — LLM이 의도·카테고리·anchor 시퀀스 결정. trigger normalize 헬퍼 포함 |
-| `stage2_poi.py`          | Stage 2 — Stage 1 이벤트별 POI 선택. desire-curve 기반 후보 정렬 + 풀 분할 |
-| `desire.py`              | POI 방문 욕구 함수 (baseline × recency × saturation + novelty), pure |
-| `visit_window.py`        | KNOWS_POI 30일 슬라이딩 윈도우 Python 헬퍼 |
-| `plan_writer.py`         | Stage 1+2 → Plan/INCLUDES 노드/엣지 작성 + 만족도 룰 적용 |
-
-**Night Phase**
-| 파일 | 역할 |
-|---|---|
-| `night_interaction.py`   | 상호작용 쌍 선정 — 3축 점수(노출·관계·긴급) + Softmax 확률 매칭 + 친밀도 시간 감쇠 |
-| `night_intent_llm.py`    | 상호작용 의도 분류 LLM (약속/추천/이슈/기타) |
-| `backfill_night_reasoning.py` | Night reasoning 사후 보완 |
-
-**오케스트레이션·분석**
-| 파일 | 역할 |
-|---|---|
-| `run_simulation.py`      | 일별 시뮬 메인 루프 (workers 병렬, agent별 process_one) |
-| `llm_client.py`          | OpenAI 호환 client (singleton thread-safe). vLLM / SGLang auto-detect |
-| `evaluate.py`            | 결과 평가 |
-| `interview_agent.py`     | 시뮬 종료 후 페르소나별 1대1 인터뷰 (positive/negative/neutral 샘플) |
-| `analyze_repeat_visits.py` | 같은 POI 반복 방문 패턴 분석 |
-| `day_health_check.py`    | 1일치 풀런 결과 빠른 진단 markdown |
-| `aggregate_fallback_stats.py` | fb_* 카운터 집계 |
-| `export_visualization.py`, `build_standalone_html.py` | 시각화 JSON dump + 단일 HTML 번들 |
-| `generate_final_report.py` | 최종 보고서 (DID, spillover, trigger 분포, 인터뷰 등) |
-
-### scripts/neo4j_load/ — Neo4j 초기 적재 (Day 0)
-
-`00_constraints.cypher` → `01_admin.py` → `02_categories.py` → `03_pois.py` → `04_agents.py` → `05_anchors.py` → `06_social.py` → `07_initial_awareness.py` → `08_initial_state.py` → `99_validate.py` 의 9단계. `run_all.py` 로 일괄 실행.
-
-`backfill_category_desire_params.py` 는 기존 그래프에 desire 파라미터(recovery_tau_days/desire_drop/saturation_n)만 추가하는 멱등 backfill.
-
-`_common.py` 는 driver 싱글톤(thread-safe, connection pool 공유).
-
-### scripts/policy_pipeline/ — 정책 인제스션
-
-정책 JSON 원본 → 추출(extractor) → 검증(validator) → Neo4j 작성(neo4j_writer) → 시뮬 적재 시간 스케줄(schedule.py). 상세는 [scripts/policy_pipeline/README.md](scripts/policy_pipeline/README.md).
-
-### scripts/geocode/ — POI 좌표 보강
-
-VWorld API로 주소 → 위경도. `cache.sqlite` 에 결과 영속화.
-
-### scripts/serve/ — LLM 서버 부팅
-
-| 파일 | 모델 |
-|---|---|
-| `serve_exaone45_sglang_a100x2.sh` | **기본**: 기존 SGLang 환경, LG EXAONE-4.5-33B-AWQ, TP=2 |
-| `serve_exaone.sh`, `serve_exaone45_33b.sh` | SGLang 기본 진입점 호환 래퍼 |
-| `run_vllm.sh`, `run_vllm_exaone45_33b.sh` | 별도 호환 환경이 필요한 선택적 vLLM 경로 |
-| `serve_exaone45_awq_a100x2.sh` | 선택적 vLLM TP=2 경로 |
-
-`LLM_MODE=exaone_4_5`, 기존 서버는 `http://127.0.0.1:8000/v1`이다. `/data/venv_sgl` 환경을 유지하며 AWQ 체크포인트의 `compressed-tensors` 메타데이터를 자동 사용한다. 이전 모델의 실험 기록은 `docs/archive/`와 기존 결과물에 유지한다. 현재 서버의 처리량은 대여 GPU에서 측정한다.
-
----
-
-## 핵심 실행 흐름
-
-```
-[BDC 원본]  →  scripts/bdc/preprocess_join.py  →  scripts/bdc/analyze_stats.py
-              ↓                                      ↓
-        output/original/                       output/stats/*.json
-                                                     ↓
-                                  scripts/bdc/generate_agents.py
-                                                     ↓
-                                  output/agents/agents_final.json
-                                                     ↓
-                              scripts/neo4j_load/run_all.py  → Neo4j Day 0
-                                                     ↓
-                              scripts/sim/run_simulation.py  → 일별 시뮬
-                                                     ↓
-                          scripts/sim/generate_final_report.py
-                                                     ↓
-                         output/sim/report/FINAL_REPORT_*.{md,html}
-```
-
-각 단계별 상세 커맨드는 [SETUP.md](SETUP.md) 참고.
-
----
-
-## 시뮬레이션 디자인 메모
-
-- **그래프 백엔드**: Neo4j 단일 저장소. 컨텍스트 빌더가 Cypher 사전 조회 → LLM 2-Stage. agentic RAG 아님.
-- **정책 수용 모델**: 6단계 라이프사이클(S0~S5) + `policy_baseline` 트레잇으로 조기수용자 약 20% 시딩.
-- **상호작용 매칭**: Softmax 확률 선택 (`temperature=0.5` 기본). 친밀도는 마지막 대화 이후 시간 감쇠 (7일 반감).
-- **POI 욕구 점수**: `baseline(affinity, sat) × recency(Δ) × saturation(v30) + novelty` 의 곱셈 조합. 어제 단골이라도 desire 가 낮으면 새 가게로 분산.
-- **trigger 라벨**: `appointment | rumor | policy | lifestyle | top_category | mood | none` 7종 표준. `habit`/`life_style` 은 모두 `lifestyle` 로 정규화.
-
----
-
-## 참고 문서
-
-- [SETUP.md](SETUP.md) — 환경 셋업·실행 절차
-- [docs/guides/](docs/guides/) — Neo4j 셋업·페르소나 실행 가이드
-- [docs/design/](docs/design/) — 설계·정책 계약·Night/온톨로지
-- [docs/schedule_generation_plan/](docs/schedule_generation_plan/) — 시뮬 설계·온톨로지
-- [docs/archive/](docs/archive/) — 일회성 결과·디버그·폐기 문서(파일럿·폴백 등)
-- [docs/BDC/](docs/BDC/) — BDC 데이터 핸들링 결정·런북
-- [output/sim/report/FINAL_REPORT_5D_FULL.md](output/sim/report/FINAL_REPORT_5D_FULL.md) — 최신 5일 풀런 최종 보고서(인터뷰·부록 A~D)
-- [scripts/bdc/README.md](scripts/bdc/README.md) — Agent Persona Pipeline (전처리→통계→생성→검증)
-- [scripts/policy_pipeline/README.md](scripts/policy_pipeline/README.md) — 정책 인제스션 파이프라인
+- 결과 zip · Neo4j 덤프(정책 전 · 있음 · 없음): 구글 드라이브 `KW_시뮬결과_공유_20261011/`(정책별 폴더, 링크 뷰어). 금연구역은 doinggyu 드라이브 `No_SmokingZone_EXP_Backups/runs/`.
+- 시민 페르소나 15,000명(생성본) + 14,881명(그래프 원본): 같은 드라이브 `PERSONAS/`.
+- 정책별 결과 요약: 각 폴더의 `data/experiments/` 기록 문서. 통합 평가는 `평가_통합성능/REPORT.md`.
