@@ -1,10 +1,10 @@
 #!/bin/bash
 # =============================================================================
-# vLLM 서버 시작 스크립트 — Qwen3-32B-AWQ (단일 모델 단일화)
+# vLLM 서버 시작 스크립트 — EXAONE-4.5-33B-AWQ (LG AI연구원, 단일 모델)
 # =============================================================================
 #
 # 페르소나 생성·스케줄 Stage 1·2·Night 의도 분류·정책 NL 추출 모두 이 모델 단독.
-# 결정: 2026-05-04 (Gemma/EXAONE 후보 폐기). project_vllm_model_decision 메모 참조.
+# 국내 AI 트랙: 국내 AI 연계 기업 모델만 쓴다. scripts/sim/llm_client.py 의 exaone_4_5 와 같은 모델.
 #
 # 사전 준비:
 #   conda activate vllm  (vllm>=0.19.0 + openai sdk)
@@ -18,12 +18,12 @@
 # 테스트:
 #   curl http://localhost:8000/v1/chat/completions \
 #     -H "Content-Type: application/json" \
-#     -d '{"model":"Qwen/Qwen3-32B-AWQ",
+#     -d '{"model":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
 #          "messages":[{"role":"user","content":"안녕하세요"}],
 #          "max_tokens":50}'
 # =============================================================================
 
-MODEL="Qwen/Qwen3-32B-AWQ"
+MODEL="LGAI-EXAONE/EXAONE-4.5-33B-AWQ"
 PORT=8000
 GPU_UTIL=0.92
 MAX_MODEL_LEN=8192

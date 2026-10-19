@@ -6,7 +6,7 @@ day별로 합계/비율로 묶어낸다. stage2_poi.py 의 다단 fallback이 �
 
 사용:
   python scripts/sim/aggregate_fallback_stats.py --start 2026-05-01 --days 3 \
-      [--out docs/SIM_QWEN14B_P008_3D_FALLBACK.md]
+      [--out docs/SIM_P008_3D_FALLBACK.md]
 """
 from __future__ import annotations
 

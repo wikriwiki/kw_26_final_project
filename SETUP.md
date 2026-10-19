@@ -35,7 +35,7 @@
 | OS | Windows 11 (WSL2) / Linux / macOS | Linux (Ubuntu 22.04+) |
 | Python | 3.10 | 3.11 |
 | RAM | 16 GB | 32 GB+ |
-| GPU (LLM 서버) | RTX 5090 32GB (Qwen3-14B-AWQ) | A100 80GB (Qwen3-32B-AWQ) |
+| GPU (LLM 서버) | RTX 5090 32GB (EXAONE-4.0-32B-AWQ) | A100 80GB × 2 (EXAONE-4.5-33B-AWQ) |
 | CUDA | 12.1+ | 12.4+ |
 | 디스크 | 50 GB (모델 가중치 + 출력) | 100 GB |
 | Neo4j | 5.20+ | 5.x 최신 |
@@ -143,8 +143,8 @@ export SIM_OUTPUT_DIR="$HOME/sim_output"
 # 시각화 산출물 디렉토리 (export_visualization.py)
 export VIZ_OUT_DIR="$HOME/sim_output/visualization"
 
-# LLM 모델 선택: qwen32b | qwen14b | qwen9b | exaone
-export LLM_MODE=qwen14b
+# LLM 모델 선택: exaone_4_5(기본) | exaone | exaone_fp8 | midm | midm_awq
+export LLM_MODE=exaone_4_5
 
 # LLM 서버 URL (SGLang 기본 30000, vLLM 호환 8000)
 export SGLANG_BASE_URL=http://localhost:30000/v1
@@ -164,31 +164,33 @@ LLM 서버는 GPU 가 있는 머신에서 띄운다. 시뮬 클라이언트와�
 
 ```bash
 # LLM 서버용 별도 venv
-python3.11 -m venv ~/.venv-sglang
-source ~/.venv-sglang/bin/activate
+python3.11 -m venv ~/.venv-llm
+source ~/.venv-llm/bin/activate
 pip install --upgrade pip
 
-# SGLang (RadixAttention prefix cache 지원 — 우리 5-레이어 프롬프트와 궁합)
-pip install "sglang[all]"
+# vLLM (EXAONE 4.5 AWQ 양자화 스키마는 최신 vllm 필요)
+pip install -U vllm
 
-# Qwen3-14B-AWQ 기동 (RTX 5090 32GB 권장 — 가장 빠름)
-bash scripts/serve/serve_qwen14b.sh
+# EXAONE-4.5-33B-AWQ 기동 (A100 80GB × 2, tensor parallel 2) — LLM_MODE=exaone_4_5 (기본)
+bash scripts/serve/serve_exaone45_awq_a100x2.sh
+# (vllm 이 이 AWQ 스키마를 못 읽으면 SGLang 판: bash scripts/serve/serve_exaone45_sglang_a100x2.sh)
 
-# 또는 A100 80GB 1장이면 32B
-bash scripts/serve/serve_qwen32b.sh
+# 또는 A100 80GB 1장이면 같은 모델 FP8 (SGLang, port 30000) — LLM_MODE=exaone_fp8
+# pip install "sglang[all]"
+bash scripts/serve/serve_exaone.sh
 ```
 
 기동 확인:
 ```bash
-curl http://localhost:30000/v1/models
-# {"data":[{"id":"Qwen/Qwen3-14B-AWQ", ...}]}
+curl http://localhost:8000/v1/models
+# {"data":[{"id":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ", ...}]}
 ```
 
-**모델별 권장**:
-- `qwen14b` — RTX 5090 32GB / RTX 4090 24GB, 5초/agent
-- `qwen32b` — A100 80GB, 9초/agent, 출력 품질 최고
-- `qwen9b` — 디버깅용, 어떤 GPU든 빠름
-- `exaone` — 국내 대회 제출용 EXAONE-4.5-33B-FP8
+**모델별 권장** (모두 국내 기업 모델):
+- `exaone_4_5` — 기본. LG EXAONE-4.5-33B-AWQ, A100 80GB × 2 (`serve_exaone45_awq_a100x2.sh`)
+- `exaone_fp8` — LG EXAONE-4.5-33B-FP8, A100 80GB 1장 (`serve_exaone.sh`)
+- `exaone` — LG EXAONE-4.0-32B-AWQ, RTX 5090 32GB 단일 GPU
+- `midm` / `midm_awq` — KT Midm 2.0 Base Instruct (BF16 / AWQ 4-bit), `start_vllm_midm.sh`
 
 ---
 
@@ -367,7 +369,7 @@ python scripts/sim/run_simulation.py \
 ```bash
 python scripts/sim/run_simulation.py \
     --start 2026-05-01 --days 60 --workers 16
-# 소요: GPU에 따라 ~10시간(qwen14b) ~ ~3일(qwen32b)
+# 소요: GPU·모델에 따라 수십 시간 ~ 수일
 ```
 
 중단됐다 다시 돌려도 OK — `done_<day>.json` 보고 resume.
@@ -410,7 +412,7 @@ kw_26_final_project/
 │   └── agents/agents_final.json      # 약 15,000 agent
 ├── scripts/
 │   ├── neo4j_load/                   # Day 0 적재 (01~08 + 99 validate)
-│   ├── serve/                        # LLM 서버 기동 sh (qwen14b/32b/9b/exaone)
+│   ├── serve/                        # LLM 서버 기동 sh (EXAONE 4.5/4.0, Midm 2.0)
 │   ├── policy_pipeline/              # 정책 추출·검증·적재
 │   └── sim/                          # 매일 사이클 시뮬
 │       ├── run_simulation.py         # ★ 메인 엔트리
@@ -441,7 +443,7 @@ kw_26_final_project/
 
 **Q. agent 생성 후 `agents_final.json` 이 비어있음**
 → LLM이 JSON 스키마 못 맞춤. `scripts/bdc/generate_agents.py --limit 5 --verbose` 로 raw 출력 봐서
-어디서 깨지는지 보고, 더 작은 모델(`qwen9b`)로 디버그.
+어디서 깨지는지 보고, 가벼운 모델(`midm_awq`)로 디버그.
 
 **Q. 시뮬 도중 `OutOfMemory` (Neo4j)**
 → Neo4j 힙 메모리 부족. Docker면 `-e NEO4J_dbms_memory_heap_max__size=8G` 추가.
@@ -497,6 +499,6 @@ Neo4j 통합 테스트는 실제 인스턴스가 필요해 CI에서 제외.
 
 - 원본 통계: 서울시 빅데이터캠퍼스, KT 유동인구, 카드사 소비 데이터 등 (각 라이선스 준수)
 - 코드: 본 레포 라이선스 참조
-- LLM 모델: Qwen3 (Apache 2.0), EXAONE (LG 제공 라이선스)
+- LLM 모델: EXAONE (LG 제공 라이선스), Midm 2.0 (KT 제공 라이선스)
 
 질문은 GitHub Issue 로.

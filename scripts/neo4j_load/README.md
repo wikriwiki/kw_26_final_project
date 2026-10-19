@@ -49,7 +49,7 @@ Day 0 그래프가 준비되면 다음 단계 = 매일 시뮬:
 | 폴더/문서 | 역할 |
 |---|---|
 | [`scripts/sim/`](../sim/) | Dawn(Stage 1·2) + Plan + Night Phase 1·2·3 통합 메인 루프 |
-| [`scripts/serve/`](../serve/) | SGLang 서버 launch (qwen32b / qwen9b / exaone 3종) |
+| [`scripts/serve/`](../serve/) | LLM 서버 launch (EXAONE 4.5 AWQ·FP8 / Midm 2.0) |
 | [`docs/SIM_PILOT_RESULTS.md`](../../docs/SIM_PILOT_RESULTS.md) | 14,560 agent × 3일 풀런 KPI + 정책 DID 분석 |
 | [`docs/design/NIGHT_INTERACTION_REPORT.md`](../../docs/design/NIGHT_INTERACTION_REPORT.md) | Night Phase 2 (상호작용·의도 분류) 통합 보고 |
 | [`docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md`](../../docs/design/NIGHT_NOTION_DIAGRAM_MAPPING.md) | 노션 다이어그램 12박스 → 코드 1:1 매핑 검증 |
@@ -179,8 +179,8 @@ MATCH (n) RETURN labels(n)[0] AS label, count(*) AS n ORDER BY n DESC;
 Day 0 적재 후 매일 시뮬:
 
 ```bash
-# SGLang 서버 (Qwen3-32B-AWQ)
-bash scripts/serve/serve_qwen32b.sh
+# vLLM 서버 (EXAONE-4.5-33B-AWQ, A100 80GB × 2)
+bash scripts/serve/serve_exaone45_awq_a100x2.sh
 
 # 시뮬 (3일치, 강남 100명 예시)
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3 --gu 11680 --limit 100 --workers 16
@@ -195,7 +195,7 @@ python scripts/sim/evaluate.py --start 2026-05-01 --days 3
 환경변수 (전체 시뮬 공통):
 - `SIM_OUTPUT_DIR` (기본 `~/sim_output`) — 체크포인트·메트릭 저장
 - `VIZ_OUT_DIR` (기본 `<프로젝트루트>/output/sim/visualization`) — 시각화 JSON
-- `LLM_MODE` (기본 `qwen32b`) — `qwen9b` (개발용), `exaone` (국내 대회용)
+- `LLM_MODE` (기본 `exaone_4_5`) — `exaone`, `exaone_fp8`, `midm`, `midm_awq`
 - `SGLANG_BASE_URL` (auto-detect: 30000 → 8000) — LLM 서버 URL
 
 자세한 내용은 위 시뮬 본체 섹션의 문서 링크 참조.

@@ -41,6 +41,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "neo4j_load"))
 
 from _common import driver_session  # noqa: E402
+from llm_client import get_spec  # noqa: E402
+
+#: 보고서에 적는 시뮬레이션 모델명 (LLM_MODE 에 따른 실제 서빙 모델).
+MODEL_LABEL = get_spec().hf_id.split("/")[-1]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -494,7 +498,7 @@ def build_markdown(start: date, days: int, policy_from: str | None,
     lines.append(f"**작성일**: {datetime.now().strftime('%Y-%m-%d %H:%M KST')}")
     lines.append("")
     lines.append(f"**기간**: {s1['기간']} ({s1['일수']}일) · "
-                 f"**모델**: Qwen3-14B-AWQ · "
+                 f"**모델**: {MODEL_LABEL} · "
                  f"**정책 시행**: {s1['정책_시행일']}")
     lines.append("")
 
@@ -1998,7 +2002,7 @@ def build_html(start: date, days: int, policy_from: str | None,
     <h2>목차</h2>
     <nav>{nav}</nav>
     <div class="tech-info">
-      <span>Qwen3-14B-AWQ</span><br/>
+      <span>{MODEL_LABEL}</span><br/>
       <span>Neo4j 5.x</span><br/>
       ABM × Generative Agent
     </div>
@@ -2013,7 +2017,7 @@ def build_html(start: date, days: int, policy_from: str | None,
         강남구 여름 카페·디저트 원소 바우처 (자연어 정책 자동 주입) 효과 분석
       </div>
       <div class="badges">
-        <span class="badge alt">Qwen3-14B-AWQ</span>
+        <span class="badge alt">{MODEL_LABEL}</span>
         <span class="badge purple">Neo4j Graph DB</span>
         <span class="badge">DID 분석</span>
         <span class="badge">설명가능 AI</span>

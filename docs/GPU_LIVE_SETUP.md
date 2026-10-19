@@ -13,12 +13,12 @@
 2. **워크로드 볼륨은 종료 시 사라진다.** 반드시 **스토리지(NAS)를 마운트**하고, Neo4j 데이터·
    시뮬 산출물·모델 캐시를 거기 둔다. 스토리지에 없는 건 워크로드 삭제 시 복구 불가.
 3. **우리 프로젝트에서 GPU가 필요한 건 LLM 서버뿐.** 시뮬 코드와 Neo4j는 CPU만 쓴다.
-   즉 GPU 워크로드 = "Qwen을 vLLM으로 서빙하는 자리" + 거기에 Neo4j·시뮬을 얹는다.
+   즉 GPU 워크로드 = "EXAONE을 vLLM으로 서빙하는 자리" + 거기에 Neo4j·시뮬을 얹는다.
 
 ### 우리 프로젝트 3요소 ↔ GPU LIVE 매핑
 | 요소 | 자원 | GPU LIVE에서 |
 |---|---|---|
-| **LLM 서버** (vLLM, Qwen3) | **GPU** | 워크로드에서 `scripts/serve/*.sh` 실행 → localhost:30000(또는 8000) |
+| **LLM 서버** (vLLM, EXAONE 4.5) | **GPU** | 워크로드에서 `scripts/serve/*.sh` 실행 → localhost:30000(또는 8000) |
 | **Neo4j** (그래프 DB) | CPU·디스크 | 같은 워크로드에 바이너리로 기동 → localhost:7687, data는 스토리지 |
 | **시뮬** (run_simulation.py) | CPU | 같은 워크로드에서 실행, 위 둘에 localhost로 연결 |
 
@@ -38,7 +38,7 @@
 ### Step 1. 워크로드 생성
 콘솔 → 프로젝트 영역 → **워크로드 → [워크로드 생성]**
 - **01 GPU & 리소스**
-  - GPU 유형: **Qwen3-32B-AWQ면 A100 80GB급 1장**(또는 프로젝트 쿼터 최대). 8B면 24GB급도 가능
+  - GPU 유형: **EXAONE-4.5-33B-AWQ면 A100 80GB급 2장**(TP=2, 또는 프로젝트 쿼터 최대). 같은 모델 FP8(`serve_exaone.sh`)이면 1장
   - 워크로드 유형: **단일 노드 / 인터랙티브** (SSH·Jupyter로 붙어 작업)
   - 공유 메모리: 넉넉히(vLLM은 shm 사용) — 가능하면 16GB↑
   - 실행 환경: **기본 이미지 중 NVIDIA PyTorch 계열** (CUDA 포함) 선택
@@ -74,12 +74,12 @@ pip install -r requirements.txt          # 시뮬 런타임 의존성
 # 모델 캐시를 스토리지에 (재다운로드 방지 — 워크로드 재생성해도 유지)
 export HF_HOME=/data/hf_cache
 
-# LLM 서버 실행 (기본 qwen8b, 32B는 serve_qwen32b.sh). background + 로그
-bash scripts/serve/run_vllm_qwen3_8b_awq.sh > /data/llm.log 2>&1 &
+# LLM 서버 실행 (기본 EXAONE-4.5-33B-AWQ, A100×2 TP=2). background + 로그
+bash scripts/serve/serve_exaone45_awq_a100x2.sh > /data/llm.log 2>&1 &
 # 준비 확인 (포트는 스크립트 기준 — SGLang 30000 / vLLM 8000)
 curl -s http://localhost:30000/v1/models || curl -s http://localhost:8000/v1/models
 ```
-> 모델 최초 다운로드는 수 분~수십 분(32B-AWQ ~20GB). `/data/hf_cache`에 받아두면 다음부터 즉시.
+> 모델 최초 다운로드는 수 분~수십 분(EXAONE 33B-AWQ ~20GB). `/data/hf_cache`에 받아두면 다음부터 즉시.
 
 ### Step 5. Neo4j 기동 (CPU) + 덤프 로드 — background
 GPU LIVE 워크로드는 docker가 없을 수 있으므로 **Neo4j 바이너리**를 쓴다(데이터는 스토리지에).
@@ -107,8 +107,8 @@ until cypher-shell -a bolt://localhost:7687 -u neo4j -p changeme123 'RETURN 1' 2
 ### Step 6. 시뮬 실행
 ```bash
 export NEO4J_URI=bolt://localhost:7687 NEO4J_USER=neo4j NEO4J_PASSWORD=changeme123
-export LLM_BASE_URL=http://localhost:30000/v1   # LLM 서버 포트에 맞춤
-export LLM_MODE=qwen8b                          # 또는 qwen32b
+export LLM_BASE_URL=http://localhost:8000/v1    # LLM 서버 포트에 맞춤 (FP8/SGLang 이면 30000)
+export LLM_MODE=exaone_4_5                      # FP8 판이면 exaone_fp8
 export SIM_OUTPUT_DIR=/data/sim_output          # 산출물도 스토리지에
 
 # (백테스트면) 정책 사전점검 후 적재
@@ -189,6 +189,6 @@ docker buildx build --platform linux/amd64 \
 | `NEO4J_URI` | bolt://neo4j:7687 | GPU LIVE에선 `bolt://localhost:7687` |
 | `NEO4J_PASSWORD` | changeme123 | Neo4j 비밀번호 |
 | `LLM_BASE_URL` | http://…:30000/v1 | LLM 서버 (SGLang 30000 / vLLM 8000) |
-| `LLM_MODE` | qwen8b | qwen8b / qwen32b / qwen35_9b_awq 등 |
+| `LLM_MODE` | exaone_4_5 | exaone_4_5 / exaone / exaone_fp8 / midm / midm_awq |
 | `SIM_OUTPUT_DIR` | ~/sim_output | **스토리지 경로로 지정** |
-| LLM 기동 | `scripts/serve/run_vllm_qwen3_8b_awq.sh` (8B) · `serve_qwen32b.sh` (32B) | |
+| LLM 기동 | `scripts/serve/serve_exaone45_awq_a100x2.sh` (AWQ, A100×2) · `serve_exaone.sh` (FP8, 1장) | |

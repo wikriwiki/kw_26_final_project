@@ -5,7 +5,7 @@ cd "/g/내 드라이브/Kw/final_project"
 set -a
 . data/neo4j_load/.env
 set +a
-export LLM_MODE=qwen36_35b_a3b_awq
+export LLM_MODE=exaone_4_5
 
 DAY4_JSONL="/c/Users/Administrator/sim_output_9d/metrics/day_2026-05-28.jsonl"
 LOG="/c/Users/Administrator/sim_output_9d/baseline_report.log"

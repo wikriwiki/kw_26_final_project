@@ -70,7 +70,8 @@ def main():
         assert config['model'] in [m['id'] for m in json.load(response)['data']]
     with urlopen(base.removesuffix('/v1') + '/server_info', timeout=10) as response:
         server = json.load(response)
-    assert server.get('reasoning_parser') == 'qwen3'
+    # 서버가 추론 파서를 켜 두었는지 확인한다. 파서 이름은 config 에 적힌 값이 있으면 그것과 맞춘다.
+    assert server.get('reasoning_parser') and server.get('reasoning_parser') == config.get('reasoning_parser', server.get('reasoning_parser'))
     files = [Path(__file__), ROOT/'scripts/sim/planning_contract.py', ROOT/'scripts/sim/validate_prompt_v3.py', ROOT/'scripts/sim/validate_prompt_v4.py']
     manifest = {'config':config, 'config_sha256':digest(config), 'inputs_sha256':digest(inputs),
                 'registered_at':datetime.now(timezone.utc).isoformat(),

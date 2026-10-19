@@ -5,7 +5,7 @@
   - sync `generate_chat` 추가 (우리 ThreadPoolExecutor 기반 메인 루프와 호환)
   - chat.completions raw 응답까지 반환 (token usage 메타 필요)
   - SGLang 기본 포트 30000, vLLM 호환 8000도 자동 감지
-  - Qwen family enable_thinking=False 자동 주입
+  - EXAONE enable_thinking=False 자동 주입
 
 사용 예:
     from llm_client import call_chat, get_active_mode
@@ -51,60 +51,6 @@ MODELS: dict[str, ModelSpec] = {
         description="Midm 2.0 Base Instruct AWQ 4-bit (community quant). "
                     "served_model_name=midm-2.0-base-instruct (BF16과 동일 이름으로 호환).",
     ),
-    "qwen32b": ModelSpec(
-        key="qwen32b",
-        hf_id="Qwen/Qwen3-32B-AWQ",
-        family="qwen",
-        description="기본값. AWQ 4-bit 양자화. RTX 5090 / A100 80GB 1장에서 동작.",
-    ),
-    "qwen8b": ModelSpec(
-        key="qwen8b",
-        hf_id="Qwen/Qwen3-8B",
-        family="qwen",
-        description="텍스트 전용 8B 모델. BF16, RTX 5090 32GB에 여유. "
-                    "Qwen3-14B-AWQ 대비 ~30% 빠름. 페르소나 요약·시뮬 기본값.",
-    ),
-    "qwen35_9b_awq": ModelSpec(
-        key="qwen35_9b_awq",
-        hf_id="QuantTrio/Qwen3.5-9B-AWQ",
-        family="qwen",
-        description="Qwen3.5-9B AWQ 4-bit (community 빌드). VRAM ~5GB → KV cache 대폭 여유. "
-                    "Qwen3-8B BF16 대비 환각·품질 개선 + workers 80+ 가능.",
-    ),
-    "qwen3_8b_awq": ModelSpec(
-        key="qwen3_8b_awq",
-        hf_id="Qwen/Qwen3-8B-AWQ",
-        family="qwen",
-        description="Qwen3-8B 공식 AWQ. Qwen3.5-9B-AWQ swap 실패 시 fallback. "
-                    "VRAM ~5GB. 같은 8B family라 8B BF16 대비 분석 mix 영향 최소.",
-    ),
-    "qwen36_35b_a3b_awq": ModelSpec(
-        key="qwen36_35b_a3b_awq",
-        hf_id="QuantTrio/Qwen3.6-35B-A3B-AWQ",
-        family="qwen",
-        description="Qwen3.6-35B-A3B AWQ (MoE 35B 총, 3B active). text-only 모드. "
-                    "VRAM ~18GB. throughput 25~40 agents/min 기대. workers 32~48.",
-    ),
-    "qwen3_30b_a3b_awq": ModelSpec(
-        key="qwen3_30b_a3b_awq",
-        hf_id="stelterlab/Qwen3-30B-A3B-Instruct-2507-AWQ",
-        family="qwen",
-        description="Qwen3-30B-A3B-Instruct-2507 AWQ (MoE 30B, 3B active). Qwen3.6 fallback. "
-                    "VRAM ~15GB. throughput 25~35 agents/min 기대.",
-    ),
-    "qwen9b": ModelSpec(
-        key="qwen9b",
-        hf_id="Qwen/Qwen3-8B",
-        family="qwen",
-        description="(deprecated) qwen8b alias — Qwen3.5-9B 멀티모달 회피. qwen8b 사용 권장.",
-    ),
-    "qwen14b": ModelSpec(
-        key="qwen14b",
-        hf_id="Qwen/Qwen3-14B-AWQ",
-        family="qwen",
-        description="중간 사이즈 14B AWQ. RTX 5090 32GB에 여유롭게 fit, "
-                    "Qwen3-32B 대비 추론 ~2배 빠름. 한국어 OK.",
-    ),
     "exaone": ModelSpec(
         key="exaone",
         hf_id="LGAI-EXAONE/EXAONE-4.0-32B-AWQ",
@@ -129,7 +75,7 @@ MODELS: dict[str, ModelSpec] = {
     ),
 }
 
-DEFAULT_MODE = "qwen8b"
+DEFAULT_MODE = "exaone_4_5"
 DEFAULT_BASE_URL = "http://localhost:30000/v1"   # SGLang 기본 포트
 VLLM_FALLBACK_URL = "http://localhost:8000/v1"   # vLLM 기존 포트 (호환)
 
@@ -176,6 +122,10 @@ def make_client(base_url: str | None = None) -> OpenAI:
         base_url = os.getenv("SGLANG_BASE_URL") or os.getenv("LLM_BASE_URL")
     if base_url is None:
         base_url = _autodetect_base_url()
+    # 국내 AI 트랙: 국외 AI 엔드포인트로는 연결하지 않는다.
+    from scripts.ai_call_log import is_foreign_ai_endpoint
+    if is_foreign_ai_endpoint(base_url):
+        raise ValueError(f"국내 AI 엔드포인트가 아닙니다: {base_url}")
     return OpenAI(base_url=base_url, api_key="EMPTY")
 
 
@@ -213,12 +163,12 @@ def get_client() -> OpenAI:
 def _extra_body_for(family: str) -> dict[str, Any]:
     """추론(thinking) 토큰 낭비·JSON 파싱 파손을 막기 위해 강제로 끔.
 
-    Qwen3·EXAONE 4.x 모두 chat_template의 enable_thinking 플래그를 지원한다.
+    EXAONE 4.x 는 chat_template의 enable_thinking 플래그를 지원한다.
     EXAONE-4.5는 기본이 thinking ON이라 끄지 않으면 매 호출이 수백~수천 추론
     토큰을 내고 Stage 응답의 JSON이 추론 서문에 묻혀 파싱 실패한다.
     (SGLang 실측: enable_thinking=False → 완성 토큰 300+ → 16, 순수 JSON.)
     """
-    if family in ("qwen", "exaone"):
+    if family == "exaone":
         return {"chat_template_kwargs": {"enable_thinking": False}}
     return {}
 

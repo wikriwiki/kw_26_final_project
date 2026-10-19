@@ -3,7 +3,7 @@
 # treatment: 6/1~6/7 (7일), baseline 5/25~5/31 (7일), 총 14일
 cd "/g/내 드라이브/Kw/final_project"
 set -a; . data/neo4j_load/.env; set +a
-export LLM_MODE=qwen36_35b_a3b_awq
+export LLM_MODE=exaone_4_5
 
 LOG="/c/Users/Administrator/sim_output_9d/inject_policy.log"
 SIM_LOG="/c/Users/Administrator/sim_output_9d/sim_9d.log"
@@ -78,7 +78,7 @@ log "sim restart with --days 14 (resume guard로 Day 1~7 skip, Day 8부터 정�
 nohup bash -c '
 cd "/g/내 드라이브/Kw/final_project"
 set -a; . data/neo4j_load/.env; set +a
-export LLM_MODE=qwen36_35b_a3b_awq
+export LLM_MODE=exaone_4_5
 export SIM_OUTPUT_DIR="C:/Users/Administrator/sim_output_9d"
 echo "[$(date)] === 14D SIM START (baseline 7 + treatment 7) ===" >> "C:/Users/Administrator/sim_output_9d/sim_9d.log"
 python3 -u scripts/sim/run_simulation.py --start 2026-05-25 --days 14 --workers 32 >> "C:/Users/Administrator/sim_output_9d/sim_9d.log" 2>&1

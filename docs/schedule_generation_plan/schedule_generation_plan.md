@@ -371,8 +371,8 @@ Prefix cache 대상: Stage 1 ①②③④ (~700) + Stage 2 ⓐ (~450) = **~1,150
 
 | | **Mode A (권장)** | Mode B (fallback) |
 |---|---|---|
-| 실행 | vLLM (`run_vllm.sh`) | Qwen Turbo API |
-| 모델 | Gemma-4-26B-A4B 또는 EXAONE-3.5-7.8B | qwen-turbo |
+| 실행 | vLLM (`run_vllm.sh`) | 외부 상용 LLM API |
+| 모델 | Gemma-4-26B-A4B 또는 EXAONE-3.5-7.8B | 외부 상용 경량 모델 |
 | 전제 | A100 80GB (공짜 렌탈) | API Key |
 | **60K × 60일 비용** | **$0** | ~$700~775 |
 | 1일치 처리 | ~3~8 hr (단일 A100) | API rate limit 의존 |

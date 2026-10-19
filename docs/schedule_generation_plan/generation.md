@@ -259,7 +259,7 @@ class DailySchedule(BaseModel):
 
 구조화 출력 강제 방식:
 - **vLLM**: `guided_json={"schema": Stage1Output.schema()}` / `Stage2Output.schema()`
-- **Qwen API**: `response_format={"type":"json_object"}` + Pydantic 재검증
+- **외부 상용 LLM API**: `response_format={"type":"json_object"}` + Pydantic 재검증
 
 ---
 

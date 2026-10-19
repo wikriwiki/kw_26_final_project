@@ -52,7 +52,7 @@ log "Neo4j 적재 완료"
 # Step 3: 시뮬 시작 + 자동 resume 루프
 # ============================================================
 log "=== STEP 3: 시뮬 시작 (5/25~5/28, workers=32) ==="
-export LLM_MODE=qwen8b
+export LLM_MODE=exaone_4_5
 
 ATTEMPT=0
 MAX_ATTEMPTS=10
@@ -101,14 +101,14 @@ log "복구 완료"
 # Step 5: 분석 보고서 자동 빌드
 # ============================================================
 log "=== STEP 5: 보고서·시각화 빌드 ==="
-LLM_MODE=qwen8b python3 "$WD/scripts/sim/generate_final_report.py" \
+LLM_MODE=exaone_4_5 python3 "$WD/scripts/sim/generate_final_report.py" \
     --start 2026-05-25 --days 4 --policy-from 2026-05-27 \
     --out "$WD/output/sim/report/FINAL_REPORT_4D_P009.md" \
     --skip-interview \
     >> "$LOG" 2>&1
 log "1차 보고서(skip-interview) 완료"
 
-LLM_MODE=qwen8b python3 "$WD/scripts/sim/generate_final_report.py" \
+LLM_MODE=exaone_4_5 python3 "$WD/scripts/sim/generate_final_report.py" \
     --start 2026-05-25 --days 4 --policy-from 2026-05-27 \
     --out "$WD/output/sim/report/FINAL_REPORT_4D_P009_FULL.md" \
     >> "$LOG" 2>&1

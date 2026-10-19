@@ -11,13 +11,13 @@
 - 실행 스크립트: `run_vllm.sh`
 - 기본 모델: **Gemma-4-26B-A4B-it** (현 설정, MoE, bf16, ctx 8192)
 - 대안:
-  - **Qwen2.5-7B-Instruct** — 빠름, 한국어 안정
+  - **해외 7B 후보 모델(Instruct)** — 빠름, 한국어 안정
   - **EXAONE-3.5-7.8B** (LG) — 한국어 특화, 서사성 우수
 - 구조화 출력: vLLM `guided_json` (outlines/xgrammar 자동)
 - Prefix caching 자동 활성 → per-agent 고정 블록(1,150 토큰) 재사용
 - **Graphiti NL 추출용 LLM 호출도 동일 vLLM**에서 처리(에이전트간 대화·정책 뉴스만 대상, 전체의 소수 비중)
 
-### Mode B — Qwen Turbo API (fallback)
+### Mode B — 외부 상용 LLM API (fallback)
 
 - A100 미가용 시에만 선택
 - 에이전트별 context cache + CSV 압축 필수
@@ -60,7 +60,7 @@
 
 ## 3. 비용 비교 (60,000 에이전트)
 
-| 기간 | **Mode A (A100 공짜 렌탈)** | **Mode B (Qwen Turbo API)** |
+| 기간 | **Mode A (A100 공짜 렌탈)** | **Mode B (외부 상용 LLM API)** |
 |---|---|---|
 | 7일 POC | **$0** | ~$115 |
 | 30일 | **$0** | ~$490 |
@@ -70,7 +70,7 @@
 
 ### Mode B 비용 산출 상세 (2-Stage 기준)
 
-Qwen Turbo 단가 (2026 초 근사):
+외부 상용 경량 모델 API 단가 (2026 초 근사):
 - 입력 $0.05 / 1M 토큰
 - 출력 $0.20 / 1M 토큰
 - 캐시 입력 $0.025 / 1M 토큰 (캐싱 시 50% 할인 가정)
@@ -93,7 +93,7 @@ agent-day당 2회 호출. 캐시 블록: Stage 1 고정 700 + Stage 2 고정 450
 | 모델 | VRAM | Aggr 처리량 | 60K/일 소요 |
 |---|---|---|---|
 | Gemma-4-26B-A4B | ~52GB | 10~15k tok/s | ~7~8 hr |
-| Qwen2.5-7B | ~16GB | 20~30k tok/s | ~3~4 hr |
+| 해외 7B 후보 모델 | ~16GB | 20~30k tok/s | ~3~4 hr |
 | EXAONE-3.5-7.8B | ~18GB | 20~30k tok/s | ~3~4 hr |
 
 **Day 2 이후**: Prefix cache가 1,150 토큰 고정 블록을 재사용 → 실효 처리량 1.3~1.5배 개선.
@@ -108,7 +108,7 @@ agent-day당 2회 호출. 캐시 블록: Stage 1 고정 700 + Stage 2 고정 450
 
 ## 5. 모델 선택 기준
 
-| 기준 | Gemma-4-26B-A4B | Qwen2.5-7B | EXAONE-3.5-7.8B |
+| 기준 | Gemma-4-26B-A4B | 해외 7B 후보 모델 | EXAONE-3.5-7.8B |
 |---|---|---|---|
 | 한국어 POI명 정확도 | 상 | 중-상 | **상-최상** |
 | 서사성 (페르소나 반영) | **상** | 중 | 상 |

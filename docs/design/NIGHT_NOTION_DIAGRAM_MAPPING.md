@@ -219,11 +219,11 @@ if a_info_count > b_info_count:
 - ✅ 한 줄 정규화 포맷 `time | dong | poi | category | activity`
 - ✅ residence·workplace anchor 이벤트도 포함
 
-#### 2.5.2: `LLM 분류` (Qwen3-32B-AWQ / EXAONE 4.5 / Qwen3.5-9B 자동감지)
+#### 2.5.2: `LLM 분류` (초기 실험용 로컬 모델 / EXAONE 4.5 자동감지)
 
 | 코드 위치 | `classify_intent(pair, data)` |
 |---|---|
-| LLM | SGLang/vLLM 자동감지 — 기본 Qwen3-32B-AWQ (prefix cache 활성, `/no_think`) |
+| LLM | SGLang/vLLM 자동감지 — 기본 초기 실험용 로컬 모델 (prefix cache 활성, `/no_think`) |
 | 검증 | Pydantic `IntentOutput` (intent enum + topic_type enum) |
 | 재시도 | 2회 (temp 0.3 → 0.5 → 0.7) |
 

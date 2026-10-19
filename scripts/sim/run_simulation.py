@@ -15,7 +15,7 @@ CLI:
   python run_simulation.py --start 2026-05-01 --days 3 --workers 32
   python run_simulation.py --start 2026-05-01 --days 1 --gu 11680 --limit 100  # 강남 100명 1일
 
-권장 workers (A100 80GB + Qwen3-32B-AWQ 기준):
+권장 workers (A100 80GB + EXAONE-4.5-33B-AWQ 기준):
   · 16: 안전 baseline, GPU 사용률 ~70%
   · 32: sweet spot, throughput +30~50%, KV cache 안전
   · 48: 최대치, throughput +50~80%, mem-fraction 0.88 거의 가득
@@ -24,7 +24,7 @@ CLI:
 
 환경변수:
   SIM_OUTPUT_DIR  : 출력 디렉토리 (기본 ~/sim_output)
-  LLM_MODE        : qwen32b | qwen14b | qwen9b | exaone (기본 qwen32b)
+  LLM_MODE        : exaone_4_5 | exaone | exaone_fp8 | midm | midm_awq (기본 exaone_4_5)
   SGLANG_BASE_URL : LLM 서버 URL (기본 http://localhost:30000/v1, vLLM 8000 폴백)
   NEO4J_POOL_SIZE : Neo4j 드라이버 connection pool 크기 (기본 100, workers 의 2~3배 권장)
   SIM_FAST_MODE   : off (기본) | record | shadow — 경량 판단 기록만; 기존 결과 유지

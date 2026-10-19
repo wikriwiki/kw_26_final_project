@@ -1,14 +1,14 @@
 """
 generate_agents.py
 ======================
-Phase 2: vLLM (Qwen3-32B-AWQ) 기반 소비자 에이전트 ~5,000명 대량 생성
+Phase 2: vLLM (EXAONE-4.5-33B-AWQ) 기반 소비자 에이전트 ~5,000명 대량 생성
 
 이전 검증된 코드의 안정적 인프라 + 이번 stats 구조에 맞는 프롬프트
 
 사전 조건:
   1. WSL에서 vLLM 서버 실행 중:
      conda activate vllm
-     vllm serve Qwen/Qwen3-32B-AWQ --gpu-memory-utilization 0.90 --max-model-len 4096 --port 8000 --trust-remote-code
+     vllm serve LGAI-EXAONE/EXAONE-4.5-33B-AWQ --gpu-memory-utilization 0.90 --max-model-len 4096 --port 8000 --trust-remote-code
   2. pip install openai tqdm
 
 사용법:
@@ -34,7 +34,7 @@ from typing import Any
 # Configuration
 # ---------------------------------------------------------------------------
 DEFAULT_VLLM_URL = "http://localhost:8000/v1"
-MODEL_NAME = "Qwen/Qwen3-32B-AWQ"
+MODEL_NAME = "LGAI-EXAONE/EXAONE-4.5-33B-AWQ"
 
 STATS_DIR = PROJECT_ROOT / "output" / "stats"
 OUTPUT_DIR = PROJECT_ROOT / "output" / "agents"
@@ -133,8 +133,7 @@ SYSTEM_PROMPT = """\
   }
 }
 
-복수 에이전트 요청 시, JSON 배열 []로 감싸서 출력하세요.
-/no_think"""
+복수 에이전트 요청 시, JSON 배열 []로 감싸서 출력하세요."""
 
 
 # ---------------------------------------------------------------------------
@@ -499,6 +498,8 @@ async def call_vllm(client, system_prompt: str, user_prompt: str, max_tokens: in
         ],
         temperature=TEMPERATURE,
         max_tokens=max_tokens,
+        # EXAONE 4.x 는 추론(thinking)이 기본으로 켜져 JSON 앞에 추론 서문이 붙는다.
+        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
     )
     return response.choices[0].message.content
 
