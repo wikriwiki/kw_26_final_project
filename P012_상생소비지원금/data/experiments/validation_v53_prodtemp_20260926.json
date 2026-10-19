@@ -1,0 +1,81 @@
+{
+  "id": "validation_v53_prodtemp_20260926",
+  "registered_on": "2026-09-26",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "candidates": [
+    "v51",
+    "v53"
+  ],
+  "phase": "Matched production-temperature Stage1 raw format and neutrality transfer. Exact previously frozen 96 citizen/case/arm contexts and four seeds; no policy effect estimate.",
+  "sample_n": 12,
+  "replicate_seeds": [
+    1701,
+    2903,
+    4801,
+    6007
+  ],
+  "temperature": 0.7,
+  "max_tokens": 2200,
+  "workers": 24,
+  "cases": [
+    {
+      "id": "cashback",
+      "policy": "P012",
+      "date": "2021-10-25"
+    },
+    {
+      "id": "grant",
+      "policy": "P013",
+      "date": "2020-05-14"
+    },
+    {
+      "id": "local_voucher",
+      "policy": "P014",
+      "date": "2020-09-23"
+    },
+    {
+      "id": "distancing",
+      "policy": null,
+      "date": "2020-11-24"
+    }
+  ],
+  "arms": [
+    "off",
+    "on"
+  ],
+  "design": "Identical frozen persona, synthetic Day0 state and date within each pair. Fiscal arms share environment. Distancing arms differ only in explicitly registered restrictions, not disease background. Read-only Neo4j; no rollout or database reset.",
+  "initial_state": "39 times daily_wd cash; mood=0.5, fatigue=0.3, energy=0.7, satisfaction=0.6; no prior memories or appointments. These are simulation initial conditions, not observed personal history.",
+  "cashback_seed": "Monthly eligible spend seeded as daily weighted anchor * 0.268 * (day_of_month - 1), identically in off/on arms. Policy facts use experiment date as counterfactual start.",
+  "primary_metrics": [
+    "strict_raw_contract_rate",
+    "missing_response_rate",
+    "fiscal_off_attribution_flag_rate"
+  ],
+  "attribution_rule": "In fiscal off arms flag trigger=policy AND reasoning mentioning P012/P013/P014/cashback/coupon/voucher/grant/local voucher. Environmental regulation attribution is allowed. This is a conservative screening flag, not a validated hallucination classifier; manually inspect flagged text before interpretation.",
+  "diagnostics": [
+    "daily_propensity_paired_difference",
+    "commerce_event_paired_difference",
+    "replicate_sign_agreement",
+    "policy_trigger_rate",
+    "tokens",
+    "latency"
+  ],
+  "contract_checks": [
+    "JSON schema without automatic repair",
+    "valid time and strictly increasing >=20 minute spacing",
+    "start/end at residence",
+    "allowed zone codes",
+    "anchor/category consistency",
+    "required reasoning and trigger",
+    "finite propensity in [0,1]",
+    "6+ weekday or 4+ weekend events"
+  ],
+  "decision": "v53 must remove policy-specific merchant and grant defaults in its rendered shared body, produce all 384 registered raw responses, reach at least 95% strict format validity, show no increase in strict format failures versus v51, have zero request failures and zero false fiscal policy attributions in off arms. Inspect all raw failures; this technical gate is not external effect validation.",
+  "inference": "Development-context Stage1 raw response comparison at temperature 0.7 only. No claim about Stage2 purchase realization, external direction or magnitude, independent holdout, or optimal prompt.",
+  "holdout": "P015 is prohibited from rerun and is not a fresh holdout. This experiment uses only previously known development contexts.",
+  "magnitude_future": "Use simultaneous independent on/off rollouts, same dates and initial snapshots, independent run replicates. Report effect and interval; 0.5-2.0 empirical magnitude only when population, outcome definition, denominator and horizon match. Otherwise mark not comparable.",
+  "stop_rule": "Run all 768 calls exactly once, preserve raw responses, context and system hashes, request errors, and usage. Do not stop early on significance or silently retry failed cells.",
+  "power": "The paired test is interpreted with 384 cells and its observed discordance. Lack of significance is not evidence of equivalence.",
+  "predicted": "Policy-neutral wording should prevent unsupported merchant-scope and grant-style assumptions; direction and magnitude of policy effects are deliberately unspecified.",
+  "not_changed": "Model, 96 frozen contexts, 12 personas, four cases, dates, two arms, four seeds, max_tokens=2200, and raw contract checks are inherited exactly from validation_v51_v52. Candidate set and temperature are the only execution changes."
+}

@@ -1,0 +1,16 @@
+{
+  "previous_day": "2021-10-15",
+  "day": "2021-10-16",
+  "previous_states": 500,
+  "current_states": 500,
+  "matched_agents": 500,
+  "missing_previous": [],
+  "missing_current": [],
+  "transactions": 5592,
+  "gross": 16831594,
+  "policy_payment": 0,
+  "balance_mismatch_count": 0,
+  "month_mismatch_count": 0,
+  "balance_mismatch_examples": [],
+  "month_mismatch_examples": []
+}

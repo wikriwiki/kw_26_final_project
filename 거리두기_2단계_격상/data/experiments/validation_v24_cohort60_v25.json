@@ -1,0 +1,38 @@
+{
+ "id": "validation_v24_cohort60_v25",
+ "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+ "source_inputs_sha256": "105a0e0320c463f86eb7dc9b155ac2c6a65ebc7a40afb39731dfcdf56586f9c6",
+ "prompt_module": "v25",
+ "candidates": [
+  {
+   "id": "v25_s2",
+   "thinking_tokens": 512
+  }
+ ],
+ "seeds": [
+  70002
+ ],
+ "answer_tokens": 2048,
+ "max_shift_minutes": 0,
+ "temporal_clock_step": 30,
+ "sampling": {
+  "temperature": 0.2,
+  "top_p": 0.95,
+  "presence_penalty": 0.0
+ },
+ "workers": 8,
+ "timeout_seconds": 900,
+ "order_seed": 20260921,
+ "phase": "Confirmation of the one effect that resolved. v39 moved the twenty-six citizens with no commute (1 to 7 cells of 208, +0.0288 [+0.0096, +0.0529]) and left the commuters alone (15 to 14). That subgroup was written down as the round's real question before the run. A single round can fail to replicate - v34 did - so this repeats both arms at an independent seed.",
+ "primary": "Paired per-citizen composition distance against the v18 v25 arm, resampling citizens. Success is a 95% interval that excludes zero on the closer side. The same test on v34 gave -0.0198 [-0.0855, +0.0405], so a difference under about 0.06 cannot be told apart at this roster size.",
+ "limitations": [
+  "Seed 70002 is new; everything else is the v18/v21/v22 cohort and pipeline unchanged.",
+  "Both arms are re-run. The v22 comparison reused the v18 v25 arm, so a seed effect could have masqueraded as a prompt effect; here the two arms share the seed.",
+  "Twenty-six non-commuters over 208 cells is still small. A failure to replicate does not prove the effect absent, only that this design cannot see it."
+ ],
+ "preflight": "277 unit checks passed including 6 new resource-gate regressions. Source, v25 and asset_transaction_v7 unchanged from the previous round.",
+ "selection": "Closed pair carried from v16/v17 (experiments/v18/prompt_v18.md). No new candidate.",
+ "last_start_not_before": "18:00",
+ "allow_zone_commitments": true,
+ "surface_wallet_acceptance": false
+}

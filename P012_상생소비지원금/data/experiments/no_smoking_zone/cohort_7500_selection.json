@@ -1,0 +1,45 @@
+{
+  "method": "preserve_eligible_source_ids_then_sha256_rank_replacements",
+  "rank_input": "UTF-8 no-smoking-roster:<integer seed>:<exact agent ID>",
+  "rank_order": "ascending SHA256 hex digest, then exact ID as collision tie-break",
+  "seed": 20171203,
+  "requested_size": 7500,
+  "source_count": 7500,
+  "eligible_count": 14549,
+  "retained_count": 7494,
+  "removed_count": 6,
+  "replacement_pool_count": 7055,
+  "added_count": 6,
+  "selected_count": 7500,
+  "removed_source_ids": [
+    "AGT_11470630_M_50대_003",
+    "AGT_11530530_F_50대_002",
+    "AGT_11530530_F_50대_003",
+    "AGT_11530530_F_50대_005",
+    "AGT_11530530_F_50대_006",
+    "AGT_11560710_F_50대_003"
+  ],
+  "added_replacement_ids": [
+    "AGT_11140570_M_50대_001",
+    "AGT_11170650_M_30대_001",
+    "AGT_11470610_M_20대_001",
+    "AGT_11530790_F_70대이상_001",
+    "AGT_11560605_F_40대_005",
+    "AGT_11680656_F_40대_001"
+  ],
+  "source_ids_sha256": "46e05b798868c96e1a2a79d365e387d2f3491874946880b4225bcfe78d1454ea",
+  "eligible_ids_sha256": "4a9d8881b3d116049ed69bef0dc76a6131a60bec1f34a03fcd3ecb1f962061ff",
+  "retained_ids_sha256": "a265e7d042406c5113b9d3d444c4441d993b63ae0b62ff203f9d4a66d958961f",
+  "selected_ids_sha256": "9de085449505f7284d09a268601edcb9bd7520773f849388bd1c701e7bb89a45",
+  "selection_inputs": [
+    "source IDs",
+    "eligible IDs",
+    "size",
+    "seed"
+  ],
+  "demographics_smoking_and_outcomes_used": false,
+  "source_file_sha256": "5137064448a4e4d2f098412faba0a7ba8d4668dcdf0847dbeea67e2ee1bfdf2b",
+  "eligible_file_sha256": "e812a9a398ffbd05a8765f624d919ae3f20adf9e4e3223d1c225050e032b72a2",
+  "source_file": "output\\no_smoking_zone\\source_7500_v1\\cohort_ids.json",
+  "eligible_file": "output\\no_smoking_zone\\graph_cohort_v2\\eligible_ids.json"
+}

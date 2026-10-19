@@ -1,0 +1,49 @@
+{
+ "unit": "won per person per day",
+ "seeds": [
+  "56001",
+  "57001",
+  "58001"
+ ],
+ "by_mechanism": {
+  "캐시백": {
+   "runs": 3,
+   "between_run_width": 2666.666666666666,
+   "between_run_sd": 1347.1506281091265,
+   "within_run_mean_se": 2452.73472604047,
+   "ratio_between_over_within": 0.5492443246334576,
+   "verdict": "표본이 작을 뿐 (n 으로 준다)"
+  },
+  "거리두기": {
+   "runs": 2,
+   "between_run_width": 2916.666666666667,
+   "between_run_sd": 2062.394778460764,
+   "within_run_mean_se": 2761.149915692587,
+   "ratio_between_over_within": 0.746933285563181,
+   "verdict": "표본이 작을 뿐 (n 으로 준다)"
+  },
+  "지원금": {
+   "runs": 3,
+   "between_run_width": 2166.6666666666665,
+   "between_run_sd": 1087.5984416917718,
+   "within_run_mean_se": 2192.180344182891,
+   "ratio_between_over_within": 0.4961263541012001,
+   "verdict": "표본이 작을 뿐 (n 으로 준다)"
+  },
+  "지역화폐": {
+   "runs": 3,
+   "between_run_width": 4000.000000000001,
+   "between_run_sd": 2002.3134767711226,
+   "within_run_mean_se": 1912.5911905009352,
+   "ratio_between_over_within": 1.0469113769402483,
+   "verdict": "표본이 작을 뿐 (n 으로 준다)"
+  }
+ },
+ "overall": {
+  "between_run_sd_mean": 1624.8643312581962,
+  "within_run_se_mean": 2329.664044104221,
+  "ratio": 0.6974672315393754
+ },
+ "question": "Is the seed band small-sample error of a paired estimator, or a run-level common shock?",
+ "why_it_matters": "Small-sample error shrinks with more agents. A run-level shock does not; it needs repeated runs as the unit."
+}

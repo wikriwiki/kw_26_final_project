@@ -1,0 +1,47 @@
+services:
+  console:
+    build:
+      context: ../..
+      dockerfile: deploy/aws/Dockerfile
+      args:
+        VITE_READ_ONLY: "true"
+    image: policy-sim-console:readonly
+    environment:
+      WEB_READ_ONLY: "true"
+      SIM_DATA_ROOT: /srv/sim-data
+      SIM_VIZ_FILE: /srv/viz/sim_standalone.html
+      WEB_CORS_ORIGINS: ""
+    ports:
+      # EC2 security-group rules control which client IPs may reach this port.
+      - "${CONSOLE_PORT:-8000}:8000"
+    volumes:
+      - type: bind
+        source: ${CONSOLE_DATA_DIR:?set CONSOLE_DATA_DIR in deploy/aws/.env}
+        target: /srv/sim-data
+        read_only: true
+      - type: bind
+        source: ${CONSOLE_OUTPUT_DIR:?set CONSOLE_OUTPUT_DIR in deploy/aws/.env}
+        target: /app/output/sim
+        read_only: true
+      - type: bind
+        source: ${CONSOLE_VIZ_FILE:?set CONSOLE_VIZ_FILE in deploy/aws/.env}
+        target: /srv/viz/sim_standalone.html
+        read_only: true
+      - type: bind
+        source: ${CONSOLE_AGENT_DIR:?set CONSOLE_AGENT_DIR in deploy/aws/.env}
+        target: /app/web/ui/dist/agent-console
+        read_only: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    init: true
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

@@ -1,0 +1,333 @@
+"""실험 라운드마다 **어떤 프롬프트로 돌렸고, 실측과 얼마나 차이 나는지**를 그린다.
+
+한 눈에 보이게 하는 것이 목적이다. 지표마다 실측 막대와 시뮬 막대를 같은 눈금에
+나란히 놓고, 그 차이를 옆에 적는다.
+
+    python scripts/report/build_results_overview.py
+
+산출: experiments/RESULTS.md
+
+**수치는 전부 `data/experiments/scoring_table.json` 에서 온다.** 손으로 적지 않는다.
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import io
+import json
+import re
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+SCORING = ROOT / 'data/experiments/scoring_table.json'
+OUT = ROOT / 'experiments/RESULTS.md'
+
+_spec = importlib.util.spec_from_file_location(
+    'all_indicators_table', ROOT / 'scripts/report/all_indicators_table.py')
+_indicators = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_indicators)
+_sign_spec = importlib.util.spec_from_file_location(
+    'sign_scoreboard', ROOT / 'scripts/report/sign_scoreboard.py')
+_sign = importlib.util.module_from_spec(_sign_spec)
+_sign_spec.loader.exec_module(_sign)
+
+# 과거 블록의 기본 프롬프트는 v5다. 이름 끝에 후보 접미사가 있으면 그대로 표시한다.
+# 이 보관된 결과는 새 후보의 정책별 ON/OFF 유효성 검증을 대신하지 않는다.
+PROMPT_BY_ROUND = {
+    'default': 'v5',
+    'note': '명시된 후보 접미사가 없는 역사적 결과 블록은 v5로 기록한다',
+}
+
+
+def prompt_of(round_name):
+    """라운드 이름 끝의 팔 이름이 곧 그때 쓴 프롬프트다(result_v50_v45 → v45)."""
+    import re
+    m = re.search(r'_(v\d+)$', str(round_name or ''))
+    return m.group(1) if m else PROMPT_BY_ROUND['default']
+
+POLICIES = [
+    ('P010', '민생회복 소비쿠폰', 'P010', '민생회복소비쿠폰_P010'),
+    ('P012', '상생소비지원금', 'P012', '상생소비지원금_P012'),
+    ('P013', '긴급재난지원금', 'EMERGENCY_2020', '긴급재난지원금_P013'),
+    ('P014', '지역사랑상품권', 'LOCAL_VOUCHER', '지역사랑상품권_P014'),
+    ('P015', '8대 소비쿠폰 (홀드아웃)', 'SECTOR_VOUCHER_2020', '업종형소비쿠폰_P015'),
+    ('P016', '농축산물 할인쿠폰', 'P016', '농축산물할인쿠폰_P016'),
+    ('—', '사회적 거리두기', 'DISTANCING_2020', '사회적거리두기_DISTANCING2020'),
+]
+
+WIDTH = 26  # 막대 한쪽 길이
+
+
+# 원문은 유니코드 빼기표(−, U+2212)를 쓴다. ASCII 하이픈으로 바꾸지 않으면
+# −14.1% 가 +14.1% 로 읽힌다. 실제로 한 번 그렇게 나왔다.
+DASHES = {'−': '-', '–': '-', '—': '-', '－': '-'}
+
+
+def norm(t):
+    t = str(t or '')
+    for a, b in DASHES.items():
+        t = t.replace(a, b)
+    return t
+
+
+def truth_pct(desc, expect=None):
+    """지표 설명의 '(실측 …)' 에서 퍼센트 값을 꺼낸다. 없으면 None.
+
+    순위 지표는 값이 둘이라(A vs B) 막대 하나로 그리면 오해를 준다 — 그리지 않는다.
+    """
+    if expect == 'rank':
+        return None
+    m = re.search(r'\(실측\s*([^)]*)\)', norm(desc))
+    if not m:
+        return None
+    body = m.group(1)
+    if '원' in body and '%' not in body:
+        return None                      # 금액은 퍼센트 막대에 못 올린다
+    m2 = re.search(r'([+-]?\d+(?:\.\d+)?)\s*%', body)
+    return float(m2.group(1)) if m2 else None
+
+
+def truth_text(desc):
+    """표에 그대로 적을 실측 문구 — 순위 지표의 'A vs B' 까지 살린다."""
+    m = re.search(r'\(실측\s*([^)]*)\)', norm(desc))
+    return m.group(1).strip() if m else None
+
+
+def sim_pct(val):
+    if not isinstance(val, dict):
+        return None
+    v = val.get('pct')
+    return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def sim_text(val):
+    """비율 외의 원장 평균도 단위를 추정하지 않고 그대로 보여 준다."""
+    pct = sim_pct(val)
+    if pct is not None:
+        return num(pct)
+    mean = (val or {}).get('mean') if isinstance(val, dict) else None
+    if isinstance(mean, (int, float)) and not isinstance(mean, bool):
+        return '평균 %.4g (단위 확인)' % mean
+    return '—'
+
+
+def bar(value, scale):
+    """0 을 가운데 둔 발산형 막대. 왼쪽이 감소, 오른쪽이 증가."""
+    if value is None or scale <= 0:
+        return ' ' * WIDTH + '│' + ' ' * WIDTH
+    n = max(1, min(WIDTH, round(abs(value) / scale * WIDTH)))
+    if value >= 0:
+        return ' ' * WIDTH + '│' + '█' * n + ' ' * (WIDTH - n)
+    return ' ' * (WIDTH - n) + '█' * n + '│' + ' ' * WIDTH
+
+
+def num(v, unit='%'):
+    return ('%+.1f%s' % (v, unit)) if isinstance(v, (int, float)) else '—'
+
+
+def indicator_rows(block, inds):
+    """지표 목록을 뼈대로, 실측과 시뮬을 한 줄씩."""
+    out = []
+    for i in inds:
+        iid = i.get('id')
+        val = block.get(iid)
+        audit = i.get('empirical_audit') or {}
+        source_gap = not _sign.direction_comparison_audited(i)
+        comparable = (_indicators.direct_comparison_audited(i)
+                      and i.get('expect') != 'rank'
+                      and audit.get('reported_unit') == '%')
+        note = (val or {}).get('note') if isinstance(val, dict) else None
+        invalid = bool(note and '무효' in str(note))
+        shown = sim_text(val)
+        if invalid:
+            shown = '무효 (과거값 %s)' % shown
+        out.append({
+            'id': iid,
+            'expect': i.get('expect'),
+            'what': re.sub(r'\s*\(실측[^)]*\)', '', str(i.get('desc') or '')).strip(' -—'),
+            'truth': audit['reported_value'] if comparable else truth_pct(i.get('desc'), i.get('expect')),
+            'truth_text': truth_text(i.get('desc')),
+            # Magnitude comparison requires an explicit, source-checked match of
+            # population, outcome, period, denominator and counterfactual.
+            'comparable': comparable,
+            'audit_status': audit.get('comparison') or '정의 미확인',
+            'audit_reason': audit.get('reason'),
+            'sim_text': shown,
+            'sim': None if invalid else sim_pct(val),
+            'ci': None if invalid else ((val or {}).get('ci') if isinstance(val, dict) else None),
+            'hit': None if invalid or source_gap else ((val or {}).get('hit') if isinstance(val, dict) else None),
+            'internal_hit': (val or {}).get('hit') if isinstance(val, dict) and not invalid else None,
+            'note': note,
+            'measured': isinstance(val, dict),
+        })
+    return out
+
+
+def draw(rows):
+    rows = [r for r in rows if r['comparable']]
+    vals = [abs(v) for r in rows for v in (r['truth'], r['sim']) if v is not None]
+    if not vals:
+        return ['이 라운드에서 **실측과 직접 같은 눈금으로 비교할 수 있다고 확인된 지표는 없다.**', '']
+    scale = max(vals)
+    L = ['```',
+         ' ' * 10 + '←  %-*s0%*s  →' % (WIDTH - 1, '%.0f' % scale, WIDTH - 1, '%.0f' % scale),
+         ' ' * 10 + '감소' + ' ' * (2 * WIDTH - 5) + '증가']
+    for r in rows:
+        tag = r['id']
+        if r['truth'] is None and r['sim'] is None:
+            L.append('%-9s %s   실측·시뮬 모두 퍼센트 값 없음' % (tag, ' ' * (2 * WIDTH + 1)))
+            continue
+        lab = num(r['truth']) if r['truth'] is not None else (
+            (r['truth_text'] or '수치 없음')[:34])
+        L.append('%-9s %s  실측 %s' % (tag, bar(r['truth'], scale), lab))
+        gap = ('  차이 %+.1f%%p' % (r['sim'] - r['truth'])
+               if (r['sim'] is not None and r['truth'] is not None) else '')
+        if r['sim'] is None:
+            L.append('%-9s %s  시뮬 — %s' % ('', ' ' * (2 * WIDTH + 1),
+                                            '안 잼' if not r['measured'] else '값 없음'))
+        else:
+            zero = ''
+            if isinstance(r['ci'], list) and len(r['ci']) == 2:
+                if r['ci'][0] <= 0 <= r['ci'][1]:
+                    zero = '  ← 구간이 0 을 지난다'
+            L.append('%-9s %s  시뮬 %s%s%s' % ('', bar(r['sim'], scale), num(r['sim']), gap, zero))
+        L.append('')
+    L.append('```')
+    return L
+
+
+def table(rows):
+    L = ['| 지표 | 무엇을 재나 | 내부 기대 | 실측 | 시뮬 | 95% 구간 | 차이 | 내부 기대 부호 | 외부 판정 |',
+         '|---|---|:-:|---:|---:|---|---:|:-:|---|']
+    for r in rows:
+        ci = '—'
+        if isinstance(r['ci'], list) and len(r['ci']) == 2:
+            ci = '[%+.4g, %+.4g]' % (r['ci'][0], r['ci'][1])
+            if r['ci'][0] <= 0 <= r['ci'][1]:
+                ci += ' **0 포함**'
+        gap = ('%+.1f%%p' % (r['sim'] - r['truth'])
+               if (r['comparable'] and r['sim'] is not None and r['truth'] is not None)
+               else '—')
+        # 채점(hit)은 부호 + 유의성을 함께 본다. 점추정 부호만 맞는 칸을
+        # '부호 불일치'로 적으면 사실과 다르다 — 갈라서 적는다.
+        verdict = {True: '등록 적중', False: '등록 미적중'}.get(
+            r['hit'], '안 잼' if not r['measured'] else '—')
+        if r['audit_status'] == 'not_observed':
+            verdict = '원문 미관측·내부가설'
+        elif r['audit_status'] == 'different_estimand':
+            verdict = '추정량 불일치·내부판정'
+        elif r['hit'] is None and r.get('internal_hit') in (True, False):
+            verdict = '원문 방향 미감사·내부판정'
+        if r['hit'] in (True, False) and not r['comparable']:
+            verdict += '·외부 미검증'
+        sign = '—'
+        if r['sim'] is not None and r['expect'] in ('+', '-'):
+            want = 1 if r['expect'] == '+' else -1
+            sign = '일치' if (r['sim'] > 0) == (want > 0) else '**반대**'
+        elif r['sim'] is not None and r['truth'] is not None:
+            sign = '일치' if (r['sim'] >= 0) == (r['truth'] >= 0) else '**반대**'
+        L.append('| `%s` | %s | `%s` | %s | %s | %s | %s | %s | %s |' % (
+            r['id'], r['what'][:46].replace('|', '·'), r['expect'],
+            (('출처 미확인: ' if r['audit_status'] == 'unverified_source' else '')
+             + (r['truth_text'] or num(r['truth']))).replace('|', '·'),
+            r['sim_text'], ci, gap, sign, verdict))
+    L.append('')
+    return L
+
+
+def build():
+    sc = json.loads(SCORING.read_text(encoding='utf-8'))
+    L = ['# 라운드별 결과 — 지표와 검증 가능성', '',
+         '**자동 생성.** `python scripts/report/build_results_overview.py`', '',
+         '실측과 시뮬레이션의 대상·결과·기간·분모·대조군이 일치한다고 명시적으로 확인된 지표에만 '
+         '같은 눈금의 막대와 크기 차이를 표시한다. 내부 등록판정은 원문 방향 대응 감사 전에는 외부 실측 적중이 아니다.', '',
+         '> 이 표는 보관된 역사적 런을 보여 준다. 후보 접미사가 없는 블록은 `v5`로 표시하고, '
+         '이름 끝에 후보가 있는 블록은 그 후보로 표시한다. 정책별 새 ON/OFF 검증 결과로 해석하지 않는다.', '',
+         '> 수치는 전부 `data/experiments/scoring_table.json` 에서 온다. 손으로 적지 않는다.', '']
+
+    # 요약표
+    summary = []
+    for pid, name, key, folder in POLICIES:
+        blk = sc.get(key) or {}
+        inds = blk.get('indicators') or []
+        rounds = [(n, b) for n, b in blk.items() if n.startswith('result') and isinstance(b, dict)]
+        if not rounds:
+            summary.append((pid, name, '—', '—', '아직 채점 기록 없음'))
+            continue
+        for rn, rb in rounds:
+            rows = indicator_rows(rb, inds)
+            hits = sum(1 for r in rows if r['hit'] is True)
+            scored = sum(1 for r in rows if r['hit'] in (True, False))
+            summary.append((pid, name, rn, prompt_of(rn),
+                            '부호 %d/%d' % (hits, scored) if scored else '—'))
+    L += ['## 한눈에', '', '| 정책 | 라운드 | 프롬프트 | 원문 대조 가능한 부호 적중 |', '|---|---|:-:|---|']
+    for pid, name, rn, pr, res in summary:
+        L.append('| %s %s | `%s` | `%s` | %s |' % (pid, name, rn, pr, res))
+    L += ['', '---', '']
+
+    for pid, name, key, folder in POLICIES:
+        blk = sc.get(key) or {}
+        inds = blk.get('indicators') or []
+        L += ['## %s %s' % (pid, name), '']
+        if blk.get('answer_key'):
+            L += ['정답지 — %s · 원문은 [`data/policy_raw_data/%s/`](../data/policy_raw_data/%s/평가항목.md)'
+                  % (blk['answer_key'], folder, folder), '']
+        rounds = [(n, b) for n, b in blk.items() if n.startswith('result') and isinstance(b, dict)]
+        if not rounds:
+            L += ['> 이 채점표에 결과 블록이 없다. '
+                  '(P010 의 결과는 EXP-001 라인 — `docs/EXP001_결과분석.md`)', '']
+            continue
+        for rn, rb in rounds:
+            L += ['### `%s` — 프롬프트 `%s`' % (rn, prompt_of(rn)), '']
+            if rb.get('window') or rb.get('design'):
+                L += ['창 · 설계 — %s' % str(rb.get('window') or rb.get('design')), '']
+            rows = indicator_rows(rb, inds)
+            L += draw(rows)
+            L += table(rows)
+            # 채점기의 got 값이 '0'·'+'·'-' 로 떨어지는 칸이 있다 — 주석이 아니라
+            # 부호 기록이므로 표에 이미 있다. 사람이 읽을 문장만 남긴다.
+            notes = [r for r in rows
+                     if r['note'] and len(str(r['note']).strip()) > 3]
+            for r in notes:
+                L.append('- `%s` — %s' % (r['id'], r['note']))
+            for r in rows:
+                if r['audit_reason']:
+                    L.append('- `%s` 실측 대조 — %s' % (r['id'], r['audit_reason']))
+            if notes:
+                L.append('')
+            did = rb.get('did')
+            if isinstance(did, dict):
+                L += ['**순효과(DID)** — 정책 %s · 기준선 %s · 순수 효과 **%s**'
+                      % (num(did.get('policy_effect_pct')), num(did.get('baseline_pct')),
+                         num(did.get('net_pp'), '%p')), '']
+        L += ['---', '']
+
+    L += ['## 이 표를 읽을 때 주의할 것', '',
+          '- **크기 검증은 아직 성립하지 않았다.** 원문 값·출처와 양쪽 추정량·기간·모집단·분모·단위가 '
+          '`empirical_audit.comparison=matched_estimand`로 감사되고 같은 단위일 때만 크기 차이를 낸다.',
+          '- **원문 창과 우리 창이 다를 수 있다.** 정의 확인 전에는 표의 실측·시뮬 값을 '
+          '서로 빼거나 배수로 읽지 않는다.',
+          '- **채점(적중)은 부호와 유의성을 함께 본다.** 점추정 부호가 맞아도 '
+          '구간이 0 을 지나면 미적중이다 — 그래서 두 칸을 갈라 적었다',
+          '- **구간이 0 을 지나면 부호조차 단정할 수 없다.** 그런 칸을 표시해 두었다',
+          '- 지표별 범위 불일치(거리두기 −14.1% 는 한식 값 등)는 각 정책 폴더의 '
+          '`평가항목.md` 맨 아래에 적혀 있다', '']
+    return '\n'.join(L) + '\n'
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--stdout', action='store_true')
+    a = ap.parse_args()
+    text = build()
+    if a.stdout:
+        print(text)
+        return 0
+    OUT.parent.mkdir(parents=True, exist_ok=True)
+    io.open(OUT, 'w', encoding='utf-8', newline='\n').write(text)
+    print('완료: %s (%d줄)' % (OUT.relative_to(ROOT), text.count('\n')))
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

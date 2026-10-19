@@ -1,0 +1,64 @@
+{
+  "schema": "multi_policy_sector_ledger_v1",
+  "arm": "on",
+  "policy_id": null,
+  "start": "2020-11-24",
+  "end": "2020-11-30",
+  "effective_from": null,
+  "effective_until": null,
+  "policy_input": null,
+  "citizens": 2000,
+  "days": 7,
+  "rows": 14000,
+  "roster_sha256": "d4791948a292fde9dec485f033f5337eeb58011252c0b3a8fac53b4c368e4379",
+  "metrics_sha256": {
+    "2020-11-24": "c729d91af42377eed01fdf5946d0fa84ac2548835b1d598935feda26f44d1a1a",
+    "2020-11-25": "4fd9f3a1d6ec1ae4ad186cfd5ae0eb4597dfc37d08743bd5aff1daf9dc32ae83",
+    "2020-11-26": "8a847ed74042f5757a7cb4dbb870539f473686ac5106f08cf1081cbb5b950ee8",
+    "2020-11-27": "20541cc1b83d8528863761daf62ac09ac8ac688ed49c1be47109442d21ecc966",
+    "2020-11-28": "9f69d10b11ba6c8d5fab8d2afa0c0e0205fda7e47fb9ab5afe0204dc97fe2326",
+    "2020-11-29": "63984518636429d4ac9c050b49a47a3ede9319dc850c92b86242754cabf200e5",
+    "2020-11-30": "8ab509e3a742debae77c5fbb1461f2d6a54da739283d4bd3aeb58e32e5529e39"
+  },
+  "cohort_sha256": {
+    "2020-11-24": "5efc0757b71da2978b4ff1fbfdfa2b904b43bae848d57d71d05aa00a1b604b27",
+    "2020-11-25": "3cc42bdef414d7f041caa95b43c8fb018c57d7a9652262526a80f08e4a24af55",
+    "2020-11-26": "8b337453fc415e78b2bd335c26313690527d4c8e6bf55549cb2c608bef5f1d55",
+    "2020-11-27": "9c4db6ecd0599c4e3937b9991cc9370d744c35835332448e34736b4f4bc78d65",
+    "2020-11-28": "3cf6371951fe594a76a5460b384d77218db49fdb9fcce7bbbe16d5bdf9baf71c",
+    "2020-11-29": "4134ba85436f3bd565c52c9faadd3b932943a4489641337041606057bbda8c22",
+    "2020-11-30": "b013691b886b334a913deb75cbbc1f8bc310a5487bf0c8e981a33c77aca31f7b"
+  },
+  "served_model_provenance": {
+    "model_id": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+    "evidence_sha256": "3d37bf53a5f7d61f9928f9645c1d210cb9b81bf068ef9e4b00d75446b61c92ee"
+  },
+  "prompt_provenance": {
+    "execution_fingerprint": "b80d41b7156320a7c9114e557d5c7591471d52102b79e34015cd84a99e995326",
+    "baseline_income_map_sha256": null,
+    "income_mode": "no map — income setting recorded in the execution fingerprint",
+    "run_id": "ab3w-distancing-main",
+    "prompt_variant": "v53q",
+    "system_prompt_sha256": "ee90dbe639c1a596a26e1d7dd1d08e00974a827a438ae847053de6f0d623134f",
+    "stage2_system_prompt_sha256": "611ead44ebe0ec1f054b111725539e5356b22e3cf7c79eaf93262edd74afab31",
+    "requested_model_id": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ"
+  },
+  "provenance": {
+    "execution_fingerprint": [
+      "b80d41b7156320a7c9114e557d5c7591471d52102b79e34015cd84a99e995326"
+    ],
+    "paired_environment_fingerprint": [
+      "63cdf28c23874565a181253140b735f812c257cdec102135734987b00a85f133"
+    ],
+    "source_fingerprint": [
+      "766327681571bbecf38a7067ba8bbca1b7b2a92c6b7bc2939fba2d18946abd09"
+    ],
+    "experience_environment_id": [
+      "covid_2021"
+    ],
+    "experience_run_id": [
+      "ab3w-distancing-main"
+    ]
+  },
+  "output_sha256": "42853f811501add20197320766fa091f18666494afeb62bcaaf0466fa8a491c5"
+}

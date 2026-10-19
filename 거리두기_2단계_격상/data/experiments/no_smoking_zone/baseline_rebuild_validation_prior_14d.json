@@ -1,0 +1,222 @@
+{
+  "schema_version": 1,
+  "status": "baseline_export_and_single_windows_reload_verified_remote_pair_and_gpu_pending",
+  "source_dump_sha256": "3417baa250f6babe4de7767fd3a2c6689450a8272f40ebef552626c4192bb263",
+  "completed_at": "2026-09-22T12:37:13.088742+00:00",
+  "day_zero": "2017-11-25",
+  "report": {
+    "file": "output/no_smoking_zone/staging_audit/rebuild_apply_v3.json",
+    "sha256": "6f1c67bf4d99bdc19fa72574b4d16dd49a01fda2c775d2166a7a016da228a2bb",
+    "status": "complete",
+    "blockers": []
+  },
+  "cohort": {
+    "graph_agents": 14881,
+    "alignment_checked": true,
+    "aligned_source_cohort": 14881,
+    "missing": 0,
+    "age_sex_mismatch": 0,
+    "pilot_agents": 30,
+    "eligible_pool_agents": 14549,
+    "experiment_selection_note": "Retain 7494 original eligible IDs and replace 6 missing-anchor originals; baseline retains all 14881 source Agent States",
+    "experiment_agents": 7500
+  },
+  "initial_states": 14881,
+  "initial_state_validation": "Rebuild completion requires exactly one State per source Agent, matching agent ID and node/edge Day 0 dates, with a nonnegative balance",
+  "balance_days": 39,
+  "batch_size": 500,
+  "static_fingerprints_match": true,
+  "static_before": {
+    "nodes": {
+      "count": 559350,
+      "algorithm": "sha256-multiset-sum-and-square-v1",
+      "sum": "6add3c4bb278eb5fcfa9b3d670b7f549602cbbedfa93ab48ea3b6e4a70a85f5a",
+      "sum_square": "ce939ccf86c4214cca7e79ce8f19f91d78d1e2019a4b0668ec6a0264e8979948"
+    },
+    "relationships": {
+      "count": 1267832,
+      "algorithm": "sha256-multiset-sum-and-square-v1",
+      "sum": "e80ceb03ae957a309579ec2182dcdb82e4179de0c5b0b8432f6e8e8638da14a5",
+      "sum_square": "04f35704ed7f5d139d4df749db7d636a5a0f76cd655d0729ec27abc9784bb6c9"
+    }
+  },
+  "static_after": {
+    "nodes": {
+      "count": 559350,
+      "algorithm": "sha256-multiset-sum-and-square-v1",
+      "sum": "6add3c4bb278eb5fcfa9b3d670b7f549602cbbedfa93ab48ea3b6e4a70a85f5a",
+      "sum_square": "ce939ccf86c4214cca7e79ce8f19f91d78d1e2019a4b0668ec6a0264e8979948"
+    },
+    "relationships": {
+      "count": 1267832,
+      "algorithm": "sha256-multiset-sum-and-square-v1",
+      "sum": "e80ceb03ae957a309579ec2182dcdb82e4179de0c5b0b8432f6e8e8638da14a5",
+      "sum_square": "04f35704ed7f5d139d4df749db7d636a5a0f76cd655d0729ec27abc9784bb6c9"
+    }
+  },
+  "completed_mutation_counts": {
+    "delete_Conversation": 53074,
+    "delete_ExperimentSnapshot": 0,
+    "delete_Memory": 256771,
+    "delete_NoSmokingBaseline": 0,
+    "delete_Plan": 52493,
+    "delete_Policy": 1,
+    "delete_State": 96124,
+    "reset_agent_execution_lock": 0,
+    "delete_learned_awareness": 139790,
+    "reset_initial_awareness": 917564,
+    "seed_initial_states": 14881
+  },
+  "attempt_history": [
+    {
+      "stage": "initial_audit",
+      "report_file": "rebuild_apply.json",
+      "report_sha256": "a50f498d55c74ace2f51bb0e41deb53db3c653053b4245506cb23df5ab5b7a72",
+      "status": "blocked_before_apply",
+      "blockers": [
+        "Invalid no-smoking runtime cohort"
+      ]
+    },
+    {
+      "stage": "first_apply",
+      "report_file": "rebuild_apply_v2.json",
+      "report_sha256": "ac5bea68024b6d9ea217dba936f1fbc1826f6741c3249258cc177d3cb36d723e",
+      "status": "failed",
+      "error_code": "Neo.TransientError.General.MemoryPoolOutOfMemoryError",
+      "recovery": "Untouched source dump restored again into isolated staging before retry; operator-confirmed"
+    },
+    {
+      "stage": "second_apply",
+      "report_file": "rebuild_apply_v3.json",
+      "report_sha256": "6f1c67bf4d99bdc19fa72574b4d16dd49a01fda2c775d2166a7a016da228a2bb",
+      "status": "complete",
+      "batch_size": 500,
+      "blockers": []
+    }
+  ],
+  "baseline_dump": {
+    "path": "output/no_smoking_zone/baseline_v1/neo4j.dump",
+    "size_bytes": 841216715,
+    "sha256": "43004478ff00f016004522da6fcc84e42d063859bff58d2afa47c5739d221d4e",
+    "export_and_hash_verified": true,
+    "shutdown_checkpoint_before_export": true,
+    "archive_info": {
+      "inspection": "neo4j-admin database load --info",
+      "success": true,
+      "format": "Neo4j ZSTD Dump",
+      "files": 71,
+      "uncompressed_bytes": 4409352405,
+      "log": "output/no_smoking_zone/staging_audit/baseline_info_v1.log",
+      "log_sha256": "d9a18faa526982c473bc316a85d6d7d35598fea07808f8eb859c69a829d7292a"
+    },
+    "actual_reload_integration_verified": true,
+    "two_arm_restorations_verified": false,
+    "single_reload_verified": true,
+    "linux_reload_verified": false
+  },
+  "live_simulation_executed": false,
+  "limitations": [
+    "Static fingerprints cover the reviewed static graph fields; dynamic execution locks and learned awareness are intentionally reset.",
+    "Day 0 is newly synthesized from audited static inputs and consumption anchors, not an observed historical 2017 state.",
+    "Preexport audit and actual reload/graph_preflight in one Windows Neo4j 5.26.0 instance passed; two independent OFF/ON restorations, Linux deployment and GPU pilot remain unverified."
+  ],
+  "final_preexport_live_audit": {
+    "file": "output/no_smoking_zone/staging_audit/final_live_audit.json",
+    "sha256": "c33eb89dce0190182099f0d0cec8edcc7d2b8979d58e321323ba9d29e526a889",
+    "audited_at": "2026-09-22T12:39:54.565494+00:00",
+    "read_only": true,
+    "all_checks_passed": true,
+    "checks": {
+      "rebuild_report_complete": true,
+      "static_fingerprints_match": true,
+      "dynamic_nodes_absent": true,
+      "agent_and_state_counts": true,
+      "one_clean_state_per_agent": true,
+      "no_other_state_dates": true,
+      "initial_awareness_clean": true,
+      "eligible_ids_match": true,
+      "cohort_demographics_match": true,
+      "target_pois_match": true,
+      "source_marker_complete": true,
+      "snapshot_marker_absent_before_export": true,
+      "runner_expected_missing_export_marker": true
+    },
+    "invalid_initial_states": 0,
+    "state_date_counts": [
+      {
+        "day": "2017-11-25",
+        "n": 14881
+      }
+    ],
+    "initial_awareness": {
+      "total": 917564,
+      "invalid": 0
+    },
+    "eligible_counts": {
+      "file": 14549,
+      "graph": 14549,
+      "runtime": 14549,
+      "missing_from_graph": 0,
+      "unexpected_graph_eligible": 0
+    },
+    "cohort_alignment": {
+      "checked": true,
+      "cohort_size": 14549,
+      "missing": 0,
+      "age_sex_mismatch": 0
+    },
+    "target_poi_counts": {
+      "runtime": 308,
+      "graph_with_district_leisure_category": 308
+    },
+    "snapshot_marker_count": 0,
+    "runner_preflight": {
+      "blocked": true,
+      "message": "Restored snapshot lacks matching ExperimentSnapshot {id,sha256} marker",
+      "checks_after_marker_executed": false,
+      "independent_graph_checks_completed": true
+    },
+    "cohort_scope_note": "This historical preexport audit checked the 14549-person eligible pool; it is not the forthcoming 7500-person post-reload audit"
+  },
+  "source_dump_reverified_unchanged": true,
+  "single_reload_validation": {
+    "file": "output/no_smoking_zone/staging_audit/clean_reload_7500_validation.json",
+    "sha256": "8e2029575714636518b5a45bbcbb027120ebcda3ae1c0d35b10021cd6052ee1d",
+    "at_utc": "2026-09-22T12:54:21.150473+00:00",
+    "baseline_sha256": "43004478ff00f016004522da6fcc84e42d063859bff58d2afa47c5739d221d4e",
+    "clean_dump_reloaded": true,
+    "windows_neo4j_version": "5.26.0",
+    "restored_copy_snapshot_marker_created": true,
+    "original_dump_modified": false,
+    "independent_off_on_pair_verified": false,
+    "gpu_or_llm_called": false,
+    "checks": {
+      "full_7500_v1": {
+        "preparation_blockers": [],
+        "graph_preflight_passed": true,
+        "agents": 7500,
+        "target_pois": 308,
+        "smoking_counts": {
+          "non_smoker": 5813,
+          "smoker": 1294,
+          "unknown": 393
+        },
+        "runtime_sha256": "81a7643329bf8805e1ad8eef2adc5e95c5315a9cdd15b41d588ea76fdfcba28b"
+      },
+      "pilot_7500_v1": {
+        "preparation_blockers": [],
+        "graph_preflight_passed": true,
+        "agents": 30,
+        "target_pois": 308,
+        "smoking_counts": {
+          "non_smoker": 25,
+          "smoker": 4,
+          "unknown": 1
+        },
+        "runtime_sha256": "070ca1d905b267b4116f92daf5120fc8c3a947a89281cf4aaef141d2b4c6d6b0"
+      }
+    },
+    "pilot_is_subset_with_same_labels": true,
+    "all_checks_passed": true
+  }
+}

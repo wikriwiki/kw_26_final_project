@@ -1,0 +1,32 @@
+{
+  "id": "validation_v5_repair_development",
+  "complete_unique_matrix": true,
+  "macro_claim": false,
+  "variants": {
+    "v13_protocol": {
+      "responses": 96,
+      "strict_valid": 84,
+      "strict_valid_rate": 0.875,
+      "request_failures": 0,
+      "error_counts": {
+        "economic_choices_changed": 1,
+        "time": 9,
+        "endpoints": 2
+      },
+      "semantic_screen_event_counts": {},
+      "factual_review_required": false,
+      "mean_completion_tokens": 716.0208333333334,
+      "finish_reasons": {
+        "stop": 96
+      },
+      "first_valid": 84,
+      "first_valid_rate": 0.875,
+      "repair_attempts": 12,
+      "repair_errors": {},
+      "choice_preservation_failures": 1,
+      "representation_pipeline_gate": false,
+      "not_first_response_gate": true
+    }
+  },
+  "protocol": "first response plus at most one choice-preserving representation repair"
+}

@@ -1,0 +1,155 @@
+{
+  "citizens": 2000,
+  "days": 7,
+  "complete_paired_matrix": true,
+  "sectors": {
+    "restaurant_won": {
+      "restricted_won": 231290839,
+      "control_won": 242189885,
+      "difference_per_citizen_won": -5449.523,
+      "relative_change": -0.04500206934736354,
+      "unknown_allocation_difference_bounds_per_citizen_won": [
+        -5616.023,
+        -5319.523
+      ],
+      "direction_robust_to_unclassified": "negative",
+      "citizen_bootstrap_95_relative_interval": [
+        -0.06891925737174592,
+        -0.020585544435199884
+      ],
+      "valid_draws": 2000
+    },
+    "korean_restaurant_won": {
+      "restricted_won": 229169839,
+      "control_won": 240201085,
+      "difference_per_citizen_won": -5515.623,
+      "relative_change": -0.04592504650842855,
+      "unknown_allocation_difference_bounds_per_citizen_won": [
+        -5682.123,
+        -5385.623
+      ],
+      "direction_robust_to_unclassified": "negative",
+      "citizen_bootstrap_95_relative_interval": [
+        -0.07035154846524425,
+        -0.0209888924684029
+      ],
+      "valid_draws": 2000
+    },
+    "retail_won": {
+      "restricted_won": 70998238,
+      "control_won": 69571429,
+      "difference_per_citizen_won": 713.4045,
+      "relative_change": 0.020508548128284097,
+      "unknown_allocation_difference_bounds_per_citizen_won": [
+        546.9045,
+        843.4045
+      ],
+      "direction_robust_to_unclassified": "positive",
+      "citizen_bootstrap_95_relative_interval": [
+        -0.04238663837183691,
+        0.08908177603215565
+      ],
+      "valid_draws": 2000
+    },
+    "cafe_won": {
+      "restricted_won": 11357500,
+      "control_won": 18867600,
+      "difference_per_citizen_won": -3755.05,
+      "relative_change": -0.3980421463249168,
+      "unknown_allocation_difference_bounds_per_citizen_won": [
+        -3921.55,
+        -3625.05
+      ],
+      "direction_robust_to_unclassified": "negative",
+      "citizen_bootstrap_95_relative_interval": [
+        -0.4385606037302491,
+        -0.35706251406003947
+      ],
+      "valid_draws": 2000
+    }
+  },
+  "choice_repair_sensitivity": {
+    "unrepaired_citizens": 2000,
+    "excluded_citizens": 0,
+    "sectors": {
+      "restaurant_won": {
+        "restricted_won": 231290839,
+        "control_won": 242189885,
+        "difference_per_citizen_won": -5449.523,
+        "relative_change": -0.04500206934736354,
+        "unknown_allocation_difference_bounds_per_citizen_won": [
+          -5616.023,
+          -5319.523
+        ],
+        "direction_robust_to_unclassified": "negative"
+      },
+      "korean_restaurant_won": {
+        "restricted_won": 229169839,
+        "control_won": 240201085,
+        "difference_per_citizen_won": -5515.623,
+        "relative_change": -0.04592504650842855,
+        "unknown_allocation_difference_bounds_per_citizen_won": [
+          -5682.123,
+          -5385.623
+        ],
+        "direction_robust_to_unclassified": "negative"
+      },
+      "retail_won": {
+        "restricted_won": 70998238,
+        "control_won": 69571429,
+        "difference_per_citizen_won": 713.4045,
+        "relative_change": 0.020508548128284097,
+        "unknown_allocation_difference_bounds_per_citizen_won": [
+          546.9045,
+          843.4045
+        ],
+        "direction_robust_to_unclassified": "positive"
+      },
+      "cafe_won": {
+        "restricted_won": 11357500,
+        "control_won": 18867600,
+        "difference_per_citizen_won": -3755.05,
+        "relative_change": -0.3980421463249168,
+        "unknown_allocation_difference_bounds_per_citizen_won": [
+          -3921.55,
+          -3625.05
+        ],
+        "direction_robust_to_unclassified": "negative"
+      }
+    },
+    "scope": "Diagnostic complete-citizen restriction: excludes any citizen with a repaired Stage2 place choice in either arm. Not a population effect or prompt accuracy score."
+  },
+  "classification_coverage": {
+    "restricted_unclassified_won": 260000,
+    "control_unclassified_won": 333000,
+    "restricted_unclassified_share": 0.0007993371674852304,
+    "control_unclassified_share": 0.0009693717082189063
+  },
+  "comparison": "within-model restriction counterfactual; not historical card-sales YoY",
+  "scope": "Same citizens and dates, disease facts held fixed. External restaurant and retail figures use other sectors, population, outcome and time contrast; do not subtract as direct accuracy errors.",
+  "provenance": {
+    "prompt_variant": "v53q",
+    "system_prompt_sha256": "ee90dbe639c1a596a26e1d7dd1d08e00974a827a438ae847053de6f0d623134f",
+    "baseline_income_map_sha256": null,
+    "policy_file_sha256": null,
+    "mapping_sha256": "bb9ebb900cd2e2a5a34c1f3c9b814ed4ea1eeb5b480da4bcdcfda65a0b2dad4e",
+    "paired_environment_fingerprint": "63cdf28c23874565a181253140b735f812c257cdec102135734987b00a85f133",
+    "arms": {
+      "restricted": {
+        "run_id": "ab3w-distancing-main",
+        "execution_fingerprint": "b80d41b7156320a7c9114e557d5c7591471d52102b79e34015cd84a99e995326",
+        "ledger_sha256": "ffe6fe7bd2f0e6b0f774f7cd703206410a5b854d1c435aae201ed27c0abd0c02",
+        "unrepaired_choice_trace_pass": true,
+        "choice_repaired_citizen_days": 0
+      },
+      "control_hold": {
+        "run_id": "ab3w-distancing-main",
+        "execution_fingerprint": "11aa8f1c1ba834bc300fd7c2883b7a83436b6abc818664c91351972cb9dd1b61",
+        "ledger_sha256": "b22ec928fb7e629784068de78ac09343dc932b6ceffe5219151cab5e9f95e6ea",
+        "unrepaired_choice_trace_pass": true,
+        "choice_repaired_citizen_days": 0
+      }
+    },
+    "stage2_system_prompt_sha256": "611ead44ebe0ec1f054b111725539e5356b22e3cf7c79eaf93262edd74afab31"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "id": "validation_temporal_v4_ablation",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256": "b365d3c254b0ef1bb8b1e3d9588b12bd773e897c89d9a2aeff3604b2e28afbc7",
+  "prompt_module": "v24",
+  "candidates": [
+    {
+      "id": "v24_outline_prefill512",
+      "thinking_tokens": 512,
+      "deliberation_prefill": "I will use a compact day outline, without recapping the input. First reserve the evening and end of day, then place supplied commitments, then choose only the necessary morning and afternoon transitions. No new facts or desired policy effects.\nEvening and end-of-day outline: "
+    },
+    {
+      "id": "v24_budget1024",
+      "thinking_tokens": 1024
+    }
+  ],
+  "seeds": [
+    44001
+  ],
+  "answer_tokens": 2048,
+  "max_shift_minutes": 0,
+  "temporal_clock_step": 30,
+  "sampling": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 12,
+  "timeout_seconds": 900,
+  "order_seed": 20261014,
+  "phase": "Two registered alternatives on same96 development inputs and seed44001 as temporal_v3. Both retain v24 and finite-clock grammar. A adds explicit generic compact-outline reasoning prefill to512tokens. B changes only deliberation budget512to1024. No policy-specific instructions.",
+  "primary": "All96 raw/final execution and factual checks, zero request failures, mean generated tokens<=1300. At least95% end with activity at18:00 or later as a normal-day coverage screen. Report all early endings and work-mode ambiguities. This coverage screen is not observed daily routine ground truth.",
+  "limitations": [
+    "Known development only. No new-policy or untouched-person validation.",
+    "30minute grid plus supplied fixed times changes action space; exact-time preferences not estimated.",
+    "Only supplied adjacent home/work commute bounds, not full routing.",
+    "Evaluation-only closure choices remain selectable and must be followed from input facts.",
+    "No historical effect or whole-day consumption claim."
+  ],
+  "preflight": "v24 baseline512 passed execution96/96 but failed coverage15/96. Three failing raw deliberations spend their512budget repeating inputs. Prefill is disclosed in full prefixes and config hashes, not a hidden reasoning repair. Two alternatives fixed together before calls.",
+  "selection": "Both must pass original full96 execution/fact and >=95% normal-day coverage screens. Among qualifiers choose fewer early endings, then lower mean generated tokens. Target <=1300 tokens retained. No changing screen after result; no policy-effect contrast used. Untouched24 confirmation not started."
+}

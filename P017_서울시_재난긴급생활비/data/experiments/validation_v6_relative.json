@@ -1,0 +1,34 @@
+{
+  "id": "validation_v6_relative_development",
+  "registered_on": "2026-09-20",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "phase": "Relative-time output representation with exact decoding; policy facts and economic choices unchanged by serializer",
+  "source_inputs_sha256": "eb6a08d8318120f3314c26bc3438e69848268901eb71862daeb60e3711a5f880",
+  "candidates": [
+    {
+      "id": "v14_relative",
+      "prompt": "v14",
+      "structured": true
+    }
+  ],
+  "replicate_seeds": [
+    3701
+  ],
+  "temperature": 0.7,
+  "top_p": 1.0,
+  "max_tokens": 2200,
+  "workers": 24,
+  "cases": [
+    "cashback",
+    "grant",
+    "local_voucher",
+    "distancing"
+  ],
+  "sample_n": 12,
+  "input_changes": "Same frozen 96 v3 contexts and shared v4 fact labeling. Remove legacy output-shape footer only. New root fields encode home endpoints and positive time gaps; decoder only adds minutes and formats HH:MM, never repairs choices or overflow.",
+  "schema": "Allowed field types, exact anchor enum, home/work/category consistency, no-workplace when none supplied, event count bounds. No spending values, policy-specific actions or expected treatment effects.",
+  "primary": ">=95% native first-response validity AND exact-decoded absolute schedule validity under the same 6-10 events, >=20 minute gaps, home endpoints, allowed anchors and category contract. Zero request failures; factual screens reviewed separately.",
+  "selection": "Do not compare native raw format to the old raw JSON as if identical representations. Promote only after disjoint-person confirmation and controlled factual stress tests. No macro winner from this screen.",
+  "stop_rule": "Generate all 96 cells once with seed 3701. No retries or timing edits. Overflow is failure, never clipped.",
+  "prohibitions": "P010 immutable; P015 not run; no empirical outcome numbers or policy-specific direction in universal instructions. Known cases remain development data."
+}

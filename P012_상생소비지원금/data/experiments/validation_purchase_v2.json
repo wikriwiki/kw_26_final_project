@@ -1,0 +1,34 @@
+{
+  "id": "validation_purchase_v2",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "4795ccbdbc1406671dee7b69f372ce3655636828bd369ee2aaedadad8af48a71",
+  "seeds": [
+    36001,
+    37001
+  ],
+  "thinking_tokens": 1024,
+  "answer_tokens": 4096,
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 4,
+  "timeout_seconds": 900,
+  "order_seed": 20261004,
+  "phase": "16 deterministic-random paired development cells x two purchase seeds = 32. Same v18 plans/quotes; two citizens per mechanism, both arms. No untouched confirmation claim.",
+  "primary": "All 32 financial/quote checks must pass. Deterministic unique-zero outcomes are disclosed, not model successes. Inspect raw reasons. No incomplete matched contrasts, no pick-best or silent retries.",
+  "selection": "Generic typed ordered purchase protocol with 1024-token reasoning and an opt-in exact unique-choice bypass. Prompt, representation and budget differ jointly from v1; no single-cause attribution and no selection by policy effect sizes.",
+  "conditions": [
+    "Hypothetical item prices fixed before output; not inferred from individual daily expenditure.",
+    "Hypothetical merchant participation and personal eligibility; exact age/card history not observed.",
+    "Explicit zero is allowed. Free schedule activities cannot be routed to a merchant.",
+    "Own cash, grant balance and prepaid asset acquisition separate; future rebate not current money.",
+    "Fixed one-day upstream schedules, missing inventory/needs/income path; this is not total daily demand validation.",
+    "No P015; P010 remains immutable.",
+    "Two purchase seeds share frozen upstream plans. Candidate selection did not use current v1 response values; seeded citizen sample fixed before v2 calls."
+  ],
+  "interpretation": "Report all paired nominal consumption, funding and asset acquisition contrasts regardless of direction. These are conditional synthetic scenario outputs, never comparisons to historical empirical magnitudes or significance.",
+  "transaction_protocol": "v2",
+  "skip_forced_no_purchase": true
+}

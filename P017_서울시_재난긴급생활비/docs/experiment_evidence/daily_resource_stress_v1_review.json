@@ -1,0 +1,23 @@
+{
+  "rows": 8,
+  "original_matrix_complete": true,
+  "decision_sources": {
+    "model": 8
+  },
+  "request_files_audited": 16,
+  "independent_errors": [],
+  "scope": "Complete raw monetary/physical/request audit; no empirical demand or policy-effect validity claim.",
+  "manual_choice_review_count": 8,
+  "manual_choice_review_keys": [
+    "66a9d70ce137458881da24edf0617c03708465930120147ac8182149b86ec9b3",
+    "54e27d9ca0fe17121ee450655954a101b56bbd9686144cf606af481cebc08e44",
+    "5977d8ac31fd6c56d12fa77b2ad0ee171b108875023c2027b7ffd51c4259327f",
+    "e6a4a86efc80058df588dc2255e7443948c5f24d41198710cc0b750bc74c86dd",
+    "df66bd66e89ddd4e867c812f1964019ba4aac68671d95b525ba657f2b5350a06",
+    "d6a4211af2ceece7ee3f7fdd044dc92bc162c1d37f549c56b2b1f1be6421bc02",
+    "2c6802628cb7bec97aa2eaae26614c8b78bb822b3954261e57ff8011ad4a3546",
+    "36ed4b282c4a7853cc091f4129ce67498ef3b6e393c6b268f6db24078ed69126"
+  ],
+  "archive_sha256_local_and_server": "9ce5343d31fdf928df9944ac75814ad7b74d86e363dd28da0df0b1974cc333ed",
+  "notes": "Every parsed purchase/acquisition choice inspected. Optional restocking is not required; full raw archive preserved. No behavioral effect target used."
+}

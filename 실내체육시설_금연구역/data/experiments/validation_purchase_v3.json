@@ -1,0 +1,36 @@
+{
+  "id": "validation_purchase_v3",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "f42b3c14f8e120faec04936ba7db5fe0bc594ff5978ea7f0d61faaa55455c222",
+  "seeds": [
+    42001,
+    43001
+  ],
+  "thinking_tokens": 1024,
+  "answer_tokens": 4096,
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 4,
+  "timeout_seconds": 900,
+  "order_seed": 20261007,
+  "phase": "Same16 development inputs with explicit static availability assumptions x two fresh purchase seeds. Generic typed choices; execution computes cash residual and schedules chosen acquisition units before first redemption.",
+  "primary": "All32 financial/quote checks must pass. Report14 deterministic no-choice cells separately from model calls. Raw choices and compiled ledgers both retained; no silent payment adjustment or repair.",
+  "selection": "No empirical effect criteria. Eliminating redundant cash amounts/false prose is a representational guarantee, not unrestricted model reasoning success. Costs/validity assessed on known development input only.",
+  "conditions": [
+    "Hypothetical item prices fixed before output; not inferred from individual daily expenditure.",
+    "Hypothetical merchant participation and personal eligibility; exact age/card history not observed.",
+    "Explicit zero is allowed. Free schedule activities cannot be routed to a merchant.",
+    "Own cash, grant balance and prepaid asset acquisition separate; future rebate not current money.",
+    "Fixed one-day upstream schedules, missing inventory/needs/income path; this is not total daily demand validation.",
+    "No P015; P010 remains immutable.",
+    "Two purchase seeds share frozen upstream plans. Candidate selection did not use current v1 response values; seeded citizen sample fixed before v2 calls.",
+    "Acquisition timing is mechanical within explicitly static all-day offers and zero intraday income, not a model timing preference.",
+    "No generated factual prose; model deliberation remains raw audit material, not asserted simulator facts."
+  ],
+  "interpretation": "Report all paired nominal consumption, funding and asset acquisition contrasts regardless of direction. These are conditional synthetic scenario outputs, never comparisons to historical empirical magnitudes or significance.",
+  "transaction_protocol": "v3",
+  "skip_forced_no_purchase": true
+}

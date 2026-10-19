@@ -1,0 +1,5 @@
+# ON launch supervision note — 2026-09-27 18:09 KST
+
+The OFF arm finished all 400 citizen-days, its ledger and full output were SHA256-verified on A100, C:, and G:, and a separate OFF Neo4j restore dump was created and verified on A100. The dump script restarted Neo4j in a tmux session that then ended; Neo4j received a shutdown request when that session closed. The database is stopped and the dump is intact. No ON output exists yet.
+
+Before the ON arm starts, its restore script now treats an already stopped Neo4j service as an acceptable starting state for the offline restore. The ON tmux launcher will remain alive after the simulation script exits so that the restarted service is not shut down by loss of its parent terminal. This changes process supervision only. The frozen cohort, policy, prompt, model, budget map, graph restore source, code worktree, dates, and outcomes do not change. The ON arm still waits for externally verified OFF graph backups and begins from the pre-pilot dump, not the OFF graph.

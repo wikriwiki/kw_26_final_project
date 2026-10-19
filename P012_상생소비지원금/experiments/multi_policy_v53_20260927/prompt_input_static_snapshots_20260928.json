@@ -1,0 +1,83 @@
+{
+  "schema": "static_v53_input_surface_snapshot_v1",
+  "warning": "Renderer reconstruction from frozen local JSON and source modules; not a capture of actual per-citizen runtime request. Region and target Category graph edges are approximated by JSON declarations; no personal State/Persona/POI is included.",
+  "cases": [
+    {
+      "case": "P010",
+      "policy_input": "data/experiments/P010_v53_policy_20260927.json",
+      "policy_input_sha256": "09c54cdfaf26a00f6e4ee91e2d51947b71f75800066c765e6b439c3e9ad1a3ba",
+      "day": "2025-07-21",
+      "environment_id": null,
+      "policy_facts": "- P010 [지원금] 민생회복 소비쿠폰 1차 | 2025-07-21~2025-11-30 | 서울특별시 | 세부 업종 조건은 정책 본문 참조 · [쿠폰] 표시 POI에서만 사용\n  배경: 정부가 소상공인·자영업자 지원과 지역경제 활성화를 위해 전 국민에게 민생회복 소비쿠폰을 지급합니다. 지급액은 대상 계층별로 달라 일반 국민 15만원, 차상위·한부모가족 30만원, 기초생활수급자 40만원입니다. 서울 시뮬레이션에서는 보유한 최소 계층 단위인 소비 10분위에 대응하여 소비 1분위 40만원, 2분위 30만원, 3~10분위 15만원을 지급합니다. 쿠폰은 지역사랑상품권 가맹점 또는 연 매출액 30억원 이하 매장([쿠폰] 표시 매장)에서만 사용할 수 있고, 대형마트·백화점·기업형 슈퍼마켓 등에서는 사용할 수 없습니다. 사용기한은 2025년 11월 30일까지이며 미사용분은 자동 소멸됩니다.",
+      "environment": "",
+      "policy_facts_sha256": "fc8dc8f62f4c445d416466e61bd8033e807933c0a00af8dc01408455947ee707",
+      "environment_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "case": "P012",
+      "policy_input": "data/experiments/P012_v53_october_policy_20260928.json",
+      "policy_input_sha256": "55aa65418e181cf8f94d122e73301262964b566f527eeaa359f1d184db58e54a",
+      "day": "2021-10-01",
+      "environment_id": "covid_2021",
+      "policy_facts": "- P012 [캐시백] 상생소비지원금 | 2021-10-01~2021-11-30 | 서울특별시 | 세부 업종 조건은 정책 본문 참조\n  배경: 정부가 코로나19로 위축된 소비를 살리고 소상공인을 돕기 위해 카드 캐시백 사업을 시행합니다. 2분기(4~6월) 본인 카드 월평균 사용액보다 이번 달에 3% 넘게 더 쓰면, 그 초과분의 10%를 다음 달에 캐시백으로 돌려줍니다(1인 월 최대 10만원). 적립은 동네 가게·식당·카페·병원·학원·미용실 등 대부분 업종에서 인정되며, 대형마트·백화점·면세점·대형전자전문점·대형 온라인몰·유흥·사행·명품매장 등에서 쓴 금액은 실적으로 인정되지 않습니다. 캐시백은 이번 달에 미리 주는 돈이 아니라 다음 달 15일에 돌려받는 것이며, 3% 문턱을 넘기지 못하면 이번 달 캐시백 혜택은 사라집니다. 돌려받은 캐시백은 나중에 어디서든 쓸 수 있습니다.",
+      "environment": "수도권 사회적 거리두기 4단계\n- 서울 신규 확진 944명 (2021-09-30 기준, 최근 7일 평균 952명)\n- 식당·카페 매장 취식 22:00까지. 이후 포장·배달 가능, 매장 취식 불가\n- 22:00까지 운영 제한: 노래연습장·실내체육시설·영화관·PC방·학원\n- 사적모임 18시 이전 4인, 이후 2인. 식당·카페·가정은 접종완료자 포함 시 최대 6인\n- 집합금지: 유흥·단란주점·클럽·나이트·감성주점·헌팅포차·콜라텍·무도장·홀덤펍·홀덤게임장",
+      "policy_facts_sha256": "20af3d1a3b5caf069b710780a504ee03b6fb1f6baa0845869e057a5f7f2d7e2a",
+      "environment_sha256": "731cfbc3e33c43e1d966acc56e7032c9dd24107bc5c3c10e5365570010b80958"
+    },
+    {
+      "case": "P013",
+      "policy_input": "data/experiments/P013_v53_policy_20260926.json",
+      "policy_input_sha256": "ce775342019f6ae82194d82c59723a0423eebab19b8a90d42674d8068247f744",
+      "day": "2020-05-11",
+      "environment_id": "covid_2021",
+      "policy_facts": "- P013 [지원금] 긴급재난지원금 1차 | 2020-05-11~2020-08-31 | 서울특별시 | 세부 업종 조건은 정책 본문 참조 · [사용가능] 표시 POI에서만 사용\n  배경: 정부가 코로나19로 위축된 소비를 살리고 생계를 돕기 위해 전 국민에게 지원금을 지급합니다. 가구원 수에 따라 1인 40만원, 2인 60만원, 3인 80만원, 4인 이상 100만원이며 신용·체크카드에 충전해 받습니다. 서울 시뮬레이션은 개인 단위이므로 서울 가구구성으로 환산한 1인당 28만원을 일괄 적용합니다. 대형마트·백화점·면세점·온라인몰·유흥업소에서는 쓸 수 없고, 거주 지역 안의 일반 가맹점에서만 쓸 수 있습니다. 8월 31일까지 쓰지 않은 금액은 소멸합니다.",
+      "environment": "생활 속 거리두기\n- 서울 신규 확진 11명 (2020-05-10 기준, 최근 7일 평균 5명)",
+      "policy_facts_sha256": "8b42bd62cea8ca516e5303e323524e27d5ecd464ad22143f792c5a9328a0d12e",
+      "environment_sha256": "31cf57789f46d8ce5cfd1ecfac4353b104923c77a685b8a0f14cc44b81428b10"
+    },
+    {
+      "case": "P014",
+      "policy_input": "data/neo4j_load/policies/P014.json",
+      "policy_input_sha256": "6828728f8938a5b3ca4089097a51cadde948da8ae6dabb9ccb45b953e080b94f",
+      "day": "2020-09-21",
+      "environment_id": "covid_2021",
+      "policy_facts": "- P014 [할인 구매 상품권] 서울사랑상품권 | 2020-09-21~2020-10-11 | 서울특별시 | 세부 업종 조건은 정책 본문 참조 · [지역] 표시 POI에서만 사용\n  배경: 자치구가 발행하는 지역 상품권을 액면가보다 10% 싸게 살 수 있습니다. 45만원을 내면 50만원어치를 받는 식이며 1인당 월 구매한도가 있습니다. 새로 생기는 돈이 아니라 본인 돈으로 미리 싸게 사 두는 것입니다. 사는 곳 자치구 안의 동네 가맹점에서만 쓸 수 있고 대형마트·백화점·온라인몰에서는 쓸 수 없습니다.",
+      "environment": "수도권 사회적 거리두기 2단계\n- 서울 신규 확진 28명 (2020-09-20 기준, 최근 7일 평균 43명)\n- 집합금지: 유흥·단란주점·클럽·나이트·감성주점·헌팅포차·콜라텍",
+      "policy_facts_sha256": "68a35b2eb51db460fd0b87aea3e9d2cd794de0e668c5ff42fe3ad82e5ceefe9b",
+      "environment_sha256": "ebba8240760b1c912e23da7677b1e1303a37cc11041ec5bf6191726f6ee9b339"
+    },
+    {
+      "case": "P016",
+      "policy_input": "data/neo4j_load/policies/P016.json",
+      "policy_input_sha256": "5a9d66de868d3a402a1934c5f299a46868bfc230d128928e0b8534f027064b76",
+      "day": "2020-07-30",
+      "environment_id": "covid_2021",
+      "policy_facts": "- P016 [업종 한정 할인권] 농축산물 할인쿠폰 | 2020-07-30~2020-11-30 | 서울특별시 | 대상 업종 한정 · [농할] 표시 POI에서만 사용\n  배경: 정부가 농축산물을 살 때 값을 깎아 줍니다. 참여 매장에서 농축산물을 사면 결제할 때 바로 20%를 깎아 주며, 한 사람이 받을 수 있는 할인은 모두 합쳐 1만원까지입니다. 지원금을 미리 주거나 나중에 돌려주는 것이 아니라 결제하는 그 자리에서 값이 깎이는 방식입니다. 청과·정육·슈퍼마켓·식료품 매장이 대상이고 수산·음료소매·종합소매는 대상이 아닙니다.\n  · 농축산물 20% 할인 (최대 10,000원)",
+      "environment": "생활 속 거리두기\n- 서울 신규 확진 9명 (2020-07-29 기준, 최근 7일 평균 11명)",
+      "policy_facts_sha256": "11f6147ad09d80d7005dc284f1c3a4968c0be7978ff6266d7ebc0a1615a2e1cc",
+      "environment_sha256": "54b282aa3efbb12fd62895ec2404066be0d01bcbdbce9da65e7a3886e27b78d8"
+    },
+    {
+      "case": "DIST_ON",
+      "policy_input": null,
+      "policy_input_sha256": null,
+      "day": "2020-11-24",
+      "environment_id": "covid_2021",
+      "policy_facts": "(활성 정책 없음)",
+      "environment": "수도권 사회적 거리두기 2단계 — 오늘부터 조치가 바뀐다\n- 서울 신규 확진 112명 (2020-11-23 기준, 최근 7일 평균 110명)\n- 식당·카페 매장 취식 21:00까지. 이후 포장·배달 가능, 매장 취식 불가\n- 21:00까지 운영 제한: 노래연습장·실내체육시설·학원·독서실 단체룸·실내 스탠딩 공연장·방문판매 홍보관\n- 카페는 시간과 무관하게 매장 이용 불가, 포장·배달만 가능\n- 인원 제한 시설: 이·미용업(8㎡당 1명)·목욕장업·오락실·멀티방·영화관·공연장·PC방·놀이공원(수용인원 1/3)\n- 집합금지: 유흥·단란주점·클럽·나이트·감성주점·헌팅포차·콜라텍",
+      "policy_facts_sha256": "67dd4b4ab04f4c60b99cf84bbdddeae13b80cbcbb6410caadb2e4cf9a27cb738",
+      "environment_sha256": "c602e2c8b8abfcd27a1b77bad7cea1f754d30c82f0bd9a752e8c53c12e757774"
+    },
+    {
+      "case": "DIST_OFF",
+      "policy_input": null,
+      "policy_input_sha256": null,
+      "day": "2020-11-24",
+      "environment_id": "covid_no_distancing",
+      "policy_facts": "(활성 정책 없음)",
+      "environment": "서울 코로나19 유행 — 추가 거리두기 제한 없는 비교 조건\n- 서울 신규 확진 112명 (2020-11-23 기준, 최근 7일 평균 110명)\n- 식당·카페와 다른 매장의 추가 방역 영업시간·매장 이용 제한 없음. 각 매장의 고유 운영시간은 유지\n- 추가 방역 사적모임 인원 제한 없음",
+      "policy_facts_sha256": "67dd4b4ab04f4c60b99cf84bbdddeae13b80cbcbb6410caadb2e4cf9a27cb738",
+      "environment_sha256": "c1a5ead2d042f1ee283f76d47acfacb4b870192850df172707d942bb4154af18"
+    }
+  ]
+}

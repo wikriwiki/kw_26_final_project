@@ -1,0 +1,32 @@
+{
+  "id": "validation_adaptive_v3_development",
+  "model": "LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_sha256": "b365d3c254b0ef1bb8b1e3d9588b12bd773e897c89d9a2aeff3604b2e28afbc7",
+  "seeds": [
+    44001
+  ],
+  "initial_thinking_tokens": 512,
+  "repair_thinking_tokens": 2048,
+  "answer_tokens": 2048,
+  "max_shift_minutes": 10,
+  "sampling": {
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "presence_penalty": 0.0
+  },
+  "workers": 12,
+  "timeout_seconds": 900,
+  "order_seed": 20261008,
+  "phase": "Frozen low-temperature adaptive candidate on original12 development citizens x four known mechanisms x same-calendar on/off =96. Same source as v18, new seed. No confirmation or new-policy claim.",
+  "primary": "All96 final factual/execution checks must pass without request errors; first raw, first eligible, repair and projection rates separately reported. At most one2048-token repair after initial512. Mean generated token budget <=1300 as an efficiency qualification, not a policy-effect criterion. Manual review required; early day endings are coverage warnings.",
+  "selection": "No policy contrast used for selection. Qualify unchanged v23 low-temperature protocol by execution and cost before another independent-person confirmation.",
+  "limitations": [
+    "Known development citizens and mechanisms.",
+    "Timing projection still limited10min and changes recorded.",
+    "Presence check uses supplied commitments only, not inferred work hours.",
+    "No whole-day consumption coverage or general human behavior proof.",
+    "Comparison to older runs is descriptive because seeds/input representation/contract differ.",
+    "Same seed does not guarantee identical randomness under different decoding or batch execution. No population-variance interpretation of model sampling."
+  ],
+  "preflight": "Adaptive_v2 first/raw/final32/32; zero repairs; mean783.3125 tokens. All32 sequences reviewed. Three synthetic cases end before18:00 with home_sleep, still no full-day consumption claim. Temporal grammar alternative passed two actual compiler tests but took102.135sec for one work case, not adopted for this fast protocol."
+}

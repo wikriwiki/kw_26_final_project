@@ -1,0 +1,199 @@
+/* ==========================================================================
+   모션 — `.agents/skills/ui-ux-pro-max/SKILL.md` §7 Animation, 스펙 §7b·§8.
+
+   화면이 딱 하고 바뀌는 대신, 무엇이 새로 왔는지 눈이 따라갈 시간을 준다.
+   다만 **기다리게 만들지는 않는다.** 새 화면은 즉시 그려지고, 그 위에서
+   280ms 동안 옅게 떠오를 뿐이다. 지연도, 나가는 화면을 붙잡아 두는 시간도 없다.
+
+   지키는 것 (SKILL §7):
+   - `duration-timing`      150~300ms. 500ms 넘는 것은 없다
+   - `transform-performance` transform·opacity 만 건드린다. width/height/top/left 금지
+   - `easing`               들어올 때 ease-out, 나갈 때 ease-in
+   - `exit-faster-than-enter` 이탈은 진입의 65~70%
+   - `motion-consistency`   눈금은 이 파일 하나뿐. 화면마다 제 리듬을 만들지 않는다
+   - `no-blocking-animation` 전환 중에도 눌리고 입력된다. pointer-events 를 끄지 않는다
+   - `layout-shift-avoid`   레이아웃을 건드리는 속성은 애니메이션하지 않는다
+   - `excessive-motion`     한 화면에서 움직이는 것은 본문 한 덩어리뿐
+   - `reduced-motion`       감속 선호 시 전부 0ms
+   ========================================================================== */
+
+:root {
+  /* --- 진입(enter) — ease-out --------------------------------------------- */
+  /* 150ms. tokens.css 의 --dur-fast 와 같은 눈금이다 (hover·press 되먹임) */
+  --dur-micro: 150ms;
+  /* 200ms. tokens.css 의 --dur 와 같은 눈금이다 (열림·닫힘·상태 전환) */
+  --dur-base: 200ms;
+  /* 280ms. 라우트 전환 — 화면 한 장이 통째로 바뀌는 유일한 경우 */
+  --dur-slow: 280ms;
+
+  /* --- 이탈(exit) — ease-in, 진입의 64~67% -------------------------------- */
+  --dur-exit-micro: 100ms; /* 150ms 의 67% */
+  --dur-exit-base: 140ms;  /* 200ms 의 70% */
+  --dur-exit-slow: 180ms;  /* 280ms 의 64% */
+
+  /* --- 곡선 ---------------------------------------------------------------- */
+  /* 들어오는 것은 빠르게 시작해 부드럽게 멎는다 */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  /* 나가는 것은 천천히 떠나 빠르게 사라진다 */
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+
+  /* 새 화면이 떠오르는 거리. 8px 이상 주면 화면 전체가 출렁인다 */
+  --motion-rise: 8px;
+}
+
+/* §7 `reduced-motion` — 감속 모션을 선호하면 전부 즉시 끝낸다.
+   토큰만 0 으로 내려도 이 파일과 tokens.css 를 쓰는 모든 전환이 함께 멎는다.
+   전역 `*{animation:none!important}` 는 쓰지 않는다 — 로딩 스피너처럼
+   "지금 처리 중"을 알리는 표시까지 죽여서 오히려 정보를 잃는다. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-micro: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --dur-exit-micro: 0ms;
+    --dur-exit-base: 0ms;
+    --dur-exit-slow: 0ms;
+    --motion-rise: 0px;
+  }
+}
+
+/* ==========================================================================
+   라우트 전환 — `src/app/RouteTransition.tsx` 가 붙이는 껍데기.
+
+   나가는 화면을 붙잡아 두지 않는다. 붙잡으면 그만큼 새 내용이 늦게 보이고,
+   무엇보다 이미 주소가 바뀐 뒤라 옛 화면이 새 주소의 데이터로 다시 그려진다.
+   그래서 **진입만** 그린다 (MD fade-through 의 들어오는 절반).
+
+   `fill-mode: backwards` 인 이유: 애니메이션이 끝난 뒤 요소를 원래 상태로
+   완전히 돌려놓는다. `both` 로 붙잡아 두면 transform 이 남아 자식의
+   `position: fixed` 기준이 껍데기로 바뀌고, 합성 레이어도 계속 물고 있는다.
+   ========================================================================== */
+
+.route {
+  animation-duration: var(--dur-slow);
+  animation-timing-function: var(--ease-out);
+  animation-fill-mode: backwards;
+  /* pointer-events 를 끄지 않는다 — 떠오르는 동안에도 누를 수 있다 */
+}
+
+/* 같은 라우트 안에서 주소만 바뀔 때(실행 전환 등)는 요소가 다시 마운트되지
+   않는다. 이름이 다른 두 keyframes 를 번갈아 걸어 애니메이션을 되감는다.
+   진행 중이던 것은 즉시 취소된다 (§7 `interruptible`). */
+.route--rise.is-a {
+  animation-name: route-rise-a;
+}
+
+.route--rise.is-b {
+  animation-name: route-rise-b;
+}
+
+/* 지도 화면 — 무거운 임베드가 들어 있어 transform 을 걸면 리페인트가 크다.
+   떠오르는 동작을 빼고 불투명도만 바꾼다 (§7 `fade-crossfade`) */
+.route--fade {
+  animation-duration: var(--dur-base);
+}
+
+.route--fade.is-a {
+  animation-name: route-fade-a;
+}
+
+.route--fade.is-b {
+  animation-name: route-fade-b;
+}
+
+/* 아래에서 위로 8px. "더 깊이 들어왔다"를 뜻한다 (§7 `hierarchy-motion`).
+   translate3d 로 합성 레이어에 올려 메인 스레드를 쓰지 않는다.
+   끝값을 `none` 으로 두어 전환이 끝나면 transform 자체가 사라진다. */
+@keyframes route-rise-a {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--motion-rise), 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes route-rise-b {
+  from {
+    opacity: 0;
+    transform: translate3d(0, var(--motion-rise), 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes route-fade-a {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes route-fade-b {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ==========================================================================
+   누름 되먹임 — §7 `scale-feedback`, `state-transition`.
+
+   `:root` 를 앞에 붙여 특이도를 한 칸 올린다. 이 파일은 base.css 를 통해
+   components.css·shell.css 보다 **먼저** 실려서, 그러지 않으면 그쪽의
+   `transition` 단축 속성에 덮인다. 색·시간은 그대로 두고 `scale` 한 가지만
+   전환 목록에 더한다 — 보이는 리듬은 기존과 같다 (`motion-consistency`).
+
+   `transform` 이 아니라 독립 속성 `scale` 을 쓴다. 화면이 제 나름대로 걸어 둔
+   transform(예: 인디케이터 위치 보정)을 덮어쓰지 않기 위해서다.
+   ========================================================================== */
+
+:root .btn,
+:root .segment__btn,
+:root .runrow,
+:root .mappreview {
+  transition-property: background-color, border-color, color, scale;
+  /* 기본 상태 = 손을 뗀 뒤 = 이탈. 그래서 짧고 ease-in */
+  transition-duration: var(--dur-exit-micro);
+  transition-timing-function: var(--ease-in);
+}
+
+/* 가리키거나 누르는 순간 = 진입. 그래서 길고 ease-out */
+:root .btn:hover,
+:root .btn:active,
+:root .segment__btn:hover,
+:root .segment__btn:active,
+:root .runrow:hover,
+:root .runrow:active,
+:root .mappreview:hover,
+:root .mappreview:active {
+  transition-duration: var(--dur-micro);
+  transition-timing-function: var(--ease-out);
+}
+
+/* 0.98 이상 줄이면 글자가 흔들려 보인다. 눌린 동안만이고 떼면 곧장 돌아온다 */
+:root .btn:active:not(:disabled):not([aria-disabled="true"]),
+:root .segment__btn:active:not(:disabled),
+:root .runrow:active,
+:root .mappreview:active {
+  scale: 0.985;
+}
+
+/* 감속 모션에서는 크기 변화 자체를 없앤다 — 0ms 로 순간이동하는 편이 더 거슬린다.
+   미디어 쿼리는 특이도를 올려 주지 않으므로 위와 **같은 선택자**로 덮는다 */
+@media (prefers-reduced-motion: reduce) {
+  :root .btn:active:not(:disabled):not([aria-disabled="true"]),
+  :root .segment__btn:active:not(:disabled),
+  :root .runrow:active,
+  :root .mappreview:active {
+    scale: 1;
+  }
+}

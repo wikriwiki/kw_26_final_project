@@ -1,0 +1,18 @@
+{
+ "arm": "on",
+ "window": [
+  "2021-10-01",
+  "2021-10-07"
+ ],
+ "agents": 40,
+ "expected_days": 7,
+ "totals": {
+  "memories": 1549,
+  "plan_items": 2882,
+  "states": 280,
+  "spent": 7844992.0
+ },
+ "agents_without_memory": 0,
+ "state_day_gaps": [],
+ "sha256": "a10eccd457d8d7273454f1183fdb93db47fe94a5ed1234556242d487fc2f55cb"
+}
