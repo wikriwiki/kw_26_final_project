@@ -1,4 +1,4 @@
-"""보고서 해설용 LLM 클라이언트 — Gemini / OpenAI 호환 엔드포인트.
+"""보고서 해설용 LLM 클라이언트 — K-EXAONE (Friendli 전용 엔드포인트, OpenAI 호환).
 
 설계 원칙
 ---------
@@ -13,12 +13,16 @@
 
 .env 설정 (사용자가 나중에 채운다)
 ----------------------------------
-``GEMINI_API_KEY=...``            ← 이 값만 넣으면 바로 동작한다
-``GEMINI_MODEL=gemini-2.5-flash`` (선택)
-``REPORT_LLM_PROVIDER=auto``      auto | gemini | openai | none
-``REPORT_LLM_BASE_URL=...``       사내 vLLM/SGLang 등 OpenAI 호환 서버
-``REPORT_LLM_MODEL=...``
-``REPORT_LLM_API_KEY=...``
+``REPORT_LLM_BASE_URL=https://api.friendli.ai/dedicated/v1``  (기본값)
+``REPORT_LLM_MODEL=<K-EXAONE 엔드포인트 ID>``
+``REPORT_LLM_API_KEY=<키>``
+``REPORT_LLM_PROVIDER=auto``      auto | exaone | none
+
+``REPORT_LLM_*`` 이 비어 있으면 1대1 인터뷰의 ``INTERVIEW_*`` 값을 그대로 쓴다.
+키를 두 벌 넣지 않아도 해설과 인터뷰가 함께 켜진다.
+
+국내 AI 트랙 제출물이라 **국외 AI 엔드포인트는 설정돼 있어도 부르지 않는다**
+(``ai_call_log.is_foreign_ai_endpoint``).
 
 ``.env`` 는 저장소 루트와 ``data/neo4j_load/.env`` 를 모두 읽는다.
 환경변수가 이미 있으면 파일보다 우선한다.
@@ -35,11 +39,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
 
+from scripts import ai_call_log
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENV_FILES = (REPO_ROOT / ".env", REPO_ROOT / "data" / "neo4j_load" / ".env", REPO_ROOT / "web" / ".env")
 
-GEMINI_DEFAULT_MODEL = "gemini-2.5-flash"
-GEMINI_DEFAULT_BASE = "https://generativelanguage.googleapis.com/v1beta"
+DEFAULT_BASE_URL = "https://api.friendli.ai/dedicated/v1"
 DEFAULT_TIMEOUT = 60.0
 #: 넘어갈 수 있는 실패에 한해 다시 걸어 보는 횟수 (첫 시도 포함).
 DEFAULT_RETRIES = 3
@@ -49,11 +54,14 @@ TRANSIENT_MARKERS = ("HTTP 429", "HTTP 500", "HTTP 502", "HTTP 503", "HTTP 504",
 DEFAULT_MAX_TOKENS = 900
 DEFAULT_TEMPERATURE = 0.2
 
+#: 호출 로그 파일 이름이 되는 기능명 (AI API 호출 로그 제출 가이드: 파일명 = 기능명).
+DEFAULT_FEATURE = "보고서_해설"
+
 #: 운영자에게만 보여 줄 안내. 고객 화면에는 `reason` 만 나가고 이 문장은 나가지 않는다.
 #: 두 문장을 하나로 합치면 시연 화면에 `.env` 같은 내부 사정이 그대로 뜬다.
 OPERATOR_HINT = (
-    "저장소 루트의 `.env` 파일에 `GEMINI_API_KEY=<키>` 한 줄을 넣고 서버를 다시 시작하십시오. "
-    "`.env.example` 을 복사해 쓰면 됩니다 (키 발급: https://aistudio.google.com/apikey)."
+    "저장소 루트의 `.env` 파일에 K-EXAONE 엔드포인트 ID(`REPORT_LLM_MODEL`)와 키(`REPORT_LLM_API_KEY`)를 "
+    "넣고 서버를 다시 시작하십시오. `.env.example` 을 복사해 쓰면 됩니다."
 )
 
 _ENV_LINE = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$")
@@ -125,16 +133,24 @@ def _int_env(name: str, default: int) -> int:
         return default
 
 
+def _setting(name: str) -> str:
+    """``REPORT_LLM_<name>`` → 없으면 ``INTERVIEW_<name>``."""
+    return _env(f"REPORT_LLM_{name}") or _env(f"INTERVIEW_{name}")
+
+
+def endpoint_settings() -> tuple[str, str, str]:
+    """(base_url, model, api_key). 값이 없으면 빈 문자열."""
+    return (_setting("BASE_URL") or DEFAULT_BASE_URL).rstrip("/"), _setting("MODEL"), _setting("API_KEY")
+
+
 def resolve_provider() -> str:
-    """어떤 제공자를 쓸지 결정한다. ``auto`` 는 Gemini → OpenAI호환 → none 순이다."""
+    """``exaone`` 또는 ``none``. ``auto`` 는 엔드포인트 ID 가 있으면 exaone 이다."""
     choice = _env("REPORT_LLM_PROVIDER", "auto").lower()
-    if choice in {"gemini", "openai", "none"}:
-        return choice
-    if _env("GEMINI_API_KEY"):
-        return "gemini"
-    if _env("REPORT_LLM_BASE_URL"):
-        return "openai"
-    return "none"
+    if choice == "none":
+        return "none"
+    if choice == "exaone":
+        return "exaone"
+    return "exaone" if _setting("MODEL") else "none"
 
 
 def provider_status(*, load_env: bool = True) -> dict[str, Any]:
@@ -142,8 +158,7 @@ def provider_status(*, load_env: bool = True) -> dict[str, Any]:
     if load_env:
         load_dotenv()
     provider = resolve_provider()
-    gemini_key = _env("GEMINI_API_KEY")
-    base_url = _env("REPORT_LLM_BASE_URL")
+    base_url, model, api_key = endpoint_settings()
     status: dict[str, Any] = {
         "provider": provider,
         "configured": False,
@@ -151,33 +166,25 @@ def provider_status(*, load_env: bool = True) -> dict[str, Any]:
         "reason": None,
         "env_files": [str(p) for p in ENV_FILES if Path(p).is_file()],
         "expects": {
-            "gemini": ["GEMINI_API_KEY", "GEMINI_MODEL(선택)"],
-            "openai": ["REPORT_LLM_BASE_URL", "REPORT_LLM_MODEL", "REPORT_LLM_API_KEY(선택)"],
+            "exaone": ["REPORT_LLM_MODEL", "REPORT_LLM_API_KEY", "REPORT_LLM_BASE_URL(선택)"],
         },
         "key_present": {
-            "GEMINI_API_KEY": bool(gemini_key),
-            "REPORT_LLM_BASE_URL": bool(base_url),
-            "REPORT_LLM_API_KEY": bool(_env("REPORT_LLM_API_KEY")),
+            "REPORT_LLM_MODEL": bool(model),
+            "REPORT_LLM_API_KEY": bool(api_key),
         },
         "unknown": [],
     }
-    if provider == "gemini":
-        status["model"] = _env("GEMINI_MODEL", GEMINI_DEFAULT_MODEL)
-        status["configured"] = bool(gemini_key)
-        if not gemini_key:
+    if provider == "exaone":
+        status["model"] = model
+        status["configured"] = bool(model and api_key)
+        if ai_call_log.is_foreign_ai_endpoint(base_url):
+            status["configured"] = False
+            status["reason"] = "해설 모델 주소가 국내 AI 엔드포인트가 아닙니다."
+            status["operator_hint"] = "`REPORT_LLM_BASE_URL` 을 K-EXAONE 엔드포인트로 바꾸십시오."
+        elif not status["configured"]:
             status["reason"] = "해설 모델이 아직 연결되지 않았습니다."
             status["operator_hint"] = OPERATOR_HINT
-            status["unknown"].append("GEMINI_API_KEY")
-    elif provider == "openai":
-        status["model"] = _env("REPORT_LLM_MODEL")
-        status["configured"] = bool(base_url and status["model"])
-        if not status["configured"]:
-            status["reason"] = "해설 모델이 아직 연결되지 않았습니다."
-            status["operator_hint"] = (
-                "OpenAI 호환 서버를 쓰려면 `.env` 에 REPORT_LLM_BASE_URL 과 REPORT_LLM_MODEL 을 "
-                "모두 채워야 합니다."
-            )
-            status["unknown"].append("REPORT_LLM_BASE_URL")
+            status["unknown"] += [k for k, present in status["key_present"].items() if not present]
     else:
         status["reason"] = (
             "해설 모델이 아직 연결되지 않았습니다. "
@@ -205,59 +212,14 @@ def _post_json(url: str, payload: dict[str, Any], headers: dict[str, str], timeo
     return json.loads(raw) if raw else {}
 
 
-def _gemini(system: str, user: str, *, timeout: float, max_tokens: int, temperature: float) -> LlmResult:
-    key = _env("GEMINI_API_KEY")
-    model = _env("GEMINI_MODEL", GEMINI_DEFAULT_MODEL)
-    base = _env("GEMINI_API_BASE", GEMINI_DEFAULT_BASE).rstrip("/")
-    if not key:
-        return LlmResult(False, provider="gemini", model=model, error="GEMINI_API_KEY 가 없습니다")
-    url = f"{base}/models/{model}:generateContent"
-    payload = {
-        "systemInstruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": {
-            "temperature": temperature,
-            "maxOutputTokens": max_tokens,
-            "responseMimeType": "text/plain",
-        },
-    }
-    started = time.time()
-    try:
-        data = _post_json(url, payload, {"x-goog-api-key": key}, timeout)
-    except urllib.error.HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")[:400] if hasattr(exc, "read") else str(exc)
-        return LlmResult(False, provider="gemini", model=model, error=f"HTTP {exc.code}: {detail}")
-    except Exception as exc:  # noqa: BLE001 - 네트워크/파싱 실패를 그대로 보고한다
-        return LlmResult(False, provider="gemini", model=model, error=f"{type(exc).__name__}: {exc}")
-    candidates = data.get("candidates") or []
-    parts = (candidates[0].get("content", {}).get("parts") if candidates else []) or []
-    text = "".join(part.get("text", "") for part in parts).strip()
-    usage = data.get("usageMetadata") or {}
-    if not text:
-        reason = (candidates[0].get("finishReason") if candidates else None) or "빈 응답"
-        return LlmResult(False, provider="gemini", model=model, error=f"본문이 비었습니다 ({reason})", usage=usage)
-    return LlmResult(
-        True,
-        text=text,
-        provider="gemini",
-        model=model,
-        latency_ms=int((time.time() - started) * 1000),
-        usage={
-            "input_tokens": usage.get("promptTokenCount"),
-            "output_tokens": usage.get("candidatesTokenCount"),
-            "total_tokens": usage.get("totalTokenCount"),
-        },
-    )
-
-
-def _openai_compatible(
-    system: str, user: str, *, timeout: float, max_tokens: int, temperature: float
+def _exaone(
+    system: str, user: str, *, timeout: float, max_tokens: int, temperature: float, feature: str = DEFAULT_FEATURE
 ) -> LlmResult:
-    base = _env("REPORT_LLM_BASE_URL").rstrip("/")
-    model = _env("REPORT_LLM_MODEL")
-    api_key = _env("REPORT_LLM_API_KEY", "not-needed")
-    if not base or not model:
-        return LlmResult(False, provider="openai", model=model, error="REPORT_LLM_BASE_URL/MODEL 이 없습니다")
+    base, model, api_key = endpoint_settings()
+    if not model or not api_key:
+        return LlmResult(False, provider="exaone", model=model, error="REPORT_LLM_MODEL/API_KEY 가 없습니다")
+    if ai_call_log.is_foreign_ai_endpoint(base):
+        return LlmResult(False, provider="exaone", model=model, error="국내 AI 엔드포인트가 아닙니다")
     url = base if base.endswith("/chat/completions") else f"{base}/chat/completions"
     payload = {
         "model": model,
@@ -270,23 +232,29 @@ def _openai_compatible(
         "chat_template_kwargs": {"enable_thinking": False},
     }
     started = time.time()
+    requested_at = ai_call_log.now_kst()
     try:
         data = _post_json(url, payload, {"Authorization": f"Bearer {api_key}"}, timeout)
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="replace")[:400] if hasattr(exc, "read") else str(exc)
-        return LlmResult(False, provider="openai", model=model, error=f"HTTP {exc.code}: {detail}")
+        error = f"HTTP {exc.code}: {detail}"
+        ai_call_log.record(feature, endpoint=url, model=model, request_body=payload, requested_at=requested_at, error=error)
+        return LlmResult(False, provider="exaone", model=model, error=error)
     except Exception as exc:  # noqa: BLE001
-        return LlmResult(False, provider="openai", model=model, error=f"{type(exc).__name__}: {exc}")
+        error = f"{type(exc).__name__}: {exc}"
+        ai_call_log.record(feature, endpoint=url, model=model, request_body=payload, requested_at=requested_at, error=error)
+        return LlmResult(False, provider="exaone", model=model, error=error)
+    ai_call_log.record(feature, endpoint=url, model=model, request_body=payload, requested_at=requested_at, response_body=data)
     choices = data.get("choices") or []
     text = (choices[0].get("message", {}).get("content") if choices else "") or ""
     text = text.strip()
     if not text:
-        return LlmResult(False, provider="openai", model=model, error="본문이 비었습니다")
+        return LlmResult(False, provider="exaone", model=model, error="본문이 비었습니다")
     usage = data.get("usage") or {}
     return LlmResult(
         True,
         text=text,
-        provider="openai",
+        provider="exaone",
         model=model,
         latency_ms=int((time.time() - started) * 1000),
         usage={
@@ -305,8 +273,12 @@ def complete(
     max_tokens: int | None = None,
     temperature: float | None = None,
     load_env: bool = True,
+    feature: str = DEFAULT_FEATURE,
 ) -> LlmResult:
-    """설정된 제공자로 한 번 호출한다. 실패는 예외가 아니라 결과로 돌려준다."""
+    """설정된 제공자로 한 번 호출한다. 실패는 예외가 아니라 결과로 돌려준다.
+
+    ``feature`` 는 호출 로그 파일 이름이다 (``scripts.ai_call_log``).
+    """
     if load_env:
         load_dotenv()
     provider = resolve_provider()
@@ -315,20 +287,18 @@ def complete(
     temperature = (
         temperature if temperature is not None else _float_env("REPORT_LLM_TEMPERATURE", DEFAULT_TEMPERATURE)
     )
-    call = None
-    if provider == "gemini":
-        call = _gemini
-    elif provider == "openai":
-        call = _openai_compatible
+    call = _exaone if provider == "exaone" else None
     if call is not None:
-        # 무료 등급 Gemini 는 분당 요청 수를 넘기면 429 로 거절한다. 보고서 한 편은
+        # 분당 요청 수를 넘기면 429 로 거절된다. 보고서 한 편은
         # 해설을 여러 번 부르므로 그 거절이 곧 "해설 없는 보고서"가 된다.
         # 넘어갈 수 있는 실패(429·5xx·시간초과)만 짧게 물러났다 다시 시도한다.
         # 키가 틀렸거나 모델 이름이 없는 실패는 다시 걸어도 같으므로 그대로 돌려준다.
         attempts = max(1, _int_env("REPORT_LLM_RETRIES", DEFAULT_RETRIES))
         result = LlmResult(False, provider=provider, error="호출을 시도하지 못했습니다")
         for attempt in range(attempts):
-            result = call(system, user, timeout=timeout, max_tokens=max_tokens, temperature=temperature)
+            result = call(
+                system, user, timeout=timeout, max_tokens=max_tokens, temperature=temperature, feature=feature
+            )
             if result.ok or not _is_transient(result.error) or attempt == attempts - 1:
                 return result
             time.sleep(RETRY_BACKOFF_SEC * (2 ** attempt))
@@ -336,7 +306,7 @@ def complete(
     return LlmResult(
         False,
         provider="none",
-        error="해설 LLM 이 설정되지 않았습니다 (.env 의 GEMINI_API_KEY 또는 REPORT_LLM_BASE_URL 확인)",
+        error="해설 LLM 이 설정되지 않았습니다 (.env 의 REPORT_LLM_MODEL·REPORT_LLM_API_KEY 확인)",
     )
 
 
@@ -351,6 +321,7 @@ def ping() -> dict[str, Any]:
         max_tokens=16,
         temperature=0.0,
         load_env=False,
+        feature="연결_점검",
     )
     return {
         **status,

@@ -62,7 +62,7 @@ def test_capture_accepts_actual_stage1_index_schema_and_omitted_internal_picks()
 
 
 @pytest.mark.parametrize("mutation, expected", [
-    (lambda r: r["teacher"].update(model_id="Qwen/test"), "non_exaone_teacher"),
+    (lambda r: r["teacher"].update(model_id="other/test"), "non_exaone_teacher"),
     (lambda r: r["teacher"]["meta"].update(validated=False), "unvalidated_teacher"),
     (lambda r: r["teacher"]["meta"].update(hallucinations_corrected=1), "repaired_teacher"),
     (lambda r: r["teacher"]["meta"].update(fallback_only=True), "repaired_teacher"),

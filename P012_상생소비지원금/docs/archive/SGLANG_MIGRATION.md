@@ -25,7 +25,7 @@
 
 1. **RadixAttention prefix 공유** — 14,560 agent의 Dawn 프롬프트가 같은 SYSTEM + 비슷한 페르소나 구조를 공유. SGLang은 이 공유 prefix를 트리 구조로 캐시 → vLLM의 block 캐시보다 더 큰 재사용
 2. **JSON Schema 강제** — 우리는 Pydantic으로 검증 후 재시도 중. SGLang의 structured output을 쓰면 **LLM이 schema-valid JSON만 출력**하도록 강제 → 재시도 비용 ↓
-3. **모델 swap 용이** — `serve_qwen32b.sh` / `serve_qwen9b.sh` / `serve_exaone.sh` 단순 교체. 개발/디버그용 9B 모델로 빠르게 검증 후 32B로 풀런
+3. **모델 swap 용이** — 초기 실험용 32B·9B 모델 serve 스크립트 / `serve_exaone.sh` 단순 교체. 개발/디버그용 9B 모델로 빠르게 검증 후 32B로 풀런
 
 ### SGLang 단점 (작지만 솔직히)
 
@@ -42,15 +42,14 @@
 | 원본 (GitHub) | 우리 위치 | 변경 |
 |---|---|---|
 | `sglang_client.py` | `scripts/sim/llm_client.py` | sync helper 추가, auto-detect 추가 |
-| `scripts/serve_qwen32b.sh` | `scripts/serve/serve_qwen32b.sh` | 그대로 |
-| `scripts/serve_qwen9b.sh` | `scripts/serve/serve_qwen9b.sh` | 그대로 |
+| 초기 실험용 32B·9B 모델 serve 스크립트 2종 | `scripts/serve/` (현재 저장소에서 삭제) | 그대로 |
 | `scripts/serve_exaone.sh` | `scripts/serve/serve_exaone.sh` | 그대로 |
 
 ### 원본 `sglang_client.py` 분석
 
 - **ModelSpec dataclass** — `key / hf_id / family / description`로 3종 모델 registry
-- **`resolve_mode()`** — CLI arg > `LLM_MODE` env > `DEFAULT_MODE='qwen32b'` 우선순위
-- **`_extra_body_for(family)`** — Qwen3 family는 `chat_template_kwargs={enable_thinking:False}` 자동 주입 (Qwen3가 `<think>` 토큰 낭비)
+- **`resolve_mode()`** — CLI arg > `LLM_MODE` env > `DEFAULT_MODE`(당시 초기 실험용 32B 모드) 우선순위
+- **`_extra_body_for(family)`** — 초기 실험용 모델 family는 `chat_template_kwargs={enable_thinking:False}` 자동 주입 (`<think>` 토큰 낭비 방지)
 - **`generate_chat()`** — async 함수, `asyncio.to_thread`로 sync OpenAI client wrap
 
 ### 우리 코드와의 호환성
@@ -58,7 +57,7 @@
 | 우리 코드 (기존) | 호환 여부 | 조치 |
 |---|---|---|
 | `OpenAI(base_url="http://localhost:8000/v1")` 직접 사용 | ✅ SGLang도 OpenAI 호환 — base_url만 30000으로 | `llm_client.make_client()`가 자동 감지 |
-| `model="Qwen/Qwen3-32B-AWQ"` 하드코딩 | ✅ `LLM_MODE` env로 동적 선택 | `_llm_call(None, ...)` (mode=None → env 우선) |
+| `model="<초기 실험용 32B 모델 ID>"` 하드코딩 | ✅ `LLM_MODE` env로 동적 선택 | `_llm_call(None, ...)` (mode=None → env 우선) |
 | `extra_body={"chat_template_kwargs":{"enable_thinking":False}}` 직접 박음 | ✅ `_extra_body_for(family)`가 자동 처리 | EXAONE 사용 시 자동 비움 |
 | sync 호출 + ThreadPoolExecutor (16 workers) | ⚠️ 원본은 async only | sync `call_chat()` helper 추가 (우리 메인 루프 호환) |
 
@@ -78,8 +77,7 @@
 - ➕ **`healthcheck()`** — 활성 서버·모델·served_match 확인
 - ✅ 기존 `generate_chat()` (async)도 prototype 호환을 위해 유지
 
-📄 [`scripts/serve/serve_qwen32b.sh`](../scripts/serve/serve_qwen32b.sh) — Qwen3-32B-AWQ
-📄 [`scripts/serve/serve_qwen9b.sh`](../scripts/serve/serve_qwen9b.sh) — Qwen3.5-9B (개발용)
+📄 초기 실험용 32B·9B(개발용) 모델 serve 스크립트 2종 — 현재 저장소에서 삭제
 📄 [`scripts/serve/serve_exaone.sh`](../scripts/serve/serve_exaone.sh) — EXAONE 4.5 33B FP8 (국내 대회용)
 
 ### 변경된 파일 (3 LLM 호출 사이트)
@@ -97,7 +95,7 @@
 from openai import OpenAI
 
 _VLLM = OpenAI(base_url="http://localhost:8000/v1", api_key="x")
-MODEL = "Qwen/Qwen3-32B-AWQ"
+MODEL = "<초기 실험용 32B 모델 ID>"
 
 resp = _VLLM.chat.completions.create(
     model=MODEL,
@@ -129,17 +127,13 @@ resp = _llm_call(
 ### 4.1 SGLang 서버 시작
 
 ```bash
-# 기본 (Qwen3-32B-AWQ, SGLang port 30000)
-bash scripts/serve/serve_qwen32b.sh
-
-# 개발용 9B (빠른 디버깅)
-bash scripts/serve/serve_qwen9b.sh
+# (당시 기본: 초기 실험용 32B 모델 / 개발용 9B 모델 serve 스크립트 — 현재 저장소에서 삭제)
 
 # EXAONE
 bash scripts/serve/serve_exaone.sh
 
 # 포트·메모리 비율 커스텀
-PORT=30001 MEM_FRAC=0.85 bash scripts/serve/serve_qwen32b.sh
+PORT=30001 MEM_FRAC=0.85 bash scripts/serve/serve_exaone.sh
 ```
 
 **사전 설치**:
@@ -150,11 +144,8 @@ pip install "sglang[all]>=0.4.0"
 ### 4.2 시뮬 실행 (모델 선택)
 
 ```bash
-# 기본 (qwen32b — SGLang 자동 감지)
+# 기본 (당시 초기 실험용 32B 모델 — SGLang 자동 감지)
 python scripts/sim/run_simulation.py --start 2026-05-01 --days 3
-
-# 모델 명시
-LLM_MODE=qwen9b python scripts/sim/run_simulation.py --start 2026-05-01 --days 1 --limit 100
 
 # EXAONE
 LLM_MODE=exaone python scripts/sim/run_simulation.py --start 2026-05-01 --days 3
@@ -170,9 +161,9 @@ python scripts/sim/llm_client.py
 # 출력 예:
 # {
 #   "base_url": "http://localhost:30000/v1/",
-#   "active_mode": "qwen32b",
-#   "active_model": "Qwen/Qwen3-32B-AWQ",
-#   "served_models": ["Qwen/Qwen3-32B-AWQ"],
+#   "active_mode": "<mode>",
+#   "active_model": "<hf_id>",
+#   "served_models": ["<hf_id>"],
 #   "served_match": true
 # }
 ```
@@ -193,7 +184,7 @@ python scripts/sim/llm_client.py
 
 ## 6. 기대 효과 (정량)
 
-이번 풀런(vLLM Qwen3-32B-AWQ, 14,560 agent × 3일, 21h 52m) 데이터 기준 SGLang 전환 시:
+이번 풀런(vLLM 초기 실험용 32B 모델, 14,560 agent × 3일, 21h 52m) 데이터 기준 SGLang 전환 시:
 
 | 지표 | vLLM (현재) | SGLang (예상) | 근거 |
 |---|---|---|---|
@@ -213,7 +204,7 @@ python scripts/sim/llm_client.py
 ## 7. 다음 단계 (선택 사항)
 
 1. **SGLang structured output 적용** — `response_format={"type":"json_schema","schema":...}` 추가하면 Pydantic IntentOutput·Stage1Output schema를 LLM에 강제. 재시도 거의 0
-2. **호스트에 SGLang 설치 + serve_qwen32b.sh 실제 가동 검증** — vLLM에서 SGLang으로 실제 전환
+2. **호스트에 SGLang 설치 + serve 스크립트 실제 가동 검증** — vLLM에서 SGLang으로 실제 전환
 3. **풀런 시간 측정** — SGLang으로 3일 풀런 재실행 → 시간 단축 실측
 4. **EXAONE 검증** — 국내 대회용으로 한국어 정밀도 비교
 
@@ -225,9 +216,9 @@ python scripts/sim/llm_client.py
 |---|---|
 | 팀원 코드 검토 | ✅ 통과 — vLLM 호환 OpenAI API 사용, 변경 부담 적음 |
 | `llm_client.py` 통합 | ✅ 완료 (sync helper + auto-detect + healthcheck 추가) |
-| serve 스크립트 3종 복사 | ✅ `scripts/serve/serve_{qwen32b,qwen9b,exaone}.sh` |
+| serve 스크립트 3종 복사 | ✅ `scripts/serve/` (초기 실험용 32B·9B 2종 + `serve_exaone.sh`) |
 | LLM 호출 3곳 마이그레이션 | ✅ stage1·stage2·intent_llm 모두 `_llm_call` 통합 |
 | vLLM 폴백 | ✅ auto-detect로 vLLM 8000도 호환 (마이그레이션 안전) |
 | 코드 변경 부담 | ✅ 각 호출 사이트 15줄 → 3줄 |
 
-다음 풀런 또는 신규 시뮬 시 `SGLANG_BASE_URL=http://...` 또는 `bash scripts/serve/serve_qwen32b.sh` 띄우면 자동 전환. 코드 추가 변경 불필요.
+다음 풀런 또는 신규 시뮬 시 `SGLANG_BASE_URL=http://...` 또는 SGLang serve 스크립트를 띄우면 자동 전환. 코드 추가 변경 불필요.

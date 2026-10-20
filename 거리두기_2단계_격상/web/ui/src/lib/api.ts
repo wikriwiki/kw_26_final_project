@@ -217,7 +217,7 @@ export interface ReportEngineInfo {
 }
 
 export interface LlmStatus extends UnknownResource {
-  provider: 'gemini' | 'openai' | 'none' | string;
+  provider: 'exaone' | 'none' | string;
   configured: boolean;
   model: string;
   reason: string | null;

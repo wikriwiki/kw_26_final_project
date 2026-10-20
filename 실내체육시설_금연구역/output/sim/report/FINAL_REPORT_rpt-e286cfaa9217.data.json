@@ -5624,24 +5624,19 @@
       "provider": "none",
       "configured": false,
       "model": "",
-      "reason": "해설 LLM 이 설정되지 않았습니다. .env 에 GEMINI_API_KEY 를 넣으면 켜집니다. 지금은 보고서가 계산 결과만으로 생성되며 해설 문장은 결정론적 서술로 대체됩니다.",
+      "reason": "해설 모델이 아직 연결되지 않았습니다. 지금은 보고서가 계산 결과만으로 생성되며 해설 문장은 결정론적 서술로 대체됩니다.",
       "env_files": [
         "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\.env"
       ],
       "expects": {
-        "gemini": [
-          "GEMINI_API_KEY",
-          "GEMINI_MODEL(선택)"
-        ],
-        "openai": [
-          "REPORT_LLM_BASE_URL",
+        "exaone": [
           "REPORT_LLM_MODEL",
-          "REPORT_LLM_API_KEY(선택)"
+          "REPORT_LLM_API_KEY",
+          "REPORT_LLM_BASE_URL(선택)"
         ]
       },
       "key_present": {
-        "GEMINI_API_KEY": false,
-        "REPORT_LLM_BASE_URL": false,
+        "REPORT_LLM_MODEL": false,
         "REPORT_LLM_API_KEY": false
       },
       "unknown": []

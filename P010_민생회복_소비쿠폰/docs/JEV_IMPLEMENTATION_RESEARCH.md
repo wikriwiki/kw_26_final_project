@@ -22,7 +22,7 @@ Jev는 문장이나 JSON을 토큰 단위로 생성하는 대신, 미리 정한 
 | [awesome-jev](https://github.com/tanxarx/awesome-jev) | 관련 공개 구현을 찾는 목록 | 목록의 성능 소개만 채택하지 않고 원본 구현의 조건을 확인한다. |
 | [SemIf](https://github.com/TheoLeeCJ/SemIf) | 직접 선택지 점수 읽기, 동일 상태의 prefix 재사용, 질문 suffix 병렬 처리 | 동일 모델 비교에서도 생성 답변과 직접 점수가 항상 일치하지 않았다. 캐시·BF16 경로도 일부 선택이 달라졌다. 우리 데이터로 검증한다. |
 | [openjev-sglang](https://github.com/ekzhang/openjev-sglang) | 단일 토큰 선택 코드 검증, 선택지 logprob 정규화, 공통 prefix 재사용 | 일반 API의 top-k logprob가 모든 후보를 포함한다고 가정하지 않는다. 엔트로피 기반 confidence는 정답 확률이 아니다. |
-| [Bespoke Nimble](https://github.com/bespokelabsai/nimble) | 허용 후보 점수에 직접 교차엔트로피 학습, LoRA, 사실 하나를 바꾼 대응 사례 | 공개 예제는 Qwen 기반이다. LG 기반 모델에는 학습 원리를 별도 구현한다. 합성 라벨을 현실 정답으로 취급하지 않는다. |
+| [Bespoke Nimble](https://github.com/bespokelabsai/nimble) | 허용 후보 점수에 직접 교차엔트로피 학습, LoRA, 사실 하나를 바꾼 대응 사례 | 공개 예제는 해외 오픈소스 모델 기반이다. LG 기반 모델에는 학습 원리를 별도 구현한다. 합성 라벨을 현실 정답으로 취급하지 않는다. |
 | [Decider](https://github.com/Mapika/decider) | 선택 슬롯 점수화, 상태 또는 고정 질문 prefix 캐시 | schema-first 입력은 해당 프로젝트에서도 정확도 손실이 있었다. 단순 프롬프트 재배열도 품질 변경으로 평가한다. |
 
 위 자료의 숫자는 서로 다른 모델·하드웨어·문제에서 측정됐다. 서로의 속도 숫자를 우리 EXAONE 1.2B의 예상치로 옮기지 않는다.

@@ -32,7 +32,7 @@ P010 SHA256: `82bf0f7645e8455befc9108cda18d1ba270a97006575ff4315e0524c71e93611`.
 - A100-SXM4-80GB, `/data`는 별도1TB ext4 볼륨. 서버 밖 복사 없이 영구 보존을 보장하지 않는다.
 - `/data/venv/bin/python`: 단위검사·원문 감사·자료 준비.
 - `/data/venv_sgl/bin/python`: 모델 호출·transformers·xgrammar.
-- SGLang `http://localhost:8000/v1`, native `/generate`, qwen3 reasoning parser.
+- SGLang `http://localhost:8000/v1`, native `/generate`, reasoning parser(EXAONE 공식 실행 예시의 값).
 - 마지막 `/v1/models` 조회에서 `LGAI-EXAONE/EXAONE-4.5-33B-AWQ`를 확인했다.
 - tokenizer: `/data/hf_cache/hub/models--LGAI-EXAONE--EXAONE-4.5-33B-AWQ/snapshots/31e6a965d0661bbe4a8b895e22a77f8271772ba0`.
 

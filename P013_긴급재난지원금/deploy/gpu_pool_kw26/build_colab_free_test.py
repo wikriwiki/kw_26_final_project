@@ -17,7 +17,7 @@ import json
 import build_colab_notebook as prod
 
 OUT = prod.HERE / 'kw26_colab_free_test.ipynb'
-TINY = 'Qwen/Qwen2.5-0.5B-Instruct'   # 공개 모델, 약 1GB — 서버 실행 경로 확인용. A100 과 설정이 달라야 정상이다.
+TINY = 'LGAI-EXAONE/EXAONE-4.0-1.2B'   # LG 공개 소형 모델(약 2.5GB) — 서버 실행 경로 확인용, 2026-10-20 국내 모델로 교체(무료 T4 실행 미검증). A100 과 설정이 달라야 정상이다.
 
 INTRO = """
 # KW26 — Colab 무료(T4) 시험 노트북

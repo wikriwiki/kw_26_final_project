@@ -26,7 +26,7 @@ v5 repair는 최초 응답 실험과 별개인 **출력 보수 프로토콜**이
 기존 SGLang 프로세스에는 reasoning parser 설정이 없었다.
 [EXAONE 공식 실행 예시](https://github.com/LG-AI-EXAONE/EXAONE-4.5)와
 [SGLang 구조화 추론 문서](https://docs.sglang.io/docs/advanced_features/structured_outputs_for_reasoning_models)에 따라
-`--reasoning-parser qwen3`를 추가한 별도 실행 스크립트 `/data/start_sglang_reasoning.sh`를 만들었다.
+`--reasoning-parser`(공식 실행 예시의 값)를 추가한 별도 실행 스크립트 `/data/start_sglang_reasoning.sh`를 만들었다.
 모델·가중치·양자화·GPU·메모리 비율은 동일하다. `/data/start_sglang.sh`는 그대로 보존했다.
 실행 중인 실험 및 8000 포트 연결이 없음을 확인한 뒤 기존 PID 55277을 TERM으로 종료하고
 새 PID 1092079로 기동했다. 데이터베이스는 재시작하지 않았다.

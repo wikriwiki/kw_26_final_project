@@ -27,6 +27,7 @@ import urllib.error
 import urllib.request
 from typing import Any
 
+from scripts import ai_call_log
 from scripts.report import llm as report_llm
 from scripts.report.llm import load_dotenv
 
@@ -34,6 +35,8 @@ from scripts.report.llm import load_dotenv
 THINKING = False
 TIMEOUT = float(os.environ.get("INTERVIEW_TIMEOUT", "60"))
 MAX_TOKENS = int(os.environ.get("INTERVIEW_MAX_TOKENS", "700"))
+#: 호출 로그 파일 이름 (AI API 호출 로그 제출 가이드: 파일명 = 기능명).
+FEATURE = "1대1_인터뷰"
 
 SYSTEM = """당신은 서울시 상권 정책 시뮬레이션에 참여한 시민 한 명입니다.
 아래 '내 기록'에 적힌 사실만 근거로, 그 사람 본인의 말투로 답하세요.
@@ -56,25 +59,19 @@ class InterviewError(Exception):
 def settings() -> dict[str, Any]:
     """설정 상태. **키 값 자체는 절대 담지 않는다.**
 
-    전용 엔드포인트(K-EXAONE)가 설정돼 있으면 그것을 먼저 쓴다. 없으면 보고서
-    해설이 쓰는 것과 **같은 키**(예: `.env` 의 `GEMINI_API_KEY`)로 되돌아간다.
-    키를 두 벌 넣게 하지 않기 위해서다 — 한 줄만 넣으면 보고서 해설과 인터뷰가
-    함께 켜진다. 어느 쪽으로 답했는지는 응답의 `model_label` 에 그대로 남는다.
+    `INTERVIEW_*` 가 모두 있으면 그 K-EXAONE 엔드포인트를 쓴다. 없으면 보고서 해설이
+    쓰는 K-EXAONE 설정(`REPORT_LLM_*`)으로 묻는다. 키를 두 벌 넣게 하지 않기 위해서다.
+    국외 AI 엔드포인트는 설정돼 있어도 쓰지 않는다 (국내 AI 트랙).
     """
     load_dotenv()
     base = os.environ.get("INTERVIEW_BASE_URL", "").strip()
     model = os.environ.get("INTERVIEW_MODEL", "").strip()
     key = os.environ.get("INTERVIEW_API_KEY", "").strip()
-    if base and model and key:
+    if base and model and key and not ai_call_log.is_foreign_ai_endpoint(base):
         return {"ready": True, "backend": "dedicated", "model_label": "K-EXAONE", "reason": None}
     shared = report_llm.provider_status(load_env=False)
     if shared.get("configured"):
-        return {
-            "ready": True,
-            "backend": "shared",
-            "model_label": shared.get("model") or shared.get("provider") or "해설 모델",
-            "reason": None,
-        }
+        return {"ready": True, "backend": "shared", "model_label": "K-EXAONE", "reason": None}
     return {
         "ready": False,
         "backend": "none",
@@ -138,13 +135,14 @@ def _transcript(question: str, history: list[dict[str, str]] | None) -> str:
 
 
 def _ask_shared(system: str, question: str, history: list[dict[str, str]] | None, label: str) -> dict[str, Any]:
-    """보고서 해설과 같은 클라이언트로 묻는다 (Gemini 또는 OpenAI 호환)."""
+    """보고서 해설과 같은 K-EXAONE 클라이언트로 묻는다."""
     result = report_llm.complete(
         system,
         _transcript(question, history),
         max_tokens=MAX_TOKENS,
         temperature=0.7,
         load_env=False,
+        feature=FEATURE,
     )
     if not result.ok:
         # 원문 오류를 그대로 올리지 않는다 — 키가 섞여 나올 수 있고 사용자도 못 고친다.
@@ -186,26 +184,32 @@ def ask(agent: dict[str, Any], question: str, history: list[dict[str, str]] | No
         "temperature": 0.7,
         "chat_template_kwargs": {"enable_thinking": THINKING},
     }
+    endpoint = f"{base}/chat/completions"
     request = urllib.request.Request(
-        f"{base}/chat/completions",
+        endpoint,
         data=json.dumps(payload).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {os.environ['INTERVIEW_API_KEY']}",
             "Content-Type": "application/json",
         },
     )
+    requested_at = ai_call_log.now_kst()
+    log = dict(endpoint=endpoint, model=payload["model"], request_body=payload, requested_at=requested_at)
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
             body = json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
+        ai_call_log.record(FEATURE, **log, error=f"HTTP {exc.code}")
         # 원문 오류를 그대로 올리지 않는다 — 키가 섞여 나올 수 있고 사용자도 못 고친다
         raise InterviewError(
             502, f"대화 모델이 응답하지 않았습니다 (HTTP {exc.code}). 잠시 후 다시 시도해 주세요."
         ) from exc
     except Exception as exc:  # 네트워크·시간초과
+        ai_call_log.record(FEATURE, **log, error=type(exc).__name__)
         raise InterviewError(
             502, "대화 모델에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요."
         ) from exc
+    ai_call_log.record(FEATURE, **log, response_body=body)
 
     choices = body.get("choices") or []
     text = (choices[0].get("message", {}).get("content") or "").strip() if choices else ""

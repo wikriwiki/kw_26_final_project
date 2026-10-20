@@ -16,11 +16,12 @@ from scripts.report import llm, narrator
 
 ENV_KEYS = (
     "REPORT_LLM_PROVIDER",
-    "GEMINI_API_KEY",
-    "GEMINI_MODEL",
     "REPORT_LLM_BASE_URL",
     "REPORT_LLM_MODEL",
     "REPORT_LLM_API_KEY",
+    "INTERVIEW_BASE_URL",
+    "INTERVIEW_MODEL",
+    "INTERVIEW_API_KEY",
 )
 
 
@@ -35,15 +36,15 @@ class DotenvTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             path = Path(temp) / ".env"
             path.write_text(
-                '# 주석\nGEMINI_API_KEY="abc123"\nexport REPORT_LLM_MODEL=some-model\nBROKEN LINE\n',
+                '# 주석\nREPORT_LLM_API_KEY="abc123"\nexport REPORT_LLM_MODEL=some-model\nBROKEN LINE\n',
                 encoding="utf-8",
             )
-            with mock.patch.dict(os.environ, {"GEMINI_API_KEY": "already-set"}, clear=False):
+            with mock.patch.dict(os.environ, {"REPORT_LLM_API_KEY": "already-set"}, clear=False):
                 loaded = llm.load_dotenv([path])
-                self.assertEqual(loaded["GEMINI_API_KEY"], "abc123")
+                self.assertEqual(loaded["REPORT_LLM_API_KEY"], "abc123")
                 self.assertEqual(loaded["REPORT_LLM_MODEL"], "some-model")
                 # 이미 있는 환경변수는 덮어쓰지 않는다
-                self.assertEqual(os.environ["GEMINI_API_KEY"], "already-set")
+                self.assertEqual(os.environ["REPORT_LLM_API_KEY"], "already-set")
 
 
 class ProviderStatusTests(unittest.TestCase):
@@ -56,29 +57,42 @@ class ProviderStatusTests(unittest.TestCase):
         # `operator_hint` 로 따로 싣는다 — 고칠 수 있는 사람에게만 필요한 정보다.
         self.assertNotIn(".env", status["reason"])
         self.assertIn(".env", status["operator_hint"])
-        self.assertIn("GEMINI_API_KEY", status["operator_hint"])
+        self.assertIn("REPORT_LLM_API_KEY", status["operator_hint"])
 
-    def test_gemini_key_switches_the_provider(self) -> None:
-        with clean_env(GEMINI_API_KEY="test-key"):
+    def test_endpoint_id_and_key_switch_on_k_exaone(self) -> None:
+        with clean_env(REPORT_LLM_MODEL="dep-1", REPORT_LLM_API_KEY="k"):
             status = llm.provider_status(load_env=False)
-        self.assertEqual(status["provider"], "gemini")
+        self.assertEqual(status["provider"], "exaone")
         self.assertTrue(status["configured"])
-        self.assertEqual(status["model"], llm.GEMINI_DEFAULT_MODEL)
+        self.assertEqual(status["model"], "dep-1")
+        self.assertEqual(llm.endpoint_settings()[0], llm.DEFAULT_BASE_URL)
+
+    def test_model_without_key_is_not_configured(self) -> None:
+        with clean_env(REPORT_LLM_MODEL="dep-1"):
+            status = llm.provider_status(load_env=False)
+        self.assertFalse(status["configured"])
+        self.assertIn("REPORT_LLM_API_KEY", status["unknown"])
+
+    def test_interview_settings_are_shared(self) -> None:
+        with clean_env(INTERVIEW_MODEL="dep-2", INTERVIEW_API_KEY="k"):
+            status = llm.provider_status(load_env=False)
+        self.assertTrue(status["configured"])
+        self.assertEqual(status["model"], "dep-2")
 
     def test_status_never_leaks_the_key_value(self) -> None:
-        with clean_env(GEMINI_API_KEY="super-secret-value"):
+        with clean_env(REPORT_LLM_MODEL="dep-1", REPORT_LLM_API_KEY="super-secret-value"):
             status = llm.provider_status(load_env=False)
         self.assertNotIn("super-secret-value", str(status))
-        self.assertTrue(status["key_present"]["GEMINI_API_KEY"])
+        self.assertTrue(status["key_present"]["REPORT_LLM_API_KEY"])
 
-    def test_openai_compatible_needs_both_url_and_model(self) -> None:
-        with clean_env(REPORT_LLM_BASE_URL="http://localhost:30000/v1"):
+    def test_foreign_ai_endpoint_is_refused(self) -> None:
+        foreign = "https://api.openai.com/v1"
+        with clean_env(REPORT_LLM_BASE_URL=foreign, REPORT_LLM_MODEL="m", REPORT_LLM_API_KEY="k"),                 mock.patch.object(llm, "_post_json") as post:
             status = llm.provider_status(load_env=False)
-        self.assertEqual(status["provider"], "openai")
+            result = llm.complete("s", "u", load_env=False)
         self.assertFalse(status["configured"])
-        with clean_env(REPORT_LLM_BASE_URL="http://localhost:30000/v1", REPORT_LLM_MODEL="m"):
-            status = llm.provider_status(load_env=False)
-        self.assertTrue(status["configured"])
+        self.assertFalse(result.ok)
+        post.assert_not_called()
 
     def test_complete_without_a_provider_returns_a_result_not_an_exception(self) -> None:
         with clean_env():
@@ -136,8 +150,8 @@ class NarratorGuardTests(unittest.TestCase):
     CHECKS = {"counts": {"total": 1, "pass": 1, "fail": 0, "skip": 0}, "verdict": "ok", "checks": []}
 
     def test_hallucinated_numbers_are_rejected_and_recorded(self) -> None:
-        fake = llm.LlmResult(True, text="소비가 987654321원 늘었습니다.", provider="gemini", model="m")
-        with clean_env(GEMINI_API_KEY="k"), mock.patch.object(llm, "complete", return_value=fake), \
+        fake = llm.LlmResult(True, text="소비가 987654321원 늘었습니다.", provider="exaone", model="m")
+        with clean_env(REPORT_LLM_MODEL="m", REPORT_LLM_API_KEY="k"), mock.patch.object(llm, "complete", return_value=fake), \
                 mock.patch.object(narrator.llm_module, "complete", return_value=fake):
             narration = narrator.narrate_report(self.BUNDLE, self.CHECKS, sections=("did",))
         entry = narration["sections"]["did"]
@@ -147,16 +161,16 @@ class NarratorGuardTests(unittest.TestCase):
         self.assertFalse(narration["used_llm"])
 
     def test_grounded_text_is_accepted(self) -> None:
-        fake = llm.LlmResult(True, text="이중차분은 25원입니다.", provider="gemini", model="m")
-        with clean_env(GEMINI_API_KEY="k"), mock.patch.object(narrator.llm_module, "complete", return_value=fake):
+        fake = llm.LlmResult(True, text="이중차분은 25원입니다.", provider="exaone", model="m")
+        with clean_env(REPORT_LLM_MODEL="m", REPORT_LLM_API_KEY="k"), mock.patch.object(narrator.llm_module, "complete", return_value=fake):
             narration = narrator.narrate_report(self.BUNDLE, self.CHECKS, sections=("did",))
         entry = narration["sections"]["did"]
         self.assertEqual(entry["guard"], "passed")
         self.assertTrue(narration["used_llm"])
 
     def test_llm_failure_falls_back_and_records_the_error(self) -> None:
-        fail = llm.LlmResult(False, provider="gemini", model="m", error="HTTP 401")
-        with clean_env(GEMINI_API_KEY="k"), mock.patch.object(narrator.llm_module, "complete", return_value=fail):
+        fail = llm.LlmResult(False, provider="exaone", model="m", error="HTTP 401")
+        with clean_env(REPORT_LLM_MODEL="m", REPORT_LLM_API_KEY="k"), mock.patch.object(narrator.llm_module, "complete", return_value=fail):
             narration = narrator.narrate_report(self.BUNDLE, self.CHECKS, sections=("did",))
         self.assertEqual(narration["sections"]["did"]["guard"], "llm_error")
         self.assertEqual(narration["errors"][0]["error"], "HTTP 401")

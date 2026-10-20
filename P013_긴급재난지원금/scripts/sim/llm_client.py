@@ -139,6 +139,10 @@ def make_client(base_url: str | None = None) -> OpenAI:
         raise ValueError("SIM_LLM_TIMEOUT_SECONDS must be an integer") from exc
     if not 30 <= timeout_seconds <= 1800:
         raise ValueError("SIM_LLM_TIMEOUT_SECONDS must be between 30 and 1800")
+    # 국내 AI 트랙: 국외 AI 엔드포인트로는 연결하지 않는다.
+    from scripts.ai_call_log import is_foreign_ai_endpoint
+    if is_foreign_ai_endpoint(base_url):
+        raise ValueError(f"국내 AI 엔드포인트가 아닙니다: {base_url}")
     return OpenAI(base_url=base_url, api_key="EMPTY", timeout=float(timeout_seconds), max_retries=0)
 
 

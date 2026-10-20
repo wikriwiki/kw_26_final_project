@@ -32,7 +32,7 @@ scripts/report/
   charts.py           의존성 없는 인라인 SVG 차트 11종
   render_v2.py        단일 HTML + Markdown 조립
   narrator.py         섹션별 해설 (LLM 또는 결정론)
-  llm.py              Gemini / OpenAI 호환 클라이언트 + 숫자 가드
+  llm.py              K-EXAONE(OpenAI 호환) 클라이언트 + 숫자 가드
   build_report_v2.py  CLI
   catalog.py          절(section) 카탈로그와 적용 가능 판정
 ```
@@ -222,20 +222,18 @@ python scripts/report/verify_independently.py \
 
 ## 6. 해설 LLM
 
-`.env` 에 키 한 줄만 넣으면 켜진다.
+해설은 국내 모델 K-EXAONE(Friendli 전용 엔드포인트, OpenAI 호환)으로 쓴다.
+`.env` 에 아래 세 줄을 넣으면 켜진다.
 
 ```dotenv
-GEMINI_API_KEY=...
-GEMINI_MODEL=gemini-2.5-flash     # 선택
+REPORT_LLM_BASE_URL=https://api.friendli.ai/dedicated/v1
+REPORT_LLM_MODEL=<K-EXAONE 엔드포인트 ID>
+REPORT_LLM_API_KEY=<키>
 ```
 
-사내 OpenAI 호환 서버(vLLM/SGLang)를 쓰려면:
-
-```dotenv
-REPORT_LLM_PROVIDER=openai
-REPORT_LLM_BASE_URL=http://127.0.0.1:30000/v1
-REPORT_LLM_MODEL=exaone-4.5
-```
+비어 있으면 1대1 인터뷰용 `INTERVIEW_BASE_URL` / `INTERVIEW_MODEL` / `INTERVIEW_API_KEY`
+값을 그대로 쓴다. 키를 두 벌 넣지 않아도 해설과 인터뷰가 함께 켜진다.
+`REPORT_LLM_PROVIDER` 는 `auto`(기본, 엔드포인트 ID 가 있으면 exaone) | `exaone` | `none`.
 
 **숫자 가드.** 프롬프트에는 계산 결과 JSON 만 들어가고 "여기 없는 숫자를 쓰지 말라"고
 지시한다. 그리고 생성된 문장의 모든 숫자를 계산 결과의 숫자 집합(원값·반올림·만/억 축약·

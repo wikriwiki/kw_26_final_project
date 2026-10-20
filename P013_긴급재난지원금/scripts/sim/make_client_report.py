@@ -103,7 +103,7 @@ _DASOL = [
     ("<title>서울 상권정책 시뮬레이션 — 인터랙티브 대시보드</title>",
      "<title>서울 상권정책 시뮬레이션 — 정책 효과 예측 리포트</title>", True),
     ("<h1>🏙️ Seoul Policy Sim</h1>", "<h1>서울 상권정책 시뮬레이션</h1>", True),
-    ('<div class="subtitle">풀런 2일 · Qwen3-14B · 25개 자치구</div>',
+    ('<div class="subtitle">풀런 2일 · 25개 자치구</div>',
      '<div class="subtitle">정책이 동네 상권 소비에 미치는 영향을 미리 예측합니다</div>', True),
     ("    <!-- KPI -->", _DASOL_INTRO, True),
     (">활동 에이전트<", ">지금 활동 중<", True),
@@ -168,9 +168,9 @@ select, .ctrl-group select{ color:var(--c-text) !important; }
 </style>"""
 
 _FULL = [
-    ("<title>서울 상권정책 시뮬 — 풀런 5일 (Qwen3-14B + 강남역–역삼역 보행친화거리 P008) · 25개 자치구 표본</title>",
+    ("<title>서울 상권정책 시뮬 — 풀런 5일 (강남역–역삼역 보행친화거리 P008) · 25개 자치구 표본</title>",
      "<title>서울 상권정책 시뮬레이션 — 강남 보행친화거리 효과 예측</title>", True),
-    ('<h3>🏙️ Seoul Sim — 풀런 5일 (Qwen3-14B)</h3>', _FULL_INTRO, True),
+    ('<h3>🏙️ Seoul Sim — 풀런 5일</h3>', _FULL_INTRO, True),
     ('<span class="label">활동 agent</span>', '<span class="label">지금 활동 중</span>', True),
     ('<span class="label">표본 자치구</span><span class="val">25개구 균등</span>',
      '<span class="label">대상 지역</span><span class="val">서울 25개구</span>', True),

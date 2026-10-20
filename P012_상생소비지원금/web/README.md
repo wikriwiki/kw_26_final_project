@@ -33,7 +33,7 @@ npm run dev
 | `SIM_LOCK_PATH` | 실행 lock 파일 (기본 `web/.run.lock`) |
 | `WEB_CORS_ORIGINS` | 프런트 개발 서버 주소 |
 | `SIM_VIZ_FILE` | 운영자가 직접 걸어 둔 3D 지도 파일. `SIM_VIZ_STANDALONE` → `SIM_DATA_ROOT/viz/sim_demo.html` 순으로 물러난다 |
-| `GEMINI_API_KEY` | 보고서 해설 LLM. 없으면 해설만 규칙 기반으로 대체된다. **인터뷰 화면도 같은 키를 쓴다** |
+| `REPORT_LLM_BASE_URL` / `_MODEL` / `_API_KEY` | 보고서 해설 LLM(K-EXAONE, Friendli 전용 엔드포인트). 비어 있으면 `INTERVIEW_*` 값을 그대로 쓰고, 그것도 없으면 해설만 규칙 기반으로 대체된다 |
 | `INTERVIEW_BASE_URL` / `_MODEL` / `_API_KEY` | 인터뷰 전용 엔드포인트(K-EXAONE). 셋이 다 있으면 이쪽을 먼저 쓴다 |
 
 산출물이 없다고 해서 fixture 로 자동 fallback 하지 않는다. 없으면 없다고 답한다.
@@ -108,7 +108,7 @@ SIM_RUN_ID  SIM_POLICY_ID  SIM_START_DAY  SIM_DAYS  SIM_AGENTS
 
 ### 키 한 줄로 켜지는 범위
 
-`.env` 에 `GEMINI_API_KEY` 한 줄만 넣으면 **보고서 해설과 인터뷰가 함께** 켜진다.
+`.env` 에 K-EXAONE 엔드포인트(`INTERVIEW_*` 또는 `REPORT_LLM_*`) 한 벌만 넣으면 **보고서 해설과 인터뷰가 함께** 켜진다.
 인터뷰 전용 엔드포인트(`INTERVIEW_*`)가 설정돼 있으면 그쪽을 먼저 쓰고, 없을 때만
 보고서 해설과 같은 클라이언트로 물러난다. 어느 쪽으로 답했는지는 응답의
 `model_label` 에 남으므로 조용히 바뀌지 않는다.

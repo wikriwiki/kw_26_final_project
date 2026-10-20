@@ -5621,7 +5621,7 @@
   },
   "narration": {
     "llm": {
-      "provider": "openai",
+      "provider": "exaone",
       "configured": true,
       "model": "depmkuykpfon9lg",
       "reason": null,
@@ -5629,19 +5629,14 @@
         "C:\\Users\\srdyh\\OneDrive\\사진\\바탕 화면\\agent_simulate\\kw_26_final_project\\.claude\\worktrees\\silly-gagarin-0b181a\\.env"
       ],
       "expects": {
-        "gemini": [
-          "GEMINI_API_KEY",
-          "GEMINI_MODEL(선택)"
-        ],
-        "openai": [
-          "REPORT_LLM_BASE_URL",
+        "exaone": [
           "REPORT_LLM_MODEL",
-          "REPORT_LLM_API_KEY(선택)"
+          "REPORT_LLM_API_KEY",
+          "REPORT_LLM_BASE_URL(선택)"
         ]
       },
       "key_present": {
-        "GEMINI_API_KEY": false,
-        "REPORT_LLM_BASE_URL": true,
+        "REPORT_LLM_MODEL": true,
         "REPORT_LLM_API_KEY": true
       },
       "unknown": []
@@ -5659,7 +5654,7 @@
       },
       "did": {
         "text": "이중차분 결과는 정책 시행 후 처리군의 거래액 증가분에서 대조군의 증가분을 뺀 값으로, 정책의 순수한 효과를 추정하려는 시도이다. 단순 전후비교는 처리군의 전후 차이만 보기 때문에 외부 요인이나 시간 추세의 영향을 반영하지 못하지만, 이중차분은 대조군의 변화를 기준으로 이러한 편향을 보정하려 한다. 그러나 본 분석의 대조군 거래액 비중이 사전 기준 0.01%로 최소 기준인 5%에 미치지 못하므로, 반사실 추정이 소수 거래에 과도하게 의존할 가능성이 있다. 사전추세 검증 결과는 제공되지 않았으나, 대조군의 사전 거래액이 매우 낮아 추세의 안정성을 판단하기 어렵다. 따라서 이중차분 결과의 신뢰도는 낮으며, 인과 해석은 신중히 해야 한다.",
-        "source": "llm:openai",
+        "source": "llm:exaone",
         "model": "depmkuykpfon9lg",
         "guard": "passed",
         "latency_ms": 2935,
@@ -5671,7 +5666,7 @@
       },
       "categories": {
         "text": "정책 대상 업종 중 쇼핑, 건강, 디저트, 여행사, 의류는 금액이 증가했으며, 특히 쇼핑과 건강은 정책 시행 후 일일 거래 금액이 크게 늘었고, 정책 지급액 대비 자기 부담금 비율도 높은 편이다. 반면 마트, 카페, 여가, 식사는 정책 시행 후 일일 거래 금액이 감소했으며, 특히 식사와 카페는 정책이 없었더라면 더 높았을 금액보다 실제 금액이 크게 낮아져 정책 효과가 음수로 나타났다. 정책 대상 업종 내에서도 증가 업종과 감소 업종 간 성과 차이가 뚜렷하며, 이는 정책 수혜의 불균형을 시사한다.",
-        "source": "llm:openai",
+        "source": "llm:exaone",
         "model": "depmkuykpfon9lg",
         "guard": "passed",
         "latency_ms": 2796,
@@ -5683,7 +5678,7 @@
       },
       "overlay": {
         "text": "정책 시행 전후 소비 지출 곡선을 비교하면, 정책 시행 후 전반적으로 지출 수준이 높아진 것으로 나타났다. 특히 5일차와 7일차에서 증가 폭이 두드러지며, 5일차에는 49800391.0의 차이가 발생했고, 7일차에는 34768886.0의 차이가 발생했다. 반면 2일차와 3일차에서는 증가 폭이 상대적으로 작았으며, 2일차에는 25881982.0, 3일차에는 21294494.0의 차이가 발생했다. 이러한 변화는 정책 시행 직후 소비가 전반적으로 증가했음을 시사하지만, 특정 구간에서의 효과 차이는 확인되지 않았다.",
-        "source": "llm:openai",
+        "source": "llm:exaone",
         "model": "depmkuykpfon9lg",
         "guard": "passed",
         "latency_ms": 2987,
@@ -5695,7 +5690,7 @@
       },
       "consistency": {
         "text": "일관성 검사 결과에 따르면 모든 검사 항목이 통과되었으며, 실패한 항목은 없고, 모든 항등식이 일치합니다. 일자별 합계와 전체 합계 간의 일치, 업종별 구성비의 합이 100%에 근접하며 허용오차 내에 있고, 정책지급액과 자기부담액의 합이 총 소비금액과 일치하는 등 핵심 수치 간의 내부 일관성이 확인되었습니다. 또한 반사실값, DID 계산, 이벤트 스터디 기간, 분위 지급 여부 등 주요 분석 요소들도 검증되었으며, 모두 기대값과 실제값이 일치하거나 허용오차 범위 내에서 일치합니다. 따라서 제공된 수치는 내부적으로 일관성이 있으며, 신뢰할 수 있다고 판단됩니다.",
-        "source": "llm:openai",
+        "source": "llm:exaone",
         "model": "depmkuykpfon9lg",
         "guard": "passed",
         "latency_ms": 1294,
