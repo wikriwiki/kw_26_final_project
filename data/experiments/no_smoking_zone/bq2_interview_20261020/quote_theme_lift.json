@@ -1,0 +1,122 @@
+{
+ "n_sim": {
+  "찬성": 973,
+  "반대": 61
+ },
+ "hit": 9,
+ "reported_hit": 8,
+ "total": 9,
+ "n_smoker_support": 191,
+ "smoker_support_themes": {
+  "간접흡연·건강": 100.0,
+  "쾌적함·냄새": 27.7,
+  "가족·아이": 12.6,
+  "흡연자 불편": 0.0,
+  "흡연 권리·과한 규제": 1.6,
+  "영업 우려": 0.0,
+  "형평": 0.5,
+  "금연·흡연량 조절": 0.0
+ },
+ "rows": [
+  {
+   "text": "함께 당구장에 온 뒤로부터 가족 간에 대화가 생겼다",
+   "stance": null,
+   "note": "찬반 발언이 아님(유림 님 메모) — 입장 판단 불가"
+  },
+  {
+   "text": "놀면서 담배를 피우는 최후의 보루였는데 아쉽다",
+   "stance": "반대",
+   "theme": "흡연자 불편",
+   "same": 16.4,
+   "other": 0.0,
+   "hit": true,
+   "reported_hit": true,
+   "note": "흡연 이용객"
+  },
+  {
+   "text": "실내에서 문 닫고 피우는 것까지 안 된다니 너무하다",
+   "stance": "반대",
+   "theme": "흡연자 불편",
+   "same": 16.4,
+   "other": 0.0,
+   "hit": true,
+   "reported_hit": true,
+   "note": "흡연 이용객"
+  },
+  {
+   "text": "실내에서 문 닫고 피우는 것까지 안 된다니 너무하다",
+   "stance": "반대",
+   "theme": "흡연 권리·과한 규제",
+   "same": 24.6,
+   "other": 1.1,
+   "hit": true,
+   "reported_hit": true,
+   "note": "흡연 이용객"
+  },
+  {
+   "text": "점점 흡연자들의 설 자리가 없어져서 착잡한 느낌",
+   "stance": "반대",
+   "theme": "흡연자 불편",
+   "same": 16.4,
+   "other": 0.0,
+   "hit": true,
+   "reported_hit": true,
+   "note": "흡연 이용객"
+  },
+  {
+   "text": "당구장은 흡연자들의 마지막 보루나 마찬가지였는데 아쉽다",
+   "stance": "반대",
+   "theme": "흡연자 불편",
+   "same": 16.4,
+   "other": 0.0,
+   "hit": true,
+   "reported_hit": true,
+   "note": "흡연 이용객"
+  },
+  {
+   "text": "이젠 조절할 수 있어서 좋은 것 같다",
+   "stance": "찬성",
+   "theme": "금연·흡연량 조절",
+   "same": 0.1,
+   "other": 0.0,
+   "hit": true,
+   "reported_hit": false,
+   "note": "흡연 이용객"
+  },
+  {
+   "text": "흡연자도 담배 냄새는 싫어한다",
+   "stance": "찬성",
+   "theme": "쾌적함·냄새",
+   "same": 32.0,
+   "other": 14.8,
+   "hit": true,
+   "reported_hit": true,
+   "note": "흡연 이용객"
+  },
+  {
+   "text": "간접흡연으로 폐암에 걸리는 것 아닌가",
+   "stance": "찬성",
+   "theme": "간접흡연·건강",
+   "same": 99.8,
+   "other": 26.2,
+   "hit": true,
+   "reported_hit": true,
+   "note": "비흡연 이용객"
+  },
+  {
+   "text": "이제는 어느 당구장이든 갈 수 있어서 좋다",
+   "stance": "찬성",
+   "theme": "쾌적함·냄새",
+   "same": 32.0,
+   "other": 14.8,
+   "hit": true,
+   "reported_hit": true,
+   "note": "비흡연 이용객"
+  },
+  {
+   "text": "부부 동반 회원이 급격히 늘었다",
+   "stance": null,
+   "note": "송파당구연맹 관계자 발언, 이용객 아님 — 입장 판단 불가"
+  }
+ ]
+}

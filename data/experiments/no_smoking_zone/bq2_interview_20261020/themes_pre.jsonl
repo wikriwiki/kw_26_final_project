@@ -1,0 +1,490 @@
+{"aid": "AGT_11350560_F_20대_003", "themes": ["health", "rights"]}
+{"aid": "AGT_11350560_F_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350560_F_30대_002", "themes": ["health"]}
+{"aid": "AGT_11350560_F_40대_002", "themes": ["health"]}
+{"aid": "AGT_11350560_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350560_M_30대_001", "themes": ["health"]}
+{"aid": "AGT_11350560_M_40대_001", "themes": ["health"]}
+{"aid": "AGT_11350560_M_40대_002", "themes": ["smoker_burden", "rights"]}
+{"aid": "AGT_11350560_M_40대_003", "themes": ["health"]}
+{"aid": "AGT_11350560_M_50대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350560_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350560_M_60대_002", "themes": ["health"]}
+{"aid": "AGT_11350560_M_70대이상_002", "themes": ["health"]}
+{"aid": "AGT_11350570_F_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350570_F_20대_002", "themes": ["health"]}
+{"aid": "AGT_11350570_F_30대_003", "themes": ["health"]}
+{"aid": "AGT_11350570_F_40대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11350570_F_40대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350570_F_50대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350570_F_60대_004", "themes": ["health"]}
+{"aid": "AGT_11350570_F_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11350570_F_70대이상_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350570_F_70대이상_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11350570_M_30대_003", "themes": ["health"]}
+{"aid": "AGT_11350570_M_40대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350570_M_60대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350570_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11350570_M_70대이상_002", "themes": ["health"]}
+{"aid": "AGT_11350580_F_10대_001", "themes": ["health"]}
+{"aid": "AGT_11350580_F_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350580_F_40대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350580_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11350580_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350580_F_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350580_F_60대_004", "themes": ["health"]}
+{"aid": "AGT_11350580_F_70대이상_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350580_F_70대이상_004", "themes": ["health", "family"]}
+{"aid": "AGT_11350580_M_10대_001", "themes": ["health"]}
+{"aid": "AGT_11350580_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350580_M_20대_002", "themes": ["clean"]}
+{"aid": "AGT_11350580_M_30대_003", "themes": ["health"]}
+{"aid": "AGT_11350580_M_30대_004", "themes": ["health"]}
+{"aid": "AGT_11350580_M_50대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350580_M_50대_003", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350580_M_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350580_M_60대_002", "themes": ["family"]}
+{"aid": "AGT_11350580_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11350580_M_70대이상_003", "themes": ["health"]}
+{"aid": "AGT_11350595_F_10대_001", "themes": ["health"]}
+{"aid": "AGT_11350595_F_20대_006", "themes": []}
+{"aid": "AGT_11350595_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11350595_F_30대_002", "themes": ["health"]}
+{"aid": "AGT_11350595_F_30대_003", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350595_F_30대_005", "themes": ["health"]}
+{"aid": "AGT_11350595_F_40대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350595_F_40대_002", "themes": ["health"]}
+{"aid": "AGT_11350595_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11350595_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350595_F_50대_003", "themes": ["health"]}
+{"aid": "AGT_11350595_F_50대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11350595_F_50대_005", "themes": ["health", "family"]}
+{"aid": "AGT_11350595_F_60대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350595_F_60대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350595_F_70대이상_004", "themes": ["health"]}
+{"aid": "AGT_11350595_M_10대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350595_M_20대_003", "themes": ["health"]}
+{"aid": "AGT_11350595_M_20대_004", "themes": ["health"]}
+{"aid": "AGT_11350595_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350595_M_30대_004", "themes": ["health"]}
+{"aid": "AGT_11350595_M_40대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11350595_M_50대_001", "themes": ["health"]}
+{"aid": "AGT_11350595_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350595_M_50대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11350595_M_60대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11350595_M_60대_003", "themes": ["health"]}
+{"aid": "AGT_11350595_M_60대_004", "themes": ["health"]}
+{"aid": "AGT_11350600_F_20대_005", "themes": ["rights"]}
+{"aid": "AGT_11350600_F_30대_005", "themes": ["health"]}
+{"aid": "AGT_11350600_F_60대_004", "themes": ["health"]}
+{"aid": "AGT_11350600_M_20대_004", "themes": ["health"]}
+{"aid": "AGT_11350600_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350600_M_30대_004", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350600_M_30대_005", "themes": ["rights"]}
+{"aid": "AGT_11350600_M_40대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11350600_M_40대_002", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350600_M_40대_004", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350600_M_50대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350600_M_50대_005", "themes": ["health"]}
+{"aid": "AGT_11350600_M_60대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350600_M_70대이상_003", "themes": ["health"]}
+{"aid": "AGT_11350611_F_30대_002", "themes": ["health"]}
+{"aid": "AGT_11350611_F_40대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350611_F_40대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350611_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11350611_F_40대_004", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350611_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11350611_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350611_F_50대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11350611_F_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350611_F_60대_002", "themes": ["health"]}
+{"aid": "AGT_11350611_F_60대_003", "themes": ["health"]}
+{"aid": "AGT_11350611_F_70대이상_002", "themes": ["health"]}
+{"aid": "AGT_11350611_M_20대_003", "themes": ["health"]}
+{"aid": "AGT_11350611_M_30대_001", "themes": ["health"]}
+{"aid": "AGT_11350611_M_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350611_M_50대_001", "themes": ["health"]}
+{"aid": "AGT_11350611_M_70대이상_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350612_F_40대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11350612_M_20대_001", "themes": ["health"]}
+{"aid": "AGT_11350612_M_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350612_M_40대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350612_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350612_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11350619_F_10대_001", "themes": ["health"]}
+{"aid": "AGT_11350619_F_20대_001", "themes": ["health"]}
+{"aid": "AGT_11350619_F_40대_002", "themes": ["health"]}
+{"aid": "AGT_11350619_F_40대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350619_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350619_F_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350619_F_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350619_F_60대_002", "themes": []}
+{"aid": "AGT_11350619_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350619_M_40대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11350619_M_40대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350619_M_40대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11350619_M_40대_004", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350619_M_50대_001", "themes": ["health"]}
+{"aid": "AGT_11350619_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350619_M_50대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11350619_M_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350619_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350621_F_20대_002", "themes": ["health"]}
+{"aid": "AGT_11350621_F_30대_002", "themes": ["health"]}
+{"aid": "AGT_11350621_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11350621_F_50대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350621_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350621_F_70대이상_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350621_M_10대_001", "themes": ["health"]}
+{"aid": "AGT_11350621_M_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350621_M_50대_003", "themes": ["health"]}
+{"aid": "AGT_11350621_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11350624_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11350624_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11350624_F_50대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350624_F_50대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350624_F_60대_003", "themes": ["health"]}
+{"aid": "AGT_11350624_M_20대_001", "themes": ["health"]}
+{"aid": "AGT_11350624_M_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350624_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350624_M_60대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350624_M_70대이상_002", "themes": ["health"]}
+{"aid": "AGT_11350625_F_20대_002", "themes": ["health"]}
+{"aid": "AGT_11350625_F_50대_004", "themes": ["health", "family"]}
+{"aid": "AGT_11350625_F_60대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350625_F_60대_004", "themes": ["health"]}
+{"aid": "AGT_11350625_F_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11350625_F_70대이상_002", "themes": []}
+{"aid": "AGT_11350625_M_20대_001", "themes": ["health"]}
+{"aid": "AGT_11350625_M_20대_002", "themes": ["health", "fairness"]}
+{"aid": "AGT_11350625_M_40대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350625_M_40대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350625_M_40대_005", "themes": ["health", "family"]}
+{"aid": "AGT_11350625_M_50대_003", "themes": ["rights", "fairness"]}
+{"aid": "AGT_11350625_M_50대_004", "themes": ["health", "rights"]}
+{"aid": "AGT_11350625_M_50대_005", "themes": ["health"]}
+{"aid": "AGT_11350625_M_60대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350625_M_60대_002", "themes": ["health"]}
+{"aid": "AGT_11350625_M_60대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350625_M_70대이상_004", "themes": ["health"]}
+{"aid": "AGT_11350630_F_10대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350630_F_20대_003", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350630_F_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350630_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350630_F_60대_003", "themes": ["health"]}
+{"aid": "AGT_11350630_M_40대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11350630_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350630_M_50대_003", "themes": ["health"]}
+{"aid": "AGT_11350630_M_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350630_M_50대_005", "themes": ["health"]}
+{"aid": "AGT_11350630_M_70대이상_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11350640_F_20대_003", "themes": ["health"]}
+{"aid": "AGT_11350640_F_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350640_F_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350640_F_40대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350640_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11350640_F_50대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350640_F_60대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350640_F_60대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350640_M_20대_003", "themes": ["health"]}
+{"aid": "AGT_11350640_M_30대_001", "themes": ["health"]}
+{"aid": "AGT_11350640_M_40대_001", "themes": ["health"]}
+{"aid": "AGT_11350640_M_40대_002", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350640_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11350640_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350640_M_60대_003", "themes": ["health"]}
+{"aid": "AGT_11350665_F_20대_001", "themes": ["health"]}
+{"aid": "AGT_11350665_F_40대_001", "themes": ["health"]}
+{"aid": "AGT_11350665_F_40대_002", "themes": ["health"]}
+{"aid": "AGT_11350665_F_40대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11350665_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11350665_F_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350665_F_60대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350665_F_70대이상_001", "themes": ["health", "family"]}
+{"aid": "AGT_11350665_F_70대이상_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350665_M_20대_001", "themes": ["health"]}
+{"aid": "AGT_11350665_M_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350665_M_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350665_M_40대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350665_M_40대_002", "themes": ["family"]}
+{"aid": "AGT_11350665_M_40대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11350665_M_50대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350665_M_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350665_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11350665_M_70대이상_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350670_F_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350670_F_70대이상_002", "themes": ["clean"]}
+{"aid": "AGT_11350695_F_20대_001", "themes": ["health"]}
+{"aid": "AGT_11350695_F_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_F_20대_003", "themes": []}
+{"aid": "AGT_11350695_F_30대_004", "themes": ["health", "family"]}
+{"aid": "AGT_11350695_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11350695_F_40대_004", "themes": ["health"]}
+{"aid": "AGT_11350695_F_50대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_F_50대_003", "themes": ["health"]}
+{"aid": "AGT_11350695_F_60대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_F_70대이상_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_M_30대_002", "themes": ["smoker_burden"]}
+{"aid": "AGT_11350695_M_30대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_M_40대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_M_50대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350695_M_50대_004", "themes": ["health"]}
+{"aid": "AGT_11350695_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350700_F_50대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11350700_M_40대_002", "themes": ["health"]}
+{"aid": "AGT_11350710_F_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350710_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350710_M_50대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11350710_M_50대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11350720_F_10대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11350720_F_60대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350720_M_40대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11350720_M_40대_002", "themes": ["health"]}
+{"aid": "AGT_11350720_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11350720_M_60대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11350720_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11650510_F_50대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11650520_F_60대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11650520_M_30대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11650530_M_50대_003", "themes": ["health"]}
+{"aid": "AGT_11650531_M_40대_004", "themes": ["health"]}
+{"aid": "AGT_11650531_M_70대이상_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11650540_F_30대_004", "themes": ["health"]}
+{"aid": "AGT_11650560_F_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11650560_F_40대_004", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11650560_M_40대_006", "themes": ["health", "family"]}
+{"aid": "AGT_11650570_M_50대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11650581_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11650590_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11650590_M_50대_001", "themes": ["health"]}
+{"aid": "AGT_11650590_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11650600_M_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11650600_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11650610_F_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11650610_M_40대_002", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11650610_M_50대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11650620_F_20대_001", "themes": ["health"]}
+{"aid": "AGT_11650620_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11650620_F_60대_002", "themes": ["health"]}
+{"aid": "AGT_11650620_F_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11650620_F_70대이상_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11650620_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11650620_M_40대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11650620_M_50대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11650620_M_60대_001", "themes": []}
+{"aid": "AGT_11650652_M_20대_003", "themes": []}
+{"aid": "AGT_11650652_M_70대이상_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710510_F_40대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710510_M_20대_001", "themes": ["health"]}
+{"aid": "AGT_11710520_F_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710520_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710520_F_40대_002", "themes": ["health"]}
+{"aid": "AGT_11710520_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11710520_F_60대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710520_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710520_M_40대_003", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710520_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11710531_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710531_M_70대이상_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710532_F_20대_002", "themes": ["health"]}
+{"aid": "AGT_11710532_M_30대_003", "themes": ["health"]}
+{"aid": "AGT_11710540_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710550_F_30대_002", "themes": ["health"]}
+{"aid": "AGT_11710550_F_60대_002", "themes": ["health"]}
+{"aid": "AGT_11710550_M_50대_001", "themes": ["health"]}
+{"aid": "AGT_11710561_F_40대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710561_F_60대_002", "themes": ["health"]}
+{"aid": "AGT_11710561_F_70대이상_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710561_M_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710561_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11710562_F_20대_002", "themes": ["health"]}
+{"aid": "AGT_11710562_F_20대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710562_F_30대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710562_F_30대_004", "themes": ["health"]}
+{"aid": "AGT_11710562_F_40대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710562_F_50대_003", "themes": ["health", "rights"]}
+{"aid": "AGT_11710562_M_10대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710562_M_20대_003", "themes": ["health"]}
+{"aid": "AGT_11710562_M_60대_002", "themes": ["business"]}
+{"aid": "AGT_11710562_M_70대이상_001", "themes": []}
+{"aid": "AGT_11710566_F_10대_001", "themes": ["health"]}
+{"aid": "AGT_11710566_F_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11710566_M_20대_002", "themes": ["health"]}
+{"aid": "AGT_11710566_M_40대_002", "themes": ["rights"]}
+{"aid": "AGT_11710566_M_60대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710570_F_20대_003", "themes": ["health"]}
+{"aid": "AGT_11710570_F_30대_004", "themes": ["health"]}
+{"aid": "AGT_11710570_F_40대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11710570_F_50대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11710570_F_60대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710570_F_60대_004", "themes": ["health"]}
+{"aid": "AGT_11710570_F_70대이상_003", "themes": ["health"]}
+{"aid": "AGT_11710570_M_10대_001", "themes": ["health"]}
+{"aid": "AGT_11710570_M_40대_002", "themes": ["health"]}
+{"aid": "AGT_11710570_M_40대_003", "themes": ["health"]}
+{"aid": "AGT_11710570_M_40대_005", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710570_M_50대_001", "themes": ["health"]}
+{"aid": "AGT_11710570_M_50대_005", "themes": ["health", "family"]}
+{"aid": "AGT_11710570_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11710570_M_70대이상_001", "themes": ["health", "rights"]}
+{"aid": "AGT_11710580_F_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710580_F_20대_003", "themes": ["health"]}
+{"aid": "AGT_11710580_F_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710580_F_30대_003", "themes": ["health"]}
+{"aid": "AGT_11710580_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11710580_M_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710580_M_30대_002", "themes": ["health"]}
+{"aid": "AGT_11710580_M_50대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11710590_F_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710590_F_60대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710590_M_20대_002", "themes": []}
+{"aid": "AGT_11710590_M_30대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710590_M_40대_002", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710600_F_20대_001", "themes": ["health"]}
+{"aid": "AGT_11710600_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710600_F_30대_003", "themes": ["health"]}
+{"aid": "AGT_11710600_F_30대_004", "themes": ["health"]}
+{"aid": "AGT_11710600_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11710600_F_50대_003", "themes": ["health"]}
+{"aid": "AGT_11710600_F_50대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11710600_M_10대_001", "themes": ["health"]}
+{"aid": "AGT_11710600_M_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710600_M_20대_003", "themes": ["health"]}
+{"aid": "AGT_11710600_M_20대_004", "themes": []}
+{"aid": "AGT_11710600_M_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710600_M_30대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710600_M_30대_004", "themes": ["clean"]}
+{"aid": "AGT_11710600_M_40대_001", "themes": ["health"]}
+{"aid": "AGT_11710600_M_40대_002", "themes": ["health"]}
+{"aid": "AGT_11710600_M_40대_004", "themes": ["smoker_burden"]}
+{"aid": "AGT_11710600_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11710610_F_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710610_F_40대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710610_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11710610_F_70대이상_002", "themes": ["health"]}
+{"aid": "AGT_11710610_M_20대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710610_M_20대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11710610_M_30대_003", "themes": ["health"]}
+{"aid": "AGT_11710610_M_50대_001", "themes": ["smoker_burden"]}
+{"aid": "AGT_11710610_M_50대_002", "themes": ["health", "family"]}
+{"aid": "AGT_11710610_M_50대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11710610_M_50대_004", "themes": ["health"]}
+{"aid": "AGT_11710620_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710620_F_30대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710620_F_40대_001", "themes": ["health"]}
+{"aid": "AGT_11710620_F_60대_001", "themes": ["health"]}
+{"aid": "AGT_11710620_F_60대_002", "themes": ["health"]}
+{"aid": "AGT_11710620_F_70대이상_003", "themes": ["health", "family"]}
+{"aid": "AGT_11710620_M_20대_002", "themes": ["health"]}
+{"aid": "AGT_11710620_M_40대_002", "themes": ["health"]}
+{"aid": "AGT_11710631_F_30대_003", "themes": ["health"]}
+{"aid": "AGT_11710631_F_30대_004", "themes": ["health"]}
+{"aid": "AGT_11710631_F_40대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710631_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11710631_F_50대_001", "themes": ["health"]}
+{"aid": "AGT_11710631_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11710631_F_50대_003", "themes": ["health"]}
+{"aid": "AGT_11710631_F_60대_003", "themes": ["family"]}
+{"aid": "AGT_11710631_F_70대이상_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710631_M_30대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11710631_M_40대_001", "themes": ["health"]}
+{"aid": "AGT_11710631_M_40대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11710631_M_50대_001", "themes": ["health"]}
+{"aid": "AGT_11710631_M_50대_004", "themes": ["health"]}
+{"aid": "AGT_11710631_M_60대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710631_M_70대이상_003", "themes": ["fairness"]}
+{"aid": "AGT_11710632_F_40대_004", "themes": ["health", "family"]}
+{"aid": "AGT_11710632_F_50대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710632_M_10대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710632_M_20대_003", "themes": ["health"]}
+{"aid": "AGT_11710632_M_30대_001", "themes": []}
+{"aid": "AGT_11710632_M_30대_002", "themes": ["health"]}
+{"aid": "AGT_11710632_M_40대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710632_M_40대_004", "themes": ["health"]}
+{"aid": "AGT_11710632_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11710641_F_20대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710641_F_40대_001", "themes": ["health"]}
+{"aid": "AGT_11710641_F_50대_002", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710641_F_50대_003", "themes": ["health", "family"]}
+{"aid": "AGT_11710641_F_60대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710641_F_70대이상_002", "themes": ["health"]}
+{"aid": "AGT_11710641_M_30대_001", "themes": ["rights"]}
+{"aid": "AGT_11710641_M_40대_003", "themes": ["health"]}
+{"aid": "AGT_11710642_F_20대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710642_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710642_F_30대_002", "themes": ["health"]}
+{"aid": "AGT_11710642_F_40대_004", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710642_F_50대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710642_F_60대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710642_M_20대_001", "themes": []}
+{"aid": "AGT_11710642_M_30대_004", "themes": ["health"]}
+{"aid": "AGT_11710642_M_40대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710650_F_10대_001", "themes": ["health"]}
+{"aid": "AGT_11710650_F_20대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710650_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710650_F_30대_003", "themes": ["health"]}
+{"aid": "AGT_11710650_F_40대_001", "themes": ["health"]}
+{"aid": "AGT_11710650_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11710650_F_50대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710650_F_60대_001", "themes": ["health"]}
+{"aid": "AGT_11710650_F_60대_002", "themes": ["health"]}
+{"aid": "AGT_11710650_M_10대_001", "themes": ["health"]}
+{"aid": "AGT_11710650_M_20대_002", "themes": ["health"]}
+{"aid": "AGT_11710650_M_20대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11710650_M_30대_004", "themes": ["health", "clean"]}
+{"aid": "AGT_11710650_M_40대_002", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710650_M_50대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710650_M_50대_002", "themes": ["health"]}
+{"aid": "AGT_11710650_M_50대_004", "themes": ["health", "family"]}
+{"aid": "AGT_11710650_M_60대_003", "themes": ["health"]}
+{"aid": "AGT_11710650_M_70대이상_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710670_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710670_F_40대_003", "themes": ["health"]}
+{"aid": "AGT_11710670_M_10대_001", "themes": []}
+{"aid": "AGT_11710670_M_30대_002", "themes": ["health"]}
+{"aid": "AGT_11710670_M_40대_004", "themes": ["health"]}
+{"aid": "AGT_11710670_M_50대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710670_M_50대_005", "themes": ["health"]}
+{"aid": "AGT_11710670_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11710680_F_30대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710680_F_40대_002", "themes": ["health"]}
+{"aid": "AGT_11710680_F_40대_005", "themes": ["health", "clean"]}
+{"aid": "AGT_11710680_F_50대_001", "themes": []}
+{"aid": "AGT_11710680_F_50대_002", "themes": ["health"]}
+{"aid": "AGT_11710680_F_50대_003", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710680_F_50대_005", "themes": ["health"]}
+{"aid": "AGT_11710680_F_60대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710680_F_60대_002", "themes": ["health"]}
+{"aid": "AGT_11710680_F_60대_004", "themes": ["health"]}
+{"aid": "AGT_11710680_F_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11710680_M_10대_001", "themes": ["health"]}
+{"aid": "AGT_11710680_M_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710680_M_40대_001", "themes": ["health"]}
+{"aid": "AGT_11710680_M_40대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710680_M_40대_004", "themes": ["health"]}
+{"aid": "AGT_11710680_M_40대_005", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710680_M_50대_001", "themes": ["rights"]}
+{"aid": "AGT_11710680_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11710690_F_20대_001", "themes": ["health"]}
+{"aid": "AGT_11710690_F_30대_001", "themes": ["health"]}
+{"aid": "AGT_11710690_F_30대_002", "themes": ["health"]}
+{"aid": "AGT_11710690_F_30대_003", "themes": ["health"]}
+{"aid": "AGT_11710690_F_40대_001", "themes": ["health"]}
+{"aid": "AGT_11710690_F_40대_002", "themes": ["health"]}
+{"aid": "AGT_11710690_F_40대_003", "themes": ["health", "clean"]}
+{"aid": "AGT_11710690_F_50대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710690_M_10대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710690_M_30대_002", "themes": ["health"]}
+{"aid": "AGT_11710690_M_50대_001", "themes": []}
+{"aid": "AGT_11710690_M_60대_002", "themes": ["health"]}
+{"aid": "AGT_11710690_M_70대이상_001", "themes": ["health"]}
+{"aid": "AGT_11710710_F_50대_001", "themes": ["health", "clean"]}
+{"aid": "AGT_11710710_F_50대_002", "themes": ["health", "clean"]}
+{"aid": "AGT_11710710_M_60대_001", "themes": ["health"]}
+{"aid": "AGT_11710710_M_70대이상_001", "themes": ["smoker_burden"]}
+{"aid": "AGT_11710720_F_30대_001", "themes": ["health", "family"]}
+{"aid": "AGT_11710720_F_60대_001", "themes": []}
+{"aid": "AGT_11710720_M_40대_001", "themes": ["health", "clean", "family"]}
+{"aid": "AGT_11710720_M_60대_001", "themes": ["health"]}
