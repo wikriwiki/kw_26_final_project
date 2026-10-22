@@ -128,8 +128,9 @@
   // MapTiler's "Data Visualization" style, applied as paint overrides on
   // top of the existing OpenFreeMap Bright style rather than swapping tile
   // providers.
-  const MUTE_SOURCE_LAYERS = { water: 0.7, waterway: 0.65, park: 0.7, landcover: 0.65, landuse: 0.65 };
-  const ROAD_MUTE_AMOUNT = 0.55;
+  // 바탕은 거의 무채색으로 둔다 — 색은 시민 점·열지도 같은 데이터만 갖는다
+  const MUTE_SOURCE_LAYERS = { water: 0.85, waterway: 0.85, park: 0.92, landcover: 0.92, landuse: 0.92 };
+  const ROAD_MUTE_AMOUNT = 0.9;
 
   function clamp01(value) {
     return Math.max(0, Math.min(1, value));
@@ -196,6 +197,15 @@
     const layers = map.getStyle().layers || [];
 
     layers.forEach(function (layer) {
+      // 상점·시설 아이콘은 시민 점과 겹쳐 무엇이 데이터인지 헷갈리게 한다
+      if (layer.type === "symbol" && layer["source-layer"] === "poi") {
+        try {
+          map.setLayoutProperty(layer.id, "visibility", "none");
+        } catch (error) {
+          console.warn("POI hide skipped for layer", layer.id, error);
+        }
+        return;
+      }
       if (!layer.paint) return;
       const sourceLayer = layer["source-layer"];
       try {
@@ -350,10 +360,12 @@
     state.map = new maplibregl.Map({
       container: "map",
       style: BRIGHT_STYLE_URL,
-      center: [126.978, 37.566],
-      zoom: 15.5,
-      pitch: 45,
-      bearing: -17.6,
+      // 처음에는 서울 전체를 본다 — 시민이 어디에 퍼져 있는지가 먼저 보여야 한다.
+      // 건물은 줌 15 부터 나타나므로 확대하면 거리 수준으로 들어간다.
+      center: [126.99, 37.55],
+      zoom: 10.9,
+      pitch: 48,
+      bearing: -16,
       antialias: true,
       attributionControl: false
     });

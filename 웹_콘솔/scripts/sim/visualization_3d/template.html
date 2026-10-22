@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Simulation 3D Visualization</title>
+  <title>서울 시뮬레이션 3D 지도</title>
   <!-- __SIM_STYLES__ -->
 </head>
 <body>
@@ -11,41 +11,41 @@
 
   <header id="top-hud">
     <div>
-      <button id="toggle-heatmap-btn" type="button" class="active">Heatmap</button>
-      <button id="toggle-trails-btn" type="button" class="active">이동 잔상</button>
+      <button id="toggle-heatmap-btn" type="button" class="active">열지도</button>
+      <button id="toggle-trails-btn" type="button">이동 잔상</button>
       <button id="toggle-gu-boundary-btn" type="button">구 경계</button>
     </div>
-    <input id="agent-search" type="search" autocomplete="off" placeholder="Agent">
+    <input id="agent-search" type="search" autocomplete="off" placeholder="시민 ID 검색">
   </header>
 
   <aside id="info-panel" class="legacy-panel">
-    <h3>🏙️ Seoul Sim 3D</h3>
-    <div class="legacy-row"><span class="legacy-label">현재 프레임</span><span class="legacy-val" id="info-frame-label">-</span></div>
-    <div class="legacy-row"><span class="legacy-label">활동 agent</span><span class="legacy-val" id="info-active-cnt">-</span></div>
+    <h3>지금 이 시각</h3>
+    <div class="legacy-row"><span class="legacy-label">시각</span><span class="legacy-val" id="info-frame-label">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">움직이는 시민</span><span class="legacy-val" id="info-active-cnt">-</span></div>
     <div class="legacy-row"><span class="legacy-label">표본 자치구</span><span class="legacy-val">25개구 균등</span></div>
     <div class="legacy-row"><span class="legacy-label">데이터</span><span class="legacy-val" id="info-load-state">불러오는 중</span></div>
     <div class="legacy-divider"></div>
-    <div class="legacy-row"><span class="legacy-label">총 agent</span><span class="legacy-val" id="info-total-agents">-</span></div>
-    <div class="legacy-row"><span class="legacy-label">총 visited memory</span><span class="legacy-val" id="info-total-mem">-</span></div>
-    <div class="legacy-row"><span class="legacy-label">총 약속</span><span class="legacy-val" id="info-total-appt">-</span></div>
-    <div class="legacy-row"><span class="legacy-label">총 들은 소문</span><span class="legacy-val" id="info-total-rumor">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">전체 시민</span><span class="legacy-val" id="info-total-agents">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">방문 기록</span><span class="legacy-val" id="info-total-mem">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">약속</span><span class="legacy-val" id="info-total-appt">-</span></div>
+    <div class="legacy-row"><span class="legacy-label">들은 소문</span><span class="legacy-val" id="info-total-rumor">-</span></div>
   </aside>
 
   <aside id="legend-panel" class="legacy-panel">
-    <h3>🎨 범례 / 필터</h3>
+    <h3>범례 · 필터</h3>
     <div class="legacy-field">
       <label for="legend-color-mode">색상 모드</label>
       <select id="legend-color-mode">
         <option value="dist">자치구별</option>
         <option value="cat">카테고리별</option>
-        <option value="appointment">약속 있는 agent</option>
+        <option value="appointment">약속 있는 시민</option>
       </select>
     </div>
     <div class="legacy-field">
       <label for="legend-heat-mode">히트맵</label>
       <select id="legend-heat-mode">
-        <option value="off">OFF</option>
-        <option value="density">에이전트 수</option>
+        <option value="off">끄기</option>
+        <option value="density">시민 수</option>
         <option value="spending">소비금액</option>
       </select>
     </div>
@@ -99,9 +99,9 @@
   <div id="news-banner"></div>
 
   <footer id="transport">
-    <button id="play-btn" type="button">Play</button>
+    <button id="play-btn" type="button" aria-label="재생 / 멈춤">▶</button>
     <input id="frame-slider" type="range" min="0" max="0" value="0">
-    <output id="frame-label">Frame 0</output>
+    <output id="frame-label">—</output>
     <select id="speed-select">
       <option value="0.5">0.5x</option>
       <option value="1" selected>1x</option>

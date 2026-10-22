@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useRun } from '../app/RunContext';
 import type { RunContextValue } from '../app/RunContext';
+import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { SelectField } from '../components/Field';
 import { ArrowLeftIcon, ChevronLeftIcon, ChevronRightIcon, LayersIcon, XIcon } from '../components/Icon';
@@ -194,6 +195,14 @@ function VisualizationView({ run }: { run: RunContextValue }) {
                  기간은 지도가 말하게 두고, 여기서는 무엇을 담은 지도인지만 밝힌다. */
               <span className="viz__meta-extra">
                 {embed ? `${embed.label} · 기간은 지도 안에 표시됩니다` : '지도 데이터를 찾는 중'}
+                {caseMismatch ? (
+                  /* 고른 실행의 지도가 없어 표본을 띄웠다는 사실은 지도를 가리지 않게
+                     이 줄에서 말한다. 예전에는 지도 위 상자가 검색창을 덮었다 */
+                  <span className="viz__sample">
+                    <Badge tone="warn">표본 지도</Badge>
+                    {` 실행 ${runId} 의 지도가 아직 없어 ${embed?.caseId} 을(를) 보여 줍니다`}
+                  </span>
+                ) : null}
               </span>
             ) : (
               <>
@@ -234,12 +243,6 @@ function VisualizationView({ run }: { run: RunContextValue }) {
             </p>
           ) : embed && embedSrc ? (
             <>
-              {caseMismatch && (
-                <p className="mapstage__notice" role="status">
-                  아래 지도는 {embed.label}({embed.caseId})입니다. 지금 고른 실행({runId})의
-                  지도는 아직 준비되지 않아, 화면 구성을 보여드리기 위해 표본을 띄웁니다.
-                </p>
-              )}
               <iframe className="mapstage__frame" src={embedSrc} title={`${embed.caseId} 3D 지도`} />
             </>
           ) : (

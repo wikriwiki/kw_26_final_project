@@ -370,7 +370,7 @@
       '<h4>🧠 기억 메모리 (Memory Stream) <span id="d-mem-toggle" class="legacy-mem-toggle">' +
       (filterByFrame ? "전체 보기" : "현재 시점까지만") + "</span></h4>" +
       renderMemories(visibleVisited) +
-      "<h4>💬 들은 소문 (rumor)</h4>" +
+      "<h4>들은 소문</h4>" +
       renderRumors(visibleRumor) +
       "<h4>🤝 잡은 약속 (appointment)</h4>" +
       renderAppointments(visibleAppts) +
@@ -410,7 +410,7 @@
       '<h3>🔥 이 지점 분석 <span style="color:#fff; font-weight:400;">(반경 ' + radius + "m)</span></h3>";
 
     if (!present) {
-      html += '<div style="font-size:11px; color:#888;">이 지점 반경 내에 현재 agent가 없습니다.</div>';
+      html += '<div style="font-size:11px; color:#888;">이 지점 반경 안에 지금 있는 시민이 없습니다.</div>';
       content.innerHTML = html;
       card.hidden = false;
       return;

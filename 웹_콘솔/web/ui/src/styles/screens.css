@@ -538,3 +538,12 @@
   color: var(--fg-muted);
   min-width: 72px;
 }
+
+/* 지도가 고른 실행의 것이 아닐 때 상단 막대에 한 줄로 밝힌다 */
+.viz__sample {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: var(--sp-3);
+  color: var(--fg-muted);
+}

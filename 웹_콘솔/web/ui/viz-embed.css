@@ -19,16 +19,18 @@
  */
 
 :root {
+  /* 콘솔 styles/tokens.css 와 같은 값 — 랜딩 페이지와 같은 흰 바탕·먹색·가는 선 */
   --k-surface: #ffffff;
-  --k-sunken: #f1f5f9;
-  --k-fg: #0f172a;
-  --k-muted: #475569;
-  --k-border: #e2e8f0;
-  --k-border-strong: #cbd5e1;
-  --k-primary: #1e3a5f;
-  --k-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
-  --k-sans: Inter, Pretendard, "Noto Sans KR", system-ui, sans-serif;
-  --k-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --k-sunken: #f4f5f7;
+  --k-fg: #111316;
+  --k-muted: #3d434b;
+  --k-subtle: #646a73;
+  --k-border: #e4e6e9;
+  --k-border-strong: #c7cbd1;
+  --k-primary: #1f3b5c;
+  --k-shadow: 0 8px 28px rgba(17, 19, 22, 0.12);
+  --k-sans: "Pretendard Variable", Pretendard, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --k-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
 /* ── 패널 공통 ─────────────────────────────────────────────── */
@@ -40,7 +42,7 @@
 #transport {
   background: var(--k-surface) !important;
   border: 1px solid var(--k-border) !important;
-  border-radius: 6px !important;
+  border-radius: 2px !important;
   box-shadow: var(--k-shadow) !important;
   color: var(--k-fg) !important;
   backdrop-filter: none !important;
@@ -334,4 +336,36 @@ body,
   max-height: calc(100vh - 140px) !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
+}
+
+
+/*
+ * 8. 시민 상세와 범례가 같은 자리(오른쪽)에 겹쳤다.
+ *    상세가 열려 있는 동안 범례를 접고, 상세는 범례가 있던 위쪽부터 쓴다.
+ *    상세를 닫으면 범례가 돌아온다.
+ */
+body:has(#detail-card:not([hidden])) #legend-panel {
+  display: none !important;
+}
+#detail-card {
+  top: 76px !important;
+  max-height: calc(100vh - 176px) !important;
+  overflow-y: auto !important;
+}
+
+/*
+ * 9. 상세 카드 본문에는 어두운 테마용 글자색(#fff·#cbd5e0·#888)이 인라인으로 박혀 있어
+ *    흰 바탕에서 사라진다. 원본을 건드리지 않고 여기서 먹색·보조색으로 바꾼다.
+ */
+#detail-card [style*="color:#fff"],
+#detail-card [style*="color: #fff"],
+#detail-card [style*="color:#ffffff"] {
+  color: var(--k-fg) !important;
+}
+#detail-card [style*="color:#cbd5e0"],
+#detail-card [style*="color: #cbd5e0"],
+#detail-card [style*="color:#888"],
+#detail-card [style*="color: #888"],
+#detail-card [style*="color:#aaa"] {
+  color: var(--k-subtle) !important;
 }

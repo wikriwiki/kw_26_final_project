@@ -75,7 +75,7 @@
         }).join("");
     } else if (mode === "appointment") {
       el.innerHTML =
-        '<div class="legacy-item"><span class="legacy-dot" style="background:rgb(157,78,221)"></span>약속 있는 agent</div>' +
+        '<div class="legacy-item"><span class="legacy-dot" style="background:rgb(157,78,221)"></span>약속 있는 시민</div>' +
         '<div class="legacy-item"><span class="legacy-dot" style="background:#888"></span>약속 없음</div>';
     }
   }
@@ -283,7 +283,7 @@
     }
 
     bindLayerToggle("toggle-heatmap-btn", "heatmap", true);
-    bindLayerToggle("toggle-trails-btn", "trails", true);
+    bindLayerToggle("toggle-trails-btn", "trails", false);
     bindGuBoundaryToggle("toggle-gu-boundary-btn");
 
     const chapterToggleButton = byId("chapter-toggle-btn");
