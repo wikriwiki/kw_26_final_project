@@ -10,8 +10,8 @@ import { Link } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { EmptyState } from '../components/Feedback';
 import { Meter } from '../components/Meter';
-import { PHASE_LABEL, useRunSummaries } from '../app/RunContext';
-import type { RunPhase, RunSummary } from '../app/RunContext';
+import { PHASE_LABEL, useRunList, useRunPolicy } from '../app/RunContext';
+import type { PolicyBinding, RunListItem, RunPhase } from '../app/RunContext';
 import { EMPTY, int, shortTime } from '../lib/format';
 import { READ_ONLY } from '../lib/runtime';
 import { ExperimentList } from './experiment/ExperimentList';
@@ -20,7 +20,7 @@ import { ExperimentList } from './experiment/ExperimentList';
 const GROUP_ORDER: RunPhase[] = ['running', 'completed', 'stopped'];
 
 /** "2025-07-21 ~ 07-27". 하루짜리면 그 하루만 */
-function periodText(run: RunSummary): string {
+function periodText(run: RunListItem): string {
   const { firstDay, lastDay } = run;
   if (!firstDay) return EMPTY;
   if (!lastDay || lastDay === firstDay) return firstDay;
@@ -28,7 +28,7 @@ function periodText(run: RunSummary): string {
 }
 
 /** 기간(일 수) · 대상자 · 적용 정책. 모르는 값은 "알 수 없음"이라 적고 지어내지 않는다 */
-function metaText(run: RunSummary): string {
+function metaText(run: RunListItem): string {
   const parts: string[] = [periodText(run)];
 
   if (run.daysPlanned === null) parts.push(`${int(run.daysPresent)}일 기록됨`);
@@ -43,19 +43,27 @@ function metaText(run: RunSummary): string {
  * 적용 정책. 세 경우를 섞지 않는다.
  * 기록이 없는 것과 정책을 쓰지 않은 것은 다른 사실이다.
  */
-function policyText(run: RunSummary): string {
-  if (!run.policy.known) return '정책 기록 없음';
-  if (run.policy.items.length === 0) return '무정책';
-  return run.policy.items.map((p) => p.name ?? p.id).join(', ');
+function policyText(policy: PolicyBinding): string {
+  if (!policy.known) return '정책 기록 없음';
+  if (policy.items.length === 0) return '무정책';
+  return policy.items.map((p) => p.name ?? p.id).join(', ');
+}
+
+/** 적용 정책은 실행마다 결제 요약을 받아야 알 수 있다. 줄은 먼저 그리고 이 칸만 뒤에 채운다 */
+function RunPolicy({ id }: { id: string }) {
+  const policy = useRunPolicy(id);
+  if (policy.status === 'ready') return <span className="runrow__policy">{policyText(policy.data)}</span>;
+  if (policy.status === 'error') return <span className="runrow__policy">정책 기록을 읽지 못함</span>;
+  return <span className="runrow__policy runrow__policy--pending" aria-busy="true" />;
 }
 
 /** 중단된 실행은 숨기지 않는다. 어디까지 있는지 적는다 (설계도 §3) */
-function stoppedNote(run: RunSummary): string {
+function stoppedNote(run: RunListItem): string {
   const upto = run.lastDay ? `${run.lastDay} 까지의 자료가 남아 있습니다` : '남아 있는 일자 기록이 없습니다';
   return `완료 기록이 없습니다. ${upto}.`;
 }
 
-function RunRow({ run }: { run: RunSummary }) {
+function RunRow({ run }: { run: RunListItem }) {
   const showProgress = run.phase === 'running' && run.daysPlanned !== null && run.daysPlanned > 0;
 
   return (
@@ -70,7 +78,7 @@ function RunRow({ run }: { run: RunSummary }) {
         <span className="runrow__meta">
           <span className="runrow__line">
             <span className="runrow__facts">{metaText(run)}</span>
-            <span className="runrow__policy">{policyText(run)}</span>
+            <RunPolicy id={run.id} />
           </span>
           {run.phase === 'stopped' ? <span className="runrow__why">{stoppedNote(run)}</span> : null}
           {/* 분모를 모르면 막대를 그리지 않는다 — 0% 로 그리면 거짓말이 된다 */}
@@ -97,7 +105,8 @@ function RunRow({ run }: { run: RunSummary }) {
 }
 
 export function HomeScreen() {
-  const runs = useRunSummaries();
+  const list = useRunList();
+  const runs = list.status === 'ready' ? list.data : [];
   const groups = GROUP_ORDER.map((phase) => ({
     phase,
     items: runs.filter((r) => r.phase === phase),
@@ -124,7 +133,19 @@ export function HomeScreen() {
         {/* 레지스트리에 등록된 실험(분기 팔 포함). API 가 없으면 그리지 않는다 */}
         <ExperimentList />
 
-        {groups.length === 0 ? (
+        {list.status === 'loading' || list.status === 'idle' ? (
+          <div className="screen-fallback" aria-busy="true" />
+        ) : list.status === 'error' ? (
+          <EmptyState
+            title="시뮬레이션 목록을 불러오지 못했습니다"
+            body={list.error.message}
+            action={
+              <button type="button" className="btn" onClick={list.retry}>
+                다시 시도
+              </button>
+            }
+          />
+        ) : groups.length === 0 ? (
           <EmptyState
             title="아직 실행한 시뮬레이션이 없습니다"
             body={

@@ -11,11 +11,12 @@
 import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from './app/AppShell';
-import { RunProvider } from './app/RunContext';
+import { loadRunSummary, RunProvider } from './app/RunContext';
 import { RouteTransition } from './app/RouteTransition';
 import { HomeScreen, UnknownRunScreen } from './screens/HomeScreen';
 import { NotFoundScreen } from './screens/NotFoundScreen';
-import { isRunId } from './lib/fixtures';
+import { ErrorState } from './components/Feedback';
+import { isNotFound, useLoad } from './lib/runData';
 import { READ_ONLY } from './lib/runtime';
 
 /**
@@ -57,12 +58,33 @@ function BareScreen({ children }: { children: ReactNode }) {
   );
 }
 
-/** 주소의 run 을 컨텍스트로 올린다. 모르는 실행이면 셸을 그리지 않는다 */
+/**
+ * 주소의 run 을 서버에서 받아 컨텍스트로 올린다. 서버가 모른다고 하면 셸을 그리지 않는다.
+ * 받는 동안은 본문 자리만 잡아 둔다 — 셸은 실행이 정해져야 성립한다.
+ */
 function RunWorkspace() {
-  const { runId } = useParams();
-  if (!runId || !isRunId(runId)) return <UnknownRunScreen runId={runId ?? ''} />;
+  const { runId = '' } = useParams();
+  const summary = useLoad(runId ? `summary:${runId}` : null, () => loadRunSummary(runId));
+  if (!runId || isNotFound(summary)) return <UnknownRunScreen runId={runId} />;
+  if (summary.status === 'error') {
+    return (
+      <BareScreen>
+        <ErrorState
+          title="실행을 불러오지 못했습니다"
+          body={summary.error.message}
+          detail={summary.error.detail}
+          action={
+            <button type="button" className="btn" onClick={summary.retry}>
+              다시 시도
+            </button>
+          }
+        />
+      </BareScreen>
+    );
+  }
+  if (summary.status !== 'ready') return <ScreenFallback />;
   return (
-    <RunProvider runId={runId}>
+    <RunProvider summary={summary.data}>
       <AppShell />
     </RunProvider>
   );
@@ -81,7 +103,7 @@ function LegacyRunRedirect({ feature }: { feature: string }) {
   const location = useLocation();
   const params = new URLSearchParams(location.search);
   const raw = params.get('run');
-  if (!raw || !isRunId(raw)) return <Navigate to="/" replace />;
+  if (!raw) return <Navigate to="/" replace />;
 
   params.delete('run');
   const query = params.toString();

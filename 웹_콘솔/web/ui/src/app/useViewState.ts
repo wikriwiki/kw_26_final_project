@@ -4,78 +4,15 @@
  * 어떤 실행(run)과 어떤 일자를 보고 있는지는 **주소에 담는다.** 그래야 링크를 그대로
  * 공유할 수 있고, 결과 → 시각화 → 결과로 오갈 때 보던 맥락이 유지된다.
  *
- * 주소에 값이 없으면 직전에 보던 실행(sessionStorage)을 이어받는다. 사이드바로 시각화에
- * 곧장 들어온 사용자도 "아무 실행이나"가 아니라 보던 실행을 계속 보게 된다.
+ * 실행은 경로(`/runs/:runId`)가 소유한다. 여기서는 그 실행 안의 일자와 스크롤만 다룬다.
  */
 import { useCallback, useEffect } from 'react';
 import { useLocation, useNavigationType, useSearchParams } from 'react-router-dom';
-import { isRunId, RUN_IDS, runs } from '../lib/fixtures';
-import type { RunId } from '../lib/fixtures';
-
-const LAST_RUN_KEY = 'simconsole.run';
-
-function readLastRun(): RunId | null {
-  try {
-    const v = window.sessionStorage.getItem(LAST_RUN_KEY);
-    return v && isRunId(v) ? v : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeLastRun(id: RunId) {
-  try {
-    window.sessionStorage.setItem(LAST_RUN_KEY, id);
-  } catch {
-    /* 저장 실패는 기능에 영향이 없다 */
-  }
-}
-
-/** 주소의 `?run=` — 없거나 모르는 값이면 직전 실행, 그것도 없으면 첫 실행 */
-export function useRunParam(): [RunId, (id: RunId) => void] {
-  const [params, setParams] = useSearchParams();
-  const raw = params.get('run');
-  const runId: RunId = raw && isRunId(raw) ? raw : (readLastRun() ?? RUN_IDS[0]);
-
-  useEffect(() => {
-    writeLastRun(runId);
-  }, [runId]);
-
-  // 주소를 정규화한다. 히스토리를 늘리지 않도록 replace 로 — 뒤로 가기는 "화면을 떠나는" 동작으로 남긴다
-  useEffect(() => {
-    if (raw === runId) return;
-    setParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        next.set('run', runId);
-        return next;
-      },
-      { replace: true },
-    );
-  }, [raw, runId, setParams]);
-
-  const setRun = useCallback(
-    (id: RunId) => {
-      setParams(
-        (prev) => {
-          const next = new URLSearchParams(prev);
-          next.set('run', id);
-          next.delete('day'); // 실행이 바뀌면 일자는 그 실행의 기준일로 다시 정한다
-          return next;
-        },
-        { replace: true },
-      );
-    },
-    [setParams],
-  );
-
-  return [runId, setRun];
-}
+import type { RunBundle } from '../lib/runData';
 
 /** 주소의 `?day=` — 그 실행에 기록이 있는 일자만 받는다. 없으면 대표 일자 */
-export function useDayParam(runId: RunId): [string, string[], (day: string) => void] {
+export function useDayParam(bundle: RunBundle): [string, string[], (day: string) => void] {
   const [params, setParams] = useSearchParams();
-  const bundle = runs[runId];
   const days = bundle.days.items.map((d) => d.day);
   const raw = params.get('day');
   const day = raw && days.includes(raw) ? raw : (bundle.focusDay ?? days[0] ?? '');

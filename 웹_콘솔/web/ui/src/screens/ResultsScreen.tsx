@@ -26,10 +26,9 @@ import { MapIcon } from '../components/Icon';
 import { BarList } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
 import { rememberScroll, useScrollMemory } from '../app/useViewState';
-import type { DecileBucket } from '../lib/fixtures';
+import { loadPolicyDetail, useLoad, type DecileBucket } from '../lib/runData';
 import { dec, int, krw, percent } from '../lib/format';
 import { decile } from '../lib/labels';
-import { policyDetails } from '../lib/fixtures';
 
 const ARTIFACT_LABEL: Record<string, string> = {
   summary_json: '실행 요약',
@@ -53,14 +52,14 @@ export function ResultsScreen() {
    * 쿠폰은 시행 첫날 한 번 지급되므로 그날치 집계는 이후 모든 날에 0 이고,
    * 그 0 을 '지급액'이라 적으면 정책이 아무것도 주지 않은 것처럼 읽힌다.
    */
-  const grants = (() => {
-    const bound = policy.items[0]?.id;
-    const detail = bound ? policyDetails[bound] : undefined;
-    return (detail?.policy?.decile_grants ?? {}) as Record<string, number>;
-  })();
+  const bound = policy.items[0]?.id ?? null;
+  const boundDetail = useLoad(bound ? `policy:${bound}` : null, () => loadPolicyDetail(bound as string));
+  const grants = (
+    boundDetail.status === 'ready' ? (boundDetail.data.policy?.decile_grants ?? {}) : {}
+  ) as Record<string, number>;
 
   // 분위가 없는 대상자는 보여주지 않는다. 읽는 사람이 판단에 쓸 수 없는 줄이다
-  const deciles = (bundle.dayAggregate.by_spend_decile as unknown as DecileBucket[]).filter(
+  const deciles = ((bundle.dayAggregate?.by_spend_decile ?? []) as unknown as DecileBucket[]).filter(
     (row) => row.spend_decile !== null,
   );
 
@@ -81,7 +80,7 @@ export function ResultsScreen() {
   /** 보던 일자를 들고 시각화로. from 을 남겨야 "← 결과로" 가 진짜 뒤로 갈 수 있다 */
   function openMap() {
     rememberScroll('results');
-    navigate(`${path('visualize')}?day=${bundle.focusDay}`, { state: { from: 'results' } });
+    navigate(`${path('visualize')}${bundle.focusDay ? `?day=${bundle.focusDay}` : ''}`, { state: { from: 'results' } });
   }
 
   return (
@@ -311,7 +310,7 @@ export function ResultsScreen() {
               </div>
               <div className="dl__item">
                 <dt className="dl__k">분위별 집계</dt>
-                <dd className="dl__v wrap">{bundle.dayAggregate.source_file}</dd>
+                <dd className="dl__v wrap">{bundle.dayAggregate?.source_file ?? '없음'}</dd>
               </div>
               <div className="dl__item">
                 <dt className="dl__k">쿠폰 사용 가능 매장</dt>

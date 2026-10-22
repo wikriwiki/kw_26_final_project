@@ -26,8 +26,8 @@ import {
   UsersIcon,
   XIcon,
 } from '../components/Icon';
-import { PHASE_LABEL, useRun, useRunSummaries } from './RunContext';
-import type { FeatureKey, RunSummary } from './RunContext';
+import { PHASE_LABEL, useRun, useRunList } from './RunContext';
+import type { FeatureKey, RunListItem } from './RunContext';
 import { int } from '../lib/format';
 import { useNav } from './useNav';
 
@@ -45,7 +45,7 @@ const FEATURE_ICON: Record<FeatureKey, typeof SlidersIcon> = {
 const BLEED_SEGMENT = 'visualize';
 
 /** 실행을 한 줄로: "완료 · 7일 · 200명". 모르는 값은 적지 않는다 */
-export function runMetaLine(run: RunSummary): string {
+export function runMetaLine(run: RunListItem): string {
   const parts = [PHASE_LABEL[run.phase], `${int(run.daysPresent)}일`];
   if (run.agentsTarget !== null) parts.push(`${int(run.agentsTarget)}명`);
   return parts.join(' · ');
@@ -62,7 +62,9 @@ export function AppShell() {
   const location = useLocation();
   const navigate = useNavigate();
   const run = useRun();
-  const allRuns = useRunSummaries();
+  const runList = useRunList();
+  // 전환 목록은 색인만 쓴다. 아직 받는 중이면 지금 실행 하나만 보인다
+  const allRuns: RunListItem[] = runList.status === 'ready' ? runList.data : [run];
 
   const openerRef = useRef<HTMLButtonElement>(null);
   const closerRef = useRef<HTMLButtonElement>(null);
@@ -137,11 +139,10 @@ export function AppShell() {
    * 일자(`?day=`)는 실행마다 다르므로 들고 가지 않는다.
    */
   const switchTo = useCallback(
-    (next: RunSummary) => {
+    (next: RunListItem) => {
       setMenuOpen(false);
-      const target = next.features.find((f) => f.segment === segment && f.segment !== '');
-      const keep = target?.available ? target.segment : '';
-      navigate(keep ? `/runs/${next.id}/${keep}` : `/runs/${next.id}`);
+      // 보던 기능을 그대로 연다. 그 실행에 없는 기능이면 해당 화면이 이유를 적는다
+      navigate(segment ? `/runs/${next.id}/${segment}` : `/runs/${next.id}`);
     },
     [navigate, segment],
   );

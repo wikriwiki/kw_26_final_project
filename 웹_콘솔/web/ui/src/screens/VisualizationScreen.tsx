@@ -128,7 +128,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
   const runId = run.id;
   const navigate = useNavigate();
   const location = useLocation();
-  const [day, days, setDay] = useDayParam(runId);
+  const [day, days, setDay] = useDayParam(run.bundle);
   const [panelOpen, setPanelOpen] = useState(false);
   const [layers, setLayers] = useState<Record<string, boolean>>({
     trails: true,

@@ -28,7 +28,7 @@ import {
 } from '../components/Icon';
 import { BarList } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
-import { policiesIndex, policyDetails, policyValidations } from '../lib/fixtures';
+import { loadPolicies, loadPolicyDetail, loadPolicyValidation, useLoad } from '../lib/runData';
 import { int, krw } from '../lib/format';
 import { grantKey, policyType } from '../lib/labels';
 
@@ -55,9 +55,18 @@ export function PolicyScreen() {
   const applied = binding.items[0] ?? null;
 
   const policyId = applied?.id ?? null;
-  const item = policyId ? policiesIndex.items.find((p) => p.id === policyId) : undefined;
-  const detail = policyId ? policyDetails[policyId] : undefined;
-  const validation = policyId ? policyValidations[policyId] : undefined;
+  const policies = useLoad('policies', loadPolicies);
+  const detailState = useLoad(policyId ? `policy:${policyId}` : null, () => loadPolicyDetail(policyId as string));
+  const validationState = useLoad(policyId ? `policy-validate:${policyId}` : null, () =>
+    loadPolicyValidation(policyId as string),
+  );
+  const item = policies.status === 'ready' ? policies.data.items.find((p) => p.id === policyId) : undefined;
+  const detail = detailState.status === 'ready' ? detailState.data : undefined;
+  const validation = validationState.status === 'ready' ? validationState.data : undefined;
+  // 정책 내용을 받는 중이면 "찾지 못했습니다"를 띄우지 않는다 — 아직 모르는 것과 없는 것은 다르다
+  const pending =
+    policyId !== null &&
+    [policies, detailState, validationState].some((s) => s.status === 'loading' || s.status === 'idle');
 
   const grantBars = useMemo<BarItem[]>(() => {
     if (!detail) return [];
@@ -75,6 +84,8 @@ export function PolicyScreen() {
     }
     return [];
   }, [detail]);
+
+  if (pending) return <div className="screen-fallback" aria-busy="true" />;
 
   /* --- 정책이 적용되지 않았거나, 판단할 수 없을 때 -------------------------- */
 

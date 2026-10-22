@@ -26,6 +26,8 @@ import { BarList, Meter } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
 import { dec, duration, int } from '../lib/format';
 import { errorType, timingPath } from '../lib/labels';
+import type { Bottlenecks } from '../lib/api';
+import type { SlowPage } from '../lib/runData';
 
 const DEFAULT_ROWS = 8;
 
@@ -35,11 +37,27 @@ export function MonitorScreen() {
   return <MonitorView key={run.id} run={run} />;
 }
 
+const NO_DAY = '이 실행에는 아직 일자 기록이 없습니다';
+const noDay = {
+  bottlenecks: (runId: string): Bottlenecks => ({
+    run_id: runId, day: '', available: false, degraded: false, reason: NO_DAY, degraded_note: null,
+    fallback_source: null, bottleneck_rank: null, fallback_rank: null, cache: null, policy_payment: null,
+    counters: null, timings: null, agents_ok: null, agents_error: null, unknown: [],
+  }),
+  slow: (runId: string): SlowPage => ({
+    run_id: runId, day: '', available: false, reason: NO_DAY, total: null, limit: 0, sorted_by: '',
+    phase_counts: null, items: [], unknown: [],
+  }),
+};
+
 function MonitorView({ run }: { run: RunContextValue }) {
   const [showAllDays, setShowAllDays] = useState(false);
 
   const { index: indexItem, bundle } = run;
   const days = bundle.days.items;
+  // 일자 기록이 하나도 없으면 그날의 병목·느린 사례도 없다. 빈 응답 모양으로 맞춰 "기록 없음"을 그린다
+  const bottlenecks = bundle.bottlenecks ?? noDay.bottlenecks(run.id);
+  const slow = bundle.slow ?? noDay.slow(run.id);
   const plan = bundle.detail.plan;
 
   const totals = useMemo(() => {
@@ -63,9 +81,9 @@ function MonitorView({ run }: { run: RunContextValue }) {
 
   const visibleDays = showAllDays ? days : days.slice(0, DEFAULT_ROWS);
 
-  const bottleneckRows = bundle.bottlenecks.available
-    ? (bundle.bottlenecks.bottleneck_rank ?? [])
-    : (bundle.bottlenecks.fallback_rank ?? []);
+  const bottleneckRows = bottlenecks.available
+    ? (bottlenecks.bottleneck_rank ?? [])
+    : (bottlenecks.fallback_rank ?? []);
 
   const bottleneckBars: BarItem[] = bottleneckRows.slice(0, 8).map((row, i) => {
     const path = String(row.path);
@@ -237,17 +255,17 @@ function MonitorView({ run }: { run: RunContextValue }) {
       <section className="section">
         <h2 className="section__title">상세 보기</h2>
         <div>
-          <Disclosure title="단계별 소요 분해" meta={bundle.focusDay}>
+          <Disclosure title="단계별 소요 분해" meta={bundle.focusDay ?? undefined}>
             {bottleneckBars.length === 0 ? (
               <EmptyState
                 title="단계별 기록이 없습니다"
-                body={bundle.bottlenecks.reason ?? '해당 일자의 소요 기록 파일을 찾지 못했습니다.'}
+                body={bottlenecks.reason ?? '해당 일자의 소요 기록 파일을 찾지 못했습니다.'}
               />
             ) : (
               <>
-                {bundle.bottlenecks.degraded ? (
+                {bottlenecks.degraded ? (
                   <Callout tone="warn">
-                    {bundle.bottlenecks.degraded_note ??
+                    {bottlenecks.degraded_note ??
                       '일부 단계만 다시 계산했습니다. 하위 단계는 확인할 수 없습니다.'}
                   </Callout>
                 ) : null}
@@ -261,19 +279,19 @@ function MonitorView({ run }: { run: RunContextValue }) {
 
           <Disclosure
             title="오래 걸린 사례"
-            meta={bundle.slow.total === null ? '기록 없음' : `${int(bundle.slow.total)}건`}
+            meta={slow.total === null ? '기록 없음' : `${int(slow.total)}건`}
           >
-            {!bundle.slow.available ? (
+            {!slow.available ? (
               <EmptyState
                 title="느린 사례 기록이 없습니다"
                 body={`하루가 끝나야 만들어지는 파일입니다. 이 실행은 그 전에 멈췄습니다. (${
-                  bundle.slow.reason ?? '기록 파일 없음'
+                  slow.reason ?? '기록 파일 없음'
                 })`}
               />
             ) : (
               <>
                 <p className="card__note">
-                  {Object.entries(bundle.slow.phase_counts ?? {})
+                  {Object.entries(slow.phase_counts ?? {})
                     .map(([phase, n]) => {
                       const named = timingPath(
                         `phase.t_${phase === 'dawn' ? 'dawn' : phase === 'stage1' ? 's1' : 's2'}`,
@@ -297,7 +315,7 @@ function MonitorView({ run }: { run: RunContextValue }) {
                       </tr>
                     </thead>
                     <tbody>
-                      {bundle.slow.items.slice(0, 8).map((it) => {
+                      {slow.items.slice(0, 8).map((it) => {
                         const entries = Object.entries(it.slow);
                         const worst = entries.reduce((a, b) => (b[1] > a[1] ? b : a), entries[0]!);
                         const named = timingPath(

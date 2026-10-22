@@ -5,14 +5,25 @@
  * 소유하고, 그 아래 모든 화면은 **자기 안에 run 선택기를 두지 않는다** (설계도 §5).
  * 화면은 `useParams` 대신 `useRun()` 으로 이미 정해진 run 을 받아 쓴다.
  *
- * 여기에 모인 파생값(적용 정책, 기능별 가용 여부)은 픽스처의 실측 필드만 조합한 것이다.
+ * 여기에 모인 파생값(적용 정책, 기능별 가용 여부)은 API 가 준 실측 필드만 조합한 것이다.
  * 모르는 값을 지어내지 않는다 — 모르면 `null` 로 두고 화면이 "알 수 없음"이라 적는다.
+ *
+ * 목록(홈·실행 전환)은 가벼운 색인만 받는다. 실행 하나의 상세 묶음은 그 실행을 열 때만 받는다.
  */
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { RunIndexItem } from '../lib/api';
-import { policiesIndex, runs, runsIndex } from '../lib/fixtures';
-import type { RunBundle, RunId } from '../lib/fixtures';
+import type { PolicyIndexItem, RunIndexItem } from '../lib/api';
+import { mapAsync, type AsyncState } from '../lib/async';
+import {
+  loadEventsSummary,
+  loadPolicies,
+  loadRunBundle,
+  loadRunsIndex,
+  useLoad,
+  type EventsSummary,
+  type RunBundle,
+  type RunId,
+} from '../lib/runData';
 
 /* --- 실행 상태 -------------------------------------------------------------- */
 
@@ -89,24 +100,23 @@ export interface PolicyBinding {
   items: AppliedPolicy[];
 }
 
-function readPolicy(bundle: RunBundle): PolicyBinding {
-  const events = bundle.events;
+function readPolicy(events: EventsSummary, policies: PolicyIndexItem[]): PolicyBinding {
   if (!events.available || events.policy_paid_by_policy_id === null) {
     return { known: false, items: [] };
   }
   const items = Object.keys(events.policy_paid_by_policy_id).map((id) => ({
     id,
-    name: policiesIndex.items.find((p) => p.id === id)?.name ?? null,
+    name: policies.find((p) => p.id === id)?.name ?? null,
   }));
   return { known: true, items };
 }
 
 /* --- 실행 한 줄 요약 --------------------------------------------------------- */
 
-export interface RunSummary {
+/** 목록 한 줄 — 색인만으로 만든다 */
+export interface RunListItem {
   id: RunId;
   index: RunIndexItem;
-  bundle: RunBundle;
   phase: RunPhase;
   /** 기록이 남은 일 수 */
   daysPresent: number;
@@ -115,16 +125,20 @@ export interface RunSummary {
   agentsTarget: number | null;
   firstDay: string | null;
   lastDay: string | null;
-  policy: PolicyBinding;
   /** 마지막 갱신 시각 */
   updatedAt: string | null;
+}
+
+/** 실행 하나를 연 뒤의 전부 — 상세 묶음·적용 정책·기능 가용 여부 */
+export interface RunSummary extends RunListItem {
+  bundle: RunBundle;
+  policy: PolicyBinding;
   features: RunFeature[];
 }
 
-function buildFeatures(bundle: RunBundle): RunFeature[] {
+function buildFeatures(bundle: RunBundle, policy: PolicyBinding): RunFeature[] {
   const hasDays = bundle.days.items.length > 0;
   const events = bundle.events;
-  const policy = readPolicy(bundle);
 
   const feature = (
     key: FeatureKey,
@@ -150,54 +164,63 @@ function buildFeatures(bundle: RunBundle): RunFeature[] {
   ];
 }
 
-function summarize(id: RunId): RunSummary {
-  const bundle = runs[id];
-  const index =
-    runsIndex.items.find((it) => it.run_id === id) ??
-    ({
-      run_id: id,
-      root: bundle.detail.root,
-      status: bundle.detail.status,
-      first_day: bundle.days.items[0]?.day ?? null,
-      last_day: bundle.days.items[bundle.days.items.length - 1]?.day ?? null,
-      days_present: bundle.detail.days_present.length,
-      days_planned: bundle.detail.plan.planned_days,
-      agents_target: bundle.detail.plan.agents_target,
-      completed_at: bundle.detail.completed_at,
-      artifacts: bundle.detail.artifacts,
-      unknown: [],
-    } satisfies RunIndexItem);
-
+function listItem(index: RunIndexItem): RunListItem {
   return {
-    id,
+    id: index.run_id,
     index,
-    bundle,
     phase: runPhase(index),
     daysPresent: index.days_present,
     daysPlanned: index.days_planned,
     agentsTarget: index.agents_target,
     firstDay: index.first_day,
     lastDay: index.last_day,
-    policy: readPolicy(bundle),
-    updatedAt: bundle.detail.updated_at ?? index.completed_at,
-    features: buildFeatures(bundle),
+    updatedAt: index.completed_at,
   };
 }
 
-/**
- * 픽스처는 빌드 타임 상수라 한 번만 계산한다.
- * 목록 순서는 `runs.index` 가 준 순서를 그대로 따른다 — 임의로 재정렬하지 않는다.
- */
-const SUMMARIES: RunSummary[] = runsIndex.items
-  .filter((it): it is RunIndexItem & { run_id: RunId } => it.run_id in runs)
-  .map((it) => summarize(it.run_id));
-
-export function useRunSummaries(): RunSummary[] {
-  return SUMMARIES;
+/** 색인에 없는 실행(방금 생겼거나 색인이 늦은 경우)은 상세에서 같은 모양을 만든다 */
+function indexFromBundle(id: RunId, bundle: RunBundle): RunIndexItem {
+  return {
+    run_id: id,
+    root: bundle.detail.root,
+    status: bundle.detail.status,
+    first_day: bundle.days.items[0]?.day ?? null,
+    last_day: bundle.days.items[bundle.days.items.length - 1]?.day ?? null,
+    days_present: bundle.detail.days_present.length,
+    days_planned: bundle.detail.plan.planned_days,
+    agents_target: bundle.detail.plan.agents_target,
+    completed_at: bundle.detail.completed_at,
+    artifacts: bundle.detail.artifacts,
+    unknown: [],
+  };
 }
 
-export function findSummary(id: RunId): RunSummary {
-  return SUMMARIES.find((s) => s.id === id) ?? summarize(id);
+/** 실행 하나를 열 때 필요한 것을 한꺼번에 받는다 */
+export async function loadRunSummary(id: RunId): Promise<RunSummary> {
+  const [bundle, runsIndex, policies] = await Promise.all([loadRunBundle(id), loadRunsIndex(), loadPolicies()]);
+  const index = runsIndex.items.find((it) => it.run_id === id) ?? indexFromBundle(id, bundle);
+  const policy = readPolicy(bundle.events, policies.items);
+  return {
+    ...listItem(index),
+    bundle,
+    policy,
+    updatedAt: bundle.detail.updated_at ?? index.completed_at,
+    features: buildFeatures(bundle, policy),
+  };
+}
+
+/** 목록 순서는 서버가 준 순서를 그대로 따른다 — 임의로 재정렬하지 않는다 */
+export function useRunList(): AsyncState<RunListItem[]> & { retry: () => void } {
+  const state = useLoad('runs', loadRunsIndex);
+  return { ...mapAsync(state, (index) => index.items.map(listItem)), retry: state.retry };
+}
+
+/** 목록 한 줄의 적용 정책. 실행마다 결제 요약을 받아야 해서 줄이 먼저 그려진 뒤 채운다 */
+export function useRunPolicy(id: RunId): AsyncState<PolicyBinding> {
+  return useLoad(`policy-binding:${id}`, async () => {
+    const [events, policies] = await Promise.all([loadEventsSummary(id), loadPolicies()]);
+    return readPolicy(events, policies.items);
+  });
 }
 
 /* --- 컨텍스트 ---------------------------------------------------------------- */
@@ -215,15 +238,15 @@ const RunCtx = createContext<RunContextValue | null>(null);
  * run 은 주소가 소유한다. 화면이 자기 상태로 들고 있지 않으므로 저장·복원이 없고,
  * 주소 하나로 링크가 완결된다 (스펙 §9 deep-linking).
  */
-export function RunProvider({ runId, children }: { runId: RunId; children: ReactNode }) {
+export function RunProvider({ summary, children }: { summary: RunSummary; children: ReactNode }) {
+  const runId = summary.id;
   const value = useMemo<RunContextValue>(() => {
-    const summary = findSummary(runId);
     const can = (key: FeatureKey) =>
       summary.features.find((f) => f.key === key)?.available ?? false;
     const path = (segment?: string) =>
       segment ? `/runs/${runId}/${segment}` : `/runs/${runId}`;
     return { ...summary, can, path };
-  }, [runId]);
+  }, [runId, summary]);
 
   return <RunCtx.Provider value={value}>{children}</RunCtx.Provider>;
 }
