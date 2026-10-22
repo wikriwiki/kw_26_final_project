@@ -81,6 +81,16 @@ def _scan_signature(root: Path, log: Path) -> tuple:
     return tuple(_stat_key(path) for path in watched)
 
 
+def _run_meta(run: dict) -> dict | None:
+    """정책 본런에서 세운 실행이면 `run_meta.json`(이름·정책 id·실험 id·시행일)을 붙인다.
+
+    엔진 산출물에는 적용 정책 id 가 따로 없다. 지원금 없이 규제만 바꾼 정책(거리두기)은 결제
+    기록으로도 알 수 없어서, 실행을 세울 때 실험 정의에서 옮겨 적어 둔 값이다.
+    """
+    meta = _json(Path(run["root"]) / "run_meta.json")
+    return meta if isinstance(meta, dict) else None
+
+
 def _safe_policy_id(policy_id: str) -> str:
     if not POLICY_ID_RE.fullmatch(policy_id):
         raise StoreError(400, "정책 ID 형식이 올바르지 않습니다")
@@ -138,12 +148,14 @@ class ArtifactStore:
     @classmethod
     def from_environment(cls, repo_root: Path) -> "ArtifactStore":
         data_root = Path(os.environ.get("SIM_DATA_ROOT", r"C:\Users\srdyh\gpu_exp_data\demo"))
+        # 정책 파일 폴더. 본런을 실행으로 세울 때는 그 런이 쓴 고정본을 담은 폴더를 가리킨다
+        policy_dir = Path(os.environ["SIM_POLICY_DIR"]) if os.environ.get("SIM_POLICY_DIR") else None
         fixture_dir = None
         # Explicit fixture mode is for local contract/API tests only. It is
         # never an implicit fallback when real data is unavailable.
         if os.environ.get("SIM_USE_FIXTURES", "").lower() in {"1", "true", "yes"}:
             fixture_dir = Path(os.environ.get("SIM_FIXTURES_DIR", str(repo_root / "web" / "fixtures")))
-        return cls(repo_root=repo_root, data_root=data_root, fixture_dir=fixture_dir)
+        return cls(repo_root=repo_root, data_root=data_root, policy_dir=policy_dir, fixture_dir=fixture_dir)
 
     def _require_run(self, run_id: str) -> tuple[Path, Path]:
         if run_id not in self.run_ids:
@@ -190,6 +202,7 @@ class ArtifactStore:
             items.append(
                 {
                     "run_id": run_id,
+                    "meta": _run_meta(run),
                     "root": run["root"],
                     "status": run["status"],
                     "first_day": days[0] if days else None,
@@ -234,6 +247,7 @@ class ArtifactStore:
                 "log_hint",
             )
         }
+        detail["meta"] = _run_meta(run)
         detail["day_summaries"] = [
             {key: value for key, value in summary.items() if key != "timing_top"}
             for summary in ((run.get("summary") or {}).get("summary") or [])

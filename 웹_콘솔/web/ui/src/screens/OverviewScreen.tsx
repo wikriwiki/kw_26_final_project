@@ -14,6 +14,7 @@ import { Link } from 'react-router-dom';
 import { PHASE_LABEL, useRun } from '../app/RunContext';
 import type { FeatureKey, RunContextValue } from '../app/RunContext';
 import { Stat } from '../components/Card';
+import { RunEffectStat } from '../components/RunEffectStat';
 import { Callout } from '../components/Feedback';
 import { ActivityIcon, BarChartIcon, MapIcon } from '../components/Icon';
 import { Meter } from '../components/Meter';
@@ -33,6 +34,9 @@ function policyLine(run: RunContextValue): { value: string; note: string } {
       note: `결제 기록이 없어 확인할 수 없습니다. ${run.bundle.events.reason ?? '기록 파일 없음'}`,
     };
   }
+  if (run.policy.items.length === 0 && run.policy.title) {
+    return { value: run.policy.title, note: '지원금 없이 규제가 바뀐 정책' };
+  }
   if (run.policy.items.length === 0) {
     return {
       value: '무정책(대조군)',
@@ -41,7 +45,7 @@ function policyLine(run: RunContextValue): { value: string; note: string } {
   }
   return {
     value: run.policy.items.map((p) => (p.name ? `${p.name} (${p.id})` : p.id)).join(' · '),
-    note: '결제 기록 기준',
+    note: run.policy.title ? '' : '결제 기록 기준',
   };
 }
 
@@ -83,10 +87,8 @@ export function OverviewScreen() {
     <div className="stack">
       <header className="pagehead">
         <div className="pagehead__text">
-          <h1 className="pagehead__title">실행 {run.id}</h1>
-          <p className="pagehead__purpose">
-            실행 조건과 진행 상황
-          </p>
+          <h1 className="pagehead__title">{run.index.meta?.title ?? `실행 ${run.id}`}</h1>
+          <p className="pagehead__purpose">{run.index.meta ? `실행 ${run.id}` : '실행 조건과 진행 상황'}</p>
         </div>
       </header>
 
@@ -170,21 +172,22 @@ export function OverviewScreen() {
         />
         <Stat
           className="c3"
-          label="정책 지갑 결제액"
-          value={totals ? krw(totals.policy_paid) : null}
+          label="지원금 결제액"
+          value={totals ? (totals.policy_paid > 0 ? krw(totals.policy_paid) : '해당 없음') : null}
           hint={
             totals && totals.amt > 0
-              ? `총 결제액의 ${percent(totals.policy_paid / totals.amt, 1)}`
+              ? totals.policy_paid > 0
+                ? `총 결제액의 ${percent(totals.policy_paid / totals.amt, 1)}`
+                : '결제할 때 지원금에서 나가는 돈이 없는 정책'
               : undefined
           }
           unknownReason="결제 기록 없음"
         />
-        <Stat
+        <RunEffectStat
           className="c3"
-          label="정책이 만든 추가 소비"
-          value={totals ? krw(totals.extra_spent) : null}
-          hint="값이 비어 있는 건이 많아 하한값입니다"
-          unknownReason="결제 기록 없음"
+          experimentId={run.index.meta?.experiment_id ?? null}
+          extraSpent={totals ? totals.extra_spent : null}
+          extraKnown={!(run.bundle.events.null_only_fields ?? []).includes('ex')}
         />
         <Stat
           className="c3"
@@ -237,8 +240,7 @@ export function OverviewScreen() {
       {/* 1차 블록 4 — 다음 행동 */}
       <section className="section">
         <div className="section__head">
-          <h2 className="section__title">다음 행동</h2>
-          <p className="section__note">이 실행을 어느 방향으로 더 볼지 고르세요.</p>
+          <h2 className="section__title">더 보기</h2>
         </div>
         <div className="row">
           {ACTIONS.map(({ key, label, Icon }) => {

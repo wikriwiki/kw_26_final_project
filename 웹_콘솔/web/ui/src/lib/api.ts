@@ -72,8 +72,19 @@ export interface PolicyValidation extends UnknownResource {
   command: string[];
 }
 
+/** 정책 본런에서 세운 실행의 이름표 (`run_meta.json`). 일반 실행에는 없다 */
+export interface RunMeta {
+  run_id: string;
+  experiment_id: string;
+  title: string | null;
+  policy_id: string | null;
+  effective_date: string | null;
+  cohort_size: number | null;
+}
+
 export interface RunIndexItem extends UnknownResource {
   run_id: string;
+  meta?: RunMeta | null;
   root: string;
   status: 'completed' | 'incomplete';
   first_day: string | null;
@@ -92,6 +103,7 @@ export interface RunsIndex extends UnknownResource {
 
 export interface RunDetail extends UnknownResource {
   run_id: string;
+  meta?: RunMeta | null;
   root: string;
   status: 'completed' | 'incomplete';
   artifacts: Record<string, boolean>;

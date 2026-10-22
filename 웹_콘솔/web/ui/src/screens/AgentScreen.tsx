@@ -25,7 +25,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { SelectField, TextField } from '../components/Field';
@@ -209,20 +209,22 @@ interface Turn {
 }
 
 export function AgentScreen() {
-
+  const { runId = '' } = useParams();
   const [roster, setRoster] = useState<Roster | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    loadRoster().then(
+    setRoster(null);
+    setRosterError(null);
+    loadRoster(runId).then(
       (r) => alive && setRoster(r),
       (e: Error) => alive && setRosterError(e.message),
     );
     return () => {
       alive = false;
     };
-  }, []);
+  }, [runId]);
 
   return (
     <div className="stack">
@@ -522,12 +524,13 @@ function Conversation({
   const [draft, setDraft] = useState('');
   const [miss, setMiss] = useState(false);
   const seq = useRef(0);
+  const { runId = '' } = useParams();
 
   useEffect(() => {
     let alive = true;
     setDetail(null);
     setError(null);
-    loadAgent(idx).then(
+    loadAgent(runId, idx).then(
       (d) => {
         if (!alive) return;
         setDetail(d);
@@ -548,7 +551,7 @@ function Conversation({
     return () => {
       alive = false;
     };
-  }, [idx]);
+  }, [runId, idx]);
 
   const ask = useCallback(
     (q: Question) => {

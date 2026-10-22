@@ -170,9 +170,7 @@ export function PolicyScreen() {
       <header className="pagehead">
         <div className="pagehead__text">
           <h1 className="pagehead__title">{policy.name}</h1>
-          <p className="pagehead__purpose">
-            이 실행에 적용된 정책의 내용입니다. 여기서는 바꿀 수 없습니다.
-          </p>
+          <p className="pagehead__purpose">이 실행에 쓴 정책 (읽기 전용)</p>
         </div>
         <div className="pagehead__actions">
           <Button onClick={() => navigate('/new')}>이 정책으로 새로 만들기</Button>
@@ -181,8 +179,18 @@ export function PolicyScreen() {
 
       {/* 1차 블록 1 — 무엇을 근거로 "적용됐다"고 말하는가 */}
       <p className="section__note wrap">
-        결제 기록의 <span className="num">{policy.id}</span> 지급{' '}
-        <span className="num">{krw(paidHere)}</span>으로 확인했습니다.
+        {binding.title ? (
+          <>본런에 고정해 둔 정책 파일입니다 (<span className="num">{policy.id}</span>).</>
+        ) : paidHere !== null ? (
+          <>
+            결제 기록의 <span className="num">{policy.id}</span> 지급{' '}
+            <span className="num">{krw(paidHere)}</span>으로 확인했습니다.
+          </>
+        ) : (
+          <>
+            결제 기록에서 <span className="num">{policy.id}</span> 를 확인했습니다.
+          </>
+        )}
         {otherIds.length > 0
           ? ` 같은 실행에서 다른 정책(${otherIds.join(', ')})의 지급도 함께 확인됩니다.`
           : ''}

@@ -1,7 +1,7 @@
 """정책 본런 zip 에서 '실행' 화면용 파일을 한 번만 꺼낸다 — 드라이브에서 zip 을 여러 번 읽지 않도록.
 
 꺼내는 것 (실험 정의의 ``source`` 를 따른다):
-* ``<root>/{pre,on}/`` 의 ``summary.json`` · ``stage1_failures.jsonl`` · ``timing/*`` · ``checkpoints/*``
+* ``<root>/{pre,on}/`` 의 ``summary.json`` · ``day_*.json``(하루치 요약) · ``stage1_failures.jsonl`` · ``timing/*`` · ``checkpoints/*``
 * ``<root>/on/dossier.jsonl`` — 정책 있음 쪽 사람별 계획·기억·상태(정책 전 기간 포함)
 * ``<root>/{roster.json, run_manifest.json, engine.json}``
 
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 import zipfile
@@ -24,6 +25,7 @@ ARMS = ("pre", "on")
 ARM_FILES = ("summary.json", "stage1_failures.jsonl", "stage2.json")
 ARM_DIRS = ("timing/", "checkpoints/")
 TOP_FILES = ("roster.json", "run_manifest.json", "engine.json")
+DAY_SUMMARY = re.compile(r"^day_\d{4}-\d{2}-\d{2}\.json$")  # 하루치 실행 요약
 
 
 def wanted(name: str, root: str) -> bool:
@@ -35,7 +37,7 @@ def wanted(name: str, root: str) -> bool:
     arm, _, rest = rel.partition("/")
     if arm not in ARMS:
         return False
-    return rest in ARM_FILES or any(rest.startswith(d) for d in ARM_DIRS)
+    return rest in ARM_FILES or bool(DAY_SUMMARY.match(rest)) or any(rest.startswith(d) for d in ARM_DIRS)
 
 
 def main() -> int:

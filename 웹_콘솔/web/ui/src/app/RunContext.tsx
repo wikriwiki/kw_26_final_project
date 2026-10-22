@@ -12,7 +12,7 @@
  */
 import { createContext, useContext, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { PolicyIndexItem, RunIndexItem } from '../lib/api';
+import type { PolicyIndexItem, RunIndexItem, RunMeta } from '../lib/api';
 import { mapAsync, type AsyncState } from '../lib/async';
 import {
   loadEventsSummary,
@@ -98,17 +98,30 @@ export interface AppliedPolicy {
 export interface PolicyBinding {
   known: boolean;
   items: AppliedPolicy[];
+  /** 정책 본런 실행의 이름 (예: 사회적 거리두기 2단계 격상). 지원금이 없는 정책도 이름으로 보인다 */
+  title: string | null;
+  /** 정책 파일이 콘솔에 있는지 — 정책 화면을 열 수 있는지 */
+  fileKnown: boolean;
 }
 
-function readPolicy(events: EventsSummary, policies: PolicyIndexItem[]): PolicyBinding {
+function readPolicy(events: EventsSummary, policies: PolicyIndexItem[], meta: RunMeta | null): PolicyBinding {
+  if (meta) {
+    const file = meta.policy_id ? policies.find((p) => p.id === meta.policy_id) : undefined;
+    return {
+      known: true,
+      items: meta.policy_id ? [{ id: meta.policy_id, name: meta.title ?? file?.name ?? null }] : [],
+      title: meta.title,
+      fileKnown: Boolean(file),
+    };
+  }
   if (!events.available || events.policy_paid_by_policy_id === null) {
-    return { known: false, items: [] };
+    return { known: false, items: [], title: null, fileKnown: false };
   }
   const items = Object.keys(events.policy_paid_by_policy_id).map((id) => ({
     id,
     name: policies.find((p) => p.id === id)?.name ?? null,
   }));
-  return { known: true, items };
+  return { known: true, items, title: null, fileKnown: items.some((p) => p.name !== null) };
 }
 
 /* --- 실행 한 줄 요약 --------------------------------------------------------- */
@@ -160,7 +173,7 @@ function buildFeatures(bundle: RunBundle, policy: PolicyBinding): RunFeature[] {
      */
     feature('agents', 'agents', '대상자 문답', true, ''),
     feature('report', 'report', '보고서', true, ''),
-    feature('policy', 'policy', '정책', policy.known, '적용 정책 기록 없음'),
+    feature('policy', 'policy', '정책', policy.known && policy.fileKnown, '정책 파일 없음'),
   ];
 }
 
@@ -189,6 +202,7 @@ function indexFromBundle(id: RunId, bundle: RunBundle): RunIndexItem {
     days_present: bundle.detail.days_present.length,
     days_planned: bundle.detail.plan.planned_days,
     agents_target: bundle.detail.plan.agents_target,
+    meta: bundle.detail.meta ?? null,
     completed_at: bundle.detail.completed_at,
     artifacts: bundle.detail.artifacts,
     unknown: [],
@@ -199,7 +213,7 @@ function indexFromBundle(id: RunId, bundle: RunBundle): RunIndexItem {
 export async function loadRunSummary(id: RunId): Promise<RunSummary> {
   const [bundle, runsIndex, policies] = await Promise.all([loadRunBundle(id), loadRunsIndex(), loadPolicies()]);
   const index = runsIndex.items.find((it) => it.run_id === id) ?? indexFromBundle(id, bundle);
-  const policy = readPolicy(bundle.events, policies.items);
+  const policy = readPolicy(bundle.events, policies.items, index.meta ?? bundle.detail.meta ?? null);
   return {
     ...listItem(index),
     bundle,
@@ -218,8 +232,11 @@ export function useRunList(): AsyncState<RunListItem[]> & { retry: () => void } 
 /** 목록 한 줄의 적용 정책. 실행마다 결제 요약을 받아야 해서 줄이 먼저 그려진 뒤 채운다 */
 export function useRunPolicy(id: RunId): AsyncState<PolicyBinding> {
   return useLoad(`policy-binding:${id}`, async () => {
-    const [events, policies] = await Promise.all([loadEventsSummary(id), loadPolicies()]);
-    return readPolicy(events, policies.items);
+    const [runsIndex, policies] = await Promise.all([loadRunsIndex(), loadPolicies()]);
+    const meta = runsIndex.items.find((it) => it.run_id === id)?.meta ?? null;
+    // 정책 본런 실행은 이름표로 충분하다 — 결제 기록 전체를 훑지 않는다
+    if (meta) return readPolicy({ available: false } as EventsSummary, policies.items, meta);
+    return readPolicy(await loadEventsSummary(id), policies.items, null);
   });
 }
 

@@ -205,7 +205,12 @@ export interface AgentDetail {
    2. 불러오기 — 한 번 받은 것은 다시 받지 않는다
    ========================================================================== */
 
-const ROOT = `${import.meta.env.BASE_URL}agent-console`;
+const STATIC_ROOT = `${import.meta.env.BASE_URL}agent-console`;
+
+/** 실행 폴더 안의 시민 데이터(`out_<id>/agent_console/`). 정책 실행마다 따로 있다 */
+function runRoot(runId: string): string {
+  return `${import.meta.env.BASE_URL}api/runs/${encodeURIComponent(runId)}/artifacts/agent_console`;
+}
 
 const HOWTO =
   'web/ui/tools/build_agent_console_data.py 를 실행해 web/ui/public/agent-console/ 을 먼저 만드세요.';
@@ -230,12 +235,27 @@ async function getJson<T>(url: string, what: string): Promise<T> {
   return (await res.json()) as T;
 }
 
-let rosterOnce: Promise<Roster> | null = null;
+const rosters = new Map<string, Promise<{ root: string; roster: Roster }>>();
 
-/** 목록은 화면당 한 번만 받는다 (341KB) */
-export function loadRoster(): Promise<Roster> {
-  rosterOnce ??= getJson<Roster>(`${ROOT}/roster.json`, '대상자 목록');
-  return rosterOnce;
+/**
+ * 목록은 실행마다 한 번만 받는다 (약 350KB).
+ * 실행 폴더에 시민 데이터가 있으면 그것을, 없으면 예전 정적 폴더를 읽는다.
+ */
+function rosterFor(runId: string): Promise<{ root: string; roster: Roster }> {
+  let hit = rosters.get(runId);
+  if (!hit) {
+    const own = runRoot(runId);
+    hit = getJson<Roster>(`${own}/roster.json`, '대상자 목록')
+      .then((roster) => ({ root: own, roster }))
+      .catch(() => getJson<Roster>(`${STATIC_ROOT}/roster.json`, '대상자 목록').then((roster) => ({ root: STATIC_ROOT, roster })));
+    hit.catch(() => rosters.delete(runId));
+    rosters.set(runId, hit);
+  }
+  return hit;
+}
+
+export function loadRoster(runId: string): Promise<Roster> {
+  return rosterFor(runId).then((r) => r.roster);
 }
 
 /**
@@ -244,22 +264,22 @@ export function loadRoster(): Promise<Roster> {
  * 그 이상은 버린다. 1,825명을 전부 쥐고 있으면 45MB 가 되어 처음 문제로 돌아간다.
  */
 const CACHE_MAX = 12;
-const cache = new Map<number, Promise<AgentDetail>>();
+const cache = new Map<string, Promise<AgentDetail>>();
 
-export function loadAgent(idx: number): Promise<AgentDetail> {
-  const hit = cache.get(idx);
+export function loadAgent(runId: string, idx: number): Promise<AgentDetail> {
+  const key = `${runId}/${idx}`;
+  const hit = cache.get(key);
   if (hit) {
     // 최근 쓴 것을 뒤로 보내 오래된 것부터 밀려나게 한다
-    cache.delete(idx);
-    cache.set(idx, hit);
+    cache.delete(key);
+    cache.set(key, hit);
     return hit;
   }
-  const p = getJson<AgentDetail>(
-    `${ROOT}/agents/${String(idx).padStart(4, '0')}.json`,
-    '대상자 기록',
+  const p = rosterFor(runId).then(({ root }) =>
+    getJson<AgentDetail>(`${root}/agents/${String(idx).padStart(4, '0')}.json`, '대상자 기록'),
   );
-  p.catch(() => cache.delete(idx)); // 실패한 응답을 캐시에 남기지 않는다
-  cache.set(idx, p);
+  p.catch(() => cache.delete(key)); // 실패한 응답을 캐시에 남기지 않는다
+  cache.set(key, p);
   if (cache.size > CACHE_MAX) {
     const oldest = cache.keys().next();
     if (!oldest.done) cache.delete(oldest.value);

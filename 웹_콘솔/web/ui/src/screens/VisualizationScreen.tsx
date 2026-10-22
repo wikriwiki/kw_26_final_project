@@ -194,7 +194,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
                  지도 HUD 의 날짜와 어긋나 어느 쪽이 맞는지 알 수 없게 된다.
                  기간은 지도가 말하게 두고, 여기서는 무엇을 담은 지도인지만 밝힌다. */
               <span className="viz__meta-extra">
-                {embed ? `${embed.label} · 기간은 지도 안에 표시됩니다` : '지도 데이터를 찾는 중'}
+                {embed ? embed.label : '지도 불러오는 중'}
                 {caseMismatch ? (
                   /* 고른 실행의 지도가 없어 표본을 띄웠다는 사실은 지도를 가리지 않게
                      이 줄에서 말한다. 예전에는 지도 위 상자가 검색창을 덮었다 */

@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRun } from '../app/RunContext';
 import { Button } from '../components/Button';
 import { Card, Stat } from '../components/Card';
+import { RunEffectStat } from '../components/RunEffectStat';
 import { DailyStack } from '../components/DailyStack';
 import { Disclosure } from '../components/Disclosure';
 import { Callout, EmptyState } from '../components/Feedback';
@@ -120,31 +121,32 @@ export function ResultsScreen() {
         />
         <Stat
           className="c3"
-          label="정책 지갑 결제액"
-          value={totals ? krw(totals.policy_paid) : null}
+          label="지원금 결제액"
+          value={totals ? (totals.policy_paid > 0 ? krw(totals.policy_paid) : '해당 없음') : null}
           hint={
             totals && totals.amt > 0
-              ? `총 결제액의 ${percent(totals.policy_paid / totals.amt, 1)}`
+              ? totals.policy_paid > 0
+                ? `총 결제액의 ${percent(totals.policy_paid / totals.amt, 1)}`
+                : '결제할 때 지원금에서 나가는 돈이 없는 정책'
               : undefined
           }
           unknownReason="결제 기록 없음"
         />
-        <Stat
+        <RunEffectStat
           className="c3"
-          label="정책이 만든 추가 소비"
-          value={totals ? krw(totals.extra_spent) : null}
-          hint="값이 비어 있는 건이 많아 하한값입니다"
-          unknownReason="결제 기록 없음"
+          experimentId={indexItem.meta?.experiment_id ?? null}
+          extraSpent={totals ? totals.extra_spent : null}
+          extraKnown={!(events.null_only_fields ?? []).includes('ex')}
         />
-        <Stat
-          className="c3"
-          label="쿠폰 사용처 결제 비율"
-          value={couponShare === null ? null : percent(couponShare, 1)}
-          hint={
-            totals ? `${int(totals.coupon_eligible_events)}건 / ${int(totals.events)}건` : undefined
-          }
-          unknownReason="결제 기록 없음"
-        />
+        {totals && totals.policy_paid > 0 ? (
+          <Stat
+            className="c3"
+            label="지원금 사용처 결제 비율"
+            value={couponShare === null ? null : percent(couponShare, 1)}
+            hint={`${int(totals.coupon_eligible_events)}건 / ${int(totals.events)}건`}
+            unknownReason="결제 기록 없음"
+          />
+        ) : null}
       </div>
 
       {/* 1차 블록 2 — 지도 미리보기(시각화 주 진입) + 업종별 */}
@@ -157,13 +159,10 @@ export function ResultsScreen() {
                 format={krw}
                 tickFormat={krwAxis}
                 totalLabel="총 결제"
-                partLabel="정책 지갑"
+                partLabel="지원금"
                 marker={effectiveFrom ? { day: effectiveFrom, label: '정책 시행' } : null}
-                title="일별 총결제액과 그중 정책 지갑에서 나간 금액"
+                title="일별 총결제액과 그중 지원금 결제"
               />
-              <p className="card__note">
-                진한 부분 = 정책 지갑 결제
-              </p>
             </>
           ) : (
             <EmptyState

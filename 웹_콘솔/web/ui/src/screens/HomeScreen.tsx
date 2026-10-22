@@ -18,6 +18,7 @@ import type { PolicyBinding, RunListItem, RunPhase } from '../app/RunContext';
 import { EMPTY, int, shortTime } from '../lib/format';
 import { READ_ONLY } from '../lib/runtime';
 import { ExperimentList } from './experiment/ExperimentList';
+import { PolicyList } from './PolicyList';
 
 /** 진행중 → 완료 → 중단. 비어 있는 묶음은 그리지 않는다 */
 const GROUP_ORDER: RunPhase[] = ['running', 'completed', 'stopped'];
@@ -48,6 +49,7 @@ function metaText(run: RunListItem): string {
  */
 function policyText(policy: PolicyBinding): string {
   if (!policy.known) return '정책 기록 없음';
+  if (policy.title) return policy.title;
   if (policy.items.length === 0) return '무정책';
   return policy.items.map((p) => p.name ?? p.id).join(', ');
 }
@@ -150,9 +152,12 @@ function HomeHero(_props: { runs: RunListItem[] }) {
 export function HomeScreen() {
   const list = useRunList();
   const runs = list.status === 'ready' ? list.data : [];
+  // 정책 본런에서 세운 실행은 위 '정책' 목록에 나온다. 여기에는 그 밖의 실행만
+  const others = runs.filter((r) => !r.index.meta);
+  const linked = runs.flatMap((r) => (r.index.meta ? [r.index.meta.experiment_id] : []));
   const groups = GROUP_ORDER.map((phase) => ({
     phase,
-    items: runs.filter((r) => r.phase === phase),
+    items: others.filter((r) => r.phase === phase),
   })).filter((g) => g.items.length > 0);
 
   return (
@@ -160,8 +165,10 @@ export function HomeScreen() {
       <div className="stack">
         <HomeHero runs={runs} />
 
-        {/* 레지스트리에 등록된 실험(분기 팔 포함). API 가 없으면 그리지 않는다 */}
-        <ExperimentList />
+        <PolicyList runs={runs} />
+
+        {/* 실행으로 세우지 않은 실험(원격에서 받는 실험 등). API 가 없으면 그리지 않는다 */}
+        <ExperimentList exclude={linked} />
 
         {list.status === 'loading' || list.status === 'idle' ? (
           <div className="screen-fallback" aria-busy="true" />
@@ -175,7 +182,7 @@ export function HomeScreen() {
               </button>
             }
           />
-        ) : groups.length === 0 ? (
+        ) : groups.length === 0 && runs.length === 0 ? (
           <EmptyState
             title="아직 실행한 시뮬레이션이 없습니다"
             body={

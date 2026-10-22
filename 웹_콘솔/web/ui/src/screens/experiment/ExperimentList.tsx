@@ -15,18 +15,19 @@ function sortByReady<T extends { arms: Array<{ phase: string }> }>(items: T[]): 
   return items.map((e, i) => ({ e, i })).sort((a, b) => ready(a.e) - ready(b.e) || a.i - b.i).map((x) => x.e);
 }
 
-export function ExperimentList() {
+export function ExperimentList({ exclude = [] }: { exclude?: string[] }) {
   const list = useResource(() => experimentsApi.list(), 'experiments');
-  if (list.loading || list.error || !list.data || list.data.items.length === 0) return null;
+  const items = (list.data?.items ?? []).filter((e) => !exclude.includes(e.experiment_id));
+  if (list.loading || list.error || items.length === 0) return null;
   return (
     <section className="section" aria-labelledby="experiments-title">
       <header className="section__head">
         <h2 className="section__title" id="experiments-title">
-          정책별 결과
+          다른 실험
         </h2>
       </header>
       <ul className="explist">
-        {sortByReady(list.data.items).map((experiment) => (
+        {sortByReady(items).map((experiment) => (
           <li key={experiment.experiment_id}>
             <Link className="exprow" to={`/experiments/${experiment.experiment_id}`}>
               <span className="exprow__title">{experiment.title}</span>

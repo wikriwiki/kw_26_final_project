@@ -46,7 +46,9 @@ HERE = Path(__file__).resolve().parent
 UI = HERE.parent
 # 원본 위치는 환경변수로 바꿀 수 있다. 데이터를 갈아 끼울 때 소스를 고치지 않게.
 SRC = Path(os.environ.get("VIZ_SRC") or (UI / ".." / "viz_store" / "demo")).resolve()
-OUT = UI / "public" / "agent-console"
+# 출력도 바꿀 수 있다. 정책 실행마다 실행 폴더 안(`out_<id>/agent_console/`)에 두면
+# 콘솔이 `/api/runs/<id>/artifacts/agent_console/...` 로 그 실행의 시민을 읽는다.
+OUT = Path(os.environ.get("AGENT_CONSOLE_OUT") or (UI / "public" / "agent-console")).resolve()
 
 # 원본 memories.json 의 visited 요약문은 인코딩이 깨져 있다 ("(직장) ??, ??? 0.69").
 # 46,034건 중 18,876건. 깨진 문자열을 화면에 그대로 싣지 않는다 — 대신 구조화된
@@ -230,7 +232,7 @@ def main() -> None:
         )
 
     meta = {
-        "source": "web/viz_store/demo/{agents,events,memories}.json",
+        "source": f"{SRC.name}/{{agents,events,memories}}.json",
         "generatedFrom": {
             "agents": len(agents),
             "eventAgents": len(events),
