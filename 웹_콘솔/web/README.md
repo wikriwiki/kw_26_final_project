@@ -41,7 +41,28 @@ npm run dev
 
 산출물이 없다고 해서 fixture 로 자동 fallback 하지 않는다. 없으면 없다고 답한다.
 
-## 정책 본런 결과 들여오기
+## 바로 띄우기 — 다 만든 콘솔 데이터 받기
+
+정책 본런 다섯 개(민생회복 소비쿠폰 1차 · 상생소비지원금 · 긴급재난지원금 1차 · 사회적 거리두기 2단계 ·
+서울시 재난긴급생활비 3주)를 콘솔에서 바로 볼 수 있게 만들어 둔 데이터가 구글 드라이브에 있다.
+
+- 받기: <https://drive.google.com/drive/folders/1J6PXPQssuHgm8fX5EvNHtSztDkQIaw4R>
+  (`KW_시뮬결과_공유_20261011/WEB_CONSOLE_DATA/kw_web_data_20261022.zip`, 0.87GB, 풀면 5.4GB ·
+  SHA-256 `f2c8ecaf214994717a665204364f231ee474d3a2402d1282aa170445c7b95676`)
+- 담긴 것: `runs/`(정책별 실행) · `experiments/`(정책 있음·없음 비교) · `packs/`(3D 지도) ·
+  `policies/`(본런 고정 정책) · `run_console.sh` / `run_console.ps1`
+- 키는 들어 있지 않다. 인터뷰·보고서 해설은 `web/.env` 에 K-EXAONE 키를 따로 넣어야 켜진다.
+
+```bash
+# 1) zip 을 아무 데나 푼다 → kw_web_data/
+# 2) 처음 한 번: UI 빌드
+cd 웹_콘솔/web/ui && npm ci && npm run build
+# 3) 띄우기 (http://127.0.0.1:8765)
+CONSOLE=<저장소>/웹_콘솔 bash <푼 곳>/kw_web_data/run_console.sh
+#    PowerShell: <푼 곳>\kw_web_data\run_console.ps1 -Console <저장소>\웹_콘솔
+```
+
+## 정책 본런 결과 들여오기 (데이터를 다시 만들 때)
 
 P010·P012·P013·거리두기·서울시 재난긴급생활비 본런은 구글 드라이브
 `KW_시뮬결과_공유_20261011` 에 zip 으로 있다. 실험 정의(`web/experiments/*.json`)의
