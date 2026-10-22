@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<title>서울 상권정책 시뮬레이션</title>
+<meta name="description" content="AI 에이전트로 서울 시민의 하루를 시뮬레이션하고, 실제 정책을 넣어 소비의 움직임을 실측 연구와 대조한다.">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* 레이아웃: 16:9 슬라이드 한 장이 한 화면. 크기는 u(화면 짧은 쪽 기준 1%)로 함께 늘고 줄어든다 */
+:root{
+  --bg:#ffffff;
+  --ink:#111316;
+  --ink2:#3d434b;
+  --ink3:#646a73;
+  --rule:#e4e6e9;
+  --rule2:#c7cbd1;
+  --tint:#f3f4f6;
+  --real:#9a5b3a;   /* 실측 — 흙빛 */
+  --sim:#1f3b5c;    /* 시뮬 — 먹색 남색 */
+  --sans:"Pretendard Variable",Pretendard,-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,"Pretendard Variable",Pretendard,"Malgun Gothic",monospace;
+
+  --u:min(1vw,1.778vh);
+  --top:clamp(52px,calc(var(--u)*4.6),88px);
+  --bot:clamp(52px,calc(var(--u)*4.6),88px);
+  --gut:clamp(20px,calc(var(--u)*6.5),128px);
+
+  --t-hero:clamp(34px,calc(var(--u)*4.9),96px);
+  --t-h2:clamp(27px,calc(var(--u)*3.7),72px);
+  --t-h3:clamp(18px,calc(var(--u)*1.75),34px);
+  --t-lead:clamp(17px,calc(var(--u)*1.6),31px);
+  --t-body:clamp(15px,calc(var(--u)*1.3),25px);
+  --t-small:clamp(13px,calc(var(--u)*1.05),20px);
+  --t-label:clamp(12px,calc(var(--u)*.95),18px);
+  --t-num:clamp(38px,calc(var(--u)*5.2),100px);
+
+  --sp1:calc(var(--u)*1);
+  --sp2:calc(var(--u)*2);
+  --sp3:calc(var(--u)*3.2);
+  --sp4:calc(var(--u)*5);
+  --ease:cubic-bezier(.22,.8,.2,1);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;color-scheme:light}
+body{font-family:var(--sans);-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word;font-size:var(--t-body);line-height:1.55}
+p{margin:0}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.num{font-variant-numeric:tabular-nums}
+.muted{color:var(--ink3)}
+
+/* ───────── 프레임 ───────── */
+#field{position:fixed;inset:0;z-index:0;pointer-events:none}
+.top{position:fixed;z-index:3;left:0;right:0;top:0;height:calc(var(--top) + env(safe-area-inset-top,0px));padding:env(safe-area-inset-top,0px) var(--gut) 0;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+.brand{font-weight:650;font-size:var(--t-small);letter-spacing:-.01em;display:flex;gap:.7em;align-items:center}
+.brand i{width:.5em;height:.5em;background:var(--ink);display:inline-block}
+.where{font-family:var(--mono);font-size:var(--t-label);color:var(--ink3);display:flex;gap:1.4em}
+.where b{color:var(--ink);font-weight:500}
+
+#stage{position:fixed;inset:0;z-index:1;overflow:hidden;cursor:grab;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+#stage.dragging{cursor:grabbing}
+#track{height:100%;display:flex;will-change:transform}
+.slide{flex:0 0 100vw;width:100vw;height:100%;overflow-y:auto;overflow-x:hidden;scrollbar-width:none}
+.slide::-webkit-scrollbar{display:none}
+.inner{min-height:100%;max-width:calc(var(--u)*150);margin:0 auto;padding:calc(var(--top) + var(--sp1)) var(--gut) calc(var(--bot) + var(--sp1));display:flex;flex-direction:column;justify-content:center}
+
+.foot{position:fixed;z-index:3;left:0;right:0;bottom:0;height:calc(var(--bot) + env(safe-area-inset-bottom,0px));padding:0 var(--gut) env(safe-area-inset-bottom,0px);display:flex;align-items:center;gap:var(--sp3)}
+.rail{position:relative;flex:1;height:24px;display:flex;align-items:center}
+.rail::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--rule2)}
+.rail .fill{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-.5px;background:var(--ink);transform-origin:0 50%;transform:scaleX(0)}
+.ticks{position:absolute;inset:0;margin:0;padding:0;list-style:none}
+.ticks button{position:absolute;top:50%;width:24px;height:24px;margin:-12px 0 0 -12px;border:0;background:none;padding:0;cursor:pointer}
+.ticks button::after{content:"";position:absolute;left:50%;top:50%;width:8px;height:8px;margin:-4px 0 0 -4px;background:var(--bg);border:1px solid var(--ink3);transition:background .25s,border-color .25s}
+.ticks button.past::after{background:var(--ink);border-color:var(--ink)}
+.ticks button:focus-visible{outline:1px solid var(--ink);outline-offset:2px}
+.hint{font-family:var(--mono);font-size:var(--t-label);color:var(--ink3);white-space:nowrap}
+.hint kbd{font-family:inherit;border:1px solid var(--rule2);padding:0 .35em;margin:0 .15em;color:var(--ink2)}
+
+/* ───────── 등장 — 왼쪽에서 오른쪽으로 번지는 그라데이션 ───────── */
+@property --rv{syntax:'<percentage>';inherits:false;initial-value:0%}
+.rv{
+  --rv:0%;
+  -webkit-mask-image:linear-gradient(100deg,#000 calc(var(--rv) - 45%),rgba(0,0,0,.35) calc(var(--rv) - 18%),transparent var(--rv));
+          mask-image:linear-gradient(100deg,#000 calc(var(--rv) - 45%),rgba(0,0,0,.35) calc(var(--rv) - 18%),transparent var(--rv));
+  transition:--rv 1.3s cubic-bezier(.33,.5,.2,1);
+  transition-delay:calc(var(--i,0) * 90ms + 80ms);
+}
+.slide.on .rv{--rv:150%}
+.slide.settled .rv{-webkit-mask-image:none;mask-image:none}
+@media (prefers-reduced-motion:reduce){.rv{transition-duration:.01s;transition-delay:0s}}
+
+/* ───────── 타이포 ───────── */
+.kicker{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.03em;color:var(--ink3);margin:0 0 var(--sp1);display:flex;gap:1em;align-items:center}
+.kicker::after{content:"";width:calc(var(--u)*4);height:1px;background:var(--rule2)}
+h1,h2,h3{margin:0;font-weight:700;letter-spacing:-.035em;text-wrap:balance}
+.h-hero{font-size:var(--t-hero);line-height:1.12}
+.h2{font-size:var(--t-h2);line-height:1.2}
+.h3{font-size:var(--t-h3);line-height:1.32;letter-spacing:-.025em;font-weight:650}
+.lead{font-size:var(--t-lead);line-height:1.6;color:var(--ink2);max-width:30em;margin-top:var(--sp2)}
+.note{font-size:var(--t-small);line-height:1.6;color:var(--ink3)}
+em{font-style:normal;color:var(--ink);box-shadow:inset 0 -.32em 0 #e9ebef}
+.sub{font-size:var(--t-small);color:var(--ink3);margin:.3em 0 var(--sp2)}
+
+/* ───────── 00 표지 ───────── */
+.hero{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,.8fr);gap:var(--sp4);align-items:end}
+.stats{display:flex;flex-wrap:wrap;margin-top:var(--sp3);border-top:1px solid var(--rule)}
+.stats div{padding:var(--sp2) var(--sp3) 0 0;margin-right:var(--sp3);border-right:1px solid var(--rule)}
+.stats div:last-child{border-right:0;margin-right:0}
+.stats b{display:block;font-size:calc(var(--t-h3)*1.3);font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.2}
+.stats span{display:block;font-size:var(--t-small);color:var(--ink3);margin-top:.35em}
+.mapcap{justify-self:end;font-family:var(--mono);font-size:var(--t-label);color:var(--ink3);text-align:right;line-height:1.7}
+.mapcap b{color:var(--ink2);font-weight:500}
+
+/* ───────── 01 질문 ───────── */
+.q-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp4);align-items:end}
+.qlist{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink)}
+.qlist li{display:grid;grid-template-columns:2.6em 1fr;align-items:baseline;padding:var(--sp2) 0;border-bottom:1px solid var(--rule);font-size:var(--t-lead);line-height:1.45;color:var(--ink2)}
+.qlist li .mono{font-size:var(--t-label);color:var(--ink3)}
+.qlist strong{color:var(--ink);font-weight:650}
+.answer{margin-top:var(--sp4);font-size:calc(var(--t-h2)*.78);font-weight:650;letter-spacing:-.03em;line-height:1.3}
+
+/* ───────── 02 재료 ───────── */
+.flow{position:relative;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));margin-top:var(--sp4)}
+.flow svg.line{position:absolute;left:0;top:0;width:100%;height:12px;overflow:visible}
+.flow .ln{stroke:var(--ink);stroke-width:1.2;fill:none;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1.6s cubic-bezier(.6,.05,.25,1) .2s}
+.slide.on .flow .ln{stroke-dashoffset:0}
+.step{position:relative;padding:calc(var(--sp3) + 6px) var(--sp2) 0 0}
+.step::before{content:"";position:absolute;left:0;top:2px;width:9px;height:9px;background:var(--bg);border:1.5px solid var(--ink)}
+.step .mono{font-size:var(--t-label);color:var(--ink3)}
+.step h3,.step .big{display:block;margin:.5em 0 .45em}
+.step .big{font-size:var(--t-h3);font-weight:650;letter-spacing:-.025em;line-height:1.32}
+.step p{font-size:var(--t-body);line-height:1.55;color:var(--ink2)}
+
+/* ───────── 03 하루 ───────── */
+.dayhead{display:flex;align-items:flex-end;justify-content:space-between;gap:var(--sp3)}
+.play{font-family:var(--mono);font-size:var(--t-label);color:var(--ink2);background:var(--bg);border:1px solid var(--rule2);padding:.55em 1em;cursor:pointer;white-space:nowrap}
+.play:hover{border-color:var(--ink);color:var(--ink)}
+.play:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.day-wrap{margin-top:var(--sp2);padding-top:calc(var(--t-label) + 18px)}
+.day{position:relative;height:calc(var(--sp3) + 52px);touch-action:none;cursor:pointer}
+.seg{position:absolute;top:8px;height:calc(var(--sp3) + 4px);border-left:1px solid var(--rule2);padding:0 .7em;display:flex;align-items:center;font-size:var(--t-small);color:var(--ink3);white-space:nowrap;overflow:hidden;transition:color .25s,background .25s}
+.seg.act{color:var(--ink);background:var(--tint)}
+.axis{position:absolute;left:0;right:0;top:calc(var(--sp3) + 12px);height:1px;background:var(--ink)}
+.hours{position:absolute;left:0;right:0;top:calc(var(--sp3) + 20px);font-family:var(--mono);font-size:var(--t-label);color:var(--ink3)}
+.hours span{position:absolute;transform:translateX(-50%)}
+.hours span:first-child{transform:none}
+.hours span:last-child{transform:translateX(-100%)}
+.knob{position:absolute;top:0;width:2px;height:calc(var(--sp3) + 22px);margin-left:-1px;background:var(--ink);outline:none}
+.knob::before{content:"";position:absolute;left:50%;top:-6px;width:14px;height:14px;margin-left:-7px;background:var(--ink);border-radius:50%}
+.knob::after{content:"";position:absolute;left:-16px;right:-16px;top:-16px;bottom:-8px}
+.knob:focus-visible::before{box-shadow:0 0 0 4px var(--bg),0 0 0 5px var(--ink)}
+.knob .t{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%);font-size:var(--t-label);font-weight:500;background:var(--bg);padding:0 .3em;white-space:nowrap}
+.phase{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp4);align-items:end;margin-top:var(--sp2);padding-top:var(--sp2);border-top:1px solid var(--rule);min-height:calc(var(--u)*13)}
+.phase .tag{display:block;font-family:var(--mono);font-size:var(--t-label);color:var(--ink3);margin-bottom:.5em}
+.phase h3{font-size:calc(var(--t-h2)*.78);letter-spacing:-.035em;line-height:1.25}
+.phase p{font-size:var(--t-lead);line-height:1.6;color:var(--ink2)}
+.swap{transition:opacity .25s}
+.day-note{margin-top:var(--sp2)}
+
+/* ───────── 04 정책 표 ───────── */
+.pol-grid{display:grid;grid-template-columns:minmax(0,1.9fr) minmax(0,1fr);gap:var(--sp4);align-items:start;margin-top:var(--sp3)}
+.tbl{min-width:0;overflow-x:auto}
+table{border-collapse:collapse;width:100%}
+.pol th{font-weight:500;font-size:var(--t-label);color:var(--ink3);text-align:left;padding:0 1em .6em 0;border-bottom:1px solid var(--ink);font-family:var(--mono);white-space:nowrap}
+.pol td{padding:calc(var(--u)*.85) 1em calc(var(--u)*.85) 0;border-bottom:1px solid var(--rule);vertical-align:baseline;font-size:var(--t-body);line-height:1.4;color:var(--ink2)}
+.pol td:first-child{font-family:var(--mono);font-size:var(--t-label);color:var(--ink3);white-space:nowrap}
+.pol td b{color:var(--ink);font-weight:600}
+.pol td small{font-size:var(--t-small);color:var(--ink3);margin-left:.6em}
+.pol td.src{font-size:var(--t-small)}
+.pol tbody tr{transition:background .2s}
+.pol tbody tr:hover{background:var(--tint)}
+.mech{display:inline-block;font-size:var(--t-small);white-space:nowrap;border-bottom:1.5px solid var(--ink3);color:var(--ink)}
+.mech.w{border-color:var(--sim)}.mech.d{border-color:var(--real)}
+.aside h3{margin-bottom:.6em}
+.aside p{font-size:var(--t-body);line-height:1.65;color:var(--ink2)}
+.aside .rule{border-top:1px solid var(--rule);padding-top:var(--sp2);margin-top:var(--sp2)}
+
+/* ───────── 05 재현 ───────── */
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));margin-top:var(--sp3);border-top:1px solid var(--ink)}
+.metric{padding:var(--sp2) var(--sp2) 0 0;border-right:1px solid var(--rule);margin-right:var(--sp2);min-width:0}
+.metric:last-child{border-right:0;margin-right:0}
+.metric .mono{font-size:var(--t-label);color:var(--ink3)}
+.metric .v{display:block;font-size:var(--t-num);font-weight:650;letter-spacing:-.05em;line-height:1.1;margin:.2em 0 .3em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.metric .v small{font-size:.4em;letter-spacing:-.02em;color:var(--ink3);font-weight:500}
+.metric p{margin-top:.35em;font-size:var(--t-small);line-height:1.5;color:var(--ink2)}
+.scale{position:relative;height:calc(var(--t-label) + 20px);margin-top:var(--sp1)}
+.scale .base{position:absolute;left:0;right:0;top:9px;height:1px;background:var(--rule2)}
+.scale .lb{position:absolute;top:16px;font-family:var(--mono);font-size:var(--t-label);color:var(--ink3);line-height:1.2}
+.scale .mk{position:absolute;top:2px;width:3px;height:15px;margin-left:-1.5px}
+.scale .fillbar{position:absolute;left:0;right:0;top:8px;height:3px;background:var(--sim);transform-origin:0 50%;transform:scaleX(0);transition:transform 1.1s var(--ease) .4s}
+.slide.on .scale .fillbar{transform:scaleX(var(--s))}
+.loy{display:flex;align-items:flex-end;gap:6px;height:calc(var(--u)*4);min-height:40px;margin-top:var(--sp1)}
+.loy i{display:block;width:calc(var(--u)*2);min-width:18px;background:var(--sim);height:0;transition:height .9s var(--ease);transition-delay:calc(var(--k)*90ms + 400ms)}
+.loy i.tail{background:var(--rule2)}
+.slide.on .loy i{height:var(--h)}
+.key{display:flex;flex-wrap:wrap;gap:.4em 1.2em;font-size:var(--t-label);color:var(--ink3);margin-top:.6em;font-family:var(--mono)}
+.key i{display:inline-block;width:12px;height:3px;vertical-align:middle;margin-right:.45em}
+.foot-note{margin-top:var(--sp2);padding-top:var(--sp1);border-top:1px solid var(--rule)}
+
+/* ───────── 06 대조 ───────── */
+.cmp-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(220px,calc(var(--u)*26));gap:var(--sp4);align-items:end}
+.blend .lbls{display:flex;justify-content:space-between;font-size:var(--t-label);font-family:var(--mono);margin-bottom:.4em}
+.blend .lbls .r{color:var(--real)}.blend .lbls .s{color:var(--sim)}
+.btrack{position:relative;height:40px;touch-action:none;cursor:ew-resize}
+.btrack .base{position:absolute;left:0;right:0;top:19px;height:2px;background:linear-gradient(90deg,var(--real),var(--sim))}
+.bknob{position:absolute;top:8px;width:24px;height:24px;margin-left:-12px;border-radius:50%;background:var(--bg);border:2px solid var(--ink);outline:none}
+.bknob:focus-visible{box-shadow:0 0 0 4px var(--bg),0 0 0 5px var(--ink)}
+.blend .cue{font-size:var(--t-label);color:var(--ink3);font-family:var(--mono)}
+.rows{margin-top:var(--sp2);border-top:1px solid var(--ink)}
+.row{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1.6fr) calc(var(--u)*17);gap:var(--sp2);align-items:center;padding:calc(var(--u)*.7) 0;border-bottom:1px solid var(--rule)}
+.row .name{font-size:var(--t-body);line-height:1.35;color:var(--ink);min-width:0}
+.row .name .mono{font-size:var(--t-label);color:var(--ink3);margin-right:.6em}
+.row .flag{font-size:var(--t-label);color:var(--ink3);margin-left:.5em;white-space:nowrap}
+.bars{position:relative;height:calc(var(--t-label) + 14px)}
+.bars .zero{position:absolute;left:50%;top:-5px;bottom:-5px;width:1px;background:var(--ink)}
+.bars .bar{position:absolute;top:50%;height:12px;margin-top:-6px}
+.bars .gh{position:absolute;top:2px;bottom:2px;width:2px;margin-left:-1px}
+.bars .gh.r{background:var(--real)}.bars .gh.s{background:var(--sim)}
+.bars .cur{position:absolute;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:var(--t-label);font-weight:500;white-space:nowrap;background:var(--bg);padding:0 .25em;line-height:1.3}
+.vals{display:grid;grid-template-columns:repeat(3,1fr);font-family:var(--mono);font-size:var(--t-small);text-align:right;gap:.6em}
+.vals .r{color:var(--real)}.vals .s{color:var(--sim)}.vals .d{color:var(--ink3)}
+.row.hd{padding:.5em 0;border-bottom:1px solid var(--rule)}
+.row.hd .name,.row.hd .bars,.row.hd .vals{font-size:var(--t-label);color:var(--ink3);font-family:var(--mono);height:auto}
+.cmp-foot{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:var(--sp2) var(--sp4);margin-top:var(--sp2)}
+.score{display:flex;gap:var(--sp4)}
+.score b{display:block;font-size:calc(var(--t-h2)*.8);font-weight:650;letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1.25}
+.score span{display:block;font-size:var(--t-small);color:var(--ink3);margin-top:.3em}
+.cmp-foot .note{max-width:34em;text-align:right}
+
+/* ───────── 07 원칙 ───────── */
+.rules-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp4);margin-top:var(--sp3);align-items:start}
+.rules{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink);counter-reset:r}
+.rules li{counter-increment:r;display:grid;grid-template-columns:2.4em 1fr;align-items:baseline;padding:var(--sp2) 0;border-bottom:1px solid var(--rule);font-size:var(--t-lead);font-weight:650;letter-spacing:-.02em;line-height:1.4}
+.rules li::before{content:counter(r,decimal-leading-zero);font-family:var(--mono);font-size:var(--t-label);font-weight:400;color:var(--ink3);letter-spacing:0}
+.prog{--pl:calc(var(--u)*7.5);--pv:calc(var(--u)*6.5);--pg:var(--sp2)}
+.pbars{position:relative;padding-top:calc(var(--t-label) + 10px)}
+.pbar{display:grid;grid-template-columns:var(--pl) 1fr var(--pv);gap:var(--pg);align-items:center;padding:calc(var(--u)*.8) 0}
+.pbar .mono{font-size:var(--t-small);color:var(--ink2);white-space:nowrap}
+.pbar .trk{position:relative;height:calc(var(--u)*1.2);min-height:12px;background:var(--tint)}
+.pbar .trk i{position:absolute;inset:0;background:var(--ink);transform-origin:0 50%;transform:scaleX(0);transition:transform 1.2s var(--ease);transition-delay:var(--dl,.4s)}
+.pbar .trk i.soft{background:var(--ink3)}
+.slide.on .pbar .trk i{transform:scaleX(var(--s))}
+.pbar .v{text-align:right;font-family:var(--mono);font-size:var(--t-small)}
+.gate-line{position:absolute;top:0;bottom:0;left:calc(var(--pl) + var(--pg) + (100% - var(--pl) - var(--pv) - 2 * var(--pg)) * .95);border-left:1.5px dashed var(--ink);pointer-events:none}
+.gate-line span{position:absolute;top:0;left:.5em;font-family:var(--mono);font-size:var(--t-label);white-space:nowrap;line-height:1}
+.pstats{margin-top:var(--sp2);display:flex;gap:var(--sp4);flex-wrap:wrap;border-top:1px solid var(--rule);padding-top:var(--sp2)}
+.pstats b{display:block;font-size:var(--t-h3);font-weight:650;letter-spacing:-.02em;line-height:1.2}
+.pstats span{display:block;font-size:var(--t-small);color:var(--ink3);margin-top:.2em}
+
+/* ───────── 08 한계 ───────── */
+.lim-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:var(--sp4);margin-top:var(--sp2);align-items:start}
+.lims{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink)}
+.lims li{padding:var(--sp2) 0;border-bottom:1px solid var(--rule)}
+.lims b{display:block;font-size:var(--t-lead);font-weight:650;letter-spacing:-.02em;line-height:1.4}
+.lims p{margin-top:.35em;font-size:var(--t-body);line-height:1.6;color:var(--ink2)}
+.power{--ql:calc(var(--u)*11);--qv:calc(var(--u)*5.5);--qg:var(--sp1)}
+.plot{position:relative;padding-top:calc(var(--t-label) + 10px)}
+.prow{display:grid;grid-template-columns:var(--ql) 1fr var(--qv);gap:var(--qg);align-items:center;height:calc(var(--u)*2.3);min-height:22px}
+.prow .mono{font-size:var(--t-label);color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prow .pt{position:relative;height:100%}
+.prow .pt i{position:absolute;top:50%;height:calc(var(--u)*.8);min-height:7px;transform:translateY(-50%) scaleX(0);left:0;background:var(--ink);transform-origin:0 50%;transition:transform 1s var(--ease);transition-delay:calc(var(--k)*60ms + 350ms)}
+.prow.ok .pt i{background:var(--rule2)}
+.slide.on .prow .pt i{transform:translateY(-50%) scaleX(1)}
+.prow .x{font-family:var(--mono);font-size:var(--t-label);text-align:right;white-space:nowrap}
+.prow.ok .x{color:var(--ink3)}
+.paxis{position:relative;margin-left:calc(var(--ql) + var(--qg));margin-right:calc(var(--qv) + var(--qg));height:calc(var(--t-label) + 10px);border-top:1px solid var(--rule2);margin-top:4px}
+.paxis span{position:absolute;top:4px;font-family:var(--mono);font-size:var(--t-label);color:var(--ink3);transform:translateX(-50%);line-height:1.2}
+.one{position:absolute;top:0;bottom:calc(var(--t-label) + 14px);border-left:1.5px dashed var(--ink);pointer-events:none}
+.one span{position:absolute;top:0;left:.5em;font-family:var(--mono);font-size:var(--t-label);white-space:nowrap;line-height:1}
+
+/* ───────── 09 마무리 ───────── */
+.end{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:var(--sp4);align-items:center}
+.end h2{font-size:calc(var(--t-hero)*.82);line-height:1.15}
+.outs{list-style:none;margin:var(--sp4) 0 0;padding:0;border-top:1px solid var(--ink);max-width:calc(var(--u)*62)}
+.outs li{display:grid;grid-template-columns:calc(var(--u)*13) 1fr;gap:var(--sp2);align-items:baseline;padding:var(--sp1) 0 calc(var(--sp1) + 2px);border-bottom:1px solid var(--rule)}
+.outs b{font-weight:650;font-size:var(--t-body)}
+.outs span{font-size:var(--t-body);color:var(--ink2);line-height:1.5}
+.sign{margin-top:var(--sp3);font-family:var(--mono);font-size:var(--t-label);color:var(--ink3)}
+
+/* ───────── 좁은 화면 ───────── */
+@media (max-width:980px){
+  :root{--u:1.15vw}
+  .inner{justify-content:flex-start;padding-top:calc(var(--top) + 28px);padding-bottom:calc(var(--bot) + 28px)}
+  .hero,.q-grid,.pol-grid,.rules-grid,.lim-grid,.end,.phase,.cmp-grid{grid-template-columns:1fr;gap:28px}
+  .mapcap{justify-self:start;text-align:left;min-height:52vw}
+  .flow{grid-template-columns:1fr;gap:4px;margin-top:28px}
+  .flow svg.line{display:none}
+  .step{padding:14px 0 14px 26px;border-left:1px solid var(--ink)}
+  .step::before{left:-5px;top:20px}
+  .metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .metric{padding-bottom:22px}
+  .metric:nth-child(2){border-right:0;margin-right:0}
+  .row{grid-template-columns:1fr;gap:8px}
+  .vals{text-align:left}
+  .row.hd{display:none}
+  .cmp-foot .note{text-align:left}
+  .hint{display:none}
+  .seg{padding:0 4px}
+  .top,.foot{background:rgba(255,255,255,.94)}
+  .prog{--pl:84px;--pv:64px;--pg:12px}
+  .power{--ql:120px;--qv:56px;--qg:10px}
+  .outs li{grid-template-columns:110px 1fr}
+  .pol td small{display:block;margin-left:0}
+  .pol th:nth-child(3),.pol td:nth-child(3){display:none}
+}
+@media (max-width:560px){
+  .metrics{grid-template-columns:1fr}
+  .metric{border-right:0;margin-right:0;border-bottom:1px solid var(--rule)}
+  .where span:first-child{display:none}
+  .seg span{font-size:11px}
+  .outs li{grid-template-columns:1fr;gap:2px}
+  .power{--ql:96px;--qv:52px}
+}
+</style>
+</head>
+<body>
+
+<canvas id="field" aria-hidden="true"></canvas>
+
+<header class="top">
+  <div class="brand"><i></i>서울 상권정책 시뮬레이션</div>
+  <div class="where"><span id="secName">시작</span><span><b id="cur">01</b> / <span id="tot">10</span></span></div>
+</header>
+
+<main id="stage" aria-roledescription="carousel" aria-label="프로젝트 소개">
+<div id="track">
+
+<!-- 00 ─ 표지 -->
+<section class="slide" data-name="시작" aria-roledescription="slide">
+  <div class="inner">
+    <div class="hero">
+      <div data-d="0.18">
+        <p class="kicker rv" style="--i:0">AI 에이전트 상권정책 시뮬레이션</p>
+        <h1 class="h-hero rv" style="--i:1">정책을 시행하기 전에,<br>소비가 어떻게<br>움직일지 미리 본다.</h1>
+        <p class="lead rv" style="--i:2">시민을 AI 에이전트로 만들고, 실제 정책을 넣어 소비 변화를 실측과 비교한다.</p>
+        <div class="stats rv" style="--i:3">
+          <div><b>7,500</b><span>시민 에이전트</span></div>
+          <div><b>14일</b><span>시뮬레이션 기간</span></div>
+          <div><b>589,337</b><span>결제 기록</span></div>
+        </div>
+      </div>
+      <p class="mapcap rv" style="--i:5" data-d="0.3"><b>점 = 에이전트 표본 · 배치는 설명용</b><br>끌어서 흔들어 보세요</p>
+    </div>
+  </div>
+</section>
+
+<!-- 01 ─ 질문 -->
+<section class="slide" data-name="질문">
+  <div class="inner">
+    <p class="kicker rv">01 — 질문</p>
+    <div class="q-grid">
+      <h2 class="h2 rv" style="--i:1" data-d="0.2">정책 효과는<br>시행한 뒤에야 안다.</h2>
+      <ol class="qlist rv" style="--i:2" data-d="0.2">
+        <li><span class="mono">a</span><span><strong>누구의 지출이, 어디서, 얼마나</strong> 늘까</span></li>
+        <li><span class="mono">b</span><span><strong>지급·환급·할인</strong>은 움직이는 곳이 다르다</span></li>
+        <li><span class="mono">c</span><span>사후 분석은 <strong>수개월~2년 뒤</strong>에 나온다</span></li>
+      </ol>
+    </div>
+    <p class="answer rv" style="--i:4" data-d="0.2">그래서 서울을 한 벌 더 만들었다.</p>
+  </div>
+</section>
+
+<!-- 02 ─ 재료 -->
+<section class="slide" data-name="재료">
+  <div class="inner">
+    <p class="kicker rv">02 — 도시를 만드는 재료</p>
+    <h2 class="h2 rv" style="--i:1" data-d="0.1">통계에서 사람으로,<br>사람에서 하루로.</h2>
+    <div class="flow" data-d="0.26">
+      <svg class="line" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><path class="ln" pathLength="1" d="M0 6.5 H100" vector-effect="non-scaling-stroke" fill="none"/></svg>
+      <div class="step rv" style="--i:2"><span class="mono">STEP 1</span><h3 class="h3">빅데이터캠퍼스 통계</h3><p>인구·소득·활동·카드소비</p></div>
+      <div class="step rv" style="--i:3"><span class="mono">STEP 2</span><b class="big num">시민 14,881명</b><p>통계를 따라 만든 페르소나</p></div>
+      <div class="step rv" style="--i:4"><span class="mono">STEP 3</span><h3 class="h3">그래프 위의 도시</h3><p>동네·가게·집·직장·관계</p></div>
+      <div class="step rv" style="--i:5"><span class="mono">STEP 4</span><h3 class="h3">하루 시뮬레이션</h3><p>계획 → 이동 → 결제 → 대화</p></div>
+      <div class="step rv" style="--i:6"><span class="mono">STEP 5</span><h3 class="h3">정책 주입과 평가</h3><p>이중차분 · 정답지 대조</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 03 ─ 하루 -->
+<section class="slide" data-name="하루">
+  <div class="inner">
+    <p class="kicker rv">03 — 에이전트의 하루</p>
+    <div class="dayhead" data-d="0.1">
+      <h2 class="h2 rv" style="--i:1">어디로 갈지는<br>각자가 그때그때 판단한다.</h2>
+      <button class="play rv" style="--i:2" id="dayPlay" type="button" data-nodrag>▶ 하루 재생</button>
+    </div>
+    <div class="day-wrap rv" style="--i:2">
+      <div class="day" id="day" data-nodrag>
+        <div id="segs"></div>
+        <div class="axis"></div>
+        <div class="hours"><span style="left:0">00</span><span style="left:25%">06</span><span style="left:50%">12</span><span style="left:75%">18</span><span style="left:100%">24</span></div>
+        <div class="knob" id="dayKnob" role="slider" tabindex="0" aria-label="하루 중 시각" aria-valuemin="0" aria-valuemax="24" aria-valuenow="7"><span class="t mono" id="dayT">07:00</span></div>
+      </div>
+    </div>
+    <div class="phase rv" style="--i:3">
+      <div class="swap" id="phHead"><span class="tag" id="phTag"></span><h3 id="phName"></h3></div>
+      <div class="swap" id="phBody"><p id="phDesc"></p></div>
+    </div>
+    <p class="note day-note rv" style="--i:4">막대를 끌어 보세요 · 시각은 설명용</p>
+  </div>
+</section>
+
+<!-- 04 ─ 정책 -->
+<section class="slide" data-name="정책">
+  <div class="inner">
+    <p class="kicker rv">04 — 대상 정책</p>
+    <h2 class="h2 rv" style="--i:1" data-d="0.1">실제 정책과 그 효과를 잰 연구를 짝지었다.</h2>
+    <div class="pol-grid">
+      <div class="tbl rv" style="--i:2" data-d="0.24">
+        <table class="pol">
+          <thead><tr><th>코드</th><th>정책</th><th>기전</th><th>정답지</th></tr></thead>
+          <tbody>
+            <tr><td>P010</td><td><b>민생회복 소비쿠폰</b><small>2025</small></td><td><span class="mech w">지급</span></td><td class="src">한국은행 이슈노트 2026-13</td></tr>
+            <tr><td>P012</td><td><b>상생소비지원금</b><small>2021</small></td><td><span class="mech">실적 환급</span></td><td class="src">기획재정부·KDI (2022.9)</td></tr>
+            <tr><td>P013</td><td><b>1차 긴급재난지원금</b><small>2020</small></td><td><span class="mech w">지급</span></td><td class="src">KDI FOCUS</td></tr>
+            <tr><td>P014</td><td><b>지역사랑상품권</b></td><td><span class="mech d">가격 할인</span></td><td class="src">조세재정연구원 (2020)</td></tr>
+            <tr><td>P015</td><td><b>8대 소비쿠폰</b><small>2020</small></td><td><span class="mech d">할인</span></td><td class="src">봉인 — 홀드아웃</td></tr>
+            <tr><td>P016</td><td><b>농축산물 할인쿠폰</b><small>2020 · 미실행</small></td><td><span class="mech d">업종 할인</span></td><td class="src">한국농촌경제연구원 (2022)</td></tr>
+            <tr><td>—</td><td><b>사회적 거리두기</b><small>2020-11</small></td><td><span class="mech">사회 배경</span></td><td class="src">서울연구원 (2021.4)</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="aside rv" style="--i:3" data-d="0.24">
+        <h3 class="h3">기전이 다르면<br>기대도 다르다.</h3>
+        <p>지급은 <em>총액</em>이, 할인은 <em>쓰는 곳</em>이 움직여야 한다.</p>
+        <div class="rule"><p><b>실측값은 모델에게 주지 않는다.</b><br>채점에만 쓴다.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 05 ─ 재현 -->
+<section class="slide" data-name="재현">
+  <div class="inner">
+    <p class="kicker rv">05 — 현실과 닮았는가</p>
+    <h2 class="h2 rv" style="--i:1" data-d="0.1">언제, 어디서 쓰는지는<br>실제 서울과 겹친다.</h2>
+    <div class="metrics" data-d="0.24">
+      <div class="metric rv" style="--i:2">
+        <span class="mono">WHERE · 25개 자치구</span>
+        <span class="v">0.94</span>
+        <h3 class="h3">어디서 쓰는가</h3>
+        <p>자치구별 소비 vs 상권 매출</p>
+        <div class="scale"><div class="base"></div><div class="fillbar" style="--s:.94"></div><span class="lb" style="left:0">0</span><span class="lb" style="right:0">1</span></div>
+      </div>
+      <div class="metric rv" style="--i:3">
+        <span class="mono">WHEN · 24시간</span>
+        <span class="v">0.86</span>
+        <h3 class="h3">언제 쓰는가</h3>
+        <p>시간대별 소비 vs 통신 활동량</p>
+        <div class="scale"><div class="base"></div><div class="fillbar" style="--s:.86"></div><span class="lb" style="left:0">0</span><span class="lb" style="right:0">1</span></div>
+      </div>
+      <div class="metric rv" style="--i:4">
+        <span class="mono">CONCENTRATION</span>
+        <span class="v">0.16 <small>/ 0.22</small></span>
+        <h3 class="h3">얼마나 몰리는가</h3>
+        <p>집중도 지니 · 시뮬 / 실측</p>
+        <div class="scale"><div class="base"></div>
+          <i class="mk" style="left:32%;background:var(--sim)"></i><i class="mk" style="left:44%;background:var(--real)"></i>
+          <span class="lb" style="left:0">0</span><span class="lb" style="right:0">0.5</span></div>
+        <div class="key"><span><i style="background:var(--sim)"></i>시뮬</span><span><i style="background:var(--real)"></i>실측</span></div>
+      </div>
+      <div class="metric rv" style="--i:5">
+        <span class="mono">LOYALTY</span>
+        <span class="v">37<small>·22·16%</small></span>
+        <h3 class="h3">단골이 생기는가</h3>
+        <p>같은 가게 1·2·3회 방문 비율</p>
+        <div class="loy" aria-hidden="true"><i style="--h:100%;--k:0"></i><i style="--h:60%;--k:1"></i><i style="--h:43%;--k:2"></i><i class="tail" style="--h:70%;--k:3"></i></div>
+        <div class="key"><span>1회 · 2회 · 3회 · 4회+</span></div>
+      </div>
+    </div>
+    <p class="note foot-note rv" style="--i:6">시뮬레이션에 쓰지 않은 실측으로 검증 · 두 번의 독립 실행에서 재현</p>
+  </div>
+</section>
+
+<!-- 06 ─ 정답지 대조 -->
+<section class="slide" data-name="대조">
+  <div class="inner">
+    <p class="kicker rv">06 — 정답지 대조</p>
+    <div class="cmp-grid" data-d="0.1">
+      <h2 class="h2 rv" style="--i:1">실측 수치가 있는 지표 5개,<br>방향은 모두 맞았다.</h2>
+      <div class="blend rv" style="--i:2" data-nodrag>
+        <div class="lbls"><span class="r">실측</span><span class="s">시뮬</span></div>
+        <div class="btrack" id="blend"><div class="base"></div><div class="bknob" id="blendKnob" role="slider" tabindex="0" aria-label="실측에서 시뮬로" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"></div></div>
+        <div class="cue">손잡이를 끌어 비교</div>
+      </div>
+    </div>
+    <div class="rows rv" style="--i:3" id="rows" data-d="0.2">
+      <div class="row hd"><div class="name">지표</div><div class="bars">감소 ← 0 → 증가 (±25%)</div><div class="vals"><span>실측</span><span>시뮬</span><span>차이</span></div></div>
+    </div>
+    <div class="cmp-foot rv" style="--i:4">
+      <div class="score">
+        <div><b>5 / 5</b><span>방향 일치</span></div>
+        <div><b>4 / 5</b><span>95% 구간이 0을 비켜감</span></div>
+      </div>
+      <p class="note">상생·재난 200명, 거리두기 500명 · 지역사랑상품권은 방향 0~1/3<br>크기는 아직 비교하지 않는다</p>
+    </div>
+  </div>
+</section>
+
+<!-- 07 ─ 원칙 -->
+<section class="slide" data-name="원칙">
+  <div class="inner">
+    <p class="kicker rv">07 — 지키는 규칙</p>
+    <h2 class="h2 rv" style="--i:1" data-d="0.1">결과를 보고<br>결과에 맞추지 않는다.</h2>
+    <div class="rules-grid">
+      <ol class="rules rv" style="--i:2" data-d="0.24">
+        <li>실행 전에 합격선을 먼저 적는다.</li>
+        <li>정답은 모델에게 알려주지 않는다.</li>
+        <li>봉인한 정책은 한 번만 채점한다.</li>
+        <li>못 잰 것은 못 쟀다고 적는다.</li>
+      </ol>
+      <div class="prog rv" style="--i:3" data-d="0.24">
+        <h3 class="h3">프롬프트도 같은 방식으로 고른다</h3>
+        <p class="sub">형식 통과율</p>
+        <div class="pbars">
+          <div class="gate-line"><span>관문 95%</span></div>
+          <div class="pbar"><span class="mono">v5</span><div class="trk"><i style="--s:.68"></i></div><span class="v">68.0%</span></div>
+          <div class="pbar"><span class="mono">v45</span><div class="trk"><i style="--s:.886;--dl:.65s"></i></div><span class="v">88.6%</span></div>
+          <div class="pbar"><span class="mono muted">v45 · t=0</span><div class="trk"><i class="soft" style="--s:.94;--dl:.9s"></i></div><span class="v muted">94.0%</span></div>
+        </div>
+        <div class="pstats">
+          <div><b class="num">+95칸</b><span>순개선</span></div>
+          <div><b class="num">p &lt; 10<sup>−6</sup></b><span>유의확률</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 08 ─ 한계 -->
+<section class="slide" data-name="한계">
+  <div class="inner">
+    <p class="kicker rv">08 — 아직 말할 수 없는 것</p>
+    <h2 class="h2 rv" style="--i:1" data-d="0.1">아직 남은 한계</h2>
+    <div class="lim-grid">
+      <ol class="lims rv" style="--i:2" data-d="0.24">
+        <li><b>표본이 부족하다.</b><p>지표 10개 중 8개는 지금 인원으로 효과를 가려내지 못한다.</p></li>
+        <li><b>소득별 지원금 효과를 재현하지 못한다.</b><p>실측은 저소득층이 더 쓰지만, 시뮬은 소득과 무관하게 평평하다.</p></li>
+        <li><b>크기는 아직 비교하지 않는다.</b><p>지금은 방향만 채점한다.</p></li>
+      </ol>
+      <div class="power rv" style="--i:3" data-d="0.24">
+        <h3 class="h3">필요 인원 ÷ 현재 인원</h3>
+        <p class="sub">로그 눈금 · 1배를 넘으면 표본 부족</p>
+        <div class="plot" id="powerPlot"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 09 ─ 마무리 -->
+<section class="slide" data-name="마무리">
+  <div class="inner">
+    <div class="end">
+      <div data-d="0.16">
+        <p class="kicker rv">09 — 정리</p>
+        <h2 class="rv" style="--i:1">누구에게 얼마가 가고<br>무엇이 달라지는지,<br><span class="muted">그리고 그 근거까지.</span></h2>
+        <ul class="outs rv" style="--i:2">
+          <li><b>보고서</b><span>그림 27 · 표 8 · 수치 21건 재검산</span></li>
+          <li><b>1:1 인터뷰</b><span>기록에 없는 일은 모른다고 답한다</span></li>
+          <li><b>3D 이동 지도</b><span>14일치 이동과 결제 재생</span></li>
+        </ul>
+        <p class="sign rv" style="--i:3">서울 상권정책 시뮬레이션 · 2026</p>
+      </div>
+      <div></div>
+    </div>
+  </div>
+</section>
+
+</div>
+</main>
+
+<nav class="foot" aria-label="슬라이드 이동">
+  <div class="rail"><div class="fill" id="fill"></div><ol class="ticks" id="ticks"></ol></div>
+  <span class="hint"><kbd>←</kbd><kbd>→</kbd> 또는 드래그 · <kbd>F</kbd> 전체화면</span>
+</nav>
+
+<script>
+(() => {
+'use strict';
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, t) => a + (b - a) * t;
+
+/* ════════════ 배경 점 지도 — 에이전트 ════════════ */
+const field = (() => {
+  const cv = document.getElementById('field');
+  const ctx = cv.getContext('2d');
+  // 자치구 중심(경도, 위도)과 대략의 인구 가중치 — 설명용 배치
+  const GU = [
+    [126.979,37.594,14],[126.997,37.560,12],[126.979,37.531,22],[127.041,37.551,29],[127.082,37.546,34],
+    [127.054,37.581,34],[127.093,37.598,38],[127.017,37.605,43],[127.011,37.640,29],[127.032,37.669,30],
+    [127.075,37.652,50],[126.927,37.619,46],[126.937,37.578,31],[126.902,37.559,36],[126.856,37.525,44],
+    [126.822,37.561,56],[126.856,37.494,40],[126.902,37.457,23],[126.910,37.522,38],[126.951,37.499,38],
+    [126.945,37.467,49],[127.032,37.473,41],[127.063,37.497,53],[127.115,37.505,66],[127.147,37.550,46]
+  ];
+  const RIVER = [[126.795,37.592],[126.845,37.572],[126.885,37.552],[126.925,37.534],[126.962,37.519],[127.000,37.516],[127.035,37.524],[127.070,37.530],[127.100,37.532],[127.125,37.545],[127.170,37.562]];
+  const KM_W = 37, KM_H = 30;
+  const toKm = (lon, lat) => [(lon - 126.765) * 88.2, (37.70 - lat) * 111];
+  const guKm = GU.map(g => toKm(g[0], g[1]));
+  const total = GU.reduce((s, g) => s + g[2], 0);
+  let W = 0, H = 0, dpr = 1, box = { x: 0, y: 0, s: 1 }, alpha = 1, offX = 0;
+  let dots = [];
+  const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
+
+  function build() {
+    const n = innerWidth < 700 ? 900 : 1500;
+    dots = [];
+    for (let i = 0; i < n; i++) {
+      let r = Math.random() * total, k = 0;
+      while ((r -= GU[k][2]) > 0) k++;
+      const sig = 1.25 + Math.random() * .6;
+      const kx = clamp(guKm[k][0] + gauss() * sig, 0.5, KM_W - .5);
+      const ky = clamp(guKm[k][1] + gauss() * sig * .9, 0.5, KM_H - .5);
+      dots.push({ kx, ky, g: k, x: 0, y: 0, vx: 0, vy: 0, hx: 0, hy: 0, ph: Math.random() * 6.283, sp: .0004 + Math.random() * .0008, orb: .6 + Math.random() * 1.8, trip: null });
+    }
+  }
+  function layout() {
+    dpr = Math.min(2, devicePixelRatio || 1);
+    W = innerWidth; H = innerHeight;
+    cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
+    if (W > 980) {
+      const w = Math.min(W * .4, (H - 200) * KM_W / KM_H);
+      box = { s: w / KM_W, x: W * .565 + (W * .4 - w) / 2, y: (H - w * KM_H / KM_W) / 2 };
+    } else {
+      const w = W * .9;
+      box = { s: w / KM_W, x: W * .05, y: H - w * KM_H / KM_W - 80 };
+    }
+    const first = dots.length && dots[0].hx === 0;
+    for (const d of dots) {
+      d.hx = box.x + d.kx * box.s; d.hy = box.y + d.ky * box.s;
+      if (first) { d.x = d.hx; d.y = d.hy; }
+    }
+  }
+  const guPx = k => [box.x + guKm[k][0] * box.s, box.y + guKm[k][1] * box.s];
+
+  let lastTrip = 0;
+  function step(now) {
+    if (alpha < .01) return;
+    if (!reduce && now - lastTrip > 90) {
+      lastTrip = now;
+      const d = dots[(Math.random() * dots.length) | 0];
+      if (!d.trip) {
+        let k = (Math.random() * GU.length) | 0; if (k === d.g) k = (k + 7) % GU.length;
+        const [tx, ty] = guPx(k);
+        d.trip = { x: tx + gauss() * 6, y: ty + gauss() * 6, until: now + 2600 + Math.random() * 2600 };
+      }
+    }
+    for (const d of dots) {
+      let tx, ty, k = .014, damp = .88;
+      if (d.trip) {
+        if (now > d.trip.until) d.trip = null;
+        else { tx = d.trip.x; ty = d.trip.y; k = .0022; damp = .93; }
+      }
+      if (!d.trip) {
+        const a = reduce ? d.ph : now * d.sp + d.ph;
+        tx = d.hx + Math.cos(a) * d.orb; ty = d.hy + Math.sin(a * 1.3) * d.orb;
+      }
+      d.vx = (d.vx + (tx - d.x) * k) * damp;
+      d.vy = (d.vy + (ty - d.y) * k) * damp;
+      d.x += d.vx; d.y += d.vy;
+    }
+  }
+  function draw() {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    if (alpha < .01) return;
+    ctx.globalAlpha = alpha;
+    ctx.translate(offX, 0);
+    // 한강
+    ctx.beginPath();
+    RIVER.forEach((p, i) => { const [kx, ky] = toKm(p[0], p[1]); const x = box.x + kx * box.s, y = box.y + ky * box.s; i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); });
+    ctx.strokeStyle = "#e8ebef"; ctx.lineWidth = Math.max(3, box.s * .55); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.stroke();
+    ctx.fillStyle = 'rgba(18,20,23,.5)';
+    const s = W > 980 ? 1.7 : 1.4;
+    for (const d of dots) if (!d.trip) ctx.fillRect(d.x - s / 2, d.y - s / 2, s, s);
+    ctx.fillStyle = '#1f3b5c';
+    for (const d of dots) if (d.trip) { ctx.beginPath(); ctx.arc(d.x, d.y, 2.2, 0, 6.283); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+  // 드래그로 휘젓기 — 포인터 근처 점이 끄는 방향으로 밀린다
+  function stir(px, py, mx, my) {
+    if (alpha < .05) return;
+    px -= offX;
+    const R = W > 980 ? 190 : 130, R2 = R * R;
+    for (const d of dots) {
+      const dx = d.x - px, dy = d.y - py, q = dx * dx + dy * dy;
+      if (q < R2) {
+        const f = 1 - Math.sqrt(q) / R, ff = f * f;
+        d.vx = clamp(d.vx + mx * ff * .55 + dx * ff * .02, -38, 38);
+        d.vy = clamp(d.vy + my * ff * .55 + dy * ff * .02, -38, 38);
+      }
+    }
+  }
+  // 전체 슬라이드 이동 속도에 따른 미세한 흔들림
+  function shove(v) { if (alpha < .05) return; for (const d of dots) d.vx += v * (.25 + (d.kx / KM_W) * .5); }
+  function set(a, ox) { alpha = a; offX = ox; }
+  build(); layout();
+  return { step, draw, stir, shove, set, layout };
+})();
+
+/* ════════════ 슬라이드 트랙 ════════════ */
+const stage = document.getElementById('stage');
+const track = document.getElementById('track');
+const slides = [...document.querySelectorAll('.slide')];
+const N = slides.length;
+const layers = slides.map(s => [...s.querySelectorAll('[data-d]')].map(el => ({ el, d: +el.dataset.d })));
+const fill = document.getElementById('fill');
+const ticks = document.getElementById('ticks');
+const curEl = document.getElementById('cur');
+const secEl = document.getElementById('secName');
+document.getElementById('tot').textContent = String(N).padStart(2, '0');
+
+let SW = stage.clientWidth;
+let pos = 0, idx = 0, tween = null, drag = null, dirty = true, justDragged = false;
+
+slides.forEach((s, i) => {
+  const li = document.createElement('li');
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.style.left = (N > 1 ? i / (N - 1) * 100 : 0) + '%';
+  b.setAttribute('aria-label', `${i + 1}. ${s.dataset.name}`);
+  b.title = s.dataset.name;
+  b.addEventListener('click', () => go(i));
+  li.appendChild(b); ticks.appendChild(li);
+});
+const tickBtns = [...ticks.querySelectorAll('button')];
+
+const easeOut = t => 1 - Math.pow(1 - t, 4);
+function setActive(i) {
+  idx = i;
+  slides.forEach((s, k) => s.setAttribute('aria-hidden', k === i ? 'false' : 'true'));
+  tickBtns.forEach((b, k) => b.classList.toggle('past', k <= i));
+  curEl.textContent = String(i + 1).padStart(2, '0');
+  secEl.textContent = slides[i].dataset.name;
+  try { history.replaceState(null, '', '#' + (i + 1)); } catch (e) {}
+  onEnter(i);
+}
+function go(i, instant) {
+  i = clamp(i, 0, N - 1);
+  const dur = instant || reduce ? 1 : 820 + Math.min(3, Math.abs(i - pos)) * 120;
+  tween = { from: pos, to: i, t0: performance.now(), dur };
+  if (i !== idx) setActive(i);
+  dirty = true;
+}
+
+/* 화면에 들어오기 시작한 슬라이드만 'on' — 끌어오는 동안에도 글자가 번지며 나타난다 */
+const settleTimers = new Array(N).fill(0);
+function setOn(i, v) {
+  const s = slides[i];
+  if (s.classList.contains('on') === v) return;
+  s.classList.toggle('on', v);
+  clearTimeout(settleTimers[i]);
+  if (v) settleTimers[i] = setTimeout(() => { if (s.classList.contains('on')) s.classList.add('settled'); }, reduce ? 0 : 2100);
+  else s.classList.remove('settled');
+}
+
+function rub(x) { return x * .28 / (1 + x * .8); }
+function apply() {
+  track.style.transform = `translate3d(${-pos * SW}px,0,0)`;
+  for (let i = 0; i < N; i++) {
+    const o = i - pos, a = Math.abs(o);
+    if (a < .9) setOn(i, true); else if (a > .999) setOn(i, false);
+    if (a > 1.5) continue;
+    for (const { el, d } of layers[i]) el.style.transform = a < .0005 ? '' : `translate3d(${o * SW * d}px,0,0)`;
+    slides[i].style.opacity = String(1 - Math.min(1, a) * .7);
+  }
+  // 넘기는 동안 화면 양 끝을 부드럽게 흐린다
+  const frac = Math.abs(pos - Math.round(pos)), m = Math.min(1, frac * 4);
+  if (m < .01) { stage.style.webkitMaskImage = stage.style.maskImage = ''; }
+  else {
+    const w = (12 * m).toFixed(2);
+    const g = `linear-gradient(90deg,transparent 0,#000 ${w}vw,#000 ${100 - w}vw,transparent 100vw)`;
+    stage.style.webkitMaskImage = stage.style.maskImage = g;
+  }
+  fill.style.transform = `scaleX(${N > 1 ? clamp(pos / (N - 1), 0, 1) : 0})`;
+  // 점 지도는 표지와 마무리에서만 또렷하다
+  const anchor = pos < (N - 1) / 2 ? 0 : N - 1;
+  const strength = (anchor === 0 ? 1 : .55) * (innerWidth > 980 ? 1 : .32);
+  field.set(Math.max(0, 1 - Math.abs(pos - anchor) * 1.25) * strength, (anchor - pos) * SW * .55);
+}
+
+let lastPos = 0;
+function frame(now) {
+  if (tween) {
+    const t = clamp((now - tween.t0) / tween.dur, 0, 1);
+    pos = lerp(tween.from, tween.to, easeOut(t));
+    if (t >= 1) { pos = tween.to; tween = null; }
+    dirty = true;
+  }
+  if (dirty) {
+    field.shove(clamp((lastPos - pos) * SW * .005, -1.2, 1.2));
+    lastPos = pos;
+    apply(); dirty = !!tween || !!drag;
+  }
+  field.step(now); field.draw();
+  requestAnimationFrame(frame);
+}
+
+/* 드래그 */
+stage.addEventListener('pointerdown', e => {
+  if (e.button !== 0 && e.pointerType === 'mouse') return;
+  if (e.target.closest('[data-nodrag],a,button,input,select,textarea')) return;
+  drag = { id: e.pointerId, x: e.clientX, y: e.clientY, lx: e.clientX, ly: e.clientY, lt: e.timeStamp, v: 0, start: pos, lock: null };
+  tween = null;
+});
+stage.addEventListener('pointermove', e => {
+  if (!drag || e.pointerId !== drag.id) return;
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  const mx = e.clientX - drag.lx, my = e.clientY - drag.ly;
+  field.stir(e.clientX, e.clientY, mx, my);
+  if (!drag.lock) {
+    if (Math.abs(dx) < 6 && Math.abs(dy) < 6) { drag.lx = e.clientX; drag.ly = e.clientY; return; }
+    drag.lock = Math.abs(dx) >= Math.abs(dy) ? 'x' : 'y';
+    if (drag.lock === 'x') { try { stage.setPointerCapture(e.pointerId); } catch (_) {} stage.classList.add('dragging'); }
+  }
+  if (drag.lock === 'x') {
+    let p = drag.start - dx / SW;
+    if (p < 0) p = -rub(-p); else if (p > N - 1) p = N - 1 + rub(p - (N - 1));
+    pos = p; dirty = true;
+    const dt = e.timeStamp - drag.lt;
+    if (dt > 0) drag.v = drag.v * .7 + (mx / dt) * .3;
+  }
+  drag.lx = e.clientX; drag.ly = e.clientY; drag.lt = e.timeStamp;
+});
+function endDrag(e) {
+  if (!drag || (e && e.pointerId !== drag.id)) return;
+  const d = drag; drag = null;
+  stage.classList.remove('dragging');
+  if (d.lock !== 'x') return;
+  justDragged = true; setTimeout(() => (justDragged = false), 0);
+  const from = Math.round(d.start), delta = pos - d.start;
+  let to = from;
+  if (Math.abs(d.v) > .4) to = d.v < 0 ? from + 1 : from - 1;
+  else if (Math.abs(delta) > .16) to = delta > 0 ? Math.ceil(pos - .16) : Math.floor(pos + .16);
+  go(to);
+}
+stage.addEventListener('pointerup', endDrag);
+stage.addEventListener('pointercancel', endDrag);
+stage.addEventListener('lostpointercapture', endDrag);
+stage.addEventListener('click', e => { if (justDragged) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+/* 키보드 · 휠 */
+addEventListener('keydown', e => {
+  if (e.defaultPrevented || e.altKey || e.ctrlKey || e.metaKey) return;
+  const k = e.key;
+  if (['ArrowRight', 'ArrowDown', 'PageDown', ' ', 'Enter'].includes(k)) { if (k === 'Enter' && e.target.closest('button')) return; e.preventDefault(); go(idx + 1); }
+  else if (['ArrowLeft', 'ArrowUp', 'PageUp', 'Backspace'].includes(k)) { e.preventDefault(); go(idx - 1); }
+  else if (k === 'Home') go(0);
+  else if (k === 'End') go(N - 1);
+  else if (k === 'f' || k === 'F') {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {});
+    else document.exitFullscreen?.();
+  }
+});
+let wheelLock = 0;
+stage.addEventListener('wheel', e => {
+  const s = slides[idx];
+  const scrollable = s.scrollHeight > s.clientHeight + 4;
+  const main = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
+  if (scrollable && Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+    const atEnd = main > 0 ? s.scrollTop + s.clientHeight >= s.scrollHeight - 2 : s.scrollTop <= 0;
+    if (!atEnd) return;
+  }
+  e.preventDefault();
+  const now = performance.now();
+  if (Math.abs(main) < 18 || now - wheelLock < 750) return;
+  wheelLock = now;
+  go(idx + (main > 0 ? 1 : -1));
+}, { passive: false });
+
+addEventListener('hashchange', () => {
+  const n = parseInt(location.hash.slice(1), 10);
+  if (Number.isFinite(n) && n - 1 !== idx) go(n - 1);
+});
+addEventListener('resize', () => { SW = stage.clientWidth; field.layout(); dirty = true; });
+
+/* ════════════ 슬라이드별 조작 ════════════ */
+
+/* 공통 — 끌 수 있는 손잡이 */
+function scrubber(trackEl, knobEl, onChange, opts) {
+  const step = opts.step;
+  let active = false;
+  const fromX = x => { const r = trackEl.getBoundingClientRect(); return clamp((x - r.left) / r.width, 0, 1); };
+  trackEl.addEventListener('pointerdown', e => {
+    active = true; e.stopPropagation();
+    try { trackEl.setPointerCapture(e.pointerId); } catch (_) {}
+    onChange(fromX(e.clientX), true);
+  });
+  trackEl.addEventListener('pointermove', e => { if (active) onChange(fromX(e.clientX), true); });
+  const up = () => { active = false; };
+  trackEl.addEventListener('pointerup', up); trackEl.addEventListener('pointercancel', up);
+  knobEl.addEventListener('keydown', e => {
+    let d = 0;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp') d = step;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') d = -step;
+    else if (e.key === 'Home') d = -1; else if (e.key === 'End') d = 1;
+    else return;
+    e.preventDefault(); e.stopPropagation();
+    onChange(clamp(opts.get() + d, 0, 1), true);
+  });
+}
+
+/* 03 하루 */
+const PHASES = [
+  { a: 0, b: 6, tag: '00:00 – 06:00', name: '새벽 — 기억을 불러온다', short: '새벽', desc: '어제의 기억·대화·약속을 불러온다.' },
+  { a: 6, b: 8, tag: '06:00 – 08:00', name: '의도 — 오늘 무엇을 할까', short: '의도', desc: '할 일과 그 이유를 정한다.' },
+  { a: 8, b: 9, tag: '08:00 – 09:00', name: '장소 — 어느 가게로 갈까', short: '', desc: '선호·싫증·새로움으로 가게를 고른다.' },
+  { a: 9, b: 21, tag: '09:00 – 21:00', name: '낮 — 움직이고 결제한다', short: '낮 · 이동과 결제', desc: '정책은 여기서 작동한다.' },
+  { a: 21, b: 24, tag: '21:00 – 24:00', name: '밤 — 누구와 이야기할까', short: '밤', desc: '약속·추천·소문이 오간다.' }
+];
+const day = document.getElementById('day');
+const dayKnob = document.getElementById('dayKnob');
+const dayT = document.getElementById('dayT');
+const segWrap = document.getElementById('segs');
+PHASES.forEach(p => {
+  const d = document.createElement('div');
+  d.className = 'seg';
+  d.style.left = p.a / 24 * 100 + '%'; d.style.width = (p.b - p.a) / 24 * 100 + '%';
+  if (p.short) d.innerHTML = `<span>${p.short}</span>`;
+  d.title = p.name;
+  segWrap.appendChild(d);
+});
+const segEls = [...segWrap.children];
+let dayV = 7 / 24, curPhase = -1, playing = null;
+const phHead = document.getElementById('phHead'), phBody = document.getElementById('phBody');
+const phaseAt = h => { const k = PHASES.findIndex(p => h >= p.a && h < p.b); return k === -1 ? PHASES.length - 1 : k; };
+function setDay(v, user) {
+  if (user && playing) stopPlay();
+  dayV = v;
+  const h = v * 24, hh = Math.min(23, Math.floor(h)), mm = Math.floor((h - Math.floor(h)) * 6) * 10;
+  dayKnob.style.left = v * 100 + '%';
+  dayT.textContent = v >= 1 ? '24:00' : `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  dayKnob.setAttribute('aria-valuenow', h.toFixed(1));
+  const k = phaseAt(h);
+  dayKnob.setAttribute('aria-valuetext', `${dayT.textContent}, ${PHASES[k].name}`);
+  if (k !== curPhase) {
+    curPhase = k;
+    segEls.forEach((s, i) => s.classList.toggle('act', i === k));
+    const p = PHASES[k];
+    phHead.style.opacity = phBody.style.opacity = 0;
+    setTimeout(() => {
+      document.getElementById('phTag').textContent = p.tag;
+      document.getElementById('phName').textContent = p.name;
+      document.getElementById('phDesc').textContent = p.desc;
+      phHead.style.opacity = phBody.style.opacity = 1;
+    }, reduce ? 0 : 160);
+  }
+}
+scrubber(day, dayKnob, setDay, { step: 1 / 48, get: () => dayV });
+const playBtn = document.getElementById('dayPlay');
+function stopPlay() { cancelAnimationFrame(playing); playing = null; playBtn.textContent = '▶ 하루 재생'; }
+playBtn.addEventListener('click', () => {
+  if (playing) return stopPlay();
+  playBtn.textContent = '❚❚ 멈춤';
+  let last = performance.now(); if (dayV >= .999) dayV = 0;
+  const tick = now => {
+    // 계획 구간(새벽~장소)은 천천히, 낮은 빠르게
+    const h = dayV * 24, speed = h < 9 ? 1 / 24 / 1.1 : h < 21 ? 1 / 24 / .38 : 1 / 24 / 1.1;
+    const v = dayV + (now - last) / 1000 * speed; last = now;
+    if (v >= 1) { setDay(1); stopPlay(); return; }
+    setDay(v); playing = requestAnimationFrame(tick);
+  };
+  playing = requestAnimationFrame(tick);
+});
+setDay(dayV);
+
+/* 06 대조 */
+const ROWS = [
+  { id: 'P012-1', name: '상생소비지원금 · 적립업종 지출', real: 20.8, sim: 10.1, ok: true },
+  { id: 'EM-2', name: '긴급재난지원금 · 사용업종 순효과', real: 11.1, sim: 13.1, ok: true },
+  { id: 'EM-3', name: '긴급재난지원금 · 전체 카드매출', real: 7.3, sim: 12.6, ok: true },
+  { id: 'DS-1', name: '거리두기 2단계 · 음식점 지출', real: -14.1, sim: -9.7, ok: true },
+  { id: 'DS-2', name: '거리두기 2단계 · 소매업 지출', real: 4.2, sim: 5.1, ok: false }
+];
+const LIM = 25;
+const xp = v => 50 + v / LIM * 50;
+const fmt = v => (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(1) + '%';
+const rowsEl = document.getElementById('rows');
+const rowRefs = ROWS.map(r => {
+  const el = document.createElement('div');
+  el.className = 'row';
+  const diff = r.sim - r.real;
+  el.innerHTML = `
+    <div class="name"><span class="mono">${r.id}</span>${r.name}${r.ok ? '' : '<span class="flag">구간이 0 포함</span>'}</div>
+    <div class="bars"><i class="gh r" style="left:${xp(r.real)}%"></i><i class="gh s" style="left:${xp(r.sim)}%"></i><div class="bar"></div><div class="zero"></div><span class="cur"></span></div>
+    <div class="vals"><span class="r">${fmt(r.real)}</span><span class="s">${fmt(r.sim)}</span><span class="d">${(diff > 0 ? '+' : '−') + Math.abs(diff).toFixed(1)}%p</span></div>`;
+  rowsEl.appendChild(el);
+  return { r, bar: el.querySelector('.bar'), cur: el.querySelector('.cur') };
+});
+const mix = (a, b, t) => { const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)); const A = p(a), B = p(b); return `rgb(${A.map((v, i) => Math.round(lerp(v, B[i], t))).join(',')})`; };
+const blend = document.getElementById('blend'), blendKnob = document.getElementById('blendKnob');
+let bT = 0, bShown = 0, bAnim = null;
+function renderBlend(t) {
+  bShown = t;
+  blendKnob.style.left = t * 100 + '%';
+  blendKnob.setAttribute('aria-valuenow', Math.round(t * 100));
+  const col = mix('#9a5b3a', '#1f3b5c', t);
+  for (const { r, bar, cur } of rowRefs) {
+    const v = lerp(r.real, r.sim, t), x = xp(v);
+    bar.style.left = Math.min(50, x) + '%';
+    bar.style.width = Math.abs(x - 50) + '%';
+    bar.style.background = col;
+    cur.textContent = fmt(v);
+    cur.style.color = col;
+    // 값 표시는 막대 끝 바깥쪽에 — 0 선과 겹치지 않게
+    if (v >= 0) { cur.style.left = `calc(${x}% + 10px)`; cur.style.transform = 'translateY(-50%)'; }
+    else { cur.style.left = `calc(${x}% - 10px)`; cur.style.transform = 'translate(-100%,-50%)'; }
+  }
+}
+function setBlend(t) { bT = t; cancelAnimationFrame(bAnim); renderBlend(t); }
+scrubber(blend, blendKnob, setBlend, { step: .1, get: () => bT });
+function animateBlend(to, dur) {
+  cancelAnimationFrame(bAnim);
+  const from = bShown, t0 = performance.now();
+  const f = now => { const t = clamp((now - t0) / dur, 0, 1); const e = t < .5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; renderBlend(lerp(from, to, e)); bT = bShown; if (t < 1) bAnim = requestAnimationFrame(f); };
+  bAnim = requestAnimationFrame(f);
+}
+renderBlend(0);
+
+/* 08 검출력 */
+const POWER = [
+  ['DS-1 음식점', .31], ['P012-4 캐시백', .72], ['P012-1 적립업종', 1.2], ['DS-4 카페', 1.2], ['EM-2 사용업종', 1.4],
+  ['LV-1 총소비', 1.6], ['EM-3 카드매출', 3.1], ['LV-3 역외소비', 6.0], ['DS-2 소매', 20.8], ['LV-2 동네비중', 151.8]
+];
+(() => {
+  const plot = document.getElementById('powerPlot');
+  const lo = Math.log10(.2), hi = Math.log10(200);
+  const px = v => (Math.log10(v) - lo) / (hi - lo) * 100;
+  let html = '';
+  POWER.forEach(([n, v], k) => {
+    const ok = v <= 1;
+    html += `<div class="prow${ok ? ' ok' : ''}" style="--k:${k}"><span class="mono">${n}</span><div class="pt"><i style="width:${px(v).toFixed(2)}%"></i></div><span class="x">${ok ? '충분' : v.toFixed(1) + '배'}</span></div>`;
+  });
+  html += '<div class="paxis">' + [.2, 1, 10, 100].map(v => `<span style="left:${px(v).toFixed(2)}%">${v < 1 ? v : v + '×'}</span>`).join('') + '</div>';
+  // '지금 인원' 선 — 1배 위치를 막대 칸 안에서 계산
+  html += `<div class="one" style="left:calc(var(--ql) + var(--qg) + (100% - var(--ql) - var(--qv) - 2 * var(--qg)) * ${(px(1) / 100).toFixed(4)})"><span>지금 인원</span></div>`;
+  plot.innerHTML = html;
+})();
+
+/* 진입 시 동작 */
+function onEnter(i) {
+  if (i === 6) { renderBlend(0); bT = 0; setTimeout(() => { if (idx === 6 && bT === 0) animateBlend(1, 2200); }, reduce ? 0 : 1400); }
+}
+blend.addEventListener('pointerdown', () => { cancelAnimationFrame(bAnim); });
+
+/* 시작 */
+const h0 = parseInt((location.hash || '').slice(1), 10);
+const start = Number.isFinite(h0) ? clamp(h0 - 1, 0, N - 1) : 0;
+pos = lastPos = start;
+setActive(start);
+apply();
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

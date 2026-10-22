@@ -1,0 +1,21 @@
+{
+  "id":"validation_v7_reasoning_probe",
+  "model":"LGAI-EXAONE/EXAONE-4.5-33B-AWQ",
+  "source_inputs_sha256":"d8944c1467db387ebf118d3f396a09bf6f1b7bcbb108340a84321a543f4912e5",
+  "candidates":[
+    {"id":"v11_thinking", "prompt":"v11", "structured":true, "thinking":true},
+    {"id":"v11_no_thinking", "prompt":"v11", "structured":true, "thinking":false}
+  ],
+  "replicate_seeds":[5901],
+  "temperature":0.7,
+  "top_p":1.0,
+  "max_tokens":8192,
+  "workers":8,
+  "timeout_seconds":900,
+  "job_order_seed":20260920,
+  "phase":"Engineering capability check on four synthetic constraint cases; development only, no policy efficacy claim.",
+  "input_changes":"Same v4 renderer, strip /no_think and /think controls identically from both arms. Only thinking boolean differs; both have identical total token ceilings.",
+  "primary":"All four controlled factual constraints and unchanged schedule contract; thinking arm must actually return reasoning_content. Preserve every failed/truncated response. No repairs/retries.",
+  "next":"Only after capability works, register the full 96-context reasoning ablation. The unused 24-person confirmation remains untouched.",
+  "prohibitions":"No empirical effect numbers or policy-specific directional instructions. P010 immutable. P015 not run."
+}

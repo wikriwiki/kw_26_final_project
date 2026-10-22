@@ -1,0 +1,78 @@
+{
+ "policy_id": "P012",
+ "title": "상생소비지원금 (카드 실적 캐시백)",
+ "kind": "policy",
+ "cell_date": "2021-10-25",
+ "real_world_counterpart": "2021 상생소비지원금",
+ "answer_key_source": "기획재정부·KDI (2022.9)",
+ "mechanism": "cashback",
+ "indicators": [
+  {
+   "id": "P012-1",
+   "description": "적립업종 지출 (개인 내 쌍체차)",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": 20.82,
+   "measured_unit": "%",
+   "scale": "short",
+   "metric": "elig_spend_paired",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "P012-2",
+   "description": "제외업종 무반응 — 방어선",
+   "expected_sign": "0",
+   "expected_meaning": "무반응 (방어선)",
+   "measured_value": 2.85,
+   "measured_unit": "%",
+   "scale": "main",
+   "metric": "excl_spend_paired",
+   "simulation_cannot_produce": null
+  },
+  {
+   "id": "P012-3",
+   "description": "문턱 도달자 비율 > 0",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "threshold_reach_rate",
+   "simulation_cannot_produce": "문턱이 **월 적격지출** 기준이다. 하루 관측으로는 도달 여부가 정의되지 않는다"
+  },
+  {
+   "id": "P012-4",
+   "description": "1인 평균 캐시백 (실측 47,880원/월)",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": null,
+   "measured_unit": null,
+   "scale": "short",
+   "metric": "cashback_per_capita",
+   "simulation_cannot_produce": "캐시백은 **월 적립액**으로 정해진다. 하루 소비로는 정의되지 않는다"
+  },
+  {
+   "id": "P012-5",
+   "description": "가전·가구 > 이·미용 (+36.23 vs +2.87)",
+   "expected_sign": "rank",
+   "expected_meaning": "순위",
+   "measured_value": 33.36,
+   "measured_unit": "%",
+   "scale": "main",
+   "metric": "sector_rank",
+   "simulation_cannot_produce": "카탈로그에 **가전·가구 품목이 없다**. 최고가가 커트 20,000원이다"
+  },
+  {
+   "id": "P012-6",
+   "description": "월 한도 도달 비율 (실측 21.0%)",
+   "expected_sign": "+",
+   "expected_meaning": "증가",
+   "measured_value": 21.0,
+   "measured_unit": "%",
+   "scale": "main",
+   "metric": "cap_reach_rate",
+   "simulation_cannot_produce": "한도가 **월 10만원**이다. 하루에 도달할 수 없다"
+  }
+ ],
+ "note": "실측값과 기대부호는 공개된 연구의 결과다. 프롬프트에는 들어가지 않는다 — 검사로 고정돼 있다."
+}

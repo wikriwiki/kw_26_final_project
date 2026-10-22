@@ -1,0 +1,201 @@
+/**
+ * 실험 결과 — 일별 추이와 정책 OFF/ON 비교.
+ *
+ * 공통 사전 기간은 두 팔이 같은 기록을 쓴다. 그래서 회색 한 줄로 그리고, 시행일부터 OFF(실선)·ON(점선)이 갈라진다.
+ * 비교 표는 실험 코드(`no_smoking_zone.py score`)와 같은 묶음·결측 규칙의 **미리보기**다. 두 팔이 끝나기 전에는 중간값이다.
+ */
+import { useMemo } from 'react';
+import { Badge } from '../../components/Badge';
+import { Card } from '../../components/Card';
+import { Callout, EmptyState, ErrorState, SkeletonCard } from '../../components/Feedback';
+import { LineChart } from '../../components/LineChart';
+import type { LineSeries } from '../../components/LineChart';
+import { dec, int, krw } from '../../lib/format';
+import { experimentsApi, SMOKING_TEXT, useResource } from '../../lib/experiments';
+import type { Comparison, DailyPoint, DailySeries, ExperimentSummary } from '../../lib/experiments';
+import { useExperiment } from './ExperimentWorkspace';
+
+type Metric = (point: DailyPoint) => number | null;
+
+const TONE = { shared_pre: 'neutral', control: 'primary', treatment: 'alt', single: 'primary' } as const;
+
+function chartSeries(series: DailySeries[], metric: Metric, cohort: number): LineSeries[] {
+  return series
+    .filter((s) => s.points.length)
+    .map((s) => ({
+      key: s.arm_id,
+      label: s.label,
+      tone: TONE[s.role],
+      dashed: s.role === 'treatment',
+      // 진행 중인 날(마지막 줄이 덜 쓰였거나 대상자가 덜 찬 날)은 하루 전체 값이 아니라서 선을 잇지 않는다
+      points: s.points.map((p) => ({
+        x: p.day,
+        y: p.partial_tail || (cohort > 0 && p.unique_agents < cohort) ? null : metric(p),
+      })),
+    }));
+}
+
+function groupLabel(group: string, experiment: ExperimentSummary): string {
+  const facilities = experiment.analysis.facilities ?? {};
+  const districts = experiment.analysis.districts ?? {};
+  const [facility, detail] = group.split(':');
+  const head = facilities[facility] ?? facility;
+  if (!detail) return head;
+  return `${head} · ${districts[detail] ?? SMOKING_TEXT[detail] ?? detail}`;
+}
+
+function ComparisonCard({ comparison, experiment }: { comparison: Comparison; experiment: ExperimentSummary }) {
+  if (!comparison.available || !comparison.comparisons || !comparison.post) {
+    const pre = comparison.pre;
+    return (
+      <Card title="정책 OFF/ON 비교" aside={<Badge>대기</Badge>} className="c12">
+        <p className="card__note">{comparison.reason ?? '비교할 수 있는 날이 아직 없습니다.'}</p>
+        {pre && Object.keys(pre.totals).length ? (
+          <div className="table-wrap">
+            <table className="table">
+              <caption className="table__caption">공통 사전 {int(pre.days)}일의 정책 대상 시설 이용</caption>
+              <thead>
+                <tr>
+                  <th scope="col">묶음</th>
+                  <th scope="col" className="n">결제 건수</th>
+                  <th scope="col" className="n">매출</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(pre.totals).map(([group, value]) => (
+                  <tr key={group}>
+                    <th scope="row">{groupLabel(group, experiment)}</th>
+                    <td className="n num">{int(value.payment_count)}</td>
+                    <td className="n num">{krw(value.revenue_krw)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </Card>
+    );
+  }
+  const rows = comparison.comparisons.filter((row) => row.metric === 'revenue_krw');
+  const counts = new Map(comparison.comparisons.filter((row) => row.metric === 'payment_count').map((row) => [row.group, row]));
+  return (
+    <Card
+      title="정책 OFF/ON 비교 (시행 후)"
+      aside={<Badge tone={comparison.status === 'complete_preview' ? 'ok' : 'warn'}>{comparison.status === 'complete_preview' ? '두 팔 완료' : '중간 집계'}</Badge>}
+      note={`두 팔 모두에서 관측된 대상자-일 ${int(comparison.post.observed_paired_agent_days)}개로 비교 (${int(comparison.post.excluded_agent_days)}개 제외) · ${comparison.post.days.length}일`}
+      className="c12"
+    >
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th scope="col">묶음</th>
+              <th scope="col" className="n">OFF 매출</th>
+              <th scope="col" className="n">ON 매출</th>
+              <th scope="col" className="n">ON − OFF</th>
+              <th scope="col" className="n">변화율</th>
+              <th scope="col" className="n">결제 OFF → ON</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const count = counts.get(row.group);
+              return (
+                <tr key={row.group}>
+                  <th scope="row">{groupLabel(row.group, experiment)}</th>
+                  <td className="n num">{krw(row.off)}</td>
+                  <td className="n num">{krw(row.on)}</td>
+                  <td className="n num">{krw(row.on_minus_off)}</td>
+                  <td className="n num">{row.percent_change === null ? '기준 0 — 계산 안 함' : `${dec(row.percent_change, 1)}%`}</td>
+                  <td className="n num">{count ? `${int(count.off)} → ${int(count.on)}` : '—'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="card__note">{comparison.rules}</p>
+    </Card>
+  );
+}
+
+export function ExperimentResults() {
+  const { experiment } = useExperiment();
+  const id = experiment.experiment_id;
+  const daily = useResource(() => experimentsApi.daily(id), id);
+  const comparison = useResource(() => experimentsApi.comparison(id), id);
+  const series = useMemo(() => daily.data?.series ?? [], [daily.data]);
+  const marker = experiment.window.effective_date ? { x: experiment.window.effective_date, label: '정책 시행' } : undefined;
+  const hasTarget = experiment.kind === 'no_smoking_zone';
+  const cohort = experiment.cohort_size;
+
+  if (daily.loading && !daily.data) return <SkeletonCard rows={6} />;
+  if (daily.error) return <ErrorState title="추이를 불러오지 못했습니다" body={daily.error.message} />;
+  if (!series.some((s) => s.points.length)) {
+    return <EmptyState title="받아 둔 실행 기록이 없습니다" body="개요 화면에서 실행 기록을 받으면 추이가 나타납니다." />;
+  }
+
+  return (
+    <div className="stack">
+      <Callout tone="info">
+        회색은 두 팔이 함께 쓰는 공통 사전 기간, 실선은 정책 OFF, 점선은 정책 ON 입니다. 진행 중인 날은 하루가 다 차지 않아 선을 잇지 않습니다.
+      </Callout>
+      <div className="grid">
+        {hasTarget ? (
+          <>
+            <Card className="c6">
+              <LineChart
+                title="정책 대상 시설 매출 (하루)"
+                series={chartSeries(series, (p) => p.target?.total.revenue_krw ?? null, cohort)}
+                format={(v) => krw(v)}
+                marker={marker}
+              />
+            </Card>
+            <Card className="c6">
+              <LineChart
+                title="정책 대상 시설 결제 건수 (하루)"
+                series={chartSeries(series, (p) => p.target?.total.payment_count ?? null, cohort)}
+                format={(v) => int(v)}
+                marker={marker}
+              />
+            </Card>
+          </>
+        ) : null}
+        <Card className="c6">
+          <LineChart
+            title="오프라인 소비 합계 (하루)"
+            series={chartSeries(series, (p) => p.totals.spend_offline ?? null, cohort)}
+            format={(v) => krw(v)}
+            marker={marker}
+          />
+        </Card>
+        <Card className="c6">
+          <LineChart
+            title="평균 기분 (0~1)"
+            series={chartSeries(series, (p) => p.means.mood ?? null, cohort)}
+            format={(v) => dec(v, 2)}
+            marker={marker}
+          />
+        </Card>
+        <Card className="c6">
+          <LineChart
+            title="건너뛴 대상자 수 (하루, 결측)"
+            series={chartSeries(series, (p) => p.status.skipped ?? 0, cohort)}
+            format={(v) => int(v)}
+            marker={marker}
+          />
+        </Card>
+        <Card className="c6">
+          <LineChart
+            title="결제 영수증 수 (하루)"
+            series={chartSeries(series, (p) => p.totals.receipt_count ?? null, cohort)}
+            format={(v) => int(v)}
+            marker={marker}
+          />
+        </Card>
+      </div>
+      {comparison.data ? <ComparisonCard comparison={comparison.data} experiment={experiment} /> : null}
+      {comparison.error ? <ErrorState title="비교를 계산하지 못했습니다" body={comparison.error.message} /> : null}
+    </div>
+  );
+}

@@ -1,0 +1,55 @@
+{
+  "experiment_id": "no_smoking_3gu_v22",
+  "title": "실내체육시설 금연구역 — 노원·서초·송파 1,154명",
+  "kind": "no_smoking_zone",
+  "summary": "2017-12-03 시행된 당구장·실내골프장 금연구역 정책을 노원·서초·송파 거주자 1,154명으로 모의한다. 시행 전 14일은 한 번만 돌리고(공통 사전), 그 상태에서 정책 OFF/ON 두 팔로 나눠 시행 후 14일을 돌린다.",
+  "interpretation": "합성 인물의 모의 시나리오 비교다. 관측 연구의 인과 효과를 재현했다고 주장하지 않는다.",
+  "source_branch": "No_SmokingZone_EXP",
+  "window": {"start": "2017-11-19", "days": 28, "effective_date": "2017-12-03"},
+  "cohort_size": 1154,
+  "arms": [
+    {
+      "arm_id": "shared-pre",
+      "role": "shared_pre",
+      "label": "공통 사전 14일",
+      "policy": "off",
+      "directory": "integration-main-v22-1154-shared-pre",
+      "start": "2017-11-19",
+      "days": 14
+    },
+    {
+      "arm_id": "post-off",
+      "role": "control",
+      "label": "시행 후 · 정책 OFF",
+      "policy": "off",
+      "parent": "shared-pre",
+      "directory": "integration-main-v22-1154-post-off",
+      "start": "2017-12-03",
+      "days": 14
+    },
+    {
+      "arm_id": "post-on",
+      "role": "treatment",
+      "label": "시행 후 · 정책 ON",
+      "policy": "on",
+      "parent": "shared-pre",
+      "directory": "integration-main-v22-1154-post-on",
+      "start": "2017-12-03",
+      "days": 14
+    }
+  ],
+  "analysis": {
+    "facilities": {"billiard": "당구장", "indoor_golf": "실내골프(스크린골프 포함)"},
+    "facility_aliases": {"screen_golf": "indoor_golf"},
+    "districts": {"11350": "노원구", "11650": "서초구", "11710": "송파구"},
+    "limitations": [
+      "결제 건수는 방문자 수가 아니다.",
+      "건너뛴 대상자-일(skipped)은 결측이다. 0으로 세지 않는다.",
+      "시행 후 비교는 두 팔 모두에서 관측된 대상자-일만 쓴다.",
+      "단일 시드 결과라 시드 불확실성 구간이 없다.",
+      "진행 중인 팔의 값은 중간 집계이며 최종 점수가 아니다."
+    ]
+  },
+  "bundle": {"directory": "experiment-bundles/full_3gu_1154_v1", "files": ["runtime.json", "personas.json"]},
+  "remote": {"profile": "NO_SMOKING_VAST", "results_root": "/workspace/no-smoking-results", "bundles_root": "/workspace"}
+}
