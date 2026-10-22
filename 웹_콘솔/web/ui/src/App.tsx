@@ -8,29 +8,42 @@
  *
  * 구 경로는 죽이지 않고 새 구조로 넘긴다. 이미 공유된 링크가 있기 때문이다 (스펙 §9 deep-linking).
  */
-import type { ReactNode } from 'react';
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from './app/AppShell';
 import { RunProvider } from './app/RunContext';
 import { RouteTransition } from './app/RouteTransition';
-import { AgentScreen } from './screens/AgentScreen';
 import { HomeScreen, UnknownRunScreen } from './screens/HomeScreen';
-import { KitScreen } from './screens/KitScreen';
-import { MonitorScreen } from './screens/MonitorScreen';
-import { NewRunScreen } from './screens/NewRunScreen';
-import { OverviewScreen } from './screens/OverviewScreen';
-import { PolicyScreen } from './screens/PolicyScreen';
-import { ReportScreen } from './screens/ReportScreen';
-import { ResultsScreen } from './screens/ResultsScreen';
-import { VisualizationScreen } from './screens/VisualizationScreen';
 import { NotFoundScreen } from './screens/NotFoundScreen';
-import { ExperimentAgents } from './screens/experiment/ExperimentAgents';
-import { ExperimentOverview } from './screens/experiment/ExperimentOverview';
-import { ExperimentQuery } from './screens/experiment/ExperimentQuery';
-import { ExperimentResults } from './screens/experiment/ExperimentResults';
-import { ExperimentWorkspace } from './screens/experiment/ExperimentWorkspace';
 import { isRunId } from './lib/fixtures';
 import { READ_ONLY } from './lib/runtime';
+
+/**
+ * 화면은 처음 열 때 받는다. 목록 화면 하나 보려고 보고서·정책 편집기·3D 임베드 코드까지
+ * 내려받지 않게 한다. 이름 붙은 export 를 default 로 바꿔 끼우는 얇은 감싸개다.
+ */
+function screen<K extends string>(load: () => Promise<Record<K, ComponentType>>, name: K) {
+  return lazy(() => load().then((m) => ({ default: m[name] })));
+}
+const AgentScreen = screen(() => import('./screens/AgentScreen'), 'AgentScreen');
+const KitScreen = screen(() => import('./screens/KitScreen'), 'KitScreen');
+const MonitorScreen = screen(() => import('./screens/MonitorScreen'), 'MonitorScreen');
+const NewRunScreen = screen(() => import('./screens/NewRunScreen'), 'NewRunScreen');
+const OverviewScreen = screen(() => import('./screens/OverviewScreen'), 'OverviewScreen');
+const PolicyScreen = screen(() => import('./screens/PolicyScreen'), 'PolicyScreen');
+const ReportScreen = screen(() => import('./screens/ReportScreen'), 'ReportScreen');
+const ResultsScreen = screen(() => import('./screens/ResultsScreen'), 'ResultsScreen');
+const VisualizationScreen = screen(() => import('./screens/VisualizationScreen'), 'VisualizationScreen');
+const ExperimentAgents = screen(() => import('./screens/experiment/ExperimentAgents'), 'ExperimentAgents');
+const ExperimentOverview = screen(() => import('./screens/experiment/ExperimentOverview'), 'ExperimentOverview');
+const ExperimentQuery = screen(() => import('./screens/experiment/ExperimentQuery'), 'ExperimentQuery');
+const ExperimentResults = screen(() => import('./screens/experiment/ExperimentResults'), 'ExperimentResults');
+const ExperimentWorkspace = screen(() => import('./screens/experiment/ExperimentWorkspace'), 'ExperimentWorkspace');
+
+/** 화면 코드를 받는 동안 자리만 잡아 둔다. 문구를 띄우지 않아야 빠른 망에서 깜빡임이 없다 */
+function ScreenFallback() {
+  return <div className="screen-fallback" aria-busy="true" />;
+}
 
 // 셸 스타일은 화면 스타일 뒤에 온다 — 같은 특이도면 나중 규칙이 이긴다
 import './styles/shell.css';
@@ -80,6 +93,7 @@ function LegacyRunRedirect({ feature }: { feature: string }) {
 export function App() {
   return (
     <BrowserRouter>
+      <Suspense fallback={<ScreenFallback />}>
       <Routes>
         {/* 개발 전용 — 앱 셸 밖에 둬서 사용자 내비게이션에 나타나지 않는다 */}
         <Route path="/__kit" element={READ_ONLY ? <Navigate to="/" replace /> : <KitScreen />} />
@@ -231,6 +245,7 @@ export function App() {
           }
         />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

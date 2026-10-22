@@ -179,3 +179,6 @@ textarea {
   /* 나타날 때 — 길게, ease-out */
   transition: transform var(--dur-base) var(--ease-out);
 }
+
+/* 화면 코드를 받는 동안의 빈 자리 — 높이만 잡아 레이아웃이 튀지 않게 한다 */
+.screen-fallback { min-height: 60vh; }

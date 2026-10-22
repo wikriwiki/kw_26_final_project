@@ -11,7 +11,7 @@
  * 셸(사이드바)은 감싸지 않는다. 움직이는 것은 본문 한 덩어리뿐이다
  * (§7 `excessive-motion` — 한 화면에 1~2개).
  */
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import type { ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -49,8 +49,12 @@ export function RouteTransition({ children, motion = 'rise' }: Props) {
     setSeen({ path: pathname, phase: seen.phase === 'a' ? 'b' : 'a' });
   }
 
-  // 쓸데없는 껍데기를 남기지 않는다
-  if (motion === 'none') return <>{children}</>;
+  // 화면 코드는 처음 열 때 받는다(App.tsx). 대기 경계를 본문 안에 둬서 받는 동안에도
+  // 셸(사이드바)은 제자리에 있고 본문 자리만 비어 있게 한다
+  const body = <Suspense fallback={<div className="screen-fallback" aria-busy="true" />}>{children}</Suspense>;
 
-  return <div className={`route route--${motion} is-${seen.phase}`}>{children}</div>;
+  // 쓸데없는 껍데기를 남기지 않는다
+  if (motion === 'none') return body;
+
+  return <div className={`route route--${motion} is-${seen.phase}`}>{body}</div>;
 }
