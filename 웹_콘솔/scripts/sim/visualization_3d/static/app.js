@@ -94,33 +94,38 @@
   }
 
   /**
-   * 첫 화면 위치. 원본 콘솔과 같은 거리 수준(줌 15.5)으로 보되, 시청에 고정하면 표본에 따라 화면이
-   * 거의 비었다. 지금 프레임의 점을 약 500m 격자로 세어 가장 붐비는 칸의 평균 위치에 맞춘다.
+   * 첫 화면 위치 — 그 정책 실행에서 가장 활발해 보이는 곳. 원본 콘솔과 같은 거리 수준(줌 15.5)으로 본다.
+   * 첫날 시작 시각부터 낮 동안(최대 15시간) 집이 아닌 곳에 있는 사람-시간을 약 500m 격자로 세고,
+   * 그 시각에 결제한 사람은 더 무겁게 센다(히트맵과 점이 함께 보이는 곳). 가장 높은 칸의 무게 중심으로 간다.
    */
-  function focusBusiestArea() {
+  function focusMostActiveArea(startIndex) {
     const state = Sim3D.state;
-    if (!state.map || !isFunction("dotsData")) return;
-    const data = Sim3D.dotsData();
-    const pos = data && data.attributes && data.attributes.getPosition && data.attributes.getPosition.value;
-    if (!pos || !data.length) return;
+    if (!state.map || !isFunction("agentFrame")) return;
+    const agents = (state.pack && state.pack.agents) || state.agents || [];
+    const frames = state.timeline || [];
+    const day = frames[startIndex] && frames[startIndex].day;
+    const loaded = isFunction("loadedFrameCount") ? Sim3D.loadedFrameCount() : frames.length;
     const cells = new Map();
-    for (let k = 0; k < data.length; k++) {
-      const lon = pos[k * 3];
-      const lat = pos[k * 3 + 1];
-      if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
-      const key = Math.round(lon / 0.006) + ":" + Math.round(lat / 0.0045);
-      const cell = cells.get(key) || { n: 0, lon: 0, lat: 0 };
-      cell.n += 1;
-      cell.lon += lon;
-      cell.lat += lat;
-      cells.set(key, cell);
+    for (let f = startIndex; f < Math.min(frames.length, loaded, startIndex + 15); f++) {
+      if (day && frames[f].day !== day) break;
+      for (let a = 0; a < agents.length; a++) {
+        const at = Sim3D.agentFrame(a, f);
+        if (!at || at.anchor === "residence" || !Number.isFinite(at.lon) || !Number.isFinite(at.lat)) continue;
+        const weight = at.spent > 0 ? 3 : 1;
+        const key = Math.round(at.lon / 0.006) + ":" + Math.round(at.lat / 0.0045);
+        const cell = cells.get(key) || { w: 0, lon: 0, lat: 0 };
+        cell.w += weight;
+        cell.lon += at.lon * weight;
+        cell.lat += at.lat * weight;
+        cells.set(key, cell);
+      }
     }
     let best = null;
     cells.forEach(function (cell) {
-      if (!best || cell.n > best.n) best = cell;
+      if (!best || cell.w > best.w) best = cell;
     });
-    if (best && best.n > 0) {
-      state.map.jumpTo({ center: [best.lon / best.n, best.lat / best.n], zoom: 15.5 });
+    if (best && best.w > 0) {
+      state.map.jumpTo({ center: [best.lon / best.w, best.lat / best.w], zoom: 15.5 });
     }
   }
 
@@ -217,7 +222,7 @@
     const seven = (state.timeline || []).findIndex(function (frame) { return Number(frame && frame.hour) === 7; });
     const start = seven >= 0 ? seven : firstActive;
     refreshOrSetFrame(Math.min(start, pack.loadedFrames - 1), 0);
-    focusBusiestArea();
+    focusMostActiveArea(Math.min(start, pack.loadedFrames - 1));
     Sim3D.startRenderLoop();
     marks.interactive = now() - started;
   };
