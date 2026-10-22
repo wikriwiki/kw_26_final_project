@@ -356,12 +356,19 @@
     }
   }
 
+  // 열지도 색 눈금은 5,000명 표본에 맞춰 잡혀 있다. 시민 수가 다른 팩도 같은 진하기로 읽히게
+  // 사람 수에 반비례해 무게를 키운다(5,000명보다 많으면 그대로).
+  const HEAT_REFERENCE_AGENTS = 5000;
+  function heatScale() {
+    return model && model.N > 0 ? Math.max(1, HEAT_REFERENCE_AGENTS / model.N) : 1;
+  }
+
   function writeHeatWeights(heatMode) {
     const spent = model.columns.spent;
     for (let k = 0; k < model.visibleCount; k++) {
       const ref = model.ref[k];
       const amount = ref >= 0 ? spent[ref] : 0;
-      model.heatW[k] = heatMode === "spending" ? Math.max(0.22, amount / 9000) : 1;
+      model.heatW[k] = (heatMode === "spending" ? Math.max(0.22, amount / 9000) : 1) * heatScale();
     }
   }
 
@@ -466,7 +473,7 @@
       positions[k * 3 + 1] = present ? y[ci] : model.homeY[a];
       positions[k * 3 + 2] = 10;
       const amount = ref >= 0 ? spent[ref] : 0;
-      weights[k] = mode === "spending" ? Math.max(0.22, amount / 9000) : 1;
+      weights[k] = (mode === "spending" ? Math.max(0.22, amount / 9000) : 1) * heatScale();
     }
     const data = { length: n, attributes: { getPosition: { value: positions, size: 3 }, getWeight: { value: weights, size: 1 } } };
     model.heatCache.set(key, data);

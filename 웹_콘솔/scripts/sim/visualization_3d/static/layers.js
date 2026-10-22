@@ -40,6 +40,8 @@
       pickable: true,
       opacity: z < 12 ? 0.9 : 0.35,
       radiusUnits: "meters",
+      // 반지름은 미터라 서울 전체를 볼 때는 1픽셀도 안 된다. 최소 크기를 둔다
+      radiusMinPixels: 2,
       stroked: true,
       getLineColor: DOT_LINE_COLOR,
       lineWidthUnits: "pixels",

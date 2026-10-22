@@ -64,6 +64,8 @@ def _frame_summaries(timeline: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "hour": frame.get("hour"),
                 "label": frame.get("label"),
                 "active_agents": len(active),
+                # 집이 아닌 곳에 있는 사람 — '밖에 나온 시민'. 집에 있는 사람도 프레임에 실리므로 따로 센다
+                "out_agents": sum(1 for agent in active if agent.get("anchor") != "residence"),
                 "spend_total": sum(_int_or_zero(agent.get("spent")) for agent in active),
                 "spenders": sum(1 for agent in active if _int_or_zero(agent.get("spent")) > 0),
             }

@@ -182,7 +182,8 @@
     if (frameLabel) frameLabel.textContent = label;
     const sceneClock = byId("scene-clock");
     if (sceneClock) sceneClock.textContent = label;
-    const activeValue = summary && summary.active_agents != null ? Number(summary.active_agents).toLocaleString() : "-";
+    const out = summary ? (summary.out_agents != null ? summary.out_agents : summary.active_agents) : null;
+    const activeValue = out != null ? Number(out).toLocaleString() : "-";
     const infoFrameLabel = byId("info-frame-label");
     if (infoFrameLabel) infoFrameLabel.textContent = label;
     const infoActive = byId("info-active-cnt");

@@ -146,6 +146,9 @@
     if (totalMemEl) totalMemEl.textContent = totals.totMem.toLocaleString();
     const totalApptEl = document.getElementById("info-total-appt");
     if (totalApptEl) totalApptEl.textContent = totals.totAppt.toLocaleString();
+    // 약속(대화) 기록이 없는 데이터에서 0 을 보이면 '약속이 없었다'로 읽힌다. 줄을 숨긴다
+    const apptRow = document.getElementById("info-appt-row");
+    if (apptRow) apptRow.hidden = !totals.totAppt;
     const totalRumorEl = document.getElementById("info-total-rumor");
     if (totalRumorEl) totalRumorEl.textContent = totals.totRumor.toLocaleString();
 

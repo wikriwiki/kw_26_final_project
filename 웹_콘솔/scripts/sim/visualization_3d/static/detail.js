@@ -127,7 +127,9 @@
       topCats = "";
     }
     const sex = agent.gender === "M" ? "남" : agent.gender === "F" ? "여" : agent.gender || "";
-    const tags = [agent.age ? agent.age + "세 " + sex : sex, agent.life_stage, agent.income ? "소득 " + agent.income : "", agent.tendency]
+    // age 는 연령대("40대")다. 정확한 나이가 있으면 그것을 쓴다
+    const age = agent.age_years ? agent.age_years + "세" : agent.age || "";
+    const tags = [[age, sex].filter(Boolean).join(" "), agent.life_stage, agent.income ? "소득 " + agent.income : "", agent.tendency]
       .filter(Boolean)
       .map(function (tag) { return '<span class="legacy-tag">' + esc(tag) + "</span>"; })
       .join("");
