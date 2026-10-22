@@ -40,7 +40,7 @@ function policyLine(run: RunContextValue): { value: string; note: string } {
   if (run.policy.items.length === 0) {
     return {
       value: '무정책(대조군)',
-      note: '결제 기록에 정책 지갑에서 나간 금액이 없습니다.',
+      note: '결제 기록에 지원금 사용 없음',
     };
   }
   return {
@@ -95,8 +95,7 @@ export function OverviewScreen() {
       {/* 중단된 실행을 숨기지 않는다. 무엇이 없는지 먼저 말한다 (설계도 §3) */}
       {run.phase === 'stopped' ? (
         <Callout tone="warn">
-          이 실행은 끝나기 전에 멈췄습니다. 실패한 것이 아니라 남은 일자가 만들어지지 않은
-          것이며, 아래에는 실제로 기록이 남아 있는 값만 표시합니다.
+          끝나기 전에 멈춘 실행입니다. 기록이 남은 날까지만 보여 줍니다.
         </Callout>
       ) : null}
 
@@ -133,14 +132,13 @@ export function OverviewScreen() {
           </div>
 
           <div className="dl__item">
-            <dt className="dl__k">하루 대상자</dt>
+            <dt className="dl__k">시민 수</dt>
             <dd className="dl__v">
               {run.agentsTarget === null ? (
                 <>
                   알 수 없음
                   <span className="cell-sub">
-                    요약 파일이 없어 목표 인원을 확인할 수 없습니다. 실제로 처리된 인원은 아래
-                    진행 상황에 있습니다.
+                    요약 파일이 없어 목표 인원을 모릅니다.
                   </span>
                 </>
               ) : (
@@ -191,7 +189,7 @@ export function OverviewScreen() {
         />
         <Stat
           className="c3"
-          label="처리한 대상자"
+          label="처리한 시민·일"
           value={days.length > 0 ? int(processed) : null}
           unit="명"
           hint={days.length > 0 ? `${int(days.length)}일 합계` : undefined}
@@ -224,7 +222,7 @@ export function OverviewScreen() {
           <Stat
             label="진행률"
             value={null}
-            unknownReason="계획 일수가 기록에 없어 진행률을 계산할 수 없습니다."
+            unknownReason="계획 일수 모름"
           />
         )}
 

@@ -39,7 +39,7 @@ function metaText(run: RunListItem): string {
   else if (run.daysPlanned === run.daysPresent) parts.push(`${int(run.daysPresent)}일`);
   else parts.push(`${int(run.daysPresent)}일 / 계획 ${int(run.daysPlanned)}일`);
 
-  parts.push(run.agentsTarget === null ? '대상자 수 알 수 없음' : `${int(run.agentsTarget)}명`);
+  parts.push(run.agentsTarget === null ? '인원 모름' : `${int(run.agentsTarget)}명`);
   return parts.join(' · ');
 }
 

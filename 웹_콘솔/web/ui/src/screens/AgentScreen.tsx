@@ -232,7 +232,7 @@ export function AgentScreen() {
 
       <header className="pagehead">
         <div className="pagehead__text">
-          <h1 className="pagehead__title">대상자 문답</h1>
+          <h1 className="pagehead__title">시민 문답</h1>
           <p className="pagehead__purpose">
             시민 한 명을 골라 질문합니다.
           </p>
@@ -241,14 +241,14 @@ export function AgentScreen() {
 
       {rosterError ? (
         <ErrorState
-          title="대상자 목록을 불러오지 못했습니다"
+          title="시민 목록을 불러오지 못했습니다"
           body="화면이 읽는 파일이 아직 만들어지지 않았습니다. 아래 명령으로 만든 뒤 새로고침하세요."
           detail={rosterError}
         />
       ) : roster ? (
         <Workspace roster={roster} />
       ) : (
-        <Card title="대상자 목록을 불러오는 중">
+        <Card title="시민 목록을 불러오는 중">
           <SkeletonText lines={4} />
         </Card>
       )}
@@ -298,7 +298,7 @@ function Workspace({ roster }: { roster: Roster }) {
 
   return (
     <div className="grid">
-      <Card className="c4 ag-side" title="대상자 찾기">
+      <Card className="c4 ag-side" title="시민 찾기">
         <p className="card__note">
           {int(filtered.length)}명 / 전체 {int(roster.items.length)}명
         </p>
@@ -361,8 +361,8 @@ function Workspace({ roster }: { roster: Roster }) {
 
         {filtered.length === 0 ? (
           <EmptyState
-            title="조건에 맞는 대상자가 없습니다"
-            body="자치구·연령·성별·소비 분위 중 하나를 넓히거나 검색어를 지우면 다시 나타납니다."
+            title="조건에 맞는 시민이 없습니다"
+            body="조건을 넓히거나 검색어를 지워 보세요."
             action={<Button onClick={() => setFilter(EMPTY_FILTER)}>조건 모두 지우기</Button>}
           />
         ) : (
@@ -378,7 +378,7 @@ function Workspace({ roster }: { roster: Roster }) {
         {selected === null ? (
           <Card>
             <EmptyState
-              title="대상자를 고르세요"
+              title="시민을 고르세요"
               body={`왼쪽 목록에서 고르세요 · ${int(filtered.length)}명`}
             />
           </Card>
@@ -468,7 +468,7 @@ function RosterList({
       className="ag-list"
       role="listbox"
       tabIndex={0}
-      aria-label="대상자 목록"
+      aria-label="시민 목록"
       aria-activedescendant={selected === null ? undefined : `ag-opt-${selected}`}
       onScroll={(e) => setTop(e.currentTarget.scrollTop)}
       onKeyDown={onKeyDown}
@@ -630,8 +630,8 @@ function Conversation({
   if (error) {
     return (
       <ErrorState
-        title="이 대상자의 기록을 불러오지 못했습니다"
-        body="기록 파일을 찾을 수 없습니다. 목록은 있는데 상세가 없다면 잘라 둔 파일이 목록과 어긋난 것입니다 — 생성 스크립트를 다시 실행하세요."
+        title="이 시민의 기록을 불러오지 못했습니다"
+        body="기록 파일이 목록과 맞지 않습니다. 생성 스크립트를 다시 실행하세요."
         detail={error}
       />
     );
@@ -735,7 +735,7 @@ function Conversation({
               help="목록에 없는 질문은 K-EXAONE이 이 시민의 기록을 근거로 답합니다."
               error={
                 miss
-                  ? '이 질문에 답할 기록이 없습니다 — 위 목록에 있는 질문으로 다시 물어보세요.'
+                  ? '답할 기록이 없습니다.'
                   : undefined
               }
               autoComplete="off"
@@ -751,7 +751,7 @@ function Conversation({
       <section className="section">
         <div className="section__head">
           <h2 className="section__title">문답</h2>
-          <p className="section__note">최근에 물어본 것이 위에 있습니다.</p>
+          <p className="section__note">최근 질문이 위</p>
         </div>
         <Card>
           {turns.length === 0 ? (
@@ -785,7 +785,7 @@ function TurnView({ turn }: { turn: Turn }) {
         <div className="ag-turn__a">
           {turn.pending ? (
             <p className="wrap" style={{ color: 'var(--fg-muted)' }} role="status">
-              답을 기다리는 중입니다…
+              답하는 중…
             </p>
           ) : turn.failed ? (
             <p className="wrap" style={{ color: 'var(--danger)' }}>{turn.failed}</p>
@@ -793,7 +793,7 @@ function TurnView({ turn }: { turn: Turn }) {
             <p className="wrap">{turn.said}</p>
           )}
           {!turn.pending && !turn.failed ? (
-            <p className="ag-turn__src wrap">본인이 자기 기록을 보고 답했습니다</p>
+            <p className="ag-turn__src wrap">K-EXAONE · 이 시민의 기록 기준</p>
           ) : null}
         </div>
       </article>

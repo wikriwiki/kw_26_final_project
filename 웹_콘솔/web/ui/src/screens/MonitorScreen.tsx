@@ -154,32 +154,32 @@ function MonitorView({ run }: { run: RunContextValue }) {
       <div className="grid statrow">
         <Stat
           className="c3"
-          label="처리한 대상자"
+          label="처리한 시민"
           value={int(totals.ok)}
           unit="명"
           hint={`${int(days.length)}일 합계`}
         />
         <Stat
           className="c3"
-          label="처리 실패한 대상자"
+          label="처리 실패"
           value={int(totals.err)}
           unit="명"
-          hint={totals.err === 0 ? '실패 없음' : '해당 일자를 상세에서 확인하세요'}
+          hint={totals.err === 0 ? '실패 없음' : '아래 일자별 표 참고'}
         />
         <Stat
           className="c3"
           label="응답 오류"
           value={bundle.failures.total === null ? null : int(bundle.failures.total)}
           unit="건"
-          hint="재시도로 복구된 건을 포함합니다"
-          unknownReason="오류 기록 파일이 없습니다"
+          hint="재시도로 복구된 건 포함"
+          unknownReason="오류 기록 없음"
         />
         <Stat
           className="c3"
           label="총 소요 시간"
           value={totals.elapsedKnown ? duration(totals.elapsed) : null}
           hint={totals.elapsedKnown ? `일 평균 ${duration(totals.elapsed / days.length)}` : undefined}
-          unknownReason="일자별 소요 기록이 아직 없습니다"
+          unknownReason="소요 기록 없음"
         />
       </div>
 
@@ -258,7 +258,7 @@ function MonitorView({ run }: { run: RunContextValue }) {
             {bottleneckBars.length === 0 ? (
               <EmptyState
                 title="단계별 기록이 없습니다"
-                body={bottlenecks.reason ?? '해당 일자의 소요 기록 파일을 찾지 못했습니다.'}
+                body={bottlenecks.reason ?? '이날의 소요 기록이 없습니다.'}
               />
             ) : (
               <>
@@ -270,7 +270,7 @@ function MonitorView({ run }: { run: RunContextValue }) {
                 ) : null}
                 <BarList items={bottleneckBars} />
                 <p className="card__note">
-                  {bundle.focusDay} 하루 동안 각 단계가 차지한 총 시간입니다.
+                  {bundle.focusDay} 단계별 총 시간
                 </p>
               </>
             )}
@@ -301,10 +301,10 @@ function MonitorView({ run }: { run: RunContextValue }) {
                 </p>
                 <div className="table-wrap">
                   <table className="table table--lead">
-                    <caption className="visually-hidden">오래 걸린 대상자 상위 목록</caption>
+                    <caption className="visually-hidden">오래 걸린 시민 상위 목록</caption>
                     <thead>
                       <tr>
-                        <th scope="col">대상자</th>
+                        <th scope="col">시민</th>
                         <th scope="col" className="n">
                           가장 오래 걸린 단계
                         </th>
@@ -335,7 +335,7 @@ function MonitorView({ run }: { run: RunContextValue }) {
                   </table>
                 </div>
                 <p className="card__note">
-                  기준이 되는 임계값은 기록 파일에 남지 않아 알 수 없습니다. 순위만 참고하세요.
+                  순위만 참고하세요.
                 </p>
               </>
             )}
@@ -346,7 +346,7 @@ function MonitorView({ run }: { run: RunContextValue }) {
             meta={bundle.failures.total === null ? '기록 없음' : `${int(bundle.failures.total)}건`}
           >
             <p className="card__note">
-              대상자가 실패한 건수가 아닙니다. 다시 시도해서 복구된 건도 여기에 남습니다.
+              재시도로 복구된 건도 포함합니다.
             </p>
             {errorTypeBars.length > 0 ? <BarList items={errorTypeBars} /> : null}
             <ul className="checks">
@@ -367,15 +367,15 @@ function MonitorView({ run }: { run: RunContextValue }) {
           <Disclosure title="실행 계획 근거">
             <dl className="dl">
               <div className="dl__item">
-                <dt className="dl__k">정본 (요약 파일)</dt>
+                <dt className="dl__k">요약 파일</dt>
                 <dd className="dl__v">
                   {plan.source === null
-                    ? '없음 — 실행이 끝나지 않아 요약 파일이 만들어지지 않았습니다'
+                    ? '없음 (끝나기 전에 멈춤)'
                     : `${plan.source} · ${int(plan.planned_days)}일 · 하루 ${int(plan.agents_target)}명`}
                 </dd>
               </div>
               <div className="dl__item">
-                <dt className="dl__k">참고 (실행 로그)</dt>
+                <dt className="dl__k">실행 로그</dt>
                 <dd className="dl__v wrap">
                   {bundle.detail.log_hint === null
                     ? '없음'

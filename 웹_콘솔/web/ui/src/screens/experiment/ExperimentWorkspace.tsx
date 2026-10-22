@@ -24,7 +24,7 @@ export function useExperiment(): ExperimentContext {
 const TABS = [
   { to: '', label: '개요', end: true },
   { to: 'results', label: '결과', end: false },
-  { to: 'agents', label: '대상자', end: false },
+  { to: 'agents', label: '시민', end: false },
   { to: 'query', label: '집단 질의', end: false },
 ];
 

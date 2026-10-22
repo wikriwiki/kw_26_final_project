@@ -295,7 +295,7 @@ def build_timeline(agents: list[dict], events: dict, days: list[str]) -> list[di
                         "intent": None, "sat": None, "spent": 0, "anchor": "residence",
                     })
             frames.append({"day_idx": day_idx, "day": day, "hour": hour,
-                           "label": f"Day {day_idx + 1} {day} {hour:02d}:00", "agents": frame_agents})
+                           "label": f"{day_idx + 1}일째 {day} {hour:02d}:00", "agents": frame_agents})
     return frames
 
 

@@ -333,7 +333,7 @@ export function ReportScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">보고서</h1>
           <p className="pagehead__purpose">
-            실행 결과로 분석 보고서를 만듭니다. 수치마다 출처 파일이 함께 적힙니다.
+            수치마다 출처 파일이 함께 적힙니다.
           </p>
         </div>
         {openPath ? (
@@ -358,7 +358,7 @@ export function ReportScreen() {
       {catalog.status === 'error' ? (
         <ErrorState
           title="보고서 API 에 연결하지 못했습니다"
-          body={`${catalog.error.message} — 콘솔 API(python -m uvicorn web.api.app:app)가 떠 있는지 확인하세요. 서버 없이 보고서를 만들 수는 없습니다.`}
+          body={`${catalog.error.message} — 콘솔 API 가 떠 있는지 확인하세요.`}
           detail={catalog.error.detail}
           action={
             <Button icon={<RefreshIcon size={16} />} onClick={loadCatalog}>
@@ -381,7 +381,7 @@ export function ReportScreen() {
           {/* ---------- 1단계. 무엇으로 만드는가 ---------- */}
           <section className="section">
             <div className="section__head">
-              <h2 className="section__title">1단계. 대상과 기간</h2>
+              <h2 className="section__title">대상과 기간</h2>
               <p className="section__note">
                 실행 {run.id} · 기록된 일자 {int(ready.run.days_present.length)}일 · 상태{' '}
                 {ready.run.status === 'completed' ? '완료' : '중단됨'}
@@ -400,8 +400,8 @@ export function ReportScreen() {
                   }
                   help={
                     boundPolicy
-                      ? `이 실행의 결제 기록에 남은 정책은 ${boundPolicy} 입니다.`
-                      : '이 실행의 결제 기록에서 적용 정책을 찾지 못했습니다 — 직접 고르세요.'
+                      ? `이 실행의 정책: ${boundPolicy}`
+                      : '적용 정책을 찾지 못했습니다. 직접 고르세요.'
                   }
                 />
                 <TextField
@@ -421,7 +421,7 @@ export function ReportScreen() {
                   onChange={(e) => setStart(e.currentTarget.value)}
                   help={
                     ready.run.days_present.length > 0
-                      ? `이 실행에 기록이 있는 구간: ${ready.run.days_present[0]} ~ ${
+                      ? `기록 구간 ${ready.run.days_present[0]} ~ ${
                           ready.run.days_present[ready.run.days_present.length - 1]
                         }`
                       : '이 실행에는 일자 기록이 없습니다.'
@@ -436,7 +436,7 @@ export function ReportScreen() {
                   max={365}
                   value={days}
                   onChange={(e) => setDays(e.currentTarget.value)}
-                  help={endDay ? `${start} 부터 ${endDay} 까지 ${int(dayCount)}일을 봅니다.` : undefined}
+                  help={endDay ? `${start} ~ ${endDay} · ${int(dayCount)}일` : undefined}
                   error={errors.days}
                 />
               </Card>
@@ -446,7 +446,7 @@ export function ReportScreen() {
           {/* ---------- 2단계. 무엇을 담는가 ---------- */}
           <section className="section">
             <div className="section__head">
-              <h2 className="section__title">2단계. 보고서 구성</h2>
+              <h2 className="section__title">구성</h2>
               <p className="section__note">
                 담을 내용을 고르세요. 계산할 수 없는 항목은 잠겨 있습니다.
               </p>
@@ -484,7 +484,7 @@ export function ReportScreen() {
                             <td>
                               <strong>{item.label}</strong>
                               {requiredIds.has(item.id) ? (
-                                <span className="cell-sub">항상 포함 — 근거 없는 보고서를 만들지 않습니다</span>
+                                <span className="cell-sub">항상 포함</span>
                               ) : null}
                             </td>
                             <td className="wrap">
@@ -505,7 +505,7 @@ export function ReportScreen() {
                 </div>
             </Card>
 
-            <Card title="해설 LLM" note="숫자는 계산 결과에서만 옵니다. 해설 문장만 모델이 씁니다.">
+            <Card title="해설 모델" note="숫자는 계산 결과 그대로이고, 해설 문장만 모델이 씁니다.">
               <dl className="dl">
                 <div className="dl__item">
                   <dt className="dl__k">제공자</dt>
@@ -549,14 +549,13 @@ export function ReportScreen() {
                       checked={useLlm}
                       onChange={(e) => setUseLlm(e.currentTarget.checked)}
                     />
-                    <span>이 보고서에 LLM 해설 사용</span>
+                    <span>해설 문장 넣기</span>
                   </label>
                 </div>
               ) : null}
               {!llm?.configured ? (
                 <p className="card__note wrap">
-                  해설 모델이 연결되지 않아도 보고서는 그대로 만들어집니다. 해설 문장만
-                  정해진 서술로 대체됩니다.
+                  모델이 없으면 해설 문장만 기본 서술로 바뀝니다.
                 </p>
               ) : null}
               {!READ_ONLY && !llm?.configured && llm?.operator_hint ? (
@@ -576,7 +575,7 @@ export function ReportScreen() {
 
             {lockedByRun ? (
               <Callout tone="warn">
-                이미 다른 보고서 생성 job 이 실행 중입니다. 끝난 뒤에 다시 시도하세요.
+                다른 보고서를 만드는 중입니다. 끝난 뒤 다시 시도하세요.
               </Callout>
             ) : null}
 
@@ -589,7 +588,7 @@ export function ReportScreen() {
             <div className="row-between">
               <p className="card__note wrap">
                 {engineInfo?.available
-                  ? `${start} 부터 ${int(dayCount)}일을 분석합니다.`
+                  ? `${start}부터 ${int(dayCount)}일`
                   : (engineInfo?.reason ?? '사용할 수 있는 엔진이 없습니다.')}
               </p>
               <Button variant="primary" disabled={!canSubmit} busy={starting} busyLabel="시작하는 중" onClick={submit}>
@@ -609,7 +608,7 @@ export function ReportScreen() {
           </section>
           </>
           ) : (
-            <Callout>읽기 전용으로 배포되어 새 보고서를 생성할 수 없습니다. 아래의 기존 보고서를 열람할 수 있습니다.</Callout>
+            <Callout>읽기 전용입니다. 만들어 둔 보고서만 볼 수 있습니다.</Callout>
           )}
 
           {/* ---------- 이전 보고서 ---------- */}
@@ -740,7 +739,7 @@ function JobPanel({ job, onOpen }: { job: ReportJob; onOpen: () => void }) {
                 </>
               ) : (
                 <>
-                  <AlertCircleIcon size={16} /> 어긋난 항등식 있음 — 보고서 마지막 절 확인
+                  <AlertCircleIcon size={16} /> 어긋난 항등식 있음 (마지막 절)
                 </>
               )}
             </dd>
@@ -758,8 +757,7 @@ function JobPanel({ job, onOpen }: { job: ReportJob; onOpen: () => void }) {
 
       {running ? (
         <p className="card__note" role="status" aria-live="polite">
-          서버가 보고서를 만들고 있습니다. 이 화면은 {POLL_MS / 1000}초마다 상태를 다시 물어봅니다 —
-          진행률을 지어내지 않고 서버가 알려준 단계만 표시합니다.
+          만드는 중입니다. {POLL_MS / 1000}초마다 상태를 확인합니다.
         </p>
       ) : null}
     </Card>

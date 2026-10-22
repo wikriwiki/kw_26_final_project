@@ -97,12 +97,12 @@ function useVizEmbed(runId: string): { embed: VizEmbed | null; loading: boolean 
 const COLOR_MODES = [
   { value: 'dist', label: '자치구별' },
   { value: 'cat', label: '활동 종류별' },
-  { value: 'appointment', label: '약속 있는 대상자' },
+  { value: 'appointment', label: '약속 있는 시민' },
 ];
 
 const HEAT_MODES = [
   { value: 'off', label: '표시 안 함' },
-  { value: 'density', label: '대상자 수' },
+  { value: 'density', label: '시민 수' },
   { value: 'spending', label: '소비 금액' },
 ];
 
@@ -200,7 +200,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
                      이 줄에서 말한다. 예전에는 지도 위 상자가 검색창을 덮었다 */
                   <span className="viz__sample">
                     <Badge tone="warn">표본 지도</Badge>
-                    {` 실행 ${runId} 의 지도가 아직 없어 ${embed?.caseId} 을(를) 보여 줍니다`}
+                    {` ${runId} 지도가 없어 ${embed?.caseId} 지도를 보여 줍니다`}
                   </span>
                 ) : null}
               </span>
@@ -239,7 +239,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
         <div className="mapstage">
           {embedLoading ? (
             <p className="mapstage__notice" role="status">
-              지도 데이터를 찾는 중입니다…
+              지도 불러오는 중…
             </p>
           ) : embed && embedSrc ? (
             <>
@@ -344,7 +344,7 @@ function VisualizationView({ run }: { run: RunContextValue }) {
               />
 
               <p className="vizpanel__note">
-                표시 설정은 지도를 연결한 뒤에 적용됩니다. 지금 바꿔도 화면은 달라지지 않습니다.
+                지도가 연결된 뒤에 적용됩니다.
               </p>
             </div>
           </aside>

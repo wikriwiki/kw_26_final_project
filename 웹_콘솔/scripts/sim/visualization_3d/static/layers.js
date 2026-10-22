@@ -338,13 +338,14 @@
     let doing = "집에 있음";
     if (frame) {
       const what = [frame.l1 || frame.cat, frame.intent].filter(Boolean).join(" · ");
-      doing = (what || frame.anchor || "활동 중") + (frame.dong ? " @ " + frame.dong : "");
+      doing = (what || "활동 중") + (frame.dong ? " · " + frame.dong : "");
     }
-    const spent = frame && frame.spent > 0 ? "<div>💰 " + esc(Sim3D.formatWon(frame.spent)) + "</div>" : "";
+    const spent = frame && frame.spent > 0 ? "<div>결제 " + esc(Sim3D.formatWon(frame.spent)) + "</div>" : "";
+    const sex = agent.gender === "M" ? "남" : agent.gender === "F" ? "여" : agent.gender;
     return {
       html:
         '<div class="sim-tip"><b>' + esc(agent.id) + "</b>" +
-        "<div>" + esc([agent.age, agent.gender, district].filter(Boolean).join(" · ")) + "</div>" +
+        "<div>" + esc([agent.age, sex, district].filter(Boolean).join(" · ")) + "</div>" +
         "<div>" + esc(doing) + "</div>" + spent + "</div>",
       className: "sim-tip-wrap"
     };

@@ -11,7 +11,7 @@
     {
       "arm_id": "shared-pre",
       "role": "shared_pre",
-      "label": "공통 사전 14일",
+      "label": "정책 전 14일",
       "policy": "off",
       "directory": "integration-main-v22-1154-shared-pre",
       "start": "2017-11-19",
@@ -20,7 +20,7 @@
     {
       "arm_id": "post-off",
       "role": "control",
-      "label": "시행 후 · 정책 OFF",
+      "label": "정책 없음",
       "policy": "off",
       "parent": "shared-pre",
       "directory": "integration-main-v22-1154-post-off",
@@ -30,7 +30,7 @@
     {
       "arm_id": "post-on",
       "role": "treatment",
-      "label": "시행 후 · 정책 ON",
+      "label": "정책 있음",
       "policy": "on",
       "parent": "shared-pre",
       "directory": "integration-main-v22-1154-post-on",

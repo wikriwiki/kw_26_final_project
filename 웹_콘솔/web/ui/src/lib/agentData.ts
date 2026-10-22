@@ -245,9 +245,9 @@ function rosterFor(runId: string): Promise<{ root: string; roster: Roster }> {
   let hit = rosters.get(runId);
   if (!hit) {
     const own = runRoot(runId);
-    hit = getJson<Roster>(`${own}/roster.json`, '대상자 목록')
+    hit = getJson<Roster>(`${own}/roster.json`, '시민 목록')
       .then((roster) => ({ root: own, roster }))
-      .catch(() => getJson<Roster>(`${STATIC_ROOT}/roster.json`, '대상자 목록').then((roster) => ({ root: STATIC_ROOT, roster })));
+      .catch(() => getJson<Roster>(`${STATIC_ROOT}/roster.json`, '시민 목록').then((roster) => ({ root: STATIC_ROOT, roster })));
     hit.catch(() => rosters.delete(runId));
     rosters.set(runId, hit);
   }
@@ -276,7 +276,7 @@ export function loadAgent(runId: string, idx: number): Promise<AgentDetail> {
     return hit;
   }
   const p = rosterFor(runId).then(({ root }) =>
-    getJson<AgentDetail>(`${root}/agents/${String(idx).padStart(4, '0')}.json`, '대상자 기록'),
+    getJson<AgentDetail>(`${root}/agents/${String(idx).padStart(4, '0')}.json`, '시민 기록'),
   );
   p.catch(() => cache.delete(key)); // 실패한 응답을 캐시에 남기지 않는다
   cache.set(key, p);
@@ -785,7 +785,7 @@ export function answer(a: AgentDetail, q: Question, ctx: AskContext): Answer {
       if (a.visitedDamaged > 0) {
         blocks.push({
           kind: 'p',
-          text: `이 대상자의 방문 기억 ${int(a.visited.length)}건 가운데 ${int(
+          text: `이 시민의 방문 기억 ${int(a.visited.length)}건 가운데 ${int(
             a.visitedDamaged,
           )}건은 원본 파일에서 요약문 글자가 깨져 있어(예: "(직장) ??, ??? 0.69") 문장을 싣지 않고 날짜·장소·만족도만 옮겼습니다.`,
         });
@@ -839,7 +839,7 @@ export function answer(a: AgentDetail, q: Question, ctx: AskContext): Answer {
     case 'heard': {
       if (!a.rumors.length) {
         return {
-          empty: '다른 대상자에게 이야기를 전해 들은 기록이 없습니다.',
+          empty: '다른 시민에게 들은 이야기가 없습니다.',
           blocks: [],
           source: `${SRC_MEMORIES} → memories(rumor)`,
         };

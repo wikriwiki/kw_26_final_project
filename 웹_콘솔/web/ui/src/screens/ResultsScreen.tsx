@@ -39,7 +39,7 @@ const ARTIFACT_LABEL: Record<string, string> = {
   stage1_failures_jsonl: '응답 오류 기록',
   timing_dir: '단계별 소요',
   checkpoints_dir: '진행 체크포인트',
-  metrics_dir: '대상자별 기록',
+  metrics_dir: '시민별 기록',
 };
 
 export function ResultsScreen() {
@@ -105,8 +105,7 @@ export function ResultsScreen() {
 
       {!events.available ? (
         <Callout tone="warn">
-          이 실행에는 결제 내역이 없어 업종별 분석을 볼 수 없습니다. 아래 소비 분위별 비교는
-          그대로 보실 수 있습니다.
+          결제 내역이 없어 업종별 분석이 없습니다.
         </Callout>
       ) : null}
 
@@ -167,7 +166,7 @@ export function ResultsScreen() {
           ) : (
             <EmptyState
               title="일별 결제 기록이 없습니다"
-              body={events.reason ?? '이 실행에는 결제 기록 파일이 만들어지지 않았습니다.'}
+              body={events.reason ?? '결제 기록 파일이 없습니다.'}
             />
           )}
         </Card>
@@ -183,7 +182,7 @@ export function ResultsScreen() {
           ) : (
             <EmptyState
               title="업종별 집계가 없습니다"
-              body={events.reason ?? '이 실행에는 결제 기록 파일이 만들어지지 않았습니다.'}
+              body={events.reason ?? '결제 기록 파일이 없습니다.'}
             />
           )}
         </Card>
@@ -205,7 +204,7 @@ export function ResultsScreen() {
               <tr>
                 <th scope="col">소비 분위</th>
                 <th scope="col" className="n">
-                  대상자
+                  시민
                 </th>
                 <th scope="col" className="n col-md">
                   1인당 지급액
@@ -239,7 +238,7 @@ export function ResultsScreen() {
         </div>
 
         <p className="section__note">
-          대상자 {int(deciles.reduce((s, r) => s + r.agents, 0))}명
+          시민 {int(deciles.reduce((s, r) => s + r.agents, 0))}명
         </p>
       </section>
 
@@ -289,15 +288,14 @@ export function ResultsScreen() {
             ) : (
               <EmptyState
                 title="일자별 집계가 없습니다"
-                body={events.reason ?? '결제 기록 파일이 만들어지지 않았습니다.'}
+                body={events.reason ?? '결제 기록 파일이 없습니다.'}
               />
             )}
           </Disclosure>
 
           <Disclosure title="내보내기">
             <p className="card__note">
-              이 실행에 남아 있는 원자료입니다. 없는 파일은 실행이 그 단계까지 가지 못했다는
-              뜻입니다.
+              이 실행의 원자료
             </p>
             <dl className="dl">
               {Object.entries(indexItem.artifacts).map(([key, present]) => (
@@ -320,7 +318,7 @@ export function ResultsScreen() {
                 <dd className="dl__v wrap">{bundle.dayAggregate?.source_file ?? '없음'}</dd>
               </div>
               <div className="dl__item">
-                <dt className="dl__k">쿠폰 사용 가능 매장</dt>
+                <dt className="dl__k">지원금 사용 가능 매장</dt>
                 <dd className="dl__v">
                   {events.poi_summary
                     ? `${int(events.poi_summary.poi_eligible)}곳 / 전체 ${int(
@@ -333,7 +331,7 @@ export function ResultsScreen() {
                 <dt className="dl__k">쓸 수 없는 값</dt>
                 <dd className="dl__v">
                   {events.null_only_fields && events.null_only_fields.length > 0
-                    ? `${events.null_only_fields.join(', ')} — 전부 비어 있어 집계에 쓰지 않았습니다`
+                    ? `${events.null_only_fields.join(', ')} (모두 비어 있어 집계 안 함)`
                     : '없음'}
                 </dd>
               </div>

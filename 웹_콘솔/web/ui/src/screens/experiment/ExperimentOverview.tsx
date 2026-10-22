@@ -133,7 +133,7 @@ export function ExperimentOverview() {
     <div className="stack">
       {experiment.interpretation ? <Callout tone="info">{experiment.interpretation}</Callout> : null}
       <div className="grid">
-        <Stat className="c3" label="대상자" value={int(cohort)} unit="명" />
+        <Stat className="c3" label="시민" value={int(cohort)} unit="명" />
         <Stat className="c3" label="기간" value={experiment.window.start ? `${experiment.window.start}부터 ${int(experiment.window.days)}일` : null} />
         <Stat className="c3" label="정책 시행일" value={experiment.window.effective_date ?? null} />
         <Stat className="c3" label="기록된 날 / 빠진 기록" value={`${int(observedDays)} / ${int(totalSkipped)}`} />

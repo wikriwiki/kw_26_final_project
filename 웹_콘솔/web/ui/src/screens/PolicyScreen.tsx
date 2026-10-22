@@ -107,7 +107,7 @@ export function PolicyScreen() {
           /* 결제 기록을 끝까지 읽었는데 정책 지급이 0건 — 이때만 "대조군"이라고 말할 수 있다 */
           <EmptyState
             title="이 실행에는 정책이 적용되지 않았습니다 (대조군)"
-            body="결제 기록에 정책 지갑에서 빠져나간 금액이 한 건도 없습니다. 정책 없이 돌린 비교 기준 실행입니다."
+            body="결제 기록에 지원금 사용이 없습니다. 정책 없이 돌린 비교 기준입니다."
             action={
               <Button variant="primary" onClick={() => navigate('/new')}>
                 정책을 적용해 새로 만들기
@@ -118,7 +118,7 @@ export function PolicyScreen() {
           /* 지급 기록은 있는데 그 식별자의 정책 파일을 찾지 못했다 — 이름을 지어내지 않는다 */
           <EmptyState
             title={`정책 ${applied.id} 의 내용을 찾지 못했습니다`}
-            body={`이 실행의 결제 기록에는 ${applied.id} 지급이 남아 있지만, 등록된 정책 목록에 같은 식별자가 없습니다. 정책 파일이 옮겨졌거나 이름이 바뀌었을 수 있습니다.`}
+            body={`정책 목록에 ${applied.id} 파일이 없습니다.`}
             action={
               <Button variant="primary" onClick={() => navigate('/new')}>
                 등록된 정책 보기
@@ -128,9 +128,7 @@ export function PolicyScreen() {
         ) : (
           <>
             <Callout tone="warn">
-              이 실행에 정책이 적용됐는지 확인할 수 없습니다. 실행 산출물에는 적용 정책 식별자가
-              따로 기록되지 않아 결제 기록에 남은 지급액으로만 판단하는데, 이 실행에는 그 기록이
-              없습니다. <strong>정책이 없었다는 뜻이 아니라, 아직 모른다는 뜻입니다.</strong>
+              결제 기록이 없어 적용 정책을 확인할 수 없습니다. 정책이 없었다는 뜻은 아닙니다.
             </Callout>
             <EmptyState
               title="결제 기록이 없습니다"
@@ -267,7 +265,7 @@ export function PolicyScreen() {
             <EmptyState
               fill
               title="지급액이 없는 정책입니다"
-              body={`${policyType(policy.type).label} 정책이라 대상자에게 지급하는 금액이 없습니다. 효과는 소비 금액이 아니라 방문·체류 변화로 나타납니다.`}
+              body={`${policyType(policy.type).label} 정책이라 지급액이 없습니다.`}
             />
           )}
         </Card>
@@ -291,7 +289,7 @@ export function PolicyScreen() {
             <span className="verdict__text">
               {failing.length > 0
                 ? `오류 ${int(failing.length)}건이 있는 상태로 실행됐습니다`
-                : '점검에서 오류가 나오지 않은 정책입니다'}
+                : '점검 오류 없음'}
             </span>
           </div>
 
@@ -339,8 +337,7 @@ export function PolicyScreen() {
 
           {!validation.db_wiring_checked ? (
             <p className="card__note wrap">
-              데이터베이스 연결 정보가 없어 “정책이 실제로 대상자에게 보이는지”는 확인하지
-              못했습니다. 이 항목은 통과가 아니라 <strong>미확인</strong>입니다.
+              데이터베이스에 연결하지 않아 “시민에게 실제로 보이는지”는 확인하지 못했습니다(미확인).
             </p>
           ) : null}
         </Card>
@@ -368,19 +365,18 @@ export function PolicyScreen() {
           </Disclosure>
 
           <Disclosure
-            title="대상자에게 전달되는 문장 (프롬프트 미리보기)"
+            title="시민에게 전달되는 문장"
             meta={validation.prompt_preview_persona ?? undefined}
           >
             <p className="card__note">
-              시뮬레이션 대상자가 하루를 계획할 때 실제로 읽는 문장입니다.
+              시민이 하루를 계획할 때 읽는 문장
             </p>
             <pre className="code">{validation.prompt_preview}</pre>
           </Disclosure>
 
           <Disclosure title="정책 원문 (JSON)">
             <p className="card__note">
-              저장된 파일 {detail.file} 의 내용 그대로입니다. 화면이 요약하며 생략한 값이 있는지
-              확인할 때 씁니다.
+              {detail.file} 원문
             </p>
             <pre className="code">{JSON.stringify(policy, null, 2)}</pre>
           </Disclosure>

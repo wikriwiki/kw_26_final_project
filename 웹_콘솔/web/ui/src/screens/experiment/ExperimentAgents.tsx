@@ -63,7 +63,7 @@ function Roster({ experiment, selected, onSelect }: { experiment: ExperimentSumm
   if (roster.error) return <ErrorState title="명단을 불러오지 못했습니다" body={roster.error.message} />;
 
   return (
-    <Card title={`대상자 ${int(filtered.length)} / ${int(agents.length)}명`} note={roster.data?.source === 'metrics' ? '프로필이 없어 id 만 보입니다.' : undefined} className="agentroster">
+    <Card title={`시민 ${int(filtered.length)} / ${int(agents.length)}명`} note={roster.data?.source === 'metrics' ? '프로필이 없어 id 만 보입니다.' : undefined} className="agentroster">
       <div className="agentroster__filters">
         <SelectField label="구" value={gu} onChange={(e) => setGu(e.target.value)} options={[{ value: '', label: '전체' }, ...uniqueValues(agents, 'gu').map((v) => ({ value: v, label: v }))]} />
         {experiment.kind === 'no_smoking_zone' ? (
@@ -80,7 +80,7 @@ function Roster({ experiment, selected, onSelect }: { experiment: ExperimentSumm
           <input className="field__control" type="search" value={query} placeholder="id · 동 · 직업" onChange={(e) => setQuery(e.target.value)} />
         </label>
       </div>
-      <ul className="agentlist" aria-label="대상자 명단">
+      <ul className="agentlist" aria-label="시민 명단">
         {filtered.slice(0, limit).map((agent) => (
           <li key={agent.id}>
             <button
