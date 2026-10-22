@@ -58,7 +58,7 @@
     playing: true,
     speed: 1,
     selectedAgentId: null,
-    layerToggles: { heatmap: true, trails: false, policyZones: true, guBoundary: false },
+    layerToggles: { heatmap: true, trails: true, policyZones: true, guBoundary: false },
     colorMode: "dist",
     heatMode: "spending",
     distFilter: "all",
@@ -94,8 +94,8 @@
   }
 
   /**
-   * 첫 화면을 시민이 가장 많이 모인 곳에 맞춘다. 표본마다 사는 곳이 달라 고정 좌표(시청)로는
-   * 화면이 비는 일이 있었다. 지금 프레임의 점들을 약 1km 격자로 세어 가장 붐비는 칸의 평균 위치로 간다.
+   * 첫 화면 위치. 원본 콘솔과 같은 거리 수준(줌 15.5)으로 보되, 시청에 고정하면 표본에 따라 화면이
+   * 거의 비었다. 지금 프레임의 점을 약 500m 격자로 세어 가장 붐비는 칸의 평균 위치에 맞춘다.
    */
   function focusBusiestArea() {
     const state = Sim3D.state;
@@ -108,7 +108,7 @@
       const lon = pos[k * 3];
       const lat = pos[k * 3 + 1];
       if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
-      const key = Math.round(lon / 0.012) + ":" + Math.round(lat / 0.009);
+      const key = Math.round(lon / 0.006) + ":" + Math.round(lat / 0.0045);
       const cell = cells.get(key) || { n: 0, lon: 0, lat: 0 };
       cell.n += 1;
       cell.lon += lon;
@@ -120,7 +120,7 @@
       if (!best || cell.n > best.n) best = cell;
     });
     if (best && best.n > 0) {
-      state.map.jumpTo({ center: [best.lon / best.n, best.lat / best.n], zoom: 14 });
+      state.map.jumpTo({ center: [best.lon / best.n, best.lat / best.n], zoom: 15.5 });
     }
   }
 

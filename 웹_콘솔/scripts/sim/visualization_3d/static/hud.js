@@ -284,7 +284,7 @@
     }
 
     bindLayerToggle("toggle-heatmap-btn", "heatmap", true);
-    bindLayerToggle("toggle-trails-btn", "trails", false);
+    bindLayerToggle("toggle-trails-btn", "trails", true);
     bindGuBoundaryToggle("toggle-gu-boundary-btn");
 
     const chapterToggleButton = byId("chapter-toggle-btn");
