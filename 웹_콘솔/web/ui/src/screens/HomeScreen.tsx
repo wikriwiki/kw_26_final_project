@@ -7,6 +7,9 @@
  * 셸(사이드바)이 없는 화면이다 — 아직 run 컨텍스트가 없으므로 고를 것도 없다.
  */
 import { Link } from 'react-router-dom';
+import { CityDots, type Residents } from '../components/CityDots';
+import { api, request } from '../lib/api';
+import { useLoad } from '../lib/runData';
 import { Badge } from '../components/Badge';
 import { EmptyState } from '../components/Feedback';
 import { Meter } from '../components/Meter';
@@ -104,6 +107,76 @@ function RunRow({ run }: { run: RunListItem }) {
   );
 }
 
+/** 첫 화면 지도의 시민 — 3D 지도 팩 가운데 첫 팩. 팩이 없으면 지도를 그리지 않는다 */
+async function loadResidents(): Promise<(Residents & { label: string | null }) | null> {
+  const packs = await api.listVizPacks();
+  const first = packs.items.find((p) => !('error' in p)) ?? null;
+  if (!first) return null;
+  return request<Residents & { label: string | null }>(`/viz/packs/${encodeURIComponent(first.pack_id)}/residents`);
+}
+
+function HomeHero({ runs }: { runs: RunListItem[] }) {
+  const residents = useLoad('home-residents', loadResidents);
+  const map = residents.status === 'ready' ? residents.data : null;
+  const longest = runs.reduce((m, r) => Math.max(m, r.daysPresent), 0);
+  const agents = runs.reduce((m, r) => Math.max(m, r.agentsTarget ?? 0), 0);
+  return (
+    <section className={`hero${map ? '' : ' hero--solo'}`}>
+      <div className="hero__text">
+        <p className="kicker">서울 상권정책 시뮬레이션</p>
+        <h1 className="hero__title">
+          정책을 넣고,
+          <br />
+          시민의 하루를 본다.
+        </h1>
+        <p className="hero__lead">
+          서울 시민 에이전트에게 실제 정책을 적용한 시뮬레이션입니다. 실행을 고르면 소비 변화와
+          이동 지도, 보고서, 시민 인터뷰로 정책 효과를 해석할 수 있습니다.
+        </p>
+        <dl className="hero__stats">
+          <div>
+            <dt>시뮬레이션 실행</dt>
+            <dd className="num">{int(runs.length)}</dd>
+          </div>
+          {agents > 0 ? (
+            <div>
+              <dt>하루 대상 시민</dt>
+              <dd className="num">{int(agents)}</dd>
+            </div>
+          ) : null}
+          {longest > 0 ? (
+            <div>
+              <dt>가장 긴 기록</dt>
+              <dd className="num">
+                {int(longest)}
+                <small>일</small>
+              </dd>
+            </div>
+          ) : null}
+        </dl>
+        {!READ_ONLY ? (
+          <div className="hero__actions">
+            <Link className="btn btn--primary" to="/new">
+              새 시뮬레이션 만들기
+            </Link>
+          </div>
+        ) : null}
+      </div>
+      {map ? (
+        <figure className="hero__map">
+          <CityDots data={map} label={`시뮬레이션 시민 ${int(map.count)}명의 집 위치`} />
+          <figcaption className="hero__mapcap">
+            <span>
+              점 = 시민 {int(map.count)}명의 집 · 파란 점 = 직장으로 오가는 중
+            </span>
+            {map.label ? <span>{map.label}</span> : null}
+          </figcaption>
+        </figure>
+      ) : null}
+    </section>
+  );
+}
+
 export function HomeScreen() {
   const list = useRunList();
   const runs = list.status === 'ready' ? list.data : [];
@@ -115,20 +188,7 @@ export function HomeScreen() {
   return (
     <main id="main" className="home">
       <div className="stack">
-        <header className="pagehead">
-          <div className="pagehead__text">
-            <h1 className="pagehead__title">시뮬레이션</h1>
-            <p className="pagehead__purpose">확인할 시뮬레이션을 고르세요.</p>
-          </div>
-          {!READ_ONLY ? (
-            <div className="pagehead__actions">
-              {/* 이 화면의 유일한 primary */}
-              <Link className="btn btn--primary" to="/new">
-                새 시뮬레이션 만들기
-              </Link>
-            </div>
-          ) : null}
-        </header>
+        <HomeHero runs={runs} />
 
         {/* 레지스트리에 등록된 실험(분기 팔 포함). API 가 없으면 그리지 않는다 */}
         <ExperimentList />
@@ -165,7 +225,10 @@ export function HomeScreen() {
           groups.map(({ phase, items }) => (
             <section className="section" key={phase}>
               <div className="section__head">
-                <h2 className="section__title">{PHASE_LABEL[phase]}</h2>
+                <h2 className="section__title">
+                  <span className="kicker">실행</span>
+                  {PHASE_LABEL[phase]}
+                </h2>
                 <span className="section__note num">{int(items.length)}건</span>
               </div>
               <ul className="runlist">

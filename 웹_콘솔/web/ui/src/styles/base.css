@@ -57,9 +57,10 @@ h1,
 h2,
 h3,
 h4 {
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-bold);
   line-height: var(--lh-tight);
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
 }
 
 h1 {
@@ -123,11 +124,32 @@ textarea {
   outline: none;
 }
 
-/* 모든 수치는 mono + tabular-nums (§3) */
+/* 수치는 자릿수를 맞춘다. 글꼴은 본문 그대로 — "31억 8,552만원"의 한글이 고정폭에 끼면
+   자간이 벌어져 읽기 어렵다. 식별자·일자처럼 기계가 만든 값만 .mono 로 고정폭을 쓴다 */
 .num {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
+}
+.mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
+}
+/* 섹션 머리의 작은 고정폭 라벨 — 랜딩 페이지의 kicker */
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+  letter-spacing: var(--tracking-label);
+  color: var(--fg-subtle);
+}
+.kicker::after {
+  content: "";
+  width: 40px;
+  height: 1px;
+  background: var(--border-strong);
 }
 
 /* 긴 텍스트는 자르지 않고 흘린다 — 가로 스크롤의 원인을 없앤다.

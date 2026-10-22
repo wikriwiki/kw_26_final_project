@@ -1,8 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
-// 한글 본문용 가변 폰트. 네트워크 없이 로컬에서 서브셋을 읽는다.
-import '@fontsource-variable/noto-sans-kr';
+// 랜딩 페이지와 같은 글꼴. 네트워크 없이 로컬에서 읽는다 — 시연장 망이 막혀도 같은 모습이다.
+// Pretendard 는 유니코드 구간별로 잘린 가변 글꼴이라 화면에 나온 글자의 조각만 받는다.
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+import '@fontsource/ibm-plex-mono/400.css';
+import '@fontsource/ibm-plex-mono/500.css';
 
 import './styles/tokens.css';
 import './styles/base.css';

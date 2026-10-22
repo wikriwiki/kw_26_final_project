@@ -16,7 +16,8 @@ export function ExperimentList() {
     <section className="section" aria-labelledby="experiments-title">
       <header className="section__head">
         <h2 className="section__title" id="experiments-title">
-          실험
+          <span className="kicker">실험</span>
+          정책 있음 · 없음 비교 실험
         </h2>
         <p className="section__note">여러 팔(공통 사전 → 정책 OFF/ON)로 나뉜 실험입니다. 실험 서버의 기록을 읽기 전용으로 받아 봅니다.</p>
       </header>

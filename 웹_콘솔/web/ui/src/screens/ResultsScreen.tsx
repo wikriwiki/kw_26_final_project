@@ -2,15 +2,15 @@
  * 결과 — 스펙 §7.
  * 단일 목적: 정책 효과를 해석한다.
  *
- * 기본 노출  : 핵심 지표 4개 · 지도 미리보기 · 업종별 · 소비 분위별 비교
+ * 기본 노출  : 핵심 지표 4개 · 일별 결제 추이 · 업종별 · 소비 분위별 비교
  * 접어두는 것: 원자료 표 · 내보내기 · 출처
  *
  * **run 은 셸이 소유한다** (설계도 §5). 화면 안의 "실행 선택" 칩 그룹을 걷어냈고,
  * `useRun()` 이 준 실행을 그대로 그린다. 실행 이름·상태·기간은 사이드바가 항상 말한다.
  *
- * 지도 미리보기가 시각화 화면의 **주 진입 경로**다 (§7 "시각화 페이지 진입 흐름").
- * 미리보기 자체가 버튼이고, 옆에 "지도에서 열기"도 함께 둔다 — 정확히 조준하지 않아도
- * 갈 수 있어야 한다. 지금 보고 있는 실행과 일자를 그대로 들고 넘어간다.
+ * 예전 자리의 빈 "지도 미리보기" 상자는 아무것도 보여주지 않으면서 화면의 가장 큰 칸을
+ * 차지했다. 그 자리에 정책 효과가 모양으로 보이는 일별 결제 추이를 둔다. 지도로 가는 길은
+ * 화면 머리의 버튼이 맡고, 지금 보고 있는 실행과 일자를 그대로 들고 넘어간다.
  *
  * 결제 기록의 행정동 값이 3개 실행 전부에서 비어 있어(CONTRACT §2.8) 지역별 **결제 집계**는
  * 만들 수 없다. 그 사실은 업종 카드에 적어 두고, 지도는 결제 집계가 아니라 이동·방문을
@@ -20,6 +20,7 @@ import { useNavigate } from 'react-router-dom';
 import { useRun } from '../app/RunContext';
 import { Button } from '../components/Button';
 import { Card, Stat } from '../components/Card';
+import { DailyStack } from '../components/DailyStack';
 import { Disclosure } from '../components/Disclosure';
 import { Callout, EmptyState } from '../components/Feedback';
 import { MapIcon } from '../components/Icon';
@@ -27,7 +28,7 @@ import { BarList } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
 import { rememberScroll, useScrollMemory } from '../app/useViewState';
 import { loadPolicyDetail, useLoad, type DecileBucket } from '../lib/runData';
-import { dec, int, krw, percent } from '../lib/format';
+import { dec, int, krw, krwAxis, percent } from '../lib/format';
 import { decile } from '../lib/labels';
 
 const ARTIFACT_LABEL: Record<string, string> = {
@@ -57,6 +58,8 @@ export function ResultsScreen() {
   const grants = (
     boundDetail.status === 'ready' ? (boundDetail.data.policy?.decile_grants ?? {}) : {}
   ) as Record<string, number>;
+  const effectiveFrom = boundDetail.status === 'ready' ? (boundDetail.data.policy?.effective_from ?? null) : null;
+  const daily = (events.by_day ?? []).map((d) => ({ day: d.day, total: d.amt, part: d.policy_paid }));
 
   // 분위가 없는 대상자는 보여주지 않는다. 읽는 사람이 판단에 쓸 수 없는 줄이다
   const deciles = ((bundle.dayAggregate?.by_spend_decile ?? []) as unknown as DecileBucket[]).filter(
@@ -91,6 +94,11 @@ export function ResultsScreen() {
           <p className="pagehead__purpose">
             정책이 실제 소비를 어디서 얼마나 바꿨는지 확인합니다.
           </p>
+        </div>
+        <div className="pagehead__actions">
+          <Button variant="secondary" icon={<MapIcon size={18} />} onClick={openMap}>
+            3D 지도에서 보기
+          </Button>
         </div>
       </header>
 
@@ -141,29 +149,32 @@ export function ResultsScreen() {
 
       {/* 1차 블록 2 — 지도 미리보기(시각화 주 진입) + 업종별 */}
       <div className="grid">
-        <Card className="c6">
-          <button type="button" className="mappreview" onClick={openMap}>
-            {/*
-              실제 썸네일이 생기면 이 자리에 <img> 가 들어간다.
-              없는 지도를 그린 척하지 않으려고 지금은 무엇이 열리는지만 적는다.
-            */}
-            <span className="mappreview__surface">
-              <span className="mappreview__label">3D 지도 미리보기</span>
-              <span className="mappreview__meta num">{bundle.focusDay}</span>
-            </span>
-          </button>
-          <p className="card__note">
-            대상자가 하루 동안 어디로 움직이고 어디에 머물렀는지 지도 위에서 봅니다. 결제 금액이
-            아니라 이동과 방문을 보는 화면입니다.
-          </p>
-          <div className="row">
-            <Button variant="primary" icon={<MapIcon size={18} />} onClick={openMap}>
-              지도에서 열기
-            </Button>
-          </div>
+        <Card className="c7" title="일별 결제 추이">
+          {daily.length > 0 ? (
+            <>
+              <DailyStack
+                points={daily}
+                format={krw}
+                tickFormat={krwAxis}
+                totalLabel="총 결제"
+                partLabel="정책 지갑"
+                marker={effectiveFrom ? { day: effectiveFrom, label: '정책 시행' } : null}
+                title="일별 총결제액과 그중 정책 지갑에서 나간 금액"
+              />
+              <p className="card__note">
+                막대 하나가 하루의 총결제액이고, 진한 부분이 그중 정책 지갑에서 나간 돈입니다.
+                막대에 마우스를 올리면 그날의 숫자가 위에 나옵니다.
+              </p>
+            </>
+          ) : (
+            <EmptyState
+              title="일별 결제 기록이 없습니다"
+              body={events.reason ?? '이 실행에는 결제 기록 파일이 만들어지지 않았습니다.'}
+            />
+          )}
         </Card>
 
-        <Card className="c6" title="업종별 결제액">
+        <Card className="c5" title="업종별 결제액">
           {industryBars.length > 0 ? (
             <>
               <BarList items={industryBars} />

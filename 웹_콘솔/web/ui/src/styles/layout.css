@@ -39,7 +39,7 @@
 
 @media (min-width: 768px) {
   .page {
-    padding: var(--sp-6) var(--sp-5) var(--sp-7);
+    padding: var(--sp-7) var(--sp-6) var(--sp-8);
   }
 }
 
@@ -100,7 +100,7 @@
 
 /* 현재 위치: 좌측 3px 인디케이터 + primary 색 */
 .rail__btn[aria-current="page"] {
-  color: var(--primary);
+  color: var(--fg);
   background: var(--surface-sunken);
 }
 
@@ -267,7 +267,9 @@
 /* 375 기준: 모든 위젯 12열 전폭 */
 .c3,
 .c4,
+.c5,
 .c6,
+.c7,
 .c8,
 .c9,
 .c12 {
@@ -296,6 +298,12 @@
   .c6 {
     grid-column: span 6;
   }
+  .c5 {
+    grid-column: span 5;
+  }
+  .c7 {
+    grid-column: span 7;
+  }
   .c8 {
     grid-column: span 8;
   }
@@ -304,11 +312,11 @@
   }
 }
 
-/* 세로 리듬 — 섹션 사이는 항상 --sp-6 */
+/* 세로 리듬 — 섹션 사이는 항상 --sp-7 */
 .stack {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-6);
+  gap: var(--sp-7);
   min-width: 0;
 }
 

@@ -17,7 +17,7 @@
    한 줄이 눈으로 훑기 좋은 길이를 넘지 않게 한다 */
 
 .home {
-  max-width: 960px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--sp-6) var(--sp-4) var(--sp-7);
   min-width: 0;
@@ -288,7 +288,7 @@
 .runlist {
   display: flex;
   flex-direction: column;
-  border-top: var(--hairline);
+  border-top: 1px solid var(--rule-ink);
 }
 
 .runlist__li {
@@ -321,8 +321,9 @@
 }
 
 .runrow__name {
+  font-family: var(--font-mono);
   font-size: var(--fs-body);
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-medium);
   color: var(--fg);
 }
 
@@ -378,8 +379,9 @@
 }
 
 .runrow__time {
+  font-family: var(--font-mono);
   font-size: var(--fs-caption);
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
 }
 
 /* 768 이상: 이름 | 내용 | 갱신시각 한 줄 */
@@ -394,4 +396,113 @@
     justify-self: end;
     text-align: right;
   }
+}
+
+/* --- 홈 표지 — 랜딩 페이지 첫 장과 같은 구성 ----------------------------- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-6);
+  align-items: end;
+  padding-bottom: var(--sp-7);
+  border-bottom: var(--hairline);
+}
+@media (min-width: 1024px) {
+  .hero {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: var(--sp-7);
+    align-items: center;
+    padding-top: var(--sp-5);
+  }
+  .hero--solo {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+}
+.hero__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  min-width: 0;
+}
+.hero__title {
+  font-size: var(--fs-hero);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+.hero__lead {
+  max-width: 34em;
+  font-size: clamp(16px, 1.25vw, 19px);
+  line-height: 1.65;
+  color: var(--fg-muted);
+}
+.hero__stats {
+  display: flex;
+  flex-wrap: wrap;
+  margin: var(--sp-3) 0 0;
+  border-top: var(--hairline);
+}
+.hero__stats > div {
+  padding: var(--sp-4) var(--sp-6) 0 0;
+  margin-right: var(--sp-6);
+  border-right: var(--hairline);
+}
+.hero__stats > div:last-child {
+  border-right: 0;
+  margin-right: 0;
+}
+.hero__stats dd {
+  margin: 0;
+  order: -1;
+  font-size: clamp(26px, 2.4vw, 36px);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.15;
+}
+.hero__stats dd small {
+  font-size: 0.5em;
+  font-weight: var(--fw-semibold);
+  margin-left: 2px;
+  color: var(--fg-subtle);
+}
+.hero__stats > div {
+  display: flex;
+  flex-direction: column;
+}
+.hero__stats dt {
+  margin-top: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+}
+.hero__actions {
+  margin-top: var(--sp-3);
+}
+.hero__map {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.citydots {
+  display: block;
+  width: 100%;
+  aspect-ratio: 37 / 30;
+}
+.hero__mapcap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: var(--fs-caption);
+  color: var(--fg-subtle);
+  text-align: right;
+}
+.home > .stack {
+  gap: var(--sp-7);
+}
+.section__title .kicker {
+  margin-bottom: var(--sp-2);
+  font-weight: var(--fw-regular);
 }

@@ -90,3 +90,12 @@ export function bytes(value: number | null | undefined): string {
   }
   return `${i === 0 ? Math.round(v) : nf1.format(v)}${units[i]}`;
 }
+
+/** 그래프 축 눈금용 짧은 원화 표기 — "2.5억", "8,000만", "500만". 본문 숫자에는 krw 를 쓴다 */
+export function krwAxis(value: number): string {
+  const abs = Math.abs(value);
+  const trim = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ''));
+  if (abs >= 1e8) return `${trim(value / 1e8)}억`;
+  if (abs >= 1e4) return `${Math.round(value / 1e4).toLocaleString('ko-KR')}만`;
+  return Math.round(value).toLocaleString('ko-KR');
+}

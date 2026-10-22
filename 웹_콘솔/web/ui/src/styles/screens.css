@@ -10,7 +10,9 @@
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
+  padding-bottom: var(--sp-5);
+  border-bottom: var(--hairline);
 }
 
 .pagehead__text {
@@ -23,6 +25,8 @@
 
 .pagehead__title {
   font-size: var(--fs-xl);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.15;
 }
 
 @media (min-width: 768px) {
@@ -34,7 +38,7 @@
 /* 목적 1문장 — 모든 화면 필수 */
 .pagehead__purpose {
   font-size: var(--fs-body);
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
   line-height: var(--lh-body);
 }
 
@@ -47,7 +51,7 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-3);
+  gap: var(--sp-4);
   min-width: 0;
 }
 
@@ -61,11 +65,12 @@
 
 .section__title {
   font-size: var(--fs-lg);
+  letter-spacing: -0.02em;
 }
 
 .section__note {
   font-size: var(--fs-sm);
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
   max-width: 70ch;
   line-height: var(--lh-body);
 }

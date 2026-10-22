@@ -16,7 +16,8 @@
   border-radius: var(--radius);
   border: 1px solid transparent;
   font-size: var(--fs-md);
-  font-weight: var(--fw-medium);
+  font-weight: var(--fw-semibold);
+  letter-spacing: -0.01em;
   line-height: 1.4;
   cursor: pointer;
   text-decoration: none;
@@ -94,7 +95,7 @@
   background: var(--surface);
   border: var(--hairline);
   border-radius: var(--radius);
-  padding: var(--sp-4);
+  padding: var(--sp-5);
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
@@ -116,7 +117,8 @@
 
 .card__title {
   font-size: var(--fs-body);
-  font-weight: var(--fw-semibold);
+  font-weight: var(--fw-bold);
+  letter-spacing: -0.015em;
   color: var(--fg);
 }
 
@@ -127,7 +129,7 @@
 }
 
 .card--flush > .card__head {
-  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  padding: var(--sp-5) var(--sp-5) var(--sp-3);
 }
 
 /* --- 지표(스탯) ----------------------------------------------------------- */
@@ -140,19 +142,20 @@
 }
 
 .stat__label {
-  font-size: var(--fs-caption);
+  font-size: var(--fs-sm);
   font-weight: var(--fw-medium);
-  color: var(--fg-muted);
-  letter-spacing: 0.02em;
+  color: var(--fg-subtle);
 }
 
+/* 핵심 수치 — 본문 글꼴을 크고 굵게, 자간을 좁혀 한 덩어리로 읽히게 한다 */
 .stat__value {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-variant-numeric: tabular-nums;
-  font-size: var(--fs-xl);
-  font-weight: var(--fw-semibold);
+  font-size: var(--fs-figure);
+  font-weight: var(--fw-bold);
+  letter-spacing: var(--tracking-tight);
   color: var(--fg);
-  line-height: 1.2;
+  line-height: 1.1;
 }
 
 /* "알 수 없음"은 수치가 아니다 — mono/tabular 를 쓰면 한글 자간이 벌어진다 */
@@ -165,9 +168,10 @@
 
 .stat__unit {
   font-size: var(--fs-md);
-  font-weight: var(--fw-medium);
-  color: var(--fg-muted);
-  margin-left: var(--sp-1);
+  font-weight: var(--fw-semibold);
+  letter-spacing: 0;
+  color: var(--fg-subtle);
+  margin-left: 2px;
 }
 
 .stat__hint {
@@ -379,11 +383,11 @@ select.field__control {
 
 /* §7b — 표는 가로선만, 그것도 --border 한 톤. 헤더에 배경면을 깔지 않는다 */
 .table thead th {
-  color: var(--fg-muted);
+  color: var(--fg-subtle);
   font-size: var(--fs-caption);
   font-weight: var(--fw-medium);
-  letter-spacing: 0.02em;
   white-space: normal;
+  border-bottom: 1px solid var(--rule-ink);
 }
 
 .table tbody tr:last-child td {
@@ -392,7 +396,6 @@ select.field__control {
 
 .table .n {
   text-align: right;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -472,15 +475,15 @@ select.field__control {
 .meter {
   display: block;
   width: 100%;
-  height: 8px;
-  border-radius: var(--radius-badge);
+  height: 6px;
+  border-radius: 0;
   background: var(--bar-track);
 }
 
 .meter__fill {
   display: block;
   height: 100%;
-  border-radius: var(--radius-badge);
+  border-radius: 0;
   background: var(--bar);
   transition: width var(--dur) var(--ease);
 }
@@ -511,9 +514,9 @@ select.field__control {
 }
 
 .barrow__value {
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
   font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
   color: var(--fg);
 }
 
@@ -833,4 +836,77 @@ select.field__control {
 .segment__btn[aria-pressed="true"] {
   border-color: var(--primary);
   color: var(--primary);
+}
+
+/* --- 일별 막대 (DailyStack) ---------------------------------------------- */
+.dstack {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.dstack__readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-5);
+  font-size: var(--fs-sm);
+  color: var(--fg-subtle);
+}
+.dstack__day {
+  font-size: var(--fs-caption);
+  color: var(--fg);
+}
+.dstack__val b {
+  color: var(--fg);
+  font-weight: var(--fw-bold);
+  margin-left: var(--sp-1);
+}
+.dstack__share {
+  margin-left: var(--sp-1);
+}
+.dstack__key {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--sp-2);
+  vertical-align: -1px;
+}
+.dstack__key--total { background: var(--sim-soft); }
+.dstack__key--part { background: var(--sim); }
+.dstack__svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.dstack__grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.dstack__tick {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  fill: var(--fg-subtle);
+}
+.dstack__total {
+  fill: var(--sim-soft);
+  transition: fill var(--dur-fast) var(--ease);
+}
+.dstack__total.is-on {
+  fill: #c3cfdc;
+}
+.dstack__part {
+  fill: var(--sim);
+  pointer-events: none;
+}
+.dstack__marker {
+  stroke: var(--real);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 3;
+}
+.dstack__markerlabel {
+  font-size: 12px;
+  font-weight: 600;
+  fill: var(--real);
 }
