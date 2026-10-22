@@ -18,6 +18,7 @@ import type { PolicyBinding, RunListItem, RunPhase } from '../app/RunContext';
 import { EMPTY, int, shortTime } from '../lib/format';
 import { READ_ONLY } from '../lib/runtime';
 import { ExperimentList } from './experiment/ExperimentList';
+import { experimentsApi, useResource } from '../lib/experiments';
 
 /** 진행중 → 완료 → 중단. 비어 있는 묶음은 그리지 않는다 */
 const GROUP_ORDER: RunPhase[] = ['running', 'completed', 'stopped'];
@@ -120,6 +121,10 @@ function HomeHero({ runs }: { runs: RunListItem[] }) {
   const map = residents.status === 'ready' ? residents.data : null;
   const longest = runs.reduce((m, r) => Math.max(m, r.daysPresent), 0);
   const agents = runs.reduce((m, r) => Math.max(m, r.agentsTarget ?? 0), 0);
+  const experiments = useResource(() => experimentsApi.list(), 'experiments');
+  const finished = (experiments.data?.items ?? []).filter(
+    (e) => e.arms.length > 0 && e.arms.every((a) => a.phase === 'complete'),
+  ).length;
   return (
     <section className={`hero${map ? '' : ' hero--solo'}`}>
       <div className="hero__text">
@@ -130,10 +135,15 @@ function HomeHero({ runs }: { runs: RunListItem[] }) {
           시민의 하루를 본다.
         </h1>
         <p className="hero__lead">
-          서울 시민 에이전트에게 실제 정책을 적용한 시뮬레이션입니다. 실행을 고르면 소비 변화와
-          이동 지도, 보고서, 시민 인터뷰로 정책 효과를 해석할 수 있습니다.
+          서울 시민 에이전트에게 실제 정책을 넣고, 소비와 이동이 어떻게 달라지는지 봅니다.
         </p>
         <dl className="hero__stats">
+          {finished > 0 ? (
+            <div>
+              <dt>정책 비교 실험</dt>
+              <dd className="num">{int(finished)}</dd>
+            </div>
+          ) : null}
           <div>
             <dt>시뮬레이션 실행</dt>
             <dd className="num">{int(runs.length)}</dd>
@@ -167,7 +177,7 @@ function HomeHero({ runs }: { runs: RunListItem[] }) {
           <CityDots data={map} label={`시뮬레이션 시민 ${int(map.count)}명의 집 위치`} />
           <figcaption className="hero__mapcap">
             <span>
-              점 = 시민 {int(map.count)}명의 집 · 파란 점 = 직장으로 오가는 중
+              점 하나 = 시민 한 명의 집 · 파란 점 = 출퇴근 중
             </span>
             {map.label ? <span>{map.label}</span> : null}
           </figcaption>
@@ -211,7 +221,7 @@ export function HomeScreen() {
             body={
               READ_ONLY
                 ? '조회할 수 있는 시뮬레이션 결과가 없습니다.'
-                : '정책을 고르고 기간과 대상자를 정하면 첫 시뮬레이션을 만들 수 있습니다.'
+                : '정책과 기간을 정해 첫 시뮬레이션을 만드세요.'
             }
             action={
               !READ_ONLY ? (
@@ -263,7 +273,7 @@ export function UnknownRunScreen({ runId }: { runId: string }) {
         </header>
         <EmptyState
           title="목록에서 다시 고르세요"
-          body="지금 남아 있는 실행은 시뮬레이션 목록에서 확인할 수 있습니다."
+          body="이 실행은 더 이상 없습니다."
           action={
             <Link className="btn btn--primary" to="/">
               모든 시뮬레이션

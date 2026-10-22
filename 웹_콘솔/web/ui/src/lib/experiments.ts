@@ -127,6 +127,28 @@ export interface Comparison {
     status: string;
   }>;
   limitations?: string[];
+  /* 정책 실험(policy_paired) — 같은 시민·같은 날의 정책 있음 − 없음 */
+  kind?: 'policy_paired';
+  days?: string[];
+  agents?: number;
+  paired_agent_days?: number;
+  rows?: PairedRow[];
+  wallet?: { on_total: number; per_agent_day: number };
+  daily?: Array<{ day: string; pairs: number; off: number; on: number; effect: number | null }>;
+  method?: { pairing: string; effect: string; ci: string };
+}
+
+export interface PairedRow {
+  key: string;
+  label: string;
+  group: 'total' | 'category';
+  off: number;
+  on: number;
+  off_per_agent_day: number;
+  on_per_agent_day: number;
+  effect: number | null;
+  ci95: [number, number] | null;
+  significant: boolean;
 }
 
 export interface RosterAgent {

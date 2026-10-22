@@ -6,7 +6,8 @@
  */
 import { useMemo } from 'react';
 import { Badge } from '../../components/Badge';
-import { Card } from '../../components/Card';
+import { Card, Stat } from '../../components/Card';
+import { EffectBars } from '../../components/EffectBars';
 import { Callout, EmptyState, ErrorState, SkeletonCard } from '../../components/Feedback';
 import { LineChart } from '../../components/LineChart';
 import type { LineSeries } from '../../components/LineChart';
@@ -33,6 +34,79 @@ function chartSeries(series: DailySeries[], metric: Metric, cohort: number): Lin
         y: p.partial_tail || (cohort > 0 && p.unique_agents < cohort) ? null : metric(p),
       })),
     }));
+}
+
+const pct = (v: number | null | undefined) =>
+  v === null || v === undefined ? null : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
+const ciText = (ci: [number, number] | null) =>
+  ci ? `95% 신뢰구간 ${pct(ci[0])} ~ ${pct(ci[1])}` : undefined;
+
+/** 정책 실험 — 같은 시민·같은 날의 정책 있음 − 없음 */
+function PolicyEffect({ comparison, marker }: { comparison: Comparison; marker?: { x: string; label: string } }) {
+  if (!comparison.available || !comparison.rows) {
+    return (
+      <Card title="정책 효과" className="c12">
+        <p className="card__note">{comparison.reason ?? '비교할 날이 아직 없습니다.'}</p>
+      </Card>
+    );
+  }
+  const total = comparison.rows.find((r) => r.key === 'total');
+  const shop = comparison.rows.find((r) => r.key === 'shop');
+  const categories = comparison.rows.filter((r) => r.group === 'category');
+  const daily = comparison.daily ?? [];
+  // 캐시백(다음 달 적립)·거리두기는 결제 때 지갑에서 나가는 돈이 없다. 0원으로 보이지 않게 비운다
+  const wallet = comparison.wallet && comparison.wallet.on_total > 0 ? comparison.wallet : null;
+  return (
+    <section className="section">
+      <div className="section__head">
+        <h2 className="section__title">정책 효과</h2>
+        <p className="section__note">
+          {int(comparison.agents ?? 0)}명 · {int(comparison.days?.length ?? 0)}일 · 같은 시민·같은 날 비교
+        </p>
+      </div>
+      <div className="grid statrow">
+        <Stat className="c4" label="총소비 (온라인 포함)" value={pct(total?.effect)} hint={ciText(total?.ci95 ?? null)} unknownReason="기록 없음" />
+        <Stat className="c4" label="가게 소비 (온라인 제외)" value={pct(shop?.effect)} hint={ciText(shop?.ci95 ?? null)} unknownReason="기록 없음" />
+        <Stat
+          className="c4"
+          label="정책 지갑 사용 (1인 하루)"
+          value={wallet ? krw(wallet.per_agent_day) : '해당 없음'}
+          hint={wallet ? `기간 합계 ${krw(wallet.on_total)}` : '결제할 때 지원금에서 나가는 돈이 없는 정책'}
+        />
+      </div>
+      <div className="grid">
+        <Card className="c7" title="업종별 효과">
+          <EffectBars
+            items={categories.map((r) => ({
+              key: r.key,
+              label: r.label,
+              effect: r.effect,
+              ci: r.ci95,
+              significant: r.significant,
+              sub: `1인 하루 ${krw(r.off_per_agent_day)} → ${krw(r.on_per_agent_day)}`,
+            }))}
+          />
+          <p className="card__note">옅은 막대는 95% 신뢰구간이 0을 포함합니다.</p>
+        </Card>
+        <Card className="c5">
+          <LineChart
+            title="날짜별 총소비 효과"
+            series={[
+              {
+                key: 'effect',
+                label: '정책 있음 − 없음',
+                tone: 'primary',
+                points: daily.map((d) => ({ x: d.day, y: d.effect === null ? null : d.effect * 100 })),
+              },
+            ]}
+            format={(v) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`}
+            marker={marker}
+          />
+          <p className="card__note">95% 신뢰구간: 시민 단위 부트스트랩 500회</p>
+        </Card>
+      </div>
+    </section>
+  );
 }
 
 function groupLabel(group: string, experiment: ExperimentSummary): string {
@@ -127,6 +201,7 @@ export function ExperimentResults() {
   const series = useMemo(() => daily.data?.series ?? [], [daily.data]);
   const marker = experiment.window.effective_date ? { x: experiment.window.effective_date, label: '정책 시행' } : undefined;
   const hasTarget = experiment.kind === 'no_smoking_zone';
+  const paired = experiment.kind === 'policy_paired';
   const cohort = experiment.cohort_size;
 
   if (daily.loading && !daily.data) return <SkeletonCard rows={6} />;
@@ -137,8 +212,9 @@ export function ExperimentResults() {
 
   return (
     <div className="stack">
+      {paired && comparison.data ? <PolicyEffect comparison={comparison.data} marker={marker} /> : null}
       <Callout tone="info">
-        회색은 두 팔이 함께 쓰는 공통 사전 기간, 실선은 정책 OFF, 점선은 정책 ON 입니다. 진행 중인 날은 하루가 다 차지 않아 선을 잇지 않습니다.
+        회색 = 정책 전 공통 기간 · 실선 = 정책 없음 · 점선 = 정책 있음
       </Callout>
       <div className="grid">
         {hasTarget ? (
@@ -177,6 +253,7 @@ export function ExperimentResults() {
             marker={marker}
           />
         </Card>
+        {series.some((s) => s.points.some((p) => (p.status.skipped ?? 0) > 0)) ? (
         <Card className="c6">
           <LineChart
             title="건너뛴 대상자 수 (하루, 결측)"
@@ -185,6 +262,7 @@ export function ExperimentResults() {
             marker={marker}
           />
         </Card>
+        ) : null}
         <Card className="c6">
           <LineChart
             title="결제 영수증 수 (하루)"
@@ -194,7 +272,7 @@ export function ExperimentResults() {
           />
         </Card>
       </div>
-      {comparison.data ? <ComparisonCard comparison={comparison.data} experiment={experiment} /> : null}
+      {comparison.data && !paired ? <ComparisonCard comparison={comparison.data} experiment={experiment} /> : null}
       {comparison.error ? <ErrorState title="비교를 계산하지 못했습니다" body={comparison.error.message} /> : null}
     </div>
   );

@@ -1,0 +1,63 @@
+{
+  "experiment_id": "p017_seoul_emergency_living",
+  "title": "서울시 재난긴급생활비 (3주)",
+  "kind": "policy_paired",
+  "summary": "기준 중위소득 100% 이하 가구에 30만~50만원을 선불카드로 준 서울시 재난긴급생활비를 서울 시민 1,855명에게 적용했습니다. 받기 전 7일은 함께 돌리고, 받은 날(04-20)부터 3주를 지원금 있음·없음으로 나눠 비교합니다.",
+  "interpretation": "합성 시민으로 만든 반사실 비교입니다. 실측 연구와의 대조는 평가 문서(평가_통합성능)에 있습니다.",
+  "source_branch": null,
+  "window": {
+    "start": "2020-04-13",
+    "days": 28,
+    "effective_date": "2020-04-20"
+  },
+  "cohort_size": 1855,
+  "arms": [
+    {
+      "arm_id": "shared-pre",
+      "role": "shared_pre",
+      "label": "정책 전 공통 7일",
+      "policy": "off",
+      "directory": "P017_3wk_results_pre",
+      "start": "2020-04-13",
+      "days": 7
+    },
+    {
+      "arm_id": "post-off",
+      "role": "control",
+      "label": "정책 없음",
+      "policy": "off",
+      "parent": "shared-pre",
+      "directory": "P017_3wk_results_off",
+      "start": "2020-04-20",
+      "days": 21
+    },
+    {
+      "arm_id": "post-on",
+      "role": "treatment",
+      "label": "정책 있음",
+      "policy": "on",
+      "parent": "shared-pre",
+      "directory": "P017_3wk_results_on",
+      "start": "2020-04-20",
+      "days": 21
+    }
+  ],
+  "analysis": {
+    "limitations": [
+      "합성 시민의 모의 결과로, 실제 소비 관측값이 아닙니다.",
+      "효과는 같은 시민·같은 날의 정책 있음 − 없음입니다.",
+      "건너뛴 시민-일은 결측으로 두고 0으로 세지 않습니다.",
+      "팔마다 시드 1개로 돌렸습니다."
+    ]
+  },
+  "source": {
+    "kind": "drive_zip",
+    "zip": "P017_main/3wk/P017_3wk_results_20261018.zip",
+    "root": "P017_3wk_results",
+    "arms": {
+      "shared-pre": "pre",
+      "post-off": "off",
+      "post-on": "on"
+    }
+  }
+}

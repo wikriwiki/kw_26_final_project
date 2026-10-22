@@ -206,7 +206,17 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             state_bits.append(f"이날 오프라인 소비 {won(row['cm_today_total'])}")
         if row.get("balance") is not None:
             state_bits.append(f"잔액 {won(row['balance'])}")
-        items.append(Item(f"{step.arm_id}:{day}:state", day, "day_state", "하루 상태: " + " · ".join(state_bits), {k: row.get(k) for k in ("mood", "fatigue", "avg_sat", "cm_today_total", "balance")}))
+        # 정책 지원금 — 받은 날·쓴 돈·적립·소멸. 0 이면 적지 않는다
+        for key, label in (
+            ("grant_applied_today", "정책 지원금 받음"),
+            ("policy_spend_today", "정책 지원금으로 결제"),
+            ("policy_rebate_today", "캐시백 적립"),
+            ("instant_discount_today", "즉시 할인"),
+            ("grant_expired_today", "정책 지원금 소멸"),
+        ):
+            if (row.get(key) or 0) > 0:
+                state_bits.append(f"{label} {won(row[key])}")
+        items.append(Item(f"{step.arm_id}:{day}:state", day, "day_state", "하루 상태: " + " · ".join(state_bits), {k: row.get(k) for k in ("mood", "fatigue", "avg_sat", "cm_today_total", "balance", "grant_applied_today", "policy_spend_today", "policy_rebate_today", "instant_discount_today", "grant_expired_today")}))
         for index, receipt in enumerate(row.get("execution_receipts") or []):
             if not isinstance(receipt, dict) or receipt.get("kind") != "purchase_receipt":
                 continue
@@ -214,6 +224,11 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             text = f"영수증: {receipt.get('scheduled_time') or ''} {receipt.get('category') or ''} {won(receipt.get('amount'))}"
             if status != "purchased":
                 text += f" ({PURCHASE_STATUS.get(str(status), str(status))})"
+            facts = receipt.get("policy_facts") if isinstance(receipt.get("policy_facts"), dict) else {}
+            paid = sum(f.get("paid") or 0 for f in facts.values() if isinstance(f, dict))
+            if status == "purchased" and paid > 0:
+                own = receipt.get("own_paid")
+                text += f" · 그중 정책 지원금 {won(paid)}" + (f", 본인 부담 {won(own)}" if own is not None else "")
             items.append(Item(receipt.get("event_id") or f"{step.arm_id}:{day}:receipt:{index}", day, "executed_receipt", text.strip(), receipt))
         no_smoking = row.get("no_smoking") if isinstance(row.get("no_smoking"), dict) else {}
         aliases = (experiment.analysis or {}).get("facility_aliases") or {}
@@ -320,7 +335,7 @@ def check_answer(answer: str, exposed: list[Item]) -> dict[str, Any]:
     if not cited_numbers:
         warnings.append("답변에 근거 번호가 없습니다")
     body = CITE.sub("", answer)
-    cited_text = " ".join(item.text for item in exposed).replace(",", "")
+    cited_text = " ".join(f"{item.day or ''} {item.text}" for item in exposed).replace(",", "")
     unsupported = []
     for match in NUMBER.finditer(body):
         token = match.group(0).replace(",", "")

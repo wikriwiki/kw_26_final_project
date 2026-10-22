@@ -63,7 +63,7 @@ class SpaFiles(StaticFiles):
     링크로 열면 죽는다. 주소 하나로 링크가 완결되어야 한다는 요구(§9 deep-linking)가
     깨지는 자리다.
 
-    다만 `/api/...` 는 넘기지 않는다. 없는 API 경로가 HTML 을 돌려주면 클라이언트가
+    다만 `/api/...`·`/viz/...` 는 넘기지 않는다. 없는 API 경로가 HTML 을 돌려주면 클라이언트가
     JSON 을 기대하다 엉뚱한 곳에서 터진다. API 는 API 답게 404 로 끝낸다.
     """
 
@@ -86,7 +86,7 @@ class SpaFiles(StaticFiles):
             request_path = scope.get("path", "")
             if (
                 exc.status_code != 404
-                or request_path.startswith("/api/")
+                or request_path.startswith(("/api/", "/viz/"))
                 or request_path in {"/docs", "/redoc", "/openapi.json"}
             ):
                 raise

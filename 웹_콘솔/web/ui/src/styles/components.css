@@ -910,3 +910,66 @@ select.field__control {
   font-weight: 600;
   fill: var(--real);
 }
+
+/* --- 효과 막대 (EffectBars) — 0 을 가운데에 두고 좌우로 ------------------- */
+.effects {
+  display: flex;
+  flex-direction: column;
+}
+.effects__row {
+  display: grid;
+  grid-template-columns: minmax(96px, 30%) minmax(0, 1fr) minmax(110px, auto);
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-2) 0;
+  border-bottom: var(--hairline);
+}
+.effects__row:last-child { border-bottom: 0; }
+.effects__label {
+  display: flex;
+  flex-direction: column;
+  font-size: var(--fs-md);
+  font-weight: var(--fw-semibold);
+  min-width: 0;
+}
+.effects__label small {
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-regular);
+  color: var(--fg-subtle);
+}
+.effects__track {
+  position: relative;
+  height: 22px;
+}
+.effects__zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--fg);
+}
+.effects__bar {
+  position: absolute;
+  top: 6px;
+  height: 10px;
+  background: var(--sim);
+}
+.effects__bar.is-neg { background: var(--real); }
+.effects__ci {
+  position: absolute;
+  top: 10px;
+  height: 2px;
+  background: var(--fg);
+  opacity: 0.55;
+}
+.effects__value {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.effects__value b { font-size: var(--fs-body); }
+.effects__value small { font-size: var(--fs-caption); color: var(--fg-subtle); }
+.effects__row.is-faint .effects__bar { opacity: 0.35; }
+.effects__row.is-faint .effects__value b { color: var(--fg-subtle); font-weight: var(--fw-medium); }

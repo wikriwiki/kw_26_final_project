@@ -1,0 +1,65 @@
+{
+  "experiment_id": "distancing_level2_2020",
+  "title": "사회적 거리두기 2단계 격상",
+  "kind": "policy_paired",
+  "summary": "2020-11-24 수도권 거리두기 2단계 격상(음식점 21시 이후 포장·배달만, 카페 매장 이용 금지)을 서울 시민 2,000명에게 적용했습니다. 정책 없음 쪽은 1.5단계를 유지합니다. 11-17~23 은 함께 돌리고, 이후 7일을 나눠 비교합니다.",
+  "interpretation": "합성 시민으로 만든 반사실 비교입니다. 실측 연구와의 대조는 평가 문서(평가_통합성능)에 있습니다.",
+  "source_branch": null,
+  "window": {
+    "start": "2020-11-17",
+    "days": 14,
+    "effective_date": "2020-11-24"
+  },
+  "cohort_size": 2000,
+  "arms": [
+    {
+      "arm_id": "shared-pre",
+      "role": "shared_pre",
+      "label": "정책 전 공통 7일",
+      "policy": "off",
+      "directory": "DISTANCING_main_results_pre",
+      "start": "2020-11-17",
+      "days": 7
+    },
+    {
+      "arm_id": "post-off",
+      "role": "control",
+      "label": "정책 없음",
+      "policy": "off",
+      "parent": "shared-pre",
+      "directory": "DISTANCING_main_results_off",
+      "start": "2020-11-24",
+      "days": 7
+    },
+    {
+      "arm_id": "post-on",
+      "role": "treatment",
+      "label": "정책 있음",
+      "policy": "on",
+      "parent": "shared-pre",
+      "directory": "DISTANCING_main_results_on",
+      "start": "2020-11-24",
+      "days": 7
+    }
+  ],
+  "analysis": {
+    "limitations": [
+      "합성 시민의 모의 결과로, 실제 소비 관측값이 아닙니다.",
+      "효과는 같은 시민·같은 날의 정책 있음 − 없음입니다.",
+      "건너뛴 시민-일은 결측으로 두고 0으로 세지 않습니다.",
+      "팔마다 시드 1개로 돌렸습니다.",
+      "1.5단계 세부 규칙 자료가 없어 정책 없음 쪽에는 단계 이름만 주었습니다.",
+      "배달·온라인 이용은 고정이라 배달 증가는 반영하지 않습니다."
+    ]
+  },
+  "source": {
+    "kind": "drive_zip",
+    "zip": "DISTANCING_main/DISTANCING_main_results_20261010.zip",
+    "root": "DISTANCING_main_results",
+    "arms": {
+      "shared-pre": "pre",
+      "post-off": "off",
+      "post-on": "on"
+    }
+  }
+}

@@ -37,13 +37,14 @@ export function krw(value: number | null | undefined): string {
   if (!isNum(value)) return EMPTY;
   const abs = Math.abs(value);
   const sign = value < 0 ? '-' : '';
-  if (abs >= 1e8) {
-    const eok = Math.floor(abs / 1e8);
-    const man = Math.floor((abs % 1e8) / 1e4);
-    return man > 0 ? `${sign}${nf.format(eok)}억 ${nf.format(man)}만원` : `${sign}${nf.format(eok)}억원`;
-  }
-  if (abs >= 1e4) return `${sign}${nf.format(Math.floor(abs / 1e4))}만원`;
-  return `${sign}${nf.format(Math.round(abs))}원`;
+  // 100만원 미만은 원 단위 그대로 — 19,189원을 "1만원"으로 내리면 하루 소비 같은 작은 금액이 틀려진다.
+  // 그 이상은 만원 단위로 반올림한다(억 단위는 "억 만원")
+  if (abs < 1e6) return `${sign}${nf.format(Math.round(abs))}원`;
+  const totalMan = Math.round(abs / 1e4);
+  const eok = Math.floor(totalMan / 1e4);
+  const man = totalMan % 1e4;
+  if (eok === 0) return `${sign}${nf.format(man)}만원`;
+  return man > 0 ? `${sign}${nf.format(eok)}억 ${nf.format(man)}만원` : `${sign}${nf.format(eok)}억원`;
 }
 
 /** 초 → "2시간 42분" / "3분 12초" / "48초" */

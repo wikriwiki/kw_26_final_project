@@ -9,6 +9,12 @@ import { Meter } from '../../components/Meter';
 import { int } from '../../lib/format';
 import { experimentsApi, PHASE_TEXT, useResource } from '../../lib/experiments';
 
+/** 기록을 다 받은 실험을 먼저. 같은 묶음 안에서는 레지스트리 순서를 지킨다 */
+function sortByReady<T extends { arms: Array<{ phase: string }> }>(items: T[]): T[] {
+  const ready = (e: T) => (e.arms.length > 0 && e.arms.every((a) => a.phase === 'complete') ? 0 : 1);
+  return items.map((e, i) => ({ e, i })).sort((a, b) => ready(a.e) - ready(b.e) || a.i - b.i).map((x) => x.e);
+}
+
 export function ExperimentList() {
   const list = useResource(() => experimentsApi.list(), 'experiments');
   if (list.loading || list.error || !list.data || list.data.items.length === 0) return null;
@@ -19,10 +25,10 @@ export function ExperimentList() {
           <span className="kicker">실험</span>
           정책 있음 · 없음 비교 실험
         </h2>
-        <p className="section__note">여러 팔(공통 사전 → 정책 OFF/ON)로 나뉜 실험입니다. 실험 서버의 기록을 읽기 전용으로 받아 봅니다.</p>
+        <p className="section__note">정책 전 공통 기간 뒤 정책 있음·없음으로 나눠 돌린 실험</p>
       </header>
       <ul className="explist">
-        {list.data.items.map((experiment) => (
+        {sortByReady(list.data.items).map((experiment) => (
           <li key={experiment.experiment_id}>
             <Link className="exprow" to={`/experiments/${experiment.experiment_id}`}>
               <span className="exprow__title">{experiment.title}</span>

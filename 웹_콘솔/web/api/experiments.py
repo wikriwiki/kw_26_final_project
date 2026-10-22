@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import re
 import statistics
 import threading
@@ -39,7 +40,7 @@ DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # 대상자 id 에는 연령대 한글이 들어간다 (AGT_11350560_M_30대_003)
 AGENT_ID = re.compile(r"^[A-Za-z0-9_\-가-힣]{1,96}$")
 ROLES = {"single", "shared_pre", "control", "treatment"}
-CACHE_VERSION = 1
+CACHE_VERSION = 2  # 2: 정책 실험(policy_paired)은 대상자별 업종 금액·정책 지갑 사용액도 요약한다
 CONSOLE_DIR = "_console"
 
 
@@ -341,6 +342,19 @@ def summarize_rows(rows: Iterable[dict[str, Any]], experiment: Experiment) -> di
                 "balance": _number(row.get("balance")),
             }
         )
+        if experiment.kind == "policy_paired":
+            # 짝 비교(같은 시민·같은 날, 정책 있음 − 없음)를 업종 단위로도 하려면 대상자별 업종 금액이 필요하다.
+            # 정책 지갑 몫은 영수증 금액에서 본인 부담을 뺀 값이다
+            categories: dict[str, int] = defaultdict(int)
+            wallet = 0
+            for receipt in purchased:
+                value = _int(receipt.get("amount"))
+                categories[str(receipt.get("category") or "기타")] += value
+                own = receipt.get("own_paid")
+                if own is not None:
+                    wallet += max(0, value - _int(own))
+            compact["cat"] = dict(categories)
+            compact["pol"] = wallet
         if experiment.kind == "no_smoking_zone":
             hits = []
             smoking = compact.get("smoking") or "unknown"
@@ -710,6 +724,8 @@ class ExperimentStore:
 
     def comparison(self, experiment_id: str) -> dict[str, Any]:
         experiment = self.experiment(experiment_id)
+        if experiment.kind == "policy_paired":
+            return paired_policy_comparison(self, experiment)
         if experiment.kind != "no_smoking_zone":
             return {"experiment_id": experiment_id, "available": False, "reason": "이 실험 종류의 비교 규칙이 아직 없습니다"}
         return no_smoking_comparison(self, experiment)
@@ -867,3 +883,168 @@ def no_smoking_comparison(store: ExperimentStore, experiment: Experiment) -> dic
         "comparisons": comparisons,
         "limitations": (experiment.analysis or {}).get("limitations") or [],
     }
+
+
+# --- 정책 실험: 같은 시민·같은 날의 정책 있음 − 없음 -------------------------------
+
+PAIRED_BOOTSTRAP = 500
+PAIRED_SEED = 20261022
+_paired_cache: dict[str, tuple[tuple, dict[str, Any]]] = {}
+_paired_lock = threading.Lock()
+
+
+def _ratio(on: float, off: float) -> float | None:
+    return on / off - 1 if off > 0 else None
+
+
+def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> dict[str, Any]:
+    """정책 있음 팔과 없음 팔을 **같은 시민·같은 날** 로 짝지어 비교한다.
+
+    두 팔 모두 정상(ok)으로 기록된 대상자-일만 쓴다. 한쪽이라도 건너뛰었으면 그 짝은 뺀다
+    (0 으로 세지 않는다). 효과 = (정책 있음 합 ÷ 정책 없음 합) − 1. 95% 신뢰구간은 시민 단위
+    퍼센타일 부트스트랩(같은 수의 시민을 복원 추출, PAIRED_BOOTSTRAP 회, 시드 고정)이다. 한 사람의
+    여러 날은 함께 뽑힌다 — 같은 사람의 날들은 서로 독립이 아니다.
+    """
+    control = next((arm for arm in experiment.arms if arm.role == "control"), None)
+    treatment = next((arm for arm in experiment.arms if arm.role == "treatment"), None)
+    base = {"experiment_id": experiment.experiment_id, "kind": "policy_paired"}
+    if control is None or treatment is None:
+        return {**base, "available": False, "reason": "정책 있음·없음 팔이 정의되지 않았습니다"}
+    treatment_days = set(treatment.day_list())
+    days = [day for day in control.day_list() if day in treatment_days]
+
+    loaded: list[tuple[str, dict, dict]] = []
+    signature: list[Any] = []
+    for day in days:
+        off = store.cache.get(experiment, control, day)
+        on = store.cache.get(experiment, treatment, day)
+        if off is None or on is None:
+            continue
+        loaded.append((day, off["summary"]["agents"], on["summary"]["agents"]))
+        signature.append((day, (off.get("source") or {}).get("sha256"), (on.get("source") or {}).get("sha256")))
+    if not loaded:
+        return {**base, "available": False, "reason": "두 팔이 함께 기록한 날이 아직 없습니다"}
+    key = tuple(signature)
+    with _paired_lock:
+        hit = _paired_cache.get(experiment.experiment_id)
+    if hit is not None and hit[0] == key:
+        return hit[1]
+
+    # 대상자별로 기간 합을 모은다
+    people: dict[str, dict[str, Any]] = {}
+    daily = []
+    excluded = 0
+    category_total: Counter[str] = Counter()
+    for day, off_agents, on_agents in loaded:
+        day_off = day_on = 0.0
+        pairs = 0
+        for aid in set(off_agents) | set(on_agents):
+            a, b = off_agents.get(aid), on_agents.get(aid)
+            if not a or not b or a.get("s") != "ok" or b.get("s") != "ok":
+                excluded += 1
+                continue
+            if a.get("spend_all") is None or b.get("spend_all") is None:
+                excluded += 1
+                continue
+            pairs += 1
+            person = people.setdefault(
+                aid, {"days": 0, "tot": [0.0, 0.0], "shop": [0.0, 0.0], "cat": defaultdict(lambda: [0.0, 0.0]), "pol": 0.0}
+            )
+            person["days"] += 1
+            person["tot"][0] += a["spend_all"]
+            person["tot"][1] += b["spend_all"]
+            person["shop"][0] += a.get("spend") or 0
+            person["shop"][1] += b.get("spend") or 0
+            for side, compact in ((0, a), (1, b)):
+                for category, amount in (compact.get("cat") or {}).items():
+                    person["cat"][category][side] += amount
+                    category_total[category] += amount
+            person["pol"] += b.get("pol") or 0
+            day_off += a["spend_all"]
+            day_on += b["spend_all"]
+        daily.append({"day": day, "pairs": pairs, "off": round(day_off), "on": round(day_on), "effect": _ratio(day_on, day_off)})
+
+    ids = sorted(people)
+    n = len(ids)
+    if n == 0:
+        return {**base, "available": False, "reason": "두 팔 모두 정상으로 기록된 시민-일이 없습니다"}
+    grand = sum(category_total.values()) or 1
+    # 업종은 두 팔 합계의 0.5% 이상인 것만 — 몇 건 안 되는 업종의 비율은 흔들려 읽을 수 없다
+    categories = [c for c, v in category_total.most_common() if v / grand >= 0.005][:12]
+    metrics = [("total", "총소비 (온라인 포함)"), ("shop", "가게 소비 (온라인 제외)")] + [(f"cat:{c}", c) for c in categories]
+
+    def pair(person: dict[str, Any], metric: str) -> tuple[float, float]:
+        if metric == "total":
+            return person["tot"][0], person["tot"][1]
+        if metric == "shop":
+            return person["shop"][0], person["shop"][1]
+        value = person["cat"].get(metric[4:])
+        return (value[0], value[1]) if value else (0.0, 0.0)
+
+    table = [[pair(people[aid], metric) for metric, _ in metrics] for aid in ids]
+    width = len(metrics)
+    off_sum = [sum(row[k][0] for row in table) for k in range(width)]
+    on_sum = [sum(row[k][1] for row in table) for k in range(width)]
+
+    rnd = random.Random(PAIRED_SEED)
+    draws: list[list[float]] = [[] for _ in metrics]
+    for _ in range(PAIRED_BOOTSTRAP):
+        so = [0.0] * width
+        sn = [0.0] * width
+        for _i in range(n):
+            row = table[rnd.randrange(n)]
+            for k in range(width):
+                so[k] += row[k][0]
+                sn[k] += row[k][1]
+        for k in range(width):
+            effect = _ratio(sn[k], so[k])
+            if effect is not None:
+                draws[k].append(effect)
+
+    def interval(values: list[float]) -> list[float] | None:
+        if len(values) < PAIRED_BOOTSTRAP * 0.9:
+            return None
+        values = sorted(values)
+        return [values[int(0.025 * len(values))], values[int(0.975 * len(values)) - 1]]
+
+    agent_days = sum(people[aid]["days"] for aid in ids)
+    rows = []
+    for k, (metric, label) in enumerate(metrics):
+        effect = _ratio(on_sum[k], off_sum[k])
+        ci = interval(draws[k])
+        rows.append(
+            {
+                "key": metric,
+                "label": label,
+                "group": "category" if metric.startswith("cat:") else "total",
+                "off": round(off_sum[k]),
+                "on": round(on_sum[k]),
+                "off_per_agent_day": round(off_sum[k] / agent_days),
+                "on_per_agent_day": round(on_sum[k] / agent_days),
+                "effect": effect,
+                "ci95": ci,
+                # 구간이 0 을 포함해도 점추정의 부호는 적는다. 유의 여부만 따로 밝힌다
+                "significant": bool(ci and (ci[0] > 0 or ci[1] < 0)),
+            }
+        )
+    wallet = sum(people[aid]["pol"] for aid in ids)
+    result = {
+        **base,
+        "available": True,
+        "days": [day for day, _, _ in loaded],
+        "agents": n,
+        "paired_agent_days": agent_days,
+        "excluded_agent_days": excluded,
+        "rows": rows,
+        "wallet": {"on_total": round(wallet), "per_agent_day": round(wallet / agent_days)},
+        "daily": daily,
+        "method": {
+            "pairing": "같은 시민·같은 날, 두 팔 모두 정상(ok)인 대상자-일",
+            "effect": "(정책 있음 합 ÷ 정책 없음 합) − 1",
+            "ci": f"시민 단위 퍼센타일 부트스트랩 95% 신뢰구간, {PAIRED_BOOTSTRAP}회, 시드 {PAIRED_SEED}",
+        },
+        "limitations": (experiment.analysis or {}).get("limitations") or [],
+    }
+    with _paired_lock:
+        _paired_cache[experiment.experiment_id] = (key, result)
+    return result

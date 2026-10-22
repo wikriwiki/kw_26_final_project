@@ -41,6 +41,21 @@ npm run dev
 
 산출물이 없다고 해서 fixture 로 자동 fallback 하지 않는다. 없으면 없다고 답한다.
 
+## 정책 본런 결과 들여오기
+
+P010·P012·P013·거리두기·서울시 재난긴급생활비 본런은 구글 드라이브
+`KW_시뮬결과_공유_20261011` 에 zip 으로 있다. 실험 정의(`web/experiments/*.json`)의
+`source` 를 따라 일자 기록만 꺼내 `SIM_EXPERIMENTS_ROOT` 아래에 둔다. 다시 돌려도 안전하다.
+
+```bash
+python web/tools/import_policy_runs.py \
+    --src "G:/내 드라이브/KW_시뮬결과_공유_20261011" \
+    --personas "G:/내 드라이브/Kw/final_project/data/neo4j_load/agents/agents_final.json.bak_orig"
+```
+
+실험 화면의 "정책 효과"는 같은 시민·같은 날의 정책 있음/없음 결제액 비교다.
+95% 신뢰구간은 시민 단위 부트스트랩 500회(시드 20261022)로 구한다.
+
 ## 실행 파라미터 전달
 
 콘솔은 임의 shell 명령을 받지 않는다. 운영자가 `SIM_RUN_COMMAND_JSON` 에 적은
