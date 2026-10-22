@@ -18,7 +18,6 @@ import type { PolicyBinding, RunListItem, RunPhase } from '../app/RunContext';
 import { EMPTY, int, shortTime } from '../lib/format';
 import { READ_ONLY } from '../lib/runtime';
 import { ExperimentList } from './experiment/ExperimentList';
-import { experimentsApi, useResource } from '../lib/experiments';
 
 /** 진행중 → 완료 → 중단. 비어 있는 묶음은 그리지 않는다 */
 const GROUP_ORDER: RunPhase[] = ['running', 'completed', 'stopped'];
@@ -116,15 +115,9 @@ async function loadResidents(): Promise<(Residents & { label: string | null }) |
   return request<Residents & { label: string | null }>(`/viz/packs/${encodeURIComponent(first.pack_id)}/residents`);
 }
 
-function HomeHero({ runs }: { runs: RunListItem[] }) {
+function HomeHero(_props: { runs: RunListItem[] }) {
   const residents = useLoad('home-residents', loadResidents);
   const map = residents.status === 'ready' ? residents.data : null;
-  const longest = runs.reduce((m, r) => Math.max(m, r.daysPresent), 0);
-  const agents = runs.reduce((m, r) => Math.max(m, r.agentsTarget ?? 0), 0);
-  const experiments = useResource(() => experimentsApi.list(), 'experiments');
-  const finished = (experiments.data?.items ?? []).filter(
-    (e) => e.arms.length > 0 && e.arms.every((a) => a.phase === 'complete'),
-  ).length;
   return (
     <section className={`hero${map ? '' : ' hero--solo'}`}>
       <div className="hero__text">
@@ -135,35 +128,8 @@ function HomeHero({ runs }: { runs: RunListItem[] }) {
           시민의 하루를 본다.
         </h1>
         <p className="hero__lead">
-          서울 시민 에이전트에게 실제 정책을 넣고, 소비와 이동이 어떻게 달라지는지 봅니다.
+          같은 시민에게 정책이 있을 때와 없을 때, 소비가 어떻게 다른지 비교합니다.
         </p>
-        <dl className="hero__stats">
-          {finished > 0 ? (
-            <div>
-              <dt>정책 비교 실험</dt>
-              <dd className="num">{int(finished)}</dd>
-            </div>
-          ) : null}
-          <div>
-            <dt>시뮬레이션 실행</dt>
-            <dd className="num">{int(runs.length)}</dd>
-          </div>
-          {agents > 0 ? (
-            <div>
-              <dt>하루 대상 시민</dt>
-              <dd className="num">{int(agents)}</dd>
-            </div>
-          ) : null}
-          {longest > 0 ? (
-            <div>
-              <dt>가장 긴 기록</dt>
-              <dd className="num">
-                {int(longest)}
-                <small>일</small>
-              </dd>
-            </div>
-          ) : null}
-        </dl>
         {!READ_ONLY ? (
           <div className="hero__actions">
             <Link className="btn btn--primary" to="/new">
@@ -174,13 +140,7 @@ function HomeHero({ runs }: { runs: RunListItem[] }) {
       </div>
       {map ? (
         <figure className="hero__map">
-          <CityDots data={map} label={`시뮬레이션 시민 ${int(map.count)}명의 집 위치`} />
-          <figcaption className="hero__mapcap">
-            <span>
-              점 하나 = 시민 한 명의 집 · 파란 점 = 출퇴근 중
-            </span>
-            {map.label ? <span>{map.label}</span> : null}
-          </figcaption>
+          <CityDots data={map} label={`시민 ${int(map.count)}명의 집 위치`} />
         </figure>
       ) : null}
     </section>

@@ -29,7 +29,7 @@ const KIND_LABEL: Record<string, string> = {
   target_facility: '정책 대상 시설',
   skipped_day: '기록 없음',
   executed_event: '실행된 일',
-  stated_rationale: '본인이 밝힌 이유(미확인)',
+  stated_rationale: '본인이 밝힌 이유',
 };
 
 function sexText(sex?: string | null): string {
@@ -63,7 +63,7 @@ function Roster({ experiment, selected, onSelect }: { experiment: ExperimentSumm
   if (roster.error) return <ErrorState title="명단을 불러오지 못했습니다" body={roster.error.message} />;
 
   return (
-    <Card title={`대상자 ${int(filtered.length)} / ${int(agents.length)}명`} note={roster.data?.source === 'metrics' ? '번들을 아직 받지 않아 id 에서 알 수 있는 것만 보입니다.' : undefined} className="agentroster">
+    <Card title={`대상자 ${int(filtered.length)} / ${int(agents.length)}명`} note={roster.data?.source === 'metrics' ? '프로필이 없어 id 만 보입니다.' : undefined} className="agentroster">
       <div className="agentroster__filters">
         <SelectField label="구" value={gu} onChange={(e) => setGu(e.target.value)} options={[{ value: '', label: '전체' }, ...uniqueValues(agents, 'gu').map((v) => ({ value: v, label: v }))]} />
         {experiment.kind === 'no_smoking_zone' ? (
@@ -112,12 +112,12 @@ function DayRecord({ day }: { day: AgentDay }) {
   const target = day.no_smoking?.by_poi ?? [];
   const meta =
     day.status === 'skipped'
-      ? '기록 없음(건너뜀)'
+      ? '기록 없음'
       : `결제 ${int(day.receipts.filter((r) => r.status === 'purchased').length)}건 · ${krw(day.spend)}${target.length ? ` · 정책 대상 시설 ${target.length}곳` : ''}`;
   return (
     <Disclosure title={day.day} meta={meta}>
       {day.status === 'skipped' ? (
-        <p className="card__note">이날은 기록이 없습니다 (건너뜀).</p>
+        <p className="card__note">이날은 기록이 없습니다.</p>
       ) : (
         <div className="dayrecord">
           <p className="dayrecord__state">
@@ -234,17 +234,17 @@ function Interview({ experiment, agentId, arms }: { experiment: ExperimentSummar
       note="이 시민의 기록만 근거로 답합니다."
     >
       <div className="interview__controls">
-        <SelectField label="어느 팔의 기록으로" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
+        <SelectField label="기록" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
         <SelectField
-          label="어느 날까지 기억하나"
+          label="기억하는 날"
           value={throughDay}
           onChange={(e) => setThroughDay(e.target.value)}
-          options={[{ value: '', label: '받아 둔 마지막 날' }, ...dayOptions.map((day) => ({ value: day, label: day }))]}
+          options={[{ value: '', label: '마지막 날' }, ...dayOptions.map((day) => ({ value: day, label: day }))]}
         />
       </div>
       {status.data && !status.data.ready ? <Callout tone="warn">{status.data.reason}</Callout> : null}
       <div className="interview__log" aria-live="polite">
-        {turns.length === 0 ? <p className="card__note">예: "당구장에 언제 갔어요?", "12월 5일에는 뭐 했어요?", "요즘 돈 쓰는 게 어때요?"</p> : null}
+        {turns.length === 0 ? <p className="card__note">예: "지원금은 어디에 썼어요?", "어제 뭐 했어요?", "요즘 돈 쓰는 게 어때요?"</p> : null}
         {turns.map((turn, index) => (
           <div key={index} className="interview__turn">
             <p className="interview__q">
@@ -279,14 +279,14 @@ function Interview({ experiment, agentId, arms }: { experiment: ExperimentSummar
                   </ol>
                 ) : null}
                 <p className="interview__meta">
-                  {turn.reply.through_day}까지 기록 {int(turn.reply.packet.days)}일 · 근거 {int(turn.reply.packet.exposed_items)}/{int(turn.reply.packet.total_items)}개 보여 줌
-                  {turn.reply.packet.skipped_days.length ? ` · 기록 없는 날 ${turn.reply.packet.skipped_days.length}일` : ''}
-                  {turn.reply.packet.journal_days_used.length ? ` · 이유 기록 ${turn.reply.packet.journal_days_used.length}일` : ' · 이유 기록 없음(metrics 만)'}
+                  {turn.reply.through_day}까지 {int(turn.reply.packet.days)}일 · 근거 {int(turn.reply.packet.exposed_items)}건
+                  {turn.reply.packet.skipped_days.length ? ` · 빠진 날 ${turn.reply.packet.skipped_days.length}일` : ''}
+                  {turn.reply.packet.journal_days_used.length ? ` · 이유 기록 ${turn.reply.packet.journal_days_used.length}일` : ''}
                   {turn.reply.model_label ? ` · ${turn.reply.model_label}` : ''}
                 </p>
               </div>
             ) : !turn.error ? (
-              <p className="card__note">기록을 모아 묻는 중…</p>
+              <p className="card__note">묻는 중…</p>
             ) : null}
           </div>
         ))}

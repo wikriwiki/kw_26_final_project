@@ -48,7 +48,7 @@ export function DailyStack({
 }) {
   const [hover, setHover] = useState<number | null>(null);
   const max = useMemo(() => niceMax(Math.max(0, ...points.map((p) => p.total ?? 0))), [points]);
-  if (!points.length) return <p className="chart__empty">그릴 값이 아직 없습니다.</p>;
+  if (!points.length) return <p className="chart__empty">값 없음</p>;
 
   const innerW = W - PAD.left - PAD.right;
   const innerH = H - PAD.top - PAD.bottom;

@@ -363,10 +363,10 @@ export function useResource<T>(load: () => Promise<T>, key: string): Resource<T>
 }
 
 export const ROLE_LABEL: Record<ArmRole, string> = {
-  single: '단일 실행',
-  shared_pre: '공통 사전',
-  control: '비교(OFF)',
-  treatment: '정책(ON)',
+  single: '실행',
+  shared_pre: '정책 전',
+  control: '정책 없음',
+  treatment: '정책 있음',
 };
 
 export const PHASE_TEXT: Record<ArmPhase, string> = {

@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { Badge } from '../../components/Badge';
 import { Card, Stat } from '../../components/Card';
 import { EffectBars } from '../../components/EffectBars';
-import { Callout, EmptyState, ErrorState, SkeletonCard } from '../../components/Feedback';
+import { EmptyState, ErrorState, SkeletonCard } from '../../components/Feedback';
 import { LineChart } from '../../components/LineChart';
 import type { LineSeries } from '../../components/LineChart';
 import { dec, int, krw } from '../../lib/format';
@@ -46,7 +46,7 @@ function PolicyEffect({ comparison, marker }: { comparison: Comparison; marker?:
   if (!comparison.available || !comparison.rows) {
     return (
       <Card title="정책 효과" className="c12">
-        <p className="card__note">{comparison.reason ?? '비교할 날이 아직 없습니다.'}</p>
+        <p className="card__note">{comparison.reason ?? '비교할 날이 없습니다.'}</p>
       </Card>
     );
   }
@@ -69,9 +69,9 @@ function PolicyEffect({ comparison, marker }: { comparison: Comparison; marker?:
         <Stat className="c4" label="가게 소비 (온라인 제외)" value={pct(shop?.effect)} hint={ciText(shop?.ci95 ?? null)} unknownReason="기록 없음" />
         <Stat
           className="c4"
-          label="정책 지갑 사용 (1인 하루)"
+          label="지원금 사용 (1인 하루)"
           value={wallet ? krw(wallet.per_agent_day) : '해당 없음'}
-          hint={wallet ? `기간 합계 ${krw(wallet.on_total)}` : '결제할 때 지원금에서 나가는 돈이 없는 정책'}
+          hint={wallet ? `기간 합계 ${krw(wallet.on_total)}` : '결제 때 쓰는 지원금이 없는 정책'}
         />
       </div>
       <div className="grid">
@@ -122,12 +122,12 @@ function ComparisonCard({ comparison, experiment }: { comparison: Comparison; ex
   if (!comparison.available || !comparison.comparisons || !comparison.post) {
     const pre = comparison.pre;
     return (
-      <Card title="정책 OFF/ON 비교" aside={<Badge>대기</Badge>} className="c12">
+      <Card title="정책 있음·없음 비교" aside={<Badge>대기</Badge>} className="c12">
         <p className="card__note">{comparison.reason ?? '비교할 수 있는 날이 아직 없습니다.'}</p>
         {pre && Object.keys(pre.totals).length ? (
           <div className="table-wrap">
             <table className="table">
-              <caption className="table__caption">공통 사전 {int(pre.days)}일의 정책 대상 시설 이용</caption>
+              <caption className="table__caption">정책 전 {int(pre.days)}일 · 대상 시설 이용</caption>
               <thead>
                 <tr>
                   <th scope="col">묶음</th>
@@ -154,9 +154,9 @@ function ComparisonCard({ comparison, experiment }: { comparison: Comparison; ex
   const counts = new Map(comparison.comparisons.filter((row) => row.metric === 'payment_count').map((row) => [row.group, row]));
   return (
     <Card
-      title="정책 OFF/ON 비교 (시행 후)"
-      aside={<Badge tone={comparison.status === 'complete_preview' ? 'ok' : 'warn'}>{comparison.status === 'complete_preview' ? '두 팔 완료' : '중간 집계'}</Badge>}
-      note={`두 팔 모두에서 관측된 대상자-일 ${int(comparison.post.observed_paired_agent_days)}개로 비교 (${int(comparison.post.excluded_agent_days)}개 제외) · ${comparison.post.days.length}일`}
+      title="정책 있음·없음 비교"
+      aside={<Badge tone={comparison.status === 'complete_preview' ? 'ok' : 'warn'}>{comparison.status === 'complete_preview' ? '완료' : '중간 집계'}</Badge>}
+      note={`같은 사람·같은 날 ${int(comparison.post.observed_paired_agent_days)}건 · ${comparison.post.days.length}일`}
       className="c12"
     >
       <div className="table-wrap">
@@ -164,11 +164,11 @@ function ComparisonCard({ comparison, experiment }: { comparison: Comparison; ex
           <thead>
             <tr>
               <th scope="col">묶음</th>
-              <th scope="col" className="n">OFF 매출</th>
-              <th scope="col" className="n">ON 매출</th>
+              <th scope="col" className="n">정책 없음</th>
+              <th scope="col" className="n">정책 있음</th>
               <th scope="col" className="n">ON − OFF</th>
               <th scope="col" className="n">변화율</th>
-              <th scope="col" className="n">결제 OFF → ON</th>
+              <th scope="col" className="n">결제 건수</th>
             </tr>
           </thead>
           <tbody>
@@ -180,7 +180,7 @@ function ComparisonCard({ comparison, experiment }: { comparison: Comparison; ex
                   <td className="n num">{krw(row.off)}</td>
                   <td className="n num">{krw(row.on)}</td>
                   <td className="n num">{krw(row.on_minus_off)}</td>
-                  <td className="n num">{row.percent_change === null ? '기준 0 — 계산 안 함' : `${dec(row.percent_change, 1)}%`}</td>
+                  <td className="n num">{row.percent_change === null ? '—' : `${dec(row.percent_change, 1)}%`}</td>
                   <td className="n num">{count ? `${int(count.off)} → ${int(count.on)}` : '—'}</td>
                 </tr>
               );
@@ -207,15 +207,12 @@ export function ExperimentResults() {
   if (daily.loading && !daily.data) return <SkeletonCard rows={6} />;
   if (daily.error) return <ErrorState title="추이를 불러오지 못했습니다" body={daily.error.message} />;
   if (!series.some((s) => s.points.length)) {
-    return <EmptyState title="받아 둔 실행 기록이 없습니다" body="개요 화면에서 실행 기록을 받으면 추이가 나타납니다." />;
+    return <EmptyState title="실행 기록이 없습니다" body="개요에서 기록을 받으면 나타납니다." />;
   }
 
   return (
     <div className="stack">
       {paired && comparison.data ? <PolicyEffect comparison={comparison.data} marker={marker} /> : null}
-      <Callout tone="info">
-        회색 = 정책 전 공통 기간 · 실선 = 정책 없음 · 점선 = 정책 있음
-      </Callout>
       <div className="grid">
         {hasTarget ? (
           <>
@@ -256,7 +253,7 @@ export function ExperimentResults() {
         {series.some((s) => s.points.some((p) => (p.status.skipped ?? 0) > 0)) ? (
         <Card className="c6">
           <LineChart
-            title="건너뛴 대상자 수 (하루, 결측)"
+            title="기록이 빠진 사람 (하루)"
             series={chartSeries(series, (p) => p.status.skipped ?? 0, cohort)}
             format={(v) => int(v)}
             marker={marker}

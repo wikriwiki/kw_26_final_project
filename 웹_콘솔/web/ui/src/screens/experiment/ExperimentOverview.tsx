@@ -23,7 +23,7 @@ function ArmCard({ arm, cohort }: { arm: ArmStatus; cohort: number }) {
     <Card
       title={arm.label}
       aside={<Badge tone={tone}>{PHASE_TEXT[arm.phase]}</Badge>}
-      note={`${ROLE_LABEL[arm.role]} · ${arm.start}부터 ${int(arm.days)}일${arm.parent ? ' · 공통 사전에서 갈라짐' : ''}`}
+      note={`${ROLE_LABEL[arm.role]} · ${arm.start}부터 ${int(arm.days)}일${arm.parent ? ' · 정책 전 기간에 이어서' : ''}`}
       className="c4"
     >
       <div className="armcard__progress">
@@ -38,7 +38,7 @@ function ArmCard({ arm, cohort }: { arm: ArmStatus; cohort: number }) {
           <dd className="num">{current ? `${current.day} · ${int(current.rows ?? 0)} / ${int(cohort)}명` : '없음'}</dd>
         </div>
         <div>
-          <dt>건너뛴 대상자-일</dt>
+          <dt>빠진 기록</dt>
           <dd className="num">{int(arm.skipped_total)}</dd>
         </div>
         <div>
@@ -46,12 +46,12 @@ function ArmCard({ arm, cohort }: { arm: ArmStatus; cohort: number }) {
           <dd>{arm.manifest?.model ?? '기록 없음'}</dd>
         </div>
         <div>
-          <dt>마지막으로 받은 시각</dt>
+          <dt>받은 시각</dt>
           <dd className="num">{arm.synced_at ? dateTime(arm.synced_at) : '받은 적 없음'}</dd>
         </div>
       </dl>
       {arm.integrity_failures > 0 ? (
-        <Callout tone="warn">봉인 검사에 실패한 줄 {int(arm.integrity_failures)}개를 집계에서 뺐습니다.</Callout>
+        <Callout tone="warn">검사에 실패한 기록 {int(arm.integrity_failures)}건은 집계에서 뺐습니다.</Callout>
       ) : null}
     </Card>
   );
@@ -91,7 +91,7 @@ function SyncCard({ experimentId, onDone }: { experimentId: string; onDone: () =
   };
 
   return (
-    <Card title="실행 기록 받기" note="실험 서버에서 읽기만 합니다. 서버의 파일·실행에는 손대지 않습니다." className="c12">
+    <Card title="실행 기록 받기" note="실험 서버에서 읽기만 합니다." className="c12">
       <div className="synccard">
         <p className="synccard__state">
           {!status
@@ -104,7 +104,7 @@ function SyncCard({ experimentId, onDone }: { experimentId: string; onDone: () =
                   ? `실패: ${status.error ?? '알 수 없는 오류'}`
                   : status.state === 'done'
                     ? `완료 ${status.finished_at ? dateTime(status.finished_at) : ''}`
-                    : '지금 받으면 새로 쌓인 날과 진행 중인 날의 늘어난 부분만 받습니다.'}
+                    : '새로 쌓인 부분만 받습니다.'}
         </p>
         {!READ_ONLY ? (
           <Button
@@ -136,7 +136,7 @@ export function ExperimentOverview() {
         <Stat className="c3" label="대상자" value={int(cohort)} unit="명" />
         <Stat className="c3" label="기간" value={experiment.window.start ? `${experiment.window.start}부터 ${int(experiment.window.days)}일` : null} />
         <Stat className="c3" label="정책 시행일" value={experiment.window.effective_date ?? null} />
-        <Stat className="c3" label="받은 팔-일 / 건너뛴 대상자-일" value={`${int(observedDays)} / ${int(totalSkipped)}`} />
+        <Stat className="c3" label="기록된 날 / 빠진 기록" value={`${int(observedDays)} / ${int(totalSkipped)}`} />
       </div>
       <div className="grid">
         {experiment.arms.map((arm) => (

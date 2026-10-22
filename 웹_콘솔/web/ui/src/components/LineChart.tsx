@@ -56,7 +56,7 @@ export function LineChart({
     () => niceMax(Math.max(0, ...series.flatMap((s) => s.points.map((p) => p.y ?? 0)))),
     [series],
   );
-  if (!xs.length) return <p className="chart__empty">그릴 값이 아직 없습니다.</p>;
+  if (!xs.length) return <p className="chart__empty">값 없음</p>;
 
   const innerW = WIDTH - PAD.left - PAD.right;
   const innerH = HEIGHT - PAD.top - PAD.bottom;

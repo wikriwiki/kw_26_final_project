@@ -64,10 +64,10 @@ function StatsView({ stats }: { stats: GroupStats }) {
   return (
     <div className="stack">
       <div className="grid">
-        <Stat className="c3" label="고른 대상자" value={int(o.agents)} unit="명" hint={`${stats.through_day ?? ''}까지 ${int(stats.days)}일`} />
-        <Stat className="c3" label="관측된 날 평균 오프라인 소비" value={won(o.spend_per_observed_day)} />
+        <Stat className="c3" label="고른 사람" value={int(o.agents)} unit="명" hint={`${stats.through_day ?? ''}까지 ${int(stats.days)}일`} />
+        <Stat className="c3" label="하루 평균 소비 (오프라인)" value={won(o.spend_per_observed_day)} />
         <Stat className="c3" label="정책 대상 시설 결제" value={int(o.target_payments)} unit="건" hint={`${int(o.agents_with_target_visit)}명이 한 번 이상`} />
-        <Stat className="c3" label="건너뛴 대상자-일(결측)" value={int(o.skipped_agent_days)} />
+        <Stat className="c3" label="빠진 기록" value={int(o.skipped_agent_days)} />
       </div>
       {Object.entries(stats.breakdowns).map(([key, groups]) => (
         <div key={key} className="table-wrap">
@@ -82,7 +82,7 @@ function StatsView({ stats }: { stats: GroupStats }) {
                 <th scope="col" className="n">대상 시설 결제</th>
                 <th scope="col" className="n">이용한 사람 비율</th>
                 <th scope="col" className="n">평균 기분</th>
-                <th scope="col" className="n">결측 일</th>
+                <th scope="col" className="n">빠진 날</th>
               </tr>
             </thead>
             <tbody>
@@ -110,7 +110,7 @@ function JobView({ job }: { job: GroupJob }) {
       </p>
       {job.summary?.text ? (
         <Callout tone="info">
-          <strong>모델 요약(확인되지 않은 정리) · {job.summary.model_label}</strong>
+          <strong>요약 · {job.summary.model_label}</strong>
           <span className="pre-line">{job.summary.text}</span>
         </Callout>
       ) : null}
@@ -187,7 +187,7 @@ export function ExperimentQuery() {
     <div className="stack">
       <Card title="집단 고르기" note={`지금 조건에 맞는 사람 ${int(matched)}명`}>
         <div className="querybuilder">
-          <SelectField label="어느 팔의 기록으로" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
+          <SelectField label="기록" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
           {FILTERS.map((filter) => (
             <fieldset key={filter.key} className="querybuilder__set">
               <legend className="field__label">{filter.label}</legend>
@@ -208,11 +208,11 @@ export function ExperimentQuery() {
         {statsError ? <Callout tone="warn">{statsError}</Callout> : null}
       </Card>
       {stats ? (
-        <Card title="기록 통계" aside={<Badge>LLM 없음</Badge>}>
+        <Card title="기록 통계" aside={<Badge>기록 집계</Badge>}>
           <StatsView stats={stats} />
         </Card>
       ) : null}
-      <Card title="집단 인터뷰" note="고른 집단에서 표본을 뽑아 한 명씩 같은 질문을 합니다. 한 번에 30명까지." aside={<Badge tone="warn">콘솔 탐색용</Badge>}>
+      <Card title="집단 인터뷰" note="고른 사람 중 몇 명에게 같은 질문을 합니다 (최대 30명).">
         {!READ_ONLY ? (
           <form className="queryform" onSubmit={startInterview}>
             <TextAreaField label="질문" value={question} rows={2} maxLength={500} onChange={(e) => setQuestion(e.target.value)} />

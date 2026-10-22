@@ -15,7 +15,7 @@
     {
       "arm_id": "shared-pre",
       "role": "shared_pre",
-      "label": "정책 전 공통 7일",
+      "label": "정책 전 7일",
       "policy": "off",
       "directory": "P010_main_results_pre",
       "start": "2025-07-14",

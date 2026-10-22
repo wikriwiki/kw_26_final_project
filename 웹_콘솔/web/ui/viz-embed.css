@@ -369,3 +369,30 @@ body:has(#detail-card:not([hidden])) #legend-panel {
 #detail-card [style*="color:#aaa"] {
   color: var(--k-subtle) !important;
 }
+
+/*
+ * 10. 상세·지점 카드의 소제목·요약 상자를 콘솔 색으로.
+ */
+#detail-card h4,
+#hotspot-card h4 {
+  color: var(--k-fg) !important;
+  border-bottom-color: var(--k-border) !important;
+  font-weight: 600 !important;
+}
+#detail-card .vz-now,
+#hotspot-card .vz-now {
+  background: rgba(31, 59, 92, 0.06) !important;
+}
+#detail-card .legacy-tag,
+#hotspot-card .legacy-tag {
+  background: rgba(31, 59, 92, 0.08) !important;
+  color: var(--k-primary) !important;
+}
+#detail-card .legacy-mem-item .meta,
+#hotspot-card .legacy-mem-item .meta {
+  color: var(--k-subtle) !important;
+}
+#hotspot-card h3 {
+  font-size: 13px !important;
+  color: var(--k-fg) !important;
+}

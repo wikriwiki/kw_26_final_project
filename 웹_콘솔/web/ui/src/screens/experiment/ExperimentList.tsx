@@ -22,10 +22,8 @@ export function ExperimentList() {
     <section className="section" aria-labelledby="experiments-title">
       <header className="section__head">
         <h2 className="section__title" id="experiments-title">
-          <span className="kicker">실험</span>
-          정책 있음 · 없음 비교 실험
+          정책별 결과
         </h2>
-        <p className="section__note">정책 전 공통 기간 뒤 정책 있음·없음으로 나눠 돌린 실험</p>
       </header>
       <ul className="explist">
         {sortByReady(list.data.items).map((experiment) => (
