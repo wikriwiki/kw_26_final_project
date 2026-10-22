@@ -9,6 +9,7 @@ from typing import Any, AsyncIterator
 
 from fastapi import Body, FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.gzip import GZipMiddleware
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -67,6 +68,16 @@ class SpaFiles(StaticFiles):
     """
 
     async def get_response(self, path: str, scope):  # type: ignore[override]
+        response = await self._get_response(path, scope)
+        # 빌드 산출물 `/assets/*` 는 이름에 내용 해시가 붙는다 — 영원히 같은 파일이니 다시 묻지 않게 한다.
+        # 그 밖(index.html 등)은 매번 확인해야 새 빌드가 곧바로 보인다.
+        request_path = scope.get("path", "")
+        response.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if request_path.startswith("/assets/") else "no-cache"
+        )
+        return response
+
+    async def _get_response(self, path: str, scope):
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:
@@ -80,6 +91,28 @@ class SpaFiles(StaticFiles):
             ):
                 raise
             return await super().get_response("index.html", scope)
+
+
+class CompressResponses:
+    """JSON·HTML·JS·CSS 응답을 gzip 으로 보낸다. 이미 압축된 것은 건드리지 않는다.
+
+    대상자 목록(약 1MB)·결제 요약 같은 JSON 은 압축하면 몇 분의 일로 준다. 시연장처럼
+    망이 느린 곳에서는 이 차이가 체감 속도를 정한다. 3D 지도 팩 조각과 미리 압축해 둔
+    지도 HTML 은 원래 gzip 이라 다시 압축하면 시간만 쓴다. 진행 스트림(SSE)은 Starlette 가
+    알아서 뺀다.
+    """
+
+    SKIP = ("/viz/packs/", "/viz/standalone.html")
+
+    def __init__(self, app) -> None:
+        self.app = app
+        self.gzip = GZipMiddleware(app, minimum_size=1024, compresslevel=6)
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] == "http" and not scope.get("path", "").startswith(self.SKIP):
+            await self.gzip(scope, receive, send)
+        else:
+            await self.app(scope, receive, send)
 
 
 class RunStartRequest(BaseModel):
@@ -142,6 +175,7 @@ def create_app(
         lock=RunLock(Path(os.environ.get("SIM_LOCK_PATH", str(REPO_ROOT / "web" / ".run.lock")))),
     )
     app.state.report_jobs = ReportJobManager(repo_root=REPO_ROOT, store=app.state.store, runner=app.state.runner)
+    app.add_middleware(CompressResponses)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[origin.strip() for origin in os.environ.get("WEB_CORS_ORIGINS", "http://localhost:5173").split(",") if origin.strip()],

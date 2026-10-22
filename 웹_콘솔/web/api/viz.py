@@ -7,16 +7,20 @@
 * ``/viz/static/<파일>``          ``scripts/sim/visualization_3d/static`` 원본을 그대로 읽어 보낸다.
 * ``/viz/packs/<팩>/<파일>``      ``visualization_3d/pack.py`` 가 만든 팩 (manifest + gzip 조각)
 * ``/api/viz/packs``             고를 수 있는 팩 목록
+* ``/api/viz/packs/<팩>/residents`` 그 팩 시민의 집·직장 좌표만 (첫 화면 점 지도용)
 
 껍데기는 ``?pack=/viz/packs/<팩>/`` 로 어떤 팩을 그릴지 받는다. 팩 파일 주소에는
 해시(``?v=``)가 붙으므로 오래 캐시해도 팩을 다시 만들면 저절로 새로 받는다.
 """
 from __future__ import annotations
 
+import asyncio
+import gzip
 import hashlib
 import json
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -116,6 +120,65 @@ def pack_file(pack_id: str, file_path: str) -> Path:
     return target
 
 
+#: 좌표를 정수로 보낼 때의 원점과 눈금. 1e-4 도는 서울에서 대략 9~11m — 점 지도에는 넘친다
+_ORIGIN = (126.7, 37.4)
+_SCALE = 1e-4
+_residents_lock = threading.Lock()
+_residents_cache: dict[str, tuple[tuple[int, int], dict[str, Any]]] = {}
+
+
+def _q(value: Any, origin: float) -> int | None:
+    try:
+        v = float(value)
+    except (TypeError, ValueError):
+        return None
+    if v != v:  # NaN
+        return None
+    return round((v - origin) / _SCALE)
+
+
+def residents(pack_id: str) -> dict[str, Any]:
+    """팩 시민의 집·직장 좌표만 촘촘하게 돌려준다.
+
+    대상자 파일 전체(5,000명에 약 650KB)를 첫 화면에서 받지 않게 하려는 것이다. 좌표는
+    1e-4 도 단위 정수로 줄이고 `[집x, 집y, 직장x, 직장y]` 를 한 줄로 이어 붙인다.
+    직장이 없는 사람은 직장 칸이 null 이다 — 집 좌표로 채우지 않는다.
+    """
+    manifest = json.loads(pack_file(pack_id, "manifest.json").read_text(encoding="utf-8"))
+    agents_path = pack_file(pack_id, (manifest.get("agents") or {}).get("file") or "agents.json.gz")
+    st = agents_path.stat()
+    key = (st.st_mtime_ns, st.st_size)
+    with _residents_lock:
+        hit = _residents_cache.get(pack_id)
+    if hit is not None and hit[0] == key:
+        return hit[1]
+    raw = agents_path.read_bytes()
+    agents = json.loads(gzip.decompress(raw) if agents_path.suffix == ".gz" else raw)
+    points: list[int | None] = []
+    count = 0
+    for agent in agents if isinstance(agents, list) else []:
+        hx, hy = _q(agent.get("home_lon"), _ORIGIN[0]), _q(agent.get("home_lat"), _ORIGIN[1])
+        if hx is None or hy is None:
+            continue
+        wx, wy = _q(agent.get("work_lon"), _ORIGIN[0]), _q(agent.get("work_lat"), _ORIGIN[1])
+        points += [hx, hy, wx, wy] if wx is not None and wy is not None else [hx, hy, None, None]
+        count += 1
+    payload = {
+        "pack_id": pack_id,
+        "label": manifest.get("label"),
+        "run_id": manifest.get("run_id"),
+        "count": count,
+        "origin": list(_ORIGIN),
+        "scale": _SCALE,
+        "stride": 4,
+        "points": points,
+        "unknown": [],
+    }
+    with _residents_lock:
+        _residents_cache[pack_id] = (key, payload)
+    return payload
+
+
 def static_file(name: str) -> Path:
     if name not in STATIC_FILES:
         raise StoreError(404, "정적 파일이 없습니다")
@@ -150,6 +213,10 @@ def register(app: FastAPI) -> None:
     @app.get("/api/viz/packs")
     async def viz_packs() -> dict[str, Any]:
         return list_packs()
+
+    @app.get("/api/viz/packs/{pack_id}/residents")
+    async def viz_residents(pack_id: str) -> dict[str, Any]:
+        return await asyncio.to_thread(residents, pack_id)
 
     @app.get("/viz/shell.html")
     async def viz_shell(theme: str | None = None) -> HTMLResponse:
