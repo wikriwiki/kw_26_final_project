@@ -161,9 +161,10 @@ function buildFeatures(bundle: RunBundle, policy: PolicyBinding): RunFeature[] {
     reason: string,
   ): RunFeature => ({ key, segment, label, available, reason: available ? null : reason });
 
+  const running = bundle.detail.status !== 'completed';
   return [
     feature('overview', '', '개요', true, ''),
-    feature('monitor', 'monitor', '실행 모니터', hasDays, '일자 기록 없음'),
+    ...(running ? [feature('monitor', 'monitor', '실행 모니터', hasDays, '일자 기록 없음')] : []),
     feature('results', 'results', '결과', events.available, '결제 기록 없음'),
     feature('visualize', 'visualize', '시각화', hasDays, '지도 데이터 없음'),
     /*

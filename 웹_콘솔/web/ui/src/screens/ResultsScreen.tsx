@@ -29,18 +29,9 @@ import { BarList } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
 import { rememberScroll, useScrollMemory } from '../app/useViewState';
 import { loadPolicyDetail, useLoad, type DecileBucket } from '../lib/runData';
-import { dec, int, krw, krwAxis, percent } from '../lib/format';
+import { int, krw, krwAxis, percent } from '../lib/format';
 import { decile } from '../lib/labels';
 
-const ARTIFACT_LABEL: Record<string, string> = {
-  summary_json: '실행 요약',
-  events_jsonl: '결제 기록',
-  poi_summary_json: '매장 집계',
-  stage1_failures_jsonl: '응답 오류 기록',
-  timing_dir: '단계별 소요',
-  checkpoints_dir: '진행 체크포인트',
-  metrics_dir: '시민별 기록',
-};
 
 export function ResultsScreen() {
   const { index: indexItem, bundle, path, policy } = useRun();
@@ -77,6 +68,10 @@ export function ResultsScreen() {
       value: row.amt,
       display: krw(row.amt),
     }));
+
+  // 지원금이 없는 정책(거리두기·캐시백)은 지급액 칸을 두지 않는다
+  const hasGrant = Object.values(grants).some((v) => v > 0);
+  const hasWallet = (totals?.policy_paid ?? 0) > 0;
 
   const couponShare =
     totals && totals.events > 0 ? totals.coupon_eligible_events / totals.events : null;
@@ -193,7 +188,7 @@ export function ResultsScreen() {
         <div className="section__head">
           <h2 className="section__title">소비 분위별 비교</h2>
           <p className="section__note">
-            {bundle.focusDay} 기준 · 1분위일수록 지급액이 큽니다
+            {bundle.focusDay} 하루
           </p>
         </div>
 
@@ -206,9 +201,11 @@ export function ResultsScreen() {
                 <th scope="col" className="n">
                   시민
                 </th>
-                <th scope="col" className="n col-md">
-                  1인당 지급액
-                </th>
+                {hasGrant ? (
+                  <th scope="col" className="n col-md">
+                    1인당 지급액
+                  </th>
+                ) : null}
                 <th scope="col" className="n col-lg">
                   당일 소비액
                 </th>
@@ -222,14 +219,16 @@ export function ResultsScreen() {
                   </th>
                   <td className="n">
                     {int(row.agents)}명
-                    <span className="cell-sub cell-sub--md">
-                      지급 {krw(grants[String(row.spend_decile)] ?? 0)}
-                    </span>
+                    {hasGrant ? (
+                      <span className="cell-sub cell-sub--md">
+                        지급 {krw(grants[String(row.spend_decile)] ?? 0)}
+                      </span>
+                    ) : null}
                     <span className="cell-sub cell-sub--lg">
                       소비 {krw(row.cm_today_total_incl_online)}
                     </span>
                   </td>
-                  <td className="n col-md">{krw(grants[String(row.spend_decile)] ?? 0)}</td>
+                  {hasGrant ? <td className="n col-md">{krw(grants[String(row.spend_decile)] ?? 0)}</td> : null}
                   <td className="n col-lg">{krw(row.cm_today_total_incl_online)}</td>
                 </tr>
               ))}
@@ -244,10 +243,10 @@ export function ResultsScreen() {
 
       {/* 접어두는 것 — 기본 닫힘 */}
       <section className="section">
-        <h2 className="section__title">상세 보기</h2>
+        <h2 className="section__title">더 보기</h2>
         <div>
           <Disclosure
-            title="일자별 원자료"
+            title="일자별 결제"
             meta={events.by_day && events.by_day.length > 0 ? `${events.by_day.length}일` : '기록 없음'}
           >
             {events.by_day && events.by_day.length > 0 ? (
@@ -263,9 +262,11 @@ export function ResultsScreen() {
                       <th scope="col" className="n col-md">
                         결제액
                       </th>
-                      <th scope="col" className="n col-lg">
-                        정책 지갑
-                      </th>
+                      {hasWallet ? (
+                        <th scope="col" className="n col-lg">
+                          지원금
+                        </th>
+                      ) : null}
                     </tr>
                   </thead>
                   <tbody>
@@ -279,7 +280,7 @@ export function ResultsScreen() {
                           <span className="cell-sub cell-sub--md">{krw(row.amt)}</span>
                         </td>
                         <td className="n col-md">{krw(row.amt)}</td>
-                        <td className="n col-lg">{krw(row.policy_paid)}</td>
+                        {hasWallet ? <td className="n col-lg">{krw(row.policy_paid)}</td> : null}
                       </tr>
                     ))}
                   </tbody>
@@ -293,50 +294,6 @@ export function ResultsScreen() {
             )}
           </Disclosure>
 
-          <Disclosure title="내보내기">
-            <p className="card__note">
-              이 실행의 원자료
-            </p>
-            <dl className="dl">
-              {Object.entries(indexItem.artifacts).map(([key, present]) => (
-                <div className="dl__item" key={key}>
-                  <dt className="dl__k">{ARTIFACT_LABEL[key] ?? key}</dt>
-                  <dd className="dl__v">{present ? '있음' : '없음'}</dd>
-                </div>
-              ))}
-            </dl>
-          </Disclosure>
-
-          <Disclosure title="이 숫자의 출처">
-            <dl className="dl">
-              <div className="dl__item">
-                <dt className="dl__k">결제 기록</dt>
-                <dd className="dl__v wrap">{events.source ?? '없음'}</dd>
-              </div>
-              <div className="dl__item">
-                <dt className="dl__k">분위별 집계</dt>
-                <dd className="dl__v wrap">{bundle.dayAggregate?.source_file ?? '없음'}</dd>
-              </div>
-              <div className="dl__item">
-                <dt className="dl__k">지원금 사용 가능 매장</dt>
-                <dd className="dl__v">
-                  {events.poi_summary
-                    ? `${int(events.poi_summary.poi_eligible)}곳 / 전체 ${int(
-                        events.poi_summary.poi_total,
-                      )}곳 (${dec((events.poi_summary.poi_eligible / events.poi_summary.poi_total) * 100, 1)}%)`
-                    : '알 수 없음'}
-                </dd>
-              </div>
-              <div className="dl__item">
-                <dt className="dl__k">쓸 수 없는 값</dt>
-                <dd className="dl__v">
-                  {events.null_only_fields && events.null_only_fields.length > 0
-                    ? `${events.null_only_fields.join(', ')} (모두 비어 있어 집계 안 함)`
-                    : '없음'}
-                </dd>
-              </div>
-            </dl>
-          </Disclosure>
         </div>
       </section>
     </div>

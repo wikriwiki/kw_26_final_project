@@ -163,6 +163,7 @@ def provider_status(*, load_env: bool = True) -> dict[str, Any]:
     }
     if provider == "gemini":
         status["model"] = _env("GEMINI_MODEL", GEMINI_DEFAULT_MODEL)
+        status["label"] = status["model"]
         status["configured"] = bool(gemini_key)
         if not gemini_key:
             status["reason"] = "해설 모델이 아직 연결되지 않았습니다."
@@ -170,6 +171,8 @@ def provider_status(*, load_env: bool = True) -> dict[str, Any]:
             status["unknown"].append("GEMINI_API_KEY")
     elif provider == "openai":
         status["model"] = _env("REPORT_LLM_MODEL")
+        # 전용 엔드포인트는 모델 칸이 엔드포인트 id 다. 화면에는 사람이 아는 이름을 쓴다
+        status["label"] = _env("REPORT_LLM_MODEL_LABEL") or status["model"]
         status["configured"] = bool(base_url and status["model"])
         if not status["configured"]:
             status["reason"] = "해설 모델이 아직 연결되지 않았습니다."

@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime, timezone
 from html import escape
 from typing import Any, Sequence
@@ -357,16 +358,10 @@ def note(narration: dict[str, Any], key: str) -> str:
     if not entry or not entry.get("text"):
         return ""
     source = entry.get("source", "deterministic")
-    if source.startswith("llm"):
-        label = f"해설: {esc(entry.get('model') or source)} · 숫자 검증 통과"
-    elif entry.get("guard") == "rejected":
-        label = "해설: 규칙 기반 서술 (LLM 문장에 계산 결과에 없는 숫자가 있어 채택하지 않음)"
-    elif entry.get("guard") == "llm_error":
-        label = "해설: 규칙 기반 서술 (LLM 호출 실패)"
-    else:
-        label = "해설: 규칙 기반 서술 (해설 LLM 미설정)"
+    model = os.environ.get("REPORT_LLM_MODEL_LABEL") or entry.get("model") or ""
+    label = f'<span class="note__src">해설: {esc(model)}</span>' if source.startswith("llm") and model else ""
     paragraphs = "".join(f"<p>{esc(line)}</p>" for line in str(entry["text"]).split("\n") if line.strip())
-    return f'<div class="note">{paragraphs}<span class="note__src">{label}</span></div>'
+    return f'<div class="note">{paragraphs}{label}</div>'
 
 
 def dl(items: Sequence[tuple[str, str]]) -> str:
@@ -379,6 +374,27 @@ def dl(items: Sequence[tuple[str, str]]) -> str:
 # --------------------------------------------------------------------------- #
 
 
+def _paired_rows(bundle: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    paired = bundle.get("paired") or {}
+    if not paired.get("available"):
+        return {}
+    return {row["key"]: row for row in paired.get("rows") or []}
+
+
+def _effect(value: float | None) -> str:
+    return "—" if value is None else f"{value * 100:+.1f}%"
+
+
+def _ci(ci: Sequence[float] | None) -> str:
+    return f"{ci[0] * 100:+.1f}% ~ {ci[1] * 100:+.1f}%" if ci else "—"
+
+
+def _verdict(row: dict[str, Any]) -> str:
+    if row.get("effect") is None:
+        return "—"
+    return "유의" if row.get("significant") else "유의하지 않음"
+
+
 def _masthead(bundle: dict[str, Any], consistency: dict[str, Any]) -> str:
     meta = bundle["meta"]
     period = bundle["period"]
@@ -386,6 +402,7 @@ def _masthead(bundle: dict[str, Any], consistency: dict[str, Any]) -> str:
     did = bundle.get("did") or {}
     counts = consistency.get("counts", {})
     verdict_cls = "ok" if consistency.get("consistent") else "danger"
+    paired = _paired_rows(bundle)
     facts = [
         fact("분석 실행", esc(meta.get("run_id")), f"{meta.get('day_count')}일 · {meta.get('event_rows'):,}건"),
         fact(
@@ -404,21 +421,30 @@ def _masthead(bundle: dict[str, Any], consistency: dict[str, Any]) -> str:
             esc(krw(totals.get("policy_paid"))),
             f"자기부담 {krw(totals.get('self_paid'))}",
         ),
-        fact(
-            "이중차분 추정",
-            _signed(did.get("did_absolute")) if did else "—",
-            (f"일평균 · 반사실 대비 {pct(did.get('did_pct_of_counterfactual'))}" if did else "계산 불가"),
-        ),
-        fact(
-            "일관성 검증",
-            f'<span class="{verdict_cls}">{counts.get("pass", 0)}/{counts.get("total", 0)} 통과</span>',
-            f"실패 {counts.get('fail', 0)} · 미검사 {counts.get('skip', 0)}",
-        ),
     ]
+    if paired:
+        # 정책 실행: 같은 시민·같은 날 정책 없음과 견준 값이 곧 효과다
+        for key, label in (("total", "정책 효과 · 총소비"), ("shop", "정책 효과 · 가게 소비")):
+            row = paired.get(key)
+            if row:
+                facts.append(fact(label, esc(_effect(row.get("effect"))), f"{_verdict(row)} · 95% 구간 {_ci(row.get('ci95'))}"))
+    else:
+        facts += [
+            fact(
+                "이중차분 추정",
+                _signed(did.get("did_absolute")) if did else "—",
+                (f"일평균 · 반사실 대비 {pct(did.get('did_pct_of_counterfactual'))}" if did else "계산 불가"),
+            ),
+            fact(
+                "일관성 검증",
+                f'<span class="{verdict_cls}">{counts.get("pass", 0)}/{counts.get("total", 0)} 통과</span>',
+                f"실패 {counts.get('fail', 0)} · 미검사 {counts.get('skip', 0)}",
+            ),
+        ]
     return (
         '<header class="masthead">'
         '<div class="headrow"><div>'
-        '<p class="masthead__kicker">정책 시뮬레이션 최종 분석 보고서 · DASOL v2</p>'
+        '<p class="masthead__kicker">정책 시뮬레이션 분석 보고서</p>'
         f'<h1 class="masthead__title">{esc(meta.get("policy_name") or meta.get("policy_id") or "정책")} '
         f'효과 분석</h1>'
         f'<p class="masthead__sub">{esc(meta.get("run_id"))} · '
@@ -440,46 +466,54 @@ def _toc(entries: Sequence[tuple[str, str]]) -> str:
 def _sec_overview(bundle: dict[str, Any], narration: dict[str, Any], consistency: dict[str, Any]) -> str:
     meta, period, mix = bundle["meta"], bundle["period"], bundle["mix"]
     targets = bundle.get("targets", {})
+    paired = bool(_paired_rows(bundle))
     body = [note(narration, "overview")]
-    body.append(
-        dl(
-            [
+    rows = [
                 ("실행 ID", f'<span class="num">{esc(meta.get("run_id"))}</span>'),
-                ("산출물 경로", f'<code>{esc(meta.get("run_root"))}</code>'),
                 ("분석 구간", f'<span class="num">{esc((meta.get("days") or ["—"])[0])} ~ '
                              f'{esc((meta.get("days") or ["—"])[-1])} ({meta.get("day_count")}일)</span>'),
                 ("정책 시행일", f'<span class="num">{esc(period.get("policy_from") or "미지정")}</span>'),
-                (
-                    "처치군(정책 대상 업종)",
-                    (", ".join(esc(c) for c in targets.get("categories") or []) or "없음")
-                    + f'<br><span class="tag">판정 근거: {esc(targets.get("source") or "판정 불가")}</span>',
-                ),
-                (
-                    "대조군(비대상 업종)",
-                    ", ".join(esc(c) for c in bundle.get("control_categories") or []) or "없음",
-                ),
                 ("소비 이벤트", f'<span class="num">{int(meta.get("event_rows") or 0):,}건</span>'),
+    ]
+    if not paired:
+        # 업종 처치·대조 구분은 실행 안 이중차분에서만 뜻이 있다
+        rows[3:3] = [
+            (
+                "처치군(정책 대상 업종)",
+                (", ".join(esc(c) for c in targets.get("categories") or []) or "없음")
+                + f'<br><span class="tag">판정 근거: {esc(targets.get("source") or "판정 불가")}</span>',
+            ),
+            (
+                "대조군(비대상 업종)",
+                ", ".join(esc(c) for c in bundle.get("control_categories") or []) or "없음",
+            ),
+        ]
+        # 정책 실행은 정책 없음 쪽과 직접 견준다(다음 절). 업종 처치·대조 기준의 값은 싣지 않는다
+        rows.append(
+            (
+                "정책 지렛대",
                 (
-                    "정책 지렛대",
-                    (
-                        f'<span class="num">{esc(num(mix.get("leverage"), digits=2))}배</span> '
-                        f'— 정책지급 1원당 발생한 총 소비금액'
-                        if mix.get("leverage")
-                        else "정책 지급액이 0이라 계산할 수 없습니다"
-                    ),
+                    f'<span class="num">{esc(num(mix.get("leverage"), digits=2))}배</span> '
+                    f'— 정책지급 1원당 발생한 총 소비금액'
+                    if mix.get("leverage")
+                    else "정책 지급액이 0이라 계산할 수 없습니다"
                 ),
-                (
-                    "사중손실 추정",
-                    (
-                        f'<span class="num">{int(mix.get("deadweight_events") or 0):,}건 '
-                        f'({esc(num(mix.get("deadweight_share_pct"), digits=2))}%)</span> '
-                        "— 정책이 없어도 구매했을 것이라고 응답한 이벤트"
-                    ),
-                ),
-            ]
+            )
+        )
+    rows.append(
+        (
+            "사중손실 추정",
+            (
+                f'<span class="num">{int(mix.get("deadweight_events") or 0):,}건 '
+                f'({esc(num(mix.get("deadweight_share_pct"), digits=2))}%)</span> '
+                "— 정책이 없어도 구매했을 것이라고 응답한 이벤트"
+                if mix.get("deadweight_known", True)
+                else "기록 없음 — 이 실행의 결제 기록에는 이 항목이 없습니다"
+            ),
         )
     )
-    if not period.get("usable"):
+    body.append(dl(rows))
+    if not period.get("usable") and not paired:
         body.append(
             f'<div class="callout callout--warn">이 실행에서는 이중차분을 계산할 수 없습니다. '
             f'{esc(period.get("reason") or "")} 아래의 전후 비교는 인과 효과가 아니라 단순 관측치입니다.</div>'
@@ -491,6 +525,49 @@ def _sec_overview(bundle: dict[str, Any], narration: dict[str, Any], consistency
             f'({", ".join(esc(i) for i in consistency.get("failed_ids") or [])}). '
             "이 보고서의 수치를 그대로 인용하기 전에 마지막 절을 확인하세요.</div>"
         )
+    return "".join(body)
+
+
+def _sec_paired(bundle: dict[str, Any]) -> str:
+    """정책 있음·없음 짝 비교 — 같은 시민·같은 날."""
+    paired = bundle.get("paired") or {}
+    if not paired.get("available"):
+        return f'<div class="callout callout--warn">{esc(paired.get("reason") or "비교할 수 없습니다.")}</div>'
+    rows = paired.get("rows") or []
+    head = [r for r in rows if r.get("group") != "category"]
+    cats = [r for r in rows if r.get("group") == "category"]
+    method = paired.get("method") or {}
+
+    def line(r: dict[str, Any]) -> list[str]:
+        return [
+            esc(r.get("label")),
+            krw(r.get("off_per_agent_day")),
+            krw(r.get("on_per_agent_day")),
+            f'<span class="num">{esc(_effect(r.get("effect")))}</span>',
+            f'<span class="num">{esc(_ci(r.get("ci95")))}</span>',
+            esc(_verdict(r)),
+        ]
+
+    cols = [("항목", ""), ("정책 없음 (1인 하루)", "n"), ("정책 있음 (1인 하루)", "n"), ("효과", "n"), ("95% 신뢰구간", "n"), ("판정", "")]
+    body = [
+        f'<p>{int(paired.get("agents") or 0):,}명 · {len(paired.get("days") or [])}일. '
+        "같은 시민의 같은 날을 정책이 있을 때와 없을 때로 견줬습니다. 효과 = 정책 있음 ÷ 정책 없음 − 1.</p>",
+        table(cols, [line(r) for r in head]),
+    ]
+    if cats:
+        body.append("<h3>업종별</h3>")
+        body.append(table(cols, [line(r) for r in cats]))
+    daily = paired.get("daily") or []
+    if daily:
+        body.append("<h3>날짜별 총소비 효과</h3>")
+        body.append(
+            table(
+                [("날짜", ""), ("정책 없음", "n"), ("정책 있음", "n"), ("효과", "n")],
+                [[esc(d.get("day")), krw(d.get("off")), krw(d.get("on")), esc(_effect(d.get("effect")))] for d in daily],
+            )
+        )
+    if method.get("ci"):
+        body.append(f'<p class="caption">{esc(method.get("ci"))}</p>')
     return "".join(body)
 
 
@@ -1752,6 +1829,7 @@ def _sec_provenance(
 SECTION_PLAN = [
     ("s1", "1", "분석 개요", "이 보고서가 무엇을 어떤 자료로 계산했는지 먼저 고정한다."),
     ("s2", "2", "정책 사양", "시뮬레이션에 실제로 배선된 정책 파일의 내용."),
+    ("s14", "3", "정책 있음·없음 비교", "같은 시민·같은 날, 정책이 있을 때와 없을 때의 소비 차이."),
     ("s3", "3", "소비 총량 추이", "시행일을 기준으로 총액·건수·객단가가 어떻게 움직였는가."),
     ("s4", "4", "시행 전후 겹쳐보기", "같은 길이의 두 구간을 한 축에 올려 소비가 얼마나 달라졌는지 본다."),
     ("s5", "5", "업종별 전후 비교", "어떤 업종에서 금액이 늘고 줄었는가 (단순 비교)."),
@@ -1781,9 +1859,15 @@ def build_html(
     sections: Sequence[str] | None = None,
 ) -> str:
     selected = ALWAYS_ON | set(sections) if sections is not None else {a for a, _, _, _ in SECTION_PLAN}
+    if _paired_rows(bundle):
+        # 정책 실행: 짝 비교 절을 넣고, 업종 처치·대조가 없어 '계산 불가'만 남는 이중차분 절들은 뺀다
+        selected = selected | {"s14"}
+        if not bundle.get("did"):
+            selected = selected - {"s6", "s12", "s7", "s13"}
     builders = {
         "s1": lambda: _sec_overview(bundle, narration, consistency),
         "s2": lambda: _sec_policy(bundle, policy),
+        "s14": lambda: _sec_paired(bundle),
         "s3": lambda: _sec_timeseries(bundle),
         "s4": lambda: _sec_overlay(bundle, narration),
         "s5": lambda: _sec_categories(bundle, narration),

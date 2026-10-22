@@ -3,7 +3,7 @@
  * 단일 목적: 지금 잘 돌고 있는지 본다.
  *
  * 기본 노출  : 진행률 · 핵심 지표 4개 · 일자별 추이   (1차 블록 3개)
- * 접어두는 것: 단계별 소요 분해 · 느린 사례 · 응답 오류 원문 · 실행 계획 근거
+ * 접어두는 것: 단계별 소요 분해 · 느린 사례 · 실행 계획 근거
  *
  * **run 은 셸이 소유한다** (설계도 §5). 화면 안의 run 선택기를 걷어냈고, `useRun()` 이
  * 준 실행을 그대로 그린다. 어떤 실행을 보는 중인지는 사이드바가 항상 말한다.
@@ -21,11 +21,10 @@ import { Disclosure } from '../components/Disclosure';
 import { Button } from '../components/Button';
 import { Stat } from '../components/Card';
 import { Callout, EmptyState } from '../components/Feedback';
-import { AlertTriangleIcon } from '../components/Icon';
 import { BarList, Meter } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
 import { dec, duration, int } from '../lib/format';
-import { errorType, timingPath } from '../lib/labels';
+import { timingPath } from '../lib/labels';
 import type { Bottlenecks } from '../lib/api';
 import type { SlowPage } from '../lib/runData';
 
@@ -97,26 +96,12 @@ function MonitorView({ run }: { run: RunContextValue }) {
     };
   });
 
-  const errorTypeBars: BarItem[] = Object.entries(bundle.failures.by_error_type ?? {}).map(
-    ([type, n]) => {
-      const t = errorType(type);
-      return {
-        key: type,
-        name: t.known ? t.label : type,
-        value: n,
-        display: `${int(n)}건`,
-      };
-    },
-  );
-
   return (
     <div className="stack">
       <header className="pagehead">
         <div className="pagehead__text">
           <h1 className="pagehead__title">실행 모니터</h1>
-          <p className="pagehead__purpose">
-            진행 상황과 오류
-          </p>
+          <p className="pagehead__purpose">진행 상황</p>
         </div>
       </header>
 
@@ -153,29 +138,21 @@ function MonitorView({ run }: { run: RunContextValue }) {
       {/* 1차 블록 2 — 핵심 지표 4개 */}
       <div className="grid statrow">
         <Stat
-          className="c3"
+          className="c4"
           label="처리한 시민"
           value={int(totals.ok)}
           unit="명"
           hint={`${int(days.length)}일 합계`}
         />
         <Stat
-          className="c3"
+          className="c4"
           label="처리 실패"
           value={int(totals.err)}
           unit="명"
           hint={totals.err === 0 ? '실패 없음' : '아래 일자별 표 참고'}
         />
         <Stat
-          className="c3"
-          label="응답 오류"
-          value={bundle.failures.total === null ? null : int(bundle.failures.total)}
-          unit="건"
-          hint="재시도로 복구된 건 포함"
-          unknownReason="오류 기록 없음"
-        />
-        <Stat
-          className="c3"
+          className="c4"
           label="총 소요 시간"
           value={totals.elapsedKnown ? duration(totals.elapsed) : null}
           hint={totals.elapsedKnown ? `일 평균 ${duration(totals.elapsed / days.length)}` : undefined}
@@ -339,29 +316,6 @@ function MonitorView({ run }: { run: RunContextValue }) {
                 </p>
               </>
             )}
-          </Disclosure>
-
-          <Disclosure
-            title="응답 오류 원문"
-            meta={bundle.failures.total === null ? '기록 없음' : `${int(bundle.failures.total)}건`}
-          >
-            <p className="card__note">
-              재시도로 복구된 건도 포함합니다.
-            </p>
-            {errorTypeBars.length > 0 ? <BarList items={errorTypeBars} /> : null}
-            <ul className="checks">
-              {bundle.failures.items.slice(0, 3).map((f, i) => (
-                <li className="check check--warn" key={`${f.aid}-${f.attempt}-${i}`}>
-                  <AlertTriangleIcon size={16} />
-                  <div className="stack-sm">
-                    <span className="wrap">
-                      {errorType(f.error_type).label} · {f.day} · {f.attempt + 1}번째 시도
-                    </span>
-                    <pre className="code">{f.error}</pre>
-                  </div>
-                </li>
-              ))}
-            </ul>
           </Disclosure>
 
           <Disclosure title="실행 계획 근거">

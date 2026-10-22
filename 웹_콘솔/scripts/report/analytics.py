@@ -135,6 +135,7 @@ def iter_events(run_root: Path) -> Iterator[dict[str, Any]]:
                 "extra": _number(_pick(row, EVENT_FIELDS["extra"])),
                 "eligible": bool(_pick(row, EVENT_FIELDS["eligible"])),
                 "wba": _pick(row, EVENT_FIELDS["would_buy_anyway"]) is True,
+                "wba_known": _pick(row, EVENT_FIELDS["would_buy_anyway"]) is not None,
                 "policy_by_id": policy,
                 "policy_paid": sum(policy.values()),
                 "day_type": _pick(row, EVENT_FIELDS["day_type"]),
@@ -188,6 +189,7 @@ def scan_events(run_root: Path) -> dict[str, Any]:
     totals = _empty_cell()
     seen_keys: set[str] = set()
     rows = 0
+    wba_known_rows = 0
 
     for row in iter_events(run_root):
         rows += 1
@@ -211,9 +213,12 @@ def scan_events(run_root: Path) -> dict[str, Any]:
         for pid, amount in row["policy_by_id"].items():
             policy_ids_by_day[(day, pid)] += amount
         _add(totals, row)
+        if row["wba_known"]:
+            wba_known_rows += 1
 
     return {
         "rows": rows,
+        "wba_known_rows": wba_known_rows,
         "totals": totals,
         "by_day": {k: dict(v) for k, v in by_day.items()},
         "by_l1": {k: dict(v) for k, v in by_l1.items()},
@@ -1278,6 +1283,8 @@ def build_bundle(
             else None
         ),
         "deadweight_events": int(scan["totals"]["wba"]),
+        # 그 칸이 기록에 아예 없으면 0건이 아니라 '모름'이다
+        "deadweight_known": scan.get("wba_known_rows", 1) > 0,
         "deadweight_share_pct": (
             round(scan["totals"]["wba"] / scan["totals"]["events"] * 100, 4)
             if scan["totals"]["events"]

@@ -13,7 +13,7 @@ import { Callout, ErrorState } from '../../components/Feedback';
 import { SelectField, TextAreaField, TextField } from '../../components/Field';
 import { dec, int, percent } from '../../lib/format';
 import { experimentsApi, SMOKING_TEXT, useResource } from '../../lib/experiments';
-import type { GroupDescribe, GroupFilters, GroupJob, GroupStats, RosterAgent } from '../../lib/experiments';
+import type { ExperimentSummary, GroupDescribe, GroupFilters, GroupJob, GroupStats, RosterAgent } from '../../lib/experiments';
 import { READ_ONLY } from '../../lib/runtime';
 import { useExperiment } from './ExperimentWorkspace';
 
@@ -40,36 +40,48 @@ function groupName(key: string, name: string): string {
   return name;
 }
 
+const INCOME_ORDER = ['하', '중하', '중', '중상', '상'];
+
+/** 고를 수 있는 값. 값이 비어 있는 사람('unknown')은 고를 거리가 아니라서 칩으로 두지 않는다 */
 function values(agents: RosterAgent[], key: FilterKey): string[] {
-  return Array.from(new Set(agents.map((a) => (a[key] ?? 'unknown') as string))).sort();
+  const found = Array.from(new Set(agents.map((a) => (a[key] ?? 'unknown') as string)));
+  const known = found.filter((v) => v !== 'unknown');
+  const list = key === 'smoking_status' ? found : known;
+  if (key === 'income_level') {
+    return list.sort((x, y) => (INCOME_ORDER.indexOf(x) + 99 * Number(!INCOME_ORDER.includes(x))) - (INCOME_ORDER.indexOf(y) + 99 * Number(!INCOME_ORDER.includes(y))));
+  }
+  return list.sort((x, y) => x.localeCompare(y, 'ko'));
 }
 
-function DescribeRow({ name, d }: { name: string; d: GroupDescribe }) {
+function DescribeRow({ name, d, target }: { name: string; d: GroupDescribe; target: boolean }) {
   return (
     <tr>
       <th scope="row">{name}</th>
       <td className="n num">{int(d.agents)}</td>
       <td className="n num">{won(d.spend_per_observed_day)}</td>
       <td className="n num">{dec(d.receipts_per_observed_day, 2)}</td>
-      <td className="n num">{int(d.target_payments)}</td>
-      <td className="n num">{percent(d.agents ? d.agents_with_target_visit / d.agents : null)}</td>
+      {target ? <td className="n num">{int(d.target_payments)}</td> : null}
+      {target ? <td className="n num">{percent(d.agents ? d.agents_with_target_visit / d.agents : null)}</td> : null}
       <td className="n num">{dec(d.mood_mean, 3)}</td>
-      <td className="n num">{int(d.skipped_agent_days)}</td>
     </tr>
   );
 }
 
-function StatsView({ stats }: { stats: GroupStats }) {
+function StatsView({ stats, target }: { stats: GroupStats; target: boolean }) {
   const o = stats.overall;
   return (
     <div className="stack">
       <div className="grid">
-        <Stat className="c3" label="고른 사람" value={int(o.agents)} unit="명" hint={`${stats.through_day ?? ''}까지 ${int(stats.days)}일`} />
-        <Stat className="c3" label="하루 평균 소비 (오프라인)" value={won(o.spend_per_observed_day)} />
-        <Stat className="c3" label="정책 대상 시설 결제" value={int(o.target_payments)} unit="건" hint={`${int(o.agents_with_target_visit)}명이 한 번 이상`} />
-        <Stat className="c3" label="빠진 기록" value={int(o.skipped_agent_days)} />
+        <Stat className="c4" label="고른 사람" value={int(o.agents)} unit="명" hint={`${stats.through_day ?? ''}까지 ${int(stats.days)}일`} />
+        <Stat className="c4" label="1인 하루 소비 (오프라인)" value={won(o.spend_per_observed_day)} />
+        {target ? (
+          <Stat className="c4" label="정책 대상 시설 결제" value={int(o.target_payments)} unit="건" hint={`${int(o.agents_with_target_visit)}명이 한 번 이상`} />
+        ) : (
+          <Stat className="c4" label="1인 하루 결제 건수" value={dec(o.receipts_per_observed_day, 2)} unit="건" />
+        )}
       </div>
-      {Object.entries(stats.breakdowns).map(([key, groups]) => (
+      {/* 묶음이 하나뿐인 나눔(예: 흡연 여부가 없는 실험)은 견줄 것이 없다 */}
+      {Object.entries(stats.breakdowns).filter(([, groups]) => Object.keys(groups).length > 1).map(([key, groups]) => (
         <div key={key} className="table-wrap">
           <table className="table">
             <caption className="table__caption">{BREAKDOWN_LABEL[key] ?? key}별</caption>
@@ -79,15 +91,14 @@ function StatsView({ stats }: { stats: GroupStats }) {
                 <th scope="col" className="n">인원</th>
                 <th scope="col" className="n">하루 소비</th>
                 <th scope="col" className="n">하루 영수증</th>
-                <th scope="col" className="n">대상 시설 결제</th>
-                <th scope="col" className="n">이용한 사람 비율</th>
+                {target ? <th scope="col" className="n">대상 시설 결제</th> : null}
+                {target ? <th scope="col" className="n">이용한 사람 비율</th> : null}
                 <th scope="col" className="n">평균 기분</th>
-                <th scope="col" className="n">빠진 날</th>
               </tr>
             </thead>
             <tbody>
               {Object.entries(groups).map(([name, d]) => (
-                <DescribeRow key={name} name={groupName(key, name)} d={d} />
+                <DescribeRow key={name} name={groupName(key, name)} d={d} target={target} />
               ))}
             </tbody>
           </table>
@@ -119,10 +130,11 @@ function JobView({ job }: { job: GroupJob }) {
         {job.results.map((r) => (
           <li key={r.agent_id} className="answers__item">
             <p className="answers__who">
-              <span className="num">{r.agent_id}</span> · {r.gu ?? ''} · {r.age_group ?? ''} · {SMOKING_TEXT[r.smoking_status ?? 'unknown']}
+              <span className="num">{r.agent_id}</span>
+              {[r.gu, r.age_group, r.smoking_status ? SMOKING_TEXT[r.smoking_status] : null].filter(Boolean).map((v) => ` · ${v}`).join('')}
             </p>
             {r.error ? <Callout tone="warn">{r.error}</Callout> : <p>{r.answer}</p>}
-            {r.warnings?.length ? <p className="answers__warn">⚠ {r.warnings.join(' · ')}</p> : null}
+            {r.warnings?.length ? <p className="answers__warn">{r.warnings.join(' · ')}</p> : null}
             {r.citations?.length ? <p className="card__note">근거 {r.citations.length}개 인용 · {r.through_day}까지 기록</p> : null}
           </li>
         ))}
@@ -133,11 +145,19 @@ function JobView({ job }: { job: GroupJob }) {
 
 export function ExperimentQuery() {
   const { experiment } = useExperiment();
+  return <GroupQuery experiment={experiment} />;
+}
+
+/**
+ * 실험 하나에 대한 집단 질의. 정책 실행의 시민 문답 화면도 이것을 쓴다(`armId` 로 '정책 있음'을 고정해 넘긴다).
+ */
+export function GroupQuery({ experiment, armId: fixedArm }: { experiment: ExperimentSummary; armId?: string }) {
   const id = experiment.experiment_id;
+  const target = experiment.kind === 'no_smoking_zone';
   const roster = useResource(() => experimentsApi.roster(id), id);
   const agents = useMemo(() => roster.data?.items ?? [], [roster.data]);
   const defaultArm = [...experiment.arms].reverse().find((arm) => arm.days_present > 0)?.arm_id ?? experiment.arms[0].arm_id;
-  const [armId, setArmId] = useState(defaultArm);
+  const [armId, setArmId] = useState(fixedArm ?? defaultArm);
   const [filters, setFilters] = useState<Record<FilterKey, string[]>>({ gu: [], smoking_status: [], sex: [], age_group: [], income_level: [] });
   const [stats, setStats] = useState<GroupStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
@@ -187,8 +207,11 @@ export function ExperimentQuery() {
     <div className="stack">
       <Card title="집단 고르기" note={`지금 조건에 맞는 사람 ${int(matched)}명`}>
         <div className="querybuilder">
-          <SelectField label="기록" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
-          {FILTERS.map((filter) => (
+          {fixedArm ? null : (
+            <SelectField label="기록" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
+          )}
+          {/* 값이 하나뿐인 조건(이 실험에 없는 항목)은 고를 것이 없다 */}
+          {FILTERS.filter((filter) => values(agents, filter.key).length > 1).map((filter) => (
             <fieldset key={filter.key} className="querybuilder__set">
               <legend className="field__label">{filter.label}</legend>
               {values(agents, filter.key).map((value) => (
@@ -209,7 +232,7 @@ export function ExperimentQuery() {
       </Card>
       {stats ? (
         <Card title="기록 통계" aside={<Badge>기록 집계</Badge>}>
-          <StatsView stats={stats} />
+          <StatsView stats={stats} target={target} />
         </Card>
       ) : null}
       <Card title="집단 인터뷰" note="고른 사람 중 몇 명에게 같은 질문을 합니다 (최대 30명).">

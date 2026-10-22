@@ -33,6 +33,9 @@ import { EmptyState, ErrorState, SkeletonText } from '../components/Feedback';
 import { BarList } from '../components/Meter';
 import { int } from '../lib/format';
 import { askAgent } from '../lib/interview';
+import { useRun } from '../app/RunContext';
+import { experimentsApi, useResource } from '../lib/experiments';
+import { GroupQuery } from './experiment/ExperimentQuery';
 import {
   EMPTY_FILTER,
   QUESTIONS,
@@ -208,8 +211,38 @@ interface Turn {
   failed?: string;
 }
 
+/** 여러 명에게 — 정책 실행이 나온 실험의 '정책 있음' 기록으로 집단 질의를 한다 */
+function RunGroupQuery({ experimentId }: { experimentId: string }) {
+  const detail = useResource(() => experimentsApi.detail(experimentId), `experiment:${experimentId}`);
+  if (detail.error) return <ErrorState title="집단 질의를 열지 못했습니다" body={detail.error.message} />;
+  if (!detail.data) {
+    return (
+      <Card title="불러오는 중">
+        <SkeletonText lines={3} />
+      </Card>
+    );
+  }
+  const treated = detail.data.arms.find((arm) => arm.role === 'treatment')?.arm_id;
+  return <GroupQuery experiment={detail.data} armId={treated} />;
+}
+
 export function AgentScreen() {
   const { runId = '' } = useParams();
+  const run = useRun();
+  const experimentId = run.index.meta?.experiment_id ?? null;
+  const [params, setParams] = useSearchParams();
+  const group = experimentId !== null && params.get('mode') === 'group';
+  function setMode(next: 'one' | 'group') {
+    setParams(
+      (prev) => {
+        const out = new URLSearchParams(prev);
+        if (next === 'group') out.set('mode', 'group');
+        else out.delete('mode');
+        return out;
+      },
+      { replace: true },
+    );
+  }
   const [roster, setRoster] = useState<Roster | null>(null);
   const [rosterError, setRosterError] = useState<string | null>(null);
 
@@ -234,12 +267,26 @@ export function AgentScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">시민 문답</h1>
           <p className="pagehead__purpose">
-            시민 한 명을 골라 질문합니다.
+            {group ? '조건으로 여러 시민을 골라 같은 질문을 합니다.' : '시민 한 명을 골라 질문합니다.'}
           </p>
         </div>
+        {experimentId ? (
+          <div className="pagehead__actions">
+            <div className="segment" role="group" aria-label="묻는 방식">
+              <button type="button" className="segment__btn" aria-pressed={!group} onClick={() => setMode('one')}>
+                한 명에게
+              </button>
+              <button type="button" className="segment__btn" aria-pressed={group} onClick={() => setMode('group')}>
+                여러 명에게
+              </button>
+            </div>
+          </div>
+        ) : null}
       </header>
 
-      {rosterError ? (
+      {group && experimentId ? (
+        <RunGroupQuery experimentId={experimentId} />
+      ) : rosterError ? (
         <ErrorState
           title="시민 목록을 불러오지 못했습니다"
           body="화면이 읽는 파일이 아직 만들어지지 않았습니다. 아래 명령으로 만든 뒤 새로고침하세요."

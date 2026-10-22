@@ -322,6 +322,11 @@ def main() -> int:
         out = args.runs / f"out_{run_id}"
         meta = build_run_folder(definition, src, out, experiments_root() / exp_id)
         stats = build_from_dossier(definition, src, out, args.viz_src / run_id, pois, anchors, meta["days"])
+        # 보고서 스냅숏이 요구하는 파일. 장소 수는 본런 그래프 덤프의 표에서 센다.
+        # 사용 가능 매장 수는 그 표에 없어 지어내지 않고 비운다.
+        (out / "poi_summary.json").write_text(
+            json.dumps({"poi_total": len(pois), "poi_eligible": None}, ensure_ascii=False), encoding="utf-8"
+        )
         print(f"{exp_id} → {out.name}: {len(meta['days'])}일, {stats}", flush=True)
     return 0
 

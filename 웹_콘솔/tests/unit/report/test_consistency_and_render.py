@@ -167,7 +167,8 @@ class RenderTests(unittest.TestCase):
         self.assertFalse(self.narration["used_llm"])
         for entry in self.narration["sections"].values():
             self.assertEqual(entry["source"], "deterministic")
-        self.assertIn("규칙 기반 서술", self.html)
+        # 모델이 쓰지 않은 해설에는 출처 표시를 붙이지 않는다(읽는 사람에게 필요 없는 내부 사정)
+        self.assertNotIn("해설:", self.html)
 
 
 class DidReliabilityTests(unittest.TestCase):

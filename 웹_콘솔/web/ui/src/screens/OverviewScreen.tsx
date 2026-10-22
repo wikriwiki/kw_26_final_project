@@ -16,9 +16,9 @@ import type { FeatureKey, RunContextValue } from '../app/RunContext';
 import { Stat } from '../components/Card';
 import { RunEffectStat } from '../components/RunEffectStat';
 import { Callout } from '../components/Feedback';
-import { ActivityIcon, BarChartIcon, MapIcon } from '../components/Icon';
+import { ActivityIcon, BarChartIcon, MapIcon, UsersIcon } from '../components/Icon';
 import { Meter } from '../components/Meter';
-import { dateTime, dec, int, krw, percent } from '../lib/format';
+import { dec, int, krw, percent } from '../lib/format';
 
 /**
  * 이 실행에 적용된 정책 한 줄.
@@ -53,6 +53,7 @@ function policyLine(run: RunContextValue): { value: string; note: string } {
 const ACTIONS: Array<{ key: FeatureKey; label: string; Icon: typeof MapIcon }> = [
   { key: 'results', label: '결과 보기', Icon: BarChartIcon },
   { key: 'visualize', label: '지도에서 보기', Icon: MapIcon },
+  { key: 'agents', label: '시민에게 묻기', Icon: UsersIcon },
   { key: 'monitor', label: '모니터 보기', Icon: ActivityIcon },
 ];
 
@@ -61,7 +62,7 @@ const PRIMARY_ORDER: FeatureKey[] = ['results', 'monitor', 'visualize'];
 
 export function OverviewScreen() {
   const run = useRun();
-  const { index, bundle } = run;
+  const { bundle } = run;
   const days = bundle.days.items;
   const totals = bundle.events.totals;
   const policy = policyLine(run);
@@ -76,10 +77,14 @@ export function OverviewScreen() {
 
   const primaryKey = PRIMARY_ORDER.find((key) => run.can(key)) ?? null;
   const blocked = run.features.filter((f) => ACTIONS.some((a) => a.key === f.key) && !f.available);
+  // 이 실행에 아예 없는 기능(끝난 실행의 모니터)은 버튼도 두지 않는다
+  const actions = ACTIONS.filter((a) => run.features.some((f) => f.key === a.key));
+  const perAgentDay =
+    totals && run.agentsTarget && present > 0 ? totals.amt / (run.agentsTarget * present) : null;
 
   /** 보던 일자를 그대로 들고 지도로 넘어간다 (스펙 §9 state-preservation) */
   function actionTo(key: FeatureKey): string {
-    const base = run.path(key === 'results' ? 'results' : key === 'monitor' ? 'monitor' : 'visualize');
+    const base = run.path(key === 'results' ? 'results' : key === 'monitor' ? 'monitor' : key === 'agents' ? 'agents' : 'visualize');
     return key === 'visualize' ? `${base}?day=${bundle.focusDay}` : base;
   }
 
@@ -88,7 +93,9 @@ export function OverviewScreen() {
       <header className="pagehead">
         <div className="pagehead__text">
           <h1 className="pagehead__title">{run.index.meta?.title ?? `실행 ${run.id}`}</h1>
-          <p className="pagehead__purpose">{run.index.meta ? `실행 ${run.id}` : '실행 조건과 진행 상황'}</p>
+          <p className="pagehead__purpose">
+            {[period, run.agentsTarget ? `${int(run.agentsTarget)}명` : null].filter(Boolean).join(' · ')}
+          </p>
         </div>
       </header>
 
@@ -102,13 +109,15 @@ export function OverviewScreen() {
       {/* 1차 블록 1 — 실행 조건 */}
       <section className="section">
         <div className="section__head">
-          <h2 className="section__title">실행 조건</h2>
+          <h2 className="section__title">조건</h2>
         </div>
         <dl className="dl">
-          <div className="dl__item">
-            <dt className="dl__k">상태</dt>
-            <dd className="dl__v">{PHASE_LABEL[run.phase]}</dd>
-          </div>
+          {!completed ? (
+            <div className="dl__item">
+              <dt className="dl__k">상태</dt>
+              <dd className="dl__v">{PHASE_LABEL[run.phase]}</dd>
+            </div>
+          ) : null}
 
           <div className="dl__item">
             <dt className="dl__k">기간</dt>
@@ -122,9 +131,7 @@ export function OverviewScreen() {
                 <>
                   <span className="num">{period}</span>
                   <span className="cell-sub">
-                    {planned === null
-                      ? `${int(present)}일 기록됨 · 계획 일수 알 수 없음`
-                      : `${int(present)}일 기록됨 / 계획 ${int(planned)}일`}
+                    {completed || planned === null ? `${int(present)}일` : `${int(present)}일 / 계획 ${int(planned)}일`}
                   </span>
                 </>
               )}
@@ -189,25 +196,21 @@ export function OverviewScreen() {
         />
         <Stat
           className="c3"
-          label="처리한 시민·일"
-          value={days.length > 0 ? int(processed) : null}
-          unit="명"
-          hint={days.length > 0 ? `${int(days.length)}일 합계` : undefined}
-          unknownReason="기록이 남은 일자가 없습니다"
+          label="1인 하루 결제"
+          value={perAgentDay === null ? null : krw(Math.round(perAgentDay))}
+          hint={`${int(present)}일 평균`}
+          unknownReason="결제 기록 없음"
         />
       </div>
 
-      {/* 1차 블록 3 — 진행 상황 */}
+      {/* 1차 블록 3 — 진행 상황. 끝난 실행에는 보일 것이 없다 */}
+      {!completed ? (
       <section className="section">
         <div className="section__head">
           <h2 className="section__title">진행 상황</h2>
         </div>
 
-        {completed ? (
-          <p className="section__note">
-            {int(planned ?? present)}일 모두 완료{index.completed_at ? ` · ${dateTime(index.completed_at)} 종료` : ''}
-          </p>
-        ) : dayProgress !== null ? (
+        {dayProgress !== null ? (
           <>
             <div className="progress__head">
               <span className="progress__value">{dec(dayProgress * 100, 0)}%</span>
@@ -234,6 +237,7 @@ export function OverviewScreen() {
           </p>
         ) : null}
       </section>
+      ) : null}
 
       {/* 1차 블록 4 — 다음 행동 */}
       <section className="section">
@@ -241,7 +245,7 @@ export function OverviewScreen() {
           <h2 className="section__title">더 보기</h2>
         </div>
         <div className="row">
-          {ACTIONS.map(({ key, label, Icon }) => {
+          {actions.map(({ key, label, Icon }) => {
             const usable = run.can(key);
             const variant = key === primaryKey ? 'btn--primary' : 'btn--secondary';
             if (!usable) {

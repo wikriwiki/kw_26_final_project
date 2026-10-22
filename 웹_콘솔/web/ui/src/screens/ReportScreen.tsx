@@ -508,11 +508,9 @@ export function ReportScreen() {
             <Card title="해설 모델" note="숫자는 계산 결과 그대로이고, 해설 문장만 모델이 씁니다.">
               <dl className="dl">
                 <div className="dl__item">
-                  <dt className="dl__k">제공자</dt>
+                  <dt className="dl__k">모델</dt>
                   <dd className="dl__v">
-                    {llm?.provider ?? '—'}
-                    {llm?.model ? ` · ${llm.model}` : ''}{' '}
-                    {llm?.configured ? <Badge tone="ok">설정됨</Badge> : <Badge tone="warn">미설정</Badge>}
+                    {llm?.configured ? (llm.label || llm.model) : '연결 안 됨'}
                   </dd>
                 </div>
                 {llm?.reason ? (
@@ -521,7 +519,7 @@ export function ReportScreen() {
                     <dd className="dl__v wrap">{llm.reason}</dd>
                   </div>
                 ) : null}
-                {llm?.reachable !== undefined ? (
+                {llm?.reachable === false ? (
                   <div className="dl__item">
                     <dt className="dl__k">연결 확인</dt>
                     <dd className="dl__v">

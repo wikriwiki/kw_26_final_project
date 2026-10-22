@@ -82,6 +82,32 @@ def source_paths_of(run_root: Path, days: list[str]) -> list[str]:
     return existing
 
 
+def paired_comparison(run_root: Path) -> dict[str, Any] | None:
+    """정책 본런에서 세운 실행이면(`run_meta.json` 에 실험 id) 정책 없음 쪽과의 짝 비교를 가져온다.
+
+    같은 시민·같은 날을 정책 있음/없음으로 돌린 실험이라, 업종을 처치·대조로 나눈 실행 안 이중차분보다
+    이 비교가 정책 효과다. 콘솔 실험 API 의 계산(시민 단위 부트스트랩 95% 구간)을 그대로 쓴다.
+    """
+    meta_path = Path(run_root) / "run_meta.json"
+    if not meta_path.is_file():
+        return None
+    try:
+        meta = json.loads(meta_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    experiment_id = meta.get("experiment_id")
+    if not experiment_id:
+        return None
+    try:
+        from web.api import experiments as experiment_api
+
+        store = experiment_api.ExperimentStore()
+        result = experiment_api.paired_policy_comparison(store, store.experiment(experiment_id))
+    except Exception as exc:  # 비교를 못 해도 보고서는 만든다 — 그 사실을 절에 적는다
+        return {"available": False, "reason": f"비교를 계산하지 못했습니다: {exc}", "experiment_id": experiment_id}
+    return result
+
+
 def generate(
     *,
     run_id: str,
@@ -104,6 +130,8 @@ def generate(
         start=start,
         days=days,
     )
+
+    bundle["paired"] = paired_comparison(run_root)
 
     print("[2/5] 일관성 검증", file=sys.stderr, flush=True)
     checks = consistency.run_checks(bundle)
