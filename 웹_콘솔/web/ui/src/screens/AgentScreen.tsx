@@ -272,8 +272,10 @@ function Workspace({ roster }: { roster: Roster }) {
   /** 고른 대상자는 주소가 들고 있다 — 링크를 그대로 공유할 수 있다 (스펙 §9 deep-linking) */
   const raw = params.get('agent');
   const picked = raw !== null && /^\d+$/.test(raw) ? Number(raw) : null;
+  // 아직 아무도 고르지 않았으면 목록 맨 위 사람을 보여 준다. 빈 오른쪽 칸으로 시작하면
+  // 이 화면이 무엇을 하는지 한 번 더 눌러 봐야 알 수 있다. 주소는 고를 때만 바뀐다
   const selected =
-    picked !== null && picked >= 0 && picked < roster.items.length ? picked : null;
+    picked !== null && picked >= 0 && picked < roster.items.length ? picked : (filtered[0]?.i ?? null);
 
   const select = useCallback(
     (idx: number) => {
