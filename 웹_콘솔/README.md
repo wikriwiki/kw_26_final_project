@@ -6,6 +6,11 @@
 
 자세한 셋업·실행 절차는 [SETUP.md](SETUP.md) 참고.
 
+## 웹 콘솔 바로 띄우기
+
+정책 5개 본런을 콘솔에서 바로 볼 수 있게 만든 데이터: [kw_web_data_20261022.zip](https://drive.google.com/file/d/13aBJEqzNXZh1eN3VZGXZdT4K7kbBAOLs/view) (0.87GB).
+받아서 띄우는 법(파이썬 패키지 · 화면 빌드 · 실행 스크립트)은 [web/README.md](web/README.md)의 "바로 띄우기"를 따른다.
+
 ---
 
 ## 디렉토리 구조

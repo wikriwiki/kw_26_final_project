@@ -28,6 +28,7 @@
 
 - `웹_콘솔/`도 정책 폴더와 같은 방식으로 브랜치 끝 커밋의 트리를 그대로 옮겼고, 이 병합 커밋의 부모에 그 브랜치를 두어 이력을 따라갈 수 있다.
 - 콘솔 실행: `웹_콘솔/`에서 `python -m uvicorn web.api.app:app --host 127.0.0.1 --port 8000`. 화면은 `web/ui`에서 `npm run build` 하면 같은 주소에서 함께 서빙된다. 환경 변수와 API는 `웹_콘솔/web/README.md`, 작업 내역과 남은 결정은 `웹_콘솔/docs/HANDOFF_WEB_CONSOLE.md`.
+- 콘솔 데이터(정책 5개를 정책별 실행으로 세운 것 · 3D 지도 · 시민 문답 · 본런 고정 정책): [kw_web_data_20261022.zip](https://drive.google.com/file/d/13aBJEqzNXZh1eN3VZGXZdT4K7kbBAOLs/view) (0.87GB, 드라이브 `KW_시뮬결과_공유_20261011/WEB_CONSOLE_DATA/`). 받아서 띄우는 법은 `웹_콘솔/web/README.md`의 "바로 띄우기".
 - 키와 서버 접속 정보는 커밋하지 않았다. 각자 `웹_콘솔/web/.env`(gitignore)에 둔다.
 - 랜딩 페이지는 `랜딩_페이지/index.html`을 브라우저로 바로 연다.
 
