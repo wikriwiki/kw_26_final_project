@@ -377,7 +377,11 @@ def run_checks(bundle: dict[str, Any]) -> dict[str, Any]:
 
     # 9. 분위 표
     deciles = bundle.get("deciles") or {}
-    if deciles.get("available"):
+    paid_total = float((bundle.get("totals") or {}).get("policy_paid") or 0)
+    if deciles.get("available") and paid_total <= 0:
+        # 지원금이 없는 정책(규제 등)에는 '지급 분위'가 없다 — 실패가 아니라 해당 없음
+        checks.append(_skip("decile_treated_present", "지급 분위 존재", "지원금 지급이 없는 정책입니다."))
+    elif deciles.get("available"):
         treated = [item for item in deciles["items"] if item.get("treated")]
         checks.append(
             {

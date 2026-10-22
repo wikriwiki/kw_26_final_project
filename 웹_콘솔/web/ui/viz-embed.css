@@ -396,3 +396,20 @@ body:has(#detail-card:not([hidden])) #legend-panel {
   font-size: 13px !important;
   color: var(--k-fg) !important;
 }
+
+/*
+ * 11. 지점 분석 카드가 범례와 겹쳤다. 시민 카드와 같이, 카드가 열려 있는 동안 범례를 접고
+ *     카드는 범례가 있던 오른쪽 위에 둔다.
+ */
+body:has(#hotspot-card:not([hidden])) #legend-panel {
+  display: none !important;
+}
+#hotspot-card {
+  top: 76px !important;
+  right: 16px !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: min(320px, calc(100% - 32px)) !important;
+  max-height: calc(100vh - 176px) !important;
+  overflow-y: auto !important;
+}

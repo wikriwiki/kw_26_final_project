@@ -53,6 +53,11 @@ python web/tools/import_policy_runs.py \
     --personas "G:/내 드라이브/Kw/final_project/data/neo4j_load/agents/agents_final.json.bak_orig"
 ```
 
+정책마다 개요·지도·시민 문답·보고서를 보려면 이어서 실행 폴더를 세운다(`extract_policy_runs.py` →
+`build_policy_runs.py` → `scripts.sim.visualization_3d.pack` → `web/ui/tools/build_agent_console_data.py`,
+각 도구 머리말에 사용법). 정책 화면·보고서는 `SIM_POLICY_DIR` 의 정책 파일을 읽는다 — 본런이 쓴 고정본
+(`frozen_policy.sha256` 와 대조)을 그 폴더에 둔다. 지원금 없는 거리두기는 설명 파일 `P2020_DIST.json` 을 둔다.
+
 실험 화면의 "정책 효과"는 같은 시민·같은 날의 정책 있음/없음 결제액 비교다.
 95% 신뢰구간은 시민 단위 부트스트랩 500회(시드 20261022)로 구한다.
 

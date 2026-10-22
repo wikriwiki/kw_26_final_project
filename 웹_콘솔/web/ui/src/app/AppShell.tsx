@@ -58,7 +58,7 @@ function featureSegment(pathname: string): string {
 }
 
 export function AppShell() {
-  const { expanded, push, toggle, close, suppress } = useNav();
+  const { expanded, toggle, close, suppress } = useNav();
   const location = useLocation();
   const navigate = useNavigate();
   const run = useRun();
@@ -77,10 +77,10 @@ export function AppShell() {
   const menuId = useId();
   const [menuOpen, setMenuOpen] = useState(false);
 
-  // 시각화 화면은 레일 상태로 진입한다. 저장된 선호값은 건드리지 않아 나가면 되돌아온다
+  // 메뉴는 사용자가 X 로 닫기 전까지 그대로 둔다 — 시각화로 옮겨도 저절로 접지 않는다
   useEffect(() => {
-    suppress(bleed);
-  }, [bleed, suppress]);
+    suppress(false);
+  }, [suppress]);
 
   /** 닫을 때는 aria-hidden 이 걸리기 전에 포커스를 레일로 먼저 빼낸다 */
   const closeAndRestoreFocus = useCallback(() => {
@@ -101,14 +101,12 @@ export function AppShell() {
     if (opened) closerRef.current?.focus();
   }, [expanded]);
 
-  // overlay 모드에서 "화면을 옮기면" 드로어를 닫는다.
-  // 주소가 실제로 바뀐 경우만 — 첫 렌더와 StrictMode 재실행에서는 저장된 상태를 존중한다
+  // 화면을 옮기면 실행 전환 목록만 닫는다. 드로어는 X 를 누를 때까지 열어 둔다
   useEffect(() => {
     if (lastKey.current === location.key) return;
     lastKey.current = location.key;
     setMenuOpen(false);
-    if (!push) close();
-  }, [location.key, push, close]);
+  }, [location.key]);
 
   // 전환 목록은 Esc 와 바깥 클릭으로 닫는다. 포커스는 열었던 버튼으로 되돌린다
   useEffect(() => {

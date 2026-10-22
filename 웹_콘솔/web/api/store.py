@@ -29,7 +29,7 @@ def _FIXTURE_RUNS(data_root: Path) -> dict[str, tuple[Path, Path]]:
     return {
         rid: (data_root / f"out_{rid}", logs / f"run_{rid}.log") for rid in FIXTURE_RUN_IDS
     }
-POLICY_ID_RE = re.compile(r"^P[0-9]{3,}$")
+POLICY_ID_RE = re.compile(r"^P[0-9]{3,}(?:_[A-Z0-9]+)?$")  # P012_HIGH·P2020_DIST 같은 변형도
 DAY_RE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
 

@@ -360,12 +360,12 @@
     state.map = new maplibregl.Map({
       container: "map",
       style: BRIGHT_STYLE_URL,
-      // 처음에는 서울 전체를 본다 — 시민이 어디에 퍼져 있는지가 먼저 보여야 한다.
-      // 건물은 줌 15 부터 나타나므로 확대하면 거리 수준으로 들어간다.
-      center: [126.99, 37.55],
-      zoom: 10.9,
-      pitch: 48,
-      bearing: -16,
+      // 처음에는 조금 확대한 거리 수준으로 본다. 데이터가 오면 시민이 가장 많이 모인 곳으로
+      // 옮긴다(app.js focusBusiestArea). 그 전까지는 시청 일대.
+      center: [126.978, 37.566],
+      zoom: 14,
+      pitch: 45,
+      bearing: -17.6,
       antialias: true,
       attributionControl: false
     });

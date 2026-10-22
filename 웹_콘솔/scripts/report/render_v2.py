@@ -171,7 +171,7 @@ CSS = """
 /* 목차 */
 .doc .toc { border: 1px solid var(--border); background: var(--surface); padding: 14px 18px; margin-bottom: 22px; }
 .doc .toc h2 { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); margin: 0 0 8px; }
-.doc .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; font-size: 13px; }
+.doc .toc ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 32px; font-size: 13px; }
 .doc .toc a { color: var(--fg); text-decoration: none; border-bottom: 1px solid transparent; }
 .doc .toc a:hover { border-bottom-color: var(--border-strong); }
 
@@ -858,6 +858,12 @@ def _sec_overlay(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
 
 
 def _sec_categories(bundle: dict[str, Any], narration: dict[str, Any]) -> str:
+    # 시행일 뒤의 날이 없으면 전후 비교가 성립하지 않는다 — 사후 0원으로 −100% 막대를 그리지 않는다
+    if not (bundle.get("period") or {}).get("post"):
+        return (
+            '<div class="callout callout--warn">분석 구간 안에 정책 시행일 이후의 날이 없어 전후를 비교할 수 없습니다. '
+            "보고서의 정책·시행일이 이 실행과 맞는지 확인하세요.</div>"
+        )
     categories = bundle["categories"]
     if not categories:
         return '<div class="callout callout--warn">업종 정보를 가진 이벤트가 없습니다.</div>'

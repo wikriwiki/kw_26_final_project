@@ -93,6 +93,37 @@
     return loadedDays >= days ? "준비됨" : "불러오는 중 " + loadedDays + "/" + days + "일";
   }
 
+  /**
+   * 첫 화면을 시민이 가장 많이 모인 곳에 맞춘다. 표본마다 사는 곳이 달라 고정 좌표(시청)로는
+   * 화면이 비는 일이 있었다. 지금 프레임의 점들을 약 1km 격자로 세어 가장 붐비는 칸의 평균 위치로 간다.
+   */
+  function focusBusiestArea() {
+    const state = Sim3D.state;
+    if (!state.map || !isFunction("dotsData")) return;
+    const data = Sim3D.dotsData();
+    const pos = data && data.attributes && data.attributes.getPosition && data.attributes.getPosition.value;
+    if (!pos || !data.length) return;
+    const cells = new Map();
+    for (let k = 0; k < data.length; k++) {
+      const lon = pos[k * 3];
+      const lat = pos[k * 3 + 1];
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) continue;
+      const key = Math.round(lon / 0.012) + ":" + Math.round(lat / 0.009);
+      const cell = cells.get(key) || { n: 0, lon: 0, lat: 0 };
+      cell.n += 1;
+      cell.lon += lon;
+      cell.lat += lat;
+      cells.set(key, cell);
+    }
+    let best = null;
+    cells.forEach(function (cell) {
+      if (!best || cell.n > best.n) best = cell;
+    });
+    if (best && best.n > 0) {
+      state.map.jumpTo({ center: [best.lon / best.n, best.lat / best.n], zoom: 14 });
+    }
+  }
+
   Sim3D.boot = async function boot() {
     const state = Sim3D.state;
     const started = now();
@@ -180,9 +211,13 @@
 
     callOptional("initHud");
     callOptional("initDetail");
-    // 자정 프레임은 모두 집에 있어 지도가 비어 보인다. 처음 활동이 있는 시각에서 시작한다.
+    // 자정 프레임은 모두 집에 있어 지도가 비어 보인다. 첫날 아침 7시(사람들이 나서는 때)에서 시작하고,
+    // 7시 프레임이 없으면 처음 활동이 있는 시각에서 시작한다.
     const firstActive = Number(pack.manifest.first_active_frame) || 0;
-    refreshOrSetFrame(Math.min(firstActive, pack.loadedFrames - 1), 0);
+    const seven = (state.timeline || []).findIndex(function (frame) { return Number(frame && frame.hour) === 7; });
+    const start = seven >= 0 ? seven : firstActive;
+    refreshOrSetFrame(Math.min(start, pack.loadedFrames - 1), 0);
+    focusBusiestArea();
     Sim3D.startRenderLoop();
     marks.interactive = now() - started;
   };

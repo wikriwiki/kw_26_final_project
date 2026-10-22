@@ -141,7 +141,8 @@ def _legend(items: Sequence[tuple[str, str]], x: float, y: float) -> str:
             f'<rect x="{x + offset:.1f}" y="{y - 9:.1f}" width="10" height="10" fill="{color}" rx="1"/>'
             f'<text x="{x + offset + 15:.1f}" y="{y:.1f}" fill="{INK}" font-size="12">{escape(name)}</text>'
         )
-        offset += 22 + len(name) * 8.2
+        # 한글은 12px 글꼴에서 한 자가 12px 가량이다. 영문 기준(8.2)으로 재면 다음 항목과 겹친다
+        offset += 30 + sum(12.5 if ord(ch) > 0x1100 else 7.0 for ch in name)
     return "".join(parts)
 
 
@@ -431,10 +432,8 @@ def diverging_bar(
             f'<text x="{label_w}" y="{y + row_height / 2 + 4:.1f}" text-anchor="end" fill="{INK}" '
             f'font-size="12">{escape(str(item.get("label", "")))}</text>'
         )
-        text_x = zero + length + 6 if value >= 0 else zero - length - 6
-        anchor = "start" if value >= 0 else "end"
         out.append(
-            f'<text x="{text_x:.1f}" y="{y + row_height / 2 + 4:.1f}" text-anchor="{anchor}" '
+            f'<text x="{width - 4:.1f}" y="{y + row_height / 2 + 4:.1f}" text-anchor="end" '
             f'fill="{MUTED}" font-size="11" class="tick">{escape(formatter(value))}</text>'
         )
     out.append(
