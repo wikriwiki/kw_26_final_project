@@ -179,6 +179,41 @@
 
   let hiddenHeatData = null;
 
+  function heatmapLayerAt(id, data, opacity, zq) {
+    return new deck.HeatmapLayer({
+      id: id,
+      data: data,
+      opacity: opacity,
+      aggregation: "SUM",
+      colorRange: HEATMAP_COLOR_RANGE,
+      colorDomain: colorDomainForZoom(zq),
+      radiusPixels: heatmapRadiusForZoom(zq),
+      intensity: 1.05,
+      threshold: 0.04,
+      weightsTextureSize: HEAT_TEXTURE_SIZE
+    });
+  }
+
+  /**
+   * 열지도 교차 페이드 — 지금 시각과 다음 시각을 겹쳐 그리고, 시간대 안에서 나아간 만큼
+   * 다음 쪽으로 넘긴다. 예전에는 1시간(재생 1.2초)마다 열지도가 통째로 바뀌어 화면이 툭툭
+   * 끊겨 보였다. 레이어 id 에 시각을 넣어 두면 경계를 넘을 때 '다음' 레이어가 그대로 '지금'이
+   * 되어 텍스처를 다시 그리지 않는다. 새로 계산하는 것은 시간대마다 한 장뿐이다.
+   */
+  function makeHeatmapCrossfade(visible, zq, t) {
+    const state = Sim3D.state || {};
+    if (!visible || typeof Sim3D.heatDataAt !== "function") return [makeHeatmapLayer(visible, zq)];
+    const index = state.frameIndex || 0;
+    const mode = state.heatMode || "spending";
+    const total = (state.timeline && state.timeline.length) || 0;
+    const loaded = typeof Sim3D.loadedFrameCount === "function" ? Sim3D.loadedFrameCount() : total;
+    const layers = [heatmapLayerAt("agent-heat-" + index, Sim3D.heatDataAt(index, mode), 1 - t, zq)];
+    if (index + 1 < Math.min(total, loaded)) {
+      layers.push(heatmapLayerAt("agent-heat-" + (index + 1), Sim3D.heatDataAt(index + 1, mode), t, zq));
+    }
+    return layers;
+  }
+
   function makeHeatmapLayer(visible, zq) {
     // 꺼져 있을 때는 마지막 data 를 그대로 둔다 — 보이지 않는 텍스처를 다시 그리지 않는다.
     const data = visible || !hiddenHeatData ? Sim3D.heatData() : hiddenHeatData;
@@ -271,7 +306,7 @@
       layers.push(makeTripsLayer(zq, t));
     }
 
-    layers.push(makeHeatmapLayer(toggles.heatmap, zq));
+    layers.push.apply(layers, makeHeatmapCrossfade(toggles.heatmap, zq, t));
 
     if (toggles.policyZones !== false) {
       layers.push.apply(layers, makePolicyZoneLayers());

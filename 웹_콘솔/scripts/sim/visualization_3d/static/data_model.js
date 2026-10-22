@@ -225,7 +225,13 @@
       ey: new Float64Array(N),
       ref: new Int32Array(N),
       colors: new Uint8Array(N * 4),
+      colorFrom: new Uint8Array(N * 4),
+      colorTo: new Uint8Array(N * 4),
+      refNext: new Int32Array(N),
       radii: new Float32Array(N),
+      radiusFrom: new Float32Array(N),
+      radiusTo: new Float32Array(N),
+      heatCache: new Map(),
       heatPos: new Float64Array(N * 3),
       heatW: new Float32Array(N),
       pos: new Float64Array(N * 3),
@@ -287,7 +293,21 @@
       model.ex[k] = nx;
       model.ey[k] = ny;
       model.ref[k] = ref;
-      model.radii[k] = ref >= 0 && spent[ref] > 0 ? 26 : 15;
+      let refNext = NO_FRAME;
+      if (hasNext) {
+        const ni = nextBase + a;
+        const nni = ni + N;
+        if (isPresent(x, ni)) refNext = ni;
+        else if (index + 2 < Math.min(model.F, loadedFrames()) && isPresent(x, nni)) refNext = nni;
+      } else {
+        refNext = ref;
+      }
+      model.refNext[k] = refNext;
+      // 크기는 그 시각에 결제했는지로 정한다. 시간대 경계에서 15 ↔ 26 으로 뚝 바뀌지 않도록
+      // 다음 시각의 크기를 같이 적어 두고 위치처럼 보간한다(interpolate)
+      model.radiusFrom[k] = present && spent[ci] > 0 ? 26 : 15;
+      model.radiusTo[k] = hasNext && isPresent(x, nextBase + a) ? (spent[nextBase + a] > 0 ? 26 : 15) : model.radiusFrom[k];
+      model.radii[k] = model.radiusFrom[k];
       const o = k * 3;
       model.heatPos[o] = cx;
       model.heatPos[o + 1] = cy;
@@ -296,13 +316,18 @@
   }
 
   function writeColors(colorMode) {
-    const colors = model.colors;
+    writeColorSet(colorMode, model.ref, model.colorFrom);
+    writeColorSet(colorMode, model.refNext, model.colorTo);
+    model.colors.set(model.colorFrom);
+  }
+
+  function writeColorSet(colorMode, refs, colors) {
     const spent = model.columns.spent;
     const l1 = model.columns.l1;
     const cat = model.columns.cat;
     for (let k = 0; k < model.visibleCount; k++) {
       const a = model.visible[k];
-      const ref = model.ref[k];
+      const ref = refs[k];
       const o = k * 4;
       let rgb;
       let alpha;
@@ -356,6 +381,7 @@
     }
     if (colorKey !== model.colorKey) {
       writeColors(state.colorMode || "cat");
+      model.colorBlend = 0;
       model.colorKey = colorKey;
       model.colorVersion++;
     }
@@ -375,6 +401,19 @@
       pos[o] = model.sx[k] + (model.ex[k] - model.sx[k]) * tt;
       pos[o + 1] = model.sy[k] + (model.ey[k] - model.sy[k]) * tt;
       pos[o + 2] = 10;
+      model.radii[k] = model.radiusFrom[k] + (model.radiusTo[k] - model.radiusFrom[k]) * tt;
+    }
+    // 색은 장소 종류를 뜻하므로 시간대 대부분은 그대로 두고, 마지막 25% 동안만 다음 색으로 넘긴다
+    const u = tt <= 0.75 ? 0 : (tt - 0.75) / 0.25;
+    const w = u * u * (3 - 2 * u);
+    if (w !== model.colorBlend) {
+      const from = model.colorFrom;
+      const to = model.colorTo;
+      const out = model.colors;
+      const m = model.visibleCount * 4;
+      for (let i = 0; i < m; i++) out[i] = from[i] + (to[i] - from[i]) * w;
+      model.colorBlend = w;
+      model.colorVersion++;
     }
   };
 
@@ -385,7 +424,6 @@
     const n = model.visibleCount;
     if (model.attrVersion !== model.colorVersion) {
       model.colorAttr = { value: model.colors.subarray(0, n * 4), size: 4 };
-      model.radiusAttr = { value: model.radii.subarray(0, n), size: 1 };
       model.attrVersion = model.colorVersion;
     }
     return {
@@ -393,9 +431,47 @@
       attributes: {
         getPosition: { value: model.pos.subarray(0, n * 3), size: 3 },
         getFillColor: model.colorAttr,
-        getRadius: model.radiusAttr
+        getRadius: { value: model.radii.subarray(0, n), size: 1 }
       }
     };
+  };
+
+  /**
+   * 시각 index 의 열지도 데이터. 위치·가중치를 그 시각 기록으로 만든다(없으면 다음 시각, 그것도
+   * 없으면 집 — writeGeometry 와 같은 규칙). 같은 시각·필터·모드면 같은 객체를 돌려줘야
+   * deck.gl 이 가중치 텍스처를 다시 그리지 않는다. 최근 4개만 남긴다.
+   */
+  Sim3D.heatDataAt = function heatDataAt(index, heatMode) {
+    if (!model) return { length: 0 };
+    const i = clampFrame(index);
+    const mode = heatMode || "spending";
+    const hasNext = i + 1 < Math.min(model.F, loadedFrames());
+    const key = i + "|" + model.visibleKey + "|" + mode + "|" + (hasNext ? 1 : 0);
+    const hit = model.heatCache.get(key);
+    if (hit) return hit;
+    const N = model.N;
+    const x = model.columns.x;
+    const y = model.columns.y;
+    const spent = model.columns.spent;
+    const n = model.visibleCount;
+    const positions = new Float64Array(n * 3);
+    const weights = new Float32Array(n);
+    for (let k = 0; k < n; k++) {
+      const a = model.visible[k];
+      const ci = i * N + a;
+      const present = isPresent(x, ci);
+      let ref = present ? ci : NO_FRAME;
+      if (!present && hasNext && isPresent(x, (i + 1) * N + a)) ref = (i + 1) * N + a;
+      positions[k * 3] = present ? x[ci] : model.homeX[a];
+      positions[k * 3 + 1] = present ? y[ci] : model.homeY[a];
+      positions[k * 3 + 2] = 10;
+      const amount = ref >= 0 ? spent[ref] : 0;
+      weights[k] = mode === "spending" ? Math.max(0.22, amount / 9000) : 1;
+    }
+    const data = { length: n, attributes: { getPosition: { value: positions, size: 3 }, getWeight: { value: weights, size: 1 } } };
+    model.heatCache.set(key, data);
+    while (model.heatCache.size > 4) model.heatCache.delete(model.heatCache.keys().next().value);
+    return data;
   };
 
   Sim3D.heatData = function heatData() {
