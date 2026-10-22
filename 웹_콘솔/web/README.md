@@ -54,13 +54,24 @@ npm run dev
   `policies/`(본런 고정 정책) · `run_console.sh` / `run_console.ps1`
 - 키는 들어 있지 않다. 인터뷰·보고서 해설은 `web/.env` 에 K-EXAONE 키를 따로 넣어야 켜진다.
 
+준비물: Python 3.12 · Node.js 20 이상 · 이 저장소. 콘솔에 필요한 파이썬 패키지는 둘뿐이다
+(`fastapi`·`uvicorn`, 0.139·0.51 에서 확인).
+
+Windows PowerShell:
+
+```powershell
+pip install fastapi uvicorn                                   # 처음 한 번
+cd <저장소>\웹_콘솔\web\ui; npm ci; npm run build              # 처음 한 번 (화면 빌드)
+# 받은 zip 을 풀면 kw_web_data\ 가 생긴다. 아래처럼 띄운 뒤 http://127.0.0.1:8765
+powershell -ExecutionPolicy Bypass -File <푼 곳>\kw_web_data\run_console.ps1 -Console <저장소>\웹_콘솔
+```
+
+macOS·Linux·Git Bash:
+
 ```bash
-# 1) zip 을 아무 데나 푼다 → kw_web_data/
-# 2) 처음 한 번: UI 빌드
-cd 웹_콘솔/web/ui && npm ci && npm run build
-# 3) 띄우기 (http://127.0.0.1:8765)
-CONSOLE=<저장소>/웹_콘솔 bash <푼 곳>/kw_web_data/run_console.sh
-#    PowerShell: <푼 곳>\kw_web_data\run_console.ps1 -Console <저장소>\웹_콘솔
+pip install fastapi uvicorn
+(cd <저장소>/웹_콘솔/web/ui && npm ci && npm run build)
+CONSOLE=<저장소>/웹_콘솔 bash <푼 곳>/kw_web_data/run_console.sh   # http://127.0.0.1:8765
 ```
 
 ## 정책 본런 결과 들여오기 (데이터를 다시 만들 때)
