@@ -8,7 +8,7 @@
  *
  * 구 경로는 죽이지 않고 새 구조로 넘긴다. 이미 공유된 링크가 있기 때문이다 (스펙 §9 deep-linking).
  */
-import { lazy, Suspense, type ComponentType, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ComponentType, type ReactNode } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { AppShell } from './app/AppShell';
 import { loadRunSummary, RunProvider } from './app/RunContext';
@@ -40,6 +40,37 @@ const ExperimentOverview = screen(() => import('./screens/experiment/ExperimentO
 const ExperimentQuery = screen(() => import('./screens/experiment/ExperimentQuery'), 'ExperimentQuery');
 const ExperimentResults = screen(() => import('./screens/experiment/ExperimentResults'), 'ExperimentResults');
 const ExperimentWorkspace = screen(() => import('./screens/experiment/ExperimentWorkspace'), 'ExperimentWorkspace');
+
+/**
+ * 첫 화면을 그린 뒤 브라우저가 한가할 때 나머지 화면 코드를 미리 받아 둔다.
+ * 나눠 받기로 첫 화면은 가벼워졌지만, 다른 화면을 처음 열 때 코드 한 번을 더 기다리게 됐다.
+ * 미리 받아 두면 그 기다림이 사라진다. 이미 받은 모듈은 브라우저가 다시 받지 않는다.
+ */
+const SCREEN_MODULES = [
+  () => import('./screens/OverviewScreen'),
+  () => import('./screens/ResultsScreen'),
+  () => import('./screens/VisualizationScreen'),
+  () => import('./screens/AgentScreen'),
+  () => import('./screens/MonitorScreen'),
+  () => import('./screens/PolicyScreen'),
+  () => import('./screens/ReportScreen'),
+  () => import('./screens/experiment/ExperimentWorkspace'),
+  () => import('./screens/experiment/ExperimentOverview'),
+  () => import('./screens/experiment/ExperimentResults'),
+  () => import('./screens/experiment/ExperimentAgents'),
+  () => import('./screens/experiment/ExperimentQuery'),
+];
+
+function usePrefetchScreens() {
+  useEffect(() => {
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+    const run = () => SCREEN_MODULES.forEach((load) => void load().catch(() => undefined));
+    const handle = idle ? idle(run) : window.setTimeout(run, 1200);
+    return () => {
+      if (!idle) window.clearTimeout(handle);
+    };
+  }, []);
+}
 
 /** 화면 코드를 받는 동안 자리만 잡아 둔다. 문구를 띄우지 않아야 빠른 망에서 깜빡임이 없다 */
 function ScreenFallback() {
@@ -113,6 +144,7 @@ function LegacyRunRedirect({ feature }: { feature: string }) {
 }
 
 export function App() {
+  usePrefetchScreens();
   return (
     <BrowserRouter>
       <Suspense fallback={<ScreenFallback />}>

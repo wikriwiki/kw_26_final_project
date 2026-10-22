@@ -199,6 +199,18 @@ def create_app(
             )
         response = await call_next(request)
         response.headers["X-Console-Mode"] = "read-only" if app.state.read_only else "read-write"
+        # 읽기 자원(실행·정책·지도 목록)은 30초 동안 다시 묻지 않게 한다. 새로고침이나 화면을
+        # 오갈 때 같은 응답을 또 받지 않는다. 진행 스트림·실행 제어·LLM·작업 상태처럼 바로바로
+        # 바뀌는 것은 제외한다. 오래 두지 않는 이유: 진행 중인 실행의 일자는 계속 늘어난다.
+        path = request.url.path
+        if (
+            request.method == "GET"
+            and response.status_code == 200
+            and "cache-control" not in response.headers
+            and path.startswith(("/api/runs", "/api/policies", "/api/viz/packs"))
+            and not path.endswith("/events")
+        ):
+            response.headers["Cache-Control"] = "private, max-age=30"
         return response
 
     @app.exception_handler(StoreError)
