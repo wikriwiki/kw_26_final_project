@@ -43,18 +43,40 @@ SOURCE_REF = re.compile(r"\[?\bE(\d{3,})\b\]?")
 def _plain(text: str) -> str:
     return SOURCE_REF.sub(lambda match: f"(입력 사실 {int(match.group(1))})", text)
 
-SYSTEM = """당신은 서울시 정책 시뮬레이션 속 인물 한 명입니다. 아래 [내 기록]은 시뮬레이션이 실제로 남긴 기록입니다.
-그 사람 본인의 말투로 질문에 답하세요.
+SYSTEM = """당신은 서울에 사는 아래 [나]의 인물입니다. 인터뷰어의 질문에 그 사람으로서 대답하세요.
 
-지켜야 할 것:
-- [내 기록]에 있는 사실만 말하세요. 기록에 없는 일은 "그건 기억에 없어요"라고 하세요.
-- 사실을 말할 때마다 그 근거 번호를 문장 끝에 [E3]처럼 붙이세요. 여러 개면 [E3][E7]처럼 붙이세요.
-- 금액·날짜·시각·횟수는 기록에 적힌 값을 그대로 쓰세요. 어림잡거나 합치지 마세요.
-- '내가 밝힌 이유' 기록은 그때 스스로 말한 이유일 뿐 확인된 사실이 아닙니다. "그때는 …라고 생각했어요"처럼 말하세요.
-- '기록 없음'인 날은 무엇을 했는지 모르는 날입니다. 아무 일도 없었다고 말하지 마세요.
+말하는 법:
+- 실제 사람이 인터뷰에서 말하듯 자연스러운 구어체 존댓말로 2~5문장. 질문이 반말이어도 존댓말로 답하세요.
+- 의견이나 느낌을 물으면 [나]의 처지(나이·직업·사는 곳·소비 성향·생활 방식)와 요즘 생활에 맞게 솔직하게 답하세요.
+- 최근에 한 일은 [내 기록]에 있는 것만 말하세요. 기록에 없는 장소·금액·일은 지어내지 마세요. 모르면 "잘 기억이 안 나요"처럼 말하세요.
+- 금액은 꼭 필요할 때만, 기록의 값 그대로 쓰세요. 기분·피로는 숫자나 '수치'로 말하지 말고 느낌으로 말하세요. 날짜 나열, '기록'·'근거'·'시뮬레이션' 같은 말은 하지 마세요.
+- 지원금으로 낸 것은 '그중 정책 지원금'이 적힌 결제뿐입니다. '본인이 냄'이나 '정책 시행 전'인 날의 결제를 지원금으로 말하지 마세요.
+- 그때 스스로 밝힌 이유는 확인된 사실이 아니니 "그땐 …싶었어요"처럼 말하세요.
+- 기록이 비어 있는 날은 무엇을 했는지 모르는 날입니다. 아무 일도 없었다고 말하지 마세요.
 - 오늘은 {today}입니다. 그 뒤의 일은 모릅니다.
-- 3~6문장, 존댓말로 답하세요. 자신이 인공지능이나 시뮬레이션이라는 말은 하지 마세요.
+
+맨 마지막 줄에는 답에 쓴 기록 번호만 [E3][E7]처럼 적으세요. 이 줄은 화면에 보이지 않습니다.
 """
+
+
+# 답 끝에 남은 번호·괄호 꼬리: "E24", "[답안]", "근거: E3, E7" 등
+TRAILING_TAGS = re.compile(r"(?:\s*(?:근거\s*[:：]?|\[[^\]\n]{0,12}\]|\bE\d{1,4}\b|[,·]))+\s*$")
+
+
+# 영어 단어 셋 이상이 이어진 조각. 'GS25', 'CU' 같은 상호는 한두 단어라 남는다
+STRAY_LATIN = re.compile(r"\s*(?:\b[A-Za-z]+\b[ ,.'!?]*){3,}")
+
+
+def spoken(answer: str) -> str:
+    """화면에 보일 답 — 근거 번호를 떼고, 번호만 남은 마지막 줄은 지운다."""
+    text = CITE.sub("", answer)
+    text = re.sub(r"[ \t]+([.,!?])", r"\1", text)  # 번호를 뗀 자리에 남은 공백
+    text = STRAY_LATIN.sub("", text)  # 한국어 답 사이에 섞여 나온 영어 문장 조각
+    text = TRAILING_TAGS.sub("", text.strip())
+    lines = [line.rstrip() for line in text.strip().splitlines()]
+    while lines and not lines[-1].strip(" .,·-"):
+        lines.pop()
+    return "\n".join(lines).strip()
 
 
 def now() -> str:
@@ -94,6 +116,13 @@ def _profile_text(agent: dict[str, Any]) -> str:
         parts.append(str(agent["life_stage"]))
     if agent.get("income_level"):
         parts.append(f"소득 {agent['income_level']}")
+    if agent.get("work_dong"):
+        commute = f", 통근 {agent['commute_min']}분" if agent.get("commute_min") else ""
+        parts.append(f"직장 {agent['work_dong']}{commute}")
+    if agent.get("spending_tendency"):
+        parts.append(f"소비 성향 {agent['spending_tendency']}")
+    if agent.get("lifestyle"):
+        parts.append(f"생활 {agent['lifestyle']}")
     if agent.get("smoking_status"):
         parts.append(SMOKING_LABEL.get(str(agent["smoking_status"]), str(agent["smoking_status"])))
     return " · ".join(parts) or "프로필 기록 없음"
@@ -216,6 +245,8 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
         ):
             if (row.get(key) or 0) > 0:
                 state_bits.append(f"{label} {won(row[key])}")
+        if effective and experiment.kind == "policy_paired":
+            state_bits.insert(0, "정책 시행 전" if day < effective else "정책 시행 후")
         items.append(Item(f"{step.arm_id}:{day}:state", day, "day_state", "하루 상태: " + " · ".join(state_bits), {k: row.get(k) for k in ("mood", "fatigue", "avg_sat", "cm_today_total", "balance", "grant_applied_today", "policy_spend_today", "policy_rebate_today", "instant_discount_today", "grant_expired_today")}))
         for index, receipt in enumerate(row.get("execution_receipts") or []):
             if not isinstance(receipt, dict) or receipt.get("kind") != "purchase_receipt":
@@ -229,6 +260,8 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             if status == "purchased" and paid > 0:
                 own = receipt.get("own_paid")
                 text += f" · 그중 정책 지원금 {won(paid)}" + (f", 본인 부담 {won(own)}" if own is not None else "")
+            elif status == "purchased" and experiment.kind == "policy_paired":
+                text += " · 본인이 냄"
             items.append(Item(receipt.get("event_id") or f"{step.arm_id}:{day}:receipt:{index}", day, "executed_receipt", text.strip(), receipt))
         no_smoking = row.get("no_smoking") if isinstance(row.get("no_smoking"), dict) else {}
         aliases = (experiment.analysis or {}).get("facility_aliases") or {}
@@ -306,7 +339,8 @@ def select_items(packet: dict[str, Any], question: str) -> list[Item]:
 
 
 def _prompt(packet: dict[str, Any], exposed: list[Item]) -> str:
-    lines = [SYSTEM.replace("{today}", packet["through_day"]), "[내 기록]"]
+    profile = next((item.text for item in exposed if item.kind == "profile"), "")
+    lines = [SYSTEM.replace("{today}", packet["through_day"]), f"[나] {profile}", "[내 기록]"]
     for number, item in enumerate(exposed, start=1):
         when = item.day or "기본"
         lines.append(f"E{number} ({when}) {item.text}")
@@ -377,7 +411,8 @@ def interview_agent(store: ExperimentStore, experiment_id: str, arm_id: str, age
     exposed = select_items(packet, question)
     system = _prompt(packet, exposed)
     try:
-        reply = interview.chat(system, question, history)
+        # 온도를 낮춰 문장이 엉키거나 다른 말이 섞이는 것을 줄인다
+        reply = interview.chat(system, question, history, temperature=0.4)
     except interview.InterviewError as exc:
         raise StoreError(exc.status, exc.message) from exc
     checked = check_answer(reply["answer"], exposed)
@@ -387,7 +422,8 @@ def interview_agent(store: ExperimentStore, experiment_id: str, arm_id: str, age
         "arm_id": arm_id,
         "agent_id": agent_id,
         "through_day": packet["through_day"],
-        "answer": reply["answer"],
+        # 근거 대조는 원문으로 하고, 화면에는 말한 부분만 보낸다
+        "answer": spoken(reply["answer"]),
         "model_label": reply.get("model_label"),
         "tokens": reply.get("tokens"),
         **checked,

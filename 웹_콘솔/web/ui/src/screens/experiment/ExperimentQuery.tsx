@@ -134,8 +134,6 @@ function JobView({ job }: { job: GroupJob }) {
               {[r.gu, r.age_group, r.smoking_status ? SMOKING_TEXT[r.smoking_status] : null].filter(Boolean).map((v) => ` · ${v}`).join('')}
             </p>
             {r.error ? <Callout tone="warn">{r.error}</Callout> : <p>{r.answer}</p>}
-            {r.warnings?.length ? <p className="answers__warn">{r.warnings.join(' · ')}</p> : null}
-            {r.citations?.length ? <p className="card__note">근거 {r.citations.length}개 인용 · {r.through_day}까지 기록</p> : null}
           </li>
         ))}
       </ul>

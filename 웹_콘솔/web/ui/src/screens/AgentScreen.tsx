@@ -572,6 +572,8 @@ function Conversation({
   const [miss, setMiss] = useState(false);
   const seq = useRef(0);
   const { runId = '' } = useParams();
+  // 정책 실행이면 자유 질문은 실험 인터뷰(그 사람의 전 기간 기록 + K-EXAONE)로 묻는다
+  const experimentId = useRun().index.meta?.experiment_id ?? null;
 
   useEffect(() => {
     let alive = true;
@@ -645,7 +647,9 @@ function Conversation({
             { role: 'assistant' as const, content: t.said as string },
           ])
           .reverse();
-        const reply = await askAgent(detail, text, history);
+        const reply = experimentId
+          ? await experimentsApi.interview(experimentId, detail.id, { arm_id: 'post-on', question: text, history })
+          : await askAgent(detail, text, history);
         setTurns((prev) =>
           prev.map((t) => (t.key === key ? { ...t, pending: false, said: reply.answer } : t)),
         );
@@ -659,20 +663,21 @@ function Conversation({
         );
       }
     },
-    [detail, turns],
+    [detail, turns, experimentId],
   );
 
   const submit = useCallback(() => {
     const text = draft.trim();
     if (!text || !detail) return;
-    const q = matchQuestion(text);
+    // 정책 실행에서는 적어 넣은 말은 늘 본인에게 묻는다 — 정해 둔 답으로 가로채지 않는다
+    const q = experimentId ? null : matchQuestion(text);
     if (q) {
       ask(q);
     } else {
       void askFreely(text);
     }
     setDraft('');
-  }, [draft, detail, ask, askFreely]);
+  }, [draft, detail, ask, askFreely, experimentId]);
 
   if (error) {
     return (

@@ -632,6 +632,8 @@ class ExperimentStore:
                 residence = persona.get("residence") or {}
                 personal = persona.get("personal") or {}
                 spending = persona.get("spending") or {}
+                workplace = persona.get("workplace") or {}
+                personality = persona.get("personality") or {}
                 aid = str(persona["agent_id"])
                 agents.append(
                     {
@@ -647,6 +649,11 @@ class ExperimentStore:
                         "life_stage": personal.get("life_stage"),
                         "daily_spending_weekday": spending.get("daily_spending_weekday"),
                         "smoking_status": smoking.get(aid),
+                        # 인터뷰에서 그 사람답게 말하는 데 쓴다
+                        "work_dong": workplace.get("dong"),
+                        "commute_min": workplace.get("commute_min"),
+                        "spending_tendency": personality.get("spending_tendency"),
+                        "lifestyle": personality.get("lifestyle"),
                     }
                 )
             source = "bundle"

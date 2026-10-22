@@ -255,16 +255,9 @@ function Interview({ experiment, agentId, arms }: { experiment: ExperimentSummar
             {turn.reply ? (
               <div className="interview__a">
                 <p>{turn.reply.answer}</p>
-                {turn.reply.warnings.length ? (
-                  <Callout tone="warn">
-                    {turn.reply.warnings.map((w) => (
-                      <span key={w} className="interview__warn">
-                        {w}
-                      </span>
-                    ))}
-                  </Callout>
-                ) : null}
                 {turn.reply.citations.length ? (
+                  <details className="interview__src">
+                    <summary>답의 바탕이 된 기록 {int(turn.reply.citations.length)}건</summary>
                   <ol className="citations">
                     {turn.reply.citations.map((c) => (
                       <li key={c.n} data-kind={c.kind}>
@@ -277,12 +270,10 @@ function Interview({ experiment, agentId, arms }: { experiment: ExperimentSummar
                       </li>
                     ))}
                   </ol>
+                  </details>
                 ) : null}
                 <p className="interview__meta">
-                  {turn.reply.through_day}까지 {int(turn.reply.packet.days)}일 · 근거 {int(turn.reply.packet.exposed_items)}건
-                  {turn.reply.packet.skipped_days.length ? ` · 빠진 날 ${turn.reply.packet.skipped_days.length}일` : ''}
-                  {turn.reply.packet.journal_days_used.length ? ` · 이유 기록 ${turn.reply.packet.journal_days_used.length}일` : ''}
-                  {turn.reply.model_label ? ` · ${turn.reply.model_label}` : ''}
+                  {turn.reply.through_day}까지{turn.reply.model_label ? ` · ${turn.reply.model_label}` : ''}
                 </p>
               </div>
             ) : !turn.error ? (
