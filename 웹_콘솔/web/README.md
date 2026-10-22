@@ -46,8 +46,9 @@ npm run dev
 정책 본런 다섯 개(민생회복 소비쿠폰 1차 · 상생소비지원금 · 긴급재난지원금 1차 · 사회적 거리두기 2단계 ·
 서울시 재난긴급생활비 3주)를 콘솔에서 바로 볼 수 있게 만들어 둔 데이터가 구글 드라이브에 있다.
 
-- 받기: <https://drive.google.com/drive/folders/1J6PXPQssuHgm8fX5EvNHtSztDkQIaw4R>
-  (`KW_시뮬결과_공유_20261011/WEB_CONSOLE_DATA/kw_web_data_20261022.zip`, 0.87GB, 풀면 5.4GB ·
+- 받기: <https://drive.google.com/file/d/13aBJEqzNXZh1eN3VZGXZdT4K7kbBAOLs/view>
+  (폴더: <https://drive.google.com/drive/folders/1J6PXPQssuHgm8fX5EvNHtSztDkQIaw4R>,
+  `KW_시뮬결과_공유_20261011/WEB_CONSOLE_DATA/kw_web_data_20261022.zip`, 0.87GB, 풀면 5.4GB ·
   SHA-256 `f2c8ecaf214994717a665204364f231ee474d3a2402d1282aa170445c7b95676`)
 - 담긴 것: `runs/`(정책별 실행) · `experiments/`(정책 있음·없음 비교) · `packs/`(3D 지도) ·
   `policies/`(본런 고정 정책) · `run_console.sh` / `run_console.ps1`
