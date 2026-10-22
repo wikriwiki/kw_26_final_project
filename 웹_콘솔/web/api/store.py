@@ -52,6 +52,35 @@ def _json(path: Path) -> Any:
         raise StoreError(500, f"산출물을 읽지 못했습니다: {path.name}", str(exc)) from exc
 
 
+def _stat_key(path: Path) -> tuple[int, int] | None:
+    try:
+        st = path.stat()
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size)
+
+
+def _scan_signature(root: Path, log: Path) -> tuple:
+    """scan_run 이 읽는 것이 바뀌었는지 싸게 알아내는 값.
+
+    일자 파일은 폴더 안에 생기고 지워진다 — 폴더의 수정 시각이 바뀐다. 요약·로그·산출물
+    표시 파일은 각자의 크기와 수정 시각을 본다. 내용 해시를 쓰지 않는 이유는 그 자체가
+    로그 전체를 읽는 일이기 때문이다.
+    """
+    watched = (
+        root,
+        root / "metrics",
+        root / "timing",
+        root / "checkpoints",
+        root / "summary.json",
+        root / "events.jsonl",
+        root / "poi_summary.json",
+        root / "stage1_failures.jsonl",
+        log,
+    )
+    return tuple(_stat_key(path) for path in watched)
+
+
 def _safe_policy_id(policy_id: str) -> str:
     if not POLICY_ID_RE.fullmatch(policy_id):
         raise StoreError(400, "정책 ID 형식이 올바르지 않습니다")
@@ -89,6 +118,7 @@ class ArtifactStore:
         self._cache_lock = threading.Lock()
         self._day_cache: dict[tuple[str, str, int, int], dict] = {}
         self._events_cache: dict[tuple[str, int, int], dict] = {}
+        self._scan_cache: dict[str, tuple[tuple, dict]] = {}
 
         # Keep the S1 reference implementation and S2 on exactly the same
         # source-root rules. This only changes module configuration in memory;
@@ -135,8 +165,19 @@ class ArtifactStore:
         return payload
 
     def _actual_run(self, run_id: str) -> dict:
-        self._require_run(run_id)
-        return builder.scan_run(run_id)
+        root, log = self._require_run(run_id)
+        # scan_run 은 일자 폴더를 훑고 실행 로그를 처음부터 끝까지 읽는다. 목록·상세를
+        # 열 때마다 실행 수만큼 반복되면 긴 실행의 로그(수십 MB)가 첫 화면을 붙잡는다.
+        # 결과를 디스크 서명에 묶어 기억한다 — 파일이 생기거나 바뀌면 서명이 달라져 다시 읽는다.
+        signature = _scan_signature(root, log)
+        with self._cache_lock:
+            hit = self._scan_cache.get(run_id)
+        if hit is not None and hit[0] == signature:
+            return hit[1]
+        scanned = builder.scan_run(run_id)
+        with self._cache_lock:
+            self._scan_cache[run_id] = (signature, scanned)
+        return scanned
 
     def runs_index(self) -> dict:
         fixture = self._fixture("runs.index.json")
