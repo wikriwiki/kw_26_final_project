@@ -28,8 +28,8 @@ WORKERS = 3
 SUMMARY_SYSTEM = """아래는 같은 질문에 대한 시뮬레이션 속 여러 인물의 답변입니다.
 공통으로 나온 내용과 서로 다른 내용을 4~6줄로 정리하세요.
 - 답변에 없는 내용을 더하지 마세요. 숫자는 답변에 적힌 그대로만 쓰세요.
-- 특정 인물 id 를 나열하지 말고, "흡연자 중 일부는…"처럼 묶어서 말하세요.
-- 이 정리는 모의 인물의 진술 요약이며 실제 사람의 의견이 아니라는 점을 한 줄로 밝히세요.
+- 특정 인물 id 를 나열하지 말고, 괄호 안의 특성으로 묶어서 말하세요(예: "40대 중 일부는…").
+- 요약 문장만 쓰세요. 머리말이나 안내 문구를 붙이지 마세요.
 """
 
 
@@ -206,7 +206,8 @@ class QueryJobs:
             answers = [r for r in job["results"] if r.get("answer")]
             if payload.get("summarize", True) and len(answers) >= 2:
                 joined = "\n".join(
-                    f"- ({r.get('smoking_status') or '흡연 미상'}, {r.get('gu') or ''}, {r.get('age_group') or ''}) {r['answer']}"
+                    # 흡연 여부는 금연구역 실험에만 있다. 없는 특성은 괄호에 넣지 않는다
+                    f"- ({', '.join(v for v in (r.get('smoking_status'), r.get('gu'), r.get('age_group')) if v)}) {r['answer']}"
                     for r in answers
                 )
                 try:
