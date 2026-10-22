@@ -289,6 +289,8 @@ export function App() {
         <Route path="/visualize" element={<LegacyRunRedirect feature="visualize" />} />
         {/* 모니터는 run 을 담고 있지 않았다. 고를 수 있는 곳으로 보낸다 */}
         <Route path="/monitor" element={<Navigate to="/" replace />} />
+        {/* 실험 목록은 홈에 있다 */}
+        <Route path="/experiments" element={<Navigate to="/" replace />} />
 
         <Route
           path="*"

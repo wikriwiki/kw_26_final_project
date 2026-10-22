@@ -160,7 +160,7 @@ export function LineChart({
       <p className="chart__readout" aria-live="polite">
         {hover && hovered.length
           ? `${hover} · ` + hovered.map(({ s, point }) => `${s.label} ${format(point!.y as number)}`).join(' · ')
-          : '그래프 위에 올리면 그날 값이 보입니다.'}
+          : ' '}
       </p>
     </figure>
   );

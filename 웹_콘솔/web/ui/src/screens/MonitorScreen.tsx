@@ -115,7 +115,7 @@ function MonitorView({ run }: { run: RunContextValue }) {
         <div className="pagehead__text">
           <h1 className="pagehead__title">실행 모니터</h1>
           <p className="pagehead__purpose">
-            시뮬레이션이 지금 어디까지 왔고, 문제가 생긴 곳이 있는지 확인합니다.
+            진행 상황과 오류
           </p>
         </div>
       </header>
@@ -127,11 +127,10 @@ function MonitorView({ run }: { run: RunContextValue }) {
             <Stat
               label="완료한 일자"
               value={null}
-              unknownReason={`${days.length}일치가 기록돼 있지만, 계획 일수를 알 수 없어 진행률을 계산할 수 없습니다.`}
+              unknownReason={`${days.length}일 기록 · 계획 일수 모름`}
             />
             <Callout tone="warn">
-              이 실행에는 요약 파일이 없습니다. 실행이 끝나기 전에 중단됐다는 뜻이며, 실패한 것은
-              아닙니다. 아래 “실행 계획 근거”에서 로그에 남은 값을 확인할 수 있습니다.
+              요약 파일 없음 — 끝나기 전에 멈춘 실행입니다. 남은 값은 아래 “실행 계획 근거”에 있습니다.
             </Callout>
           </>
         ) : (
@@ -189,7 +188,7 @@ function MonitorView({ run }: { run: RunContextValue }) {
         <div className="section__head">
           <h2 className="section__title">일자별 추이</h2>
           <p className="section__note">
-            하루가 끝나야 소요 시간이 기록됩니다. 아직 끝나지 않은 날은 “진행 중”으로 표시됩니다.
+            소요 시간은 하루가 끝난 뒤 기록됩니다.
           </p>
         </div>
         <div className="table-wrap">

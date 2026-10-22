@@ -143,9 +143,10 @@ export function ExperimentOverview() {
           <ArmCard key={arm.arm_id} arm={arm} cohort={cohort} />
         ))}
       </div>
-      <SyncCard experimentId={experiment.experiment_id} onDone={reload} />
+      {/* 원격 실험 서버에서 받아 오는 실험만 "받기" 카드가 뜻이 있다. 결과 파일에서 들여온 실험에는 그리지 않는다 */}
+      {experiment.remote_profile ? <SyncCard experimentId={experiment.experiment_id} onDone={reload} /> : null}
       {experiment.analysis.limitations?.length ? (
-        <Card title="읽을 때 지킬 것" className="c12">
+        <Card title="참고" className="c12">
           <ul className="plainlist">
             {experiment.analysis.limitations.map((line) => (
               <li key={line}>{line}</li>

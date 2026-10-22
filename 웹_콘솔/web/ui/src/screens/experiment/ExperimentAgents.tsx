@@ -66,12 +66,14 @@ function Roster({ experiment, selected, onSelect }: { experiment: ExperimentSumm
     <Card title={`대상자 ${int(filtered.length)} / ${int(agents.length)}명`} note={roster.data?.source === 'metrics' ? '번들을 아직 받지 않아 id 에서 알 수 있는 것만 보입니다.' : undefined} className="agentroster">
       <div className="agentroster__filters">
         <SelectField label="구" value={gu} onChange={(e) => setGu(e.target.value)} options={[{ value: '', label: '전체' }, ...uniqueValues(agents, 'gu').map((v) => ({ value: v, label: v }))]} />
-        <SelectField
-          label="흡연"
-          value={smoking}
-          onChange={(e) => setSmoking(e.target.value)}
-          options={[{ value: '', label: '전체' }, { value: 'smoker', label: '흡연' }, { value: 'non_smoker', label: '비흡연' }, { value: 'unknown', label: '미상' }]}
-        />
+        {experiment.kind === 'no_smoking_zone' ? (
+          <SelectField
+            label="흡연"
+            value={smoking}
+            onChange={(e) => setSmoking(e.target.value)}
+            options={[{ value: '', label: '전체' }, { value: 'smoker', label: '흡연' }, { value: 'non_smoker', label: '비흡연' }, { value: 'unknown', label: '미상' }]}
+          />
+        ) : null}
         <SelectField label="성별" value={sex} onChange={(e) => setSex(e.target.value)} options={[{ value: '', label: '전체' }, { value: 'F', label: '여' }, { value: 'M', label: '남' }]} />
         <label className="field agentroster__search">
           <span className="field__label">찾기</span>
@@ -92,7 +94,7 @@ function Roster({ experiment, selected, onSelect }: { experiment: ExperimentSumm
                 {[agent.gu, agent.dong].filter(Boolean).join(' ')} · {agent.age ?? agent.age_group ?? '나이 미상'}
                 {agent.age ? '세' : ''} {sexText(agent.sex)} · {agent.job ?? '직업 미상'}
               </span>
-              <span className="agentlist__tag">{SMOKING_TEXT[agent.smoking_status ?? 'unknown'] ?? agent.smoking_status}</span>
+              {agent.smoking_status ? <span className="agentlist__tag">{SMOKING_TEXT[agent.smoking_status] ?? agent.smoking_status}</span> : null}
             </button>
           </li>
         ))}
@@ -115,7 +117,7 @@ function DayRecord({ day }: { day: AgentDay }) {
   return (
     <Disclosure title={day.day} meta={meta}>
       {day.status === 'skipped' ? (
-        <p className="card__note">이날은 시뮬레이션이 이 사람의 하루를 만들지 못하고 건너뛰었습니다. 아무 일도 없었다는 뜻이 아닙니다.</p>
+        <p className="card__note">이날은 기록이 없습니다 (건너뜀).</p>
       ) : (
         <div className="dayrecord">
           <p className="dayrecord__state">
@@ -229,7 +231,7 @@ function Interview({ experiment, agentId, arms }: { experiment: ExperimentSummar
     <Card
       title="인터뷰"
       aside={status.data ? <Badge tone={status.data.ready ? 'ok' : 'warn'}>{status.data.ready ? status.data.model_label : '모델 미연결'}</Badge> : null}
-      note="이 사람의 봉인된 기록만 근거로 답합니다. 콘솔 탐색용이며 실험 기록에는 들어가지 않습니다."
+      note="이 시민의 기록만 근거로 답합니다."
     >
       <div className="interview__controls">
         <SelectField label="어느 팔의 기록으로" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
@@ -312,7 +314,7 @@ function AgentPanel({ experiment, agentId }: { experiment: ExperimentSummary; ag
   return (
     <div className="stack">
       <Card title={agent.id} note={[agent.gu, agent.dong, agent.age ? `${agent.age}세` : agent.age_group, sexText(agent.sex), agent.job, agent.life_stage, agent.income_level ? `소득 ${agent.income_level}` : null].filter(Boolean).join(' · ')}
-        aside={<Badge tone={agent.smoking_status === 'smoker' ? 'info' : 'neutral'}>{SMOKING_TEXT[agent.smoking_status ?? 'unknown']}</Badge>}>
+        aside={agent.smoking_status ? <Badge tone={agent.smoking_status === 'smoker' ? 'info' : 'neutral'}>{SMOKING_TEXT[agent.smoking_status]}</Badge> : undefined}>
         {arms.map((arm) =>
           arm.days.length ? (
             <section key={arm.arm_id} className="agentarm">
@@ -347,7 +349,7 @@ export function ExperimentAgents() {
         {selected ? (
           <AgentPanel key={selected} experiment={experiment} agentId={selected} />
         ) : (
-          <EmptyState title="왼쪽 명단에서 한 사람을 고르세요" body="그 사람의 하루 기록을 보고, 기록을 근거로 직접 물어볼 수 있습니다." />
+          <EmptyState title="왼쪽 명단에서 한 사람을 고르세요" body="시민을 고르면 하루 기록과 인터뷰가 열립니다." />
         )}
       </div>
     </div>

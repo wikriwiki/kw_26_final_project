@@ -92,7 +92,7 @@ export function ResultsScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">결과</h1>
           <p className="pagehead__purpose">
-            정책이 실제 소비를 어디서 얼마나 바꿨는지 확인합니다.
+            정책이 소비를 어디서 얼마나 바꿨는지
           </p>
         </div>
         <div className="pagehead__actions">
@@ -162,8 +162,7 @@ export function ResultsScreen() {
                 title="일별 총결제액과 그중 정책 지갑에서 나간 금액"
               />
               <p className="card__note">
-                막대 하나가 하루의 총결제액이고, 진한 부분이 그중 정책 지갑에서 나간 돈입니다.
-                막대에 마우스를 올리면 그날의 숫자가 위에 나옵니다.
+                진한 부분 = 정책 지갑 결제
               </p>
             </>
           ) : (
@@ -179,9 +178,7 @@ export function ResultsScreen() {
             <>
               <BarList items={industryBars} />
               <p className="card__note">
-                결제액 상위 8개 업종입니다. 지역(행정동) 단위 집계는 결제 기록의 행정동 값이 전부
-                비어 있어 아직 만들 수 없습니다 — 매장 정보에 행정동 코드가 채워지면 이 카드에
-                지역별 결제액이 함께 표시됩니다.
+                결제액 상위 8개 업종
               </p>
             </>
           ) : (
@@ -198,7 +195,7 @@ export function ResultsScreen() {
         <div className="section__head">
           <h2 className="section__title">소비 분위별 비교</h2>
           <p className="section__note">
-            {bundle.focusDay} 하루 기준입니다. 소비가 적은 쪽(1분위)일수록 지급액이 큽니다.
+            {bundle.focusDay} 기준 · 1분위일수록 지급액이 큽니다
           </p>
         </div>
 

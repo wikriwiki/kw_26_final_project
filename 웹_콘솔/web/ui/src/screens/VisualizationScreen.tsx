@@ -247,10 +247,9 @@ function VisualizationView({ run }: { run: RunContextValue }) {
             </>
           ) : (
             <div className="mapstage__placeholder">
-              <p className="mapstage__title">지도를 여기에 붙입니다</p>
+              <p className="mapstage__title">지도 준비 중</p>
               <p className="mapstage__body">
-                실행 {runId} 의 {day} 3D 지도가 이 영역을 가득 채웁니다. 지금은 화면 구성과 조작
-                흐름만 확인할 수 있습니다.
+                실행 {runId} · {day} 지도 데이터가 아직 없습니다.
               </p>
             </div>
           )}

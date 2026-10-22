@@ -232,7 +232,7 @@ export function AgentScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">대상자 문답</h1>
           <p className="pagehead__purpose">
-            대상자 한 명을 골라 직접 물어봅니다. 아래 질문을 누르거나, 궁금한 것을 그대로 적으세요.
+            시민 한 명을 골라 질문합니다.
           </p>
         </div>
       </header>
@@ -368,8 +368,7 @@ function Workspace({ roster }: { roster: Roster }) {
         )}
 
         <p className="card__note">
-          소비 분위는 원본 기록에 없는 값입니다. 이 화면이 평일 하루 소비 예산(daily_wd) 순위로
-          10등분해 붙였습니다.
+          소비 분위: 평일 하루 소비 예산 기준 10등분
         </p>
       </Card>
 
@@ -378,9 +377,7 @@ function Workspace({ roster }: { roster: Roster }) {
           <Card>
             <EmptyState
               title="대상자를 고르세요"
-              body={`왼쪽 목록에서 한 명을 고르면 그 사람의 활동·기억·상태 기록을 여기에서 물어볼 수 있습니다. 지금 고를 수 있는 사람은 ${int(
-                filtered.length,
-              )}명입니다.`}
+              body={`왼쪽 목록에서 고르세요 · ${int(filtered.length)}명`}
             />
           </Card>
         ) : (
@@ -690,7 +687,7 @@ function Conversation({
               value={String(hour)}
               onChange={(e) => setHour(Number(e.currentTarget.value))}
               options={HOURS}
-              help="“지금 어디에 있나요?”가 이 시간대를 기준으로 답합니다. 3D 지도의 타임라인 프레임과 같은 기준입니다."
+              help="“지금 어디에 있나요?”의 기준 시각"
             />
           </div>
         </div>
@@ -732,7 +729,7 @@ function Conversation({
                 }
               }}
               placeholder="이 날 왜 거기에 갔나요?"
-              help="목록에 없는 것을 물으면 본인이 자기 기록을 보고 직접 답합니다."
+              help="목록에 없는 질문은 K-EXAONE이 이 시민의 기록을 근거로 답합니다."
               error={
                 miss
                   ? '이 질문에 답할 기록이 없습니다 — 위 목록에 있는 질문으로 다시 물어보세요.'
@@ -757,7 +754,7 @@ function Conversation({
           {turns.length === 0 ? (
             <EmptyState
               title="아직 물어본 것이 없습니다"
-              body="위 질문 중 하나를 누르면 그 답이 나오는 기록을 여기에 옮겨 적습니다."
+              body="위 질문을 고르거나 직접 적으세요."
             />
           ) : (
             <div className="stack">

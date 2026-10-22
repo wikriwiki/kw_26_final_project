@@ -98,7 +98,7 @@ export function PolicyScreen() {
               {binding.known && !applied ? '적용된 정책 없음' : '적용 정책 미확인'}
             </h1>
             <p className="pagehead__purpose">
-              이 실행에 적용된 정책의 내용입니다. 여기서는 바꿀 수 없습니다.
+              이 실행에 적용된 정책 (읽기 전용)
             </p>
           </div>
         </header>
@@ -181,9 +181,8 @@ export function PolicyScreen() {
 
       {/* 1차 블록 1 — 무엇을 근거로 "적용됐다"고 말하는가 */}
       <p className="section__note wrap">
-        이 실행의 결제 기록에 <span className="num">{policy.id}</span> 지급{' '}
-        <span className="num">{krw(paidHere)}</span>이 남아 있어 적용 정책으로 판단했습니다. 실행
-        산출물에는 정책 식별자가 따로 기록되지 않아, 결제 기록이 유일한 근거입니다.
+        결제 기록의 <span className="num">{policy.id}</span> 지급{' '}
+        <span className="num">{krw(paidHere)}</span>으로 확인했습니다.
         {otherIds.length > 0
           ? ` 같은 실행에서 다른 정책(${otherIds.join(', ')})의 지급도 함께 확인됩니다.`
           : ''}
@@ -271,7 +270,7 @@ export function PolicyScreen() {
         <div className="section__head">
           <h2 className="section__title">검증 결과</h2>
           <p className="section__note">
-            정책 파일이 시뮬레이션에 그대로 배선되는지 확인한 사전 점검 결과입니다.
+            시뮬레이션 반영 사전 점검
           </p>
         </div>
         <Card>

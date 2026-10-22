@@ -41,7 +41,7 @@ function policyLine(run: RunContextValue): { value: string; note: string } {
   }
   return {
     value: run.policy.items.map((p) => (p.name ? `${p.name} (${p.id})` : p.id)).join(' · '),
-    note: '결제 기록에 남은 정책 지갑 사용분에서 확인한 값입니다.',
+    note: '결제 기록 기준',
   };
 }
 
@@ -85,7 +85,7 @@ export function OverviewScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">실행 {run.id}</h1>
           <p className="pagehead__purpose">
-            이 실행이 어떤 조건으로 돌았고 지금 어디까지 왔는지 한 장으로 봅니다.
+            실행 조건과 진행 상황
           </p>
         </div>
       </header>
@@ -204,8 +204,7 @@ export function OverviewScreen() {
 
         {completed ? (
           <p className="section__note">
-            계획한 {int(planned ?? present)}일이 모두 기록됐습니다.
-            {index.completed_at ? ` ${dateTime(index.completed_at)} 종료.` : ''}
+            {int(planned ?? present)}일 모두 완료{index.completed_at ? ` · ${dateTime(index.completed_at)} 종료` : ''}
           </p>
         ) : dayProgress !== null ? (
           <>

@@ -333,8 +333,7 @@ export function ReportScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">보고서</h1>
           <p className="pagehead__purpose">
-            이 실행의 산출물에서 직접 계산한 분석 보고서를 만들고 읽습니다. 모든 수치에는 어떤
-            파일에서 나왔는지가 함께 적힙니다.
+            실행 결과로 분석 보고서를 만듭니다. 수치마다 출처 파일이 함께 적힙니다.
           </p>
         </div>
         {openPath ? (
@@ -410,7 +409,7 @@ export function ReportScreen() {
                   type="date"
                   value={policyFrom}
                   onChange={(e) => setPolicyFrom(e.currentTarget.value)}
-                  help="이 날짜를 기준으로 사전/사후를 나눕니다. 비우면 정책 파일의 시행일을 씁니다. 이 값이 없으면 이중차분을 계산할 수 없습니다."
+                  help="사전·사후를 나누는 날짜. 비우면 정책 시행일을 씁니다."
                   error={errors.policyFrom}
                 />
               </Card>
@@ -449,8 +448,7 @@ export function ReportScreen() {
             <div className="section__head">
               <h2 className="section__title">2단계. 보고서 구성</h2>
               <p className="section__note">
-                보고서에 담을 내용을 고릅니다. 계산할 수 없는 항목은 이유와 함께 잠깁니다 — 화면이 임의로
-                이중차분을 강제하지 않습니다.
+                담을 내용을 고르세요. 계산할 수 없는 항목은 잠겨 있습니다.
               </p>
             </div>
 
@@ -572,7 +570,7 @@ export function ReportScreen() {
             <div className="section__head">
               <h2 className="section__title">3단계. 생성</h2>
               <p className="section__note">
-                보고서 생성은 한 번에 하나만 돕니다. 실행 중인 시뮬레이션이 있으면 시작하지 않습니다.
+                한 번에 하나씩 생성합니다. 시뮬레이션이 도는 중에는 시작하지 않습니다.
               </p>
             </div>
 
@@ -620,7 +618,7 @@ export function ReportScreen() {
               <div className="section__head">
                 <h2 className="section__title">만들어진 보고서</h2>
                 <p className="section__note">
-                  {int(ready.report_artifacts.length)}건 · 클릭하면 아래에 본문이 펼쳐집니다.
+                  {int(ready.report_artifacts.length)}건
                 </p>
               </div>
               <div className="table-wrap">
@@ -689,7 +687,7 @@ export function ReportScreen() {
       ) : ready && ready.report_artifacts.length === 0 && !job ? (
         <EmptyState
           title="아직 만들어진 보고서가 없습니다"
-          body="위에서 기간과 담을 절을 고른 뒤 보고서를 생성하세요. 생성이 끝나면 본문이 이 자리에 펼쳐집니다."
+          body="기간과 항목을 고른 뒤 생성하세요."
         />
       ) : null}
     </div>

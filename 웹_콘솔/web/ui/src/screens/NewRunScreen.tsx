@@ -441,8 +441,7 @@ export function NewRunScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">새 시뮬레이션 만들기</h1>
           <p className="pagehead__purpose">
-            적용할 정책을 고르거나 새로 만들고, 설정을 확인한 뒤 실행합니다. 마지막 단계 전까지는
-            아무것도 시작되지 않습니다.
+            정책을 고르거나 만들고, 설정을 확인한 뒤 실행합니다.
           </p>
         </div>
       </header>
@@ -1116,9 +1115,8 @@ export function NewRunScreen() {
                 <Card title="실행을 시작했습니다">
                   <p className="card__note wrap">
                     {launched.injected
-                      ? '새 정책이 검증을 통과해 저장되었고, 그 정책으로 실행이 시작되었습니다.'
-                      : '선택한 정책으로 실행이 시작되었습니다.'}{' '}
-                    산출물이 쌓이면 실행 모니터에서 진행을 볼 수 있습니다.
+                      ? '새 정책을 저장하고 실행을 시작했습니다.'
+                      : '고른 정책으로 실행을 시작했습니다.'}{' '} 진행 상황은 실행 모니터에 있습니다.
                   </p>
                   <pre className="code">{JSON.stringify(launched.lock ?? {}, null, 2)}</pre>
                 </Card>
