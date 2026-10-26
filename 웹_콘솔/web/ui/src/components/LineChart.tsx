@@ -52,17 +52,27 @@ export function LineChart({
     series.forEach((s) => s.points.forEach((p) => all.add(p.x)));
     return Array.from(all).sort();
   }, [series]);
-  const max = useMemo(
-    () => niceMax(Math.max(0, ...series.flatMap((s) => s.points.map((p) => p.y ?? 0)))),
-    [series],
-  );
+  // 0 을 늘 포함하는 축. 효과처럼 음수가 나오는 계열도 그린다(거리두기 −7.6%)
+  const ticks = useMemo(() => {
+    const ys = series.flatMap((s) => s.points.flatMap((p) => (p.y === null || !Number.isFinite(p.y) ? [] : [p.y])));
+    const hi = Math.max(0, ...ys);
+    const lo = Math.min(0, ...ys);
+    if (lo === 0) return [0, 0.25, 0.5, 0.75, 1].map((t) => t * niceMax(hi));
+    const step = niceMax((hi - lo) / 4);
+    const out: number[] = [];
+    for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) {
+      out.push(Math.abs(v) < step / 1e6 ? 0 : v);
+    }
+    return out;
+  }, [series]);
   if (!xs.length) return <p className="chart__empty">값 없음</p>;
 
+  const low = ticks[0];
+  const high = ticks[ticks.length - 1];
   const innerW = WIDTH - PAD.left - PAD.right;
   const innerH = HEIGHT - PAD.top - PAD.bottom;
   const xAt = (x: string) => PAD.left + (xs.length === 1 ? innerW / 2 : (xs.indexOf(x) / (xs.length - 1)) * innerW);
-  const yAt = (y: number) => PAD.top + innerH - (y / max) * innerH;
-  const ticks = [0, 0.25, 0.5, 0.75, 1].map((t) => t * max);
+  const yAt = (y: number) => PAD.top + innerH - ((y - low) / (high - low || 1)) * innerH;
   const labelEvery = Math.max(1, Math.ceil(xs.length / 7));
 
   function path(points: LineSeries['points']): string {

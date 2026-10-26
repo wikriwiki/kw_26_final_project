@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import random
+import re
 import statistics
 import threading
 import uuid
@@ -17,7 +18,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from . import interview
-from .experiment_interview import interview_agent
+from .experiment_interview import interview_agent, spoken
 from .experiments import CONSOLE_DIR, DAY, Experiment, ExperimentStore
 from .store import StoreError
 
@@ -26,11 +27,34 @@ MAX_SAMPLE = 30
 WORKERS = 3
 
 SUMMARY_SYSTEM = """아래는 같은 질문에 대한 시뮬레이션 속 여러 인물의 답변입니다.
-공통으로 나온 내용과 서로 다른 내용을 4~6줄로 정리하세요.
+공통으로 나온 내용과 서로 다른 내용을 3~4문장의 한 문단으로 정리하세요.
 - 답변에 없는 내용을 더하지 마세요. 숫자는 답변에 적힌 그대로만 쓰세요.
-- 특정 인물 id 를 나열하지 말고, 괄호 안의 특성으로 묶어서 말하세요(예: "40대 중 일부는…").
-- 요약 문장만 쓰세요. 머리말이나 안내 문구를 붙이지 마세요.
+- 특정 인물 id 를 나열하지 말고, 괄호 안의 특성(연령·성별·소득·사는 구)으로 묶어 말로 풀어 쓰세요. 괄호를 그대로 옮겨 적지 마세요.
+- 괄호에 없는 연령·지역·특성은 쓰지 마세요.
+- 요약 문장만 쓰세요. 머리말이나 안내 문구, 빈 줄이나 끝나지 않은 문장을 남기지 마세요.
 """
+
+
+SEX = {"F": "여성", "M": "남성"}
+
+
+def _traits(row: dict[str, Any]) -> str:
+    """요약에 넘길 응답자 특성. 흡연 여부는 금연구역 실험에만 있다 — 없는 특성은 넣지 않는다."""
+    income = f"소득 {row['income_level']}" if row.get("income_level") else ""
+    values = (row.get("smoking_status"), row.get("gu"), row.get("age_group"), SEX.get(str(row.get("sex")), ""), income)
+    return ", ".join(str(v) for v in values if v)
+
+
+def tidy_summary(text: str) -> str:
+    """요약에서 끝나지 않은 줄('70대 이상 연령대.  .')과 다른 문자 조각을 걷어 낸다."""
+    text = spoken(text)
+    kept = []
+    for line in text.splitlines():
+        line = re.sub(r"(?:\s*\.){2,}", ".", line).strip()
+        line = re.sub(r"\s+(?:and|or)\s+", ", ", line)  # 한국어 요약에 섞인 영어 접속사
+        if len(re.sub(r"[^가-힣]", "", line)) >= 12:
+            kept.append(line)
+    return "\n".join(kept)
 
 
 def now() -> str:
@@ -207,12 +231,12 @@ class QueryJobs:
             if payload.get("summarize", True) and len(answers) >= 2:
                 joined = "\n".join(
                     # 흡연 여부는 금연구역 실험에만 있다. 없는 특성은 괄호에 넣지 않는다
-                    f"- ({', '.join(v for v in (r.get('smoking_status'), r.get('gu'), r.get('age_group')) if v)}) {r['answer']}"
+                    f"- ({_traits(r)}) {r['answer']}"
                     for r in answers
                 )
                 try:
                     summary = interview.chat(SUMMARY_SYSTEM, f"질문: {question}\n\n답변들:\n{joined}", None, max_tokens=600, temperature=0.3)
-                    job["summary"] = {"text": summary["answer"], "model_label": summary.get("model_label"), "verified": False}
+                    job["summary"] = {"text": tidy_summary(summary["answer"]), "model_label": summary.get("model_label"), "verified": False}
                 except interview.InterviewError as exc:
                     job["summary"] = {"error": exc.message}
             with self.lock:

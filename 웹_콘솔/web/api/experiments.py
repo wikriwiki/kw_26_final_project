@@ -98,6 +98,8 @@ class Experiment:
     origin: str = "repo"
     # 시민 문답에서 누를 질문 예시, 실측 연구와의 비교(평가_통합성능에서 옮김)
     questions: tuple[str, ...] = ()
+    # 정책 있는 쪽 시민이 시행 뒤 알고 있는 정책 안내 (시민 문답 프롬프트에만 쓴다)
+    interview_context: str = ""
     validation: dict[str, Any] = field(default_factory=dict)
 
     def arm(self, arm_id: str) -> Arm:
@@ -190,6 +192,7 @@ def _parse_experiment(raw: dict[str, Any], origin: str) -> Experiment:
         source_branch=raw.get("source_branch"),
         origin=origin,
         questions=tuple(str(q) for q in raw.get("questions") or [] if str(q).strip()),
+        interview_context=str(raw.get("interview_context") or "").strip(),
         validation=dict(raw.get("validation") or {}),
     )
 

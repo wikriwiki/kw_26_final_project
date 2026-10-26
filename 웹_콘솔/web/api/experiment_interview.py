@@ -47,15 +47,20 @@ SYSTEM = """당신은 서울에 사는 아래 [나]의 인물입니다. 인터�
 
 말하는 법:
 - 실제 사람이 인터뷰에서 말하듯 자연스러운 구어체 존댓말로 2~5문장. 질문이 반말이어도 존댓말로 답하세요.
+- 내 얘기를 하는 것입니다. '저는·제가'로 말하고, 내 행동에 '-셨-'을 붙이거나 나를 '본인'이라고 부르지 마세요.
+- 질문을 되풀이하지 말고 바로 답하세요.
+- [요즘 상황]이 있으면 그 일을 겪고 있는 사람으로 답하세요. 거기 없는 규제·혜택은 지어내지 마세요.
 - 의견이나 느낌을 물으면 [나]의 처지(나이·직업·사는 곳·소비 성향·생활 방식)와 요즘 생활에 맞게 솔직하게 답하세요.
 - 최근에 한 일은 [내 기록]에 있는 것만 말하세요. 기록에 없는 장소·금액·일은 지어내지 마세요. 모르면 "잘 기억이 안 나요"처럼 말하세요.
 - 금액은 꼭 필요할 때만, 기록의 값 그대로 쓰세요. 기분·피로는 숫자나 '수치'로 말하지 말고 느낌으로 말하세요. 날짜 나열, '기록'·'근거'·'시뮬레이션' 같은 말은 하지 마세요.
-- 지원금으로 낸 것은 '그중 정책 지원금'이 적힌 결제뿐입니다. '본인이 냄'이나 '정책 시행 전'인 날의 결제를 지원금으로 말하지 마세요.
+- '내역을 보면'처럼 기록을 읽어 주는 투로 말하지 말고, 겪은 일을 기억해서 말하는 사람처럼 답하세요.
+- 지원금으로 낸 것은 '그중 정책 지원금'이 적힌 결제뿐입니다. '내 돈으로 냄'이나 '시행 전'인 날의 결제를 지원금으로 말하지 마세요.
 - 그때 스스로 밝힌 이유는 확인된 사실이 아니니 "그땐 …싶었어요"처럼 말하세요.
 - 기록이 비어 있는 날은 무엇을 했는지 모르는 날입니다. 아무 일도 없었다고 말하지 마세요.
 - 오늘은 {today}입니다. 그 뒤의 일은 모릅니다.
 
-맨 마지막 줄에는 답에 쓴 기록 번호만 [E3][E7]처럼 적으세요. 이 줄은 화면에 보이지 않습니다.
+기록 번호(E3 같은 것)는 문장 안에 쓰지 마세요. 날짜는 '4월 23일'처럼 말하세요.
+맨 마지막 줄에만 답에 쓴 기록 번호를 [E3][E7]처럼 적으세요. 이 줄은 화면에 보이지 않습니다.
 """
 
 
@@ -65,17 +70,67 @@ TRAILING_TAGS = re.compile(r"(?:\s*(?:근거\s*[:：]?|\[[^\]\n]{0,12}\]|\bE\d{1
 
 # 영어 단어 셋 이상이 이어진 조각. 'GS25', 'CU' 같은 상호는 한두 단어라 남는다
 STRAY_LATIN = re.compile(r"\s*(?:\b[A-Za-z]+\b[ ,.'!?]*){3,}")
+# 한글에 붙어 나온 소문자 영어 조각: "influence of support기보다는", "coexisting]".
+# 한글도 단어 문자라 \b 가 안 걸린다. 상호는 대개 대문자(GS25·CU)라 소문자 낱말만 지운다
+LOWER_LATIN = re.compile(r"\s*(?<![A-Za-z0-9])[a-z]{3,}(?:\s+[a-z]+)*(?![A-Za-z0-9])\]?")
 
 
-def spoken(answer: str) -> str:
-    """화면에 보일 답 — 근거 번호를 떼고, 번호만 남은 마지막 줄은 지운다."""
-    text = CITE.sub("", answer)
+# 근거 번호를 명사처럼 쓴 자리: "[E12]에서는", "E9부터", "E14 기록에", "E12일에"
+# 한글도 단어 문자라 \b 로는 "E9부터" 의 경계를 못 잡는다. 앞뒤를 직접 막는다
+NOUN_REF = re.compile(r"\[?(?<![A-Za-z0-9])E(\d{1,4})(?!\d)\]?(일)?(에서)?(?=\s*[가-힣])")
+# 한국어 답에 섞여 나오는 다른 문자(그리스·키릴·한자·가나 등)
+FOREIGN = re.compile(r"[\u0370-\u03FF\u0400-\u04FF\u0590-\u06FF\u0900-\u0DFF\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FFF]+")
+# 악센트 붙은 라틴 글자가 섞인 낱말 통째로: "ũng"
+ACCENTED_WORD = re.compile(r"[A-Za-z]*[\u00C0-\u024F\u1E00-\u1EFF][A-Za-z\u00C0-\u024F\u1E00-\u1EFF]*")
+# 문장 끝 뒤에 붙어 나온 영문 한두 글자: "생각해요.t"
+TAIL_LATIN = re.compile(r"(?<=[.!?])[A-Za-z]{1,3}(?=\s|$)")
+# 날짜를 괄호로 붙인 번호 "E13(11월 28일)" → 날짜만, 그 밖에 남은 번호 조각 "E7", "[E1" 은 지운다
+REF_WITH_DAY = re.compile(r"\[?(?<![A-Za-z0-9])E\d{1,4}(?!\d)\]?\s*\(([^()\n]{1,20})\)")
+LEFTOVER_REF = re.compile(r"\[?(?<![A-Za-z0-9])E\d{1,4}(?!\d)\]?|\[E?\d{0,4}(?=\s|$)")
+# 말이 끝나는 꼴: "…요." "…다." "…죠?" 등. 이 꼴이 아닌 끝 조각("그래도 전체.")은 끊긴 문장이다
+SENTENCE_END = re.compile(r"[요다죠까네지음함군걸게]\s*[.!?…~]*[\"'’”)]?$")
+
+
+def _day_words(day: str | None) -> str:
+    return f"{int(day[5:7])}월 {int(day[8:10])}일" if day and DAY.match(day) else ""
+
+
+def spoken(answer: str, exposed: list[Item] | None = None) -> str:
+    """화면에 보일 답 — 근거 번호를 떼고, 번호만 남은 마지막 줄은 지운다.
+
+    번호를 명사처럼 쓴 자리("[E12]에서는")는 떼면 구멍이 나므로 그 근거의 날짜로 바꾼다.
+    """
+    lines = answer.strip().splitlines()
+    tail = lines.pop() if len(lines) > 1 and not CITE.sub("", lines[-1]).strip(" .,·-") else ""
+
+    def as_day(match: re.Match[str]) -> str:
+        number = int(match.group(1))
+        item = exposed[number - 1] if exposed and 1 <= number <= len(exposed) else None
+        words = _day_words(item.day if item else None)
+        return words + ("에" if words and match.group(3) else "")
+
+    text = NOUN_REF.sub(as_day, "\n".join(lines))
+    text = REF_WITH_DAY.sub(r"\1", text)
+    # 떼어 낸 자리는 한 칸으로 둔다 — "많아졌어요[E5]7,500원" 이 "많아졌어요7,500원" 으로 붙지 않게
+    text = CITE.sub(" ", text + ("\n" + tail if tail else ""))
+    text = FOREIGN.sub("", text)
+    text = ACCENTED_WORD.sub("", text).replace("()", "")
+    text = LEFTOVER_REF.sub("", text)
+    text = TAIL_LATIN.sub("", text)
+    text = re.sub(r"[ \t]{2,}", " ", text)
     text = re.sub(r"[ \t]+([.,!?])", r"\1", text)  # 번호를 뗀 자리에 남은 공백
     text = STRAY_LATIN.sub("", text)  # 한국어 답 사이에 섞여 나온 영어 문장 조각
+    text = LOWER_LATIN.sub("", text)
     text = TRAILING_TAGS.sub("", text.strip())
     lines = [line.rstrip() for line in text.strip().splitlines()]
     while lines and not lines[-1].strip(" .,·-"):
         lines.pop()
+    if lines:
+        # 마지막 줄 끝의 끊긴 조각을 걷어 낸다. 말이 끝난 문장이 하나는 남아야 한다
+        sentences = re.split(r"(?<=[.!?])\s+", lines[-1])
+        while len(sentences) > 1 and not SENTENCE_END.search(sentences[-1].strip()):
+            sentences.pop()
+        lines[-1] = " ".join(sentences)
     return "\n".join(lines).strip()
 
 
@@ -228,11 +283,14 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             items.append(Item(f"{step.arm_id}:{day}:skipped", day, "skipped_day", "이날은 기록 없음(시뮬레이션이 이 사람의 하루를 만들지 못하고 건너뜀)", {"status": "skipped"}))
             continue
         state_bits = []
-        for key, label in (("mood", "기분"), ("fatigue", "피로"), ("avg_sat", "만족도")):
-            if row.get(key) is not None:
-                state_bits.append(f"{label} {row[key]}")
+        # 숫자로 주면 '기분 점수'처럼 말한다. 느낌 말로 준다
+        if row.get("mood") is not None:
+            mood = float(row["mood"])
+            state_bits.append("기분 좋음" if mood >= 0.8 else "기분 무난" if mood >= 0.6 else "기분 조금 가라앉음" if mood >= 0.4 else "기분 가라앉음")
+        if row.get("fatigue") is not None and float(row["fatigue"]) >= 0.35:
+            state_bits.append("많이 피곤" if float(row["fatigue"]) >= 0.6 else "조금 피곤")
         if row.get("cm_today_total") is not None:
-            state_bits.append(f"이날 오프라인 소비 {won(row['cm_today_total'])}")
+            state_bits.append(f"이날 가게에서 쓴 돈 {won(row['cm_today_total'])}")
         if row.get("balance") is not None:
             state_bits.append(f"잔액 {won(row['balance'])}")
         # 정책 지원금 — 받은 날·쓴 돈·적립·소멸. 0 이면 적지 않는다
@@ -246,7 +304,8 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             if (row.get(key) or 0) > 0:
                 state_bits.append(f"{label} {won(row[key])}")
         if effective and experiment.kind == "policy_paired":
-            state_bits.insert(0, "정책 시행 전" if day < effective else "정책 시행 후")
+            name = re.sub(r"\s*\(.*?\)", "", experiment.title).strip() or "정책"
+            state_bits.insert(0, f"{name} 시행 전" if day < effective else f"{name} 시행 후")
         items.append(Item(f"{step.arm_id}:{day}:state", day, "day_state", "하루 상태: " + " · ".join(state_bits), {k: row.get(k) for k in ("mood", "fatigue", "avg_sat", "cm_today_total", "balance", "grant_applied_today", "policy_spend_today", "policy_rebate_today", "instant_discount_today", "grant_expired_today")}))
         for index, receipt in enumerate(row.get("execution_receipts") or []):
             if not isinstance(receipt, dict) or receipt.get("kind") != "purchase_receipt":
@@ -259,9 +318,9 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             paid = sum(f.get("paid") or 0 for f in facts.values() if isinstance(f, dict))
             if status == "purchased" and paid > 0:
                 own = receipt.get("own_paid")
-                text += f" · 그중 정책 지원금 {won(paid)}" + (f", 본인 부담 {won(own)}" if own is not None else "")
+                text += f" · 그중 정책 지원금 {won(paid)}" + (f", 내 돈 {won(own)}" if own is not None else "")
             elif status == "purchased" and experiment.kind == "policy_paired":
-                text += " · 본인이 냄"
+                text += " · 내 돈으로 냄"
             items.append(Item(receipt.get("event_id") or f"{step.arm_id}:{day}:receipt:{index}", day, "executed_receipt", text.strip(), receipt))
         no_smoking = row.get("no_smoking") if isinstance(row.get("no_smoking"), dict) else {}
         aliases = (experiment.analysis or {}).get("facility_aliases") or {}
@@ -288,9 +347,14 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
         items.extend(journal_items)
     if len({item.evidence_id for item in items}) != len(items):
         raise StoreError(500, "근거 id 가 겹칩니다")
+    # 정책 있는 쪽 시민은 시행일 뒤로 정책을 겪고 있다. 정책 없는 쪽·시행 전에는 알리지 않는다
+    context = ""
+    if experiment.interview_context and arm.role == "treatment" and (not effective or through >= effective):
+        context = experiment.interview_context
     return {
         "experiment_id": experiment.experiment_id,
         "arm_id": arm.arm_id,
+        "context": context,
         "lineage": [step.arm_id for step in lineage],
         "agent_id": agent_id,
         "through_day": through,
@@ -340,9 +404,14 @@ def select_items(packet: dict[str, Any], question: str) -> list[Item]:
 
 def _prompt(packet: dict[str, Any], exposed: list[Item]) -> str:
     profile = next((item.text for item in exposed if item.kind == "profile"), "")
-    lines = [SYSTEM.replace("{today}", packet["through_day"]), f"[나] {profile}", "[내 기록]"]
+    today = packet["through_day"]
+    today = f"{today[:4]}년 {_day_words(today)}" if DAY.match(today) else today
+    lines = [SYSTEM.replace("{today}", today), f"[나] {profile}"]
+    if packet.get("context"):
+        lines.append(f"[요즘 상황] {packet['context']}")
+    lines.append("[내 기록]")
     for number, item in enumerate(exposed, start=1):
-        when = item.day or "기본"
+        when = _day_words(item.day) or "기본"
         lines.append(f"E{number} ({when}) {item.text}")
     if packet["missing_days"]:
         lines.append("(기록을 받지 못한 날: " + ", ".join(packet["missing_days"]) + ")")
@@ -423,7 +492,7 @@ def interview_agent(store: ExperimentStore, experiment_id: str, arm_id: str, age
         "agent_id": agent_id,
         "through_day": packet["through_day"],
         # 근거 대조는 원문으로 하고, 화면에는 말한 부분만 보낸다
-        "answer": spoken(reply["answer"]),
+        "answer": spoken(reply["answer"], exposed),
         "model_label": reply.get("model_label"),
         "tokens": reply.get("tokens"),
         **checked,

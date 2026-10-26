@@ -578,7 +578,7 @@ export function ReportScreen() {
           {/* ---------- 3단계. 생성 ---------- */}
           <section className="section">
             <div className="section__head">
-              <h2 className="section__title">3단계. 생성</h2>
+              <h2 className="section__title">생성</h2>
               <p className="section__note">
                 한 번에 하나씩 생성합니다. 시뮬레이션이 도는 중에는 시작하지 않습니다.
               </p>

@@ -73,7 +73,9 @@ function ValidationCard({ validation }: { validation: Validation }) {
                 </td>
                 <td className="n num">{signed(row.truth_pct)}</td>
                 <td>{Math.sign(row.sim_pct) === Math.sign(row.truth_pct) ? '같음' : '반대'}</td>
-                <td className="cell-sub wrap">{row.source}</td>
+                <td className="wrap">
+                  <span className="cell-sub">{row.source}</span>
+                </td>
               </tr>
             ))}
           </tbody>

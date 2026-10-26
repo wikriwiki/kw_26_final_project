@@ -263,7 +263,7 @@ class InterviewTests(_MirrorFixture):
             result = experiment_interview.interview_agent(self.store, EXP, "shared-pre", AGENTS[0], "당구장 갔어요?", fetch_evidence=False)
         self.assertTrue(result["console_only"])
         self.assertIn("[내 기록]", seen["system"])
-        self.assertIn("오늘은 2017-11-20입니다", seen["system"])
+        self.assertIn("오늘은 2017년 11월 20일입니다", seen["system"])
         log = (self.root / "mirror" / EXP / "_console" / "interviews.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(json.loads(log[-1])["agent_id"], AGENTS[0])
         self.assertEqual(experiment_interview.recent_interviews(self.store, EXP)["total"], 1)
