@@ -1853,6 +1853,178 @@ SECTION_PLAN = [
 ALWAYS_ON = {"s1", "s10", "s11"}
 
 
+# --------------------------------------------------------------------------- #
+# 정책 실행 요약판 — 같은 시민·같은 날 정책 있음·없음 비교가 있는 실행
+# --------------------------------------------------------------------------- #
+
+
+def _signed_pct(value: float | None) -> str:
+    return "—" if value is None else f"{value:+.1f}%"
+
+
+def _compact_masthead(bundle: dict[str, Any]) -> str:
+    meta, period = bundle["meta"], bundle["period"]
+    paired = bundle.get("paired") or {}
+    rows = _paired_rows(bundle)
+    facts = [
+        fact("시행일", esc(period.get("policy_from") or "—"), esc(meta.get("policy_id") or "")),
+        fact("비교한 시민", f"{int(paired.get('agents') or 0):,}명", f"정책 있음·없음 각 {len(paired.get('days') or [])}일"),
+    ]
+    for key, label in (("total", "총소비 효과"), ("shop", "가게 소비 효과")):
+        row = rows.get(key)
+        if row:
+            facts.append(fact(label, esc(_effect(row.get("effect"))), f"{_verdict(row)} · 95% 구간 {_ci(row.get('ci95'))}"))
+    wallet = paired.get("wallet") or {}
+    if (wallet.get("on_total") or 0) > 0:
+        facts.append(fact("지원금 사용", esc(krw(wallet.get("per_agent_day"))), "1인 하루"))
+    return (
+        '<header class="masthead">'
+        '<div class="headrow"><div>'
+        '<p class="masthead__kicker">정책 시뮬레이션 분석 보고서</p>'
+        f'<h1 class="masthead__title">{esc(meta.get("policy_name") or meta.get("policy_id") or "정책")} 효과</h1>'
+        f'<p class="masthead__sub">{esc((meta.get("days") or ["—"])[0])} ~ {esc((meta.get("days") or ["—"])[-1])} · '
+        f'생성 {esc(datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"))}</p>'
+        "</div>"
+        '<button type="button" class="themebtn" id="themebtn" data-mode="system">다크 테마</button>'
+        "</div>"
+        f'<div class="factbar">{"".join(facts)}</div>'
+        "</header>"
+    )
+
+
+def _compact_summary(bundle: dict[str, Any]) -> str:
+    paired = bundle.get("paired") or {}
+    rows = _paired_rows(bundle)
+    cats = [r for r in paired.get("rows") or [] if r.get("group") == "category" and r.get("effect") is not None]
+    up = sorted([r for r in cats if r.get("significant") and r["effect"] > 0], key=lambda r: -r["effect"])[:3]
+    down = sorted([r for r in cats if r.get("significant") and r["effect"] < 0], key=lambda r: r["effect"])[:3]
+    lines = []
+    total, shop = rows.get("total"), rows.get("shop")
+    if total:
+        lines.append(
+            f"같은 시민의 같은 날을 정책이 있을 때와 없을 때로 견주면 총소비는 <b>{esc(_effect(total.get('effect')))}</b> "
+            f"({esc(_verdict(total))}, 95% 구간 {esc(_ci(total.get('ci95')))})."
+        )
+    if shop:
+        lines.append(f"온라인을 뺀 가게 소비는 <b>{esc(_effect(shop.get('effect')))}</b> ({esc(_verdict(shop))}).")
+    if up:
+        lines.append("유의하게 늘어난 업종: " + ", ".join(f"{esc(r['label'])} {esc(_effect(r['effect']))}" for r in up) + ".")
+    if down:
+        lines.append("유의하게 줄어든 업종: " + ", ".join(f"{esc(r['label'])} {esc(_effect(r['effect']))}" for r in down) + ".")
+    wallet = paired.get("wallet") or {}
+    if (wallet.get("on_total") or 0) > 0:
+        lines.append(f"지원금은 시민 1명이 하루 평균 {esc(krw(wallet.get('per_agent_day')))}원씩 썼다 (기간 합계 {esc(krw(wallet.get('on_total')))}원).")
+    validation = paired.get("validation") or {}
+    vrows = validation.get("rows") or []
+    if vrows:
+        same = sum(1 for r in vrows if (r["sim_pct"] >= 0) == (r["truth_pct"] >= 0))
+        best = min(vrows, key=lambda r: abs(r["sim_pct"] - r["truth_pct"]))
+        lines.append(
+            f"실측 연구와 견준 {len(vrows)}개 항목 중 {same}개가 방향이 같다. 가장 가까운 항목은 {esc(best['label'])} "
+            f"(시뮬 {esc(_signed_pct(best['sim_pct']))} · 실측 {esc(_signed_pct(best['truth_pct']))})."
+        )
+    return "<ul class=\"summary\">" + "".join(f"<li>{line}</li>" for line in lines) + "</ul>"
+
+
+def _compact_paired(bundle: dict[str, Any]) -> str:
+    paired = bundle.get("paired") or {}
+    rows = paired.get("rows") or []
+    head = [r for r in rows if r.get("group") != "category"]
+    cats = [r for r in rows if r.get("group") == "category" and r.get("significant")]
+    hidden = sum(1 for r in rows if r.get("group") == "category" and not r.get("significant"))
+    cols = [("항목", ""), ("정책 없음 (1인 하루)", "n"), ("정책 있음 (1인 하루)", "n"), ("효과", "n"), ("95% 신뢰구간", "n")]
+
+    def line(r: dict[str, Any]) -> list[str]:
+        return [esc(r.get("label")), krw(r.get("off_per_agent_day")), krw(r.get("on_per_agent_day")),
+                f'<span class="num">{esc(_effect(r.get("effect")))}</span>', f'<span class="num">{esc(_ci(r.get("ci95")))}</span>']
+
+    body = [table(cols, [line(r) for r in head + sorted(cats, key=lambda r: -(r.get("effect") or 0))])]
+    if hidden:
+        body.append(f'<p class="caption">95% 구간이 0을 포함한 업종 {hidden}개는 뺐다.</p>')
+    daily = paired.get("daily") or []
+    if daily:
+        labels = [str(d.get("day"))[5:] for d in daily]
+        body.append(
+            figure(
+                charts.line_chart(
+                    labels,
+                    [{"name": "총소비 효과 (%)", "values": [None if d.get("effect") is None else d["effect"] * 100 for d in daily], "color": "var(--k1)"}],
+                    formatter=lambda v: f"{v:+.1f}%",
+                    height=260,
+                ),
+                "<b>날짜별 총소비 효과.</b> 같은 날 정책 있음 ÷ 없음 − 1.",
+            )
+        )
+    return "".join(body)
+
+
+def _compact_validation(bundle: dict[str, Any]) -> str:
+    validation = (bundle.get("paired") or {}).get("validation") or {}
+    vrows = validation.get("rows") or []
+    cols = [("항목", ""), ("시뮬", "n"), ("실측", "n"), ("방향", ""), ("출처", "")]
+    body = [
+        table(
+            cols,
+            [
+                [
+                    esc(r["label"]),
+                    f'<span class="num">{esc(_signed_pct(r["sim_pct"]))}</span>',
+                    f'<span class="num">{esc(_signed_pct(r["truth_pct"]))}</span>',
+                    "같음" if (r["sim_pct"] >= 0) == (r["truth_pct"] >= 0) else "반대",
+                    esc(r["source"]),
+                ]
+                for r in vrows
+            ],
+        )
+    ]
+    if validation.get("basis"):
+        body.append(f'<p class="caption">{esc(validation["basis"])}</p>')
+    if validation.get("note"):
+        body.append(f'<p class="caption">{esc(validation["note"])}</p>')
+    return "".join(body)
+
+
+def _compact_limits(bundle: dict[str, Any]) -> str:
+    paired = bundle.get("paired") or {}
+    method = paired.get("method") or {}
+    items = [
+        f"합성 시민 {int(paired.get('agents') or 0):,}명의 모의 결과다. 실제 소비 관측값이 아니다.",
+        "효과는 같은 시민·같은 날의 정책 있음 ÷ 없음 − 1. 정책 전 기간은 한 번 돌려 두 세계가 함께 쓴다.",
+        esc(f"95% 신뢰구간: {method['ci']}." if method.get("ci") else "95% 신뢰구간은 시민 단위 부트스트랩으로 구했다."),
+        "결제한 시민이 적은 소액 업종은 표본이 작아 구간이 넓다. 그래서 유의한 업종만 실었다.",
+    ]
+    return "<ul>" + "".join(f"<li>{x}</li>" for x in items) + "</ul>"
+
+
+def build_compact_html(bundle: dict[str, Any], *, title: str) -> str:
+    """정책 실행용 요약판. 심사·시연에서 바로 읽히는 숫자만 남긴다."""
+    has_validation = bool(((bundle.get("paired") or {}).get("validation") or {}).get("rows"))
+    plan = [
+        ("c1", "요약", "", _compact_summary(bundle)),
+        ("c2", "정책 있음·없음 비교", "같은 시민·같은 날. 유의한 업종만.", _compact_paired(bundle)),
+    ]
+    if has_validation:
+        plan.append(("c3", "실측 연구와 비교", "공개 연구의 추정치와 같은 정의로 견줬다.", _compact_validation(bundle)))
+    plan.append(("c4", "근거와 한계", "", _compact_limits(bundle)))
+    sections = "".join(
+        section(f"{index + 1}절", name, purpose, body, anchor=anchor) for index, (anchor, name, purpose, body) in enumerate(plan)
+    )
+    return (
+        "<!DOCTYPE html>"
+        '<html lang="ko"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>{esc(title)}</title>"
+        f"<style>{CSS}</style>"
+        "</head><body>"
+        '<div class="doc"><div class="wrap">'
+        + _compact_masthead(bundle)
+        + sections
+        + "</div></div>"
+        f"<script>{THEME_SCRIPT}</script>"
+        "</body></html>"
+    )
+
+
 def build_html(
     bundle: dict[str, Any],
     consistency: dict[str, Any],
@@ -1864,6 +2036,10 @@ def build_html(
     source_paths: Sequence[str] = (),
     sections: Sequence[str] | None = None,
 ) -> str:
+    if _paired_rows(bundle):
+        # 정책 실행(같은 시민·같은 날 비교가 있는 실행)은 핵심만 담은 요약판으로 낸다
+        name = bundle["meta"].get("policy_name") or bundle["meta"].get("policy_id") or "정책"
+        return build_compact_html(bundle, title=f"{name} 효과 분석 보고서")
     selected = ALWAYS_ON | set(sections) if sections is not None else {a for a, _, _, _ in SECTION_PLAN}
     if _paired_rows(bundle):
         # 정책 실행: 짝 비교 절을 넣고, 업종 처치·대조가 없어 '계산 불가'만 남는 이중차분 절들은 뺀다

@@ -160,7 +160,7 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
   const [stats, setStats] = useState<GroupStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [question, setQuestion] = useState('');
-  const [sample, setSample] = useState('8');
+  const [sample, setSample] = useState('6');
   const [job, setJob] = useState<GroupJob | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
 
@@ -235,6 +235,16 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
       ) : null}
       <Card title="집단 인터뷰" note="고른 사람 중 몇 명에게 같은 질문을 합니다 (최대 30명).">
         {!READ_ONLY ? (
+          <>
+          {experiment.questions?.length ? (
+            <div className="segment querychips" role="group" aria-label="질문 예시">
+              {experiment.questions.map((text) => (
+                <button key={text} type="button" className="segment__btn" aria-pressed={question === text} onClick={() => setQuestion(text)}>
+                  {text}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <form className="queryform" onSubmit={startInterview}>
             <TextAreaField label="질문" value={question} rows={2} maxLength={500} onChange={(e) => setQuestion(e.target.value)} />
             <TextField label="표본 수" type="number" min={1} max={30} value={sample} onChange={(e) => setSample(e.target.value)} />
@@ -242,6 +252,7 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
               묻기
             </Button>
           </form>
+          </>
         ) : (
           <p className="card__note">읽기 전용 배포에서는 집단 인터뷰를 할 수 없습니다.</p>
         )}

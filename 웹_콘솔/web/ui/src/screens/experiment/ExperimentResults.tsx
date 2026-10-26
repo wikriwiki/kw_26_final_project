@@ -13,7 +13,7 @@ import { LineChart } from '../../components/LineChart';
 import type { LineSeries } from '../../components/LineChart';
 import { dec, int, krw } from '../../lib/format';
 import { experimentsApi, SMOKING_TEXT, useResource } from '../../lib/experiments';
-import type { Comparison, DailyPoint, DailySeries, ExperimentSummary } from '../../lib/experiments';
+import type { Comparison, DailyPoint, DailySeries, ExperimentSummary, Validation } from '../../lib/experiments';
 import { useExperiment } from './ExperimentWorkspace';
 
 type Metric = (point: DailyPoint) => number | null;
@@ -42,6 +42,49 @@ const ciText = (ci: [number, number] | null) =>
   ci ? `95% 신뢰구간 ${pct(ci[0])} ~ ${pct(ci[1])}` : undefined;
 
 /** 정책 실험 — 같은 시민·같은 날의 정책 있음 − 없음 */
+const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
+
+/** 실측 연구와 비교 — 같은 업종 묶음·정의로 다시 센 시뮬 값과 공개 연구의 추정치 */
+function ValidationCard({ validation }: { validation: Validation }) {
+  return (
+    <Card title="실측 연구와 비교" className="c12">
+      <div className="table-wrap">
+        <table className="table">
+          <thead>
+            <tr>
+              <th scope="col">항목</th>
+              <th scope="col" className="n">시뮬</th>
+              <th scope="col" className="n">실측</th>
+              <th scope="col">방향</th>
+              <th scope="col">출처</th>
+            </tr>
+          </thead>
+          <tbody>
+            {validation.rows.map((row) => (
+              <tr key={row.label}>
+                <th scope="row">{row.label}</th>
+                <td className="n num">
+                  {signed(row.sim_pct)}
+                  {row.sim_ci95_pct ? (
+                    <span className="cell-sub">
+                      {signed(row.sim_ci95_pct[0])} ~ {signed(row.sim_ci95_pct[1])}
+                    </span>
+                  ) : null}
+                </td>
+                <td className="n num">{signed(row.truth_pct)}</td>
+                <td>{Math.sign(row.sim_pct) === Math.sign(row.truth_pct) ? '같음' : '반대'}</td>
+                <td className="cell-sub wrap">{row.source}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="card__note">{validation.basis}</p>
+      <p className="card__note">{validation.note}</p>
+    </Card>
+  );
+}
+
 function PolicyEffect({ comparison, marker }: { comparison: Comparison; marker?: { x: string; label: string } }) {
   if (!comparison.available || !comparison.rows) {
     return (
@@ -213,6 +256,7 @@ export function ExperimentResults() {
   return (
     <div className="stack">
       {paired && comparison.data ? <PolicyEffect comparison={comparison.data} marker={marker} /> : null}
+      {paired && experiment.validation?.rows?.length ? <ValidationCard validation={experiment.validation} /> : null}
       <div className="grid">
         {hasTarget ? (
           <>

@@ -122,6 +122,8 @@ function periodLabel(item: { start?: string; days?: number }): string {
 
 export function ReportScreen() {
   const run = useRun();
+  // 정책 실행(같은 시민·같은 날 비교가 있는 실행)은 핵심만 담은 요약판으로 고정된다
+  const policyRun = Boolean(run.index.meta?.experiment_id);
   const boundPolicy = run.policy.items[0]?.id ?? null;
 
   const [policyId, setPolicyId] = useState<string | null>(boundPolicy);
@@ -444,6 +446,16 @@ export function ReportScreen() {
           </section>
 
           {/* ---------- 2단계. 무엇을 담는가 ---------- */}
+          {policyRun ? (
+          <section className="section">
+            <div className="section__head">
+              <h2 className="section__title">구성</h2>
+              <p className="section__note">
+                정책 실행 보고서는 요약 · 정책 있음·없음 비교 · 실측 연구와 비교 · 근거와 한계 네 절로 고정됩니다.
+              </p>
+            </div>
+          </section>
+          ) : (
           <section className="section">
             <div className="section__head">
               <h2 className="section__title">구성</h2>
@@ -561,6 +573,7 @@ export function ReportScreen() {
               ) : null}
             </Card>
           </section>
+          )}
 
           {/* ---------- 3단계. 생성 ---------- */}
           <section className="section">

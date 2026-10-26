@@ -70,6 +70,24 @@ export interface ExperimentSummary {
   remote_profile: string | null;
   mirror: boolean;
   bundle_present?: boolean;
+  /** 시민 문답에서 누를 질문 예시 */
+  questions?: string[];
+  /** 실측 연구와의 비교 (평가_통합성능에서 옮김) */
+  validation?: Validation | null;
+}
+
+export interface ValidationRow {
+  label: string;
+  sim_pct: number;
+  sim_ci95_pct: [number, number] | null;
+  truth_pct: number;
+  source: string;
+}
+
+export interface Validation {
+  basis: string;
+  note: string;
+  rows: ValidationRow[];
 }
 
 export interface ExperimentList {

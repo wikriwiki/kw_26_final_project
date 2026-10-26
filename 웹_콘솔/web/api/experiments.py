@@ -96,6 +96,9 @@ class Experiment:
     remote: dict[str, Any] = field(default_factory=dict)
     source_branch: str | None = None
     origin: str = "repo"
+    # 시민 문답에서 누를 질문 예시, 실측 연구와의 비교(평가_통합성능에서 옮김)
+    questions: tuple[str, ...] = ()
+    validation: dict[str, Any] = field(default_factory=dict)
 
     def arm(self, arm_id: str) -> Arm:
         for arm in self.arms:
@@ -141,6 +144,8 @@ class Experiment:
             "origin": self.origin,
             # 원격 접속 정보는 이 PC 의 환경변수에만 있다. 프로필 이름만 밝힌다.
             "remote_profile": self.remote.get("profile"),
+            "questions": list(self.questions),
+            "validation": self.validation or None,
         }
 
 
@@ -184,6 +189,8 @@ def _parse_experiment(raw: dict[str, Any], origin: str) -> Experiment:
         remote=dict(raw.get("remote") or {}),
         source_branch=raw.get("source_branch"),
         origin=origin,
+        questions=tuple(str(q) for q in raw.get("questions") or [] if str(q).strip()),
+        validation=dict(raw.get("validation") or {}),
     )
 
 

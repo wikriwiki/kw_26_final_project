@@ -102,7 +102,10 @@ def paired_comparison(run_root: Path) -> dict[str, Any] | None:
         from web.api import experiments as experiment_api
 
         store = experiment_api.ExperimentStore()
-        result = experiment_api.paired_policy_comparison(store, store.experiment(experiment_id))
+        experiment = store.experiment(experiment_id)
+        result = experiment_api.paired_policy_comparison(store, experiment)
+        if experiment.validation and isinstance(result, dict):
+            result = {**result, "validation": experiment.validation}
     except Exception as exc:  # 비교를 못 해도 보고서는 만든다 — 그 사실을 절에 적는다
         return {"available": False, "reason": f"비교를 계산하지 못했습니다: {exc}", "experiment_id": experiment_id}
     return result
@@ -137,7 +140,8 @@ def generate(
     checks = consistency.run_checks(bundle)
 
     print("[3/5] 해설 생성", file=sys.stderr, flush=True)
-    narration = narrator.narrate_report(bundle, checks, enabled=use_llm)
+    # 정책 실행 요약판은 해설 문장을 쓰지 않는다 — 모델을 부르지 않는다
+    narration = narrator.narrate_report(bundle, checks, enabled=use_llm and not render_v2._paired_rows(bundle))
 
     print("[4/5] HTML/Markdown 렌더", file=sys.stderr, flush=True)
     sources = source_paths_of(run_root, bundle["meta"]["days"])

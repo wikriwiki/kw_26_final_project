@@ -626,3 +626,8 @@
 .interview__src summary {
   cursor: pointer;
 }
+
+/* 집단 인터뷰 질문 예시 */
+.querychips {
+  margin-bottom: var(--sp-3);
+}

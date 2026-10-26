@@ -231,12 +231,13 @@ export function AgentScreen() {
   const run = useRun();
   const experimentId = run.index.meta?.experiment_id ?? null;
   const [params, setParams] = useSearchParams();
-  const group = experimentId !== null && params.get('mode') === 'group';
+  // 정책 실행이면 여러 명에게 묻기가 기본이다. 한 명은 ?mode=one
+  const group = experimentId !== null && params.get('mode') !== 'one';
   function setMode(next: 'one' | 'group') {
     setParams(
       (prev) => {
         const out = new URLSearchParams(prev);
-        if (next === 'group') out.set('mode', 'group');
+        if (next === 'one') out.set('mode', 'one');
         else out.delete('mode');
         return out;
       },
@@ -273,11 +274,11 @@ export function AgentScreen() {
         {experimentId ? (
           <div className="pagehead__actions">
             <div className="segment" role="group" aria-label="묻는 방식">
-              <button type="button" className="segment__btn" aria-pressed={!group} onClick={() => setMode('one')}>
-                한 명에게
-              </button>
               <button type="button" className="segment__btn" aria-pressed={group} onClick={() => setMode('group')}>
                 여러 명에게
+              </button>
+              <button type="button" className="segment__btn" aria-pressed={!group} onClick={() => setMode('one')}>
+                한 명에게
               </button>
             </div>
           </div>
@@ -574,6 +575,11 @@ function Conversation({
   const { runId = '' } = useParams();
   // 정책 실행이면 자유 질문은 실험 인터뷰(그 사람의 전 기간 기록 + K-EXAONE)로 묻는다
   const experimentId = useRun().index.meta?.experiment_id ?? null;
+  const policyQuestions =
+    useResource(
+      () => (experimentId ? experimentsApi.detail(experimentId) : Promise.resolve(null)),
+      `experiment:${experimentId ?? '-'}`,
+    ).data?.questions ?? [];
 
   useEffect(() => {
     let alive = true;
@@ -751,7 +757,19 @@ function Conversation({
       {/* 물어보기 */}
       <Card title="물어보기">
         <div className="ag-ask">
-          <p className="ag-ask__cap">{days[dayIdx]} 에 대해</p>
+          {policyQuestions.length > 0 ? (
+            <>
+              <p className="ag-ask__cap">정책에 대해</p>
+              <div className="segment" role="group" aria-label="정책에 대한 질문">
+                {policyQuestions.map((text) => (
+                  <button key={text} type="button" className="segment__btn" onClick={() => void askFreely(text)}>
+                    {text}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : null}
+          <p className="ag-ask__cap">{days[dayIdx]} 기록</p>
           <div className="segment" role="group" aria-label={`${days[dayIdx]} 에 대한 질문`}>
             {dayQs.map((q) => (
               <button key={q.id} type="button" className="segment__btn" onClick={() => ask(q)}>
@@ -760,7 +778,7 @@ function Conversation({
             ))}
           </div>
 
-          <p className="ag-ask__cap">기간 전체에 대해</p>
+          <p className="ag-ask__cap">이 사람에 대해</p>
           <div className="segment" role="group" aria-label="기간 전체에 대한 질문">
             {lifeQs.map((q) => (
               <button key={q.id} type="button" className="segment__btn" onClick={() => ask(q)}>
