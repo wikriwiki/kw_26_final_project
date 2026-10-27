@@ -166,18 +166,7 @@ export function OverviewScreen() {
         </dl>
       </section>
 
-      {/* 1차 블록 2 — 핵심 지표. 정책 실행은 정책 효과 하나만 — 원시 합계는 정책 담당자의 판단에 쓰이지 않는다 */}
-      {run.index.meta ? (
-        <div className="grid statrow">
-          <RunEffectStat
-            className="c6"
-            experimentId={run.index.meta.experiment_id}
-            compareHref={run.path('results')}
-            extraSpent={null}
-            extraKnown={false}
-          />
-        </div>
-      ) : (
+      {/* 1차 블록 2 — 핵심 지표. 결과 화면의 숫자를 그대로 쓴다 (같은 숫자를 다르게 찍지 않는다) */}
       <div className="grid statrow">
         <Stat
           className="c3"
@@ -201,7 +190,8 @@ export function OverviewScreen() {
         />
         <RunEffectStat
           className="c3"
-          experimentId={null}
+          experimentId={run.index.meta?.experiment_id ?? null}
+          compareHref={run.path('results')}
           extraSpent={totals ? totals.extra_spent : null}
           extraKnown={!(run.bundle.events.null_only_fields ?? []).includes('ex')}
         />
@@ -213,7 +203,6 @@ export function OverviewScreen() {
           unknownReason="결제 기록 없음"
         />
       </div>
-      )}
 
       {/* 1차 블록 3 — 진행 상황. 끝난 실행에는 보일 것이 없다 */}
       {!completed ? (

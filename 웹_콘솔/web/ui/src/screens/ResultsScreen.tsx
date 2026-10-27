@@ -3,7 +3,8 @@
  * 단일 목적: 정책 효과를 해석한다.
  *
  * 기본 노출  : 핵심 지표 4개 · 일별 결제 추이 · 업종별
- * 정책 실행  : 정책 효과(같은 시민·같은 날) · 누가 반응했나(집단별) · 실측 연구와 비교 — 정책 담당자가 볼 것만
+ * 정책 실행  : 정책 효과(같은 시민·같은 날) · 누가 반응했나(집단별) · 결제 기록(정책 있음 실행) · 실측 연구와 비교
+ *              소비 분위 표는 두지 않는다(정책 판단에 쓰이지 않는다)
  * 접어두는 것: 원자료 표 · 내보내기 · 출처
  *
  * **run 은 셸이 소유한다** (설계도 §5). 화면 안의 "실행 선택" 칩 그룹을 걷어냈고,
@@ -76,6 +77,13 @@ function PolicyRunResults({ experimentId }: { experimentId: string }) {
         <>
           <PolicyEffect comparison={comparison.data} marker={marker} />
           <GroupEffectCard comparison={comparison.data} askHref={(filters) => `${run.path('agents')}?${filtersQuery(filters)}`} />
+          <section className="section">
+            <div className="section__head">
+              <h2 className="section__title">결제 기록</h2>
+              <p className="section__note">정책 있음 실행 · 정책 전 7일 포함 · 시민 {int(run.agentsTarget ?? 0)}명</p>
+            </div>
+            <RunResults embedded />
+          </section>
           {experiment?.validation?.rows?.length ? <ValidationCard validation={experiment.validation} /> : null}
         </>
       )}
@@ -89,8 +97,9 @@ export function ResultsScreen() {
   return experimentId ? <PolicyRunResults experimentId={experimentId} /> : <RunResults />;
 }
 
-function RunResults() {
-  const { index: indexItem, bundle, path, policy } = useRun();
+/** 실행의 결제 기록. embedded 면 정책 실행 결과 화면 안의 한 절로 그린다(머리말 없이) */
+function RunResults({ embedded = false }: { embedded?: boolean }) {
+  const { index: indexItem, bundle, path, policy, agentsTarget, daysPresent } = useRun();
   const navigate = useNavigate();
   useScrollMemory('results');
 
@@ -116,6 +125,7 @@ function RunResults() {
 
   const couponShare =
     totals && totals.events > 0 ? totals.coupon_eligible_events / totals.events : null;
+  const perAgentDay = totals && agentsTarget && daysPresent > 0 ? totals.amt / (agentsTarget * daysPresent) : null;
 
   /** 보던 일자를 들고 시각화로. from 을 남겨야 "← 결과로" 가 진짜 뒤로 갈 수 있다 */
   function openMap() {
@@ -125,6 +135,7 @@ function RunResults() {
 
   return (
     <div className="stack">
+      {embedded ? null : (
       <header className="pagehead">
         <div className="pagehead__text">
           <h1 className="pagehead__title">결과</h1>
@@ -138,6 +149,7 @@ function RunResults() {
           </Button>
         </div>
       </header>
+      )}
 
       {!events.available ? (
         <Callout tone="warn">
@@ -167,12 +179,22 @@ function RunResults() {
           }
           unknownReason="결제 기록 없음"
         />
-        <RunEffectStat
-          className="c3"
-          experimentId={indexItem.meta?.experiment_id ?? null}
-          extraSpent={totals ? totals.extra_spent : null}
-          extraKnown={!(events.null_only_fields ?? []).includes('ex')}
-        />
+        {embedded ? (
+          <Stat
+            className="c3"
+            label="1인 하루 결제"
+            value={perAgentDay === null ? null : krw(Math.round(perAgentDay))}
+            hint={`${int(daysPresent)}일 평균`}
+            unknownReason="결제 기록 없음"
+          />
+        ) : (
+          <RunEffectStat
+            className="c3"
+            experimentId={indexItem.meta?.experiment_id ?? null}
+            extraSpent={totals ? totals.extra_spent : null}
+            extraKnown={!(events.null_only_fields ?? []).includes('ex')}
+          />
+        )}
         {totals && totals.policy_paid > 0 ? (
           <Stat
             className="c3"

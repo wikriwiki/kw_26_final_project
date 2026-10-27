@@ -172,7 +172,7 @@ export function ExperimentResults() {
             </Card>
           </>
         ) : null}
-        <Card className={paired ? 'c12' : 'c6'}>
+        <Card className="c6">
           <LineChart
             title="오프라인 소비 합계 (하루)"
             series={chartSeries(series, (p) => p.totals.spend_offline ?? null, cohort)}
@@ -180,7 +180,7 @@ export function ExperimentResults() {
             marker={marker}
           />
         </Card>
-        {/* 정책 담당자에게 쓸모없는 줄(기분·영수증 수·빠진 사람)은 정책 실험에서 그리지 않는다 */}
+        {/* 정책 실험에서는 기분·빠진 사람 줄을 그리지 않는다. 소비액·결제 건수는 둔다 */}
         {!paired ? (
         <Card className="c6">
           <LineChart
@@ -201,16 +201,14 @@ export function ExperimentResults() {
           />
         </Card>
         ) : null}
-        {!paired ? (
         <Card className="c6">
           <LineChart
-            title="결제 영수증 수 (하루)"
+            title={paired ? '결제 건수 (하루)' : '결제 영수증 수 (하루)'}
             series={chartSeries(series, (p) => p.totals.receipt_count ?? null, cohort)}
             format={(v) => int(v)}
             marker={marker}
           />
         </Card>
-        ) : null}
       </div>
       {comparison.data && !paired ? <ComparisonCard comparison={comparison.data} experiment={experiment} /> : null}
       {comparison.error ? <ErrorState title="비교를 계산하지 못했습니다" body={comparison.error.message} /> : null}
