@@ -19,7 +19,7 @@ from typing import Any
 
 from . import interview
 from .experiment_interview import interview_agent, spoken
-from .experiments import CONSOLE_DIR, DAY, Experiment, ExperimentStore
+from .experiments import CONSOLE_DIR, DAY, Experiment, ExperimentStore, paired_subset_effect
 from .store import StoreError
 
 FILTER_KEYS = ("gu", "sex", "age_group", "smoking_status", "income_level", "life_stage")
@@ -73,6 +73,15 @@ def select_agents(store: ExperimentStore, experiment_id: str, filters: dict[str,
         values = {str(value) for value in (allowed if isinstance(allowed, list) else [allowed])}
         agents = [agent for agent in agents if str(agent.get(key)) in values]
     return agents
+
+
+def group_effect(store: ExperimentStore, experiment_id: str, filters: dict[str, Any] | None) -> dict[str, Any]:
+    """고른 집단의 정책 효과(같은 시민·같은 날 있음 − 없음). 정책 실험에서만 뜻이 있다."""
+    experiment = store.experiment(experiment_id)
+    if experiment.kind != "policy_paired":
+        raise StoreError(400, "정책 있음·없음을 함께 돌린 실험에서만 집단 효과를 낼 수 있습니다")
+    agents = select_agents(store, experiment_id, filters)
+    return {"filters": filters or {}, "matched": len(agents), **paired_subset_effect(store, experiment, [a["id"] for a in agents])}
 
 
 def _days_through(experiment: Experiment, arm_id: str, through_day: str | None) -> list[tuple[Any, str]]:

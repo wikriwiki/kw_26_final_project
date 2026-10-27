@@ -172,7 +172,7 @@ function buildFeatures(bundle: RunBundle, policy: PolicyBinding): RunFeature[] {
      * 그래서 실행 상태와 무관하게 항상 열려 있다. 대신 각 화면 상단에
      * "이 실행의 산출물이 아니다" 를 명시한다 — 시각화의 EMBED_CASE 와 같은 처리.
      */
-    feature('agents', 'agents', '시민 문답', true, ''),
+    feature('agents', 'agents', '시민 인터뷰', true, ''),
     feature('report', 'report', '보고서', true, ''),
     feature('policy', 'policy', '정책', policy.known && policy.fileKnown, '정책 파일 없음'),
   ];

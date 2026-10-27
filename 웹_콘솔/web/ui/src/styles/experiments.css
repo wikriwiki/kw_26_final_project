@@ -628,6 +628,37 @@
 }
 
 /* 집단 인터뷰 질문 예시 */
+/* 집단별 효과 — 줄 끝 '이 집단에게 묻기' */
+.effects--action .effects__row {
+  grid-template-columns: minmax(96px, 26%) minmax(0, 1fr) minmax(110px, auto) auto;
+}
+.effects__action { display: flex; justify-content: flex-end; }
+.btn--sm { min-height: 32px; padding: 0 var(--sp-3); font-size: var(--fs-caption); }
+.groupeffect__headline { margin: 0 0 var(--sp-3); font-weight: var(--fw-semibold); }
+@media (max-width: 720px) {
+  .effects--action .effects__row { grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; }
+  .effects--action .effects__action { grid-column: 1 / -1; justify-content: flex-start; }
+}
+
+/* 정책 담당자 질문 — 누구에게·무엇을·왜 */
+.presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.preset {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: var(--sp-3); border: var(--hairline); border-radius: var(--radius, 6px);
+  background: var(--surface, transparent); color: inherit; font: inherit; cursor: pointer;
+}
+.preset:hover { border-color: var(--fg-subtle); }
+.preset[aria-pressed="true"] { border-color: var(--fg); box-shadow: inset 0 0 0 1px var(--fg); }
+.preset__who { font-size: var(--fs-caption); font-weight: var(--fw-semibold); color: var(--sim); }
+.preset__q { font-weight: var(--fw-semibold); }
+.preset__why { font-size: var(--fs-caption); color: var(--fg-subtle); }
+
+/* 고른 집단의 정책 효과 — 조건을 바꾸면 바로 바뀐다 */
+.groupnow__title { margin: var(--sp-5) 0 var(--sp-3); padding-top: var(--sp-4); border-top: var(--hairline); font-size: var(--fs-md); font-weight: var(--fw-semibold); }
+.groupnow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--sp-4); }
+.groupnow__moves { grid-column: 1 / -1; margin: 0; color: var(--fg-subtle); font-size: var(--fs-caption); }
+@media (max-width: 720px) { .groupnow { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
 .querychips {
   margin-bottom: var(--sp-3);
 }

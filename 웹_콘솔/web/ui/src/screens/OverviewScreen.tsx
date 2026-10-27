@@ -53,7 +53,7 @@ function policyLine(run: RunContextValue): { value: string; note: string } {
 const ACTIONS: Array<{ key: FeatureKey; label: string; Icon: typeof MapIcon }> = [
   { key: 'results', label: '결과 보기', Icon: BarChartIcon },
   { key: 'visualize', label: '지도에서 보기', Icon: MapIcon },
-  { key: 'agents', label: '시민에게 묻기', Icon: UsersIcon },
+  { key: 'agents', label: '시민 인터뷰', Icon: UsersIcon },
   { key: 'monitor', label: '모니터 보기', Icon: ActivityIcon },
 ];
 
@@ -166,7 +166,18 @@ export function OverviewScreen() {
         </dl>
       </section>
 
-      {/* 1차 블록 2 — 핵심 지표. 결과 화면의 상위 지표를 그대로 쓴다 (같은 숫자를 다르게 찍지 않는다) */}
+      {/* 1차 블록 2 — 핵심 지표. 정책 실행은 정책 효과 하나만 — 원시 합계는 정책 담당자의 판단에 쓰이지 않는다 */}
+      {run.index.meta ? (
+        <div className="grid statrow">
+          <RunEffectStat
+            className="c6"
+            experimentId={run.index.meta.experiment_id}
+            compareHref={run.path('results')}
+            extraSpent={null}
+            extraKnown={false}
+          />
+        </div>
+      ) : (
       <div className="grid statrow">
         <Stat
           className="c3"
@@ -190,7 +201,7 @@ export function OverviewScreen() {
         />
         <RunEffectStat
           className="c3"
-          experimentId={run.index.meta?.experiment_id ?? null}
+          experimentId={null}
           extraSpent={totals ? totals.extra_spent : null}
           extraKnown={!(run.bundle.events.null_only_fields ?? []).includes('ex')}
         />
@@ -202,6 +213,7 @@ export function OverviewScreen() {
           unknownReason="결제 기록 없음"
         />
       </div>
+      )}
 
       {/* 1차 블록 3 — 진행 상황. 끝난 실행에는 보일 것이 없다 */}
       {!completed ? (

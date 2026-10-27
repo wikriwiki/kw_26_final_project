@@ -1,30 +1,50 @@
 /**
- * 집단 질의 — 조건으로 집단을 고르고 (1) 기록 통계를 바로 보거나 (2) 표본에게 같은 질문을 한다.
+ * 집단 질의 — 조건으로 집단을 고르고, 그 집단의 정책 효과를 바로 보고, 표본에게 같은 질문을 한다.
  *
- * 통계는 LLM 없이 봉인된 하루 집계로 계산한다. 집단 인터뷰는 1대1 인터뷰와 같은 근거 규칙으로 한 명씩 묻고,
- * 끝나면 답들을 모델이 요약한다 — 요약은 확인되지 않은 정리라서 개별 답과 나눠 보여 준다.
+ * 정책 실험(정책 있음·없음을 함께 돌린 것)은 정책 담당자가 쓰는 화면이다.
+ *   - 인터뷰는 늘 '정책 있음' 쪽 시민에게, 정책 시행 뒤 마지막 날까지의 기록으로 묻는다(날짜를 고르지 않는다).
+ *   - 조건을 바꾸면 그 집단의 효과(같은 시민·같은 날 있음 ÷ 없음 − 1)가 바로 바뀐다.
+ *   - 질문은 '누구에게·무엇을·왜' 묶음으로 고른다. 누르면 집단과 질문이 함께 채워진다.
+ * 다른 실험(금연구역 등)은 예전처럼 기록 통계를 본다.
+ *
+ * 집단 인터뷰는 1대1 인터뷰와 같은 근거 규칙으로 한 명씩 묻고, 끝나면 답들을 모델이 요약한다 —
+ * 요약은 확인되지 않은 정리라서 개별 답과 나눠 보여 준다.
  */
 import { useEffect, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Badge } from '../../components/Badge';
 import { Button } from '../../components/Button';
 import { Card, Stat } from '../../components/Card';
 import { Callout, ErrorState } from '../../components/Feedback';
 import { SelectField, TextAreaField, TextField } from '../../components/Field';
-import { dec, int, percent } from '../../lib/format';
-import { experimentsApi, SMOKING_TEXT, useResource } from '../../lib/experiments';
-import type { ExperimentSummary, GroupDescribe, GroupFilters, GroupJob, GroupStats, RosterAgent } from '../../lib/experiments';
+import { dec, int, krw, percent } from '../../lib/format';
+import { experimentsApi, questionPresets, SMOKING_TEXT, useResource } from '../../lib/experiments';
+import type {
+  ExperimentSummary,
+  GroupDescribe,
+  GroupEffect,
+  GroupFilters,
+  GroupJob,
+  GroupStats,
+  QuestionPreset,
+  RosterAgent,
+} from '../../lib/experiments';
 import { READ_ONLY } from '../../lib/runtime';
 import { useExperiment } from './ExperimentWorkspace';
+import { groupValueLabel, pct } from './PolicyPanels';
 
 type FilterKey = 'gu' | 'smoking_status' | 'sex' | 'age_group' | 'income_level';
+// 정책 담당자가 먼저 나누는 순서: 나이 → 소득 → 성별 → 사는 곳
 const FILTERS: Array<{ key: FilterKey; label: string; text?: (value: string) => string }> = [
-  { key: 'gu', label: '사는 구' },
-  { key: 'smoking_status', label: '흡연', text: (v) => SMOKING_TEXT[v] ?? v },
-  { key: 'sex', label: '성별', text: (v) => (v === 'F' ? '여' : v === 'M' ? '남' : v) },
-  { key: 'age_group', label: '연령대' },
+  { key: 'age_group', label: '연령대', text: (v) => groupValueLabel('age_group', v) },
   { key: 'income_level', label: '소득' },
+  { key: 'sex', label: '성별', text: (v) => (v === 'F' ? '여' : v === 'M' ? '남' : v) },
+  { key: 'smoking_status', label: '흡연', text: (v) => SMOKING_TEXT[v] ?? v },
+  { key: 'gu', label: '사는 구' },
 ];
+const FILTER_KEYS = FILTERS.map((f) => f.key);
+const EMPTY: Record<FilterKey, string[]> = { gu: [], smoking_status: [], sex: [], age_group: [], income_level: [] };
 const BREAKDOWN_LABEL: Record<string, string> = { smoking_status: '흡연 여부', gu: '사는 구', sex: '성별', age_group: '연령대' };
 
 /** 집단끼리 견줄 때는 만원 단위로 뭉개지 않는다 */
@@ -51,6 +71,14 @@ function values(agents: RosterAgent[], key: FilterKey): string[] {
     return list.sort((x, y) => (INCOME_ORDER.indexOf(x) + 99 * Number(!INCOME_ORDER.includes(x))) - (INCOME_ORDER.indexOf(y) + 99 * Number(!INCOME_ORDER.includes(y))));
   }
   return list.sort((x, y) => x.localeCompare(y, 'ko'));
+}
+
+/** 고른 조건을 사람이 읽는 말로: "70대 이상 · 소득 하" */
+function describeFilters(filters: GroupFilters): string {
+  const parts = (Object.entries(filters) as Array<[string, string[] | undefined]>)
+    .filter(([, list]) => list && list.length)
+    .map(([key, list]) => (list as string[]).map((v) => (key === 'sex' ? (v === 'F' ? '여성' : '남성') : key === 'smoking_status' ? (SMOKING_TEXT[v] ?? v) : groupValueLabel(key, v))).join('·'));
+  return parts.length ? parts.join(' · ') : '전체';
 }
 
 function DescribeRow({ name, d, target }: { name: string; d: GroupDescribe; target: boolean }) {
@@ -113,6 +141,60 @@ function StatsView({ stats, target }: { stats: GroupStats; target: boolean }) {
   );
 }
 
+/** 고른 집단의 정책 효과 — 조건이 바뀔 때마다 다시 센다 */
+function GroupEffectNow({ effect, overall, loading }: { effect: GroupEffect | null; overall: number | null; loading: boolean }) {
+  if (!effect) return <p className="card__note">{loading ? '이 집단의 정책 효과를 세는 중…' : ''}</p>;
+  if (!effect.available || !effect.rows) return <p className="card__note">{effect.reason ?? '효과를 낼 수 없습니다.'}</p>;
+  const total = effect.rows.find((r) => r.key === 'total');
+  const shop = effect.rows.find((r) => r.key === 'shop');
+  const moved = effect.rows
+    .filter((r) => r.group === 'category' && r.significant && r.effect !== null)
+    .sort((a, b) => Math.abs(b.effect as number) - Math.abs(a.effect as number))
+    .slice(0, 4);
+  const grant = (effect.wallet?.on_total ?? 0) > 0;
+  const diff = total?.effect != null && overall != null ? total.effect - overall : null;
+  return (
+    <div className="groupnow" aria-live="polite" style={loading ? { opacity: 0.55 } : undefined}>
+      <Stat
+        label="총소비 효과"
+        value={pct(total?.effect)}
+        hint={
+          total?.ci95
+            ? `${pct(total.ci95[0])} ~ ${pct(total.ci95[1])}${total.significant ? '' : ' · 유의하지 않음'}`
+            : undefined
+        }
+        unknownReason="기록 없음"
+      />
+      <Stat
+        label="전체 평균과 차이"
+        value={diff === null ? null : `${diff >= 0 ? '+' : ''}${(diff * 100).toFixed(1)}%p`}
+        hint={overall === null ? undefined : `전체 ${pct(overall)}`}
+        unknownReason="—"
+      />
+      <Stat label="가게 소비 효과" value={pct(shop?.effect)} hint="온라인 제외" unknownReason="기록 없음" />
+      {grant ? (
+        <Stat
+          label="지원금 1원당 늘어난 소비"
+          value={effect.spend_per_grant == null ? null : `${effect.spend_per_grant.toFixed(2)}원`}
+          hint={`쓴 지원금 1인 하루 ${krw(effect.wallet?.per_agent_day ?? 0)}`}
+          unknownReason="—"
+        />
+      ) : (
+        <Stat
+          label="1인 하루 소비 변화"
+          value={effect.uplift_per_agent_day == null ? null : `${effect.uplift_per_agent_day >= 0 ? '+' : '−'}${int(Math.abs(effect.uplift_per_agent_day))}원`}
+          unknownReason="—"
+        />
+      )}
+      <p className="groupnow__moves">
+        {moved.length
+          ? `유의하게 바뀐 업종: ${moved.map((r) => `${r.label} ${pct(r.effect)}`).join(' · ')}`
+          : '이 집단에서 유의하게 바뀐 업종은 없습니다.'}
+      </p>
+    </div>
+  );
+}
+
 function JobView({ job }: { job: GroupJob }) {
   return (
     <div className="stack">
@@ -130,8 +212,16 @@ function JobView({ job }: { job: GroupJob }) {
         {job.results.map((r) => (
           <li key={r.agent_id} className="answers__item">
             <p className="answers__who">
-              <span className="num">{r.agent_id}</span>
-              {[r.gu, r.age_group, r.smoking_status ? SMOKING_TEXT[r.smoking_status] : null].filter(Boolean).map((v) => ` · ${v}`).join('')}
+              {[
+                r.gu,
+                r.age_group ? groupValueLabel('age_group', r.age_group) : null,
+                r.sex ? (r.sex === 'F' ? '여성' : r.sex === 'M' ? '남성' : r.sex) : null,
+                r.income_level ? `소득 ${r.income_level}` : null,
+                r.smoking_status ? SMOKING_TEXT[r.smoking_status] : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              <span className="num"> · {r.agent_id}</span>
             </p>
             {r.error ? <Callout tone="warn">{r.error}</Callout> : <p>{r.answer}</p>}
           </li>
@@ -146,27 +236,61 @@ export function ExperimentQuery() {
   return <GroupQuery experiment={experiment} />;
 }
 
+/** 주소에 실린 조건(?age_group=70대이상)을 처음 값으로 */
+function filtersFrom(params: URLSearchParams): Record<FilterKey, string[]> {
+  const out = { ...EMPTY };
+  FILTER_KEYS.forEach((key) => {
+    out[key] = params.getAll(key);
+  });
+  return out;
+}
+
+/** 프리셋이 가리키는 집단 — 다른 조건은 비운다 */
+function filtersOf(preset: QuestionPreset): Record<FilterKey, string[]> {
+  const out = { ...EMPTY };
+  Object.entries(preset.who ?? {}).forEach(([key, list]) => {
+    if ((FILTER_KEYS as string[]).includes(key)) out[key as FilterKey] = [...(list ?? [])];
+  });
+  return out;
+}
+
+const sameFilters = (a: Record<FilterKey, string[]>, b: Record<FilterKey, string[]>) =>
+  FILTER_KEYS.every((key) => [...a[key]].sort().join('|') === [...b[key]].sort().join('|'));
+
 /**
- * 실험 하나에 대한 집단 질의. 정책 실행의 시민 문답 화면도 이것을 쓴다(`armId` 로 '정책 있음'을 고정해 넘긴다).
+ * 실험 하나에 대한 집단 질의. 정책 실행의 시민 인터뷰 화면도 이것을 쓴다(`armId` 로 '정책 있음'을 고정해 넘긴다).
  */
 export function GroupQuery({ experiment, armId: fixedArm }: { experiment: ExperimentSummary; armId?: string }) {
   const id = experiment.experiment_id;
   const target = experiment.kind === 'no_smoking_zone';
+  const paired = experiment.kind === 'policy_paired';
+  const treated = experiment.arms.find((arm) => arm.role === 'treatment')?.arm_id;
+  const [params] = useSearchParams();
   const roster = useResource(() => experimentsApi.roster(id), id);
+  const overall = useResource(
+    () => (paired ? experimentsApi.comparison(id) : Promise.resolve(null)),
+    `comparison:${paired ? id : '-'}`,
+  );
   const agents = useMemo(() => roster.data?.items ?? [], [roster.data]);
   const defaultArm = [...experiment.arms].reverse().find((arm) => arm.days_present > 0)?.arm_id ?? experiment.arms[0].arm_id;
-  const [armId, setArmId] = useState(fixedArm ?? defaultArm);
-  const [filters, setFilters] = useState<Record<FilterKey, string[]>>({ gu: [], smoking_status: [], sex: [], age_group: [], income_level: [] });
+  // 정책 실험은 늘 정책 있음 쪽, 시행 뒤 기록으로 묻는다
+  const lockedArm = fixedArm ?? (paired ? treated : undefined);
+  const [armId, setArmId] = useState(lockedArm ?? defaultArm);
+  const [filters, setFilters] = useState<Record<FilterKey, string[]>>(() => filtersFrom(params));
   const [stats, setStats] = useState<GroupStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [effect, setEffect] = useState<GroupEffect | null>(null);
+  const [effectLoading, setEffectLoading] = useState(false);
   const [question, setQuestion] = useState('');
   const [sample, setSample] = useState('6');
   const [job, setJob] = useState<GroupJob | null>(null);
   const [jobError, setJobError] = useState<string | null>(null);
+  const presets = questionPresets(experiment);
 
   const payloadFilters: GroupFilters = Object.fromEntries(
     Object.entries(filters).filter(([, list]) => list.length).map(([key, list]) => [key, list]),
   );
+  const filterKey = JSON.stringify(payloadFilters);
   const matched = agents.filter((a) =>
     (Object.entries(filters) as Array<[FilterKey, string[]]>).every(([key, list]) => !list.length || list.includes((a[key] ?? 'unknown') as string)),
   ).length;
@@ -178,6 +302,37 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
     });
   }
 
+  function choose(preset: QuestionPreset) {
+    setFilters(filtersOf(preset));
+    setQuestion(preset.q);
+    setJob(null);
+  }
+
+  // 조건이 바뀌면 그 집단의 효과를 다시 센다(정책 실험만). 빠르게 여러 번 눌러도 마지막 것만 남긴다
+  useEffect(() => {
+    if (!paired) return;
+    let alive = true;
+    setEffectLoading(true);
+    const timer = window.setTimeout(() => {
+      experimentsApi.groupEffect(id, JSON.parse(filterKey) as GroupFilters).then(
+        (value) => {
+          if (!alive) return;
+          setEffect(value);
+          setEffectLoading(false);
+        },
+        (e: Error) => {
+          if (!alive) return;
+          setEffect({ filters: {}, matched: 0, available: false, reason: e.message });
+          setEffectLoading(false);
+        },
+      );
+    }, 250);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [id, paired, filterKey]);
+
   function runStats() {
     setStatsError(null);
     experimentsApi.groupStats(id, { arm_id: armId, filters: payloadFilters }).then(setStats, (e) => setStatsError(e.message));
@@ -187,7 +342,7 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
     event.preventDefault();
     setJobError(null);
     experimentsApi
-      .groupInterview(id, { arm_id: armId, filters: payloadFilters, question: question.trim(), sample: Number(sample) || 8, seed: 0 })
+      .groupInterview(id, { arm_id: armId, filters: payloadFilters, question: question.trim(), sample: Number(sample) || 6, seed: 0 })
       .then(setJob, (e) => setJobError(e.message));
   }
 
@@ -201,11 +356,37 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
 
   if (roster.error) return <ErrorState title="명단을 불러오지 못했습니다" body={roster.error.message} />;
 
+  const overallEffect = overall.data?.rows?.find((r) => r.key === 'total')?.effect ?? null;
+  const who = describeFilters(payloadFilters);
+
   return (
     <div className="stack">
-      <Card title="집단 고르기" note={`지금 조건에 맞는 사람 ${int(matched)}명`}>
+      {paired && presets.some((p) => p.who || p.why) && !READ_ONLY ? (
+        <Card title="정책 담당자 질문" note="누르면 묻을 집단과 질문이 함께 채워집니다. 아래에서 바로 묻기를 누르세요.">
+          <div className="presets" role="group" aria-label="정책 담당자 질문">
+            {presets.map((preset) => (
+              <button
+                key={preset.q}
+                type="button"
+                className="preset"
+                aria-pressed={question === preset.q && sameFilters(filters, filtersOf(preset))}
+                onClick={() => choose(preset)}
+              >
+                <span className="preset__who">{preset.who_label ?? describeFilters(preset.who ?? {})}</span>
+                <span className="preset__q">{preset.q}</span>
+                {preset.why ? <span className="preset__why">{preset.why}</span> : null}
+              </button>
+            ))}
+          </div>
+        </Card>
+      ) : null}
+
+      <Card
+        title={paired ? `누구에게 · ${who}` : '집단 고르기'}
+        note={`조건에 맞는 사람 ${int(matched)}명${paired ? ' · 정책 시행 뒤 기록' : ''}`}
+      >
         <div className="querybuilder">
-          {fixedArm ? null : (
+          {lockedArm ? null : (
             <SelectField label="기록" value={armId} onChange={(e) => setArmId(e.target.value)} options={experiment.arms.map((arm) => ({ value: arm.arm_id, label: arm.label }))} />
           )}
           {/* 값이 하나뿐인 조건(이 실험에 없는 항목)은 고를 것이 없다 */}
@@ -221,37 +402,46 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
             </fieldset>
           ))}
         </div>
-        <div className="querybuilder__actions">
-          <Button variant="secondary" onClick={runStats} disabled={!matched}>
-            기록 통계 보기
-          </Button>
-        </div>
+        {paired ? (
+          <>
+            <h4 className="groupnow__title">{who} — 정책 효과 (같은 시민·같은 날)</h4>
+            <GroupEffectNow effect={effect} overall={overallEffect} loading={effectLoading} />
+          </>
+        ) : (
+          <div className="querybuilder__actions">
+            <Button variant="secondary" onClick={runStats} disabled={!matched}>
+              기록 통계 보기
+            </Button>
+          </div>
+        )}
         {statsError ? <Callout tone="warn">{statsError}</Callout> : null}
       </Card>
-      {stats ? (
+      {stats && !paired ? (
         <Card title="기록 통계" aside={<Badge>기록 집계</Badge>}>
           <StatsView stats={stats} target={target} />
         </Card>
       ) : null}
-      <Card title="집단 인터뷰" note="고른 사람 중 몇 명에게 같은 질문을 합니다 (최대 30명).">
+      <Card title={paired ? '무엇을 물을까' : '집단 인터뷰'} note="고른 집단에서 몇 명을 뽑아 같은 질문을 합니다 (최대 30명).">
         {!READ_ONLY ? (
           <>
-          {experiment.questions?.length ? (
-            <div className="segment querychips" role="group" aria-label="질문 예시">
-              {experiment.questions.map((text) => (
-                <button key={text} type="button" className="segment__btn" aria-pressed={question === text} onClick={() => setQuestion(text)}>
-                  {text}
-                </button>
-              ))}
-            </div>
-          ) : null}
-          <form className="queryform" onSubmit={startInterview}>
-            <TextAreaField label="질문" value={question} rows={2} maxLength={500} onChange={(e) => setQuestion(e.target.value)} />
-            <TextField label="표본 수" type="number" min={1} max={30} value={sample} onChange={(e) => setSample(e.target.value)} />
-            <Button type="submit" variant="primary" disabled={!question.trim() || !matched || job?.state === 'running'} busy={job?.state === 'running'} busyLabel="묻는 중">
-              묻기
-            </Button>
-          </form>
+            {!paired || !presets.some((p) => p.who || p.why) ? (
+              presets.length ? (
+                <div className="segment querychips" role="group" aria-label="질문 예시">
+                  {presets.map((preset) => (
+                    <button key={preset.q} type="button" className="segment__btn" aria-pressed={question === preset.q} onClick={() => setQuestion(preset.q)}>
+                      {preset.q}
+                    </button>
+                  ))}
+                </div>
+              ) : null
+            ) : null}
+            <form className="queryform" onSubmit={startInterview}>
+              <TextAreaField label="질문" value={question} rows={2} maxLength={500} onChange={(e) => setQuestion(e.target.value)} />
+              <TextField label="표본 수" type="number" min={1} max={30} value={sample} onChange={(e) => setSample(e.target.value)} />
+              <Button type="submit" variant="primary" disabled={!question.trim() || !matched || job?.state === 'running'} busy={job?.state === 'running'} busyLabel="묻는 중">
+                묻기
+              </Button>
+            </form>
           </>
         ) : (
           <p className="card__note">읽기 전용 배포에서는 집단 인터뷰를 할 수 없습니다.</p>

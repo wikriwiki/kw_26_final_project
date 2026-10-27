@@ -1911,6 +1911,14 @@ def _compact_summary(bundle: dict[str, Any]) -> str:
         lines.append("유의하게 늘어난 업종: " + ", ".join(f"{esc(r['label'])} {esc(_effect(r['effect']))}" for r in up) + ".")
     if down:
         lines.append("유의하게 줄어든 업종: " + ", ".join(f"{esc(r['label'])} {esc(_effect(r['effect']))}" for r in down) + ".")
+    for dim in ("age_group", "income_level"):
+        extremes = _group_extremes((paired.get("by_group") or {}).get(dim) or [])
+        if extremes:
+            top, low = extremes
+            lines.append(
+                f"{GROUP_DIM_LABEL[dim]}별로 효과가 가장 큰 집단은 {esc(_group_value(dim, top['value']))}({esc(_effect(top['total']['effect']))}), "
+                f"가장 작은 집단은 {esc(_group_value(dim, low['value']))}({esc(_effect(low['total']['effect']))})."
+            )
     wallet = paired.get("wallet") or {}
     if (wallet.get("on_total") or 0) > 0:
         lines.append(f"지원금은 시민 1명이 하루 평균 {esc(krw(wallet.get('per_agent_day')))}원씩 썼다 (기간 합계 {esc(krw(wallet.get('on_total')))}원).")
@@ -1996,6 +2004,52 @@ def _compact_limits(bundle: dict[str, Any]) -> str:
     return "<ul>" + "".join(f"<li>{x}</li>" for x in items) + "</ul>"
 
 
+GROUP_DIM_LABEL = {"age_group": "연령대", "income_level": "소득", "sex": "성별"}
+
+
+def _group_value(dim: str, value: str) -> str:
+    if dim == "sex":
+        return {"F": "여성", "M": "남성"}.get(value, value)
+    if dim == "income_level":
+        return f"소득 {value}"
+    return "70대 이상" if value == "70대이상" else value
+
+
+def _group_extremes(rows: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any]] | None:
+    known = [r for r in rows if (r.get("total") or {}).get("effect") is not None]
+    if len(known) < 2:
+        return None
+    ordered = sorted(known, key=lambda r: abs(r["total"]["effect"]), reverse=True)
+    return ordered[0], ordered[-1]
+
+
+def _compact_groups(bundle: dict[str, Any]) -> str:
+    paired = bundle.get("paired") or {}
+    groups = paired.get("by_group") or {}
+    grant = ((paired.get("wallet") or {}).get("on_total") or 0) > 0
+    cols = [("집단", ""), ("시민", "n"), ("총소비 효과", "n"), ("95% 신뢰구간", "n"), ("판정", "")]
+    if grant:
+        cols.append(("지원금 1원당 늘어난 소비", "n"))
+    rows = []
+    for dim, label in GROUP_DIM_LABEL.items():
+        for r in groups.get(dim) or []:
+            total = r.get("total") or {}
+            line = [
+                f"{label} · {esc(r['value'] if dim == 'income_level' else _group_value(dim, r['value']))}",
+                f"{int(r.get('agents') or 0):,}명",
+                f'<span class="num">{esc(_effect(total.get("effect")))}</span>',
+                f'<span class="num">{esc(_ci(total.get("ci95")))}</span>',
+                esc(_verdict(total)),
+            ]
+            if grant:
+                ratio = r.get("spend_per_grant")
+                line.append("—" if ratio is None else f"{ratio:.2f}원")
+            rows.append(line)
+    body = [table(cols, rows)]
+    body.append('<p class="caption">같은 시민·같은 날의 정책 있음 ÷ 없음 − 1을 집단마다 다시 셌다. 30명 미만 집단은 뺐다.</p>')
+    return "".join(body)
+
+
 def build_compact_html(bundle: dict[str, Any], *, title: str) -> str:
     """정책 실행용 요약판. 심사·시연에서 바로 읽히는 숫자만 남긴다."""
     has_validation = bool(((bundle.get("paired") or {}).get("validation") or {}).get("rows"))
@@ -2003,6 +2057,8 @@ def build_compact_html(bundle: dict[str, Any], *, title: str) -> str:
         ("c1", "요약", "", _compact_summary(bundle)),
         ("c2", "정책 있음·없음 비교", "같은 시민·같은 날. 유의한 업종만.", _compact_paired(bundle)),
     ]
+    if (bundle.get("paired") or {}).get("by_group"):
+        plan.append(("c5", "누가 반응했나", "연령대·소득·성별 집단마다 같은 비교.", _compact_groups(bundle)))
     if has_validation:
         plan.append(("c3", "실측 연구와 비교", "공개 연구의 추정치와 같은 정의로 견줬다.", _compact_validation(bundle)))
     plan.append(("c4", "근거와 한계", "", _compact_limits(bundle)))

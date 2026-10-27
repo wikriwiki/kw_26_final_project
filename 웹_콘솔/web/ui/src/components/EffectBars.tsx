@@ -2,6 +2,8 @@
  * 효과 막대 — 0 을 가운데에 두고 정책 효과(%)를 좌우로 그린다. 가는 선은 95% 신뢰구간.
  * 구간이 0 을 걸치면 막대를 옅게 그린다(유의하지 않음). 점추정의 부호는 그대로 적는다.
  */
+import type { ReactNode } from 'react';
+
 export interface EffectItem {
   key: string;
   label: string;
@@ -9,6 +11,8 @@ export interface EffectItem {
   ci: [number, number] | null;
   significant: boolean;
   sub?: string;
+  /** 줄 끝에 둘 동작(예: 이 집단에게 묻기) */
+  action?: ReactNode;
 }
 
 const pct = (v: number) => `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
@@ -22,7 +26,7 @@ export function EffectBars({ items, span }: { items: EffectItem[]; span?: number
   const pos = (v: number) => 50 + (Math.max(-extent, Math.min(extent, v)) / extent) * 50;
 
   return (
-    <ul className="effects" role="list">
+    <ul className={`effects${shown.some((it) => it.action) ? ' effects--action' : ''}`} role="list">
       {shown.map((it) => {
         const e = it.effect as number;
         const left = Math.min(pos(0), pos(e));
@@ -44,6 +48,7 @@ export function EffectBars({ items, span }: { items: EffectItem[]; span?: number
               <b>{pct(e)}</b>
               {it.ci ? <small>{`${pct(it.ci[0])} ~ ${pct(it.ci[1])}`}</small> : null}
             </span>
+            {it.action ? <span className="effects__action">{it.action}</span> : null}
           </li>
         );
       })}

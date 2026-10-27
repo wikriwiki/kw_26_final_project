@@ -34,7 +34,7 @@ import { BarList } from '../components/Meter';
 import { int } from '../lib/format';
 import { askAgent } from '../lib/interview';
 import { useRun } from '../app/RunContext';
-import { experimentsApi, useResource } from '../lib/experiments';
+import { experimentsApi, questionPresets, useResource } from '../lib/experiments';
 import { GroupQuery } from './experiment/ExperimentQuery';
 import {
   EMPTY_FILTER,
@@ -194,11 +194,6 @@ const HOURS = Array.from({ length: 24 }, (_, h) => ({
   label: `${String(h).padStart(2, '0')}시대`,
 }));
 
-const DECILES = Array.from({ length: 10 }, (_, i) => ({
-  value: String(i + 1),
-  label: `${i + 1}분위`,
-}));
-
 interface Turn {
   key: number;
   question: string;
@@ -266,16 +261,20 @@ export function AgentScreen() {
 
       <header className="pagehead">
         <div className="pagehead__text">
-          <h1 className="pagehead__title">시민 문답</h1>
+          <h1 className="pagehead__title">{experimentId ? '시민 인터뷰' : '시민 문답'}</h1>
           <p className="pagehead__purpose">
-            {group ? '조건으로 여러 시민을 골라 같은 질문을 합니다.' : '시민 한 명을 골라 질문합니다.'}
+            {group
+              ? '정책 시행 뒤, 고른 집단에게 같은 질문을 합니다.'
+              : experimentId
+                ? '정책 시행 뒤, 시민 한 명에게 묻습니다.'
+                : '시민 한 명을 골라 질문합니다.'}
           </p>
         </div>
         {experimentId ? (
           <div className="pagehead__actions">
             <div className="segment" role="group" aria-label="묻는 방식">
               <button type="button" className="segment__btn" aria-pressed={group} onClick={() => setMode('group')}>
-                여러 명에게
+                집단에게
               </button>
               <button type="button" className="segment__btn" aria-pressed={!group} onClick={() => setMode('one')}>
                 한 명에게
@@ -396,15 +395,6 @@ function Workspace({ roster }: { roster: Roster }) {
               ]}
             />
           </div>
-          <div className="c6">
-            <SelectField
-              label="소비 분위"
-              value={filter.dec}
-              onChange={(e) => set('dec', e.currentTarget.value)}
-              options={[{ value: '', label: '전체' }, ...DECILES]}
-              help="평일 하루 소비 예산 순위"
-            />
-          </div>
         </div>
 
         {filtered.length === 0 ? (
@@ -417,9 +407,6 @@ function Workspace({ roster }: { roster: Roster }) {
           <RosterList items={filtered} selected={selected} onSelect={select} />
         )}
 
-        <p className="card__note">
-          소비 분위: 평일 하루 소비 예산 기준 10등분
-        </p>
       </Card>
 
       <div className="c8">
@@ -575,11 +562,12 @@ function Conversation({
   const { runId = '' } = useParams();
   // 정책 실행이면 자유 질문은 실험 인터뷰(그 사람의 전 기간 기록 + K-EXAONE)로 묻는다
   const experimentId = useRun().index.meta?.experiment_id ?? null;
-  const policyQuestions =
+  const policyQuestions = questionPresets(
     useResource(
       () => (experimentId ? experimentsApi.detail(experimentId) : Promise.resolve(null)),
       `experiment:${experimentId ?? '-'}`,
-    ).data?.questions ?? [];
+    ).data,
+  ).map((preset) => preset.q);
 
   useEffect(() => {
     let alive = true;
@@ -726,7 +714,8 @@ function Conversation({
         </div>
       </Card>
 
-      {/* 언제를 기준으로 묻는가 */}
+      {/* 언제를 기준으로 묻는가 — 정책 실행은 늘 정책 시행 뒤 기록으로 묻는다. 날짜를 고르게 하지 않는다 */}
+      {experimentId ? null : (
       <Card title="기준 시점">
         <div className="segment" role="group" aria-label="날짜 선택">
           {days.map((d, i) => (
@@ -753,6 +742,7 @@ function Conversation({
           </div>
         </div>
       </Card>
+      )}
 
       {/* 물어보기 */}
       <Card title="물어보기">
@@ -769,23 +759,32 @@ function Conversation({
               </div>
             </>
           ) : null}
-          <p className="ag-ask__cap">{days[dayIdx]} 기록</p>
-          <div className="segment" role="group" aria-label={`${days[dayIdx]} 에 대한 질문`}>
-            {dayQs.map((q) => (
-              <button key={q.id} type="button" className="segment__btn" onClick={() => ask(q)}>
-                {q.text}
-              </button>
-            ))}
-          </div>
+          {experimentId ? null : (
+            <>
+              <p className="ag-ask__cap">{days[dayIdx]} 기록</p>
+              <div className="segment" role="group" aria-label={`${days[dayIdx]} 에 대한 질문`}>
+                {dayQs.map((q) => (
+                  <button key={q.id} type="button" className="segment__btn" onClick={() => ask(q)}>
+                    {q.text}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
-          <p className="ag-ask__cap">이 사람에 대해</p>
-          <div className="segment" role="group" aria-label="기간 전체에 대한 질문">
-            {lifeQs.map((q) => (
-              <button key={q.id} type="button" className="segment__btn" onClick={() => ask(q)}>
-                {q.text}
-              </button>
-            ))}
-          </div>
+          {/* 정책 실행은 정책에 대한 질문과 직접 묻기만 — 기억·소문·약속 같은 기록 조회는 정책 판단에 쓰이지 않는다 */}
+          {experimentId ? null : (
+            <>
+              <p className="ag-ask__cap">이 사람에 대해</p>
+              <div className="segment" role="group" aria-label="기간 전체에 대한 질문">
+                {lifeQs.map((q) => (
+                  <button key={q.id} type="button" className="segment__btn" onClick={() => ask(q)}>
+                    {q.text}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
           <div className="ag-free">
             <TextField
@@ -801,7 +800,7 @@ function Conversation({
                   submit();
                 }
               }}
-              placeholder="이 날 왜 거기에 갔나요?"
+              placeholder={experimentId ? '정책이 생활에 어떤 영향을 줬나요?' : '이 날 왜 거기에 갔나요?'}
               help="목록에 없는 질문은 K-EXAONE이 이 시민의 기록을 근거로 답합니다."
               error={
                 miss

@@ -70,10 +70,23 @@ export interface ExperimentSummary {
   remote_profile: string | null;
   mirror: boolean;
   bundle_present?: boolean;
-  /** 시민 문답에서 누를 질문 예시 */
-  questions?: string[];
+  /** 시민 문답에서 누를 질문 — 문자열(옛 형식) 또는 '누구에게·무엇을·왜' 프리셋 */
+  questions?: Array<string | QuestionPreset>;
   /** 실측 연구와의 비교 (평가_통합성능에서 옮김) */
   validation?: Validation | null;
+}
+
+/** 정책 담당자가 누를 질문 하나: 어떤 집단에게(who) 무엇을(q) 왜(why) 묻는가 */
+export interface QuestionPreset {
+  q: string;
+  who?: GroupFilters;
+  who_label?: string;
+  why?: string;
+}
+
+/** 옛 형식(문자열 목록)도 같은 모양으로 읽는다 */
+export function questionPresets(experiment: { questions?: Array<string | QuestionPreset> } | null | undefined): QuestionPreset[] {
+  return (experiment?.questions ?? []).map((item) => (typeof item === 'string' ? { q: item } : item));
 }
 
 export interface ValidationRow {
@@ -152,8 +165,39 @@ export interface Comparison {
   paired_agent_days?: number;
   rows?: PairedRow[];
   wallet?: { on_total: number; per_agent_day: number };
+  /** 정책 있음 − 없음, 1인 하루 총소비 차이(원) */
+  uplift_per_agent_day?: number;
+  /** 지원금 1원당 늘어난 총소비. 지원금이 없는 정책은 null */
+  spend_per_grant?: number | null;
+  /** 연령대·소득·성별 집단마다 같은 계산 */
+  by_group?: Partial<Record<GroupDimension, GroupEffectRow[]>>;
   daily?: Array<{ day: string; pairs: number; off: number; on: number; effect: number | null }>;
   method?: { pairing: string; effect: string; ci: string };
+}
+
+export type GroupDimension = 'age_group' | 'income_level' | 'sex';
+
+export interface GroupEffectRow {
+  value: string;
+  agents: number;
+  wallet: { on_total: number; per_agent_day: number };
+  uplift_per_agent_day: number;
+  spend_per_grant: number | null;
+  total: PairedRow;
+  shop: PairedRow;
+}
+
+/** 조건으로 고른 집단 하나의 정책 효과 */
+export interface GroupEffect {
+  filters: GroupFilters;
+  matched: number;
+  available: boolean;
+  reason?: string;
+  agents?: number;
+  rows?: PairedRow[];
+  wallet?: { on_total: number; per_agent_day: number };
+  uplift_per_agent_day?: number;
+  spend_per_grant?: number | null;
 }
 
 export interface PairedRow {
@@ -294,6 +338,7 @@ export interface GroupJob {
     gu?: string | null;
     sex?: string | null;
     age_group?: string | null;
+    income_level?: string | null;
     smoking_status?: string | null;
     answer?: string;
     error?: string;
@@ -340,6 +385,7 @@ export const experimentsApi = {
     request<GroupStats>(`/experiments/${enc(id)}/query/stats`, post(body)),
   groupInterview: (id: string, body: { arm_id: string; filters: GroupFilters; question: string; sample: number; seed: number; through_day?: string | null }) =>
     request<GroupJob>(`/experiments/${enc(id)}/query/interviews`, post(body)),
+  groupEffect: (id: string, filters: GroupFilters) => request<GroupEffect>(`/experiments/${enc(id)}/query/effect`, post({ filters })),
   groupInterviewStatus: (id: string, jobId: string) => request<GroupJob>(`/experiments/${enc(id)}/query/interviews/${enc(jobId)}`),
   syncStatus: (id: string) => request<SyncStatus>(`/experiments/${enc(id)}/sync`),
   syncStart: (id: string) => request<SyncStatus>(`/experiments/${enc(id)}/sync`, { method: 'POST' }),

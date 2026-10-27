@@ -97,7 +97,7 @@ class Experiment:
     source_branch: str | None = None
     origin: str = "repo"
     # 시민 문답에서 누를 질문 예시, 실측 연구와의 비교(평가_통합성능에서 옮김)
-    questions: tuple[str, ...] = ()
+    questions: tuple[Any, ...] = ()
     # 정책 있는 쪽 시민이 시행 뒤 알고 있는 정책 안내 (시민 문답 프롬프트에만 쓴다)
     interview_context: str = ""
     validation: dict[str, Any] = field(default_factory=dict)
@@ -151,6 +151,18 @@ class Experiment:
         }
 
 
+def _question(item: Any) -> Any:
+    """질문 하나 — 문자열, 또는 누구에게(who)·무엇을(q)·왜(why) 묶음. 비었으면 None."""
+    if isinstance(item, dict):
+        text = str(item.get("q") or "").strip()
+        if not text:
+            return None
+        who = {str(k): [str(v) for v in (vals if isinstance(vals, list) else [vals])] for k, vals in (item.get("who") or {}).items()}
+        return {"q": text, "who": who, "who_label": str(item.get("who_label") or ""), "why": str(item.get("why") or "")}
+    text = str(item or "").strip()
+    return text or None
+
+
 def _parse_experiment(raw: dict[str, Any], origin: str) -> Experiment:
     experiment_id = str(raw.get("experiment_id") or "")
     if not EXPERIMENT_ID.match(experiment_id):
@@ -191,7 +203,7 @@ def _parse_experiment(raw: dict[str, Any], origin: str) -> Experiment:
         remote=dict(raw.get("remote") or {}),
         source_branch=raw.get("source_branch"),
         origin=origin,
-        questions=tuple(str(q) for q in raw.get("questions") or [] if str(q).strip()),
+        questions=tuple(_question(q) for q in raw.get("questions") or [] if _question(q)),
         interview_context=str(raw.get("interview_context") or "").strip(),
         validation=dict(raw.get("validation") or {}),
     )
@@ -921,12 +933,85 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
     (0 으로 세지 않는다). 효과 = (정책 있음 합 ÷ 정책 없음 합) − 1. 95% 신뢰구간은 시민 단위
     퍼센타일 부트스트랩(같은 수의 시민을 복원 추출, PAIRED_BOOTSTRAP 회, 시드 고정)이다. 한 사람의
     여러 날은 함께 뽑힌다 — 같은 사람의 날들은 서로 독립이 아니다.
+
+    ``by_group`` 은 연령대·소득·성별 집단마다 같은 계산을 다시 한 것이다. 정책 담당자는
+    "누가 반응했나"를 묻는다 — 집단의 효과와 지원금 1원당 늘어난 소비를 함께 싣는다.
     """
+    base = {"experiment_id": experiment.experiment_id, "kind": "policy_paired"}
+    pooled = _paired_people(store, experiment)
+    if "reason" in pooled:
+        return {**base, "available": False, "reason": pooled["reason"]}
+    key = pooled["key"]
+    with _paired_lock:
+        hit = _paired_cache.get(experiment.experiment_id)
+    if hit is not None and hit[0] == key:
+        return hit[1]
+
+    people = pooled["people"]
+    ids = sorted(people)
+    summary = _paired_effect(people, ids, pooled["metrics"])
+    roster = {item["id"]: item for item in store.roster(experiment.experiment_id).get("items") or []}
+    by_group: dict[str, list[dict[str, Any]]] = {}
+    for dim, order in GROUP_DIMENSIONS:
+        members: dict[str, list[str]] = defaultdict(list)
+        for aid in ids:
+            value = (roster.get(aid) or {}).get(dim)
+            if value not in (None, "", "unknown"):
+                members[str(value)].append(aid)
+        rows = []
+        for value in sorted(members, key=lambda v: (order.index(v) if v in order else len(order), v)):
+            group_ids = members[value]
+            if len(group_ids) < MIN_GROUP:
+                continue
+            effect = _paired_effect(people, group_ids, pooled["metrics"][:2])
+            rows.append({"value": value, **{k: effect[k] for k in ("agents", "wallet", "uplift_per_agent_day", "spend_per_grant")},
+                         "total": effect["rows"][0], "shop": effect["rows"][1]})
+        if len(rows) > 1:
+            by_group[dim] = rows
+
+    result = {
+        **base,
+        "available": True,
+        "days": [day for day, _, _ in pooled["loaded"]],
+        "agents": summary["agents"],
+        "paired_agent_days": summary["paired_agent_days"],
+        "excluded_agent_days": pooled["excluded"],
+        "rows": summary["rows"],
+        "wallet": summary["wallet"],
+        "uplift_per_agent_day": summary["uplift_per_agent_day"],
+        "spend_per_grant": summary["spend_per_grant"],
+        "by_group": by_group,
+        "daily": pooled["daily"],
+        "method": {
+            "pairing": "같은 시민·같은 날, 두 팔 모두 정상(ok)인 대상자-일",
+            "effect": "(정책 있음 합 ÷ 정책 없음 합) − 1",
+            "ci": f"시민 단위 퍼센타일 부트스트랩 95% 신뢰구간, {PAIRED_BOOTSTRAP}회, 시드 {PAIRED_SEED}",
+        },
+        "limitations": (experiment.analysis or {}).get("limitations") or [],
+    }
+    with _paired_lock:
+        _paired_cache[experiment.experiment_id] = (key, result)
+    return result
+
+
+# 집단별 효과: 나눌 축과 보일 순서. 생애 단계는 값이 수백 가지로 흩어져 있어 쓰지 않는다
+GROUP_DIMENSIONS: tuple[tuple[str, list[str]], ...] = (
+    ("age_group", ["20대", "30대", "40대", "50대", "60대", "70대이상"]),
+    ("income_level", ["하", "중하", "중", "중상", "상"]),
+    ("sex", ["F", "M"]),
+)
+# 이보다 작은 집단은 구간이 너무 넓어 읽을 수 없다
+MIN_GROUP = 30
+_people_cache: dict[str, tuple[tuple, dict[str, Any]]] = {}
+_subset_cache: dict[tuple, dict[str, Any]] = {}
+
+
+def _paired_people(store: ExperimentStore, experiment: Experiment) -> dict[str, Any]:
+    """두 팔의 하루 요약을 시민별 기간 합으로 모은다. 원본이 바뀌지 않으면 다시 읽지 않는다."""
     control = next((arm for arm in experiment.arms if arm.role == "control"), None)
     treatment = next((arm for arm in experiment.arms if arm.role == "treatment"), None)
-    base = {"experiment_id": experiment.experiment_id, "kind": "policy_paired"}
     if control is None or treatment is None:
-        return {**base, "available": False, "reason": "정책 있음·없음 팔이 정의되지 않았습니다"}
+        return {"reason": "정책 있음·없음 팔이 정의되지 않았습니다"}
     treatment_days = set(treatment.day_list())
     days = [day for day in control.day_list() if day in treatment_days]
 
@@ -940,10 +1025,10 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
         loaded.append((day, off["summary"]["agents"], on["summary"]["agents"]))
         signature.append((day, (off.get("source") or {}).get("sha256"), (on.get("source") or {}).get("sha256")))
     if not loaded:
-        return {**base, "available": False, "reason": "두 팔이 함께 기록한 날이 아직 없습니다"}
+        return {"reason": "두 팔이 함께 기록한 날이 아직 없습니다"}
     key = tuple(signature)
     with _paired_lock:
-        hit = _paired_cache.get(experiment.experiment_id)
+        hit = _people_cache.get(experiment.experiment_id)
     if hit is not None and hit[0] == key:
         return hit[1]
 
@@ -980,15 +1065,20 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
             day_off += a["spend_all"]
             day_on += b["spend_all"]
         daily.append({"day": day, "pairs": pairs, "off": round(day_off), "on": round(day_on), "effect": _ratio(day_on, day_off)})
-
-    ids = sorted(people)
-    n = len(ids)
-    if n == 0:
-        return {**base, "available": False, "reason": "두 팔 모두 정상으로 기록된 시민-일이 없습니다"}
+    if not people:
+        return {"reason": "두 팔 모두 정상으로 기록된 시민-일이 없습니다"}
     grand = sum(category_total.values()) or 1
     # 업종은 두 팔 합계의 0.5% 이상인 것만 — 몇 건 안 되는 업종의 비율은 흔들려 읽을 수 없다
     categories = [c for c, v in category_total.most_common() if v / grand >= 0.005][:12]
     metrics = [("total", "총소비 (온라인 포함)"), ("shop", "가게 소비 (온라인 제외)")] + [(f"cat:{c}", c) for c in categories]
+    pooled = {"key": key, "loaded": loaded, "people": people, "daily": daily, "excluded": excluded, "metrics": metrics}
+    with _paired_lock:
+        _people_cache[experiment.experiment_id] = (key, pooled)
+    return pooled
+
+
+def _paired_effect(people: dict[str, dict[str, Any]], ids: list[str], metrics: list[tuple[str, str]]) -> dict[str, Any]:
+    """고른 시민들(ids)만으로 효과·95% 구간·지원금 1원당 늘어난 소비를 낸다."""
 
     def pair(person: dict[str, Any], metric: str) -> tuple[float, float]:
         if metric == "total":
@@ -998,6 +1088,7 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
         value = person["cat"].get(metric[4:])
         return (value[0], value[1]) if value else (0.0, 0.0)
 
+    n = len(ids)
     table = [[pair(people[aid], metric) for metric, _ in metrics] for aid in ids]
     width = len(metrics)
     off_sum = [sum(row[k][0] for row in table) for k in range(width)]
@@ -1024,7 +1115,7 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
         values = sorted(values)
         return [values[int(0.025 * len(values))], values[int(0.975 * len(values)) - 1]]
 
-    agent_days = sum(people[aid]["days"] for aid in ids)
+    agent_days = sum(people[aid]["days"] for aid in ids) or 1
     rows = []
     for k, (metric, label) in enumerate(metrics):
         effect = _ratio(on_sum[k], off_sum[k])
@@ -1045,23 +1136,35 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
             }
         )
     wallet = sum(people[aid]["pol"] for aid in ids)
-    result = {
-        **base,
-        "available": True,
-        "days": [day for day, _, _ in loaded],
+    uplift = (on_sum[0] - off_sum[0]) / agent_days
+    per_day = wallet / agent_days
+    return {
         "agents": n,
         "paired_agent_days": agent_days,
-        "excluded_agent_days": excluded,
         "rows": rows,
-        "wallet": {"on_total": round(wallet), "per_agent_day": round(wallet / agent_days)},
-        "daily": daily,
-        "method": {
-            "pairing": "같은 시민·같은 날, 두 팔 모두 정상(ok)인 대상자-일",
-            "effect": "(정책 있음 합 ÷ 정책 없음 합) − 1",
-            "ci": f"시민 단위 퍼센타일 부트스트랩 95% 신뢰구간, {PAIRED_BOOTSTRAP}회, 시드 {PAIRED_SEED}",
-        },
-        "limitations": (experiment.analysis or {}).get("limitations") or [],
+        "wallet": {"on_total": round(wallet), "per_agent_day": round(per_day)},
+        # 정책 있음 − 없음 의 1인 하루 총소비 차이, 그리고 그것을 쓴 지원금으로 나눈 값
+        "uplift_per_agent_day": round(uplift),
+        "spend_per_grant": round(uplift / per_day, 3) if per_day > 0 else None,
     }
+
+
+def paired_subset_effect(store: ExperimentStore, experiment: Experiment, ids: list[str]) -> dict[str, Any]:
+    """조건으로 고른 집단 하나의 효과. 집단 질의 화면이 조건을 바꿀 때마다 부른다."""
+    pooled = _paired_people(store, experiment)
+    if "reason" in pooled:
+        return {"available": False, "reason": pooled["reason"]}
+    members = sorted(aid for aid in set(ids) if aid in pooled["people"])
+    if len(members) < 2:
+        return {"available": False, "reason": "비교할 시민이 너무 적습니다", "agents": len(members)}
+    cache_key = (experiment.experiment_id, pooled["key"], tuple(members))
     with _paired_lock:
-        _paired_cache[experiment.experiment_id] = (key, result)
+        hit = _subset_cache.get(cache_key)
+    if hit is not None:
+        return hit
+    result = {"available": True, **_paired_effect(pooled["people"], members, pooled["metrics"])}
+    with _paired_lock:
+        if len(_subset_cache) > 256:
+            _subset_cache.clear()
+        _subset_cache[cache_key] = result
     return result

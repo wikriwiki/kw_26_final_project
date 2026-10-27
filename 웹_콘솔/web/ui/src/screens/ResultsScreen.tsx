@@ -2,7 +2,8 @@
  * 결과 — 스펙 §7.
  * 단일 목적: 정책 효과를 해석한다.
  *
- * 기본 노출  : 핵심 지표 4개 · 일별 결제 추이 · 업종별 · 소비 분위별 비교
+ * 기본 노출  : 핵심 지표 4개 · 일별 결제 추이 · 업종별
+ * 정책 실행  : 정책 효과(같은 시민·같은 날) · 누가 반응했나(집단별) · 실측 연구와 비교 — 정책 담당자가 볼 것만
  * 접어두는 것: 원자료 표 · 내보내기 · 출처
  *
  * **run 은 셸이 소유한다** (설계도 §5). 화면 안의 "실행 선택" 칩 그룹을 걷어냈고,
@@ -16,7 +17,7 @@
  * 만들 수 없다. 그 사실은 업종 카드에 적어 두고, 지도는 결제 집계가 아니라 이동·방문을
  * 보는 것이라는 점을 미리보기 설명에 분명히 적는다.
  */
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useRun } from '../app/RunContext';
 import { Button } from '../components/Button';
 import { Card, Stat } from '../components/Card';
@@ -24,39 +25,81 @@ import { RunEffectStat } from '../components/RunEffectStat';
 import { DailyStack } from '../components/DailyStack';
 import { Disclosure } from '../components/Disclosure';
 import { Callout, EmptyState } from '../components/Feedback';
-import { MapIcon } from '../components/Icon';
+import { ErrorState, SkeletonCard } from '../components/Feedback';
+import { MapIcon, UsersIcon } from '../components/Icon';
 import { BarList } from '../components/Meter';
 import type { BarItem } from '../components/Meter';
 import { rememberScroll, useScrollMemory } from '../app/useViewState';
-import { loadPolicyDetail, useLoad, type DecileBucket } from '../lib/runData';
+import { loadPolicyDetail, useLoad } from '../lib/runData';
 import { int, krw, krwAxis, percent } from '../lib/format';
-import { decile } from '../lib/labels';
+import { experimentsApi, useResource } from '../lib/experiments';
+import { filtersQuery } from './experiment/ExperimentResults';
+import { GroupEffectCard, PolicyEffect, ValidationCard } from './experiment/PolicyPanels';
+
+/** 정책 실행 — 같은 시민을 정책 있음·없음으로 돌린 비교가 곧 결과다 */
+function PolicyRunResults({ experimentId }: { experimentId: string }) {
+  const run = useRun();
+  const navigate = useNavigate();
+  useScrollMemory('results');
+  const detail = useResource(() => experimentsApi.detail(experimentId), `experiment:${experimentId}`);
+  const comparison = useResource(() => experimentsApi.comparison(experimentId), `comparison:${experimentId}`);
+  const experiment = detail.data;
+  const effective = experiment?.window.effective_date;
+  const marker = effective ? { x: effective, label: '정책 시행' } : undefined;
+
+  function openMap() {
+    rememberScroll('results');
+    navigate(`${run.path('visualize')}${run.bundle.focusDay ? `?day=${run.bundle.focusDay}` : ''}`, { state: { from: 'results' } });
+  }
+
+  return (
+    <div className="stack">
+      <header className="pagehead">
+        <div className="pagehead__text">
+          <h1 className="pagehead__title">{experiment?.title ?? '결과'}</h1>
+          {experiment?.summary ? <p className="pagehead__purpose">{experiment.summary}</p> : null}
+        </div>
+        <div className="pagehead__actions">
+          <Button variant="secondary" icon={<MapIcon size={18} />} onClick={openMap}>
+            3D 지도
+          </Button>
+          <Link className="btn btn--primary" to={run.path('agents')}>
+            <UsersIcon size={18} />
+            <span>시민 인터뷰</span>
+          </Link>
+        </div>
+      </header>
+      {comparison.error ? <ErrorState title="비교를 계산하지 못했습니다" body={comparison.error.message} /> : null}
+      {!comparison.data ? (
+        comparison.error ? null : <SkeletonCard rows={6} />
+      ) : (
+        <>
+          <PolicyEffect comparison={comparison.data} marker={marker} />
+          <GroupEffectCard comparison={comparison.data} askHref={(filters) => `${run.path('agents')}?${filtersQuery(filters)}`} />
+          {experiment?.validation?.rows?.length ? <ValidationCard validation={experiment.validation} /> : null}
+        </>
+      )}
+    </div>
+  );
+}
 
 
 export function ResultsScreen() {
+  const experimentId = useRun().index.meta?.experiment_id ?? null;
+  return experimentId ? <PolicyRunResults experimentId={experimentId} /> : <RunResults />;
+}
+
+function RunResults() {
   const { index: indexItem, bundle, path, policy } = useRun();
   const navigate = useNavigate();
   useScrollMemory('results');
 
   const events = bundle.events;
   const totals = events.totals;
-  /**
-   * 분위별 **1인당 지급액**은 정책이 정한 값이다 — 실행 집계가 아니다.
-   * 쿠폰은 시행 첫날 한 번 지급되므로 그날치 집계는 이후 모든 날에 0 이고,
-   * 그 0 을 '지급액'이라 적으면 정책이 아무것도 주지 않은 것처럼 읽힌다.
-   */
   const bound = policy.items[0]?.id ?? null;
   const boundDetail = useLoad(bound ? `policy:${bound}` : null, () => loadPolicyDetail(bound as string));
-  const grants = (
-    boundDetail.status === 'ready' ? (boundDetail.data.policy?.decile_grants ?? {}) : {}
-  ) as Record<string, number>;
   const effectiveFrom = boundDetail.status === 'ready' ? (boundDetail.data.policy?.effective_from ?? null) : null;
   const daily = (events.by_day ?? []).map((d) => ({ day: d.day, total: d.amt, part: d.policy_paid }));
-
-  // 분위가 없는 대상자는 보여주지 않는다. 읽는 사람이 판단에 쓸 수 없는 줄이다
-  const deciles = ((bundle.dayAggregate?.by_spend_decile ?? []) as unknown as DecileBucket[]).filter(
-    (row) => row.spend_decile !== null,
-  );
 
   const industryBars: BarItem[] = (events.by_l1 ?? [])
     .slice()
@@ -69,8 +112,6 @@ export function ResultsScreen() {
       display: krw(row.amt),
     }));
 
-  // 지원금이 없는 정책(거리두기·캐시백)은 지급액 칸을 두지 않는다
-  const hasGrant = Object.values(grants).some((v) => v > 0);
   const hasWallet = (totals?.policy_paid ?? 0) > 0;
 
   const couponShare =
@@ -182,64 +223,6 @@ export function ResultsScreen() {
           )}
         </Card>
       </div>
-
-      {/* 1차 블록 3 — 소비 분위별 비교 */}
-      <section className="section">
-        <div className="section__head">
-          <h2 className="section__title">소비 분위별 비교</h2>
-          <p className="section__note">
-            {bundle.focusDay} 하루
-          </p>
-        </div>
-
-        <div className="table-wrap">
-          <table className="table table--lead">
-            <caption className="visually-hidden">소비 분위별 1인당 지급액과 소비액</caption>
-            <thead>
-              <tr>
-                <th scope="col">소비 분위</th>
-                <th scope="col" className="n">
-                  시민
-                </th>
-                {hasGrant ? (
-                  <th scope="col" className="n col-md">
-                    1인당 지급액
-                  </th>
-                ) : null}
-                <th scope="col" className="n col-lg">
-                  당일 소비액
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {deciles.map((row) => (
-                <tr key={String(row.spend_decile)}>
-                  <th scope="row">
-                    {decile(row.spend_decile)}
-                  </th>
-                  <td className="n">
-                    {int(row.agents)}명
-                    {hasGrant ? (
-                      <span className="cell-sub cell-sub--md">
-                        지급 {krw(grants[String(row.spend_decile)] ?? 0)}
-                      </span>
-                    ) : null}
-                    <span className="cell-sub cell-sub--lg">
-                      소비 {krw(row.cm_today_total_incl_online)}
-                    </span>
-                  </td>
-                  {hasGrant ? <td className="n col-md">{krw(grants[String(row.spend_decile)] ?? 0)}</td> : null}
-                  <td className="n col-lg">{krw(row.cm_today_total_incl_online)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <p className="section__note">
-          시민 {int(deciles.reduce((s, r) => s + r.agents, 0))}명
-        </p>
-      </section>
 
       {/* 접어두는 것 — 기본 닫힘 */}
       <section className="section">

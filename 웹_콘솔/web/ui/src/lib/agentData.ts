@@ -336,7 +336,7 @@ export const SEX_LABEL: Record<string, string> = { F: '여성', M: '남성' };
 
 /** 목록 한 줄에 붙는 설명. 이미 보이는 것(자치구)은 부르는 쪽에서 뺀다 */
 export function rosterLine(it: RosterItem): string {
-  return `${it.gu} ${it.dong} · ${it.age} ${SEX_LABEL[it.sex] ?? it.sex} · 소비 ${it.dec}분위`;
+  return `${it.gu} ${it.dong} · ${it.age} ${SEX_LABEL[it.sex] ?? it.sex}`;
 }
 
 /* ==========================================================================

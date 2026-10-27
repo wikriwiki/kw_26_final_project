@@ -43,7 +43,7 @@ export function PolicyList({ runs }: { runs: RunListItem[] }) {
           const base = `/runs/${encodeURIComponent(run.id)}`;
           return (
             <li key={run.id} className="polrow">
-              <Link className="polrow__main" to={base}>
+              <Link className="polrow__main" to={`${base}/results`}>
                 <span className="polrow__title">{meta.title ?? run.id}</span>
                 <span className="polrow__meta num">
                   {run.firstDay} ~ {run.lastDay?.slice(5)} · {int(run.daysPresent)}일 · {int(run.agentsTarget ?? 0)}명
@@ -51,9 +51,9 @@ export function PolicyList({ runs }: { runs: RunListItem[] }) {
               </Link>
               <Effect experimentId={meta.experiment_id} />
               <nav className="polrow__links" aria-label={`${meta.title ?? run.id} 화면`}>
+                <Link to={`${base}/results`}>결과</Link>
                 <Link to={`${base}/visualize`}>지도</Link>
-                <Link to={`${base}/agents`}>시민</Link>
-                <Link to={`/experiments/${encodeURIComponent(meta.experiment_id)}/results`}>정책 있음·없음 비교</Link>
+                <Link to={`${base}/agents`}>시민 인터뷰</Link>
               </nav>
             </li>
           );

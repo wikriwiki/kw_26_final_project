@@ -17,8 +17,11 @@ export function RunEffectStat({
   extraSpent,
   extraKnown,
   className,
+  compareHref,
 }: {
   experimentId: string | null;
+  /** '자세히' 링크가 갈 곳. 없으면 실험의 결과 화면 */
+  compareHref?: string;
   extraSpent: number | null;
   extraKnown: boolean;
   className?: string;
@@ -34,10 +37,10 @@ export function RunEffectStat({
       />
     );
   }
-  return <ExperimentEffect experimentId={experimentId} className={className} />;
+  return <ExperimentEffect experimentId={experimentId} className={className} compareHref={compareHref} />;
 }
 
-function ExperimentEffect({ experimentId, className }: { experimentId: string; className?: string }) {
+function ExperimentEffect({ experimentId, className, compareHref }: { experimentId: string; className?: string; compareHref?: string }) {
   const comparison = useResource(() => experimentsApi.comparison(experimentId), `comparison:${experimentId}`);
   const total = comparison.data?.rows?.find((r) => r.key === 'total') ?? null;
   return (
@@ -48,7 +51,7 @@ function ExperimentEffect({ experimentId, className }: { experimentId: string; c
       </span>
       <span className="stat__hint">
         {total?.ci95 ? `95% 구간 ${pct(total.ci95[0])} ~ ${pct(total.ci95[1])} · ` : ''}
-        <Link to={`/experiments/${encodeURIComponent(experimentId)}/results`}>정책 없음과 비교</Link>
+        <Link to={compareHref ?? `/experiments/${encodeURIComponent(experimentId)}/results`}>결과 자세히</Link>
       </span>
     </div>
   );

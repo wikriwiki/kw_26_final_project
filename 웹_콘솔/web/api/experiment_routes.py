@@ -25,6 +25,10 @@ class GroupFilterRequest(BaseModel):
     filters: dict[str, Any] = Field(default_factory=dict)
 
 
+class GroupEffectRequest(BaseModel):
+    filters: dict[str, Any] = Field(default_factory=dict)
+
+
 class GroupInterviewRequest(GroupFilterRequest):
     question: str
     sample: int = Field(default=10, ge=1, le=experiment_query.MAX_SAMPLE)
@@ -85,6 +89,10 @@ def register(app: FastAPI, store: ExperimentStore | None = None) -> ExperimentSt
         return await asyncio.to_thread(
             experiment_query.group_stats, store, experiment_id, request.arm_id, request.filters, request.through_day
         )
+
+    @app.post("/api/experiments/{experiment_id}/query/effect")
+    async def experiment_group_effect(experiment_id: str, request: GroupEffectRequest) -> dict:
+        return await asyncio.to_thread(experiment_query.group_effect, store, experiment_id, request.filters)
 
     @app.post("/api/experiments/{experiment_id}/query/interviews")
     async def experiment_group_interview(experiment_id: str, request: GroupInterviewRequest) -> dict:
