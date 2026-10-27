@@ -45,6 +45,11 @@ class DemoModeTests(unittest.TestCase):
             response = self.client.request(method.upper(), path, json={})
             self.assertEqual(response.status_code, 403, path)
 
+    def test_policy_validation_is_open(self) -> None:
+        # 새 시뮬레이션 만들기 흐름: 검증은 되고(403 아님), 실행 시작·정책 저장은 막힌다
+        response = self.client.post("/api/policies/draft/validate", json={"policy": {}})
+        self.assertNotIn(response.status_code, (403, 429))
+
     def test_docs_are_hidden(self) -> None:
         self.assertEqual(self.client.get("/openapi.json").status_code, 404)
 

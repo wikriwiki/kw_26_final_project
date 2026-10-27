@@ -16,7 +16,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRun } from '../app/RunContext';
-import { CAN_EDIT } from '../lib/runtime';
+import { READ_ONLY } from '../lib/runtime';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Callout, EmptyState } from '../components/Feedback';
@@ -65,7 +65,7 @@ export function PolicyScreen() {
             title="이 실행에는 정책이 적용되지 않았습니다 (대조군)"
             body="결제 기록에 지원금 사용이 없습니다. 정책 없이 돌린 비교 기준입니다."
             action={
-              CAN_EDIT && (
+              !READ_ONLY && (
               <Button variant="primary" onClick={() => navigate('/new')}>
                 정책을 적용해 새로 만들기
               </Button>
@@ -78,7 +78,7 @@ export function PolicyScreen() {
             title={`정책 ${applied.id} 의 내용을 찾지 못했습니다`}
             body={`정책 목록에 ${applied.id} 파일이 없습니다.`}
             action={
-              CAN_EDIT && (
+              !READ_ONLY && (
               <Button variant="primary" onClick={() => navigate('/new')}>
                 등록된 정책 보기
               </Button>
@@ -94,7 +94,7 @@ export function PolicyScreen() {
               title="결제 기록이 없습니다"
               body={`사유: ${events.reason ?? '알 수 없습니다.'}`}
               action={
-                CAN_EDIT && (
+                !READ_ONLY && (
                   <Button variant="primary" onClick={() => navigate('/new')}>
                     새 시뮬레이션 만들기
                   </Button>
@@ -117,7 +117,7 @@ export function PolicyScreen() {
         <div className="pagehead__text">
           <h1 className="pagehead__title">{policy.name}</h1>
         </div>
-        {CAN_EDIT ? (
+        {!READ_ONLY ? (
           <div className="pagehead__actions">
             <Button onClick={() => navigate('/new')}>이 정책으로 새로 만들기</Button>
           </div>

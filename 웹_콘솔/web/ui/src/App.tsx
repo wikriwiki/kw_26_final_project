@@ -17,7 +17,7 @@ import { HomeScreen, UnknownRunScreen } from './screens/HomeScreen';
 import { NotFoundScreen } from './screens/NotFoundScreen';
 import { ErrorState } from './components/Feedback';
 import { isNotFound, useLoad } from './lib/runData';
-import { CAN_EDIT } from './lib/runtime';
+import { CAN_EDIT, READ_ONLY } from './lib/runtime';
 
 /**
  * 화면은 처음 열 때 받는다. 목록 화면 하나 보려고 보고서·정책 편집기·3D 임베드 코드까지
@@ -164,7 +164,7 @@ export function App() {
         <Route
           path="/new"
           element={
-            !CAN_EDIT ? (
+            READ_ONLY ? (
               <Navigate to="/" replace />
             ) : (
               <BareScreen>

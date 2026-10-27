@@ -174,6 +174,7 @@ def create_app(
     app.state.read_only = resolved_read_only
     app.state.demo = demo
     app.state.interview_limiter = demo_guard.InterviewLimiter()
+    app.state.validate_limiter = demo_guard.InterviewLimiter(per_ip_hour=60, per_day=2000)
     app.state.store = store or ArtifactStore.from_environment(REPO_ROOT)
     app.state.runner = runner or Runner(
         repo_root=REPO_ROOT,
@@ -211,9 +212,16 @@ def create_app(
             path = request.url.path
             if request.method != "POST" or not demo_guard.ALLOWED_POST.match(path):
                 return JSONResponse(status_code=403, content={"error": "시연 배포에서는 쓸 수 없는 기능입니다"})
-            if demo_guard.COUNTED_POST.match(path):
+            limiter = (
+                app.state.interview_limiter
+                if demo_guard.COUNTED_POST.match(path)
+                else app.state.validate_limiter
+                if demo_guard.VALIDATE_POST.match(path)
+                else None
+            )
+            if limiter is not None:
                 client = demo_guard.client_address(request.headers, request.client.host if request.client else None)
-                reason = app.state.interview_limiter.allow(client)
+                reason = limiter.allow(client)
                 if reason:
                     return JSONResponse(status_code=429, content={"error": reason})
         response = await call_next(request)

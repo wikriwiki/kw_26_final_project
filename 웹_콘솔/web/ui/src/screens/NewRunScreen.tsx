@@ -47,6 +47,7 @@ import type {
 import { dateRange, dateTime, int, krw } from '../lib/format';
 import { grantKey, policyType } from '../lib/labels';
 
+import { DEMO } from '../lib/runtime';
 import lockEvidenceRaw from '../../../fixtures/runner.lock.evidence.json?raw';
 
 /* --- 중복 실행이 왜 위험한지의 실측 근거 (CONTRACT §3.13) ------------------- */
@@ -250,9 +251,13 @@ export function NewRunScreen() {
     [activePolicy],
   );
 
-  const failing = validation ? validation.checks.filter((c) => c.grade === 'fail') : [];
-  const warning = validation ? validation.checks.filter((c) => c.grade === 'warn') : [];
-  const passing = validation ? validation.checks.filter((c) => c.grade === 'pass') : [];
+  // 그래프 DB 연결 같은 실행 환경 경고는 정책 내용과 무관하다 — 화면에서는 뺀다
+  const checks = validation ? validation.checks.filter((c) => !/NEO4J|DB 배선/.test(c.message)) : [];
+  const failing = checks.filter((c) => c.grade === 'fail');
+  const warning = checks.filter((c) => c.grade === 'warn');
+  const passing = checks.filter((c) => c.grade === 'pass');
+  // 모든 구간이 같은 금액이면 막대 대신 한 줄로 쓴다
+  const flatGrant = grantBars.length > 1 && grantBars.every((b) => b.value === grantBars[0].value) ? grantBars[0] : null;
   const lead: Grade = failing.length > 0 ? 'fail' : warning.length > 0 ? 'warn' : 'pass';
 
   const dayCount = parseCount(days);
@@ -261,7 +266,7 @@ export function NewRunScreen() {
 
   const errors: Record<string, string> = {};
   if (!/^[A-Za-z0-9_-]{2,32}$/.test(runId.trim())) {
-    errors.runId = '실행 이름은 영문·숫자·하이픈 2~32자여야 합니다 — 예: BASE_0810.';
+    errors.runId = '실행 이름은 영문·숫자·하이픈 2~32자여야 합니다. 예: P017_0810';
   }
   if (!startValid) {
     errors.startDay = '시작일이 비어 있거나 형식이 어긋납니다 — 2025-07-21 처럼 입력하세요.';
@@ -834,12 +839,14 @@ export function NewRunScreen() {
                 className="c6"
                 title="지급액"
                 note={
-                  activePolicy && grantBars.length > 0
+                  activePolicy && grantBars.length > 0 && !flatGrant
                     ? `${grantKey(activePolicy.grant_key ?? 'spend_decile').label} ${grantBars.length}구간`
                     : undefined
                 }
               >
-                {grantBars.length > 0 ? (
+                {flatGrant ? (
+                  <p className="dl__v num">1인 {flatGrant.display}</p>
+                ) : grantBars.length > 0 ? (
                   <BarList items={grantBars} />
                 ) : (
                   <EmptyState
@@ -953,7 +960,7 @@ export function NewRunScreen() {
                     </ul>
                   )}
 
-                  {!validation.db_wiring_checked ? (
+                  {!validation.db_wiring_checked && !DEMO ? (
                     <p className="card__note wrap">
                       데이터베이스 연결 정보가 없어 “정책이 실제로 대상자에게 보이는지”는 아직 확인하지
                       못했습니다. 이 항목은 통과가 아니라 <strong>미확인</strong>입니다.
@@ -1023,7 +1030,7 @@ export function NewRunScreen() {
                 <div className="dl__item">
                   <dt className="dl__k">기간</dt>
                   <dd className="dl__v num">
-                    {startDay} ~ {endDay ?? '—'} ({int(dayCount)}일)
+                    {dateRange(startDay, endDay)} · {int(dayCount)}일
                   </dd>
                 </div>
                 <div className="dl__item">
@@ -1043,6 +1050,12 @@ export function NewRunScreen() {
           </section>
 
           {/* 기준 B8 */}
+          {DEMO ? (
+            <Callout>
+              시연 사이트에서는 여기까지 보여 드립니다. 실제 실행은 GPU 서버에서 돌리며, 이 사이트의 정책 다섯 개가
+              그렇게 돌린 결과입니다.
+            </Callout>
+          ) : (
           <section className="section">
             {locked ? (
               <Callout tone="warn">
@@ -1069,6 +1082,7 @@ export function NewRunScreen() {
               </Disclosure>
             </div>
           </section>
+          )}
 
           <section className="section">
             <div className="row-between">
@@ -1077,7 +1091,7 @@ export function NewRunScreen() {
               </Button>
               <Button
                 variant="primary"
-                disabled={locked || Boolean(launched)}
+                disabled={DEMO || locked || Boolean(launched)}
                 busy={launching}
                 busyLabel="시작하는 중"
                 onClick={launch}

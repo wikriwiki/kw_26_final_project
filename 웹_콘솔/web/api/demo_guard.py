@@ -14,11 +14,15 @@ import time
 from collections import defaultdict, deque
 
 # 시연에서 허용하는 쓰기 요청. 나머지 POST·PUT·DELETE 는 403
+# 정책 검증은 저장하지 않는 점검이라 연다 — 새 시뮬레이션 만들기 흐름을 실행 직전까지 보여 준다
 ALLOWED_POST = re.compile(
     r"^/api/(interview"
     r"|experiments/[^/]+/agents/[^/]+/interview"
-    r"|experiments/[^/]+/query/(stats|effect|interviews))$"
+    r"|experiments/[^/]+/query/(stats|effect|interviews)"
+    r"|policies/[^/]+/validate)$"
 )
+# 정책 검증 — 모델은 안 부르지만 검증 스크립트를 띄우므로 따로 센다
+VALIDATE_POST = re.compile(r"^/api/policies/[^/]+/validate$")
 # 이 중 모델을 부르는 것 — 횟수를 센다
 COUNTED_POST = re.compile(
     r"^/api/(interview"
