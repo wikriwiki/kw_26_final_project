@@ -1,0 +1,9 @@
+# 버셀에는 화면 코드만 올린다. 시민 데이터는 서버(API)가 준다
+node_modules
+dist
+public/agent-console
+_*.mjs
+e2e
+tools
+tsconfig.tsbuildinfo
+.env*

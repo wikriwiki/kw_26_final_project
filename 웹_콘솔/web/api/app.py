@@ -17,6 +17,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from scripts.report import llm as report_llm
 
+from . import demo_guard
 from . import experiment_routes
 from . import interview
 from . import viz
@@ -161,14 +162,18 @@ def create_app(
     read_only: bool | None = None,
 ) -> FastAPI:
     resolved_read_only = _enabled(os.environ.get("WEB_READ_ONLY")) if read_only is None else read_only
+    demo = _enabled(os.environ.get("WEB_PUBLIC_DEMO"))
+    closed = resolved_read_only or demo
     app = FastAPI(
         title="Policy Simulation Console API",
         version="0.1.0",
-        docs_url=None if resolved_read_only else "/docs",
-        redoc_url=None if resolved_read_only else "/redoc",
-        openapi_url=None if resolved_read_only else "/openapi.json",
+        docs_url=None if closed else "/docs",
+        redoc_url=None if closed else "/redoc",
+        openapi_url=None if closed else "/openapi.json",
     )
     app.state.read_only = resolved_read_only
+    app.state.demo = demo
+    app.state.interview_limiter = demo_guard.InterviewLimiter()
     app.state.store = store or ArtifactStore.from_environment(REPO_ROOT)
     app.state.runner = runner or Runner(
         repo_root=REPO_ROOT,
@@ -197,6 +202,20 @@ def create_app(
                 content={"error": "읽기 전용 배포에서는 변경 작업을 사용할 수 없습니다"},
                 headers={"X-Console-Mode": "read-only"},
             )
+        # 공개 시연: 인터뷰·집단 효과만 열고, 모델을 부르는 요청은 횟수를 센다
+        if (
+            app.state.demo
+            and request.url.path.startswith("/api/")
+            and request.method not in {"GET", "HEAD", "OPTIONS"}
+        ):
+            path = request.url.path
+            if request.method != "POST" or not demo_guard.ALLOWED_POST.match(path):
+                return JSONResponse(status_code=403, content={"error": "시연 배포에서는 쓸 수 없는 기능입니다"})
+            if demo_guard.COUNTED_POST.match(path):
+                client = demo_guard.client_address(request.headers, request.client.host if request.client else None)
+                reason = app.state.interview_limiter.allow(client)
+                if reason:
+                    return JSONResponse(status_code=429, content={"error": reason})
         response = await call_next(request)
         response.headers["X-Console-Mode"] = "read-only" if app.state.read_only else "read-write"
         # 읽기 자원(실행·정책·지도 목록)은 30초 동안 다시 묻지 않게 한다. 새로고침이나 화면을

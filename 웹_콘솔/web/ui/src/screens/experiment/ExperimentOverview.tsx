@@ -13,7 +13,7 @@ import { Meter } from '../../components/Meter';
 import { dateTime, dayRange, int, lastDay } from '../../lib/format';
 import { experimentsApi, PHASE_TEXT } from '../../lib/experiments';
 import type { ArmStatus, SyncStatus } from '../../lib/experiments';
-import { READ_ONLY } from '../../lib/runtime';
+import { CAN_EDIT } from '../../lib/runtime';
 import { useExperiment } from './ExperimentWorkspace';
 
 function ArmCard({ arm, cohort }: { arm: ArmStatus; cohort: number }) {
@@ -98,7 +98,7 @@ function SyncCard({ experimentId, onDone }: { experimentId: string; onDone: () =
                     ? `완료 ${status.finished_at ? dateTime(status.finished_at) : ''}`
                     : '새로 쌓인 부분만 받습니다.'}
         </p>
-        {!READ_ONLY ? (
+        {CAN_EDIT ? (
           <Button
             variant="secondary"
             onClick={start}

@@ -16,7 +16,7 @@ import { Meter } from '../components/Meter';
 import { PHASE_LABEL, useRunList, useRunPolicy } from '../app/RunContext';
 import type { PolicyBinding, RunListItem, RunPhase } from '../app/RunContext';
 import { EMPTY, int, shortTime } from '../lib/format';
-import { READ_ONLY } from '../lib/runtime';
+import { CAN_EDIT } from '../lib/runtime';
 import { ExperimentList } from './experiment/ExperimentList';
 import { PolicyList } from './PolicyList';
 
@@ -132,7 +132,7 @@ function HomeHero(_props: { runs: RunListItem[] }) {
         <p className="hero__lead">
           같은 시민에게 정책이 있을 때와 없을 때, 소비가 어떻게 다른지 비교합니다.
         </p>
-        {!READ_ONLY ? (
+        {CAN_EDIT ? (
           <div className="hero__actions">
             <Link className="btn btn--primary" to="/new">
               새 시뮬레이션 만들기
@@ -186,12 +186,12 @@ export function HomeScreen() {
           <EmptyState
             title="아직 실행한 시뮬레이션이 없습니다"
             body={
-              READ_ONLY
+              !CAN_EDIT
                 ? '조회할 수 있는 시뮬레이션 결과가 없습니다.'
                 : '정책과 기간을 정해 첫 시뮬레이션을 만드세요.'
             }
             action={
-              !READ_ONLY ? (
+              CAN_EDIT ? (
                 <Link className="btn btn--primary" to="/new">
                   새 시뮬레이션 만들기
                 </Link>

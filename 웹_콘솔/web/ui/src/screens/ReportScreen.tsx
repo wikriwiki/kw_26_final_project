@@ -26,7 +26,7 @@ import type { ApiErrorShape, LlmStatus, ReportCatalog, ReportJob } from '../lib/
 import { dateRange, dateTime, dayRange, int } from '../lib/format';
 import { loadReportDoc, SCOPE } from '../lib/reportDoc';
 import type { ReportDoc } from '../lib/reportDoc';
-import { READ_ONLY } from '../lib/runtime';
+import { CAN_EDIT } from '../lib/runtime';
 
 /** 콘솔은 라이트 테마 하나뿐이다. 보고서도 같은 테마로 고정해 두 문서가 섞이지 않게 한다 */
 const DOC_THEME = 'light';
@@ -274,7 +274,7 @@ export function ReportScreen() {
   }, [start, dayCount, policyFrom]);
 
   const canSubmit =
-    !READ_ONLY &&
+    CAN_EDIT &&
     Boolean(policyId) &&
     Object.keys(errors).length === 0 &&
     Boolean(engineInfo?.available) &&
@@ -376,7 +376,7 @@ export function ReportScreen() {
 
       {ready ? (
         <>
-          {!READ_ONLY ? (
+          {CAN_EDIT ? (
           <>
           {/* ---------- 1단계. 무엇으로 만드는가 ---------- */}
           <section className="section">
@@ -543,7 +543,7 @@ export function ReportScreen() {
                   </div>
                 ) : null}
               </dl>
-              {!READ_ONLY ? (
+              {CAN_EDIT ? (
                 <div className="row" style={{ gap: 'var(--sp-3)', marginTop: 'var(--sp-3)' }}>
                   <Button busy={pinging} busyLabel="확인하는 중" onClick={ping}>
                     연결 확인
@@ -563,7 +563,7 @@ export function ReportScreen() {
                   모델이 없으면 해설 문장만 기본 서술로 바뀝니다.
                 </p>
               ) : null}
-              {!READ_ONLY && !llm?.configured && llm?.operator_hint ? (
+              {CAN_EDIT && !llm?.configured && llm?.operator_hint ? (
                 <p className="card__note wrap">{llm.operator_hint}</p>
               ) : null}
             </Card>

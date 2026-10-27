@@ -17,7 +17,7 @@ import { HomeScreen, UnknownRunScreen } from './screens/HomeScreen';
 import { NotFoundScreen } from './screens/NotFoundScreen';
 import { ErrorState } from './components/Feedback';
 import { isNotFound, useLoad } from './lib/runData';
-import { READ_ONLY } from './lib/runtime';
+import { CAN_EDIT } from './lib/runtime';
 
 /**
  * 화면은 처음 열 때 받는다. 목록 화면 하나 보려고 보고서·정책 편집기·3D 임베드 코드까지
@@ -150,7 +150,7 @@ export function App() {
       <Suspense fallback={<ScreenFallback />}>
       <Routes>
         {/* 개발 전용 — 앱 셸 밖에 둬서 사용자 내비게이션에 나타나지 않는다 */}
-        <Route path="/__kit" element={READ_ONLY ? <Navigate to="/" replace /> : <KitScreen />} />
+        <Route path="/__kit" element={!CAN_EDIT ? <Navigate to="/" replace /> : <KitScreen />} />
 
         {/* 실행을 고르는 자리. 셸이 없다 */}
         <Route
@@ -164,7 +164,7 @@ export function App() {
         <Route
           path="/new"
           element={
-            READ_ONLY ? (
+            !CAN_EDIT ? (
               <Navigate to="/" replace />
             ) : (
               <BareScreen>

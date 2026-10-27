@@ -7,7 +7,7 @@ from typing import Any
 from fastapi import FastAPI, Query
 from pydantic import BaseModel, Field
 
-from . import experiment_interview, experiment_query
+from . import demo_guard, experiment_interview, experiment_query
 from .experiment_sync import SyncJobs
 from .experiments import ExperimentStore
 
@@ -96,7 +96,11 @@ def register(app: FastAPI, store: ExperimentStore | None = None) -> ExperimentSt
 
     @app.post("/api/experiments/{experiment_id}/query/interviews")
     async def experiment_group_interview(experiment_id: str, request: GroupInterviewRequest) -> dict:
-        return await asyncio.to_thread(query_jobs.start, experiment_id, request.model_dump())
+        payload = request.model_dump()
+        cap = demo_guard.max_sample()
+        if cap is not None:
+            payload["sample"] = min(payload["sample"], cap)
+        return await asyncio.to_thread(query_jobs.start, experiment_id, payload)
 
     @app.get("/api/experiments/{experiment_id}/query/interviews/{job_id}")
     async def experiment_group_interview_status(experiment_id: str, job_id: str) -> dict:
