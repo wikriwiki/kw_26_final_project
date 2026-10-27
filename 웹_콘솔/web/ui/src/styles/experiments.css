@@ -635,6 +635,9 @@
 .effects__action { display: flex; justify-content: flex-end; }
 .btn--sm { min-height: 32px; padding: 0 var(--sp-3); font-size: var(--fs-caption); }
 .groupeffect__headline { margin: 0 0 var(--sp-3); font-weight: var(--fw-semibold); }
+.groupeffect__table td.muted { color: var(--fg-subtle); }
+.groupeffect__table td.neg { color: var(--real); }
+.groupeffect__table th, .groupeffect__table td { white-space: nowrap; }
 @media (max-width: 720px) {
   .effects--action .effects__row { grid-template-columns: minmax(80px, 34%) minmax(0, 1fr) auto; }
   .effects--action .effects__action { grid-column: 1 / -1; justify-content: flex-start; }

@@ -11,11 +11,13 @@ import { Card, Stat } from '../../components/Card';
 import { EffectBars } from '../../components/EffectBars';
 import { LineChart } from '../../components/LineChart';
 import { int, krw } from '../../lib/format';
-import type { Comparison, GroupDimension, GroupEffectRow, GroupFilters, Validation } from '../../lib/experiments';
+import type { Comparison, GroupDimension, GroupEffectRow, GroupFilters, PairedRow, Validation } from '../../lib/experiments';
 
 export const pct = (v: number | null | undefined) =>
   v === null || v === undefined ? null : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
 const ciText = (ci: [number, number] | null) => (ci ? `95% 신뢰구간 ${pct(ci[0])} ~ ${pct(ci[1])}` : undefined);
+/** 유의한 효과만 숫자로. 구간이 0을 지나면 '유의하지 않음' */
+const sigPct = (r: PairedRow | undefined) => (!r || r.effect === null ? null : r.significant ? pct(r.effect) : '유의하지 않음');
 const signed = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`;
 const wonSigned = (v: number) => `${v >= 0 ? '+' : '−'}${int(Math.abs(v))}원`;
 
@@ -40,7 +42,8 @@ export function PolicyEffect({ comparison, marker }: { comparison: Comparison; m
   const total = comparison.rows.find((r) => r.key === 'total');
   const shop = comparison.rows.find((r) => r.key === 'shop');
   const categories = comparison.rows.filter((r) => r.group === 'category');
-  const hidden = categories.filter((r) => !r.significant).length;
+  const flat = categories.filter((r) => !r.significant);
+  const totalSig = !!total?.significant;
   const daily = comparison.daily ?? [];
   // 캐시백(다음 달 적립)·거리두기는 결제 때 지갑에서 나가는 돈이 없다. 0원으로 보이지 않게 비운다
   const wallet = comparison.wallet && comparison.wallet.on_total > 0 ? comparison.wallet : null;
@@ -54,12 +57,12 @@ export function PolicyEffect({ comparison, marker }: { comparison: Comparison; m
         </p>
       </div>
       <div className="grid statrow">
-        <Stat className="c3" label="총소비 (온라인 포함)" value={pct(total?.effect)} hint={ciText(total?.ci95 ?? null)} unknownReason="기록 없음" />
-        <Stat className="c3" label="가게 소비 (온라인 제외)" value={pct(shop?.effect)} hint={ciText(shop?.ci95 ?? null)} unknownReason="기록 없음" />
+        <Stat className="c3" label="총소비 (온라인 포함)" value={sigPct(total)} hint={ciText(total?.ci95 ?? null)} unknownReason="기록 없음" />
+        <Stat className="c3" label="가게 소비 (온라인 제외)" value={sigPct(shop)} hint={ciText(shop?.ci95 ?? null)} unknownReason="기록 없음" />
         <Stat
           className="c3"
           label="1인 하루 소비 변화"
-          value={uplift === null ? null : wonSigned(uplift)}
+          value={uplift === null ? null : totalSig ? wonSigned(uplift) : '유의하지 않음'}
           hint={total ? `${krw(total.off_per_agent_day)} → ${krw(total.on_per_agent_day)}` : undefined}
           unknownReason="기록 없음"
         />
@@ -67,7 +70,7 @@ export function PolicyEffect({ comparison, marker }: { comparison: Comparison; m
           <Stat
             className="c3"
             label="지원금 1원당 늘어난 소비"
-            value={comparison.spend_per_grant == null ? null : `${comparison.spend_per_grant.toFixed(2)}원`}
+            value={comparison.spend_per_grant == null ? null : totalSig ? `${comparison.spend_per_grant.toFixed(2)}원` : '유의하지 않음'}
             hint={`쓴 지원금 1인 하루 ${krw(wallet.per_agent_day)}`}
             unknownReason="계산할 수 없음"
           />
@@ -78,7 +81,7 @@ export function PolicyEffect({ comparison, marker }: { comparison: Comparison; m
       <div className="grid">
         <Card className="c7" title="업종별 효과">
           <EffectBars
-            items={categories.map((r) => ({
+            items={categories.filter((r) => r.significant).map((r) => ({
               key: r.key,
               label: r.label,
               effect: r.effect,
@@ -87,9 +90,11 @@ export function PolicyEffect({ comparison, marker }: { comparison: Comparison; m
               sub: `1인 하루 ${krw(r.off_per_agent_day)} → ${krw(r.on_per_agent_day)}`,
             }))}
           />
-          <p className="card__note">
-            옅은 막대는 95% 신뢰구간이 0을 포함합니다{hidden ? ` (${hidden}개 업종)` : ''}.
-          </p>
+          {flat.length ? (
+            <p className="card__note">
+              유의한 변화가 없는 업종: {flat.map((r) => r.label).join(', ')} (95% 신뢰구간이 0을 포함)
+            </p>
+          ) : null}
         </Card>
         <Card className="c5">
           <LineChart
@@ -112,25 +117,65 @@ export function PolicyEffect({ comparison, marker }: { comparison: Comparison; m
   );
 }
 
-/** 집단별 효과에서 한 줄로 읽을 것: 가장 크게·작게 반응한 집단 */
-function headline(rows: GroupEffectRow[], dim: GroupDimension): string | null {
-  const known = rows.filter((r) => r.total.effect !== null);
-  if (known.length < 2) return null;
-  const sorted = [...known].sort((a, b) => Math.abs(b.total.effect as number) - Math.abs(a.total.effect as number));
-  const top = sorted[0];
-  const low = sorted[sorted.length - 1];
-  const name = (r: GroupEffectRow) => groupValueLabel(dim, r.value);
-  const verb = (top.total.effect as number) < 0 ? '가장 크게 줄어든' : '가장 크게 반응한';
-  const overlap =
-    top.total.ci95 && low.total.ci95
-      ? Math.max(top.total.ci95[0], low.total.ci95[0]) <= Math.min(top.total.ci95[1], low.total.ci95[1])
-      : true;
-  return `${verb} 집단은 ${name(top)} ${pct(top.total.effect)}, 가장 작은 집단은 ${name(low)} ${pct(low.total.effect)}${
-    overlap ? '' : ' — 두 구간이 겹치지 않는다'
-  }.`;
+const share = (v: number | null | undefined) => (v === null || v === undefined ? '—' : `${Math.round(v * 100)}%`);
+
+/** 유의한 효과만 숫자로 쓴다. 구간이 0을 지나면 '—' — 차이가 있다고 말할 수 없는 값을 결과처럼 늘어놓지 않는다 */
+function EffectCell({ row }: { row: PairedRow | undefined | null }) {
+  if (!row || row.effect === null) return <td className="n num muted">—</td>;
+  if (!row.significant) {
+    return (
+      <td className="n num muted" title={`${pct(row.effect)} · 95% 구간이 0을 포함`}>
+        —
+      </td>
+    );
+  }
+  return <td className={`n num${row.effect < 0 ? ' neg' : ''}`}>{pct(row.effect)}</td>;
 }
 
-/** 집단별 효과 — 누가 반응했나. 줄마다 그 집단에게 묻는 길(askHref)을 둔다 */
+/** 받침에 맞춰 '은/는'을 붙인다 — "50대는", "70대 이상은" */
+function topic(word: string): string {
+  const code = word.charCodeAt(word.length - 1) - 0xac00;
+  return `${word}${code >= 0 && code < 11172 && code % 28 ? '은' : '는'}`;
+}
+
+const TITLE: Record<string, string> = {
+  grant: '집단별 지원금 사용과 소비 증가',
+  cashback: '집단별 적립 업종 소비',
+  regulation: '집단별 소비 감소',
+  other: '집단별 소비 변화',
+};
+
+/** 표 위 한 줄 — 유의한 값만으로 쓴다 */
+function groupSummary(rows: GroupEffectRow[], dim: GroupDimension, type: string): string | null {
+  const name = (r: GroupEffectRow) => groupValueLabel(dim, r.value);
+  const sig = (r: GroupEffectRow, key: string) => r.metrics[key]?.significant && r.metrics[key]?.effect !== null;
+  if (type === 'grant') {
+    const used = rows.filter((r) => r.grant.use_rate !== null).sort((a, b) => (b.grant.use_rate as number) - (a.grant.use_rate as number));
+    const perWon = rows.filter((r) => sig(r, 'total') && r.spend_per_grant !== null).sort((a, b) => (b.spend_per_grant as number) - (a.spend_per_grant as number));
+    const parts = [];
+    if (used.length > 1) parts.push(`사용률은 ${name(used[0])} ${share(used[0].grant.use_rate)}, ${name(used[used.length - 1])} ${share(used[used.length - 1].grant.use_rate)}`);
+    if (perWon.length > 1) parts.push(`지원금 1원당 늘어난 소비는 ${name(perWon[0])} ${perWon[0].spend_per_grant?.toFixed(2)}원, ${name(perWon[perWon.length - 1])} ${perWon[perWon.length - 1].spend_per_grant?.toFixed(2)}원`);
+    return parts.length ? `${parts.join('. ')}.` : null;
+  }
+  if (type === 'cashback') {
+    const moved = rows.filter((r) => sig(r, 'elig') && !sig(r, 'total'));
+    const grew = rows.filter((r) => sig(r, 'elig') && sig(r, 'total'));
+    const parts = [];
+    if (grew.length) parts.push(`${topic(grew.map(name).join('·'))} 적립 업종이 늘고 총소비도 늘었다`);
+    if (moved.length) parts.push(`${topic(moved.map(name).join('·'))} 적립 업종이 늘어난 만큼 제외 업종이 줄어 총소비 변화가 없다. 소비처만 옮겼다`);
+    return parts.length ? `${parts.join('. ')}.` : null;
+  }
+  const first = rows[0]?.metrics ? Object.keys(rows[0].metrics).find((k) => k.startsWith('cat:')) : undefined;
+  if (first) {
+    const hit = rows.filter((r) => sig(r, first)).sort((a, b) => (a.metrics[first].effect as number) - (b.metrics[first].effect as number));
+    if (hit.length > 1) {
+      return `${first.slice(4)} 소비는 ${name(hit[0])} ${pct(hit[0].metrics[first].effect)}로 가장 크게, ${name(hit[hit.length - 1])} ${pct(hit[hit.length - 1].metrics[first].effect)}로 가장 작게 줄었다.`;
+    }
+  }
+  return null;
+}
+
+/** 집단별 표 — 정책 종류마다 다른 줄. 줄 끝에서 그 집단에게 묻는다 */
 export function GroupEffectCard({
   comparison,
   askHref,
@@ -143,12 +188,17 @@ export function GroupEffectCard({
   const [dim, setDim] = useState<GroupDimension>(dims[0] ?? 'age_group');
   if (!dims.length) return null;
   const rows = groups[dim] ?? [];
-  const grant = (comparison.wallet?.on_total ?? 0) > 0;
-  const line = headline(rows, dim);
+  const type = comparison.policy_type ?? 'other';
+  const metrics = (comparison.group_metrics ?? [{ key: 'total', label: '총소비' }]).filter((m) => type !== 'grant' || m.key === 'total');
+  // 지원금을 모두가 받은 정책(서울시)은 '받은 비율' 칸이 뜻이 없다
+  const showRecipients = type === 'grant' && rows.some((r) => (r.grant.recipient_share ?? 1) < 0.99);
+  const line = groupSummary(rows, dim, type);
+  const label = (key: string, text: string) =>
+    key === 'total' ? '총소비' : key === 'elig' ? '적립 업종' : key === 'excl' ? '제외 업종' : key.startsWith('cat:') ? key.slice(4) : text;
   return (
     <section className="section">
       <div className="section__head">
-        <h2 className="section__title">누가 반응했나</h2>
+        <h2 className="section__title">{TITLE[type] ?? TITLE.other}</h2>
         <div className="segment" role="group" aria-label="집단 나누는 기준">
           {dims.map((d) => (
             <button key={d} type="button" className="segment__btn" aria-pressed={d === dim} onClick={() => setDim(d)}>
@@ -159,26 +209,58 @@ export function GroupEffectCard({
       </div>
       <Card>
         {line ? <p className="groupeffect__headline">{line}</p> : null}
-        <EffectBars
-          items={rows.map((r) => ({
-            key: r.value,
-            label: groupValueLabel(dim, r.value),
-            effect: r.total.effect,
-            ci: r.total.ci95,
-            significant: r.total.significant,
-            sub: grant && r.spend_per_grant !== null
-              ? `${int(r.agents)}명 · 지원금 1원당 ${r.spend_per_grant.toFixed(2)}원`
-              : `${int(r.agents)}명 · 1인 하루 ${wonSigned(r.uplift_per_agent_day)}`,
-            action: askHref ? (
-              <Link className="btn btn--secondary btn--sm" to={askHref({ [dim]: [r.value] })}>
-                이 집단에게 묻기
-              </Link>
-            ) : undefined,
-          }))}
-        />
+        <div className="table-wrap">
+          <table className="table groupeffect__table">
+            <thead>
+              <tr>
+                <th scope="col">{DIMENSION_LABEL[dim]}</th>
+                <th scope="col" className="n">시민</th>
+                {showRecipients ? <th scope="col" className="n">받은 비율</th> : null}
+                {type === 'grant' ? <th scope="col" className="n">사용률</th> : null}
+                {metrics.map((m) => (
+                  <th key={m.key} scope="col" className="n">
+                    {label(m.key, m.label)}
+                  </th>
+                ))}
+                {type === 'grant' ? <th scope="col" className="n">1원당 늘어난 소비</th> : null}
+                {type === 'cashback' ? <th scope="col" className="n">3% 넘게 늘린 비율</th> : null}
+                {askHref ? <th scope="col"><span className="visually-hidden">인터뷰</span></th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.value}>
+                  <th scope="row">{groupValueLabel(dim, r.value)}</th>
+                  <td className="n num">{int(r.agents)}명</td>
+                  {showRecipients ? <td className="n num">{share(r.grant.recipient_share)}</td> : null}
+                  {type === 'grant' ? <td className="n num">{share(r.grant.use_rate)}</td> : null}
+                  {metrics.map((m) => (
+                    <EffectCell key={m.key} row={r.metrics[m.key]} />
+                  ))}
+                  {type === 'grant' ? (
+                    <td className={`n num${r.metrics.total?.significant ? '' : ' muted'}`}>
+                      {r.metrics.total?.significant && r.spend_per_grant !== null ? `${r.spend_per_grant.toFixed(2)}원` : '—'}
+                    </td>
+                  ) : null}
+                  {type === 'cashback' ? <td className="n num">{share(r.elig_raised_share)}</td> : null}
+                  {askHref ? (
+                    <td className="n">
+                      <Link className="btn btn--secondary btn--sm" to={askHref({ [dim]: [r.value] })}>
+                        인터뷰
+                      </Link>
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <p className="card__note">
-          총소비 효과(같은 시민·같은 날). 옅은 막대는 95% 신뢰구간이 0을 포함합니다.
-          {grant ? ' 지원금 1원당: 늘어난 1인 하루 소비 ÷ 쓴 지원금.' : ''}
+          {type === 'grant' ? '사용률 = 쓴 지원금 ÷ 받은 지원금(정책 있음 기간 안). 1원당 늘어난 소비 = 늘어난 소비 ÷ 쓴 지원금. ' : ''}
+          {type === 'cashback'
+            ? '적립 업종 = 캐시백 실적으로 치는 가게. 제외 업종 = 대형마트·백화점·온라인 등. 3% 넘게 늘린 시민 = 같은 시민의 정책 없는 쪽보다 적립 업종 소비가 3% 넘게 많은 사람(실제 2분기 실적은 기록에 없어 대신 씀). '
+            : ''}
+          변화율은 같은 시민·같은 날 정책 있음 ÷ 없음 − 1. '—'는 95% 신뢰구간이 0을 포함해 차이를 말할 수 없는 값.
         </p>
       </Card>
     </section>

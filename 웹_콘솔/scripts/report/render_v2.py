@@ -1867,13 +1867,14 @@ def _compact_masthead(bundle: dict[str, Any]) -> str:
     paired = bundle.get("paired") or {}
     rows = _paired_rows(bundle)
     facts = [
-        fact("시행일", esc(period.get("policy_from") or "—"), esc(meta.get("policy_id") or "")),
+        fact("시행일", esc(period.get("policy_from") or "—"), ""),
         fact("비교한 시민", f"{int(paired.get('agents') or 0):,}명", f"정책 있음·없음 각 {len(paired.get('days') or [])}일"),
     ]
     for key, label in (("total", "총소비 효과"), ("shop", "가게 소비 효과")):
         row = rows.get(key)
         if row:
-            facts.append(fact(label, esc(_effect(row.get("effect"))), f"{_verdict(row)} · 95% 구간 {_ci(row.get('ci95'))}"))
+            value = esc(_effect(row.get("effect"))) if row.get("significant") else "유의하지 않음"
+            facts.append(fact(label, value, f"95% 구간 {_ci(row.get('ci95'))}"))
     wallet = paired.get("wallet") or {}
     if (wallet.get("on_total") or 0) > 0:
         facts.append(fact("지원금 사용", esc(krw(wallet.get("per_agent_day"))), "1인 하루"))
@@ -1900,13 +1901,17 @@ def _compact_summary(bundle: dict[str, Any]) -> str:
     down = sorted([r for r in cats if r.get("significant") and r["effect"] < 0], key=lambda r: r["effect"])[:3]
     lines = []
     total, shop = rows.get("total"), rows.get("shop")
-    if total:
+    if total and total.get("significant"):
         lines.append(
             f"같은 시민의 같은 날을 정책이 있을 때와 없을 때로 견주면 총소비는 <b>{esc(_effect(total.get('effect')))}</b> "
-            f"({esc(_verdict(total))}, 95% 구간 {esc(_ci(total.get('ci95')))})."
+            f"(95% 구간 {esc(_ci(total.get('ci95')))})."
         )
-    if shop:
-        lines.append(f"온라인을 뺀 가게 소비는 <b>{esc(_effect(shop.get('effect')))}</b> ({esc(_verdict(shop))}).")
+    elif total:
+        lines.append(f"같은 시민의 같은 날을 정책이 있을 때와 없을 때로 견주면 총소비는 유의한 차이가 없다 (95% 구간 {esc(_ci(total.get('ci95')))}).")
+    if shop and shop.get("significant"):
+        lines.append(f"온라인을 뺀 가게 소비는 <b>{esc(_effect(shop.get('effect')))}</b> (95% 구간 {esc(_ci(shop.get('ci95')))}).")
+    elif shop:
+        lines.append("온라인을 뺀 가게 소비는 유의한 차이가 없다.")
     if up:
         lines.append("유의하게 늘어난 업종: " + ", ".join(f"{esc(r['label'])} {esc(_effect(r['effect']))}" for r in up) + ".")
     if down:
@@ -1916,8 +1921,8 @@ def _compact_summary(bundle: dict[str, Any]) -> str:
         if extremes:
             top, low = extremes
             lines.append(
-                f"{GROUP_DIM_LABEL[dim]}별로 효과가 가장 큰 집단은 {esc(_group_value(dim, top['value']))}({esc(_effect(top['total']['effect']))}), "
-                f"가장 작은 집단은 {esc(_group_value(dim, low['value']))}({esc(_effect(low['total']['effect']))})."
+                f"{GROUP_DIM_LABEL[dim]}별 총소비 변화(유의한 집단): {esc(_group_value(dim, top['value']))} {esc(_effect(top['total']['effect']))}로 가장 크고, "
+                f"{esc(_group_value(dim, low['value']))} {esc(_effect(low['total']['effect']))}로 가장 작다."
             )
     wallet = paired.get("wallet") or {}
     if (wallet.get("on_total") or 0) > 0:
@@ -1944,11 +1949,13 @@ def _compact_paired(bundle: dict[str, Any]) -> str:
 
     def line(r: dict[str, Any]) -> list[str]:
         return [esc(r.get("label")), krw(r.get("off_per_agent_day")), krw(r.get("on_per_agent_day")),
-                f'<span class="num">{esc(_effect(r.get("effect")))}</span>', f'<span class="num">{esc(_ci(r.get("ci95")))}</span>']
+                f'<span class="num">{esc(_effect(r.get("effect")))}</span>' if r.get("significant") else "유의하지 않음",
+                f'<span class="num">{esc(_ci(r.get("ci95")))}</span>']
 
     body = [table(cols, [line(r) for r in head + sorted(cats, key=lambda r: -(r.get("effect") or 0))])]
     if hidden:
-        body.append(f'<p class="caption">95% 구간이 0을 포함한 업종 {hidden}개는 뺐다.</p>')
+        names = ", ".join(esc(r.get("label")) for r in rows if r.get("group") == "category" and not r.get("significant"))
+        body.append(f'<p class="caption">유의한 변화가 없는 업종(95% 구간이 0을 포함): {names}.</p>')
     daily = paired.get("daily") or []
     if daily:
         labels = [str(d.get("day"))[5:] for d in daily]
@@ -2016,38 +2023,77 @@ def _group_value(dim: str, value: str) -> str:
 
 
 def _group_extremes(rows: list[dict[str, Any]]) -> tuple[dict[str, Any], dict[str, Any]] | None:
-    known = [r for r in rows if (r.get("total") or {}).get("effect") is not None]
+    known = [r for r in rows if (r.get("total") or {}).get("effect") is not None and (r.get("total") or {}).get("significant")]
     if len(known) < 2:
         return None
     ordered = sorted(known, key=lambda r: abs(r["total"]["effect"]), reverse=True)
     return ordered[0], ordered[-1]
 
 
+GROUP_TITLE = {
+    "grant": "집단별 지원금 사용과 소비 증가",
+    "cashback": "집단별 적립 업종 소비",
+    "regulation": "집단별 소비 감소",
+}
+
+
+def _share(value: float | None) -> str:
+    return "—" if value is None else f"{round(value * 100)}%"
+
+
+def _sig_effect(row: dict[str, Any] | None) -> str:
+    """유의한 효과만 숫자로. 구간이 0을 지나면 '—'."""
+    if not row or row.get("effect") is None or not row.get("significant"):
+        return "—"
+    return f'<span class="num">{esc(_effect(row.get("effect")))}</span>'
+
+
+def _metric_label(key: str) -> str:
+    return {"total": "총소비", "shop": "가게 소비", "elig": "적립 업종", "excl": "제외 업종"}.get(key, key[4:] if key.startswith("cat:") else key)
+
+
 def _compact_groups(bundle: dict[str, Any]) -> str:
     paired = bundle.get("paired") or {}
     groups = paired.get("by_group") or {}
-    grant = ((paired.get("wallet") or {}).get("on_total") or 0) > 0
-    cols = [("집단", ""), ("시민", "n"), ("총소비 효과", "n"), ("95% 신뢰구간", "n"), ("판정", "")]
-    if grant:
-        cols.append(("지원금 1원당 늘어난 소비", "n"))
+    kind = paired.get("policy_type") or "other"
+    keys = [m["key"] for m in paired.get("group_metrics") or [{"key": "total"}]]
+    if kind == "grant":
+        keys = ["total"]
+    every = [r for dim in GROUP_DIM_LABEL for r in groups.get(dim) or []]
+    recipients = kind == "grant" and any(((r.get("grant") or {}).get("recipient_share") or 1) < 0.99 for r in every)
+    cols = [("집단", ""), ("시민", "n")]
+    if recipients:
+        cols.append(("받은 비율", "n"))
+    if kind == "grant":
+        cols.append(("사용률", "n"))
+    cols += [(_metric_label(k), "n") for k in keys]
+    if kind == "grant":
+        cols.append(("1원당 늘어난 소비", "n"))
+    if kind == "cashback":
+        cols.append(("3% 넘게 늘린 비율", "n"))
     rows = []
     for dim, label in GROUP_DIM_LABEL.items():
         for r in groups.get(dim) or []:
-            total = r.get("total") or {}
-            line = [
-                f"{label} · {esc(r['value'] if dim == 'income_level' else _group_value(dim, r['value']))}",
-                f"{int(r.get('agents') or 0):,}명",
-                f'<span class="num">{esc(_effect(total.get("effect")))}</span>',
-                f'<span class="num">{esc(_ci(total.get("ci95")))}</span>',
-                esc(_verdict(total)),
-            ]
-            if grant:
+            metrics = r.get("metrics") or {"total": r.get("total")}
+            grant = r.get("grant") or {}
+            line = [f"{label} · {esc(r['value'] if dim == 'income_level' else _group_value(dim, r['value']))}", f"{int(r.get('agents') or 0):,}명"]
+            if recipients:
+                line.append(_share(grant.get("recipient_share")))
+            if kind == "grant":
+                line.append(_share(grant.get("use_rate")))
+            line += [_sig_effect(metrics.get(k)) for k in keys]
+            if kind == "grant":
                 ratio = r.get("spend_per_grant")
-                line.append("—" if ratio is None else f"{ratio:.2f}원")
+                line.append(f"{ratio:.2f}원" if ratio is not None and (metrics.get("total") or {}).get("significant") else "—")
+            if kind == "cashback":
+                line.append(_share(r.get("elig_raised_share")))
             rows.append(line)
-    body = [table(cols, rows)]
-    body.append('<p class="caption">같은 시민·같은 날의 정책 있음 ÷ 없음 − 1을 집단마다 다시 셌다. 30명 미만 집단은 뺐다.</p>')
-    return "".join(body)
+    notes = ["변화율은 같은 시민·같은 날 정책 있음 ÷ 없음 − 1. '—'는 95% 신뢰구간이 0을 포함해 차이를 말할 수 없는 값. 30명 미만 집단은 뺐다."]
+    if kind == "grant":
+        notes.insert(0, "사용률 = 쓴 지원금 ÷ 받은 지원금(정책 있음 기간 안). 1원당 늘어난 소비 = 늘어난 소비 ÷ 쓴 지원금.")
+    if kind == "cashback":
+        notes.insert(0, "적립 업종 = 캐시백 실적으로 치는 가게, 제외 업종 = 대형마트·백화점·온라인 등. 3% 넘게 늘린 시민은 같은 시민의 정책 없는 쪽과 견줬다(실제 2분기 실적은 기록에 없다).")
+    return table(cols, rows) + "".join(f'<p class="caption">{esc(n)}</p>' for n in notes)
 
 
 def build_compact_html(bundle: dict[str, Any], *, title: str) -> str:
@@ -2058,7 +2104,8 @@ def build_compact_html(bundle: dict[str, Any], *, title: str) -> str:
         ("c2", "정책 있음·없음 비교", "같은 시민·같은 날. 유의한 업종만.", _compact_paired(bundle)),
     ]
     if (bundle.get("paired") or {}).get("by_group"):
-        plan.append(("c5", "누가 반응했나", "연령대·소득·성별 집단마다 같은 비교.", _compact_groups(bundle)))
+        kind = (bundle.get("paired") or {}).get("policy_type") or "other"
+        plan.append(("c5", GROUP_TITLE.get(kind, "집단별 소비 변화"), "", _compact_groups(bundle)))
     if has_validation:
         plan.append(("c3", "실측 연구와 비교", "공개 연구의 추정치와 같은 정의로 견줬다.", _compact_validation(bundle)))
     plan.append(("c4", "근거와 한계", "", _compact_limits(bundle)))

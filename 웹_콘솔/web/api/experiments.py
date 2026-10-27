@@ -40,7 +40,8 @@ DAY = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # 대상자 id 에는 연령대 한글이 들어간다 (AGT_11350560_M_30대_003)
 AGENT_ID = re.compile(r"^[A-Za-z0-9_\-가-힣]{1,96}$")
 ROLES = {"single", "shared_pre", "control", "treatment"}
-CACHE_VERSION = 2  # 2: 정책 실험(policy_paired)은 대상자별 업종 금액·정책 지갑 사용액도 요약한다
+CACHE_VERSION = 3  # 2: 정책 실험(policy_paired)은 대상자별 업종 금액·정책 지갑 사용액도 요약한다
+# 3: 받은 지원금(got)과 캐시백 적립 업종 금액(elig)도 요약한다
 CONSOLE_DIR = "_console"
 
 
@@ -377,6 +378,11 @@ def summarize_rows(rows: Iterable[dict[str, Any]], experiment: Experiment) -> di
                     wallet += max(0, value - _int(own))
             compact["cat"] = dict(categories)
             compact["pol"] = wallet
+            compact["got"] = _int(row.get("grant_applied_today"))
+            eligible = _eligible_pois(experiment)
+            if eligible is not None:
+                # 캐시백 실적으로 치는 가게에서 쓴 돈. 온라인·제외 업종은 빠진다
+                compact["elig"] = sum(_int(r.get("amount")) for r in purchased if eligible.get(str(r.get("poi_id"))))
         if experiment.kind == "no_smoking_zone":
             hits = []
             smoking = compact.get("smoking") or "unknown"
@@ -952,6 +958,12 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
     summary = _paired_effect(people, ids, pooled["metrics"])
     roster = {item["id"]: item for item in store.roster(experiment.experiment_id).get("items") or []}
     by_group: dict[str, list[dict[str, Any]]] = {}
+    # 집단마다 다시 셀 지표 — 정책 종류에 따라 다르다(실험 정의 analysis.group_metrics)
+    wanted = (experiment.analysis or {}).get("group_metrics") or ["total", "shop"]
+    known = {key: label for key, label in pooled["metrics"]}
+    group_metrics = [(key, known[key]) for key in wanted if key in known]
+    if not group_metrics or group_metrics[0][0] != "total":
+        group_metrics = [("total", known["total"])] + [m for m in group_metrics if m[0] != "total"]
     for dim, order in GROUP_DIMENSIONS:
         members: dict[str, list[str]] = defaultdict(list)
         for aid in ids:
@@ -963,9 +975,10 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
             group_ids = members[value]
             if len(group_ids) < MIN_GROUP:
                 continue
-            effect = _paired_effect(people, group_ids, pooled["metrics"][:2])
-            rows.append({"value": value, **{k: effect[k] for k in ("agents", "wallet", "uplift_per_agent_day", "spend_per_grant")},
-                         "total": effect["rows"][0], "shop": effect["rows"][1]})
+            effect = _paired_effect(people, group_ids, group_metrics)
+            rows.append({"value": value, **{k: effect[k] for k in ("agents", "wallet", "uplift_per_agent_day", "spend_per_grant", "grant", "elig_raised_share")},
+                         "total": effect["rows"][0], "shop": effect["rows"][1] if len(effect["rows"]) > 1 else None,
+                         "metrics": {row["key"]: row for row in effect["rows"]}})
         if len(rows) > 1:
             by_group[dim] = rows
 
@@ -981,6 +994,10 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
         "uplift_per_agent_day": summary["uplift_per_agent_day"],
         "spend_per_grant": summary["spend_per_grant"],
         "by_group": by_group,
+        "group_metrics": [{"key": key, "label": label} for key, label in group_metrics],
+        "policy_type": (experiment.analysis or {}).get("policy_type") or ("grant" if summary["wallet"]["on_total"] > 0 else "other"),
+        "grant": summary["grant"],
+        "elig_raised_share": summary["elig_raised_share"],
         "daily": pooled["daily"],
         "method": {
             "pairing": "같은 시민·같은 날, 두 팔 모두 정상(ok)인 대상자-일",
@@ -1004,6 +1021,24 @@ GROUP_DIMENSIONS: tuple[tuple[str, list[str]], ...] = (
 MIN_GROUP = 30
 _people_cache: dict[str, tuple[tuple, dict[str, Any]]] = {}
 _subset_cache: dict[tuple, dict[str, Any]] = {}
+
+
+_eligible_cache: dict[str, tuple[float, dict[str, bool]]] = {}
+
+
+def _eligible_pois(experiment: Experiment) -> dict[str, bool] | None:
+    """캐시백 실적으로 치는 가게 목록(번들의 eligible_pois.json). 없는 실험은 None."""
+    path = experiment.bundle_dir / "eligible_pois.json"
+    if not path.is_file():
+        return None
+    stamp = path.stat().st_mtime
+    hit = _eligible_cache.get(str(path))
+    if hit is not None and hit[0] == stamp:
+        return hit[1]
+    value = _json_file(path)
+    table = {str(k): bool(v) for k, v in (value or {}).items()} if isinstance(value, dict) else {}
+    _eligible_cache[str(path)] = (stamp, table)
+    return table
 
 
 def _paired_people(store: ExperimentStore, experiment: Experiment) -> dict[str, Any]:
@@ -1050,7 +1085,7 @@ def _paired_people(store: ExperimentStore, experiment: Experiment) -> dict[str, 
                 continue
             pairs += 1
             person = people.setdefault(
-                aid, {"days": 0, "tot": [0.0, 0.0], "shop": [0.0, 0.0], "cat": defaultdict(lambda: [0.0, 0.0]), "pol": 0.0}
+                aid, {"days": 0, "tot": [0.0, 0.0], "shop": [0.0, 0.0], "elig": [0.0, 0.0], "cat": defaultdict(lambda: [0.0, 0.0]), "pol": 0.0, "got": 0.0}
             )
             person["days"] += 1
             person["tot"][0] += a["spend_all"]
@@ -1062,6 +1097,9 @@ def _paired_people(store: ExperimentStore, experiment: Experiment) -> dict[str, 
                     person["cat"][category][side] += amount
                     category_total[category] += amount
             person["pol"] += b.get("pol") or 0
+            person["got"] += b.get("got") or 0
+            person["elig"][0] += a.get("elig") or 0
+            person["elig"][1] += b.get("elig") or 0
             day_off += a["spend_all"]
             day_on += b["spend_all"]
         daily.append({"day": day, "pairs": pairs, "off": round(day_off), "on": round(day_on), "effect": _ratio(day_on, day_off)})
@@ -1070,7 +1108,10 @@ def _paired_people(store: ExperimentStore, experiment: Experiment) -> dict[str, 
     grand = sum(category_total.values()) or 1
     # 업종은 두 팔 합계의 0.5% 이상인 것만 — 몇 건 안 되는 업종의 비율은 흔들려 읽을 수 없다
     categories = [c for c, v in category_total.most_common() if v / grand >= 0.005][:12]
-    metrics = [("total", "총소비 (온라인 포함)"), ("shop", "가게 소비 (온라인 제외)")] + [(f"cat:{c}", c) for c in categories]
+    metrics = [("total", "총소비 (온라인 포함)"), ("shop", "가게 소비 (온라인 제외)")]
+    if _eligible_pois(experiment) is not None:
+        metrics += [("elig", "적립 업종 소비"), ("excl", "제외 업종 소비 (온라인 포함)")]
+    metrics += [(f"cat:{c}", c) for c in categories]
     pooled = {"key": key, "loaded": loaded, "people": people, "daily": daily, "excluded": excluded, "metrics": metrics}
     with _paired_lock:
         _people_cache[experiment.experiment_id] = (key, pooled)
@@ -1085,6 +1126,10 @@ def _paired_effect(people: dict[str, dict[str, Any]], ids: list[str], metrics: l
             return person["tot"][0], person["tot"][1]
         if metric == "shop":
             return person["shop"][0], person["shop"][1]
+        if metric == "elig":
+            return person["elig"][0], person["elig"][1]
+        if metric == "excl":
+            return person["tot"][0] - person["elig"][0], person["tot"][1] - person["elig"][1]
         value = person["cat"].get(metric[4:])
         return (value[0], value[1]) if value else (0.0, 0.0)
 
@@ -1138,6 +1183,10 @@ def _paired_effect(people: dict[str, dict[str, Any]], ids: list[str], metrics: l
     wallet = sum(people[aid]["pol"] for aid in ids)
     uplift = (on_sum[0] - off_sum[0]) / agent_days
     per_day = wallet / agent_days
+    received = sum(people[aid]["got"] for aid in ids)
+    recipients = sum(1 for aid in ids if people[aid]["got"] > 0)
+    # 캐시백 문턱(3%)을 같은 시민의 정책 없는 쪽에 견줘 넘긴 사람 — 실제 2분기 실적이 기록에 없어 대신 쓴다
+    raised = sum(1 for aid in ids if people[aid]["elig"][1] > people[aid]["elig"][0] * 1.03 and people[aid]["elig"][1] > 0)
     return {
         "agents": n,
         "paired_agent_days": agent_days,
@@ -1146,6 +1195,13 @@ def _paired_effect(people: dict[str, dict[str, Any]], ids: list[str], metrics: l
         # 정책 있음 − 없음 의 1인 하루 총소비 차이, 그리고 그것을 쓴 지원금으로 나눈 값
         "uplift_per_agent_day": round(uplift),
         "spend_per_grant": round(uplift / per_day, 3) if per_day > 0 else None,
+        "grant": {
+            "recipients": recipients,
+            "recipient_share": round(recipients / n, 4) if n else None,
+            "received_per_recipient": round(received / recipients) if recipients else None,
+            "use_rate": round(wallet / received, 4) if received > 0 else None,
+        },
+        "elig_raised_share": round(raised / n, 4) if n else None,
     }
 
 

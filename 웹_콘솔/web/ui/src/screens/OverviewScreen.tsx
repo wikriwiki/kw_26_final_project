@@ -18,7 +18,7 @@ import { RunEffectStat } from '../components/RunEffectStat';
 import { Callout } from '../components/Feedback';
 import { ActivityIcon, BarChartIcon, MapIcon, UsersIcon } from '../components/Icon';
 import { Meter } from '../components/Meter';
-import { dec, int, krw, percent } from '../lib/format';
+import { dateRange, dec, int, krw, percent } from '../lib/format';
 
 /**
  * 이 실행에 적용된 정책 한 줄.
@@ -44,7 +44,7 @@ function policyLine(run: RunContextValue): { value: string; note: string } {
     };
   }
   return {
-    value: run.policy.items.map((p) => (p.name ? `${p.name} (${p.id})` : p.id)).join(' · '),
+    value: run.policy.items.map((p) => p.name ?? p.id).join(' · '),
     note: run.policy.title ? '' : '결제 기록 기준',
   };
 }
@@ -73,7 +73,7 @@ export function OverviewScreen() {
   const dayProgress = planned === null || planned <= 0 ? null : Math.min(1, present / planned);
   const lastDay = days.length > 0 ? days[days.length - 1] : null;
   const processed = days.reduce((sum, d) => sum + d.agents_ok, 0);
-  const period = run.firstDay && run.lastDay ? `${run.firstDay} ~ ${run.lastDay}` : null;
+  const period = run.firstDay && run.lastDay ? dateRange(run.firstDay, run.lastDay) : null;
 
   const primaryKey = PRIMARY_ORDER.find((key) => run.can(key)) ?? null;
   const blocked = run.features.filter((f) => ACTIONS.some((a) => a.key === f.key) && !f.available);
@@ -129,7 +129,7 @@ export function OverviewScreen() {
                 </>
               ) : (
                 <>
-                  <span className="num">{period}</span>
+                  <span className="num nowrap">{period}</span>
                   <span className="cell-sub">
                     {completed || planned === null ? `${int(present)}일` : `${int(present)}일 / 계획 ${int(planned)}일`}
                   </span>

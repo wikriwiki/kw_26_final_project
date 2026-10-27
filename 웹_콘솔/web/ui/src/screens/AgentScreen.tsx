@@ -206,10 +206,10 @@ interface Turn {
   failed?: string;
 }
 
-/** 여러 명에게 — 정책 실행이 나온 실험의 '정책 있음' 기록으로 집단 질의를 한다 */
+/** 집단에게 — 정책 실행이 나온 실험의 '정책 있음' 기록으로 집단 인터뷰를 한다 */
 function RunGroupQuery({ experimentId }: { experimentId: string }) {
   const detail = useResource(() => experimentsApi.detail(experimentId), `experiment:${experimentId}`);
-  if (detail.error) return <ErrorState title="집단 질의를 열지 못했습니다" body={detail.error.message} />;
+  if (detail.error) return <ErrorState title="인터뷰를 열지 못했습니다" body={detail.error.message} />;
   if (!detail.data) {
     return (
       <Card title="불러오는 중">
@@ -264,9 +264,9 @@ export function AgentScreen() {
           <h1 className="pagehead__title">{experimentId ? '시민 인터뷰' : '시민 문답'}</h1>
           <p className="pagehead__purpose">
             {group
-              ? '정책 시행 뒤, 고른 집단에게 같은 질문을 합니다.'
+              ? '정책 시행 후 · 집단 인터뷰'
               : experimentId
-                ? '정책 시행 뒤, 시민 한 명에게 묻습니다.'
+                ? '정책 시행 후 · 개별 인터뷰'
                 : '시민 한 명을 골라 질문합니다.'}
           </p>
         </div>
@@ -274,10 +274,10 @@ export function AgentScreen() {
           <div className="pagehead__actions">
             <div className="segment" role="group" aria-label="묻는 방식">
               <button type="button" className="segment__btn" aria-pressed={group} onClick={() => setMode('group')}>
-                집단에게
+                집단
               </button>
               <button type="button" className="segment__btn" aria-pressed={!group} onClick={() => setMode('one')}>
-                한 명에게
+                개인
               </button>
             </div>
           </div>
@@ -788,7 +788,7 @@ function Conversation({
 
           <div className="ag-free">
             <TextField
-              label="직접 묻기"
+              label="질문"
               value={draft}
               onChange={(e) => {
                 setDraft(e.currentTarget.value);

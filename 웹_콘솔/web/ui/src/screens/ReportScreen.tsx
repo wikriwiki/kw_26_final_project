@@ -23,7 +23,7 @@ import { SelectField, TextField } from '../components/Field';
 import { AlertCircleIcon, CheckCircleIcon, DownloadIcon, RefreshIcon } from '../components/Icon';
 import { api, artifactUrl } from '../lib/api';
 import type { ApiErrorShape, LlmStatus, ReportCatalog, ReportJob } from '../lib/api';
-import { dateTime, int } from '../lib/format';
+import { dateRange, dateTime, dayRange, int } from '../lib/format';
 import { loadReportDoc, SCOPE } from '../lib/reportDoc';
 import type { ReportDoc } from '../lib/reportDoc';
 import { READ_ONLY } from '../lib/runtime';
@@ -117,7 +117,7 @@ function reportLabel(item: { created_at?: string }): string {
 }
 
 function periodLabel(item: { start?: string; days?: number }): string {
-  return item.start && item.days ? `${item.start} 부터 ${item.days}일` : '—';
+  return item.start && item.days ? dayRange(item.start, item.days) : '—';
 }
 
 export function ReportScreen() {
@@ -334,9 +334,7 @@ export function ReportScreen() {
       <header className="pagehead">
         <div className="pagehead__text">
           <h1 className="pagehead__title">보고서</h1>
-          <p className="pagehead__purpose">
-            수치마다 출처 파일이 함께 적힙니다.
-          </p>
+          <p className="pagehead__purpose">정책 효과를 한 문서로 정리합니다.</p>
         </div>
         {openPath ? (
           <div className="pagehead__actions">
@@ -384,10 +382,6 @@ export function ReportScreen() {
           <section className="section">
             <div className="section__head">
               <h2 className="section__title">대상과 기간</h2>
-              <p className="section__note">
-                실행 {run.id} · 기록된 일자 {int(ready.run.days_present.length)}일 · 상태{' '}
-                {ready.run.status === 'completed' ? '완료' : '중단됨'}
-              </p>
             </div>
             <div className="grid">
               <Card className="c6" title="분석 대상">
@@ -423,9 +417,10 @@ export function ReportScreen() {
                   onChange={(e) => setStart(e.currentTarget.value)}
                   help={
                     ready.run.days_present.length > 0
-                      ? `기록 구간 ${ready.run.days_present[0]} ~ ${
-                          ready.run.days_present[ready.run.days_present.length - 1]
-                        }`
+                      ? `시뮬레이션 기간 ${dateRange(
+                          ready.run.days_present[0],
+                          ready.run.days_present[ready.run.days_present.length - 1],
+                        )}`
                       : '이 실행에는 일자 기록이 없습니다.'
                   }
                   error={errors.start}
@@ -438,7 +433,7 @@ export function ReportScreen() {
                   max={365}
                   value={days}
                   onChange={(e) => setDays(e.currentTarget.value)}
-                  help={endDay ? `${start} ~ ${endDay} · ${int(dayCount)}일` : undefined}
+                  help={endDay ? `${dateRange(start, endDay)} · ${int(dayCount)}일` : undefined}
                   error={errors.days}
                 />
               </Card>
@@ -451,7 +446,7 @@ export function ReportScreen() {
             <div className="section__head">
               <h2 className="section__title">구성</h2>
               <p className="section__note">
-                정책 실행 보고서는 요약 · 정책 있음·없음 비교 · 실측 연구와 비교 · 근거와 한계 네 절로 고정됩니다.
+                요약 · 정책 있음·없음 비교 · 집단별 비교 · 실측 연구와 비교 · 근거와 한계
               </p>
             </div>
           </section>
@@ -599,7 +594,7 @@ export function ReportScreen() {
             <div className="row-between">
               <p className="card__note wrap">
                 {engineInfo?.available
-                  ? `${start}부터 ${int(dayCount)}일`
+                  ? dayRange(start, dayCount)
                   : (engineInfo?.reason ?? '사용할 수 있는 엔진이 없습니다.')}
               </p>
               <Button variant="primary" disabled={!canSubmit} busy={starting} busyLabel="시작하는 중" onClick={submit}>

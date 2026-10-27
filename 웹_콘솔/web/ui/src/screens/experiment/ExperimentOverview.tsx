@@ -10,8 +10,8 @@ import { Button } from '../../components/Button';
 import { Card, Stat } from '../../components/Card';
 import { Callout } from '../../components/Feedback';
 import { Meter } from '../../components/Meter';
-import { dateTime, int } from '../../lib/format';
-import { experimentsApi, PHASE_TEXT, ROLE_LABEL } from '../../lib/experiments';
+import { dateTime, dayRange, int, lastDay } from '../../lib/format';
+import { experimentsApi, PHASE_TEXT } from '../../lib/experiments';
 import type { ArmStatus, SyncStatus } from '../../lib/experiments';
 import { READ_ONLY } from '../../lib/runtime';
 import { useExperiment } from './ExperimentWorkspace';
@@ -23,33 +23,23 @@ function ArmCard({ arm, cohort }: { arm: ArmStatus; cohort: number }) {
     <Card
       title={arm.label}
       aside={<Badge tone={tone}>{PHASE_TEXT[arm.phase]}</Badge>}
-      note={`${ROLE_LABEL[arm.role]} · ${arm.start}부터 ${int(arm.days)}일${arm.parent ? ' · 정책 전 기간에 이어서' : ''}`}
+      note={dayRange(arm.start, arm.days)}
       className="c4"
     >
-      <div className="armcard__progress">
-        <Meter ratio={arm.days ? arm.days_complete / arm.days : 0} label={`${arm.label} 완료 일수`} />
-        <span className="num">
-          {int(arm.days_complete)} / {int(arm.days)}일
-        </span>
-      </div>
-      <dl className="armcard__facts">
-        <div>
-          <dt>진행 중인 날</dt>
-          <dd className="num">{current ? `${current.day} · ${int(current.rows ?? 0)} / ${int(cohort)}명` : '없음'}</dd>
+      {/* 다 끝난 쪽은 기간만으로 충분하다. 진행 정보는 아직 도는 쪽에만 보인다 */}
+      {arm.phase === 'complete' ? null : (
+        <div className="armcard__progress">
+          <Meter ratio={arm.days ? arm.days_complete / arm.days : 0} label={`${arm.label} 완료 일수`} />
+          <span className="num">
+            {int(arm.days_complete)} / {int(arm.days)}일
+          </span>
         </div>
-        <div>
-          <dt>빠진 기록</dt>
-          <dd className="num">{int(arm.skipped_total)}</dd>
-        </div>
-        <div>
-          <dt>모델</dt>
-          <dd>{arm.manifest?.model ?? '기록 없음'}</dd>
-        </div>
-        <div>
-          <dt>받은 시각</dt>
-          <dd className="num">{arm.synced_at ? dateTime(arm.synced_at) : '받은 적 없음'}</dd>
-        </div>
-      </dl>
+      )}
+      {current && arm.phase !== 'complete' ? (
+        <p className="card__note num">
+          진행 중 {current.day} · {int(current.rows ?? 0)} / {int(cohort)}명
+        </p>
+      ) : null}
       {arm.integrity_failures > 0 ? (
         <Callout tone="warn">검사에 실패한 기록 {int(arm.integrity_failures)}건은 집계에서 뺐습니다.</Callout>
       ) : null}
@@ -85,6 +75,8 @@ function SyncCard({ experimentId, onDone }: { experimentId: string; onDone: () =
   }, [experimentId, onDone, status?.started_at]);
 
   const running = status?.state === 'running';
+  // 이 PC 에 원격 접속이 없으면 받을 수 없다. 이미 받아 둔 기록으로 보는 화면이라 카드를 그리지 않는다
+  if (status && !status.remote_configured && !error) return null;
   const start = () => {
     setError(null);
     experimentsApi.syncStart(experimentId).then(setStatus, (err) => setError(err.message));
@@ -126,17 +118,30 @@ function SyncCard({ experimentId, onDone }: { experimentId: string; onDone: () =
 export function ExperimentOverview() {
   const { experiment, reload } = useExperiment();
   const cohort = experiment.cohort_size;
-  const totalSkipped = experiment.arms.reduce((sum, arm) => sum + arm.skipped_total, 0);
-  const observedDays = experiment.arms.reduce((sum, arm) => sum + arm.days_present, 0);
+  const { start, days } = experiment.window;
+  const pre = experiment.arms.find((arm) => arm.role === 'shared_pre');
+  const post = experiment.arms.find((arm) => arm.role === 'treatment');
 
   return (
     <div className="stack">
       {experiment.interpretation ? <Callout tone="info">{experiment.interpretation}</Callout> : null}
       <div className="grid">
         <Stat className="c3" label="시민" value={int(cohort)} unit="명" />
-        <Stat className="c3" label="기간" value={experiment.window.start ? `${experiment.window.start}부터 ${int(experiment.window.days)}일` : null} />
+        {/* 큰 숫자 칸에는 월-일만 둔다. 해와 일수는 아래 줄로 — 날짜가 중간에서 꺾이지 않게 */}
+        <Stat
+          className="c3"
+          label="기간"
+          value={start && days ? `${start.slice(5)} ~ ${lastDay(start, days).slice(5)}` : null}
+          hint={start && days ? `${start.slice(0, 4)}년 · ${int(days)}일` : undefined}
+        />
         <Stat className="c3" label="정책 시행일" value={experiment.window.effective_date ?? null} />
-        <Stat className="c3" label="기록된 날 / 빠진 기록" value={`${int(observedDays)} / ${int(totalSkipped)}`} />
+        <Stat
+          className="c3"
+          label="비교"
+          value={pre && post ? `${int(pre.days)}일 + ${int(post.days)}일` : null}
+          hint="정책 전 함께 → 있음·없음으로 나눔"
+          unknownReason="—"
+        />
       </div>
       <div className="grid">
         {experiment.arms.map((arm) => (

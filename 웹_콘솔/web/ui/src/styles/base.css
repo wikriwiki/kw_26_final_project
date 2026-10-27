@@ -181,6 +181,11 @@ textarea {
   border: 0;
 }
 
+/* 날짜·금액이 중간에서 끊기지 않게 */
+.nowrap {
+  white-space: nowrap;
+}
+
 .skip-link {
   position: absolute;
   left: var(--sp-2);

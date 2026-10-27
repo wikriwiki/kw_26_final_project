@@ -25,6 +25,9 @@ const POLICY_TYPE: Record<string, string> = {
   tax: '세제',
   transit: '교통',
   environment: '환경',
+  cashback: '캐시백',
+  price_discount: '할인',
+  sector_voucher: '업종 쿠폰',
 };
 
 export function policyType(value: string): Translated {

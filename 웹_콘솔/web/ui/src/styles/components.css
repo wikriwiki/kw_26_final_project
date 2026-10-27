@@ -139,6 +139,9 @@
   flex-direction: column;
   gap: var(--sp-1);
   justify-content: flex-start;
+  /* 큰 숫자가 칸 너비에 맞춰 줄어들도록(아래 cqi) */
+  container-type: inline-size;
+  min-width: 0;
 }
 
 .stat__label {
@@ -156,6 +159,9 @@
   letter-spacing: var(--tracking-tight);
   color: var(--fg);
   line-height: 1.1;
+  /* 날짜·금액이 하이픈이나 공백에서 꺾이지 않게 한 줄로 두고, 칸이 좁으면 글자를 줄인다 */
+  white-space: nowrap;
+  font-size: min(var(--fs-figure), 15cqi);
 }
 
 /* "알 수 없음"은 수치가 아니다 — mono/tabular 를 쓰면 한글 자간이 벌어진다 */

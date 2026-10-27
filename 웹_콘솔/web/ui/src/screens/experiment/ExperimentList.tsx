@@ -6,9 +6,8 @@
 import { Link } from 'react-router-dom';
 import { Badge } from '../../components/Badge';
 import { Meter } from '../../components/Meter';
-import { int } from '../../lib/format';
+import { dayRange, int } from '../../lib/format';
 import { experimentsApi, PHASE_TEXT, useResource } from '../../lib/experiments';
-import { finishedExperiments } from '../PolicyList';
 
 /** 기록을 다 받은 실험을 먼저. 같은 묶음 안에서는 레지스트리 순서를 지킨다 */
 function sortByReady<T extends { arms: Array<{ phase: string }> }>(items: T[]): T[] {
@@ -18,9 +17,7 @@ function sortByReady<T extends { arms: Array<{ phase: string }> }>(items: T[]): 
 
 export function ExperimentList({ exclude = [] }: { exclude?: string[] }) {
   const list = useResource(() => experimentsApi.list(), 'experiments');
-  // 기록을 다 받은 실험은 위 정책 목록에 한 줄로 나온다. 여기에는 아직 받는 중인 것만
-  const finished = finishedExperiments(list.data?.items ?? [], exclude).map((e) => e.experiment_id);
-  const items = (list.data?.items ?? []).filter((e) => !exclude.includes(e.experiment_id) && !finished.includes(e.experiment_id));
+  const items = (list.data?.items ?? []).filter((e) => !exclude.includes(e.experiment_id));
   if (list.loading || list.error || items.length === 0) return null;
   return (
     <section className="section" aria-labelledby="experiments-title">
@@ -35,7 +32,7 @@ export function ExperimentList({ exclude = [] }: { exclude?: string[] }) {
             <Link className="exprow" to={`/experiments/${experiment.experiment_id}`}>
               <span className="exprow__title">{experiment.title}</span>
               <span className="exprow__meta">
-                {experiment.window.start ? `${experiment.window.start}부터 ${int(experiment.window.days)}일 · ` : ''}
+                {experiment.window.start ? `${dayRange(experiment.window.start, experiment.window.days)} · ` : ''}
                 {int(experiment.cohort_size)}명{experiment.source_branch ? ` · ${experiment.source_branch}` : ''}
               </span>
               <span className="exprow__arms">

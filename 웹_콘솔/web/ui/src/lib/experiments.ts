@@ -171,6 +171,10 @@ export interface Comparison {
   spend_per_grant?: number | null;
   /** 연령대·소득·성별 집단마다 같은 계산 */
   by_group?: Partial<Record<GroupDimension, GroupEffectRow[]>>;
+  group_metrics?: Array<{ key: string; label: string }>;
+  policy_type?: 'grant' | 'cashback' | 'regulation' | 'other';
+  grant?: GrantUse;
+  elig_raised_share?: number | null;
   daily?: Array<{ day: string; pairs: number; off: number; on: number; effect: number | null }>;
   method?: { pairing: string; effect: string; ci: string };
 }
@@ -184,7 +188,21 @@ export interface GroupEffectRow {
   uplift_per_agent_day: number;
   spend_per_grant: number | null;
   total: PairedRow;
-  shop: PairedRow;
+  shop: PairedRow | null;
+  /** 실험 정의 group_metrics 로 고른 지표마다의 짝 비교 */
+  metrics: Record<string, PairedRow>;
+  grant: GrantUse;
+  /** 적립 업종 소비를 정책 없을 때보다 3% 넘게 늘린 시민 비율(캐시백) */
+  elig_raised_share: number | null;
+}
+
+/** 지원금을 받고 쓴 정도 — 정책 있음 쪽 기간 안에서 */
+export interface GrantUse {
+  recipients: number;
+  recipient_share: number | null;
+  received_per_recipient: number | null;
+  /** 쓴 지원금 ÷ 받은 지원금 */
+  use_rate: number | null;
 }
 
 /** 조건으로 고른 집단 하나의 정책 효과 */
@@ -198,6 +216,7 @@ export interface GroupEffect {
   wallet?: { on_total: number; per_agent_day: number };
   uplift_per_agent_day?: number;
   spend_per_grant?: number | null;
+  grant?: GrantUse;
 }
 
 export interface PairedRow {

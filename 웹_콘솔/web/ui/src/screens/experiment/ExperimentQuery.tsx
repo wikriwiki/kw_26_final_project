@@ -1,11 +1,11 @@
 /**
- * 집단 질의 — 조건으로 집단을 고르고, 그 집단의 정책 효과를 바로 보고, 표본에게 같은 질문을 한다.
+ * 인터뷰 — 조건으로 집단을 고르고, 그 집단의 정책 효과를 바로 보고, 표본에게 같은 질문을 한다.
  *
  * 정책 실험(정책 있음·없음을 함께 돌린 것)은 정책 담당자가 쓰는 화면이다.
  *   - 인터뷰는 늘 '정책 있음' 쪽 시민에게, 정책 시행 뒤 마지막 날까지의 기록으로 묻는다(날짜를 고르지 않는다).
  *   - 조건을 바꾸면 그 집단의 효과(같은 시민·같은 날 있음 ÷ 없음 − 1)가 바로 바뀐다.
  *   - 질문은 '누구에게·무엇을·왜' 묶음으로 고른다. 누르면 집단과 질문이 함께 채워진다.
- * 다른 실험(금연구역 등)은 예전처럼 기록 통계를 본다.
+ * 정책 있음·없음이 없는 실험은 기록 통계를 본다.
  *
  * 집단 인터뷰는 1대1 인터뷰와 같은 근거 규칙으로 한 명씩 묻고, 끝나면 답들을 모델이 요약한다 —
  * 요약은 확인되지 않은 정리라서 개별 답과 나눠 보여 준다.
@@ -150,40 +150,39 @@ function GroupEffectNow({ effect, overall, loading }: { effect: GroupEffect | nu
     .sort((a, b) => Math.abs(b.effect as number) - Math.abs(a.effect as number))
     .slice(0, 4);
   const grant = (effect.wallet?.on_total ?? 0) > 0;
-  const diff = total?.effect != null && overall != null ? total.effect - overall : null;
+  const sig = !!total?.significant && total.effect != null;
+  const diff = sig && overall != null ? (total.effect as number) - overall : null;
+  const range = (r: typeof total) => (r?.ci95 ? `95% 구간 ${pct(r.ci95[0])} ~ ${pct(r.ci95[1])}` : undefined);
+  const value = (r: typeof total) => (r?.significant ? pct(r.effect) : '유의하지 않음');
+  const elig = effect.rows.find((r) => r.key === 'elig');
+  const excl = effect.rows.find((r) => r.key === 'excl');
+  // 정책 종류마다 보는 지표가 다르다. 값을 낼 수 없는 칸은 그리지 않는다
+  const stats: Array<{ label: string; value: string | null; hint?: string }> = [
+    { label: '총소비 효과', value: total ? value(total) : null, hint: range(total) },
+  ];
+  if (diff !== null) {
+    stats.push({ label: '전체 평균과 차이', value: `${diff >= 0 ? '+' : ''}${(diff * 100).toFixed(1)}%p`, hint: overall === null ? undefined : `전체 ${pct(overall)}` });
+  }
+  if (elig || excl) {
+    if (elig) stats.push({ label: '적립 업종 소비', value: value(elig), hint: range(elig) });
+    if (excl) stats.push({ label: '제외 업종 소비', value: value(excl), hint: range(excl) });
+  } else if (shop && !grant) {
+    stats.push({ label: '가게 소비 효과', value: value(shop), hint: shop.significant ? '온라인 제외' : range(shop) });
+  }
+  if (grant) {
+    const use = effect.grant?.use_rate;
+    if (use != null) stats.push({ label: '지원금 사용률', value: `${Math.round(use * 100)}%`, hint: '쓴 지원금 ÷ 받은 지원금' });
+    if (sig && effect.spend_per_grant != null) {
+      stats.push({ label: '지원금 1원당 늘어난 소비', value: `${effect.spend_per_grant.toFixed(2)}원`, hint: `쓴 지원금 1인 하루 ${krw(effect.wallet?.per_agent_day ?? 0)}` });
+    }
+  } else if (sig && effect.uplift_per_agent_day != null) {
+    stats.push({ label: '1인 하루 소비 변화', value: `${effect.uplift_per_agent_day >= 0 ? '+' : '−'}${int(Math.abs(effect.uplift_per_agent_day))}원` });
+  }
   return (
     <div className="groupnow" aria-live="polite" style={loading ? { opacity: 0.55 } : undefined}>
-      <Stat
-        label="총소비 효과"
-        value={pct(total?.effect)}
-        hint={
-          total?.ci95
-            ? `${pct(total.ci95[0])} ~ ${pct(total.ci95[1])}${total.significant ? '' : ' · 유의하지 않음'}`
-            : undefined
-        }
-        unknownReason="기록 없음"
-      />
-      <Stat
-        label="전체 평균과 차이"
-        value={diff === null ? null : `${diff >= 0 ? '+' : ''}${(diff * 100).toFixed(1)}%p`}
-        hint={overall === null ? undefined : `전체 ${pct(overall)}`}
-        unknownReason="—"
-      />
-      <Stat label="가게 소비 효과" value={pct(shop?.effect)} hint="온라인 제외" unknownReason="기록 없음" />
-      {grant ? (
-        <Stat
-          label="지원금 1원당 늘어난 소비"
-          value={effect.spend_per_grant == null ? null : `${effect.spend_per_grant.toFixed(2)}원`}
-          hint={`쓴 지원금 1인 하루 ${krw(effect.wallet?.per_agent_day ?? 0)}`}
-          unknownReason="—"
-        />
-      ) : (
-        <Stat
-          label="1인 하루 소비 변화"
-          value={effect.uplift_per_agent_day == null ? null : `${effect.uplift_per_agent_day >= 0 ? '+' : '−'}${int(Math.abs(effect.uplift_per_agent_day))}원`}
-          unknownReason="—"
-        />
-      )}
+      {stats.map((s) => (
+        <Stat key={s.label} label={s.label} value={s.value} hint={s.hint} unknownReason="기록 없음" />
+      ))}
       <p className="groupnow__moves">
         {moved.length
           ? `유의하게 바뀐 업종: ${moved.map((r) => `${r.label} ${pct(r.effect)}`).join(' · ')}`
@@ -361,8 +360,8 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
   return (
     <div className="stack">
       {presets.some((p) => p.who || p.why) && !READ_ONLY ? (
-        <Card title="정책 담당자 질문" note="누르면 묻을 집단과 질문이 함께 채워집니다. 아래에서 바로 묻기를 누르세요.">
-          <div className="presets" role="group" aria-label="정책 담당자 질문">
+        <Card title="질문 예시">
+          <div className="presets" role="group" aria-label="질문 예시">
             {presets.map((preset) => (
               <button
                 key={preset.q}
@@ -381,8 +380,8 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
       ) : null}
 
       <Card
-        title={paired ? `누구에게 · ${who}` : '집단 고르기'}
-        note={`조건에 맞는 사람 ${int(matched)}명${paired ? ' · 정책 시행 뒤 기록' : ''}`}
+        title={`대상 · ${who}`}
+        note={`${int(matched)}명`}
       >
         <div className="querybuilder">
           {lockedArm ? null : (
@@ -403,7 +402,7 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
         </div>
         {paired ? (
           <>
-            <h4 className="groupnow__title">{who} — 정책 효과 (같은 시민·같은 날)</h4>
+            <h4 className="groupnow__title">{who} 정책 효과</h4>
             <GroupEffectNow effect={effect} overall={overallEffect} loading={effectLoading} />
           </>
         ) : (
@@ -420,7 +419,7 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
           <StatsView stats={stats} target={target} />
         </Card>
       ) : null}
-      <Card title={paired ? '무엇을 물을까' : '집단 인터뷰'} note="고른 집단에서 몇 명을 뽑아 같은 질문을 합니다 (최대 30명).">
+      <Card title="질문" note="대상에서 표본을 뽑아 묻습니다. 표본은 최대 30명.">
         {!READ_ONLY ? (
           <>
             {!presets.some((p) => p.who || p.why) ? (

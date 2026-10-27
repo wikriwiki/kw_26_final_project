@@ -3,7 +3,7 @@
  *
  * 실행(run) 하나가 아니라 **실험** 하나를 연다. 실험은 여러 팔을 갖고(예: 공통 사전 → OFF/ON),
  * 각 팔은 실험 서버에서 읽기 전용으로 받아 온 실제 기록이다.
- * 탭은 넷: 개요(진행·동기화) · 결과(추이·비교) · 대상자(기록·인터뷰) · 집단 질의.
+ * 탭은 넷: 개요 · 결과 · 인터뷰(집단에게) · 시민 한 명.
  */
 import { Link, NavLink, Outlet, useOutletContext, useParams } from 'react-router-dom';
 import { ErrorState, SkeletonCard } from '../../components/Feedback';
@@ -24,8 +24,8 @@ export function useExperiment(): ExperimentContext {
 const TABS = [
   { to: '', label: '개요', end: true },
   { to: 'results', label: '결과', end: false },
-  { to: 'agents', label: '시민', end: false },
-  { to: 'query', label: '집단 질의', end: false },
+  { to: 'query', label: '인터뷰', end: false },
+  { to: 'agents', label: '시민 한 명', end: false },
 ];
 
 export function ExperimentWorkspace() {

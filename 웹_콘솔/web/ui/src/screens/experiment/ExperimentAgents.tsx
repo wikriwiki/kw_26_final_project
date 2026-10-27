@@ -63,7 +63,7 @@ function Roster({ experiment, selected, onSelect }: { experiment: ExperimentSumm
   if (roster.error) return <ErrorState title="명단을 불러오지 못했습니다" body={roster.error.message} />;
 
   return (
-    <Card title={`시민 ${int(filtered.length)} / ${int(agents.length)}명`} note={roster.data?.source === 'metrics' ? '프로필이 없어 id 만 보입니다.' : undefined} className="agentroster">
+    <Card title={filtered.length === agents.length ? `시민 ${int(agents.length)}명` : `시민 ${int(filtered.length)}명 (전체 ${int(agents.length)}명)`} note={roster.data?.source === 'metrics' ? '프로필이 없어 id 만 보입니다.' : undefined} className="agentroster">
       <div className="agentroster__filters">
         <SelectField label="구" value={gu} onChange={(e) => setGu(e.target.value)} options={[{ value: '', label: '전체' }, ...uniqueValues(agents, 'gu').map((v) => ({ value: v, label: v }))]} />
         {experiment.kind === 'no_smoking_zone' ? (
@@ -77,7 +77,7 @@ function Roster({ experiment, selected, onSelect }: { experiment: ExperimentSumm
         <SelectField label="성별" value={sex} onChange={(e) => setSex(e.target.value)} options={[{ value: '', label: '전체' }, { value: 'F', label: '여' }, { value: 'M', label: '남' }]} />
         <label className="field agentroster__search">
           <span className="field__label">찾기</span>
-          <input className="field__control" type="search" value={query} placeholder="id · 동 · 직업" onChange={(e) => setQuery(e.target.value)} />
+          <input className="field__control" type="search" value={query} placeholder="동 · 직업 · 번호" onChange={(e) => setQuery(e.target.value)} />
         </label>
       </div>
       <ul className="agentlist" aria-label="시민 명단">
@@ -340,7 +340,7 @@ export function ExperimentAgents() {
         {selected ? (
           <AgentPanel key={selected} experiment={experiment} agentId={selected} />
         ) : (
-          <EmptyState title="왼쪽 명단에서 한 사람을 고르세요" body="시민을 고르면 하루 기록과 인터뷰가 열립니다." />
+          <EmptyState title="명단에서 한 사람을 고르세요" body="고르면 그 시민의 하루 기록과 인터뷰가 열립니다." />
         )}
       </div>
     </div>

@@ -44,7 +44,7 @@ import type {
   PolicyPayload,
   PolicyValidation,
 } from '../lib/api';
-import { dateTime, int, krw } from '../lib/format';
+import { dateRange, dateTime, int, krw } from '../lib/format';
 import { grantKey, policyType } from '../lib/labels';
 
 import lockEvidenceRaw from '../../../fixtures/runner.lock.evidence.json?raw';
@@ -215,9 +215,10 @@ export function NewRunScreen() {
 
   const loadPolicies = useCallback(() => {
     setPoliciesError(null);
+    // 위약 대조용 정책은 검증 전용이라 고르지 않는다
     api
       .listPolicies()
-      .then((list) => setPolicies(list.items))
+      .then((list) => setPolicies(list.items.filter((p) => !p.name.startsWith('(위약)'))))
       .catch((error) => {
         setPolicies([]);
         setPoliciesError(errorOf(error));
@@ -539,9 +540,6 @@ export function NewRunScreen() {
                       <th scope="col" className="col-md">
                         시행 기간
                       </th>
-                      <th scope="col" className="col-lg">
-                        지급 기준
-                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -555,13 +553,12 @@ export function NewRunScreen() {
                         >
                           <span style={{ fontWeight: isNew ? 600 : 400 }}>+ 새 정책 만들어 주입</span>
                           <span className="cell-sub">
-                            지급 분위·기간·사용처를 직접 정하고, 검증을 통과하면 이 실행에 그대로 넣습니다
+                            지급액·기간·사용처를 직접 정합니다
                           </span>
                         </button>
                       </td>
                       <td>새로 작성</td>
                       <td className="col-md">직접 입력</td>
-                      <td className="col-lg">직접 입력</td>
                     </tr>
 
                     {policies.map((p) => {
@@ -576,20 +573,13 @@ export function NewRunScreen() {
                               aria-current={active ? 'true' : undefined}
                             >
                               <span style={{ fontWeight: active ? 600 : 400 }}>{p.name}</span>
-                              <span className="cell-sub cell-sub--md">
-                                {p.effective_from} ~ {p.effective_until}
-                              </span>
-                              <span className="cell-sub cell-sub--lg">
-                                지급 기준 {grantKey(p.grant_key_effective).label}
+                              <span className="cell-sub cell-sub--md nowrap">
+                                {dateRange(p.effective_from, p.effective_until)}
                               </span>
                             </button>
                           </td>
                           <td>{policyType(p.type).label}</td>
-                          <td className="col-md num">
-                            {p.effective_from} ~<br />
-                            {p.effective_until}
-                          </td>
-                          <td className="col-lg">{grantKey(p.grant_key_effective).label}</td>
+                          <td className="col-md num nowrap">{dateRange(p.effective_from, p.effective_until)}</td>
                         </tr>
                       );
                     })}
@@ -758,13 +748,6 @@ export function NewRunScreen() {
               </div>
             </Card>
 
-            <Disclosure title="JSON 미리보기" meta={`${draft.id}.json`}>
-              <pre className="code">{JSON.stringify(draft, null, 2)}</pre>
-              <p className="card__note wrap">
-                이 내용이 <span className="num">data/neo4j_load/policies/{draft.id}.json</span> 으로
-                저장됩니다. 저장은 서버 점검을 통과한 경우에만 이뤄집니다.
-              </p>
-            </Disclosure>
           </section>
 
           <div className="row-between">
@@ -802,11 +785,11 @@ export function NewRunScreen() {
             <div className="grid">
               <Card className="c6" title="실행 이름과 기간">
                 <TextField
-                  label="실행 이름 (run id)"
+                  label="실행 이름"
                   value={runId}
                   onChange={(e) => setRunId(e.currentTarget.value)}
                   onBlur={() => setTouched((t) => ({ ...t, runId: true }))}
-                  help="산출물 디렉터리와 보고서에 그대로 쓰입니다 — 예: BASE_0810."
+                  help="보고서에 그대로 쓰입니다. 예: P017_0810"
                   error={show('runId')}
                 />
                 <TextField
@@ -831,7 +814,7 @@ export function NewRunScreen() {
                   value={days}
                   onChange={(e) => setDays(e.currentTarget.value)}
                   onBlur={() => setTouched((t) => ({ ...t, days: true }))}
-                  help={endDay ? `${startDay} 부터 ${endDay} 까지 ${int(dayCount)}일을 돕니다.` : undefined}
+                  help={endDay ? `${dateRange(startDay, endDay)} · ${int(dayCount)}일을 돕니다.` : undefined}
                   error={show('days')}
                 />
                 <TextField
@@ -842,14 +825,14 @@ export function NewRunScreen() {
                   value={agents}
                   onChange={(e) => setAgents(e.currentTarget.value)}
                   onBlur={() => setTouched((t) => ({ ...t, agents: true }))}
-                  help="기존 실행 BASE·FINAL 과 같은 200명을 기본값으로 넣었습니다."
+                  help="기본값 200명"
                   error={show('agents')}
                 />
               </Card>
 
               <Card
                 className="c6"
-                title="분위별 지급액"
+                title="지급액"
                 note={
                   activePolicy && grantBars.length > 0
                     ? `${grantKey(activePolicy.grant_key ?? 'spend_decile').label} ${grantBars.length}구간`
@@ -970,10 +953,6 @@ export function NewRunScreen() {
                     </ul>
                   )}
 
-                  <p className="card__note wrap">
-                    실행 명령 <span className="num">{validation.command.join(' ')}</span>
-                  </p>
-
                   {!validation.db_wiring_checked ? (
                     <p className="card__note wrap">
                       데이터베이스 연결 정보가 없어 “정책이 실제로 대상자에게 보이는지”는 아직 확인하지
@@ -987,9 +966,6 @@ export function NewRunScreen() {
                     </Button>
                   </div>
 
-                  <Disclosure title="프롬프트 미리보기" meta="대상자에게 보이는 문장">
-                    <pre className="code">{validation.prompt_preview || '(없음)'}</pre>
-                  </Disclosure>
                 </>
               )}
             </Card>

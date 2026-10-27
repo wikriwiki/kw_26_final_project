@@ -12,6 +12,26 @@ function isNum(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v);
 }
 
+/** 시작일과 끝일 → "2020-04-13 ~ 05-10". 해가 같으면 끝일의 해를 뺀다 */
+export function dateRange(start: string | null | undefined, end: string | null | undefined): string {
+  if (!start) return EMPTY;
+  if (!end || end === start) return start;
+  return `${start} ~ ${end.slice(0, 4) === start.slice(0, 4) ? end.slice(5) : end}`;
+}
+
+/** 시작일에서 일수만큼 간 마지막 날 (시작일 포함) */
+export function lastDay(start: string, days: number): string {
+  const end = new Date(`${start}T00:00:00Z`);
+  end.setUTCDate(end.getUTCDate() + days - 1);
+  return end.toISOString().slice(0, 10);
+}
+
+/** 시작일과 일수 → "2020-04-13 ~ 05-10 · 28일" */
+export function dayRange(start: string | null | undefined, days: number | null | undefined): string {
+  if (!start || !days) return start ?? EMPTY;
+  return `${dateRange(start, lastDay(start, days))} · ${days}일`;
+}
+
 /** 1234567 → "1,234,567" */
 export function int(value: number | null | undefined): string {
   return isNum(value) ? nf.format(Math.round(value)) : EMPTY;

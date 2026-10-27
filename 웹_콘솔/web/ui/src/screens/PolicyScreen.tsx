@@ -5,43 +5,23 @@
  * 정책을 고르고 검증하는 일은 `/new`(새 시뮬레이션 만들기)로 옮겼다 — 정책이 실제로 쓰이는 시점이다.
  * 여기는 **이미 끝난(또는 도는) 실행에 무엇이 적용됐는지 확인하는 읽기 화면**이다.
  *
- * 그래서 걷어낸 것: 정책 목록에서 고르는 표, 화면 안의 run 선택기, 검증 실행 버튼.
- * 남긴 것: 기본 정보 · 분위별 지급액 · 사용처 제한 · 정책 설명 · 검증 결과.
+ * 심사용으로 줄였다: 기본 정보와 정책 설명만 남긴다. 검증 로그·정책 원문·분위별 지급액은
+ * 정책 담당자에게 뜻이 없어 걷었다 (검증은 `/new` 에서 그대로 한다).
  *
  * **run ↔ 정책 매핑은 산출물에 없다 (CONTRACT §7.9).** run_id 만 보고 "무정책 대조군"이라고
  * 쓰면 거짓말이 된다 — `out_BASE` 는 이름과 달리 P010 이 적용된 실행이다.
  * 그래서 이 화면은 **결제 기록(`events.summary` 의 `policy_paid_by_policy_id`)에 남은 지급액**만을
- * 근거로 삼고, 그 근거가 무엇인지 화면에 적는다. 결제 기록이 없는 실행은 "무정책"이 아니라
- * **미확인**이다.
+ * 근거로 삼는다. 결제 기록이 없는 실행은 "무정책"이 아니라 **미확인**이다.
  */
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRun } from '../app/RunContext';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
-import { Disclosure } from '../components/Disclosure';
 import { Callout, EmptyState } from '../components/Feedback';
-import {
-  AlertCircleIcon,
-  AlertTriangleIcon,
-  CheckCircleIcon,
-} from '../components/Icon';
-import { BarList } from '../components/Meter';
-import type { BarItem } from '../components/Meter';
-import { loadPolicies, loadPolicyDetail, loadPolicyValidation, useLoad } from '../lib/runData';
-import { int, krw } from '../lib/format';
-import { grantKey, policyType } from '../lib/labels';
-
-const INCOME_ORDER = ['하', '중하', '중', '중상', '상'];
-
-type Grade = 'pass' | 'warn' | 'fail';
-
-/** 등급별 아이콘. 색은 `check--lead` 가 붙은 항목에만 들어간다 */
-function GradeIcon({ grade }: { grade: Grade }) {
-  if (grade === 'pass') return <CheckCircleIcon size={16} />;
-  if (grade === 'warn') return <AlertTriangleIcon size={16} />;
-  return <AlertCircleIcon size={16} />;
-}
+import { loadPolicies, loadPolicyDetail, useLoad } from '../lib/runData';
+import { dateRange } from '../lib/format';
+import { policyType } from '../lib/labels';
 
 export function PolicyScreen() {
   const navigate = useNavigate();
@@ -57,39 +37,17 @@ export function PolicyScreen() {
   const policyId = applied?.id ?? null;
   const policies = useLoad('policies', loadPolicies);
   const detailState = useLoad(policyId ? `policy:${policyId}` : null, () => loadPolicyDetail(policyId as string));
-  const validationState = useLoad(policyId ? `policy-validate:${policyId}` : null, () =>
-    loadPolicyValidation(policyId as string),
-  );
   const item = policies.status === 'ready' ? policies.data.items.find((p) => p.id === policyId) : undefined;
   const detail = detailState.status === 'ready' ? detailState.data : undefined;
-  const validation = validationState.status === 'ready' ? validationState.data : undefined;
   // 정책 내용을 받는 중이면 "찾지 못했습니다"를 띄우지 않는다 — 아직 모르는 것과 없는 것은 다르다
   const pending =
-    policyId !== null &&
-    [policies, detailState, validationState].some((s) => s.status === 'loading' || s.status === 'idle');
-
-  const grantBars = useMemo<BarItem[]>(() => {
-    if (!detail) return [];
-    const decileGrants = detail.policy.decile_grants;
-    if (decileGrants && Object.keys(decileGrants).length > 0) {
-      return Object.entries(decileGrants)
-        .map(([k, v]) => ({ key: k, name: `${k}분위`, value: v, display: krw(v) }))
-        .sort((a, b) => Number(a.key) - Number(b.key));
-    }
-    const incomeGrants = detail.policy.income_grants;
-    if (incomeGrants && Object.keys(incomeGrants).length > 0) {
-      return Object.entries(incomeGrants)
-        .map(([k, v]) => ({ key: k, name: `소득 ${k}`, value: v, display: krw(v) }))
-        .sort((a, b) => INCOME_ORDER.indexOf(a.key) - INCOME_ORDER.indexOf(b.key));
-    }
-    return [];
-  }, [detail]);
+    policyId !== null && [policies, detailState].some((s) => s.status === 'loading' || s.status === 'idle');
 
   if (pending) return <div className="screen-fallback" aria-busy="true" />;
 
   /* --- 정책이 적용되지 않았거나, 판단할 수 없을 때 -------------------------- */
 
-  if (!applied || !detail || !item || !validation) {
+  if (!applied || !detail || !item) {
     return (
       <div className="stack">
         <header className="pagehead">
@@ -97,9 +55,6 @@ export function PolicyScreen() {
             <h1 className="pagehead__title">
               {binding.known && !applied ? '적용된 정책 없음' : '적용 정책 미확인'}
             </h1>
-            <p className="pagehead__purpose">
-              이 실행에 적용된 정책 (읽기 전용)
-            </p>
           </div>
         </header>
 
@@ -148,240 +103,52 @@ export function PolicyScreen() {
   /* --- 정책이 적용된 실행 --------------------------------------------------- */
 
   const policy = detail.policy;
-  const effectiveKey = grantKey(detail.grant_key_effective);
-  const excluded = (policy.excluded_income ?? []).concat(
-    (policy.excluded_deciles ?? []).map((d) => `${d}분위`),
-  );
-
-  const failing = validation.checks.filter((c) => c.grade === 'fail');
-  const warning = validation.checks.filter((c) => c.grade === 'warn');
-  const passing = validation.checks.filter((c) => c.grade === 'pass');
-
-  /** 이 화면에서 색을 쓸 등급 하나. 나머지는 무채색 아이콘으로 둔다 (§7b) */
-  const lead: Grade = failing.length > 0 ? 'fail' : warning.length > 0 ? 'warn' : 'pass';
-
-  const paidHere = events.policy_paid_by_policy_id?.[applied.id] ?? null;
-  const otherIds = binding.items.slice(1).map((p) => p.id);
 
   return (
     <div className="stack">
       <header className="pagehead">
         <div className="pagehead__text">
           <h1 className="pagehead__title">{policy.name}</h1>
-          <p className="pagehead__purpose">이 실행에 쓴 정책 (읽기 전용)</p>
         </div>
         <div className="pagehead__actions">
           <Button onClick={() => navigate('/new')}>이 정책으로 새로 만들기</Button>
         </div>
       </header>
 
-      {/* 1차 블록 1 — 무엇을 근거로 "적용됐다"고 말하는가 */}
-      <p className="section__note wrap">
-        {binding.title ? (
-          <>본런에 고정해 둔 정책 파일입니다 (<span className="num">{policy.id}</span>).</>
-        ) : paidHere !== null ? (
-          <>
-            결제 기록의 <span className="num">{policy.id}</span> 지급{' '}
-            <span className="num">{krw(paidHere)}</span>으로 확인했습니다.
-          </>
-        ) : (
-          <>
-            결제 기록에서 <span className="num">{policy.id}</span> 를 확인했습니다.
-          </>
-        )}
-        {otherIds.length > 0
-          ? ` 같은 실행에서 다른 정책(${otherIds.join(', ')})의 지급도 함께 확인됩니다.`
-          : ''}
-      </p>
-
-      {/* 1차 블록 2·3 — 기본 정보 / 지급액 */}
-      <div className="grid">
-        <Card className="c6" title="기본 정보">
-          <dl className="dl">
-            <div className="dl__item">
-              <dt className="dl__k">정책 유형</dt>
-              <dd className="dl__v">{policyType(policy.type).label}</dd>
-            </div>
-            <div className="dl__item">
-              <dt className="dl__k">시행 기간</dt>
-              <dd className="dl__v num">
-                {policy.effective_from} ~ {policy.effective_until}
-              </dd>
-            </div>
-            <div className="dl__item">
-              <dt className="dl__k">대상 지역</dt>
-              <dd className="dl__v">{(policy.target_districts ?? []).join(', ') || '지정 없음'}</dd>
-            </div>
-            <div className="dl__item">
-              <dt className="dl__k">사용처 제한</dt>
-              <dd className="dl__v">
-                {item.poi_restricted ? '쿠폰 가맹점에서만 사용' : '제한 없음'}
-              </dd>
-            </div>
-            <div className="dl__item">
-              <dt className="dl__k">지급 기준</dt>
-              <dd className="dl__v">
-                {effectiveKey.label}
-                {detail.grant_key_source === 'default' ? (
-                  <span className="cell-sub">정책 파일에 없어 기본값을 적용했습니다</span>
-                ) : null}
-              </dd>
-            </div>
-            <div className="dl__item">
-              <dt className="dl__k">사용 업종</dt>
-              <dd className="dl__v">
-                {(policy.benefit_categories ?? []).join(', ') || '업종 제한 없음'}
-              </dd>
-            </div>
-          </dl>
-
-          <div className="stack-sm">
-            <p className="dl__k">정책 설명</p>
-            <p className={descOpen ? 'card__note wrap' : 'card__note wrap clamp-3'}>
-              {policy.description}
-            </p>
-            <div>
-              <Button variant="ghost" onClick={() => setDescOpen((v) => !v)}>
-                {descOpen ? '설명 접기' : '설명 더 보기'}
-              </Button>
-            </div>
+      <Card title="기본 정보">
+        <dl className="dl">
+          <div className="dl__item">
+            <dt className="dl__k">정책 유형</dt>
+            <dd className="dl__v">{policyType(policy.type).label}</dd>
           </div>
-        </Card>
-
-        <Card
-          className="c6"
-          title="분위별 지급액"
-          note={
-            grantBars.length > 0
-              ? `${effectiveKey.label} ${grantBars.length}구간${
-                  excluded.length > 0 ? ` · 지급 제외 ${excluded.join(', ')}` : ''
-                }`
-              : undefined
-          }
-        >
-          {grantBars.length > 0 ? (
-            <BarList items={grantBars} />
-          ) : (
-            <EmptyState
-              fill
-              title="지급액이 없는 정책입니다"
-              body={`${policyType(policy.type).label} 정책이라 지급액이 없습니다.`}
-            />
-          )}
-        </Card>
-      </div>
-
-      {/* 1차 블록 4 — 검증 결과 (읽기 전용. 이 화면에서 다시 돌리지 않는다) */}
-      <section className="section">
-        <div className="section__head">
-          <h2 className="section__title">검증 결과</h2>
-          <p className="section__note">
-            시뮬레이션 반영 사전 점검
-          </p>
-        </div>
-        <Card>
-          <div className="verdict">
-            {failing.length > 0 ? (
-              <AlertCircleIcon size={24} style={{ color: 'var(--danger)' }} />
-            ) : (
-              <CheckCircleIcon size={24} style={{ color: 'var(--ok)' }} />
-            )}
-            <span className="verdict__text">
-              {failing.length > 0
-                ? `오류 ${int(failing.length)}건이 있는 상태로 실행됐습니다`
-                : '점검 오류 없음'}
-            </span>
+          <div className="dl__item">
+            <dt className="dl__k">시행 기간</dt>
+            <dd className="dl__v num nowrap">{dateRange(policy.effective_from, policy.effective_until)}</dd>
           </div>
+          <div className="dl__item">
+            <dt className="dl__k">대상 지역</dt>
+            <dd className="dl__v">{(policy.target_districts ?? []).join(', ') || '지정 없음'}</dd>
+          </div>
+          <div className="dl__item">
+            <dt className="dl__k">사용처 제한</dt>
+            <dd className="dl__v">{item.poi_restricted ? '쿠폰 가맹점에서만 사용' : '제한 없음'}</dd>
+          </div>
+          <div className="dl__item">
+            <dt className="dl__k">사용 업종</dt>
+            <dd className="dl__v">{(policy.benefit_categories ?? []).join(', ') || '업종 제한 없음'}</dd>
+          </div>
+        </dl>
 
-          {/* 뱃지 세 개 대신 한 줄 (§7b) */}
-          <p className="tally">
-            <span>
-              통과 <span className="tally__n">{int(passing.length)}</span>
-            </span>
-            <span>
-              확인 필요 <span className="tally__n">{int(warning.length)}</span>
-            </span>
-            <span>
-              오류 <span className="tally__n">{int(failing.length)}</span>
-            </span>
-          </p>
-
-          {failing.length + warning.length === 0 ? (
-            <p className="card__note">확인이 필요한 항목이 없습니다.</p>
-          ) : (
-            <ul className="checks">
-              {failing.map((c) => (
-                <li
-                  className={`check check--fail${lead === 'fail' ? ' check--lead' : ''}`}
-                  key={`f-${c.message}`}
-                >
-                  <GradeIcon grade="fail" />
-                  <span className="wrap">{c.message}</span>
-                </li>
-              ))}
-              {warning.map((c) => (
-                <li
-                  className={`check check--warn${lead === 'warn' ? ' check--lead' : ''}`}
-                  key={`w-${c.message}`}
-                >
-                  <GradeIcon grade="warn" />
-                  <span className="wrap">{c.message}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {validation.verdict ? (
-            <p className="card__note">검증기 판정 원문: {validation.verdict}</p>
-          ) : null}
-
-          {!validation.db_wiring_checked ? (
-            <p className="card__note wrap">
-              데이터베이스에 연결하지 않아 “시민에게 실제로 보이는지”는 확인하지 못했습니다(미확인).
-            </p>
-          ) : null}
-        </Card>
-      </section>
-
-      {/* 접어두는 것 — 기본 닫힘 */}
-      <section className="section">
-        <h2 className="section__title">상세 보기</h2>
-        <div>
-          <Disclosure title="검증 상세 로그" meta={`${validation.checks.length}건`}>
-            <ul className="checks">
-              {validation.checks.map((c, i) => (
-                <li
-                  className={`check check--${c.grade}${c.grade === lead ? ' check--lead' : ''}`}
-                  key={`${c.grade}-${i}`}
-                >
-                  <GradeIcon grade={c.grade as Grade} />
-                  <span className="wrap">{c.message}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="card__note wrap">
-              실행 명령: <span className="num">{validation.command.join(' ')}</span>
-            </p>
-          </Disclosure>
-
-          <Disclosure
-            title="시민에게 전달되는 문장"
-            meta={validation.prompt_preview_persona ?? undefined}
-          >
-            <p className="card__note">
-              시민이 하루를 계획할 때 읽는 문장
-            </p>
-            <pre className="code">{validation.prompt_preview}</pre>
-          </Disclosure>
-
-          <Disclosure title="정책 원문 (JSON)">
-            <p className="card__note">
-              {detail.file} 원문
-            </p>
-            <pre className="code">{JSON.stringify(policy, null, 2)}</pre>
-          </Disclosure>
+        <div className="stack-sm">
+          <p className="dl__k">정책 설명</p>
+          <p className={descOpen ? 'card__note wrap' : 'card__note wrap clamp-3'}>{policy.description}</p>
+          <div>
+            <Button variant="ghost" onClick={() => setDescOpen((v) => !v)}>
+              {descOpen ? '설명 접기' : '설명 더 보기'}
+            </Button>
+          </div>
         </div>
-      </section>
+      </Card>
     </div>
   );
 }
