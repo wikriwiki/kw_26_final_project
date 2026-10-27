@@ -90,7 +90,6 @@ function DescribeRow({ name, d, target }: { name: string; d: GroupDescribe; targ
       <td className="n num">{dec(d.receipts_per_observed_day, 2)}</td>
       {target ? <td className="n num">{int(d.target_payments)}</td> : null}
       {target ? <td className="n num">{percent(d.agents ? d.agents_with_target_visit / d.agents : null)}</td> : null}
-      <td className="n num">{dec(d.mood_mean, 3)}</td>
     </tr>
   );
 }
@@ -121,7 +120,6 @@ function StatsView({ stats, target }: { stats: GroupStats; target: boolean }) {
                 <th scope="col" className="n">하루 영수증</th>
                 {target ? <th scope="col" className="n">대상 시설 결제</th> : null}
                 {target ? <th scope="col" className="n">이용한 사람 비율</th> : null}
-                <th scope="col" className="n">평균 기분</th>
               </tr>
             </thead>
             <tbody>
@@ -274,7 +272,8 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
   const agents = useMemo(() => roster.data?.items ?? [], [roster.data]);
   const defaultArm = [...experiment.arms].reverse().find((arm) => arm.days_present > 0)?.arm_id ?? experiment.arms[0].arm_id;
   // 정책 실험은 늘 정책 있음 쪽, 시행 뒤 기록으로 묻는다
-  const lockedArm = fixedArm ?? (paired ? treated : undefined);
+  // 정책 있는 쪽이 있는 실험은 늘 그쪽, 시행 뒤 기록으로 묻는다(기록을 고르게 하지 않는다)
+  const lockedArm = fixedArm ?? treated;
   const [armId, setArmId] = useState(lockedArm ?? defaultArm);
   const [filters, setFilters] = useState<Record<FilterKey, string[]>>(() => filtersFrom(params));
   const [stats, setStats] = useState<GroupStats | null>(null);
@@ -361,7 +360,7 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
 
   return (
     <div className="stack">
-      {paired && presets.some((p) => p.who || p.why) && !READ_ONLY ? (
+      {presets.some((p) => p.who || p.why) && !READ_ONLY ? (
         <Card title="정책 담당자 질문" note="누르면 묻을 집단과 질문이 함께 채워집니다. 아래에서 바로 묻기를 누르세요.">
           <div className="presets" role="group" aria-label="정책 담당자 질문">
             {presets.map((preset) => (
@@ -424,7 +423,7 @@ export function GroupQuery({ experiment, armId: fixedArm }: { experiment: Experi
       <Card title={paired ? '무엇을 물을까' : '집단 인터뷰'} note="고른 집단에서 몇 명을 뽑아 같은 질문을 합니다 (최대 30명).">
         {!READ_ONLY ? (
           <>
-            {!paired || !presets.some((p) => p.who || p.why) ? (
+            {!presets.some((p) => p.who || p.why) ? (
               presets.length ? (
                 <div className="segment querychips" role="group" aria-label="질문 예시">
                   {presets.map((preset) => (

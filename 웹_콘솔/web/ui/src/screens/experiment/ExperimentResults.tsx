@@ -150,7 +150,9 @@ export function ExperimentResults() {
       {paired && comparison.data ? (
         <GroupEffectCard comparison={comparison.data} askHref={(filters) => `/experiments/${encodeURIComponent(id)}/query?${filtersQuery(filters)}`} />
       ) : null}
-      {paired && experiment.validation?.rows?.length ? <ValidationCard validation={experiment.validation} /> : null}
+      {/* 정책 실험이 아닌 실험(금연구역)은 정책 있음·없음 비교 표가 핵심 결과다 — 맨 위에 둔다 */}
+      {comparison.data && !paired ? <ComparisonCard comparison={comparison.data} experiment={experiment} /> : null}
+      {experiment.validation?.rows?.length ? <ValidationCard validation={experiment.validation} /> : null}
       <div className="grid">
         {hasTarget ? (
           <>
@@ -180,37 +182,16 @@ export function ExperimentResults() {
             marker={marker}
           />
         </Card>
-        {/* 정책 실험에서는 기분·빠진 사람 줄을 그리지 않는다. 소비액·결제 건수는 둔다 */}
-        {!paired ? (
+        {/* 평균 기분·기록이 빠진 사람 줄은 정책 판단에 쓰이지 않아 그리지 않는다. 소비액·결제 건수는 둔다 */}
         <Card className="c6">
           <LineChart
-            title="평균 기분 (0~1)"
-            series={chartSeries(series, (p) => p.means.mood ?? null, cohort)}
-            format={(v) => dec(v, 2)}
-            marker={marker}
-          />
-        </Card>
-        ) : null}
-        {!paired && series.some((s) => s.points.some((p) => (p.status.skipped ?? 0) > 0)) ? (
-        <Card className="c6">
-          <LineChart
-            title="기록이 빠진 사람 (하루)"
-            series={chartSeries(series, (p) => p.status.skipped ?? 0, cohort)}
-            format={(v) => int(v)}
-            marker={marker}
-          />
-        </Card>
-        ) : null}
-        <Card className="c6">
-          <LineChart
-            title={paired ? '결제 건수 (하루)' : '결제 영수증 수 (하루)'}
+            title="결제 건수 (하루)"
             series={chartSeries(series, (p) => p.totals.receipt_count ?? null, cohort)}
             format={(v) => int(v)}
             marker={marker}
           />
         </Card>
       </div>
-      {comparison.data && !paired ? <ComparisonCard comparison={comparison.data} experiment={experiment} /> : null}
       {comparison.error ? <ErrorState title="비교를 계산하지 못했습니다" body={comparison.error.message} /> : null}
     </div>
   );

@@ -5,7 +5,11 @@
   "summary": "2017-12-03 시행된 당구장·실내골프장 금연구역 정책을 노원·서초·송파 거주자 1,154명으로 모의한다. 시행 전 14일은 한 번만 돌리고, 그 상태에서 정책 있음·없음으로 나눠 시행 후 14일을 돌린다.",
   "interpretation": "합성 인물의 모의 시나리오 비교다. 관측 연구의 인과 효과를 재현했다고 주장하지 않는다.",
   "source_branch": "No_SmokingZone_EXP",
-  "window": {"start": "2017-11-19", "days": 28, "effective_date": "2017-12-03"},
+  "window": {
+    "start": "2017-11-19",
+    "days": 28,
+    "effective_date": "2017-12-03"
+  },
   "cohort_size": 1154,
   "arms": [
     {
@@ -39,9 +43,18 @@
     }
   ],
   "analysis": {
-    "facilities": {"billiard": "당구장", "indoor_golf": "실내골프(스크린골프 포함)"},
-    "facility_aliases": {"screen_golf": "indoor_golf"},
-    "districts": {"11350": "노원구", "11650": "서초구", "11710": "송파구"},
+    "facilities": {
+      "billiard": "당구장",
+      "indoor_golf": "실내골프(스크린골프 포함)"
+    },
+    "facility_aliases": {
+      "screen_golf": "indoor_golf"
+    },
+    "districts": {
+      "11350": "노원구",
+      "11650": "서초구",
+      "11710": "송파구"
+    },
     "limitations": [
       "결제 건수는 방문자 수가 아니다.",
       "건너뛴 대상자-일(skipped)은 결측이다. 0으로 세지 않는다.",
@@ -50,6 +63,102 @@
       "아직 진행 중인 쪽의 값은 중간 집계이며 최종 점수가 아니다."
     ]
   },
-  "bundle": {"directory": "experiment-bundles/full_3gu_1154_v1", "files": ["runtime.json", "personas.json"]},
-  "remote": {"profile": "NO_SMOKING_VAST", "results_root": "/workspace/no-smoking-results", "bundles_root": "/workspace"}
+  "bundle": {
+    "directory": "experiment-bundles/full_3gu_1154_v1",
+    "files": [
+      "runtime.json",
+      "personas.json"
+    ]
+  },
+  "remote": {
+    "profile": "NO_SMOKING_VAST",
+    "results_root": "/workspace/no-smoking-results",
+    "bundles_root": "/workspace"
+  },
+  "questions": [
+    {
+      "who": {
+        "smoking_status": [
+          "smoker"
+        ]
+      },
+      "who_label": "흡연자",
+      "q": "당구장·스크린골프장이 금연구역이 된 뒤 가는 횟수가 달라졌나요? 왜 그런가요?",
+      "why": "흡연 이용객이 얼마나, 왜 떠났나"
+    },
+    {
+      "who": {
+        "smoking_status": [
+          "non_smoker"
+        ]
+      },
+      "who_label": "비흡연자",
+      "q": "당구장·스크린골프장 안에서 담배 연기가 없어진 뒤, 그런 곳에 더 가고 싶어졌나요?",
+      "why": "비흡연 신규 손님이 들어왔나 — 실측의 매출 증가 경로"
+    },
+    {
+      "who": {
+        "smoking_status": [
+          "smoker"
+        ],
+        "sex": [
+          "M"
+        ]
+      },
+      "who_label": "남성 흡연자",
+      "q": "당구장에 덜 가게 됐다면, 그 시간에 대신 무엇을 하셨나요?",
+      "why": "이탈한 소비가 어디로 옮겨 갔나"
+    },
+    {
+      "who": {
+        "smoking_status": [
+          "smoker"
+        ]
+      },
+      "who_label": "흡연자",
+      "q": "가게 안에 따로 흡연실이 있다면 다시 가실 건가요?",
+      "why": "흡연실 설치 같은 보완책이 효과가 있을지"
+    },
+    {
+      "who": {},
+      "who_label": "전체",
+      "q": "실내체육시설 금연구역 정책에 찬성하시나요? 이유는요?",
+      "why": "정책 수용성 — 흡연·비흡연 집단의 입장 차이"
+    }
+  ],
+  "interview_context": "2017년 12월 3일부터 당구장·스크린골프장 같은 실내체육시설이 금연구역이 되었습니다. 일반 이용 공간에서는 담배를 피울 수 없고, 따로 마련된 흡연실이나 시설 밖에서만 피울 수 있습니다.",
+  "validation": {
+    "basis": "시뮬은 같은 시민·같은 기간 정책 있음 ÷ 없음 − 1(시행 후 14일). 실측은 2017년 대비 2018년 연도 더미를 넣은 조정 회귀(카드 매출 로그)라 추정 대상이 다르다.",
+    "note": "실측 값은 모델 입력에 넣지 않았다. 당구 매출(+13.54%)만 유의하고 나머지 셋은 유의하지 않다. 시뮬은 흡연자 이탈(당구 −20.5%)은 보이지만 비흡연 신규 손님 유입은 보이지 않는다.",
+    "rows": [
+      {
+        "label": "당구장 매출",
+        "sim_pct": -6.4,
+        "sim_ci95_pct": null,
+        "truth_pct": 13.5,
+        "source": "보건복지부 제출 최종보고서(2018) 표 12·14 (β 0.127, p=.004)"
+      },
+      {
+        "label": "당구장 결제 건수",
+        "sim_pct": -11.3,
+        "sim_ci95_pct": null,
+        "truth_pct": 8.3,
+        "source": "보건복지부 제출 최종보고서(2018) 표 12·14 (p=.062, 유의하지 않음)"
+      },
+      {
+        "label": "실내골프 매출",
+        "sim_pct": 5.2,
+        "sim_ci95_pct": null,
+        "truth_pct": 0.5,
+        "source": "보건복지부 제출 최종보고서(2018) 표 12·14 (p=.944, 유의하지 않음)"
+      },
+      {
+        "label": "실내골프 결제 건수",
+        "sim_pct": 1.9,
+        "sim_ci95_pct": null,
+        "truth_pct": 4.3,
+        "source": "보건복지부 제출 최종보고서(2018) 표 12·14 (p=.689, 유의하지 않음)"
+      }
+    ]
+  }
 }
