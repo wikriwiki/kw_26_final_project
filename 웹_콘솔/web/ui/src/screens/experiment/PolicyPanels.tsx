@@ -272,9 +272,9 @@ export function ValidationCard({ validation }: { validation: Validation }) {
   return (
     <section className="section">
       <div className="section__head">
-        <h2 className="section__title">실측 연구와 비교</h2>
+        <h2 className="section__title">실제 연구와 비교</h2>
         <p className="section__note">
-          방향이 같은 항목 {validation.rows.filter((r) => Math.sign(r.sim_pct) === Math.sign(r.truth_pct)).length} / {validation.rows.length}
+          늘고 줄어든 것이 실제와 같은 항목 {validation.rows.filter((r) => Math.sign(r.sim_pct) === Math.sign(r.truth_pct)).length} / {validation.rows.length}
         </p>
       </div>
       <Card>
@@ -283,9 +283,10 @@ export function ValidationCard({ validation }: { validation: Validation }) {
             <thead>
               <tr>
                 <th scope="col">항목</th>
-                <th scope="col" className="n">시뮬</th>
-                <th scope="col" className="n">실측</th>
-                <th scope="col">방향</th>
+                <th scope="col" className="n">시뮬레이션</th>
+                <th scope="col" className="n">실제</th>
+                <th scope="col" className="n">차이</th>
+                <th scope="col">증감</th>
                 <th scope="col">출처</th>
               </tr>
             </thead>
@@ -302,7 +303,8 @@ export function ValidationCard({ validation }: { validation: Validation }) {
                     ) : null}
                   </td>
                   <td className="n num">{signed(row.truth_pct)}</td>
-                  <td>{Math.sign(row.sim_pct) === Math.sign(row.truth_pct) ? '같음' : '반대'}</td>
+                  <td className="n num">{Math.abs(row.sim_pct - row.truth_pct).toFixed(1)}%p</td>
+                  <td>{Math.sign(row.sim_pct) === Math.sign(row.truth_pct) ? '일치' : '반대'}</td>
                   <td className="wrap">
                     <span className="cell-sub">{row.source}</span>
                   </td>

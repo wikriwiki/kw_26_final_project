@@ -20,6 +20,7 @@
  * 기준 미달이므로 서버가 물리적으로 막는다는 사실도 함께 적는다.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { Badge } from '../components/Badge';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
@@ -246,6 +247,24 @@ export function NewRunScreen() {
   /* --- 파생값 ------------------------------------------------------------- */
 
   const activePolicy: PolicyPayload | null = isNew ? draft : (detail?.policy ?? null);
+
+  // 시연 사이트: 실행 대신, 같은 정책을 미리 돌려 둔 결과로 이어 준다
+  const [demoRun, setDemoRun] = useState<string | null>(null);
+  const chosenPolicyId = activePolicy?.id ?? null;
+  useEffect(() => {
+    if (!DEMO || step !== 3 || !chosenPolicyId) return;
+    let alive = true;
+    api
+      .listRuns()
+      .then((list) => {
+        const hit = list.items.find((r) => r.meta?.policy_id === chosenPolicyId);
+        if (alive) setDemoRun(hit ? hit.run_id : null);
+      })
+      .catch(() => alive && setDemoRun(null));
+    return () => {
+      alive = false;
+    };
+  }, [step, chosenPolicyId]);
   const grantBars = useMemo<BarItem[]>(
     () => (activePolicy ? grantBarsOf(activePolicy) : []),
     [activePolicy],
@@ -1054,6 +1073,14 @@ export function NewRunScreen() {
             <Callout>
               서비스에서는 여기서 '실행 시작'을 누르면 GPU 서버에서 시뮬레이션이 돌아가고, 끝나면 결과·인터뷰·보고서가
               이 콘솔에 생깁니다. 시연 사이트에서는 실행하지 않고, 미리 돌려 둔 정책 다섯 개의 결과를 보여 드립니다.
+              {demoRun ? (
+                <>
+                  {' '}
+                  <Link className="btn btn--primary btn--sm" to={`/runs/${encodeURIComponent(demoRun)}/results`}>
+                    이 정책의 결과 보기
+                  </Link>
+                </>
+              ) : null}
             </Callout>
           ) : (
           <section className="section">
