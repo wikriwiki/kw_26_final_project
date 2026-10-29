@@ -334,7 +334,7 @@ export function ValidationCard({ validation }: { validation: Validation }) {
       </Callout>
       <Card>
         <p className="card__note">
-          증감이 실제 연구와 일치한 항목: 주요 업종 {count(major)}
+          증감이 실제 연구와 일치한 항목: 주요 항목 {count(major)}
           {minor.length ? `, 결제 규모가 작은 업종 ${count(minor)}` : ''}
         </p>
         <ValidationTable rows={major} />

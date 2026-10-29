@@ -2011,7 +2011,7 @@ def _compact_validation(bundle: dict[str, Any]) -> str:
     def count(rows: list[dict[str, Any]]) -> str:
         return f"{len(rows)}개 중 {sum(1 for r in rows if (r['sim_pct'] >= 0) == (r['truth_pct'] >= 0))}개"
 
-    tally = f"주요 업종 {count(major)}" + (f", 결제 규모가 작은 업종 {count(minor)}" if minor else "")
+    tally = f"주요 항목 {count(major)}" + (f", 결제 규모가 작은 업종 {count(minor)}" if minor else "")
     body = [
         '<p class="caption"><b>정책 시행 후 확인 가능한 자료임.</b> 실제 연구 결과는 정책 시행 이후에 확인할 수 있는 자료로, '
         "정책 시행 전에는 활용할 수 없음. 본 절은 이미 시행된 정책을 대상으로 시뮬레이션의 정확도를 확인한 사후 검증이며, "
