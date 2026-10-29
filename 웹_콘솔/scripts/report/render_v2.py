@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from html import escape
 from typing import Any, Sequence
@@ -2052,12 +2053,14 @@ def _compact_validation(bundle: dict[str, Any]) -> str:
 def _compact_limits(bundle: dict[str, Any]) -> str:
     paired = bundle.get("paired") or {}
     method = paired.get("method") or {}
+    repeats = re.search(r"(\d+)회", str(method.get("ci") or ""))
     items = [
         f"본 결과는 합성 시민 {int(paired.get('agents') or 0):,}명을 대상으로 한 시뮬레이션 결과이며, 실제 소비를 관측한 값이 아님.",
         "변화율은 같은 시민·같은 날짜의 정책 시행 시 소비를 정책 미시행 시 소비로 나눈 뒤 1을 뺀 값임. "
         "정책 시행 전 기간은 한 차례만 시뮬레이션하여 시행·미시행 두 조건에 공통으로 적용함.",
-        esc(f"오차 범위는 95% 신뢰구간이며, {method['ci']}으로 산출함." if method.get("ci") else "오차 범위는 95% 신뢰구간이며, 시민 단위 부트스트랩으로 산출함.")
-        + " 오차 범위가 0을 포함하면 통계적으로 유의하지 않은 것으로 판단함.",
+        "오차 범위는 95% 신뢰구간이며, 시민 단위 부트스트랩"
+        + (f"({repeats.group(1)}회 반복)" if repeats else "")
+        + "으로 산출함. 오차 범위가 0을 포함하면 통계적으로 유의하지 않은 것으로 판단함.",
         "결제 시민 수가 적은 업종은 표본이 작아 오차 범위가 넓으므로, 통계적으로 유의한 업종만 수록함.",
     ]
     return "<ul>" + "".join(f"<li>{x}</li>" for x in items) + "</ul>"
