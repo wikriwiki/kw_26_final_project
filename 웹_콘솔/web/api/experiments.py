@@ -420,6 +420,11 @@ def summarize_rows(rows: Iterable[dict[str, Any]], experiment: Experiment) -> di
     return summary
 
 
+def _trust_size_only() -> bool:
+    """배포본(버셀 함수)은 파일을 풀면서 수정 시각이 바뀐다. 결과 파일이 바뀌지 않는 배포에서만 크기로 캐시를 맞춘다."""
+    return os.environ.get("WEB_CACHE_TRUST_SIZE", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
 class DayCache:
     """하루 집계 캐시. 파일 크기·수정 시각이 같으면 메모리 → 디스크 순으로 재사용한다."""
 
@@ -470,7 +475,7 @@ class DayCache:
         if (
             value.get("version") != CACHE_VERSION
             or source.get("bytes") != stat.st_size
-            or source.get("mtime_ns") != stat.st_mtime_ns
+            or (source.get("mtime_ns") != stat.st_mtime_ns and not _trust_size_only())
         ):
             return None
         return value

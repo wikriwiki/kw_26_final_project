@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import json
+import os
 import random
 import re
 import statistics
@@ -258,5 +259,10 @@ class QueryJobs:
             except OSError:
                 pass
 
-        threading.Thread(target=work, name=f"query-{job['job_id'][:8]}", daemon=True).start()
+        if os.environ.get("WEB_INLINE_JOBS", "").strip().lower() in {"1", "true", "yes", "on"}:
+            # 서버리스 함수(버셀)는 응답을 돌려준 뒤 배경 스레드가 멈추고, 다음 조회가 다른 인스턴스로 갈 수 있다.
+            # 그래서 끝까지 묻고 'done' 으로 돌려준다 — 화면은 done 을 받으면 다시 묻지 않는다
+            work()
+        else:
+            threading.Thread(target=work, name=f"query-{job['job_id'][:8]}", daemon=True).start()
         return self.get(experiment_id, job["job_id"])
