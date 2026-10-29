@@ -95,12 +95,25 @@ export interface ValidationRow {
   sim_ci95_pct: [number, number] | null;
   truth_pct: number;
   source: string;
+  /** major: 결제가 많은 주요 업종, minor: 결제가 적어 오차 범위가 넓은 업종 */
+  tier?: 'major' | 'minor';
+}
+
+/** 백분율로 나타내지 않는 지표(한계소비성향·소진 속도·업종 구성 등) */
+export interface ValidationOtherRow {
+  label: string;
+  sim: string;
+  sim_range: string;
+  truth: string;
+  compare: string;
+  source: string;
 }
 
 export interface Validation {
   basis: string;
   note: string;
   rows: ValidationRow[];
+  other_rows?: ValidationOtherRow[];
 }
 
 export interface ExperimentList {

@@ -128,6 +128,13 @@
   line-height: var(--lh-body);
 }
 
+.card__subtitle {
+  margin-top: var(--sp-4);
+  font-size: var(--fs-sm);
+  font-weight: var(--fw-bold);
+  color: var(--fg);
+}
+
 .card--flush > .card__head {
   padding: var(--sp-5) var(--sp-5) var(--sp-3);
 }

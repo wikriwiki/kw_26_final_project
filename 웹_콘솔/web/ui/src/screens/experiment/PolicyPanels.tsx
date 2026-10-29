@@ -13,7 +13,7 @@ import { Callout } from '../../components/Feedback';
 import { EffectBars } from '../../components/EffectBars';
 import { LineChart } from '../../components/LineChart';
 import { int, krw } from '../../lib/format';
-import type { Comparison, GroupDimension, GroupEffectRow, GroupFilters, PairedRow, Validation } from '../../lib/experiments';
+import type { Comparison, GroupDimension, GroupEffectRow, GroupFilters, PairedRow, Validation, ValidationRow } from '../../lib/experiments';
 
 export const pct = (v: number | null | undefined) =>
   v === null || v === undefined ? null : `${v >= 0 ? '+' : ''}${(v * 100).toFixed(1)}%`;
@@ -273,57 +273,113 @@ export function GroupEffectCard({
  * 사후 검증: 실제 연구와 비교 — 같은 업종 묶음·정의로 다시 센 시뮬 값과 공개 연구의 추정치.
  * 서비스를 쓰는 시점(정책 시행 전)에는 없는 정보라, 시행 전에 보는 결과와 섞이지 않게 따로 표시한다.
  */
+/** 0.1% 미만은 소수 둘째 자리까지 보여 −0.0% 로 뭉개지지 않게 한다 */
+const signedFine = (v: number) => (v !== 0 && Math.abs(v) < 0.1 ? `${v > 0 ? '+' : '−'}${Math.abs(v).toFixed(2)}%` : signed(v));
+const sameSign = (row: ValidationRow) => Math.sign(row.sim_pct) === Math.sign(row.truth_pct);
+
+function ValidationTable({ rows }: { rows: ValidationRow[] }) {
+  return (
+    <div className="table-wrap">
+      <table className="table">
+        <thead>
+          <tr>
+            <th scope="col">항목</th>
+            <th scope="col" className="n">시뮬레이션</th>
+            <th scope="col" className="n">실제 연구</th>
+            <th scope="col" className="n">차이</th>
+            <th scope="col">증감 비교</th>
+            <th scope="col">출처</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row) => (
+            <tr key={row.label}>
+              <th scope="row">{row.label}</th>
+              <td className="n num">
+                {signed(row.sim_pct)}
+                {row.sim_ci95_pct ? (
+                  <span className="cell-sub">
+                    {signed(row.sim_ci95_pct[0])} ~ {signed(row.sim_ci95_pct[1])}
+                  </span>
+                ) : null}
+              </td>
+              <td className="n num">{signedFine(row.truth_pct)}</td>
+              <td className="n num">{Math.abs(row.sim_pct - row.truth_pct).toFixed(1)}%p</td>
+              <td>{sameSign(row) ? '일치' : '불일치'}</td>
+              <td className="wrap">
+                <span className="cell-sub">{row.source}</span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export function ValidationCard({ validation }: { validation: Validation }) {
+  const major = validation.rows.filter((r) => r.tier !== 'minor');
+  const minor = validation.rows.filter((r) => r.tier === 'minor');
+  const other = validation.other_rows ?? [];
+  const count = (rows: ValidationRow[]) => `${rows.length}개 중 ${rows.filter(sameSign).length}개`;
   return (
     <section className="section">
       <div className="section__head">
         <h2 className="section__title">사후 검증: 실제 연구와 비교</h2>
-        <Badge tone="info">정책 시행 후에만 알 수 있는 정보</Badge>
+        <Badge tone="info">정책 시행 후 확인 가능한 자료</Badge>
       </div>
       <Callout>
-        이 서비스를 쓰는 시점은 정책 시행 전이라, 그때는 실제 연구 결과가 없습니다. 이 표는 이미 시행된 정책으로
-        시뮬레이션이 맞았는지 확인하려고, 시뮬레이션이 끝난 뒤에 맞춰 본 것입니다. 위의 결과는 이 정보 없이 나온 값입니다.
+        실제 연구 결과는 정책 시행 이후에 확인할 수 있는 자료로, 정책 시행 전에는 활용할 수 없습니다. 이 비교는 이미 시행된
+        정책을 대상으로 시뮬레이션의 정확도를 확인한 사후 검증이며, 위의 분석 결과에는 반영되지 않았습니다.
       </Callout>
       <Card>
         <p className="card__note">
-          늘고 줄어든 것이 실제와 같은 항목 {validation.rows.filter((r) => Math.sign(r.sim_pct) === Math.sign(r.truth_pct)).length} / {validation.rows.length}
+          증감이 실제 연구와 일치한 항목: 주요 업종 {count(major)}
+          {minor.length ? `, 결제 규모가 작은 업종 ${count(minor)}` : ''}
         </p>
-        <div className="table-wrap">
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">항목</th>
-                <th scope="col" className="n">시뮬레이션</th>
-                <th scope="col" className="n">실제</th>
-                <th scope="col" className="n">차이</th>
-                <th scope="col">증감</th>
-                <th scope="col">출처</th>
-              </tr>
-            </thead>
-            <tbody>
-              {validation.rows.map((row) => (
-                <tr key={row.label}>
-                  <th scope="row">{row.label}</th>
-                  <td className="n num">
-                    {signed(row.sim_pct)}
-                    {row.sim_ci95_pct ? (
-                      <span className="cell-sub">
-                        {signed(row.sim_ci95_pct[0])} ~ {signed(row.sim_ci95_pct[1])}
-                      </span>
-                    ) : null}
-                  </td>
-                  <td className="n num">{signed(row.truth_pct)}</td>
-                  <td className="n num">{Math.abs(row.sim_pct - row.truth_pct).toFixed(1)}%p</td>
-                  <td>{Math.sign(row.sim_pct) === Math.sign(row.truth_pct) ? '일치' : '반대'}</td>
-                  <td className="wrap">
-                    <span className="cell-sub">{row.source}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <p className="card__note">{validation.basis}</p>
+        <ValidationTable rows={major} />
+        {minor.length ? (
+          <>
+            <h3 className="card__subtitle">결제 규모가 작은 업종</h3>
+            <p className="card__note">결제 건수가 적어 시뮬레이션 수치의 오차 범위가 넓으므로 참고용으로 제시합니다.</p>
+            <ValidationTable rows={minor} />
+          </>
+        ) : null}
+        {other.length ? (
+          <>
+            <h3 className="card__subtitle">기타 지표</h3>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th scope="col">항목</th>
+                    <th scope="col" className="n">시뮬레이션</th>
+                    <th scope="col" className="n">실제 연구</th>
+                    <th scope="col">비교</th>
+                    <th scope="col">출처</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {other.map((row) => (
+                    <tr key={row.label}>
+                      <th scope="row">{row.label}</th>
+                      <td className="n num">
+                        {row.sim}
+                        {row.sim_range ? <span className="cell-sub">{row.sim_range}</span> : null}
+                      </td>
+                      <td className="n num">{row.truth}</td>
+                      <td>{row.compare}</td>
+                      <td className="wrap">
+                        <span className="cell-sub">{row.source}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        ) : null}
+        <p className="card__note">시뮬레이션 수치 아래의 범위는 95% 신뢰구간(오차 범위)입니다. {validation.basis}</p>
         <p className="card__note">{validation.note}</p>
       </Card>
     </section>
