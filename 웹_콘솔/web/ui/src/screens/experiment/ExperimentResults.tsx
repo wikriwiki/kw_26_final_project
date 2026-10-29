@@ -152,7 +152,6 @@ export function ExperimentResults() {
       ) : null}
       {/* 정책 실험이 아닌 실험(금연구역)은 정책 있음·없음 비교 표가 핵심 결과다 — 맨 위에 둔다 */}
       {comparison.data && !paired ? <ComparisonCard comparison={comparison.data} experiment={experiment} /> : null}
-      {experiment.validation?.rows?.length ? <ValidationCard validation={experiment.validation} /> : null}
       <div className="grid">
         {hasTarget ? (
           <>
@@ -193,6 +192,8 @@ export function ExperimentResults() {
         </Card>
       </div>
       {comparison.error ? <ErrorState title="비교를 계산하지 못했습니다" body={comparison.error.message} /> : null}
+      {/* 사후 검증은 정책 시행 전에 보는 결과(효과·집단·추이) 다음, 맨 끝에 둔다 */}
+      {experiment.validation?.rows?.length ? <ValidationCard validation={experiment.validation} /> : null}
     </div>
   );
 }

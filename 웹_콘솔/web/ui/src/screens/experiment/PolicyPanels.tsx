@@ -7,7 +7,9 @@
  */
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Badge } from '../../components/Badge';
 import { Card, Stat } from '../../components/Card';
+import { Callout } from '../../components/Feedback';
 import { EffectBars } from '../../components/EffectBars';
 import { LineChart } from '../../components/LineChart';
 import { int, krw } from '../../lib/format';
@@ -267,17 +269,25 @@ export function GroupEffectCard({
   );
 }
 
-/** 실측 연구와 비교 — 같은 업종 묶음·정의로 다시 센 시뮬 값과 공개 연구의 추정치 */
+/**
+ * 사후 검증: 실제 연구와 비교 — 같은 업종 묶음·정의로 다시 센 시뮬 값과 공개 연구의 추정치.
+ * 서비스를 쓰는 시점(정책 시행 전)에는 없는 정보라, 시행 전에 보는 결과와 섞이지 않게 따로 표시한다.
+ */
 export function ValidationCard({ validation }: { validation: Validation }) {
   return (
     <section className="section">
       <div className="section__head">
-        <h2 className="section__title">실제 연구와 비교</h2>
-        <p className="section__note">
+        <h2 className="section__title">사후 검증: 실제 연구와 비교</h2>
+        <Badge tone="info">정책 시행 후에만 알 수 있는 정보</Badge>
+      </div>
+      <Callout>
+        이 서비스를 쓰는 시점은 정책 시행 전이라, 그때는 실제 연구 결과가 없습니다. 이 표는 이미 시행된 정책으로
+        시뮬레이션이 맞았는지 확인하려고, 시뮬레이션이 끝난 뒤에 맞춰 본 것입니다. 위의 결과는 이 정보 없이 나온 값입니다.
+      </Callout>
+      <Card>
+        <p className="card__note">
           늘고 줄어든 것이 실제와 같은 항목 {validation.rows.filter((r) => Math.sign(r.sim_pct) === Math.sign(r.truth_pct)).length} / {validation.rows.length}
         </p>
-      </div>
-      <Card>
         <div className="table-wrap">
           <table className="table">
             <thead>

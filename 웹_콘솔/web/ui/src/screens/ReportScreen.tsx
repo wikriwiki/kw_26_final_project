@@ -446,7 +446,7 @@ export function ReportScreen() {
             <div className="section__head">
               <h2 className="section__title">구성</h2>
               <p className="section__note">
-                요약 · 정책 있음·없음 비교 · 집단별 비교 · 실측 연구와 비교 · 근거와 한계
+                요약 · 정책 있음·없음 비교 · 집단별 비교 · 정책 시사점 · 사후 검증(실제 연구와 비교) · 근거와 한계
               </p>
             </div>
           </section>
