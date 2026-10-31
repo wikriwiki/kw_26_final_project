@@ -1,0 +1,246 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>서울시 재난긴급생활비 효과 분석 보고서</title><style>
+:root {
+  color-scheme: light dark;
+}
+.doc {
+  /* 표면 */
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --surface-2: #f2f2ef;
+  --border: #d9d9d3;
+  --border-strong: #b9b9b1;
+  --fg: #16181c;
+  --fg-muted: #62666e;
+  --fg-faint: #8b8f97;
+  /* 상태 */
+  --ok: #2f6f4f;
+  --warn: #8a6100;
+  --danger: #a03028;
+  --info: #1f5c8a;
+  --sel: #2c4f7c;
+  /* 차트 */
+  --k1: #2c4f7c;
+  --k2: #7a6a3f;
+  --k3: #2f6f4f;
+  --k4: #8a4b62;
+  --k5: #46617a;
+  --k6: #6b5b8a;
+  --k7: #8a6100;
+  --k8: #4a6b6b;
+  --k-pos: #2f6f4f;
+  --k-neg: #a03028;
+  --k-grid: #e4e4de;
+  --k-axis: #b9b9b1;
+  --k-ink: #16181c;
+  --k-muted: #62666e;
+  --k-band: #ecece6;
+
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Pretendard", "Inter", -apple-system, "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.62;
+  -webkit-font-smoothing: antialiased;
+}
+@media (prefers-color-scheme: dark) {
+  .doc:not([data-theme="light"]) {
+    --bg: #121316;
+    --surface: #191b1f;
+    --surface-2: #202328;
+    --border: #2d3138;
+    --border-strong: #414751;
+    --fg: #e6e8ec;
+    --fg-muted: #9aa0aa;
+    --fg-faint: #737a85;
+    --ok: #6cbf95;
+    --warn: #d7a53f;
+    --danger: #e07a70;
+    --info: #6aa9d8;
+    --sel: #7aa2d8;
+    --k1: #7aa2d8;
+    --k2: #cbb173;
+    --k3: #6cbf95;
+    --k4: #d68fa6;
+    --k5: #8fa8bf;
+    --k6: #a795cf;
+    --k7: #d7a53f;
+    --k8: #7fb3b3;
+    --k-pos: #6cbf95;
+    --k-neg: #e07a70;
+    --k-grid: #262a30;
+    --k-axis: #414751;
+    --k-ink: #e6e8ec;
+    --k-muted: #9aa0aa;
+    --k-band: #1e2126;
+  }
+}
+.doc[data-theme="dark"] {
+  --bg: #121316;
+  --surface: #191b1f;
+  --surface-2: #202328;
+  --border: #2d3138;
+  --border-strong: #414751;
+  --fg: #e6e8ec;
+  --fg-muted: #9aa0aa;
+  --fg-faint: #737a85;
+  --ok: #6cbf95;
+  --warn: #d7a53f;
+  --danger: #e07a70;
+  --info: #6aa9d8;
+  --sel: #7aa2d8;
+  --k1: #7aa2d8;
+  --k2: #cbb173;
+  --k3: #6cbf95;
+  --k4: #d68fa6;
+  --k5: #8fa8bf;
+  --k6: #a795cf;
+  --k7: #d7a53f;
+  --k8: #7fb3b3;
+  --k-pos: #6cbf95;
+  --k-neg: #e07a70;
+  --k-grid: #262a30;
+  --k-axis: #414751;
+  --k-ink: #e6e8ec;
+  --k-muted: #9aa0aa;
+  --k-band: #1e2126;
+}
+.doc * { box-sizing: border-box; }
+.doc .wrap { max-width: 1120px; margin: 0 auto; padding: 28px 24px 72px; }
+.doc .num, .doc .tick, .doc code, .doc pre {
+  font-family: "JetBrains Mono", "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 머리말 */
+.doc .masthead {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 20px 22px;
+  margin-bottom: 20px;
+}
+.doc .masthead__kicker {
+  font-size: 11px; letter-spacing: .09em; text-transform: uppercase;
+  color: var(--fg-faint); margin: 0 0 6px;
+}
+.doc .masthead__title { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -.01em; }
+.doc .masthead__sub { color: var(--fg-muted); margin: 0 0 16px; font-size: 13px; }
+.doc .factbar {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0; border: 1px solid var(--border); border-bottom: 0;
+}
+.doc .fact { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 10px 12px; }
+.doc .fact:last-child { border-right: 0; }
+.doc .fact__k { font-size: 11px; color: var(--fg-faint); margin: 0 0 3px; }
+.doc .fact__v { font-size: 15px; font-weight: 600; margin: 0; }
+.doc .fact__m { font-size: 11px; color: var(--fg-muted); margin: 2px 0 0; }
+
+/* 목차 */
+.doc .toc { border: 1px solid var(--border); background: var(--surface); padding: 14px 18px; margin-bottom: 22px; }
+.doc .toc h2 { font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-faint); margin: 0 0 8px; }
+.doc .toc ol { margin: 0; padding-left: 0; list-style: none; columns: 2; column-gap: 32px; font-size: 13px; }
+.doc .toc a { color: var(--fg); text-decoration: none; border-bottom: 1px solid transparent; }
+.doc .toc a:hover { border-bottom-color: var(--border-strong); }
+
+/* 절 */
+.doc .sec { border: 1px solid var(--border); background: var(--surface); margin-bottom: 18px; }
+.doc .sec__head { padding: 14px 18px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+.doc .sec__n { font-size: 11px; color: var(--fg-faint); letter-spacing: .08em; margin: 0 0 2px; }
+.doc .sec__t { font-size: 16px; font-weight: 620; margin: 0; }
+.doc .sec__p { font-size: 12.5px; color: var(--fg-muted); margin: 5px 0 0; max-width: 78ch; }
+.doc .sec__body { padding: 18px; }
+.doc .sec__body > * + * { margin-top: 16px; }
+.doc h3 { font-size: 13.5px; font-weight: 620; margin: 0 0 8px; }
+.doc p { margin: 0 0 10px; max-width: 84ch; }
+.doc p:last-child { margin-bottom: 0; }
+
+/* 해설 */
+.doc .note { border-left: 2px solid var(--border-strong); padding: 2px 0 2px 14px; color: var(--fg); }
+.doc .note__src { display: block; font-size: 11px; color: var(--fg-faint); margin-top: 6px; }
+.doc .callout { border: 1px solid var(--border); border-left-width: 3px; padding: 11px 14px; font-size: 13px; }
+.doc .callout--warn { border-left-color: var(--warn); }
+.doc .callout--danger { border-left-color: var(--danger); }
+.doc .callout--ok { border-left-color: var(--ok); }
+.doc .callout--info { border-left-color: var(--info); }
+
+/* 그림 */
+.doc figure { margin: 0; border: 1px solid var(--border); background: var(--surface); }
+.doc figure > svg { display: block; width: 100%; height: auto; padding: 12px 12px 4px; }
+.doc figcaption { border-top: 1px solid var(--border); padding: 8px 12px; font-size: 12px; color: var(--fg-muted); }
+.doc figcaption b { color: var(--fg); font-weight: 600; }
+.doc figcaption .src { display: block; font-size: 11px; color: var(--fg-faint); margin-top: 3px; }
+.doc .figgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+
+/* 표 */
+.doc .tablewrap { border: 1px solid var(--border); overflow-x: auto; }
+.doc table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.doc thead th {
+  text-align: left; font-weight: 600; color: var(--fg-muted); background: var(--surface-2);
+  padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 11.5px;
+}
+.doc tbody td { padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+.doc tbody tr:last-child td { border-bottom: 0; }
+.doc tbody tr[data-target="1"] { background: color-mix(in srgb, var(--sel) 7%, transparent); }
+.doc td.n, .doc th.n { text-align: right; font-variant-numeric: tabular-nums; font-family: "JetBrains Mono", ui-monospace, monospace; }
+.doc tfoot td { padding: 8px 10px; border-top: 1px solid var(--border-strong); font-weight: 600; background: var(--surface-2); }
+.doc .pos { color: var(--ok); }
+.doc .neg { color: var(--danger); }
+.doc .tag {
+  display: inline-block; font-size: 10.5px; padding: 1px 6px; border: 1px solid var(--border-strong);
+  color: var(--fg-muted); white-space: nowrap;
+}
+.doc .tag--t { border-color: var(--sel); color: var(--sel); }
+.doc .st { font-size: 11px; padding: 1px 7px; border: 1px solid currentColor; white-space: nowrap; }
+.doc .st--pass { color: var(--ok); }
+.doc .st--fail { color: var(--danger); }
+.doc .st--skip { color: var(--fg-faint); }
+
+/* 정의 목록 */
+.doc .dl { display: grid; grid-template-columns: minmax(140px, 190px) 1fr; gap: 0; border: 1px solid var(--border); }
+.doc .dl dt { padding: 8px 12px; border-bottom: 1px solid var(--border); background: var(--surface-2); font-size: 12px; color: var(--fg-muted); }
+.doc .dl dd { padding: 8px 12px; border-bottom: 1px solid var(--border); margin: 0; font-size: 12.5px; }
+.doc .dl dt:last-of-type, .doc .dl dd:last-of-type { border-bottom: 0; }
+
+/* 수식 */
+.doc .formula {
+  border: 1px solid var(--border); background: var(--surface-2); padding: 12px 14px;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12.5px; line-height: 1.9;
+  overflow-x: auto; white-space: pre;
+}
+
+.doc .foot { margin-top: 26px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 11.5px; color: var(--fg-faint); }
+.doc .foot ul { padding-left: 18px; margin: 6px 0 0; }
+.doc .sec__body ul { padding-left: 20px; margin: 0 0 10px; list-style: disc; }
+.doc .sec__body li { margin: 0 0 8px; }
+.doc .foot a { color: var(--info); }
+.doc .themebtn {
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--fg);
+  font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer;
+}
+.doc .headrow { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+@media print {
+  .doc .themebtn, .doc .toc { display: none; }
+  .doc .sec { break-inside: avoid; }
+}
+</style></head><body><div class="doc"><div class="wrap"><header class="masthead"><div class="headrow"><div><p class="masthead__kicker">정책 시뮬레이션 분석 보고서</p><h1 class="masthead__title">서울시 재난긴급생활비 효과</h1><p class="masthead__sub">2020-04-13 ~ 2020-05-10 · 생성 2026-10-29 08:02 UTC</p></div><button type="button" class="themebtn" id="themebtn" data-mode="system">다크 테마</button></div><div class="factbar"><div class="fact"><p class="fact__k">시행일</p><p class="fact__v num">2020-04-20</p></div><div class="fact"><p class="fact__k">비교 대상 시민</p><p class="fact__v num">1,855명</p><p class="fact__m">정책 시행·미시행 각 21일</p></div><div class="fact"><p class="fact__k">총소비 변화</p><p class="fact__v num">+12.5%</p><p class="fact__m">오차 범위 +11.1% ~ +14.0%</p></div><div class="fact"><p class="fact__k">매장 소비 변화</p><p class="fact__v num">+18.0%</p><p class="fact__m">오차 범위 +15.9% ~ +20.2%</p></div><div class="fact"><p class="fact__k">지원금 사용액</p><p class="fact__v num">1.6만</p><p class="fact__m">1인 1일 평균, 원</p></div></div></header><section class="sec" id="c1"><div class="sec__head"><p class="sec__n">1절</p><h2 class="sec__t">요약</h2><p class="sec__p"></p></div><div class="sec__body"><ul class="summary"><li>총소비: 정책 미시행 대비 <b>+12.5%</b> 증가(오차 범위 +11.1% ~ +14.0%)</li><li>매장 소비(온라인 제외): <b>+18.0%</b> 증가(오차 범위 +15.9% ~ +20.2%)</li><li>증가 업종: 건강 +56.4%, 마트 +27.0%, 식사 +16.3%</li><li>연령대별 총소비 변화: 70대 이상 +19.5%(최대), 30대 +9.1%(최소)</li><li>소득별 총소비 변화: 소득 하 +15.6%(최대), 소득 상 +9.5%(최소)</li><li>지원금 사용액: 시민 1인당 1일 평균 1.6만원(기간 합계 6.2억원)</li></ul><p class="caption">업종과 집단은 통계적으로 유의한 결과만 제시함.</p></div></section><section class="sec" id="c2"><div class="sec__head"><p class="sec__n">2절</p><h2 class="sec__t">정책 시행·미시행 비교</h2><p class="sec__p">같은 시민·같은 날짜 기준. 통계적으로 유의한 업종만 제시함.</p></div><div class="sec__body"><div class="tablewrap"><table><thead><tr><th class="" scope="col">항목</th><th class="n" scope="col">정책 미시행(1인 1일)</th><th class="n" scope="col">정책 시행(1인 1일)</th><th class="n" scope="col">변화율</th><th class="n" scope="col">오차 범위</th></tr></thead><tbody><tr ><td class="">총소비 (온라인 포함)</td><td class="n">2.9만</td><td class="n">3.3만</td><td class="n"><span class="num">+12.5%</span></td><td class="n"><span class="num">+11.1% ~ +14.0%</span></td></tr><tr ><td class="">가게 소비 (온라인 제외)</td><td class="n">2.0만</td><td class="n">2.4만</td><td class="n"><span class="num">+18.0%</span></td><td class="n"><span class="num">+15.9% ~ +20.2%</span></td></tr><tr ><td class="">건강</td><td class="n">158</td><td class="n">247</td><td class="n"><span class="num">+56.4%</span></td><td class="n"><span class="num">+33.0% ~ +83.4%</span></td></tr><tr ><td class="">마트</td><td class="n">3,130</td><td class="n">3,976</td><td class="n"><span class="num">+27.0%</span></td><td class="n"><span class="num">+21.3% ~ +32.8%</span></td></tr><tr ><td class="">식사</td><td class="n">1.5만</td><td class="n">1.7만</td><td class="n"><span class="num">+16.3%</span></td><td class="n"><span class="num">+14.0% ~ +19.0%</span></td></tr><tr ><td class="">편의점</td><td class="n">1,303</td><td class="n">1,504</td><td class="n"><span class="num">+15.4%</span></td><td class="n"><span class="num">+10.9% ~ +20.0%</span></td></tr><tr ><td class="">카페</td><td class="n">374</td><td class="n">426</td><td class="n"><span class="num">+14.0%</span></td><td class="n"><span class="num">+2.2% ~ +25.7%</span></td></tr></tbody></table></div><p class="caption">통계적으로 유의한 변화가 없는 업종(오차 범위가 0을 포함): 여가.</p><figure><svg class="chart" viewBox="0 0 860 260" role="img" aria-label="시계열 그래프" preserveAspectRatio="xMidYMid meet"><line x1="76" y1="216.0" x2="840" y2="216.0" stroke="var(--k-grid)" stroke-width="1"/><text x="68" y="220.0" text-anchor="end" fill="var(--k-muted)" font-size="11" class="tick">+0.0%</text><line x1="76" y1="153.3" x2="840" y2="153.3" stroke="var(--k-grid)" stroke-width="1"/><text x="68" y="157.3" text-anchor="end" fill="var(--k-muted)" font-size="11" class="tick">+10.0%</text><line x1="76" y1="90.7" x2="840" y2="90.7" stroke="var(--k-grid)" stroke-width="1"/><text x="68" y="94.7" text-anchor="end" fill="var(--k-muted)" font-size="11" class="tick">+20.0%</text><line x1="76" y1="28.0" x2="840" y2="28.0" stroke="var(--k-grid)" stroke-width="1"/><text x="68" y="32.0" text-anchor="end" fill="var(--k-muted)" font-size="11" class="tick">+30.0%</text><line x1="76" y1="216" x2="840" y2="216" stroke="var(--k-axis)" stroke-width="1"/><path d="M 76.0 216.0 L 114.2 200.8 L 152.4 172.1 L 190.6 164.9 L 228.8 141.8 L 267.0 172.2 L 305.2 142.4 L 343.4 131.0 L 381.6 147.8 L 419.8 135.6 L 458.0 138.1 L 496.2 117.5 L 534.4 115.6 L 572.6 54.3 L 610.8 146.4 L 649.0 100.9 L 687.2 146.2 L 725.4 139.6 L 763.6 124.4 L 801.8 137.8 L 840.0 109.5" fill="none" stroke="var(--k1)" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="76.0" cy="216.0" r="2.8" fill="var(--k1)"/><circle cx="114.2" cy="200.8" r="2.8" fill="var(--k1)"/><circle cx="152.4" cy="172.1" r="2.8" fill="var(--k1)"/><circle cx="190.6" cy="164.9" r="2.8" fill="var(--k1)"/><circle cx="228.8" cy="141.8" r="2.8" fill="var(--k1)"/><circle cx="267.0" cy="172.2" r="2.8" fill="var(--k1)"/><circle cx="305.2" cy="142.4" r="2.8" fill="var(--k1)"/><circle cx="343.4" cy="131.0" r="2.8" fill="var(--k1)"/><circle cx="381.6" cy="147.8" r="2.8" fill="var(--k1)"/><circle cx="419.8" cy="135.6" r="2.8" fill="var(--k1)"/><circle cx="458.0" cy="138.1" r="2.8" fill="var(--k1)"/><circle cx="496.2" cy="117.5" r="2.8" fill="var(--k1)"/><circle cx="534.4" cy="115.6" r="2.8" fill="var(--k1)"/><circle cx="572.6" cy="54.3" r="2.8" fill="var(--k1)"/><circle cx="610.8" cy="146.4" r="2.8" fill="var(--k1)"/><circle cx="649.0" cy="100.9" r="2.8" fill="var(--k1)"/><circle cx="687.2" cy="146.2" r="2.8" fill="var(--k1)"/><circle cx="725.4" cy="139.6" r="2.8" fill="var(--k1)"/><circle cx="763.6" cy="124.4" r="2.8" fill="var(--k1)"/><circle cx="801.8" cy="137.8" r="2.8" fill="var(--k1)"/><circle cx="840.0" cy="109.5" r="2.8" fill="var(--k1)"/><text x="76.0" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">04-20</text><text x="152.4" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">04-22</text><text x="228.8" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">04-24</text><text x="305.2" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">04-26</text><text x="381.6" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">04-28</text><text x="458.0" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">04-30</text><text x="534.4" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">05-02</text><text x="610.8" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">05-04</text><text x="687.2" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">05-06</text><text x="763.6" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">05-08</text><text x="840.0" y="234.0" text-anchor="middle" fill="var(--k-muted)" font-size="11" class="tick">05-10</text><rect x="76.0" y="243.0" width="10" height="10" fill="var(--k1)" rx="1"/><text x="91.0" y="252.0" fill="var(--k-ink)" font-size="12">총소비 변화율 (%)</text></svg><figcaption><b>날짜별 총소비 변화율.</b> 같은 날짜의 정책 시행 시 소비 ÷ 미시행 시 소비 − 1.</figcaption></figure></div></section><section class="sec" id="c5"><div class="sec__head"><p class="sec__n">3절</p><h2 class="sec__t">집단별 지원금 사용과 소비 증가</h2><p class="sec__p"></p></div><div class="sec__body"><div class="tablewrap"><table><thead><tr><th class="" scope="col">집단</th><th class="n" scope="col">시민</th><th class="n" scope="col">사용률</th><th class="n" scope="col">총소비</th><th class="n" scope="col">지원금 1만 원당 늘어난 소비</th></tr></thead><tbody><tr ><td class="">연령대 · 20대</td><td class="n">407명</td><td class="n">89%</td><td class="n"><span class="num">+12.3%</span></td><td class="n">1,950원</td></tr><tr ><td class="">연령대 · 30대</td><td class="n">361명</td><td class="n">94%</td><td class="n"><span class="num">+9.1%</span></td><td class="n">1,670원</td></tr><tr ><td class="">연령대 · 40대</td><td class="n">308명</td><td class="n">96%</td><td class="n"><span class="num">+11.2%</span></td><td class="n">2,210원</td></tr><tr ><td class="">연령대 · 50대</td><td class="n">412명</td><td class="n">97%</td><td class="n"><span class="num">+13.3%</span></td><td class="n">2,560원</td></tr><tr ><td class="">연령대 · 60대</td><td class="n">190명</td><td class="n">95%</td><td class="n"><span class="num">+14.1%</span></td><td class="n">2,550원</td></tr><tr ><td class="">연령대 · 70대 이상</td><td class="n">177명</td><td class="n">94%</td><td class="n"><span class="num">+19.5%</span></td><td class="n">3,280원</td></tr><tr ><td class="">소득 · 하</td><td class="n">245명</td><td class="n">92%</td><td class="n"><span class="num">+15.6%</span></td><td class="n">2,510원</td></tr><tr ><td class="">소득 · 중하</td><td class="n">421명</td><td class="n">92%</td><td class="n"><span class="num">+13.4%</span></td><td class="n">2,320원</td></tr><tr ><td class="">소득 · 중</td><td class="n">563명</td><td class="n">95%</td><td class="n"><span class="num">+11.2%</span></td><td class="n">2,060원</td></tr><tr ><td class="">소득 · 중상</td><td class="n">439명</td><td class="n">95%</td><td class="n"><span class="num">+13.3%</span></td><td class="n">2,580원</td></tr><tr ><td class="">소득 · 상</td><td class="n">187명</td><td class="n">96%</td><td class="n"><span class="num">+9.5%</span></td><td class="n">1,780원</td></tr><tr ><td class="">성별 · 여성</td><td class="n">814명</td><td class="n">93%</td><td class="n"><span class="num">+13.0%</span></td><td class="n">2,300원</td></tr><tr ><td class="">성별 · 남성</td><td class="n">1,041명</td><td class="n">95%</td><td class="n"><span class="num">+12.2%</span></td><td class="n">2,250원</td></tr></tbody></table></div><p class="caption">사용률 = 사용한 지원금 ÷ 받은 지원금(정책 시행 기간 내). 지원금 1만 원당 늘어난 소비 = 늘어난 소비 ÷ 사용한 지원금 × 1만 원.</p><p class="caption">변화율은 같은 시민·같은 날짜의 정책 시행 시 소비 ÷ 미시행 시 소비 − 1임. &#x27;—&#x27;는 오차 범위가 0을 포함하여 통계적으로 유의하지 않은 값임. 30명 미만 집단은 제외함.</p></div></section><section class="sec" id="c6"><div class="sec__head"><p class="sec__n">4절</p><h2 class="sec__t">정책 시사점</h2><p class="sec__p">정책 시행 전 검토 사항(시뮬레이션 결과 기반).</p></div><div class="sec__body"><ul><li>연령대별로는 <b>70대 이상</b> 집단의 효과가 가장 큼(총소비 +19.5%, 지원금 1만 원당 3,280원의 추가 소비). 시뮬레이션은 지급 대상자 전원의 지원금 수령을 전제로 하였으므로, 노년층이 신청 방법을 알지 못해 지원에서 누락되지 않도록 정책 안내, 신청 방법 교육, 주민센터 방문 신청 지원 등을 함께 마련하여 사각지대를 줄일 필요가 있음. 추가 소비가 가장 적은 집단은 30대 집단(1만 원당 1,670원)으로, 지원금이 기존 소비를 대체한 비중이 큰 것으로 나타남.</li><li>소득별로는 <b>소득 하</b> 집단의 효과가 가장 큼(총소비 +15.6%, 지원금 1만 원당 2,510원의 추가 소비). 같은 예산으로 효과를 높이려면 저소득층에 지원금이 빠짐없이 전달되어야 하므로, 신청이 어려운 가구를 발굴하여 안내할 필요가 있음. 추가 소비가 가장 적은 집단은 소득 상 집단(1만 원당 1,780원)으로, 지원금이 기존 소비를 대체한 비중이 큰 것으로 나타남.</li><li>증가 폭이 가장 큰 업종은 건강(+56.4%)·마트(+27.0%)·식사(+16.3%)임. 해당 업종의 사용처가 늘어난 수요에 대응할 수 있도록 사용처 안내를 준비할 필요가 있음.</li></ul><p class="caption">시뮬레이션 결과 중 통계적으로 유의한 집단과 업종만을 대상으로 정리함. 실제 연구로 확인된 내용이 아니며, 정책 시행 전에 검토가 필요한 사항임.</p></div></section><section class="sec" id="c3"><div class="sec__head"><p class="sec__n">5절</p><h2 class="sec__t">사후 검증: 실제 연구와 비교</h2><p class="sec__p">정책 시행 후 확인 가능한 자료로 시뮬레이션의 정확도를 확인함.</p></div><div class="sec__body"><p class="caption"><b>정책 시행 후 확인 가능한 자료임.</b> 실제 연구 결과는 정책 시행 이후에 확인할 수 있는 자료로, 정책 시행 전에는 활용할 수 없음. 본 절은 이미 시행된 정책을 대상으로 시뮬레이션의 정확도를 확인한 사후 검증이며, 앞 절의 분석 결과에는 반영되지 않음.</p><p class="caption">증감이 실제 연구와 일치한 항목: 주요 항목 3개 중 3개, 결제 규모가 작은 업종 5개 중 3개.</p><div class="tablewrap"><table><thead><tr><th class="" scope="col">항목</th><th class="n" scope="col">시뮬레이션</th><th class="n" scope="col">오차 범위</th><th class="n" scope="col">실제 연구</th><th class="n" scope="col">차이</th><th class="" scope="col">증감 비교</th><th class="" scope="col">출처</th></tr></thead><tbody><tr ><td class="">총지출</td><td class="n"><span class="num">+14.1%</span></td><td class="n"><span class="num">+12.7% ~ +15.6%</span></td><td class="n"><span class="num">+13.9%</span></td><td class="n"><span class="num">0.2%p</span></td><td class="">일치</td><td class="">IZA DP 14662 표 3 (4월)</td></tr><tr ><td class="">음식점</td><td class="n"><span class="num">+18.0%</span></td><td class="n"><span class="num">+15.3% ~ +20.5%</span></td><td class="n"><span class="num">+27.3%</span></td><td class="n"><span class="num">9.3%p</span></td><td class="">일치</td><td class="">IZA DP 14662 표 4 (4~8월)</td></tr><tr ><td class="">소매</td><td class="n"><span class="num">+25.1%</span></td><td class="n"><span class="num">+21.1% ~ +29.2%</span></td><td class="n"><span class="num">+24.7%</span></td><td class="n"><span class="num">0.4%p</span></td><td class="">일치</td><td class="">IZA DP 14662 표 4 (4~8월)</td></tr></tbody></table></div><p class="caption"><b>결제 규모가 작은 업종.</b> 결제 건수가 적어 시뮬레이션 수치의 오차 범위가 넓으므로 참고용으로 제시함.</p><div class="tablewrap"><table><thead><tr><th class="" scope="col">항목</th><th class="n" scope="col">시뮬레이션</th><th class="n" scope="col">오차 범위</th><th class="n" scope="col">실제 연구</th><th class="n" scope="col">차이</th><th class="" scope="col">증감 비교</th><th class="" scope="col">출처</th></tr></thead><tbody><tr ><td class="">의료</td><td class="n"><span class="num">+66.0%</span></td><td class="n"><span class="num">+39.3% ~ +98.5%</span></td><td class="n"><span class="num">+17.8%</span></td><td class="n"><span class="num">48.2%p</span></td><td class="">일치</td><td class="">IZA DP 14662 표 4 (4~8월)</td></tr><tr ><td class="">미용</td><td class="n"><span class="num">+41.3%</span></td><td class="n"><span class="num">-36.5% ~ +373.3%</span></td><td class="n"><span class="num">+35.9%</span></td><td class="n"><span class="num">5.4%p</span></td><td class="">일치</td><td class="">IZA DP 14662 표 4 (4~8월)</td></tr><tr ><td class="">교육</td><td class="n"><span class="num">+140.0%</span></td><td class="n"><span class="num">+10.7% ~ +571.1%</span></td><td class="n"><span class="num">+16.5%</span></td><td class="n"><span class="num">123.5%p</span></td><td class="">일치</td><td class="">IZA DP 14662 표 4 (4~8월)</td></tr><tr ><td class="">오락여가</td><td class="n"><span class="num">-0.5%</span></td><td class="n"><span class="num">-20.2% ~ +23.7%</span></td><td class="n"><span class="num">+2.7%</span></td><td class="n"><span class="num">3.2%p</span></td><td class="">불일치</td><td class="">IZA DP 14662 표 4 (4~8월)</td></tr><tr ><td class="">의류</td><td class="n"><span class="num">-31.0%</span></td><td class="n"><span class="num">-68.9% ~ +39.9%</span></td><td class="n"><span class="num">+39.1%</span></td><td class="n"><span class="num">70.1%p</span></td><td class="">불일치</td><td class="">IZA DP 14662 표 4 (4~8월)</td></tr></tbody></table></div><p class="caption">실제 연구와 같은 기준(지원금 수령일부터 3주)으로 다시 산출함. 앞 절의 정책 효과와 분석 기간이 달라 수치에 차이가 있음.</p><p class="caption">실제 연구 결과는 시뮬레이션 입력에 사용하지 않았으며, 시뮬레이션 종료 후 비교에만 활용함. 분석 기간은 시뮬레이션 1~3주, 실제 연구 1~5개월로 차이가 있음.</p></div></section><section class="sec" id="c4"><div class="sec__head"><p class="sec__n">6절</p><h2 class="sec__t">근거와 한계</h2><p class="sec__p"></p></div><div class="sec__body"><ul><li>본 결과는 합성 시민 1,855명을 대상으로 한 시뮬레이션 결과이며, 실제 소비를 관측한 값이 아님.</li><li>변화율은 같은 시민·같은 날짜의 정책 시행 시 소비를 정책 미시행 시 소비로 나눈 뒤 1을 뺀 값임. 정책 시행 전 기간은 한 차례만 시뮬레이션하여 시행·미시행 두 조건에 공통으로 적용함.</li><li>오차 범위는 95% 신뢰구간이며, 시민 단위 부트스트랩(500회 반복)으로 산출함. 오차 범위가 0을 포함하면 통계적으로 유의하지 않은 것으로 판단함.</li><li>결제 시민 수가 적은 업종은 표본이 작아 오차 범위가 넓으므로, 통계적으로 유의한 업종만 수록함.</li></ul></div></section></div></div><script>
+(function () {
+  var doc = document.querySelector('.doc');
+  var btn = document.getElementById('themebtn');
+  if (!doc || !btn) return;
+  var KEY = 'dasol-report-theme';
+  function apply(v) {
+    if (v === 'dark' || v === 'light') { doc.setAttribute('data-theme', v); }
+    else { doc.removeAttribute('data-theme'); }
+    btn.textContent = v === 'dark' ? '라이트 테마' : (v === 'light' ? '시스템 테마' : '다크 테마');
+    btn.setAttribute('data-mode', v || 'system');
+  }
+  var saved = null;
+  try { saved = localStorage.getItem(KEY); } catch (e) { saved = null; }
+  apply(saved);
+  btn.addEventListener('click', function () {
+    var cur = btn.getAttribute('data-mode');
+    var next = cur === 'system' ? 'dark' : (cur === 'dark' ? 'light' : 'system');
+    try { localStorage.setItem(KEY, next === 'system' ? '' : next); } catch (e) {}
+    apply(next === 'system' ? null : next);
+  });
+})();
+</script></body></html>

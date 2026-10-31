@@ -6,6 +6,10 @@ S1 계약은 [`CONTRACT.md`](CONTRACT.md)와 `fixtures/`에 잠겨 있다. API�
 
 ## 로컬 실행
 
+> **시연 노트북은 [`../docs/LOCAL_SETUP.md`](../docs/LOCAL_SETUP.md) 대로 띄운다.**
+> `python web/run_local.py --data <데이터 폴더> --prepare` (처음 한 번) → `python web/run_local.py --data <데이터 폴더>`.
+> 켤 때 모든 화면을 미리 계산하고, 3D 지도도 인터넷 없이 뜬다. 아래는 개발용 수동 실행이다.
+
 ```powershell
 # 1) 환경 변수 — 처음 한 번
 Copy-Item .env.example .env      # 필요한 값만 채운다

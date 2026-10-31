@@ -129,6 +129,7 @@ class ArtifactStore:
         self._day_cache: dict[tuple[str, str, int, int], dict] = {}
         self._events_cache: dict[tuple[str, int, int], dict] = {}
         self._scan_cache: dict[str, tuple[tuple, dict]] = {}
+        self._fixed_cache: dict[tuple, dict] = {}
 
         # Keep the S1 reference implementation and S2 on exactly the same
         # source-root rules. This only changes module configuration in memory;
@@ -155,7 +156,9 @@ class ArtifactStore:
         # never an implicit fallback when real data is unavailable.
         if os.environ.get("SIM_USE_FIXTURES", "").lower() in {"1", "true", "yes"}:
             fixture_dir = Path(os.environ.get("SIM_FIXTURES_DIR", str(repo_root / "web" / "fixtures")))
-        return cls(repo_root=repo_root, data_root=data_root, policy_dir=policy_dir, fixture_dir=fixture_dir)
+        # 보고서·시각화 산출물 폴더(아래 report/). 없으면 저장소의 output/sim. 로컬 데이터 묶음은 자기 output/ 을 가리킨다
+        output_root = Path(os.environ["SIM_OUTPUT_ROOT"]) if os.environ.get("SIM_OUTPUT_ROOT") else None
+        return cls(repo_root=repo_root, data_root=data_root, policy_dir=policy_dir, output_root=output_root, fixture_dir=fixture_dir)
 
     def _require_run(self, run_id: str) -> tuple[Path, Path]:
         if run_id not in self.run_ids:
@@ -190,6 +193,23 @@ class ArtifactStore:
         with self._cache_lock:
             self._scan_cache[run_id] = (signature, scanned)
         return scanned
+
+    def _fixed(self, key: tuple, compute):
+        """결과 파일이 바뀌지 않는 실행(`WEB_CACHE_TRUST_SIZE=1`, 시연 노트북·배포본)에서만 응답을 기억한다.
+
+        일자 목록·실패 기록은 일자 파일을 처음부터 다시 훑어 요청마다 0.15~0.3초가 든다.
+        진행 중인 실행은 파일 내용이 계속 바뀌므로 기억하지 않는다(기본값).
+        """
+        if os.environ.get("WEB_CACHE_TRUST_SIZE", "").strip().lower() not in {"1", "true", "yes", "on"}:
+            return compute()
+        with self._cache_lock:
+            hit = self._fixed_cache.get(key)
+        if hit is not None:
+            return hit
+        value = compute()
+        with self._cache_lock:
+            self._fixed_cache[key] = value
+        return value
 
     def runs_index(self) -> dict:
         fixture = self._fixture("runs.index.json")
@@ -268,6 +288,9 @@ class ArtifactStore:
         fixture = self._fixture(f"run.{run_id}.days.json")
         if fixture is not None:
             return fixture
+        return self._fixed(("days", run_id), lambda: self._run_days(run_id))
+
+    def _run_days(self, run_id: str) -> dict:
         run = self._actual_run(run_id)
         root = Path(run["root"])
         items = []
@@ -393,7 +416,7 @@ class ArtifactStore:
         if fixture is not None and not day:
             return {**fixture, "limit": limit, "items": fixture.get("items", [])[:limit]}
         run = self._actual_run(run_id)
-        payload = builder.failures_page(run, limit)
+        payload = dict(self._fixed(("failures", run_id, limit), lambda: builder.failures_page(run, limit)))
         if day and payload.get("items") is not None:
             payload["items"] = [item for item in payload["items"] if str(item.get("day")) == day]
         return payload

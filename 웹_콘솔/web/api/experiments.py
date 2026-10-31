@@ -957,6 +957,13 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
         hit = _paired_cache.get(experiment.experiment_id)
     if hit is not None and hit[0] == key:
         return hit[1]
+    disk_path = experiment.local_dir / CONSOLE_DIR / "comparison.json"
+    digest = _comparison_digest(experiment, key)
+    stored = _json_file(disk_path)
+    if isinstance(stored, dict) and stored.get("digest") == digest and isinstance(stored.get("result"), dict):
+        with _paired_lock:
+            _paired_cache[experiment.experiment_id] = (key, stored["result"])
+        return stored["result"]
 
     people = pooled["people"]
     ids = sorted(people)
@@ -1013,7 +1020,22 @@ def paired_policy_comparison(store: ExperimentStore, experiment: Experiment) -> 
     }
     with _paired_lock:
         _paired_cache[experiment.experiment_id] = (key, result)
+    DayCache._write_disk(disk_path, {"digest": digest, "result": result})
     return result
+
+
+_CODE_DIGEST = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+
+
+def _comparison_digest(experiment: Experiment, key: tuple) -> str:
+    """비교 결과를 디스크에 둘 때의 열쇠. 원본 일자 파일(sha256)·대상자 파일·실험의 분석 설정·이 파일의
+    코드가 모두 같을 때만 저장본을 쓴다. 하나라도 바뀌면 다시 계산한다(부트스트랩 500회, 정책마다 2초 안팎)."""
+    files = []
+    for name in ("personas.json", "runtime.json"):
+        path = experiment.bundle_dir / name
+        files.append(hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None)
+    payload = [CACHE_VERSION, _CODE_DIGEST, list(key), files, experiment.analysis or {}, PAIRED_BOOTSTRAP, PAIRED_SEED]
+    return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()
 
 
 # 집단별 효과: 나눌 축과 보일 순서. 생애 단계는 값이 수백 가지로 흩어져 있어 쓰지 않는다

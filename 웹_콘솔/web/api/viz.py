@@ -25,12 +25,13 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, Response
 
 from scripts.sim.build_standalone_html import STATIC_JS_FILES, render_template
 from scripts.sim.visualization_3d import assets as viz_assets
 from scripts.sim.visualization_3d.pack import PACK_FORMAT
 
+from . import map_cache
 from .store import StoreError
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -190,16 +191,23 @@ def _digest(path: Path) -> str:
 
 
 def shell_html(theme: bool) -> str:
+    # 지도 저장본(SIM_MAP_CACHE_DIR)이 있으면 라이브러리·바탕 지도를 이 서버에서 받는다 — map_cache.py
+    local = map_cache.enabled()
+    maplibre_css = map_cache.vendor_url("maplibre-gl.css") if local else viz_assets.MAPLIBRE_CSS_URL
+    maplibre_js = map_cache.vendor_url("maplibre-gl.js") if local else viz_assets.MAPLIBRE_JS_URL
+    deck_js = map_cache.vendor_url("deck.gl.min.js") if local else viz_assets.DECK_JS_URL
     styles = [
-        f'<link rel="stylesheet" href="{viz_assets.MAPLIBRE_CSS_URL}">',
+        f'<link rel="stylesheet" href="{maplibre_css}">',
         f'<link rel="stylesheet" href="/viz/static/styles.css?v={_digest(STATIC_DIR / "styles.css")}">',
     ]
     if theme and THEME_PATH.is_file():
         styles.append(f'<link rel="stylesheet" href="/viz/theme.css?v={_digest(THEME_PATH)}">')
     scripts = [
-        f'<script src="{viz_assets.MAPLIBRE_JS_URL}"></script>',
-        f'<script src="{viz_assets.DECK_JS_URL}"></script>',
+        f'<script src="{maplibre_js}"></script>',
+        f'<script src="{deck_js}"></script>',
     ]
+    if local:
+        scripts.insert(0, '<script>window.SIM3D_MAP_BASE = location.origin + "/viz/map";</script>')
     scripts += [f'<script src="/viz/static/{name}?v={_digest(STATIC_DIR / name)}"></script>' for name in STATIC_JS_FILES]
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     return render_template(template, {"styles": "\n".join(styles), "data": "", "scripts": "\n".join(scripts)})
@@ -232,6 +240,34 @@ def register(app: FastAPI) -> None:
         if not THEME_PATH.is_file():
             raise StoreError(404, "콘솔 테마 파일이 없습니다")
         return FileResponse(THEME_PATH, media_type=MEDIA_TYPES[".css"], headers={"Cache-Control": _cache_header(request)})
+
+    @app.get("/viz/vendor/{name}")
+    async def viz_vendor(name: str) -> FileResponse:
+        path = map_cache.vendor_file(name)
+        if path is None:
+            raise StoreError(404, "지도 라이브러리 저장본이 없습니다")
+        media = MEDIA_TYPES.get(path.suffix, "application/octet-stream")
+        return FileResponse(path, media_type=media, headers={"Cache-Control": "public, max-age=86400"})
+
+    @app.get("/viz/map/{file_path:path}")
+    async def viz_map(file_path: str, request: Request) -> Response:
+        if not map_cache.enabled():
+            raise StoreError(404, "지도 저장본을 쓰지 않는 설정입니다")
+        try:
+            clean = map_cache.upstream_path(file_path)
+        except ValueError as exc:
+            raise StoreError(400, str(exc)) from exc
+        body = await asyncio.to_thread(map_cache.get, clean)
+        media = map_cache.media_type(clean)
+        if body is None:
+            # 저장본에도 없고 인터넷도 안 된다. 조각은 빈 칸으로 넘겨 지도가 멈추지 않게 한다
+            if media == "application/x-protobuf":
+                return Response(status_code=204)
+            raise StoreError(502, "지도 자료를 받지 못했습니다(저장본 없음·인터넷 안 됨)")
+        if media == "application/json":
+            body = map_cache.rewrite(body, str(request.base_url).rstrip("/") + "/viz/map")
+            return Response(body, media_type=media, headers={"Cache-Control": "no-cache"})
+        return Response(body, media_type=media, headers={"Cache-Control": "public, max-age=604800"})
 
     @app.get("/viz/packs/{pack_id}/{file_path:path}")
     async def viz_pack_file(pack_id: str, file_path: str, request: Request) -> FileResponse:

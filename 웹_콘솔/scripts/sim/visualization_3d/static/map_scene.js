@@ -3,8 +3,10 @@
 
   // OpenFreeMap vector tiles (no API key, free). OpenMapTiles schema.
   // Replicates https://maplibre.org/maplibre-gl-js/docs/examples/display-buildings-in-3d/
-  const OPENFREEMAP_TILES = "https://tiles.openfreemap.org/planet";
-  const BRIGHT_STYLE_URL = "https://tiles.openfreemap.org/styles/bright";
+  // 서버에 지도 저장본이 있으면(web/api/map_cache.py) 껍데기가 SIM3D_MAP_BASE 를 이 서버 주소로 정한다
+  const MAP_BASE = window.SIM3D_MAP_BASE || "https://tiles.openfreemap.org";
+  const OPENFREEMAP_TILES = MAP_BASE + "/planet";
+  const BRIGHT_STYLE_URL = MAP_BASE + "/styles/bright";
 
   // Add the 3D buildings layer exactly as the MapLibre reference example:
   // find the first text label layer and insert the extrusion beneath it.

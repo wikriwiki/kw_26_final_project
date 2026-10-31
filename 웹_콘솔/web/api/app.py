@@ -21,6 +21,7 @@ from . import demo_guard
 from . import experiment_routes
 from . import interview
 from . import viz
+from .warmup import Warmup
 from .runner import RunLock, Runner
 from .report_jobs import ReportJobManager
 from .store import ArtifactStore, StoreError
@@ -103,7 +104,7 @@ class CompressResponses:
     알아서 뺀다.
     """
 
-    SKIP = ("/viz/packs/", "/viz/standalone.html")
+    SKIP = ("/viz/packs/", "/viz/standalone.html", "/viz/map/", "/viz/vendor/")
 
     def __init__(self, app) -> None:
         self.app = app
@@ -257,9 +258,16 @@ def create_app(
                 json.dumps(lock_status, ensure_ascii=False),
             )
 
+    app.state.warmup = Warmup()
+
     @app.get("/api/health")
     async def health() -> dict[str, Any]:
         return {"status": "ok", "contract_version": "s1.0.0", "unknown": []}
+
+    @app.get("/api/warmup")
+    async def warmup_status() -> dict[str, Any]:
+        """켤 때 미리 계산(WEB_WARMUP) 진행 상황. 로컬 실행 스크립트가 이것을 보고 브라우저를 연다."""
+        return app.state.warmup.snapshot()
 
     @app.get("/api/runs")
     async def list_runs() -> dict:
@@ -528,6 +536,12 @@ def create_app(
     viz.register(app)
     # 실험 레지스트리 — 여러 실험(분기 팔 포함)을 실제 실행 데이터 미러로 본다.
     experiment_routes.register(app)
+
+    # 시연 노트북: 켜자마자 모든 화면 집계를 미리 계산한다(web/api/warmup.py). 서버리스 배포에서는 끈다
+    if _enabled(os.environ.get("WEB_WARMUP")):
+        @app.on_event("startup")
+        async def start_warmup() -> None:
+            app.state.warmup.start(app)
 
     @app.get("/api/interview/status")
     async def interview_status() -> dict:
