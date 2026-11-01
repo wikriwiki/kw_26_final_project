@@ -292,11 +292,12 @@ class InterviewTests(_MirrorFixture):
                             "execution_receipts": [{"kind": "purchase_receipt", "purchase_status": "purchased", "category": "식사", "amount": 30000}]}),
         ]
         text = experiment_interview._summary_text(rows, "2020-04-20", True)
-        self.assertIn("시행 전 2일 동안 가게에서 쓴 돈 하루 평균 5,000원", text)
-        self.assertIn("시행 후 1일 동안 하루 평균 30,000원", text)
+        self.assertIn("시행 전 2일 동안 가게에서 쓴 돈 하루 평균 약 5천 원", text)
+        self.assertIn("시행 후 1일 동안 하루 평균 약 3만 원", text)
         self.assertIn("늘었음", text)
-        self.assertIn("받은 정책 지원금 합계 300,000원, 그중 쓴 돈 30,000원", text)
-        self.assertIn("식사 30,000원", text)
+        self.assertIn("받은 정책 지원금 합계 약 30만 원, 그중 쓴 돈 약 3만 원", text)
+        self.assertIn("식사 약 3만 원", text)
+        self.assertNotRegex(text, r"\d+번")  # 가게 방문 횟수는 세지 않는다
 
     def test_profile_includes_spending_habits(self) -> None:
         text = experiment_interview._profile_text({

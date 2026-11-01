@@ -59,7 +59,7 @@ SYSTEM = """당신은 서울에 사는 아래 [나]의 인물입니다. 인터�
 - 사람마다 처지가 다릅니다. '조금 더 여유가 생겼다'처럼 누구나 할 법한 말 대신, 내 나이·직업·소득·소비 성향·생활 방식·평소 자주 쓰는 곳과 '내 요약'의 숫자(시행 전후 하루 평균, 받은 지원금, 많이 쓴 곳)에서 나온 나만의 이유를 말하세요.
 - 의견이나 느낌을 물으면 그 처지에서 솔직하게, 입장을 분명히 답하세요. 절약형이면 아끼는 사람답게, 소비형이면 쓰는 사람답게 말하세요.
 - 최근에 한 일은 [내 기록]에 있는 것만 말하세요. 기록에 없는 장소·금액·일은 지어내지 마세요. 기록에 없는 구체적인 일을 물었을 때만 "그건 잘 기억이 안 나요"라고 하세요.
-- 금액은 꼭 필요할 때만, 기록의 값 그대로 쓰세요. 기분·피로는 숫자나 '수치'로 말하지 말고 느낌으로 말하세요. 날짜 나열, '기록'·'근거'·'시뮬레이션' 같은 말은 하지 마세요.
+- 금액·횟수·날짜는 질문이 그것을 물을 때만 말하세요. 말할 때도 '자주', '꽤', '2만 원 남짓', '지난주쯤'처럼 사람이 기억하듯 대략 말하고, 기록의 숫자를 그대로 읊지 마세요. 기분·피로는 숫자나 '수치'로 말하지 말고 느낌으로 말하세요. 날짜 나열, '기록'·'근거'·'시뮬레이션' 같은 말은 하지 마세요.
 - '내역을 보면'처럼 기록을 읽어 주는 투로 말하지 말고, 겪은 일을 기억해서 말하는 사람처럼 답하세요.
 - 지원금으로 낸 것은 '그중 정책 지원금'이 적힌 결제뿐입니다. '내 돈으로 냄'이나 '시행 전'인 날의 결제를 지원금으로 말하지 마세요.
 - '그때 든 생각'과 그때 스스로 밝힌 이유는 확인된 사실이 아니니 "그땐 …싶었어요"처럼 말하세요. 가게 이름·메뉴·만족했는지는 내가 겪은 일이니 자연스럽게 말해도 됩니다.
@@ -293,6 +293,25 @@ def _profile_text(agent: dict[str, Any]) -> str:
     return " · ".join(parts) or "프로필 기록 없음"
 
 
+def rough_won(value: Any) -> str:
+    """사람이 기억하는 정도의 금액: 25,438 → '약 2만 5천 원', 356,500 → '약 36만 원', 5,929 → '약 6천 원'."""
+    try:
+        amount = float(value)
+    except (TypeError, ValueError):
+        return "금액 기록 없음"
+    if amount <= 0:
+        return "0원"
+    if amount < 1000:
+        return "천 원 미만"
+    if amount < 10000:
+        return f"약 {round(amount / 1000)}천 원"
+    if amount < 100000:
+        thousands = round(amount / 1000)
+        man, rest = divmod(thousands, 10)
+        return f"약 {man}만 {rest}천 원" if rest else f"약 {man}만 원"
+    return f"약 {round(amount / 10000)}만 원"
+
+
 def _summary_text(rows: list[tuple[str, dict[str, Any]]], effective: str | None, policy_paired: bool,
                   visits: list[dict[str, Any]] | None = None) -> str | None:
     """시행 전후 하루 평균 지출과 지원금 합계 — 사람마다 다른 숫자라서 답이 그 사람 이야기가 된다."""
@@ -306,25 +325,25 @@ def _summary_text(rows: list[tuple[str, dict[str, Any]]], effective: str | None,
         after = [r for d, r in rows if d >= effective]
         avg_before, avg_after = average(before), average(after)
         if avg_before is not None:
-            bits.append(f"시행 전 {len(before)}일 동안 가게에서 쓴 돈 하루 평균 {won(avg_before)}")
+            bits.append(f"시행 전 {len(before)}일 동안 가게에서 쓴 돈 하루 평균 {rough_won(avg_before)}")
         if avg_after is not None:
-            bits.append(f"시행 후 {len(after)}일 동안 하루 평균 {won(avg_after)}")
+            bits.append(f"시행 후 {len(after)}일 동안 하루 평균 {rough_won(avg_after)}")
         if avg_before and avg_after is not None:
             change = (avg_after - avg_before) / avg_before * 100
             bits.append(f"시행 전보다 {'늘었음' if change >= 5 else '줄었음' if change <= -5 else '비슷함'}")
     else:
         avg = average([r for _, r in rows])
         if avg is not None:
-            bits.append(f"{len(rows)}일 동안 가게에서 쓴 돈 하루 평균 {won(avg)}")
+            bits.append(f"{len(rows)}일 동안 가게에서 쓴 돈 하루 평균 {rough_won(avg)}")
     received = sum(float(r.get("grant_applied_today") or 0) for _, r in rows)
     used = sum(float(r.get("policy_spend_today") or 0) for _, r in rows)
     rebate = sum(float(r.get("policy_rebate_today") or 0) for _, r in rows)
     if received > 0:
-        bits.append(f"받은 정책 지원금 합계 {won(received)}, 그중 쓴 돈 {won(used)}")
+        bits.append(f"받은 정책 지원금 합계 {rough_won(received)}, 그중 쓴 돈 {rough_won(used)}")
     elif used > 0:
-        bits.append(f"정책 지원금으로 결제한 합계 {won(used)}")
+        bits.append(f"정책 지원금으로 결제한 합계 {rough_won(used)}")
     if rebate > 0:
-        bits.append(f"캐시백 적립 합계 {won(rebate)}")
+        bits.append(f"캐시백 적립 합계 {rough_won(rebate)}")
     categories: dict[str, float] = {}
     for _, row in rows:
         for receipt in row.get("execution_receipts") or []:
@@ -332,14 +351,15 @@ def _summary_text(rows: list[tuple[str, dict[str, Any]]], effective: str | None,
                 categories[str(receipt["category"])] = categories.get(str(receipt["category"]), 0.0) + float(receipt.get("amount") or 0)
     if categories:
         top = sorted(categories.items(), key=lambda pair: -pair[1])[:3]
-        bits.append("가장 많이 쓴 곳 " + ", ".join(f"{name} {won(value)}" for name, value in top))
+        bits.append("가장 많이 쓴 곳 " + ", ".join(f"{name} {rough_won(value)}" for name, value in top))
     stores: dict[str, int] = {}
     for visit in visits or []:
         if visit.get("store"):
             stores[str(visit["store"])] = stores.get(str(visit["store"]), 0) + 1
     regular = [(name, count) for name, count in sorted(stores.items(), key=lambda pair: -pair[1]) if count >= 2][:3]
     if regular:
-        bits.append("자주 간 가게 " + ", ".join(f"{name} {count}번" for name, count in regular))
+        # 횟수는 넣지 않는다 — 사람은 "17번 갔다"고 세어 말하지 않는다(11/01 사용자)
+        bits.append("자주 간 가게 " + ", ".join(name for name, _ in regular))
     return "내 요약: " + " · ".join(bits) if bits else None
 
 
@@ -683,7 +703,7 @@ def _reminder(packet: dict[str, Any], exposed: list[Item]) -> str:
     if summary:
         lines.append(f"- {summary.replace('내 요약: ', '내 형편: ')}")
     if any(item.kind == "executed_receipt" and isinstance(item.value, dict) and item.value.get("memory") for item in exposed):
-        lines.append("- 답할 때 내가 실제로 간 가게·먹은 것·그때 든 생각 가운데 질문에 맞는 것을 한두 개 꺼내 말하세요.")
+        lines.append("- 답할 때 내가 실제로 간 가게·먹은 것·그때 든 생각 가운데 질문에 맞는 것을 한두 개 가볍게 꺼내 말하세요. 몇 번 갔는지, 얼마였는지는 세지 마세요.")
     lines.append("- 질문 문장을 따라 하며 시작하지 말고, 첫마디부터 내 결론을 내 말로 하세요. 이 사람만 댈 수 있는 이유를 한 가지 이상 넣으세요.")
     lines.append("- 이유는 [나]와 [내 기록]에 있는 것에서만 고르세요. 거기 없는 사정(수입 변화·업무 일정·가족 일·건강)은 지어내지 마세요. 3~4문장이면 충분합니다.")
     return "\n".join(lines)
