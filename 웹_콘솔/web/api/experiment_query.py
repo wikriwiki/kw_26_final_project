@@ -19,6 +19,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from . import interview
+from . import experiment_interview
 from .experiment_interview import interview_agent, spoken
 from .experiments import CONSOLE_DIR, DAY, Experiment, ExperimentStore, paired_subset_effect
 from .store import StoreError
@@ -184,7 +185,7 @@ class QueryJobs:
     def start(self, experiment_id: str, payload: dict[str, Any]) -> dict[str, Any]:
         experiment = self.store.experiment(experiment_id)
         arm_id = str(payload.get("arm_id") or "")
-        experiment.arm(arm_id)
+        treated = experiment.arm(arm_id).role == "treatment"
         question = str(payload.get("question") or "").strip()
         if not question or len(question) > 500:
             raise StoreError(400, "질문은 1~500자로 적어 주세요")
@@ -222,6 +223,9 @@ class QueryJobs:
 
         def ask(agent_id: str) -> dict[str, Any]:
             profile = by_id.get(agent_id) or {}
+            # 답 옆의 이름표도 답한 사람(시뮬레이션이 쓴 프로필)과 같아야 한다
+            if treated:
+                profile = experiment_interview._person(profile, experiment_interview.load_dossier(experiment, agent_id))
             base = {"agent_id": agent_id, **{key: profile.get(key) for key in FILTER_KEYS}}
             try:
                 reply = interview_agent(self.store, experiment_id, arm_id, agent_id, question, None, through_day,

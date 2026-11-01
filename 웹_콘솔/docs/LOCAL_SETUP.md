@@ -38,8 +38,14 @@ python web/run_local.py --data <데이터 폴더> --prepare
 1. **3D 지도 저장본**을 `<데이터 폴더>/map_cache/` 에 만든다 (약 85MB, 인터넷 필요).
    - 지도 라이브러리(maplibre-gl, deck.gl)와 서울 일대 바탕 지도(확대 0~14단계)를 받는다.
    - 이것이 없으면 지도가 시연장 와이파이에서 매번 받아 와서 느리거나, 끊기면 아예 안 뜬다.
-2. **화면 빌드**가 없거나 소스보다 오래됐으면 다시 빌드한다 (`web/ui/dist`).
-3. **집계 캐시**를 데이터 폴더 안(`experiments/*/arms/*/_console/`, `experiments/*/_console/comparison.json`)에 만든다.
+2. **시민 경험 기록(인터뷰용)** 을 `experiments/*/_console/dossier/` 에 뽑는다 (정책 다섯 개 합쳐 약 50MB).
+   - 결과 zip(`<데이터 폴더>/zips/…`) 안의 `on/dossier.jsonl` 에서 사람마다 시뮬레이션이 실제로 쓴 프로필,
+     들른 가게·메뉴·만족 여부, 그때 밝힌 이유, 들은 이야기만 뽑는다.
+   - 데이터 폴더에 `zips/` 가 없으면 이 단계는 건너뛴다. 그때는 뽑아 둔 `_console/dossier` 폴더를 받아
+     각 실험 폴더에 넣는다(직접 뽑기: `python web/tools/extract_dossier.py --data <데이터 폴더>`).
+   - 없으면 인터뷰는 돌아가지만, 간 곳·그때 생각 없이 기록 숫자만으로 답한다.
+3. **화면 빌드**가 없거나 소스보다 오래됐으면 다시 빌드한다 (`web/ui/dist`).
+4. **집계 캐시**를 데이터 폴더 안(`experiments/*/arms/*/_console/`, `experiments/*/_console/comparison.json`)에 만든다.
    - 정책 비교의 신뢰구간(부트스트랩 500회)을 정책마다 다시 계산하지 않도록 결과를 저장해 둔다.
    - 원본 일자 파일·대상자 파일·분석 코드 중 하나라도 바뀌면 저장본을 버리고 다시 계산한다.
 
@@ -125,6 +131,7 @@ python web/run_local.py --data <데이터 폴더>
 | 3D 지도 바탕이 비어 있다 | `--prepare` 를 안 했거나 서울 밖으로 멀리 끌고 간 경우. 인터넷이 되면 그 자리에서 받아 저장한다 |
 | 보고서 목록이 비어 있다 | `git pull` 로 `output/sim/report/` 를 받았는지 확인 |
 | 인터뷰가 꺼져 있다 | `web/.env` 가 있는지, 인터넷이 되는지 확인 |
+| 켤 때 `시민 경험 기록 … 없어` 경고 | 위 2번. 각 실험 폴더에 `_console/dossier/_index.json` 이 있으면 정상 |
 | 3D 지도가 버벅인다 | 전원 연결·최고 성능 모드·그래픽 가속 확인, 다른 무거운 프로그램 종료 |
 
 정상인지 빠르게 보는 주소: `http://127.0.0.1:8765/api/warmup` — `"state":"done"` 이고 `"failed":[]` 면 정상이다.

@@ -245,6 +245,45 @@ class InterviewTests(_MirrorFixture):
         self.assertIn("[답하기 전에]", prompt)
         self.assertLess(prompt.index("[내 기록]"), prompt.index("[답하기 전에]"))
 
+    def test_dossier_replaces_profile_and_names_the_places(self) -> None:
+        """정책 있는 쪽 시민은 시뮬레이션이 실제로 쓴 프로필로 말하고, 영수증에 그때 간 가게·생각이 붙는다."""
+        import gzip
+
+        folder = self.root / "mirror" / EXP / "_console" / "dossier"
+        folder.mkdir(parents=True)
+        dossier = {
+            "schema": 2, "aid": AGENTS[0],
+            "profile": {"age": 41, "gender": "M", "job": "택배 기사", "income_level": "하", "lifestyle": "새벽에 일하고 동네 백반집을 좋아한다. 주말엔 쉰다."},
+            "visits": [{"day": "2017-11-21", "poi_id": "C_1", "store": "상구네백반", "menu": "백반", "category": "한식",
+                        "spent": 7000, "satisfaction": 0.9, "importance": 1.5, "why": "일 끝나고 따뜻한 밥이 먹고 싶었다."}],
+            "heard": [{"day": "2017-11-21", "text": "옆집이 지원금으로 안경을 샀다고 함", "importance": 1.0}],
+            "plans": [{"day": "2017-11-21", "items": [{"time": "12:00", "place": "상구네백반", "category": "식사", "intent": "점심", "with": 0}]}],
+        }
+        (folder / f"{AGENTS[0]}.json.gz").write_bytes(gzip.compress(json.dumps(dossier, ensure_ascii=False).encode("utf-8")))
+        experiment = self.store.experiment(EXP)
+        packet = experiment_interview.build_packet(self.store, experiment, "post-on", AGENTS[0])
+        profile = packet["items"][0]
+        self.assertIn("택배 기사", profile.text)
+        self.assertIn("소득 하", profile.text)
+        self.assertNotIn("회사원", profile.text)  # 번들(다른 세대)의 직업이 아니다
+        receipt = next(item for item in packet["items"] if item.kind == "executed_receipt" and item.day == "2017-11-21")
+        self.assertIn("상구네백반 백반", receipt.text)
+        self.assertIn("만족스러웠음", receipt.text)
+        self.assertIn("그때 든 생각(확인되지 않은 진술): 일 끝나고", receipt.text)
+        self.assertIn("heard", [item.kind for item in packet["items"]])
+        prompt = experiment_interview._prompt(packet, experiment_interview.select_items(packet, "요즘 어때요?"))
+        self.assertIn("내 생활: 새벽에 일하고 동네 백반집을 좋아한다", prompt)
+        # 정책 없는 쪽에는 경험 기록을 쓰지 않는다(기록은 정책 있는 쪽의 것이다)
+        control = experiment_interview.build_packet(self.store, experiment, "post-off", AGENTS[0])
+        self.assertIn("회사원", control["items"][0].text)
+
+    def test_dossier_rationales_drop_internal_numbers_and_ids(self) -> None:
+        from web.tools.extract_dossier import clean
+
+        self.assertEqual(clean("19:00에 남편 AGT_11110515_M_30대_002와의 약속이 봄새에서 잡혀 있음."), "19:00에 남편과의 약속이 봄새에서 잡혀 있음.")
+        self.assertEqual(clean("어제 봄새에서 만족 0.88를 기록했고 재방문. 오늘은 쉬는 날이라 외식."), "오늘은 쉬는 날이라 외식.")
+        self.assertEqual(clean("policy지갑 사용 가능 지역 내 anchor 적용."), "")
+
     def test_summary_splits_before_and_after_the_effective_day(self) -> None:
         rows = [
             ("2020-04-18", {"cm_today_total": 10000}),
@@ -304,6 +343,20 @@ class InterviewTests(_MirrorFixture):
         log = (self.root / "mirror" / EXP / "_console" / "interviews.jsonl").read_text(encoding="utf-8").splitlines()
         self.assertEqual(json.loads(log[-1])["agent_id"], AGENTS[0])
         self.assertEqual(experiment_interview.recent_interviews(self.store, EXP)["total"], 1)
+
+    def test_broken_answer_is_asked_again(self) -> None:
+        """다른 문자·영어 낱말이 섞이거나 문장이 끊긴 답은 두 번까지 다시 묻고 흠이 가장 적은 답을 쓴다."""
+        replies = iter([
+            "오히려 평소처럼 필요한. 예를 들어 krypton 갔어요 [E2]",
+            "평소처럼 썼어요 surplus [E2]",
+            "평소처럼 필요한 만큼만 썼어요 [E2]",
+        ])
+        with patch.object(interview, "chat", lambda *a, **k: {"answer": next(replies), "model_label": "fake", "tokens": {}}):
+            result = experiment_interview.interview_agent(self.store, EXP, "shared-pre", AGENTS[0], "요즘 어때요?", fetch_evidence=False)
+        self.assertEqual(result["answer"], "평소처럼 필요한 만큼만 썼어요")
+        self.assertEqual(result["retried"], 2)
+        self.assertEqual(experiment_interview.answer_issues("네, 맞아요. 외식이 늘었어요."), 0)
+        self.assertEqual(experiment_interview.answer_issues("아니요, 그런 적. 저는 평소에 써요."), 1)
 
     def test_group_stats_filters_and_breakdowns(self) -> None:
         stats = experiment_query.group_stats(self.store, EXP, "post-off", {"smoking_status": ["smoker"]})

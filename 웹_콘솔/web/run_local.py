@@ -9,7 +9,8 @@
 3. 서버를 띄우고 모든 화면 집계를 미리 계산한다(WEB_WARMUP). 끝날 때까지 기다린다.
 4. 다 끝난 뒤에 브라우저를 연다. 첫 클릭부터 바로 뜨게 하려는 순서다.
 
---prepare 는 3D 지도 저장본(서울 일대, 약 85MB)을 받고, 집계 캐시를 데이터 폴더에 써 둔 뒤 끝난다.
+--prepare 는 3D 지도 저장본(서울 일대, 약 85MB)을 받고, 시민 경험 기록(인터뷰용)을 뽑고,
+집계 캐시를 데이터 폴더에 써 둔 뒤 끝난다.
 그다음부터는 켜는 데 10초 안팎이다. 자세한 설명은 docs/LOCAL_SETUP.md.
 """
 from __future__ import annotations
@@ -140,6 +141,18 @@ def prefetch_map(cache: Path) -> None:
         say("  지도 저장본을 다 채우지 못했습니다. 인터넷이 되는 곳에서 --prepare 를 다시 실행하세요.")
 
 
+def extract_dossiers(data: Path | None) -> None:
+    if data is None or not (data / "zips").is_dir():
+        say("시민 경험 기록: 데이터 폴더에 zips/ 가 없어 뽑지 못했습니다. 뽑아 둔 _console/dossier 폴더를 받아 넣으면 됩니다.")
+        return
+    say("시민 경험 기록(인터뷰용)을 뽑습니다…")
+    subprocess.run([sys.executable, str(REPO / "web" / "tools" / "extract_dossier.py"), "--data", str(data)], cwd=REPO)
+
+
+def has_dossiers(experiments: Path) -> bool:
+    return any(experiments.glob("*/_console/dossier/_index.json"))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="웹 콘솔 로컬 실행")
     parser.add_argument("--data", help="runs·experiments·packs·policies 가 들어 있는 폴더 (kw_web_data)")
@@ -173,12 +186,15 @@ def main() -> None:
         sys.exit(f"{args.port} 포트를 이미 쓰고 있습니다. 떠 있는 콘솔 창을 닫거나 --port 8770 처럼 다른 번호로 실행하세요.")
     if args.prepare:
         prefetch_map(paths["map_cache"])
+        extract_dossiers(find_data(args.data))
     ensure_ui(args.skip_build)
 
     if "output" not in paths and not any((REPO / "output" / "sim" / "report").glob("FINAL_REPORT_rpt-*.html")):
         say("주의: 보고서 파일이 없어 보고서 화면이 비어 보입니다(git pull 로 받으세요).")
     if not (REPO / "web" / ".env").is_file() and not (REPO / ".env").is_file():
         say("주의: web/.env 가 없어 인터뷰·보고서 해설(K-EXAONE)이 꺼진 채로 뜹니다.")
+    if not has_dossiers(paths["experiments"]):
+        say("주의: 시민 경험 기록(_console/dossier)이 없어 인터뷰가 간 곳·그때 생각 없이 답합니다. docs/LOCAL_SETUP.md 참고.")
     if not paths["map_cache"].is_dir():
         say("주의: 3D 지도 저장본이 없어 지도를 인터넷에서 받습니다. --prepare 를 한 번 실행하세요.")
 

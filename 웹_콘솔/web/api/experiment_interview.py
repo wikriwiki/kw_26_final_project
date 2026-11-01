@@ -13,6 +13,7 @@
 """
 from __future__ import annotations
 
+import gzip
 import hashlib
 import json
 import re
@@ -33,6 +34,7 @@ FOCUS_RECENT_DAYS = 3
 # 0.4 에서는 사람이 달라도 답이 거의 같았다(같은 첫마디 63~71%, '잘 모르겠어요' 88%).
 # 0.7 에서 겹침이 약 25% 줄고 엉킨 문장은 0.4 의 옛 프롬프트와 같은 수준(약 4%)이었다 — 11/01 p017 8명×3회×2문항
 TEMPERATURE = 0.7
+MAX_RETRIES = 2
 TARGET_WORDS = ("당구", "골프", "스크린", "금연", "흡연", "담배", "실내체육")
 SMOKING_LABEL = {"smoker": "흡연함", "non_smoker": "흡연 안 함", "unknown": "흡연 여부 미상"}
 PURCHASE_STATUS = {"not_purchased": "계획했지만 결제 안 함"}
@@ -60,7 +62,8 @@ SYSTEM = """당신은 서울에 사는 아래 [나]의 인물입니다. 인터�
 - 금액은 꼭 필요할 때만, 기록의 값 그대로 쓰세요. 기분·피로는 숫자나 '수치'로 말하지 말고 느낌으로 말하세요. 날짜 나열, '기록'·'근거'·'시뮬레이션' 같은 말은 하지 마세요.
 - '내역을 보면'처럼 기록을 읽어 주는 투로 말하지 말고, 겪은 일을 기억해서 말하는 사람처럼 답하세요.
 - 지원금으로 낸 것은 '그중 정책 지원금'이 적힌 결제뿐입니다. '내 돈으로 냄'이나 '시행 전'인 날의 결제를 지원금으로 말하지 마세요.
-- 그때 스스로 밝힌 이유는 확인된 사실이 아니니 "그땐 …싶었어요"처럼 말하세요.
+- '그때 든 생각'과 그때 스스로 밝힌 이유는 확인된 사실이 아니니 "그땐 …싶었어요"처럼 말하세요. 가게 이름·메뉴·만족했는지는 내가 겪은 일이니 자연스럽게 말해도 됩니다.
+- '들은 이야기'는 남에게 들은 것입니다. 내가 겪은 일처럼 말하지 마세요.
 - 기록이 비어 있는 날은 무엇을 했는지 모르는 날입니다. 아무 일도 없었다고 말하지 마세요.
 - 오늘은 {today}입니다. 그 뒤의 일은 모릅니다.
 
@@ -139,6 +142,24 @@ def spoken(answer: str, exposed: list[Item] | None = None) -> str:
     return "\n".join(lines).strip()
 
 
+# 원문의 흠: 한국어 답에 섞인 다른 문자·영어 낱말, 꾸미는 말에서 끊긴 문장("평소처럼 필요한.", "그런 적.")
+BROKEN_TAIL = re.compile(
+    r"[가-힣](?:한|는|던|할|운|적)\.(?=\s|$|\[)"      # "평소처럼 필요한."
+    r"|(?<=\s)적\.(?=\s|$|\[)"                       # "그런 적."
+    r"|[는은던할] [가-힣]\.(?=\s|$|\[)"               # "준비를 하는 제."
+    r"|(?:^|(?<=[.!?]\s))[가-힣]{1,3}, [가-힣]{0,3}[가-힣](?<![요다죠까네지음함군걸게])\.(?=\s|$|\[)"  # "네, 최근."
+    r"|(?<![A-Za-z0-9])E\d{1,4}(?:\s*,\s*E\d{1,4}){2,}"             # 본문에 늘어놓은 기록 번호
+    r"|\(기록\s*[:：]")
+
+
+def answer_issues(answer: str) -> int:
+    body = re.sub(r"\[[^\]\n]{0,12}\]", "", CITE.sub("", answer or ""))
+    count = len(FOREIGN.findall(body)) + len(ACCENTED_WORD.findall(body))
+    count += len(re.findall(r"(?<![A-Za-z0-9])[a-z]{3,}(?![A-Za-z0-9])", body))
+    count += len(BROKEN_TAIL.findall(body))
+    return count
+
+
 def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -157,6 +178,83 @@ class Item:
     kind: str
     text: str
     value: Any
+
+
+DOSSIER_DIR = "dossier"
+_DOSSIER_CACHE: dict[Path, tuple[tuple[int, int], dict[str, Any] | None]] = {}
+
+
+def load_dossier(experiment: Experiment, agent_id: str) -> dict[str, Any] | None:
+    """시뮬레이션이 이 사람에게 남긴 경험 기록(web/tools/extract_dossier.py 가 뽑아 둔 것). 없으면 None."""
+    path = experiment.local_dir / CONSOLE_DIR / DOSSIER_DIR / f"{agent_id}.json.gz"
+    try:
+        stat = path.stat()
+    except OSError:
+        return None
+    stamp = (stat.st_size, stat.st_mtime_ns)
+    cached = _DOSSIER_CACHE.get(path)
+    if cached and cached[0] == stamp:
+        return cached[1]
+    try:
+        value = json.loads(gzip.decompress(path.read_bytes()).decode("utf-8"))
+    except (OSError, ValueError, EOFError):
+        value = None
+    if not isinstance(value, dict) or value.get("aid") != agent_id:
+        value = None
+    if len(_DOSSIER_CACHE) > 256:
+        _DOSSIER_CACHE.clear()
+    _DOSSIER_CACHE[path] = (stamp, value)
+    return value
+
+
+def _person(agent: dict[str, Any], dossier: dict[str, Any] | None) -> dict[str, Any]:
+    """인터뷰가 말할 사람. 경험 기록이 있으면 시뮬레이션이 실제로 쓴 프로필이 이긴다.
+
+    콘솔 번들(personas.json)은 다른 세대 파일이라 소득이 70~80% 다르고 생활 방식 문구는 전부 다르다(11/01 확인).
+    그 파일에서만 오는 평소 지출·배달 횟수도 그때는 버린다.
+    """
+    profile = (dossier or {}).get("profile") or {}
+    if not profile:
+        return agent
+    person = {key: agent.get(key) for key in ("id", "gu", "dong", "smoking_status", "district_code")}
+    mapping = {"age": "age", "age_group": "age_group", "gender": "sex", "job": "job", "life_stage": "life_stage",
+               "income_level": "income_level", "spending_tendency": "spending_tendency", "lifestyle": "lifestyle",
+               "residence_dong": "dong", "gu": "gu", "workplace_dong": "work_dong", "commute_min": "commute_min",
+               "s_daily_wd": "daily_spending_weekday"}
+    for source, target in mapping.items():
+        if profile.get(source) not in (None, ""):
+            person[target] = profile[source]
+    if isinstance(person.get("lifestyle"), str):
+        person["lifestyle"] = " ".join(person["lifestyle"].split())
+    top = profile.get("spending_top_wd_json")
+    if isinstance(top, str):
+        try:
+            top = json.loads(top)
+        except ValueError:
+            top = None
+    if isinstance(top, dict):
+        person["top_categories"] = [name for name, _ in sorted(top.items(), key=lambda pair: -float(pair[1] or 0))[:3]]
+    person["from_dossier"] = True
+    return person
+
+
+def _feeling(satisfaction: Any) -> str:
+    try:
+        value = float(satisfaction)
+    except (TypeError, ValueError):
+        return ""
+    return "만족스러웠음" if value >= 0.8 else "그럭저럭이었음" if value >= 0.6 else "아쉬웠음"
+
+
+def _visit_text(visit: dict[str, Any]) -> str:
+    place = " ".join(str(visit[key]) for key in ("store", "menu") if visit.get(key) and str(visit.get(key)) != "None")
+    bits = [place] if place else []
+    if _feeling(visit.get("satisfaction")):
+        bits.append(_feeling(visit.get("satisfaction")))
+    why = visit.get("why") or visit.get("pick_why")
+    if why:
+        bits.append(f"그때 든 생각(확인되지 않은 진술): {why}")
+    return (" · " + " · ".join(bits)) if bits else ""
 
 
 def _profile_text(agent: dict[str, Any]) -> str:
@@ -195,7 +293,8 @@ def _profile_text(agent: dict[str, Any]) -> str:
     return " · ".join(parts) or "프로필 기록 없음"
 
 
-def _summary_text(rows: list[tuple[str, dict[str, Any]]], effective: str | None, policy_paired: bool) -> str | None:
+def _summary_text(rows: list[tuple[str, dict[str, Any]]], effective: str | None, policy_paired: bool,
+                  visits: list[dict[str, Any]] | None = None) -> str | None:
     """시행 전후 하루 평균 지출과 지원금 합계 — 사람마다 다른 숫자라서 답이 그 사람 이야기가 된다."""
     def average(selected: list[dict[str, Any]]) -> float | None:
         values = [float(r["cm_today_total"]) for r in selected if r.get("cm_today_total") is not None]
@@ -234,6 +333,13 @@ def _summary_text(rows: list[tuple[str, dict[str, Any]]], effective: str | None,
     if categories:
         top = sorted(categories.items(), key=lambda pair: -pair[1])[:3]
         bits.append("가장 많이 쓴 곳 " + ", ".join(f"{name} {won(value)}" for name, value in top))
+    stores: dict[str, int] = {}
+    for visit in visits or []:
+        if visit.get("store"):
+            stores[str(visit["store"])] = stores.get(str(visit["store"]), 0) + 1
+    regular = [(name, count) for name, count in sorted(stores.items(), key=lambda pair: -pair[1]) if count >= 2][:3]
+    if regular:
+        bits.append("자주 간 가게 " + ", ".join(f"{name} {count}번" for name, count in regular))
     return "내 요약: " + " · ".join(bits) if bits else None
 
 
@@ -321,7 +427,19 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
     if through > last_day:
         raise StoreError(409, f"{through} 기록은 아직 없습니다 (마지막 {last_day})")
 
-    items: list[Item] = [Item("profile", None, "profile", _profile_text(roster.get(agent_id) or {"id": agent_id}), roster.get(agent_id))]
+    dossier = load_dossier(experiment, agent_id) if arm.role == "treatment" else None
+    person = _person(roster.get(agent_id) or {"id": agent_id}, dossier)
+    items: list[Item] = [Item("profile", None, "profile", _profile_text(person), person)]
+    # 영수증과 같은 날·같은 가게의 기억을 짝짓는다
+    visits: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for visit in (dossier or {}).get("visits") or []:
+        if visit.get("day") and visit.get("poi_id"):
+            visits.setdefault((visit["day"], visit["poi_id"]), []).append(visit)
+    heard_by_day: dict[str, list[dict[str, Any]]] = {}
+    for heard in (dossier or {}).get("heard") or []:
+        if heard.get("day") and heard.get("text"):
+            heard_by_day.setdefault(heard["day"], []).append(heard)
+    plans_by_day = {plan["day"]: plan["items"] for plan in (dossier or {}).get("plans") or [] if plan.get("day")}
     days, missing, skipped, journals = [], [], [], {}
     seen_rows: list[tuple[str, dict[str, Any]]] = []
     effective = (experiment.window or {}).get("effective_date")
@@ -377,7 +495,21 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
                 text += f" · 그중 정책 지원금 {won(paid)}" + (f", 내 돈 {won(own)}" if own is not None else "")
             elif status == "purchased" and experiment.kind == "policy_paired":
                 text += " · 내 돈으로 냄"
-            items.append(Item(receipt.get("event_id") or f"{step.arm_id}:{day}:receipt:{index}", day, "executed_receipt", text.strip(), receipt))
+            matched = visits.get((day, str(receipt.get("poi_id") or "")))
+            visit = matched.pop(0) if matched and status == "purchased" else None
+            if visit:
+                text += _visit_text(visit)
+            elif status != "purchased" and receipt.get("poi_id"):
+                place = next((p.get("place") for p in plans_by_day.get(day, []) if p.get("time") == str(receipt.get("scheduled_time") or "")[:5]), None)
+                if place:
+                    text += f" · {place}"
+            value = {**receipt, "memory": visit} if visit else receipt
+            items.append(Item(receipt.get("event_id") or f"{step.arm_id}:{day}:receipt:{index}", day, "executed_receipt", text.strip(), value))
+        for index, heard in enumerate(heard_by_day.get(day, [])):
+            items.append(Item(f"{step.arm_id}:{day}:heard:{index}", day, "heard", "들은 이야기: " + heard["text"], heard))
+        if plans_by_day.get(day):
+            outing = [f"{p.get('time')} {p.get('place') or ''}({p.get('intent') or p.get('category') or ''})" for p in sorted(plans_by_day[day], key=lambda p: p.get("time") or "")]
+            items.append(Item(f"{step.arm_id}:{day}:plan", day, "day_plan", "그날 나간 곳·할 일: " + ", ".join(outing)[:400], plans_by_day[day]))
         no_smoking = row.get("no_smoking") if isinstance(row.get("no_smoking"), dict) else {}
         aliases = (experiment.analysis or {}).get("facility_aliases") or {}
         districts = (experiment.analysis or {}).get("districts") or {}
@@ -401,7 +533,8 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
         journal_items, journal_state = _journal_items(store, experiment, step, day, row)
         journals[day] = journal_state
         items.extend(journal_items)
-    summary = _summary_text(seen_rows, effective, experiment.kind == "policy_paired")
+    summary = _summary_text(seen_rows, effective, experiment.kind == "policy_paired", [
+        v for v in (dossier or {}).get("visits") or [] if v.get("day") and v["day"] <= through])
     if summary:
         items.insert(1, Item("summary", through, "summary", summary, None))
     if len({item.evidence_id for item in items}) != len(items):
@@ -438,6 +571,35 @@ def _mentioned_days(question: str, days: list[str]) -> set[str]:
     return found & set(days)
 
 
+MEMORABLE_VISITS = 6
+MEMORABLE_HEARD = 3
+
+
+def _memorable(items: list[Item], question: str, focus: set[str]) -> set[str]:
+    """초점 날짜 밖에서도 꺼낼 경험: 질문에 나온 가게·업종, 그리고 기억에 크게 남은 방문·들은 이야기."""
+    words = {word for word in re.findall(r"[가-힣A-Za-z0-9]{2,}", question)}
+    visits = [item for item in items if item.kind == "executed_receipt" and isinstance(item.value, dict) and item.value.get("memory")]
+
+    def importance(item: Item) -> float:
+        value = item.value.get("memory", item.value) if isinstance(item.value, dict) else {}
+        try:
+            return float(value.get("importance") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    asked = []
+    for item in visits:
+        memory = item.value["memory"]
+        names = {str(memory.get("store") or ""), str(memory.get("category") or ""), str(item.value.get("category") or "")}
+        if any(name and (name in question or any(word in name for word in words)) for name in names):
+            asked.append(item)
+    pinned = {item.evidence_id for item in sorted(asked, key=importance, reverse=True)[:MEMORABLE_VISITS + 2]}
+    rest = [item for item in visits if item.day not in focus and item.evidence_id not in pinned]
+    pinned |= {item.evidence_id for item in sorted(rest, key=importance, reverse=True)[:MEMORABLE_VISITS]}
+    heard = [item for item in items if item.kind == "heard" and item.day not in focus]
+    pinned |= {item.evidence_id for item in sorted(heard, key=importance, reverse=True)[:MEMORABLE_HEARD]}
+    return pinned
+
+
 def select_items(packet: dict[str, Any], question: str) -> list[Item]:
     """프롬프트에 넣을 근거를 고른다. 하루 상태·정책 대상 시설·건너뛴 날은 모두, 영수증·이유는 초점 날짜만."""
     items: list[Item] = packet["items"]
@@ -446,14 +608,15 @@ def select_items(packet: dict[str, Any], question: str) -> list[Item]:
     if any(word in question for word in TARGET_WORDS):
         focus |= {item.day for item in items if item.kind == "target_facility" and item.day}
     always = {"profile", "summary", "day_state", "target_facility", "skipped_day"}
-    chosen = [item for item in items if item.kind in always or item.day in focus]
+    pinned = _memorable(items, question, focus)
+    chosen = [item for item in items if item.kind in always or item.day in focus or item.evidence_id in pinned]
     total = 0
     kept: list[Item] = []
-    # 길이를 넘으면 오래된 초점 날짜의 세부부터 뺀다 (하루 상태·정책 대상 기록은 남긴다)
+    # 길이를 넘으면 오래된 초점 날짜의 세부부터 뺀다 (하루 상태·정책 대상 기록·기억에 남은 일은 남긴다)
     detail_days = sorted({item.day for item in chosen if item.kind not in always and item.day}, reverse=True)
     allowed = set(detail_days)
     while True:
-        kept = [item for item in chosen if item.kind in always or item.day in allowed]
+        kept = [item for item in chosen if item.kind in always or item.evidence_id in pinned or item.day in allowed]
         total = sum(len(item.text) + 16 for item in kept)
         if total <= MAX_PROMPT_CHARS or not allowed:
             break
@@ -494,6 +657,12 @@ def _voice(agent: dict[str, Any]) -> str:
     return "60대 이상답게 차분하고 지난 경험을 섞는 말투"
 
 
+def _first_sentence(text: Any) -> str | None:
+    if not isinstance(text, str) or not text.strip():
+        return None
+    return re.split(r"(?<=[.!?다])\s", text.strip(), maxsplit=1)[0].rstrip(".")
+
+
 def _reminder(packet: dict[str, Any], exposed: list[Item]) -> str:
     """기록 목록이 길면 앞의 [나]가 묻힌다. 이 사람만의 사실을 끝에 한 번 더 놓는다."""
     agent = next((item.value for item in exposed if item.kind == "profile" and isinstance(item.value, dict)), {})
@@ -504,14 +673,17 @@ def _reminder(packet: dict[str, Any], exposed: list[Item]) -> str:
             agent.get("job"),
             f"소득 {agent['income_level']}" if agent.get("income_level") else None,
             f"소비 성향 {agent['spending_tendency']}" if agent.get("spending_tendency") else None,
-            agent.get("lifestyle"),
         ) if bit
     )
     lines = ["[답하기 전에]"]
     if who:
         lines.append(f"- 나는 {who}인 사람입니다." + (f" {_voice(agent)}로 말하세요." if _voice(agent) else ""))
+    if _first_sentence(agent.get("lifestyle")):
+        lines.append(f"- 내 생활: {_first_sentence(agent.get('lifestyle'))}.")
     if summary:
         lines.append(f"- {summary.replace('내 요약: ', '내 형편: ')}")
+    if any(item.kind == "executed_receipt" and isinstance(item.value, dict) and item.value.get("memory") for item in exposed):
+        lines.append("- 답할 때 내가 실제로 간 가게·먹은 것·그때 든 생각 가운데 질문에 맞는 것을 한두 개 꺼내 말하세요.")
     lines.append("- 질문 문장을 따라 하며 시작하지 말고, 첫마디부터 내 결론을 내 말로 하세요. 이 사람만 댈 수 있는 이유를 한 가지 이상 넣으세요.")
     lines.append("- 이유는 [나]와 [내 기록]에 있는 것에서만 고르세요. 거기 없는 사정(수입 변화·업무 일정·가족 일·건강)은 지어내지 마세요. 3~4문장이면 충분합니다.")
     return "\n".join(lines)
@@ -580,6 +752,14 @@ def interview_agent(store: ExperimentStore, experiment_id: str, arm_id: str, age
     system = _prompt(packet, exposed)
     try:
         reply = interview.chat(system, question, history, temperature=TEMPERATURE)
+        retried = 0
+        # K-EXAONE 은 온도와 상관없이 답의 10~20% 에서 다른 문자·영어 낱말을 섞거나 문장을 끊는다(11/01 측정).
+        # 흠이 있으면 두 번까지 다시 묻고 흠이 가장 적은 답을 쓴다
+        while answer_issues(reply["answer"]) and retried < MAX_RETRIES:
+            again = interview.chat(system, question, history, temperature=TEMPERATURE)
+            retried += 1
+            if answer_issues(again["answer"]) < answer_issues(reply["answer"]):
+                reply = again
     except interview.InterviewError as exc:
         raise StoreError(exc.status, exc.message) from exc
     checked = check_answer(reply["answer"], exposed)
@@ -606,6 +786,7 @@ def interview_agent(store: ExperimentStore, experiment_id: str, arm_id: str, age
             "digest": packet_digest,
         },
         "evidence_fetch": fetch_note,
+        "retried": retried,
         "console_only": True,
     }
     _log(experiment, {
