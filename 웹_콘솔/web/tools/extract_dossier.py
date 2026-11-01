@@ -9,6 +9,8 @@ dossier 는 시뮬레이션이 사람 단위로 남긴 기록이다. 시뮬레�
 
 읽는 곳: 실험 폴더의 _sync.json 이 가리키는 결과 zip(<데이터 폴더>/zips/...) 안의 <묶음>/on/dossier.jsonl
 쓰는 곳: <데이터 폴더>/experiments/<실험>/_console/dossier/<시민 id>.json.gz  (+ _index.json)
+         같은 폴더의 _profiles.json — 시민마다 시뮬레이션이 쓴 소득·소비 성향·생활 방식. 명단·집단별 효과가 이걸 쓴다
+         (콘솔 번들 personas.json 은 다른 세대 파일이라 소득이 67~80% 다르다, 11/01 확인)
 원본 zip 의 sha256 앞부분을 _index.json 에 적어 둔다. 같은 zip 이면 다시 뽑지 않는다.
 """
 from __future__ import annotations
@@ -23,7 +25,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-SCHEMA = 2
+SCHEMA = 3
 # 모델 내부 수치("만족 0.88", "avg_sat=0.86", "(0.35km)")와 태그("[lifestyle]")는 사람이 하는 말이 아니다
 INTERNAL = [
     re.compile(r"\[[a-z_]+\]\s*"),
@@ -150,6 +152,7 @@ def extract(data: Path, experiment: Path, force: bool) -> str:
             return "zip 에 on/dossier.jsonl 이 없어 건너뜀"
         out.mkdir(parents=True, exist_ok=True)
         count, size = 0, 0
+        profiles: dict[str, dict] = {}
         with archive.open(members[0]) as raw:
             for line in io.TextIOWrapper(raw, encoding="utf-8"):
                 if not line.strip():
@@ -160,8 +163,11 @@ def extract(data: Path, experiment: Path, force: bool) -> str:
                     continue
                 body = gzip.compress(json.dumps(record, ensure_ascii=False, separators=(",", ":")).encode("utf-8"), mtime=0)
                 (out / f"{aid}.json.gz").write_bytes(body)
+                profile = record.get("profile") or {}
+                profiles[aid] = {key: profile.get(key) for key in ("income_level", "spending_tendency", "lifestyle") if profile.get(key)}
                 count += 1
                 size += len(body)
+    (out / "_profiles.json").write_text(json.dumps(profiles, ensure_ascii=False, sort_keys=True, separators=(",", ":")), encoding="utf-8")
     index_path.write_text(json.dumps({"schema": SCHEMA, "source_zip": meta["zip"], "member": members[0],
                                       "source_sha256_16": source, "agents": count, "bytes": size},
                                      ensure_ascii=False, indent=1), encoding="utf-8")

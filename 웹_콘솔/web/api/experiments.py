@@ -498,6 +498,11 @@ def _json_file(path: Path) -> Any:
         return None
 
 
+def simulated_profiles_path(experiment: "Experiment") -> Path:
+    """시민마다 시뮬레이션이 쓴 소득·소비 성향·생활 방식 (web/tools/extract_dossier.py 가 만든다)."""
+    return experiment.local_dir / CONSOLE_DIR / "dossier" / "_profiles.json"
+
+
 def _top_categories(shares: Any, count: int = 3) -> list[str]:
     """평일 업종 비중에서 큰 것부터 업종 이름만."""
     if not isinstance(shares, dict):
@@ -654,12 +659,13 @@ class ExperimentStore:
         experiment = self.experiment(experiment_id)
         personas_path = experiment.bundle_dir / "personas.json"
         runtime_path = experiment.bundle_dir / "runtime.json"
+        simulated_path = simulated_profiles_path(experiment)
         stamp = tuple(
             (path.stat().st_size, path.stat().st_mtime_ns) if path.is_file() else None
-            for path in (personas_path, runtime_path)
+            for path in (personas_path, runtime_path, simulated_path)
         )
         cached = self._roster_cache.get(experiment_id)
-        if cached and cached[0] == stamp and stamp != (None, None):
+        if cached and cached[0] == stamp and stamp[:2] != (None, None):
             return cached[1]
         smoking: dict[str, str] = {}
         runtime = _json_file(runtime_path)
@@ -705,11 +711,20 @@ class ExperimentStore:
                     }
                 )
             source = "bundle"
+            # 시뮬레이션이 실제로 쓴 소득·성향(web/tools/extract_dossier.py 가 뽑은 것)이 있으면 그것으로 바꾼다.
+            # 번들은 다른 세대 파일이라 소득이 67~80% 다르다. 나이·성별·사는 곳·직업은 같다(11/01 확인)
+            simulated = _json_file(simulated_path)
+            if isinstance(simulated, dict) and simulated:
+                for agent in agents:
+                    real = simulated.get(agent["id"])
+                    if isinstance(real, dict):
+                        agent.update({key: real[key] for key in ("income_level", "spending_tendency", "lifestyle") if real.get(key)})
+                source = "bundle+simulation"
         else:
             agents = self._roster_from_metrics(experiment)
             source = "metrics"
         result = {"experiment_id": experiment_id, "source": source, "total": len(agents), "items": agents}
-        if source == "bundle":
+        if source.startswith("bundle"):
             self._roster_cache[experiment_id] = (stamp, result)
         return result
 
@@ -1046,8 +1061,7 @@ def _comparison_digest(experiment: Experiment, key: tuple) -> str:
     """비교 결과를 디스크에 둘 때의 열쇠. 원본 일자 파일(sha256)·대상자 파일·실험의 분석 설정·이 파일의
     코드가 모두 같을 때만 저장본을 쓴다. 하나라도 바뀌면 다시 계산한다(부트스트랩 500회, 정책마다 2초 안팎)."""
     files = []
-    for name in ("personas.json", "runtime.json"):
-        path = experiment.bundle_dir / name
+    for path in (experiment.bundle_dir / "personas.json", experiment.bundle_dir / "runtime.json", simulated_profiles_path(experiment)):
         files.append(hashlib.sha256(path.read_bytes()).hexdigest() if path.is_file() else None)
     payload = [CACHE_VERSION, _CODE_DIGEST, list(key), files, experiment.analysis or {}, PAIRED_BOOTSTRAP, PAIRED_SEED]
     return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode()).hexdigest()

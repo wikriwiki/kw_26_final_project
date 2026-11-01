@@ -203,6 +203,15 @@ class ExperimentStoreTests(_MirrorFixture):
         self.assertEqual(fallback["source"], "metrics")
         self.assertEqual({a["gu"] for a in fallback["items"]}, {"노원구", "서초구", "송파구"})
 
+    def test_roster_takes_income_from_the_simulation_profiles(self) -> None:
+        folder = self.root / "mirror" / EXP / "_console" / "dossier"
+        folder.mkdir(parents=True, exist_ok=True)
+        (folder / "_profiles.json").write_text(json.dumps({AGENTS[0]: {"income_level": "상", "lifestyle": "시뮬 생활"}}, ensure_ascii=False), encoding="utf-8")
+        roster = ExperimentStore(registry_dir=self.root / "registry").roster(EXP)
+        self.assertEqual(roster["source"], "bundle+simulation")
+        first = next(a for a in roster["items"] if a["id"] == AGENTS[0])
+        self.assertEqual((first["income_level"], first["lifestyle"], first["gu"]), ("상", "시뮬 생활", "노원구"))
+
     def test_agent_view_spans_arms(self) -> None:
         view = self.store.agent(EXP, AGENTS[0])
         arms = {arm["arm_id"]: arm for arm in view["arms"]}
