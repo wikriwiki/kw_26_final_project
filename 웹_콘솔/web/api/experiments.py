@@ -498,6 +498,17 @@ def _json_file(path: Path) -> Any:
         return None
 
 
+def _top_categories(shares: Any, count: int = 3) -> list[str]:
+    """평일 업종 비중에서 큰 것부터 업종 이름만."""
+    if not isinstance(shares, dict):
+        return []
+    ranked = sorted(
+        ((str(name), float(value)) for name, value in shares.items() if isinstance(value, (int, float))),
+        key=lambda pair: -pair[1],
+    )
+    return [name for name, _ in ranked[:count]]
+
+
 class ExperimentStore:
     def __init__(self, registry_dir: Path | None = None) -> None:
         self.registry_dir = registry_dir
@@ -687,6 +698,10 @@ class ExperimentStore:
                         "commute_min": workplace.get("commute_min"),
                         "spending_tendency": personality.get("spending_tendency"),
                         "lifestyle": personality.get("lifestyle"),
+                        # 사람마다 다른 소비 습관 — 인터뷰가 모두 같은 일반론으로 흐르지 않게 한다
+                        "daily_spending_weekend": spending.get("daily_spending_weekend"),
+                        "top_categories": _top_categories(spending.get("weekday_top_categories")),
+                        "delivery_days": (persona.get("behavior") or {}).get("delivery_days"),
                     }
                 )
             source = "bundle"

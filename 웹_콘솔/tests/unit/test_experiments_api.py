@@ -231,6 +231,43 @@ class InterviewTests(_MirrorFixture):
         with self.assertRaises(StoreError):
             experiment_interview.build_packet(self.store, experiment, "post-off", AGENTS[1], "2017-12-31")
 
+    def test_prompt_carries_own_summary_once_and_profile_once(self) -> None:
+        """사람마다 다른 숫자(요약)가 들어가고, [나]는 한 번만 쓰고, 끝에 그 사람 이야기를 다시 놓는다."""
+        experiment = self.store.experiment(EXP)
+        packet = experiment_interview.build_packet(self.store, experiment, "shared-pre", AGENTS[0])
+        summary = next(item for item in packet["items"] if item.kind == "summary")
+        self.assertIn("하루 평균", summary.text)
+        exposed = experiment_interview.select_items(packet, "요즘 어때요?")
+        self.assertIn("summary", [item.kind for item in exposed])
+        prompt = experiment_interview._prompt(packet, exposed)
+        profile = next(item.text for item in exposed if item.kind == "profile")
+        self.assertEqual(prompt.count(profile), 1)
+        self.assertIn("[답하기 전에]", prompt)
+        self.assertLess(prompt.index("[내 기록]"), prompt.index("[답하기 전에]"))
+
+    def test_summary_splits_before_and_after_the_effective_day(self) -> None:
+        rows = [
+            ("2020-04-18", {"cm_today_total": 10000}),
+            ("2020-04-19", {"cm_today_total": 0}),
+            ("2020-04-20", {"cm_today_total": 30000, "grant_applied_today": 300000, "policy_spend_today": 30000,
+                            "execution_receipts": [{"kind": "purchase_receipt", "purchase_status": "purchased", "category": "식사", "amount": 30000}]}),
+        ]
+        text = experiment_interview._summary_text(rows, "2020-04-20", True)
+        self.assertIn("시행 전 2일 동안 가게에서 쓴 돈 하루 평균 5,000원", text)
+        self.assertIn("시행 후 1일 동안 하루 평균 30,000원", text)
+        self.assertIn("늘었음", text)
+        self.assertIn("받은 정책 지원금 합계 300,000원, 그중 쓴 돈 30,000원", text)
+        self.assertIn("식사 30,000원", text)
+
+    def test_profile_includes_spending_habits(self) -> None:
+        text = experiment_interview._profile_text({
+            "age": 33, "sex": "F", "daily_spending_weekday": 18700, "daily_spending_weekend": 26300,
+            "top_categories": ["한식", "편의점"], "delivery_days": 17, "spending_tendency": "절약형",
+        })
+        self.assertIn("평소 하루 지출 평일 18,700원, 주말 26,300원", text)
+        self.assertIn("평소 자주 쓰는 곳 한식·편의점", text)
+        self.assertIn("한 달에 배달 시키는 날 약 17일", text)
+
     def test_journal_statements_are_marked_and_source_refs_rewritten(self) -> None:
         experiment = self.store.experiment(EXP)
         packet = experiment_interview.build_packet(self.store, experiment, "shared-pre", AGENTS[0])

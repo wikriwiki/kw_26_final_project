@@ -36,8 +36,6 @@ class Warmup:
         threading.Thread(target=self._run, args=(app,), name="warmup", daemon=True).start()
 
     def _tasks(self, app: FastAPI) -> list[tuple[str, Callable[[], Any]]]:
-        from . import experiment_query
-
         tasks: list[tuple[str, Callable[[], Any]]] = []
         experiments = getattr(app.state, "experiments", None)
         if experiments is not None:
@@ -53,8 +51,7 @@ class Warmup:
                     (f"{eid}/agents", lambda e=eid: experiments.roster(e)),
                     (f"{eid}/comparison", lambda e=eid: experiments.comparison(e)),
                 ]
-                if item.get("kind") == "policy_paired":
-                    tasks.append((f"{eid}/effect", lambda e=eid: experiment_query.group_effect(experiments, e, {})))
+                # 집단 효과(/query/effect)는 인터뷰 화면에서 뺐다(11/01). 켤 때 미리 세지 않는다
         store = app.state.store
         try:
             runs = store.runs_index().get("items") or []

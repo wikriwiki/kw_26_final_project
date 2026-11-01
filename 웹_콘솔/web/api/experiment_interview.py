@@ -30,6 +30,9 @@ from .store import StoreError
 
 MAX_PROMPT_CHARS = 16000
 FOCUS_RECENT_DAYS = 3
+# 0.4 에서는 사람이 달라도 답이 거의 같았다(같은 첫마디 63~71%, '잘 모르겠어요' 88%).
+# 0.7 에서 겹침이 약 25% 줄고 엉킨 문장은 0.4 의 옛 프롬프트와 같은 수준(약 4%)이었다 — 11/01 p017 8명×3회×2문항
+TEMPERATURE = 0.7
 TARGET_WORDS = ("당구", "골프", "스크린", "금연", "흡연", "담배", "실내체육")
 SMOKING_LABEL = {"smoker": "흡연함", "non_smoker": "흡연 안 함", "unknown": "흡연 여부 미상"}
 PURCHASE_STATUS = {"not_purchased": "계획했지만 결제 안 함"}
@@ -49,10 +52,11 @@ SYSTEM = """당신은 서울에 사는 아래 [나]의 인물입니다. 인터�
 - 실제 사람이 인터뷰에서 말하듯 자연스러운 구어체 존댓말로 2~5문장. 질문이 반말이어도 존댓말로 답하세요.
 - 내 얘기를 하는 것입니다. '저는·제가'로 말하고, 내 행동에 '-셨-'을 붙이거나 나를 '본인'이라고 부르지 마세요.
 - [나]에 적힌 것과 다른 사람처럼 말하지 마세요. 예를 들어 '흡연 안 함'이면 담배를 피운 적이 있는 것처럼 말하지 마세요.
-- 질문을 되풀이하지 말고 바로 답하세요.
+- 질문을 되풀이하지 말고 첫 문장에서 바로 내 대답(그렇다·아니다·반반 중 어느 쪽인지)을 말하세요. '글쎄요'·'잘 모르겠어요' 같은 말로 시작하지 마세요.
 - [요즘 상황]이 있으면 그 일을 겪고 있는 사람으로 답하세요. 거기 없는 규제·혜택은 지어내지 마세요.
-- 의견이나 느낌을 물으면 [나]의 처지(나이·직업·사는 곳·소비 성향·생활 방식)와 요즘 생활에 맞게 솔직하게 답하세요.
-- 최근에 한 일은 [내 기록]에 있는 것만 말하세요. 기록에 없는 장소·금액·일은 지어내지 마세요. 모르면 "잘 기억이 안 나요"처럼 말하세요.
+- 사람마다 처지가 다릅니다. '조금 더 여유가 생겼다'처럼 누구나 할 법한 말 대신, 내 나이·직업·소득·소비 성향·생활 방식·평소 자주 쓰는 곳과 '내 요약'의 숫자(시행 전후 하루 평균, 받은 지원금, 많이 쓴 곳)에서 나온 나만의 이유를 말하세요.
+- 의견이나 느낌을 물으면 그 처지에서 솔직하게, 입장을 분명히 답하세요. 절약형이면 아끼는 사람답게, 소비형이면 쓰는 사람답게 말하세요.
+- 최근에 한 일은 [내 기록]에 있는 것만 말하세요. 기록에 없는 장소·금액·일은 지어내지 마세요. 기록에 없는 구체적인 일을 물었을 때만 "그건 잘 기억이 안 나요"라고 하세요.
 - 금액은 꼭 필요할 때만, 기록의 값 그대로 쓰세요. 기분·피로는 숫자나 '수치'로 말하지 말고 느낌으로 말하세요. 날짜 나열, '기록'·'근거'·'시뮬레이션' 같은 말은 하지 마세요.
 - '내역을 보면'처럼 기록을 읽어 주는 투로 말하지 말고, 겪은 일을 기억해서 말하는 사람처럼 답하세요.
 - 지원금으로 낸 것은 '그중 정책 지원금'이 적힌 결제뿐입니다. '내 돈으로 냄'이나 '시행 전'인 날의 결제를 지원금으로 말하지 마세요.
@@ -179,9 +183,58 @@ def _profile_text(agent: dict[str, Any]) -> str:
         parts.append(f"소비 성향 {agent['spending_tendency']}")
     if agent.get("lifestyle"):
         parts.append(f"생활 {agent['lifestyle']}")
+    if agent.get("daily_spending_weekday"):
+        weekend = f", 주말 {won(agent['daily_spending_weekend'])}" if agent.get("daily_spending_weekend") else ""
+        parts.append(f"평소 하루 지출 평일 {won(agent['daily_spending_weekday'])}{weekend}")
+    if agent.get("top_categories"):
+        parts.append("평소 자주 쓰는 곳 " + "·".join(agent["top_categories"]))
+    if agent.get("delivery_days") is not None:
+        parts.append(f"한 달에 배달 시키는 날 약 {agent['delivery_days']}일")
     if agent.get("smoking_status"):
         parts.append(SMOKING_LABEL.get(str(agent["smoking_status"]), str(agent["smoking_status"])))
     return " · ".join(parts) or "프로필 기록 없음"
+
+
+def _summary_text(rows: list[tuple[str, dict[str, Any]]], effective: str | None, policy_paired: bool) -> str | None:
+    """시행 전후 하루 평균 지출과 지원금 합계 — 사람마다 다른 숫자라서 답이 그 사람 이야기가 된다."""
+    def average(selected: list[dict[str, Any]]) -> float | None:
+        values = [float(r["cm_today_total"]) for r in selected if r.get("cm_today_total") is not None]
+        return sum(values) / len(values) if values else None
+
+    bits: list[str] = []
+    if effective and policy_paired:
+        before = [r for d, r in rows if d < effective]
+        after = [r for d, r in rows if d >= effective]
+        avg_before, avg_after = average(before), average(after)
+        if avg_before is not None:
+            bits.append(f"시행 전 {len(before)}일 동안 가게에서 쓴 돈 하루 평균 {won(avg_before)}")
+        if avg_after is not None:
+            bits.append(f"시행 후 {len(after)}일 동안 하루 평균 {won(avg_after)}")
+        if avg_before and avg_after is not None:
+            change = (avg_after - avg_before) / avg_before * 100
+            bits.append(f"시행 전보다 {'늘었음' if change >= 5 else '줄었음' if change <= -5 else '비슷함'}")
+    else:
+        avg = average([r for _, r in rows])
+        if avg is not None:
+            bits.append(f"{len(rows)}일 동안 가게에서 쓴 돈 하루 평균 {won(avg)}")
+    received = sum(float(r.get("grant_applied_today") or 0) for _, r in rows)
+    used = sum(float(r.get("policy_spend_today") or 0) for _, r in rows)
+    rebate = sum(float(r.get("policy_rebate_today") or 0) for _, r in rows)
+    if received > 0:
+        bits.append(f"받은 정책 지원금 합계 {won(received)}, 그중 쓴 돈 {won(used)}")
+    elif used > 0:
+        bits.append(f"정책 지원금으로 결제한 합계 {won(used)}")
+    if rebate > 0:
+        bits.append(f"캐시백 적립 합계 {won(rebate)}")
+    categories: dict[str, float] = {}
+    for _, row in rows:
+        for receipt in row.get("execution_receipts") or []:
+            if isinstance(receipt, dict) and receipt.get("purchase_status") == "purchased" and receipt.get("category"):
+                categories[str(receipt["category"])] = categories.get(str(receipt["category"]), 0.0) + float(receipt.get("amount") or 0)
+    if categories:
+        top = sorted(categories.items(), key=lambda pair: -pair[1])[:3]
+        bits.append("가장 많이 쓴 곳 " + ", ".join(f"{name} {won(value)}" for name, value in top))
+    return "내 요약: " + " · ".join(bits) if bits else None
 
 
 def _journal_items(store: ExperimentStore, experiment: Experiment, arm: Arm, day: str, row: dict[str, Any]) -> tuple[list[Item], str]:
@@ -270,6 +323,7 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
 
     items: list[Item] = [Item("profile", None, "profile", _profile_text(roster.get(agent_id) or {"id": agent_id}), roster.get(agent_id))]
     days, missing, skipped, journals = [], [], [], {}
+    seen_rows: list[tuple[str, dict[str, Any]]] = []
     effective = (experiment.window or {}).get("effective_date")
     for step, day in available:
         if day > through:
@@ -283,6 +337,7 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
             skipped.append(day)
             items.append(Item(f"{step.arm_id}:{day}:skipped", day, "skipped_day", "이날은 기록 없음(시뮬레이션이 이 사람의 하루를 만들지 못하고 건너뜀)", {"status": "skipped"}))
             continue
+        seen_rows.append((day, row))
         state_bits = []
         # 숫자로 주면 '기분 점수'처럼 말한다. 느낌 말로 준다
         if row.get("mood") is not None:
@@ -346,6 +401,9 @@ def build_packet(store: ExperimentStore, experiment: Experiment, arm_id: str, ag
         journal_items, journal_state = _journal_items(store, experiment, step, day, row)
         journals[day] = journal_state
         items.extend(journal_items)
+    summary = _summary_text(seen_rows, effective, experiment.kind == "policy_paired")
+    if summary:
+        items.insert(1, Item("summary", through, "summary", summary, None))
     if len({item.evidence_id for item in items}) != len(items):
         raise StoreError(500, "근거 id 가 겹칩니다")
     # 정책 있는 쪽 시민은 시행일 뒤로 정책을 겪고 있다. 정책 없는 쪽·시행 전에는 알리지 않는다
@@ -387,7 +445,7 @@ def select_items(packet: dict[str, Any], question: str) -> list[Item]:
     focus = set(days[-FOCUS_RECENT_DAYS:]) | _mentioned_days(question, days)
     if any(word in question for word in TARGET_WORDS):
         focus |= {item.day for item in items if item.kind == "target_facility" and item.day}
-    always = {"profile", "day_state", "target_facility", "skipped_day"}
+    always = {"profile", "summary", "day_state", "target_facility", "skipped_day"}
     chosen = [item for item in items if item.kind in always or item.day in focus]
     total = 0
     kept: list[Item] = []
@@ -412,10 +470,50 @@ def _prompt(packet: dict[str, Any], exposed: list[Item]) -> str:
         lines.append(f"[요즘 상황] {packet['context']}")
     lines.append("[내 기록]")
     for number, item in enumerate(exposed, start=1):
-        when = _day_words(item.day) or "기본"
+        if item.kind == "profile":
+            lines.append(f"E{number} (기본) 위 [나]의 내용")  # 같은 글을 두 번 넣지 않는다
+            continue
+        when = "지금까지" if item.kind == "summary" else _day_words(item.day) or "기본"
         lines.append(f"E{number} ({when}) {item.text}")
     if packet["missing_days"]:
         lines.append("(기록을 받지 못한 날: " + ", ".join(packet["missing_days"]) + ")")
+    lines.append(_reminder(packet, exposed))
+    return "\n".join(lines)
+
+
+def _voice(agent: dict[str, Any]) -> str:
+    age = agent.get("age")
+    if not isinstance(age, (int, float)):
+        return ""
+    if age < 30:
+        return "20대답게 가볍고 짧은 말투"
+    if age < 45:
+        return "바쁜 30~40대답게 실용적이고 담백한 말투"
+    if age < 60:
+        return "50대답게 살림과 가족 형편을 따지는 말투"
+    return "60대 이상답게 차분하고 지난 경험을 섞는 말투"
+
+
+def _reminder(packet: dict[str, Any], exposed: list[Item]) -> str:
+    """기록 목록이 길면 앞의 [나]가 묻힌다. 이 사람만의 사실을 끝에 한 번 더 놓는다."""
+    agent = next((item.value for item in exposed if item.kind == "profile" and isinstance(item.value, dict)), {})
+    summary = next((item.text for item in exposed if item.kind == "summary"), "")
+    who = " · ".join(
+        str(bit) for bit in (
+            f"{agent['age']}세" if agent.get("age") else None,
+            agent.get("job"),
+            f"소득 {agent['income_level']}" if agent.get("income_level") else None,
+            f"소비 성향 {agent['spending_tendency']}" if agent.get("spending_tendency") else None,
+            agent.get("lifestyle"),
+        ) if bit
+    )
+    lines = ["[답하기 전에]"]
+    if who:
+        lines.append(f"- 나는 {who}인 사람입니다." + (f" {_voice(agent)}로 말하세요." if _voice(agent) else ""))
+    if summary:
+        lines.append(f"- {summary.replace('내 요약: ', '내 형편: ')}")
+    lines.append("- 질문 문장을 따라 하며 시작하지 말고, 첫마디부터 내 결론을 내 말로 하세요. 이 사람만 댈 수 있는 이유를 한 가지 이상 넣으세요.")
+    lines.append("- 이유는 [나]와 [내 기록]에 있는 것에서만 고르세요. 거기 없는 사정(수입 변화·업무 일정·가족 일·건강)은 지어내지 마세요. 3~4문장이면 충분합니다.")
     return "\n".join(lines)
 
 
@@ -481,8 +579,7 @@ def interview_agent(store: ExperimentStore, experiment_id: str, arm_id: str, age
     exposed = select_items(packet, question)
     system = _prompt(packet, exposed)
     try:
-        # 온도를 낮춰 문장이 엉키거나 다른 말이 섞이는 것을 줄인다
-        reply = interview.chat(system, question, history, temperature=0.4)
+        reply = interview.chat(system, question, history, temperature=TEMPERATURE)
     except interview.InterviewError as exc:
         raise StoreError(exc.status, exc.message) from exc
     checked = check_answer(reply["answer"], exposed)
