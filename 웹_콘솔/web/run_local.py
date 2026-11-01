@@ -141,16 +141,63 @@ def prefetch_map(cache: Path) -> None:
         say("  지도 저장본을 다 채우지 못했습니다. 인터넷이 되는 곳에서 --prepare 를 다시 실행하세요.")
 
 
-def extract_dossiers(data: Path | None) -> None:
-    if data is None or not (data / "zips").is_dir():
-        say("시민 경험 기록: 데이터 폴더에 zips/ 가 없어 뽑지 못했습니다. 뽑아 둔 _console/dossier 폴더를 받아 넣으면 됩니다.")
+# 결과 zip(zips/)이 없는 노트북은 GitHub 릴리스에 올려 둔 뽑은 묶음을 받는다
+DOSSIER_URL = "https://github.com/wikriwiki/kw_26_final_project/releases/download/data-dossier-20261101/WEB_CONSOLE_DOSSIER_20261101.zip"
+DOSSIER_SHA256 = "ab43699260eda2615d646a91623959d53e212cc567cf421b2409b58e476902b3"
+
+
+def download_dossiers(experiments: Path) -> None:
+    """릴리스의 묶음을 받아 각 실험 폴더의 _console/dossier 에 푼다. 체크섬이 다르면 풀지 않는다."""
+    import hashlib
+    import re
+    import tempfile
+    import zipfile
+
+    say("시민 경험 기록(인터뷰·소득별 효과용, 약 60MB)을 GitHub 에서 받습니다…")
+    with tempfile.TemporaryDirectory() as tmp:
+        target = Path(tmp) / "dossier.zip"
+        try:
+            urllib.request.urlretrieve(DOSSIER_URL, target)
+        except Exception as error:  # noqa: BLE001
+            say(f"  받지 못했습니다({error}). 인터넷이 되는 곳에서 --prepare 를 다시 실행하거나, 릴리스 페이지에서 zip 을 받아 데이터 폴더에 푸세요.")
+            return
+        digest = hashlib.sha256(target.read_bytes()).hexdigest()
+        if digest != DOSSIER_SHA256:
+            say("  받은 파일의 체크섬이 맞지 않아 풀지 않았습니다. --prepare 를 다시 실행하세요.")
+            return
+        pattern = re.compile(r"experiments/([A-Za-z0-9_]+)/_console/dossier/([A-Za-z0-9_가-힣]+\.json(?:\.gz)?)")
+        written = 0
+        with zipfile.ZipFile(target) as archive:
+            for name in archive.namelist():
+                match = pattern.fullmatch(name)
+                if not match or not (experiments / match.group(1)).is_dir():
+                    continue  # 이상한 경로·이 컴퓨터에 없는 실험은 건너뛴다
+                out = experiments / match.group(1) / "_console" / "dossier" / match.group(2)
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(archive.read(name))
+                written += 1
+    say(f"  {written}개 파일을 풀었습니다.")
+
+
+def extract_dossiers(data: Path | None, experiments: Path) -> None:
+    if data is not None and (data / "zips").is_dir():
+        say("시민 경험 기록(인터뷰용)을 결과 zip 에서 뽑습니다…")
+        subprocess.run([sys.executable, str(REPO / "web" / "tools" / "extract_dossier.py"), "--data", str(data)], cwd=REPO)
         return
-    say("시민 경험 기록(인터뷰용)을 뽑습니다…")
-    subprocess.run([sys.executable, str(REPO / "web" / "tools" / "extract_dossier.py"), "--data", str(data)], cwd=REPO)
+    if dossiers_current(experiments):
+        say("시민 경험 기록: 이미 있습니다.")
+        return
+    download_dossiers(experiments)
 
 
 def has_dossiers(experiments: Path) -> bool:
     return any(experiments.glob("*/_console/dossier/_index.json"))
+
+
+def dossiers_current(experiments: Path) -> bool:
+    """소득별 효과가 쓰는 _profiles.json 까지 있어야 최신이다(11/01 이전 묶음에는 없다)."""
+    folders = list(experiments.glob("*/_console/dossier/_index.json"))
+    return bool(folders) and all((f.parent / "_profiles.json").is_file() for f in folders)
 
 
 def main() -> None:
@@ -186,7 +233,7 @@ def main() -> None:
         sys.exit(f"{args.port} 포트를 이미 쓰고 있습니다. 떠 있는 콘솔 창을 닫거나 --port 8770 처럼 다른 번호로 실행하세요.")
     if args.prepare:
         prefetch_map(paths["map_cache"])
-        extract_dossiers(find_data(args.data))
+        extract_dossiers(find_data(args.data), paths["experiments"])
     ensure_ui(args.skip_build)
 
     if "output" not in paths and not any((REPO / "output" / "sim" / "report").glob("FINAL_REPORT_rpt-*.html")):
@@ -194,7 +241,9 @@ def main() -> None:
     if not (REPO / "web" / ".env").is_file() and not (REPO / ".env").is_file():
         say("주의: web/.env 가 없어 인터뷰·보고서 해설(K-EXAONE)이 꺼진 채로 뜹니다.")
     if not has_dossiers(paths["experiments"]):
-        say("주의: 시민 경험 기록(_console/dossier)이 없어 인터뷰가 간 곳·그때 생각 없이 답합니다. docs/LOCAL_SETUP.md 참고.")
+        say("주의: 시민 경험 기록(_console/dossier)이 없어 인터뷰가 간 곳·그때 생각 없이 답합니다. --prepare 를 한 번 실행하면 받습니다.")
+    elif not dossiers_current(paths["experiments"]):
+        say("주의: 시민 경험 기록이 옛 묶음이라 소득별 효과가 옛 소득으로 나옵니다. --prepare 를 한 번 실행하면 새로 받습니다.")
     if not paths["map_cache"].is_dir():
         say("주의: 3D 지도 저장본이 없어 지도를 인터넷에서 받습니다. --prepare 를 한 번 실행하세요.")
 
